@@ -97,6 +97,9 @@ module.exports.loop = function () {
 
     // console.log(enemyCreeps2)
     // console.log(enemyCreeps2.length);
+    // if (!Game.rooms['whatevername']) return/continue;
+    // if (Game.rooms['roomname']) { do your stuff })
+
 
     console.log(workers.length + " Workers and " + builders.length + " Builders and " + upgraders.length + " Upgraders and "
     + remoteWorkers.length + " Remote-Workers and " + attackers.length + " Attackers and " + claimers.length + " Claimers and "
