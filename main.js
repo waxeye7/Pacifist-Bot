@@ -8,9 +8,7 @@ let roleDefender = require('role.defender');
 let roleBuildContainer = require('role.buildcontainer');
 let roleCarry = require('role.carry');
 
-
 module.exports.loop = function () {
-
 
     // Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS)
     // Game.rooms["E12S38"].createConstructionSite( 6, 14, STRUCTURE_CONTAINER );
