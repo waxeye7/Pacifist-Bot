@@ -17,6 +17,10 @@ var roleFiller = {
             if(creep.withdraw(storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
             }
+            else if(creep.withdraw(storage[0], RESOURCE_ENERGY) == 0) {
+                let closestTarget = creep.pos.findClosestByRange(targets);
+                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+            }
         }
 
         else if(targets.length > 0) {
@@ -24,7 +28,16 @@ var roleFiller = {
             if(creep.transfer(closestTarget, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
             }
+            else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] > 0) {
+                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+            }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+        }
+
+        else if (targets.length == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+            if(creep.withdraw(storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }

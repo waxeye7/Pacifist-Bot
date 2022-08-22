@@ -8,6 +8,8 @@ let roleDefender = require('role.defender');
 let roleBuildContainer = require('role.buildcontainer');
 let roleCarry = require('role.carry');
 let roleFiller = require('role.filler');
+let roleRepair = require('role.repair');
+
 
 module.exports.loop = function () {
 
@@ -92,6 +94,7 @@ module.exports.loop = function () {
     let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
     let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
     let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler');
+    let repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repair');
 
 
     // let enemyCreeps = Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS);
@@ -105,10 +108,11 @@ module.exports.loop = function () {
 
     console.log(workers.length + " Workers and " + builders.length + " Builders and " + upgraders.length + " Upgraders and "
     + remoteWorkers.length + " Remote-Workers and " + attackers.length + " Attackers and " + claimers.length + " Claimers and "
-    + defenders.length + " Defenders and " + containerbuilders.length + " Container-Builders and " + carriers.length + " Carriers");
+    + defenders.length + " Defenders and " + containerbuilders.length + " Container-Builders and " + carriers.length + " Carriers and "
+    + fillers.length + " Fillers and " + repairers.length + " Repairers");
 
 
-    if(workers.length < 3) {
+    if(workers.length < 4) {
         let newName = 'Worker' + Game.time;
         console.log('Spawning new worker: ' + newName);
         Game.spawns['Spawn1'].spawnCreep([WORK,WORK,CARRY,CARRY,CARRY, CARRY,MOVE,MOVE,MOVE], newName, 
@@ -118,30 +122,28 @@ module.exports.loop = function () {
     else if(fillers.length < 1) {
         let newName = 'Filler' + Game.time;
         console.log('Spawning new filler: ' + newName);
-        Game.spawns['Spawn1'].spawnCreep([MOVE,CARRY], newName, 
+        Game.spawns['Spawn1'].spawnCreep([MOVE,CARRY,CARRY], newName, 
             {memory: {role: 'filler'}});        
     }
 
-    // add the extensionfiller and make everyone drop energy at storage!
-
-    // else if(enemyCreeps.length > 0 && defenders.length <= 3) {
-    //     let newName = 'Defender' + Game.time;
-    //     console.log('Spawning new defender: ' + newName);
-    //     Game.spawns['Spawn1'].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-    //         {memory: {role: 'defender'}});  
-    // }
-    
-    else if (Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS).length != 0 && attackers.length < 1) {
-        let newName = 'Attacker' + Game.time;
-        console.log('Spawning new attacker: ' + newName);
-        Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-            {memory: {role: 'attacker'}});        
+    else if(Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS).length != 0 && defenders.length <= 2) {
+        let newName = 'Defender' + Game.time;
+        console.log('Spawning new defender: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+            {memory: {role: 'defender'}});  
     }
+    
+    // else if (Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS).length != 0 && attackers.length < 1) {
+    //     let newName = 'Attacker' + Game.time;
+    //     console.log('Spawning new attacker: ' + newName);
+    //     Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+    //         {memory: {role: 'attacker'}});        
+    // }
 
-    else if(builders.length < 5) {
+    else if(builders.length < 1) {
         let newName = 'Builder' + Game.time;
         console.log('Spawning new builder: ' + newName);
-        Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+        Game.spawns['Spawn1'].spawnCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], newName, 
             {memory: {role: 'builder'}});        
     }
 
@@ -153,7 +155,7 @@ module.exports.loop = function () {
             {memory: {role: 'upgrader'}});        
     }
 
-    else if(remoteWorkers.length < 1) {
+    else if(remoteWorkers.length < 1 || Game.time % 1420 == 0) {
         let newName = 'RemoteWorker' + Game.time;
         console.log('Spawning new remote-worker: ' + newName);
         Game.spawns['Spawn1'].spawnCreep([WORK, WORK,WORK,WORK,MOVE,MOVE], newName, 
@@ -182,6 +184,13 @@ module.exports.loop = function () {
         console.log('Spawning new containerbuilder: ' + newName);
         Game.spawns['Spawn1'].spawnCreep([MOVE,WORK,CARRY], newName, 
             {memory: {role: 'buildcontainer'}});        
+    }
+
+    else if(repairers.length < 4) {
+        let newName = 'Repair' + Game.time;
+        console.log('Spawning new repairer: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], newName, 
+            {memory: {role: 'repair'}});        
     }
 
 
@@ -229,6 +238,9 @@ module.exports.loop = function () {
         }
         else if(creep.memory.role == 'carry') {
             roleCarry.run(creep);
+        }
+        else if(creep.memory.role == 'repair') {
+            roleRepair.run(creep);
         }
     }
 }

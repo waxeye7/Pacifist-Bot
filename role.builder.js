@@ -26,12 +26,15 @@ var roleBuilder = {
             }
 			else {
 				const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-					filter: object => object.hits < object.hitsMax && object.hits < 2000000
+					filter: object => object.hits < object.hitsMax && object.hits < 24900
 				});
 				// && object.structureType != STRUCTURE_WALL
 
-
+				const buildingsToRepair2 = creep.room.find(FIND_STRUCTURES, {
+					filter: object => object.hits < object.hitsMax && object.hits < 1500000
+				});
 				buildingsToRepair.sort((a,b) => a.hits - b.hits);
+				buildingsToRepair2.sort((a,b) => a.hits - b.hits);
 				
 				if(buildingsToRepair.length > 0) {
 					let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
@@ -39,6 +42,13 @@ var roleBuilder = {
 						creep.moveTo(closestBuildingToRepair);
 					}
 				}
+				else if(buildingsToRepair2.length > 0) {
+					let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair2);
+					if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
+						creep.moveTo(closestBuildingToRepair);
+					}
+				}
+
 			}
 	    }
 	    else {
