@@ -7,6 +7,7 @@ let roleClaimer = require('role.claimer');
 let roleDefender = require('role.defender');
 let roleBuildContainer = require('role.buildcontainer');
 let roleCarry = require('role.carry');
+let roleFiller = require('role.filler');
 
 module.exports.loop = function () {
 
@@ -90,6 +91,7 @@ module.exports.loop = function () {
     let defenders = _.filter(Game.creeps, (creep) => creep.memory.role == 'defender');
     let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
     let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
+    let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler');
 
 
     // let enemyCreeps = Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS);
@@ -105,11 +107,19 @@ module.exports.loop = function () {
     + remoteWorkers.length + " Remote-Workers and " + attackers.length + " Attackers and " + claimers.length + " Claimers and "
     + defenders.length + " Defenders and " + containerbuilders.length + " Container-Builders and " + carriers.length + " Carriers");
 
-    if(workers.length < 4) {
+
+    if(workers.length < 3) {
         let newName = 'Worker' + Game.time;
         console.log('Spawning new worker: ' + newName);
         Game.spawns['Spawn1'].spawnCreep([WORK,WORK,CARRY,CARRY,CARRY, CARRY,MOVE,MOVE,MOVE], newName, 
             {memory: {role: 'worker'}});        
+    }
+
+    else if(fillers.length < 1) {
+        let newName = 'Filler' + Game.time;
+        console.log('Spawning new filler: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([MOVE,CARRY], newName, 
+            {memory: {role: 'filler'}});        
     }
 
     // add the extensionfiller and make everyone drop energy at storage!
@@ -120,15 +130,15 @@ module.exports.loop = function () {
     //     Game.spawns['Spawn1'].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
     //         {memory: {role: 'defender'}});  
     // }
+    
+    else if (Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS).length != 0 && attackers.length < 1) {
+        let newName = 'Attacker' + Game.time;
+        console.log('Spawning new attacker: ' + newName);
+        Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+            {memory: {role: 'attacker'}});        
+    }
 
-    // else if(attackers.length < 0) {
-    //     let newName = 'Attacker' + Game.time;
-    //     console.log('Spawning new attacker: ' + newName);
-    //     Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-    //         {memory: {role: 'attacker'}});        
-    // }
-
-    else if(builders.length < 1) {
+    else if(builders.length < 5) {
         let newName = 'Builder' + Game.time;
         console.log('Spawning new builder: ' + newName);
         Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
@@ -211,9 +221,9 @@ module.exports.loop = function () {
         else if(creep.memory.role == 'defender') {
             roleDefender.run(creep);
         }
-        // else if(creep.memory.role == 'filler') {
-        //     roleDefender.run(creep);
-        // }
+        else if(creep.memory.role == 'filler') {
+            roleFiller.run(creep);
+        }
         else if(creep.memory.role == 'buildcontainer') {
             roleBuildContainer.run(creep);
         }

@@ -26,9 +26,11 @@ var roleBuilder = {
             }
 			else {
 				const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-					filter: object => object.hits < object.hitsMax && object.structureType != STRUCTURE_WALL
+					filter: object => object.hits < object.hitsMax && object.hits < 2000000
 				});
-				
+				// && object.structureType != STRUCTURE_WALL
+
+
 				buildingsToRepair.sort((a,b) => a.hits - b.hits);
 				
 				if(buildingsToRepair.length > 0) {
