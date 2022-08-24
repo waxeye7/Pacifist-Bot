@@ -4,7 +4,7 @@ var roleRepair = {
     run: function(creep) {
 
         const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-            filter: object => object.hits < object.hitsMax && object.hits < 3000000
+            filter: object => object.hits < object.hitsMax && object.hits < 5000000
         });
 
         var storage = creep.room.find(FIND_STRUCTURES, {

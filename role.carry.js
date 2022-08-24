@@ -48,29 +48,24 @@ var roleCarry = {
             }
         }
         else if(creep.room.name == "E12S38" && creep.store.getFreeCapacity() > 0) {
-            const Containers = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.structureType == STRUCTURE_CONTAINER
-            });
-
-            let closestContainer = creep.pos.findClosestByRange(Containers);
+            // const Containers = creep.room.find(FIND_STRUCTURES, {
+            //     filter: object => object.structureType == STRUCTURE_CONTAINER
+            // });
+            // let closestContainer = creep.pos.findClosestByRange(Containers);
 
             let dropped_resources = creep.room.find(FIND_DROPPED_RESOURCES);
-            if(dropped_resources.length > 0) {
-                if(creep.store.getFreeCapacity() > 0 && !creep.pos.inRangeTo(closestContainer, 1)) {
-                    let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
-                    if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
-                        creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
-                    }
-                    return;
+            if(dropped_resources.length > 0 && creep.store.getFreeCapacity() > 0) {
+                let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
+                if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
                 }
+                return;
             }
-
-
-            if(creep.withdraw(closestContainer, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestContainer);
+            else if (creep.store.getFreeCapacity() > 0) {
+                creep.moveTo(6,15);
             }
             else {
-                creep.moveTo(46,49)
+                creep.moveTo(46,49);
             }
         }
         else if(creep.room.name == "E12S38" && creep.store.getFreeCapacity() == 0) {
