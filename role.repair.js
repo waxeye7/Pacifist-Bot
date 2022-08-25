@@ -12,27 +12,50 @@ var roleRepair = {
                 return (structure.structureType == STRUCTURE_STORAGE);
             }
         });
-
-	    if(creep.store[RESOURCE_ENERGY] == 0) {
-            if(creep.withdraw(storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+        if(storage.length > 0) { 
+            if(creep.store[RESOURCE_ENERGY] == 0) {
+                if(creep.withdraw(storage[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+                else if(creep.withdraw(storage[0], RESOURCE_ENERGY) == 0) {
+                    let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+                    creep.moveTo(closestBuildingToRepair, {visualizePathStyle: {stroke: '#ffffff'}});
+                }
             }
-            else if(creep.withdraw(storage[0], RESOURCE_ENERGY) == 0) {
+    
+            if(buildingsToRepair.length > 0) {
                 let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-                creep.moveTo(closestBuildingToRepair, {visualizePathStyle: {stroke: '#ffffff'}});
+                if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(closestBuildingToRepair);
+                }
+                else if(creep.repair(closestBuildingToRepair) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
             }
         }
+        else {
+            let sources = creep.room.find(FIND_SOURCES);
+            if(creep.store[RESOURCE_ENERGY] == 0) {
+                if(creep.harvest(sources[1], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(sources[1], {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+                else if(creep.withdraw(sources[1], RESOURCE_ENERGY) == 0) {
+                    let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+                    creep.moveTo(closestBuildingToRepair, {visualizePathStyle: {stroke: '#ffffff'}});
+                }
+            }
+    
+            if(buildingsToRepair.length > 0) {
+                let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+                if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(closestBuildingToRepair);
+                }
+                else if(creep.repair(closestBuildingToRepair) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.moveTo(sources[1], {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+            }
 
-        if(buildingsToRepair.length > 0) {
-            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-            if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestBuildingToRepair);
-            }
-            else if(creep.repair(closestBuildingToRepair) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                creep.moveTo(storage[0], {visualizePathStyle: {stroke: '#ffaa00'}});
-            }
         }
-
     }
 };
 

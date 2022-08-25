@@ -1,4 +1,4 @@
-let roleWorker = require('role.worker');
+let roleWorker = require('./role.worker');
 let roleBuilder = require('role.builder');
 let roleUpgrader = require('role.upgrader');
 let roleRemoteWorker = require('role.remoteWorker');
@@ -9,6 +9,7 @@ let roleBuildContainer = require('role.buildcontainer');
 let roleCarry = require('role.carry');
 let roleFiller = require('role.filler');
 let roleRepair = require('role.repair');
+const roleColoBuild = require('./role.colobuild');
 
 
 module.exports.loop = function () {
@@ -84,17 +85,7 @@ module.exports.loop = function () {
         //     tower.repair(closestDamagedStructure);
         // }
     
-    let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker');
-    let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
-    let upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
-    let remoteWorkers = _.filter(Game.creeps, (creep) => creep.memory.role == 'remoteworker');
-    let attackers = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker');
-    let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer');
-    let defenders = _.filter(Game.creeps, (creep) => creep.memory.role == 'defender');
-    let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
-    let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
-    let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler');
-    let repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repair');
+
 
     let totalCreeps = Object.keys(Game.creeps).length;
     // Game.memory.totalCreeps = totalCreeps
@@ -108,19 +99,37 @@ module.exports.loop = function () {
     // if (Game.rooms['roomname']) { do your stuff })
 
 
-    console.log(workers.length + " Workers and " + builders.length + " Builders and " + upgraders.length + " Upgraders and "
-    + remoteWorkers.length + " Remote-Workers and " + attackers.length + " Attackers and " + claimers.length + " Claimers and "
-    + defenders.length + " Defenders and " + containerbuilders.length + " Container-Builders and " + carriers.length + " Carriers and "
-    + fillers.length + " Fillers and " + repairers.length + " Repairers");
+    // console.log(workers.length + " Workers and " + builders.length + " Builders and " + upgraders.length + " Upgraders and "
+    // + remoteWorkers.length + " Remote-Workers and " + attackers.length + " Attackers and " + claimers.length + " Claimers and "
+    // + defenders.length + " Defenders and " + containerbuilders.length + " Container-Builders and " + carriers.length + " Carriers and "
+    // + fillers.length + " Fillers and " + repairers.length + " Repairers and " + colobuilders.length + " ColoBuilders");
 
 
     _.forEach(Game.rooms, function(room) {
         console.log(room);
         if (room && room.controller && room.controller.my && room.name != "E12S39") {
+            let spawnsInRoom = room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN);}});
 
+            let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker' && creep.room.name == room.name);
+            let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder' && creep.room.name == room.name);
+            let upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader' && creep.room.name == room.name);
+            let remoteWorkers = _.filter(Game.creeps, (creep) => creep.memory.role == 'remoteworker');
+            let attackers = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
+            let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer' && creep.room.name == room.name);
+            let defenders = _.filter(Game.creeps, (creep) => creep.memory.role == 'defender' && creep.room.name == room.name);
+            let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
+            let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
+            let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler' && creep.room.name == room.name);
+            let repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repair' && creep.room.name == room.name);
+            let colobuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'colobuild');
 
-            let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
-            let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler');
+            let workerTargetAmount = _.get(room.memory, ['census', 'worker'], 2);
+            let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 3);
+            let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 4);
+            let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 0);
+            let repairerTargetAmount = _.get(room.memory, ['census', 'repair'], 1);
+
+            let sites = room.find(FIND_CONSTRUCTION_SITES);
 
             let storage = room.find(FIND_STRUCTURES, {
                 filter: (structure) => {
@@ -129,49 +138,69 @@ module.exports.loop = function () {
                 }
             });
 
-            if (fillers.length < fillerTargetAmount && storage.length == 0) {
-                let newName = 'Filler' + Game.time;
+            if (fillers.length < fillerTargetAmount && storage.length != 0) {
+                let newName = 'Filler' + Game.time + "b";
                 console.log('Spawning new filler: ' + newName);
-                Game.spawns['Spawn1'].spawnCreep([MOVE,CARRY,CARRY], newName, 
+                Game.spawns['Spawn4'].spawnCreep([MOVE,CARRY,CARRY], newName, 
                     {memory: {role: 'filler'}});
             }
 
-            let workerTargetAmount = _.get(room.memory, ['census', 'worker'], 3);
-            let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker');
+
     
-            if (workers.length < workerTargetAmount) {
-                let newName = 'Worker' + Game.time;
+            else if (workers.length < workerTargetAmount) {
+                let newName = 'Worker' + Game.time + "b";
                 console.log('Spawning new worker: ' + newName);
-                Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+                Game.spawns['Spawn4'].spawnCreep([WORK,CARRY,MOVE], newName, 
                     {memory: {role: 'worker'}});  
             }
-    
-            let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 3);
-            let upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader');
-    
-            if (upgraders.length < upgraderTargetAmount) {
-                let newName = 'Upgrader' + Game.time;
+        
+            else if (upgraders.length < upgraderTargetAmount) {
+                let newName = 'Upgrader' + Game.time + "b";
                 console.log('Spawning new upgrader: ' + newName);
-                Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+                Game.spawns['Spawn4'].spawnCreep([WORK,CARRY,MOVE], newName, 
                     {memory: {role: 'upgrader'}});    
             }
 
+            else if(repairers.length < repairerTargetAmount) {
+                let newName = 'Repair' + Game.time;
+                console.log('Spawning new repairer: ' + newName);
+                Game.spawns['Spawn4'].spawnCreep([WORK,CARRY,MOVE], newName, 
+                    {memory: {role: 'repair'}});
+            }
 
-            let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
-            let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder');
-
-            let sites = room.find(FIND_CONSTRUCTION_SITES);
-
-            if(sites.length > 0 && builders.length < builderTargetAmount) {
-                let newName = 'Builder' + Game.time;
+            else if(sites.length > 0 && builders.length < builderTargetAmount) {
+                let newName = 'Builder' + Game.time + "b";
                 console.log('Spawning new builder: ' + newName);
-                Game.spawns['Spawn1'].spawnCreep([WORK,CARRY,MOVE], newName, 
+                Game.spawns['Spawn4'].spawnCreep([WORK,CARRY,MOVE], newName, 
                     {memory: {role: 'builder'}});
             }
 
+
+            if(Game.spawns['Spawn4'].spawning) { 
+                let spawningCreep = Game.creeps[Game.spawns['Spawn4'].spawning.name];
+                Game.spawns['Spawn4'].room.visual.text(
+                    '🛠️' + spawningCreep.memory.role,
+                    Game.spawns['Spawn4'].pos.x + 1, 
+                    Game.spawns['Spawn4'].pos.y, 
+                    {align: 'left', opacity: 0.8});
+                }
+            
         }
 
         if(room.name == "E12S39") {
+            let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker' && creep.room.name == room.name);
+            let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder' && creep.room.name == room.name);
+            let upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader' && creep.room.name == room.name);
+            let remoteWorkers = _.filter(Game.creeps, (creep) => creep.memory.role == 'remoteworker');
+            let attackers = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
+            let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer' && creep.room.name == room.name);
+            let defenders = _.filter(Game.creeps, (creep) => creep.memory.role == 'defender' && creep.room.name == room.name);
+            let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
+            let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
+            let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler' && creep.room.name == room.name);
+            let repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repair' && creep.room.name == room.name);
+            let colobuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'colobuild');
+
 
             if(fillers.length < 1) {
                 let newName = 'Filler' + Game.time;
@@ -241,7 +270,7 @@ module.exports.loop = function () {
             // && (Game.rooms["E12S37"].find(FIND_STRUCTURES, {filter: object => object.structureType == STRUCTURE_WALL}))
         
         
-            else if(claimers.length < 1) {
+            else if(claimers.length < 0) {
                 let newName = 'Claimer' + Game.time;
                 console.log('Spawning new claimer: ' + newName);
                 Game.spawns['Spawn1'].spawnCreep([MOVE,CLAIM], newName, 
@@ -261,19 +290,24 @@ module.exports.loop = function () {
                 Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
                     {memory: {role: 'repair'}});        
             }
+
+            else if(colobuilders.length < 0) {
+                let newName = 'ColoBuild' + Game.time;
+                console.log('Spawning new colobuilder: ' + newName);
+                Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY], newName, 
+                    {memory: {role: 'colobuild'}});        
+            }
+
+            if(Game.spawns['Spawn1'].spawning) { 
+                let spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
+                Game.spawns['Spawn1'].room.visual.text(
+                    '🛠️' + spawningCreep.memory.role,
+                    Game.spawns['Spawn1'].pos.x + 1, 
+                    Game.spawns['Spawn1'].pos.y, 
+                    {align: 'left', opacity: 0.8});
+            }
         }
     });
-
-    
-
-    if(Game.spawns['Spawn1'].spawning) { 
-        let spawningCreep = Game.creeps[Game.spawns['Spawn1'].spawning.name];
-        Game.spawns['Spawn1'].room.visual.text(
-            '🛠️' + spawningCreep.memory.role,
-            Game.spawns['Spawn1'].pos.x + 1, 
-            Game.spawns['Spawn1'].pos.y, 
-            {align: 'left', opacity: 0.8});
-    }
     
 
     for(let name in Game.creeps) {
@@ -311,7 +345,8 @@ module.exports.loop = function () {
         else if(creep.memory.role == 'repair') {
             roleRepair.run(creep);
         }
+        else if(creep.memory.role == 'colobuild') {
+            roleColoBuild.run(creep);
+        }
     }
 }
-
-// make only carry travel to container and make worker go there and just work and will be more efficient!
