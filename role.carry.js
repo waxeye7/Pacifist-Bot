@@ -12,38 +12,20 @@ var roleCarry = {
                         structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
                 }
             });
-            var storage = creep.room.find(FIND_STRUCTURES, {
-                filter: (structure) => {
-                    return (structure.structureType == STRUCTURE_STORAGE) &&
-                        structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-                }
-            });
+            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
             if(targets.length > 0) {
                 let target = creep.pos.findClosestByRange(targets);
                 if(creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
                 }
-                else if (creep.transfer(target, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                    if (sources[1].energy != 0) {
-                        creep.moveTo(sources[1], {visualizePathStyle: {stroke: '#ffaa00'}});
-                    }
-                    else {
-                        creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}}); 
-                    }
-                }
             }
-            else if (targets.length == 0 && storage.length > 0) {
-                let target = creep.pos.findClosestByRange(storage);
-                if(creep.transfer(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {visualizePathStyle: {stroke: '#ffffff'}});
+            else if (targets.length == 0 && storage) {
+                if(creep.transfer(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
                 }
-                else if (creep.transfer(target, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                    if (sources[1].energy != 0) {
-                        creep.moveTo(sources[1], {visualizePathStyle: {stroke: '#ffaa00'}});
-                    }
-                    else {
-                        creep.moveTo(sources[0], {visualizePathStyle: {stroke: '#ffaa00'}}); 
-                    }
+                else if (creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.moveTo(47,0);
                 }
             }
         }

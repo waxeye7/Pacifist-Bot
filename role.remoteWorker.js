@@ -10,10 +10,10 @@ var roleRemoteWorker = {
             //     filter: object => object.structureType != STRUCTURE_CONTAINER
             // });
 
-            let sources = creep.room.find(FIND_SOURCES);
-            if(creep.pos.inRangeTo(sources[0], 1)) {
-                if(sources[0].energy != 0) {
-                creep.harvest(sources[0]);    
+            let source = Game.getObjectById(creep.memory.source) || creep.findSource();
+            if(creep.pos.inRangeTo(source, 1)) {
+                if(source.energy != 0) {
+                creep.harvest(source);    
                 }
             }
             else if(creep.pos != 6, 14) {
