@@ -1,2 +1,3 @@
 # Screeps-World-PacifistBot
-waxeye7's Screeps World Bot
+
+This is Merlin Stemmer's Bot for the MMO programming game - Screeps World
