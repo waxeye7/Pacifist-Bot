@@ -11,7 +11,7 @@ var roleRemoteWorker = {
             // });
 
             let source = Game.getObjectById(creep.memory.source) || creep.findSource();
-            if(creep.pos.inRangeTo(source, 1)) {
+            if(creep.pos.isNearTo(source)) {
                 if(source.energy != 0) {
                 creep.harvest(source);    
                 }
