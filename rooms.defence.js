@@ -12,7 +12,7 @@ function roomDefence(room) {
 
 
             let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-                filter: structure => structure.hits < structure.hitsMax && structure.hits < (structure.hitsMax-900) && structure.hits < 100000});
+                filter: structure => structure.hits < structure.hitsMax && structure.hits < (structure.hitsMax-2000) && structure.hits < 150000});
 
             if(closestDamagedStructure) {
                 tower.repair(closestDamagedStructure)

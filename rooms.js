@@ -21,11 +21,13 @@ function identifySources(room) {
 function rooms() {
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
+
             spawning(room);
+            
             roomDefence(room);
-            // if(Game.time % 1000 == 542) {
-            identifySources(room);
-            // }
+            if(Game.time % 1000 == 542) {
+                identifySources(room);
+            }
         }
     });
 

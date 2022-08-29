@@ -1,7 +1,7 @@
 let roleRemoteWorker = require('./role.remoteWorker');
 let roleAttacker = require('./role.attacker');
 let roleClaimer = require('./role.claimer');
-let roleDefender = require('./role.defender');
+// let roleDefender = require('./role.defender');
 let roleBuildContainer = require('./role.buildcontainer');
 let roleCarry = require('./role.carry');
 
@@ -22,7 +22,9 @@ global.ROLES = {
     upgrader: require('./role.upgrader'),
     filler: require('./role.filler'),
     repair: require('./role.repair'),
+    defender: require('./role.defender'),
 }
+
 
 module.exports.loop = function () {
     rooms();

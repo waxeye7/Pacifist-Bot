@@ -6,7 +6,7 @@ var roleRepair = {
 
         if(storage != undefined) { 
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.hits < object.hitsMax && object.hits < 5000000 && object.structureType !== STRUCTURE_ROAD
+                filter: object => object.hits < object.hitsMax && object.hits < 10000000 && object.structureType !== STRUCTURE_ROAD
             });
             if(creep.store[RESOURCE_ENERGY] == 0) {
                 if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
@@ -39,7 +39,7 @@ var roleRepair = {
             if(creep.memory.working) {
 
                 const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
-                    filter: object => object.hits < object.hitsMax && object.hits < 10000000 && object.structureType !== STRUCTURE_ROAD
+                    filter: object => object.hits < object.hitsMax && object.hits < 150000 && object.structureType !== STRUCTURE_ROAD
                 });
                 if(buildingsToRepair.length) {
                     if(creep.repair(buildingsToRepair[0]) == ERR_NOT_IN_RANGE) {
