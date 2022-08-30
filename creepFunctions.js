@@ -55,11 +55,19 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
     }
 
     if(storedSource) {
+        console.log(this.pos.isNearTo(storedSource), this.name)
         if(this.pos.isNearTo(storedSource)) {
             this.harvest(storedSource);
         }
         else {
-            this.moveTo(storedSource);
+            let Containers = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_CONTAINER);}});
+            if(Containers.length > 0) {
+                let closestContainer = this.pos.findClosestByRange(Containers);
+                this.moveTo(closestContainer);
+            }
+            else {
+                this.moveTo(storedSource);
+            }
         }
     }
 }

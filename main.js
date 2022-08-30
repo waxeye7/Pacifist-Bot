@@ -18,6 +18,7 @@ let roomPositionFunctions = require('./roomPositionFunctions');
 global.ROLES = {
     worker: require('./role.worker'),
     EnergyMiner : require('./role.energyMiner'),
+    carry: require('./role.carry'),
     builder: require('./role.builder'),
     upgrader: require('./role.upgrader'),
     filler: require('./role.filler'),

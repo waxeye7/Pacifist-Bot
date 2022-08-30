@@ -5,9 +5,15 @@ var roleRepair = {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
         if(storage != undefined) { 
+
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
+                filter: object => object.hits < object.hitsMax && object.hits < 3000000 && object.structureType !== STRUCTURE_ROAD
+            });
+
+            const buildingsToRepair2 = creep.room.find(FIND_STRUCTURES, {
                 filter: object => object.hits < object.hitsMax && object.hits < 10000000 && object.structureType !== STRUCTURE_ROAD
             });
+
             if(creep.store[RESOURCE_ENERGY] == 0) {
                 if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
@@ -20,6 +26,15 @@ var roleRepair = {
     
             if(buildingsToRepair.length > 0) {
                 let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+                if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(closestBuildingToRepair);
+                }
+                else if(creep.repair(closestBuildingToRepair) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                }
+            }
+            else if(buildingsToRepair2.length > 0) {
+                let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair2);
                 if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(closestBuildingToRepair);
                 }

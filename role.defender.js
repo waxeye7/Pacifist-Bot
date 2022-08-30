@@ -13,7 +13,6 @@ var roleDefender = {
                 return;
             }
             if(creep.attack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
                 return;
             }
         }

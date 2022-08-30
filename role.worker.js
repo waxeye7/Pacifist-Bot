@@ -49,6 +49,8 @@ const run = function (creep) {
 
     }
     else {
+        let targets = creep.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_EXTENSION || structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_TOWER  || structure.structureType == STRUCTURE_CONTAINER) &&structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;}});
+        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         let dropped_resources = creep.room.find(FIND_DROPPED_RESOURCES);
         let source = Game.getObjectById(creep.memory.source) || creep.findSource();
 
@@ -57,6 +59,15 @@ const run = function (creep) {
             let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
             if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+            else if(creep.pickup(closestDroppedEnergy) == 0) {
+                if(storage) {
+                    creep.moveTo(storage);
+                }
+                else {
+                    let target = creep.pos.findClosestByRange(targets);
+                    creep.moveTo(target);
+                }
             }
         }
         else {
