@@ -13,14 +13,30 @@
     if(creep.memory.full) {
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {filter: object => object.hits < object.hitsMax && (object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER)});
-            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-
+            const containersToRepair = creep.room.find(FIND_STRUCTURES, {filter: object => object.hits < object.hitsMax && object.structureType == STRUCTURE_CONTAINER});
             let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
 
-            if(creep.pos.isNearTo(closestBuildingToRepair)) {
-                creep.repair(closestBuildingToRepair);
+            if(containersToRepair.length > 0) {
+                let closestContainerToRepair = creep.pos.findClosestByRange(containersToRepair);
+                if(creep.pos.getRangeTo(closestContainerToRepair) < 4) {
+                    if(creep.pos.isNearTo(closestContainerToRepair)) {
+                        creep.repair(closestContainerToRepair);
+                        return;
+                    }
+                    else {
+                        creep.moveTo(closestContainerToRepair);
+                        return;
+                    }
+                }
             }
-            else if(buildingsToBuild.length > 0) {
+
+            if(buildingsToRepair.length > 0) {
+                let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+                if(creep.pos.isNearTo(closestBuildingToRepair)) {
+                    creep.repair(closestBuildingToRepair);
+            }
+
+            if(buildingsToBuild.length > 0) {
                 let closestBuildingtoBuild = creep.pos.findClosestByRange(buildingsToBuild);
 				if(creep.build(closestBuildingtoBuild) == ERR_NOT_IN_RANGE) {
 					creep.moveTo(closestBuildingtoBuild, {visualizePathStyle: {stroke: '#000'}});
@@ -28,29 +44,34 @@
                 return;
             }
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+            }
         }
 
-        let targets = creep.room.find(FIND_STRUCTURES, {
-            filter: (structure) => {
-                return (structure.structureType == STRUCTURE_EXTENSION || structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_TOWER) &&
-                    structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
-            }
-        });
+        // let targets = creep.room.find(FIND_STRUCTURES, {
+        //     filter: (structure) => {
+        //         return (structure.structureType == STRUCTURE_EXTENSION || structure.structureType == STRUCTURE_SPAWN || structure.structureType == STRUCTURE_TOWER) &&
+        //             structure.store.getFreeCapacity(RESOURCE_ENERGY) > 0;
+        //     }
+        // });
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-        if(targets.length > 0) {
-            let closestTarget = creep.pos.findClosestByRange(targets);
-            if(creep.transfer(closestTarget, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+        // if(targets.length > 0) {
+        //     let closestTarget = creep.pos.findClosestByRange(targets);
+        //     if(creep.pos.isNearTo(closestTarget)) {
+        //         creep.transfer(closestTarget, RESOURCE_ENERGY);
+        //     }
+        //     else {
+        //         creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+        //     }
+        // }
+
+        if(storage) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.transfer(storage, RESOURCE_ENERGY);
             }
-            else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] > 0) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
-            }
-        }
-        else if(storage) {
-            if(creep.transfer(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(storage);
+            else {
+                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
 
@@ -62,8 +83,17 @@
             return creep.moveToRoom(creep.memory.targetRoom);
         }
         let Containers = creep.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > 0});
-        if(Containers.length > 0) {
-            Containers.sort((a, b) => b-a);
+        let dropped_resources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > creep.store.getFreeCapacity() && creep.pos.getRangeTo(i) < 4});
+
+        if(dropped_resources.length > 0) {
+            let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
+            if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+        }
+
+        else if(Containers.length > 0) {
+            Containers.sort((a, b) => b.store[RESOURCE_ENERGY]-a.store[RESOURCE_ENERGY]);
             if(creep.withdraw(Containers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(Containers[0]);
             }

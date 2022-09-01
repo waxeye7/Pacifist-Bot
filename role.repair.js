@@ -11,7 +11,7 @@ var roleRepair = {
             });
 
             const buildingsToRepair2 = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.hits < object.hitsMax && object.hits < 10000000 && object.structureType !== STRUCTURE_ROAD
+                filter: object => object.hits < object.hitsMax && object.hits < 20000000 && object.structureType !== STRUCTURE_ROAD
             });
 
             if(creep.store[RESOURCE_ENERGY] == 0) {

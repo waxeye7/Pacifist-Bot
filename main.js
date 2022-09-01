@@ -24,6 +24,7 @@ global.ROLES = {
     filler: require('./role.filler'),
     repair: require('./role.repair'),
     defender: require('./role.defender'),
+    // scout: require('./role.scout'),
 }
 
 

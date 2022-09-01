@@ -8,6 +8,7 @@
 
 const run = function (creep) {
     creep.harvestEnergy();
+
 }
 const roleEnergyMiner = {
     run,

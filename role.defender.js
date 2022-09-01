@@ -16,7 +16,7 @@ var roleDefender = {
                 return;
             }
         }
-
+// if im on a rampart, dont move.
 
     }
 };

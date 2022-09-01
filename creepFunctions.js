@@ -21,7 +21,7 @@ Creep.prototype.findSource = function() {
 }
 
 Creep.prototype.findStorage = function() {
-    let storage = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE && structure.store[RESOURCE_ENERGY] > 0);}});
+    let storage = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
     if(storage.length) {
         this.memory.storage = storage[0].id;
         return storage[0];
@@ -55,19 +55,18 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
     }
 
     if(storedSource) {
-        console.log(this.pos.isNearTo(storedSource), this.name)
+        let Containers = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_CONTAINER);}});
+        // console.log(this.pos.getRangeTo(storedSource))
+        // console.log(this.pos.isNearTo(storedSource), this.name)
         if(this.pos.isNearTo(storedSource)) {
             this.harvest(storedSource);
         }
+        else if(this.pos.getRangeTo(storedSource) < 6 && Containers.length > 0) {
+            let closestContainer = this.pos.findClosestByRange(Containers);
+            this.moveTo(closestContainer);
+        }
         else {
-            let Containers = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_CONTAINER);}});
-            if(Containers.length > 0) {
-                let closestContainer = this.pos.findClosestByRange(Containers);
-                this.moveTo(closestContainer);
-            }
-            else {
-                this.moveTo(storedSource);
-            }
+            this.moveTo(storedSource);
         }
     }
 }
