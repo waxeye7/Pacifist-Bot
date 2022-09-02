@@ -75,23 +75,29 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
     let foundCreepToSpawn = false;
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
-            // console.log(Game.time - (values.lastSpawn || 0) , Game.time - (values.lastSpawnCarrier || 0))
+            console.log(Game.time - (values.lastSpawn || 0) , Game.time - (values.lastSpawnCarrier || 0))
             if (Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME) {
                 let newName = 'EnergyMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-                console.log('Spawning new EnergyMiner: ' + newName);
+                // console.log('Spawning new EnergyMiner: ' + newName);
 
                 if(targetRoomName == room.name) {
                     let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                    foundCreepToSpawn = result;
-                    return;
+                    if(result == OK) {
+                        values.lastSpawn = Game.time;
+                        foundCreepToSpawn = true;
+                        return;
+                    }
                 }
 
                 else {
                     let result = spawn.spawnCreep([WORK,WORK,WORK,MOVE], newName, 
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                    foundCreepToSpawn = result;
-                    return;
+                    if(result == OK) {
+                        values.lastSpawn = Game.time;
+                        foundCreepToSpawn = true;
+                        return;
+                    }
                 }
             }  
             if(foundCreepToSpawn != false) {
@@ -103,7 +109,7 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
         }
     });
     if(foundCreepToSpawn != false) {
-        return foundCreepToSpawn;
+        return true;
     }
 }
 
@@ -116,12 +122,15 @@ function spawn_carrier(resourceData, room, spawn, storage) {
             console.log(Game.time - (values.lastSpawn || 0) , Game.time - (values.lastSpawnCarrier || 0))
             if (Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME) {
                 let newName = 'Carrier' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-                console.log('Spawning new Carrier: ' + newName);
+                // console.log('Spawning new Carrier: ' + newName);
 
                 let result = spawn.spawnCreep(getCarrierBody(sourceId, storage, room), newName, 
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
-                foundCreepToSpawn = result;
-                return;
+                if(result == OK) {
+                    values.lastSpawnCarrier = Game.time;
+                    foundCreepToSpawn = true;
+                    return;
+                }
             }
             if(foundCreepToSpawn != false) {
                 return;
@@ -132,7 +141,7 @@ function spawn_carrier(resourceData, room, spawn, storage) {
         }
     });
     if(foundCreepToSpawn != false) {
-        return foundCreepToSpawn;
+        return true;
     }
 }
 
@@ -286,16 +295,11 @@ function spawning(room) {
 
     let resourceData = _.get(room.memory, ['resources']);
 
-    let minerResult = spawn_energy_miner(resourceData, room, spawns[0], storage);
-    if(minerResult == OK) {
-        values.lastSpawn = Game.time;
-        return;   
+    if(spawn_energy_miner(resourceData, room, spawns[0], storage) == true) {
+        return;
     }
 
-
-    let carrierResult = spawn_carrier(resourceData, room, spawns[0], storage);
-    if(carrierResult == OK) {
-        values.lastSpawnCarrier = Game.time;
+    if(spawn_carrier(resourceData, room, spawns[0], storage) == true) {
         return;
     }
 
