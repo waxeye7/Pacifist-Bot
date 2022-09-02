@@ -16,6 +16,7 @@
             const containersToRepair = creep.room.find(FIND_STRUCTURES, {filter: object => object.hits < object.hitsMax && object.structureType == STRUCTURE_CONTAINER});
             let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
 
+
             if(containersToRepair.length > 0) {
                 let closestContainerToRepair = creep.pos.findClosestByRange(containersToRepair);
                 if(creep.pos.getRangeTo(closestContainerToRepair) < 4) {
@@ -84,6 +85,7 @@
         }
         let Containers = creep.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > 0});
         let dropped_resources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > creep.store.getFreeCapacity() && creep.pos.getRangeTo(i) < 4});
+        let dropped_resources_last_chance = creep.room.find(FIND_DROPPED_RESOURCES);
 
         if(dropped_resources.length > 0) {
             let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
@@ -96,6 +98,12 @@
             Containers.sort((a, b) => b.store[RESOURCE_ENERGY]-a.store[RESOURCE_ENERGY]);
             if(creep.withdraw(Containers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(Containers[0]);
+            }
+        }
+        else if(dropped_resources_last_chance.length > 0) {
+            let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources_last_chance);
+            if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }
     }

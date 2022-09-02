@@ -25,7 +25,7 @@ function rooms() {
             spawning(room);
             
             roomDefence(room);
-            if(Game.time % 1000 == 542) {
+            if(Game.time % 500 == 1) {
                 identifySources(room);
             }
         }

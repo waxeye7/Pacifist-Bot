@@ -17,6 +17,9 @@ let roomPositionFunctions = require('./roomPositionFunctions');
 
 global.ROLES = {
     worker: require('./role.worker'),
+
+    MineralMiner: require('./role.mineralMiner'),
+
     EnergyMiner : require('./role.energyMiner'),
     carry: require('./role.carry'),
     builder: require('./role.builder'),
@@ -24,6 +27,7 @@ global.ROLES = {
     filler: require('./role.filler'),
     repair: require('./role.repair'),
     defender: require('./role.defender'),
+    attacker: require('./role.attacker'),
     // scout: require('./role.scout'),
 }
 
@@ -43,5 +47,8 @@ module.exports.loop = function () {
             }
             ROLES[creep.memory.role].run(creep);
         }
+    }
+    if(Game.time % 25 == 1) {
+        console.log(Game.cpu.bucket, 'unused cpu in my bucket');
     }
 }
