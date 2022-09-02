@@ -43,7 +43,7 @@ function getCarrierBody(sourceId, storage, room) {
         let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
-        while (energyProducedPerRoundTrip > -300) {
+        while (energyProducedPerRoundTrip > -250) {
             body.push(CARRY);
             if(alternate % 2 == 1) {
                 body.push(MOVE);
@@ -152,6 +152,7 @@ function spawning(room) {
                 if(targetRoomName == room.name) {
                     let result = spawns[0].spawnCreep([WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                    console.log(result)
                     if(result == 0) {
                         values.lastSpawn = Game.time;
                         return;
@@ -170,9 +171,7 @@ function spawning(room) {
         });
     });
 
-    let resourceData2 = _.get(room.memory, ['resources']);
-
-    _.forEach(resourceData2, function(data, targetRoomName){
+    _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
 
             if (Game.time - (values.lastSpawnCarrier || 0) > (CREEP_LIFE_TIME)) {
@@ -193,6 +192,7 @@ function spawning(room) {
                 console.log('Spawning new Carrier: ' + newName);
                 let result = spawns[0].spawnCreep([CARRY,CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
+                console.log(result)
                 if(result == 0) {
                     values.lastSpawnCarrier = Game.time;
                     return;
@@ -206,7 +206,7 @@ function spawning(room) {
 
 
 
-    if(repairers.length < repairerTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 750000 && repairers.length < repairerTargetAmount + 4)) {
+    if(repairers.length < repairerTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 600000 && repairers.length < repairerTargetAmount + 4)) {
         let newName = 'Repair' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         console.log('Spawning new repairer: ' + newName + "-" + room.name);
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room,3), newName, 
@@ -229,7 +229,7 @@ function spawning(room) {
 
 
 
-    if (upgraders.length < upgraderTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 750000 && upgraders.length < upgraderTargetAmount + 1)) {
+    if (upgraders.length < upgraderTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 600000 && upgraders.length < upgraderTargetAmount + 1)) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         console.log('Spawning new upgrader: ' + newName);
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room, 3), newName, 
