@@ -35,6 +35,7 @@
                 let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
                 if(creep.pos.isNearTo(closestBuildingToRepair)) {
                     creep.repair(closestBuildingToRepair);
+                }
             }
 
             if(buildingsToBuild.length > 0) {
@@ -45,7 +46,6 @@
                 return;
             }
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
-            }
         }
 
         // let targets = creep.room.find(FIND_STRUCTURES, {

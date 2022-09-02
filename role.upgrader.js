@@ -21,7 +21,6 @@ var roleUpgrader = {
 
 	    if(!creep.memory.upgrading && creep.store.getFreeCapacity() == 0) {
 	        creep.memory.upgrading = true;
-            creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
 	    }
 
 	    if(creep.memory.upgrading) {
