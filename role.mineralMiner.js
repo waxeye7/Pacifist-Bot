@@ -27,6 +27,19 @@
         }
     }
     else {
+        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
+        if(storage && storage.store[deposit.mineralType] < 6000) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.transfer(storage, deposit.mineralType);
+            }
+            else {
+                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+            }
+            return;
+        }
+
+
         let terminal = creep.room.terminal;
 
         if(terminal && terminal.store[deposit.mineralType] < 3000) {
@@ -39,8 +52,6 @@
             return;
         }
 
-        
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
         if(storage) {
             if(creep.pos.isNearTo(storage)) {

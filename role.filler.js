@@ -43,7 +43,7 @@ var roleFiller = {
             }
         }
 
-        else if (terminal && terminal.store[RESOURCE_ENERGY] < 3000) {
+        else if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.transfer(terminal, RESOURCE_ENERGY);
             }

@@ -22,6 +22,7 @@ global.ROLES = {
 
     EnergyMiner : require('./role.energyMiner'),
     carry: require('./role.carry'),
+    RemoteRepair: require('./role.remoteRepair'),
     builder: require('./role.builder'),
     upgrader: require('./role.upgrader'),
     filler: require('./role.filler'),
@@ -48,6 +49,7 @@ module.exports.loop = function () {
             ROLES[creep.memory.role].run(creep);
         }
     }
+    
     if(Game.time % 25 == 1) {
         console.log(Game.cpu.bucket, 'unused cpu in my bucket');
     }
