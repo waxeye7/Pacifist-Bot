@@ -1,5 +1,6 @@
 let roomDefence = require('./rooms.defence');
 let spawning = require('./rooms.spawning');
+let market = require('./rooms.market');
 
 function identifySources(room) {
     if(!room.memory.resources) {
@@ -25,7 +26,10 @@ function rooms() {
             spawning(room);
             
             roomDefence(room);
-            if(Game.time % 500 == 1) {
+
+            market(room);
+
+            if(Game.time % 500 == 123) {
                 identifySources(room);
             }
         }

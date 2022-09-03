@@ -18,6 +18,7 @@ var roleFiller = {
         });
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+        let terminal = creep.room.terminal;
 
 	    if(creep.store[RESOURCE_ENERGY] == 0) {
             if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
@@ -39,6 +40,15 @@ var roleFiller = {
             }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
                 creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+            }
+        }
+
+        else if (terminal && terminal.store[RESOURCE_ENERGY] < 3000) {
+            if(creep.pos.isNearTo(terminal)) {
+                creep.transfer(terminal, RESOURCE_ENERGY);
+            }
+            else {
+                creep.moveTo(terminal);
             }
         }
         

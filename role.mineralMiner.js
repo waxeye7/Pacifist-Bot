@@ -8,6 +8,7 @@
         let found_deposit = creep.room.find(FIND_MINERALS);
         creep.memory.deposit = found_deposit[0];
     }
+
     let deposit = Game.getObjectById(creep.memory.deposit.id);
 
     if(!creep.memory.mining && creep.store[deposit.mineralType] == 0) {   
@@ -26,6 +27,19 @@
         }
     }
     else {
+        let terminal = creep.room.terminal;
+
+        if(terminal && terminal.store[deposit.mineralType] < 3000) {
+            if(creep.pos.isNearTo(terminal)) {
+                creep.transfer(terminal, deposit.mineralType);
+            }
+            else {
+                creep.moveTo(terminal);
+            }
+            return;
+        }
+
+        
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
         if(storage) {
@@ -35,8 +49,8 @@
             else {
                 creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
             }
+            return;
         }
-
     }
 }
 

@@ -9,7 +9,13 @@
 const run = function (creep) {
     if(creep.room.name != creep.memory.targetRoom) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-        
+        let road = Game.getObjectById("630c5701d149a23ed600dd3d");
+        if(road){
+            if(creep.attack(road) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(road);
+            }
+            return;
+        }
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
@@ -26,6 +32,13 @@ const run = function (creep) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
     }
     else {
+        let road = Game.getObjectById("630c5701d149a23ed600dd3d");
+        if(road){
+            if(creep.attack(road) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(road);
+            }
+            return;
+        }
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 
         let Structures = creep.room.find(FIND_STRUCTURES, {
