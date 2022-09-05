@@ -41,7 +41,7 @@ const run = function (creep) {
         // }
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 
-        let Structures = creep.room.find(FIND_STRUCTURES, {
+        let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
             filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_WALL
         });
 
@@ -68,16 +68,16 @@ const run = function (creep) {
             }
         }
         
-        else {
-            creep.memory.targetRoom = creep.memory.targetRoom2;
-            if(creep.memory.targetRoom == creep.memory.targetRoom2) {
-                delete creep.memory.targetRoom2
-            }
-            else if(creep.memory.targetRoom == undefined) {
-                delete creep.memory.targetRoom
-                creep.suicide();
-            }
-        }
+        // else {
+        //     creep.memory.targetRoom = creep.memory.targetRoom2;
+        //     if(creep.memory.targetRoom == creep.memory.targetRoom2) {
+        //         delete creep.memory.targetRoom2
+        //     }
+        //     else if(creep.memory.targetRoom == undefined) {
+        //         delete creep.memory.targetRoom
+        //         creep.suicide();
+        //     }
+        // }
     }
 }
 

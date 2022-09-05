@@ -3,6 +3,11 @@ var roleFiller = {
     /** @param {Creep} creep **/
     run: function(creep) {
 
+		// if(creep.fatigue > 0) {
+		// 	console.log('hi')
+		// 	creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
+		// }
+
         let lowEnergyTowers = creep.room.find(FIND_STRUCTURES, {
             filter: (structure) => {
                 return (structure.structureType == STRUCTURE_TOWER) &&

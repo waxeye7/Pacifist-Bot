@@ -29,6 +29,10 @@ global.ROLES = {
     repair: require('./role.repair'),
     defender: require('./role.defender'),
     attacker: require('./role.attacker'),
+
+    buildcontainer: require('./role.buildcontainer'),
+    claimer: require('./role.claimer'),
+    RemoteDismantler: require('./role.remoteDismantler'),
     // scout: require('./role.scout'),
 }
 

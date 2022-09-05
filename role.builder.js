@@ -6,6 +6,11 @@ var roleBuilder = {
 		let targets = creep.room.find(FIND_CONSTRUCTION_SITES);
 		let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
+		// if(creep.fatigue > 0) {
+		// 	console.log('hi')
+		// 	creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
+		// }
+
 		if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
 			creep.memory.building = false;
 			if(storage == undefined) {
@@ -54,7 +59,7 @@ var roleBuilder = {
 		}
 		else {
 			if(storage == undefined) {
-				creep.harvestEnergy();
+				creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 			}
 			else {
 				if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {

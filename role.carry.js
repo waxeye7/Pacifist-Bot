@@ -4,6 +4,11 @@
  **/
  const run = function (creep) {
 
+    // if(creep.fatigue > 0) {
+    //     console.log('hi')
+    //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
+    // }
+
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
@@ -25,6 +30,16 @@
                 creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
+        else {
+            let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+            let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
+            if(creep.pos.isNearTo(closestDropOffLocation)) {
+                creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);
+            }
+            else {
+                creep.moveTo(closestDropOffLocation);
+            }
+        }
 
 
     }
@@ -33,29 +48,7 @@
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoom(creep.memory.targetRoom);
         }
-        let Containers = creep.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > 0});
-        let dropped_resources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > creep.store.getFreeCapacity() && creep.pos.getRangeTo(i) < 4 && i.resourceType == RESOURCE_ENERGY});
-        let dropped_resources_last_chance = creep.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
-
-        if(dropped_resources.length > 0) {
-            let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources);
-            if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
-            }
-        }
-
-        else if(Containers.length > 0) {
-            Containers.sort((a, b) => b.store[RESOURCE_ENERGY]-a.store[RESOURCE_ENERGY]);
-            if(creep.withdraw(Containers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(Containers[0]);
-            }
-        }
-        else if(dropped_resources_last_chance.length > 0) {
-            let closestDroppedEnergy = creep.pos.findClosestByRange(dropped_resources_last_chance);
-            if(creep.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
-            }
-        }
+        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
     }
 }
 

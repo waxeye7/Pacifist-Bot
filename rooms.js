@@ -29,7 +29,7 @@ function rooms() {
 
             market(room);
 
-            if(Game.time % 500 == 123) {
+            if(Game.time % 200 == 1) {
                 identifySources(room);
             }
         }

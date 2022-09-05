@@ -6,6 +6,10 @@ var roleUpgrader = {
 		let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
 
+		// if(creep.fatigue > 0) {
+		// 	console.log('hi')
+		// 	creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
+		// }
 
         if(creep.memory.upgrading && creep.store[RESOURCE_ENERGY] == 0) {
             creep.memory.upgrading = false;
@@ -30,7 +34,7 @@ var roleUpgrader = {
         }
         else {
 			if(storage == undefined) {
-				creep.harvestEnergy();
+				creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 			}
 			else {
 				if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {

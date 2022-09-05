@@ -2,23 +2,21 @@ var roleBuildContainer = {
     
     /** @param {Creep} creep **/
     run: function(creep) {
-        if(creep.room.name == "E12S39") {
-            creep.moveTo(47,0);
+        if(creep.room.name != creep.memory.targetRoom) {
+            return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
         }
-        else if(creep.room.name == "E12S38") {
-            let container = Game.getObjectById('63000967cd87f84374a2a9cb');
+
+        else {
             let targets = creep.room.find(FIND_CONSTRUCTION_SITES);
             let closestTarget = creep.pos.findClosestByRange(targets);
+            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
 
             if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
                 creep.memory.building = false;
-                creep.say('🔄 harvest');
-                creep.moveTo(container, {visualizePathStyle: {stroke: '#ffaa00'}});
             }
             if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
                 creep.memory.building = true;
-                creep.say('🚧 build');
                 creep.moveTo(closestTarget);
             }
             if(creep.memory.building) {
@@ -42,8 +40,13 @@ var roleBuildContainer = {
                 }
             }
             else {
-                if(creep.withdraw(container, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(container, {visualizePathStyle: {stroke: '#ffaa00'}});
+                if(storage) {
+                    if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                    }
+                }
+                else {
+                    creep.harvestEnergy();
                 }
             }
         }

@@ -1,25 +1,25 @@
 function market(room) {
     if(room.terminal && Game.time % 50 == 1) {
         let resourceToSell;
-        if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 400) {
+        if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 1200) {
             resourceToSell = RESOURCE_HYDROGEN;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_OXYGEN] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_OXYGEN] >= 1200) {
             resourceToSell = RESOURCE_OXYGEN;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_UTRIUM] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_UTRIUM] >= 1200) {
             resourceToSell = RESOURCE_UTRIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_KEANIUM] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_KEANIUM] >= 1200) {
             resourceToSell = RESOURCE_KEANIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_LEMERGIUM] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_LEMERGIUM] >= 1200) {
             resourceToSell = RESOURCE_LEMERGIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 1200) {
             resourceToSell = RESOURCE_ZYNTHIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_CATALYST] >= 400) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_CATALYST] >= 1200) {
             resourceToSell = RESOURCE_CATALYST;
         }
         else{
@@ -28,7 +28,7 @@ function market(room) {
 
         let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell && 
                                                         order.type == ORDER_BUY &&
-                                                        Game.market.calcTransactionCost(200, room.name, order.roomName) < 360);
+                                                        Game.market.calcTransactionCost(200, room.name, order.roomName) < 400);
 
         console.log(resourceToSell, "buy orders found:", orders.length);
         orders.sort(function(a,b){return b.price - a.price;});
