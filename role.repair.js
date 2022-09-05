@@ -4,11 +4,25 @@
  **/
 
 function findLocked(creep) {
-    const buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
-    const buildingsToRepair30mil = _.filter(buildingsToRepair300mil, (building) => building.hits < building.hitsMax && building.hits < 30000000);
-    const buildingsToRepair10mil = _.filter(buildingsToRepair30mil, (building) => building.hits < building.hitsMax && building.hits < 10000000);
-    const buildingsToRepair3mil = _.filter(buildingsToRepair10mil, (building) => building.hits < building.hitsMax && building.hits < 3000000);
-    const buildingsToRepair1mil = _.filter(buildingsToRepair3mil, (building) => building.hits < building.hitsMax && building.hits < 1000000);
+    let buildingsToRepair300mil;
+    let buildingsToRepair30mil;
+    let buildingsToRepair10mil;
+    let buildingsToRepair3mil;
+    let buildingsToRepair1mil;
+    if(creep.room.controller.level > 2) {
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
+        buildingsToRepair30mil = _.filter(buildingsToRepair300mil, (building) => building.hits < building.hitsMax && building.hits < 30000000);
+        buildingsToRepair10mil = _.filter(buildingsToRepair30mil, (building) => building.hits < building.hitsMax && building.hits < 10000000);
+        buildingsToRepair3mil = _.filter(buildingsToRepair10mil, (building) => building.hits < building.hitsMax && building.hits < 3000000);
+        buildingsToRepair1mil = _.filter(buildingsToRepair3mil, (building) => building.hits < building.hitsMax && building.hits < 1000000);
+    }
+    else {
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
+        buildingsToRepair30mil = _.filter(buildingsToRepair300mil, (building) => building.hits < building.hitsMax && building.hits < 30000000);
+        buildingsToRepair10mil = _.filter(buildingsToRepair30mil, (building) => building.hits < building.hitsMax && building.hits < 10000000);
+        buildingsToRepair3mil = _.filter(buildingsToRepair10mil, (building) => building.hits < building.hitsMax && building.hits < 3000000);
+        buildingsToRepair1mil = _.filter(buildingsToRepair3mil, (building) => building.hits < building.hitsMax && building.hits < 1000000);
+    }
 
     if(buildingsToRepair1mil.length > 0) {
         buildingsToRepair1mil.sort((a,b) => a.hits - b.hits);

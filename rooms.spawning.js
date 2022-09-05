@@ -261,7 +261,7 @@ function spawning(room) {
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 5);
+    let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
 
     let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
@@ -357,17 +357,17 @@ function spawning(room) {
         }
     }
 
-    if(attackers.length < 0) {
+    if(attackers.length < 1) {
         let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         console.log('Spawning new attacker: ' + newName);
         let result = spawns[0].spawnCreep(getBody([ATTACK,MOVE], room), newName, 
-            {memory: {role: 'attacker', targetRoom: "E13S36", targetRoom2: "E12S39"}});  
+            {memory: {role: 'attacker', targetRoom: "E12S36", targetRoom2: "E12S39"}});  
         if(result == OK) {
             return;
         }
     }
 
-    if(containerbuilders.length < 4) {
+    if(containerbuilders.length < 0) {
         let newName = 'ContainerBuilder' + Game.time + " " + room.name;
         console.log('Spawning new ContainerBuilder: ' + newName);
         let result = spawns[0].spawnCreep([MOVE,WORK,CARRY], newName, 
