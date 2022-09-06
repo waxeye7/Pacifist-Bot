@@ -18,7 +18,31 @@ function roomDefence(room) {
                 tower.repair(closestDamagedStructure)
             }
 
-       })
+       });
+    }
+
+    let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+    if(HostileCreeps.length > 0) {
+        room.memory.danger = true;
+        let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
+
+        let currentLowestRange = 100;
+        let currentRampart;
+
+        _.forEach(MyRamparts, function(rampart) {
+            let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
+            let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
+            if(currentLowestRange > rangeToEnemy) {
+                currentLowestRange = rangeToEnemy;
+                currentRampart = rampart;
+                room.memory.rampartToMan = currentRampart;        
+            }
+        });
+
+    }
+    else {
+        room.memory.danger = false;
+        room.memory.rampartToMan = false
     }
 }
 

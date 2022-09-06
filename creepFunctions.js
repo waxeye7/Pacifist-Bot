@@ -82,7 +82,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 }
 
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
-    let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > 0});
+    let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
     let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > this.store.getFreeCapacity() && this.pos.getRangeTo(i) < 4 && i.resourceType == RESOURCE_ENERGY});
     let dropped_resources_last_chance = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
 
@@ -91,6 +91,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         if(this.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
             this.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
         }
+        return;
     }
 
     else if(Containers.length > 0) {
@@ -98,12 +99,14 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         if(this.withdraw(Containers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
             this.moveTo(Containers[0]);
         }
+        return;
     }
     else if(dropped_resources_last_chance.length > 0) {
-        let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources_last_chance);
-        if(this.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
-            this.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
+        dropped_resources_last_chance.sort((a,b) => b.amount - a.amount);
+        if(this.pickup(dropped_resources_last_chance[0]) == ERR_NOT_IN_RANGE) {
+            this.moveTo(dropped_resources_last_chance[0], {visualizePathStyle: {stroke: '#ffaa00'}});
         }
+        return;
     }
 }
 

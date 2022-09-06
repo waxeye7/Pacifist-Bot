@@ -324,10 +324,9 @@ function spawning(room) {
             return;
         }
     }
-
-    if(room.find(FIND_HOSTILE_CREEPS) != undefined && room.find(FIND_HOSTILE_CREEPS).length > 1 && defenders.length < 3) {
+    if(room.memory.danger == true && defenders.length < 2) {
         let newName = 'Defender' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawns[0].spawnCreep(getBody([ATTACK,ATTACK,ATTACK,MOVE], room), newName, 
+        let result = spawns[0].spawnCreep(getBody([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE], room), newName, 
             {memory: {role: 'defender'}});  
         if(result == OK) {
             console.log('Spawning new defender: ' + newName);

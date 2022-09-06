@@ -7,17 +7,21 @@ var roleDefender = {
 
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+            let rampartToMan = creep.room.memory.rampartToMan.id;
+            
+            let rampart = Game.getObjectById(rampartToMan);
 
-            if(creep.attack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestEnemyCreep);
+            if(creep.rangedAttack(closestEnemyCreep) == 0) {
+                creep.say("die meanie!")
+                // return;
+            }
+
+            if(creep.pos != rampart.pos) { //and range to hostile is less than x
+                creep.moveTo(rampart);
                 return;
             }
-            if(creep.attack(closestEnemyCreep) == 0) {
-                return;
-            }
+
         }
-// if im on a rampart, dont move.
-
     }
 };
 
