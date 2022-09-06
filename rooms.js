@@ -1,6 +1,6 @@
 let roomDefence = require('./rooms.defence');
 let spawning = require('./rooms.spawning');
-// let spawningRemote
+let construction = require('./rooms.construction');
 let market = require('./rooms.market');
 
 function identifySources(room) {
@@ -42,8 +42,12 @@ function rooms() {
 
             market(room);
 
-            if(Game.time % 200 == 1) {
+            if(Game.time % 80 == 1) {
                 identifySources(room);
+            }
+            
+            if(Game.time % 2000 == 1) {
+                construction(room);
             }
         }
     });

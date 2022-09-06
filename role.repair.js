@@ -5,42 +5,15 @@
 
 function findLocked(creep) {
     let buildingsToRepair300mil;
-    let buildingsToRepair30mil;
-    let buildingsToRepair10mil;
-    let buildingsToRepair3mil;
-    let buildingsToRepair1mil;
+
     if(creep.room.controller.level > 2) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
-        buildingsToRepair30mil = _.filter(buildingsToRepair300mil, (building) => building.hits < building.hitsMax && building.hits < 30000000);
-        buildingsToRepair10mil = _.filter(buildingsToRepair30mil, (building) => building.hits < building.hitsMax && building.hits < 10000000);
-        buildingsToRepair3mil = _.filter(buildingsToRepair10mil, (building) => building.hits < building.hitsMax && building.hits < 3000000);
-        buildingsToRepair1mil = _.filter(buildingsToRepair3mil, (building) => building.hits < building.hitsMax && building.hits < 1000000);
     }
     else {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
-        buildingsToRepair30mil = _.filter(buildingsToRepair300mil, (building) => building.hits < building.hitsMax && building.hits < 30000000);
-        buildingsToRepair10mil = _.filter(buildingsToRepair30mil, (building) => building.hits < building.hitsMax && building.hits < 10000000);
-        buildingsToRepair3mil = _.filter(buildingsToRepair10mil, (building) => building.hits < building.hitsMax && building.hits < 3000000);
-        buildingsToRepair1mil = _.filter(buildingsToRepair3mil, (building) => building.hits < building.hitsMax && building.hits < 1000000);
     }
 
-    if(buildingsToRepair1mil.length > 0) {
-        buildingsToRepair1mil.sort((a,b) => a.hits - b.hits);
-        return buildingsToRepair1mil[0];
-    }
-    else if(buildingsToRepair3mil.length > 0) {
-        buildingsToRepair3mil.sort((a,b) => a.hits - b.hits);
-        return buildingsToRepair3mil[0];
-    }
-    else if(buildingsToRepair10mil.length > 0) {
-        buildingsToRepair10mil.sort((a,b) => a.hits - b.hits);
-        return buildingsToRepair10mil[0];
-    }
-    else if(buildingsToRepair30mil.length > 0) {
-        buildingsToRepair30mil.sort((a,b) => a.hits - b.hits);
-        return buildingsToRepair30mil[0];
-    }
-    else if(buildingsToRepair300mil.length > 0) {
+    if(buildingsToRepair300mil.length > 0) {
         buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
         return buildingsToRepair300mil[0];
     }

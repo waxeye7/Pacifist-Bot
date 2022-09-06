@@ -59,6 +59,16 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         // console.log(this.pos.getRangeTo(storedSource))
         // console.log(this.pos.isNearTo(storedSource), this.name)
         if(this.pos.isNearTo(storedSource)) {
+            if(this.memory.role == "EnergyMiner") {
+                let look = this.pos.lookFor(LOOK_STRUCTURES);
+                let looked;
+                if(look) {
+                    looked = look.filter(object => object.structureType == STRUCTURE_CONTAINER);
+                }
+                if(looked.length == 0) {
+                    this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
+                }
+            }
             this.harvest(storedSource);
         }
         else if(this.pos.getRangeTo(storedSource) < 6 && Containers.length > 0) {
