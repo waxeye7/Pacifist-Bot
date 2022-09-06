@@ -14,6 +14,7 @@ function getCarrierBody(sourceId, storage, spawn, room) {
     let targetSource = Game.getObjectById(sourceId);
     let pathFromStorageToSource;
     let distanceFromStorageToSource;
+    let carriersInRoom = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry' && creep.room.name == room.name);
 
     if(storage != undefined) {
         pathFromStorageToSource = storage.pos.findPathTo(targetSource);
@@ -26,6 +27,11 @@ function getCarrierBody(sourceId, storage, spawn, room) {
 
     let threeWorkParts = 6;
     let fiveWorkParts = 10;
+
+
+    if(carriersInRoom.length == 0 && storage == undefined) {
+        return [CARRY,CARRY,MOVE];
+    }
 
     if(targetSource == null) {
         let body = getBody([CARRY,CARRY,MOVE], room, 1.6);
@@ -261,7 +267,7 @@ function spawning(room) {
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
+    let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 7);
 
     let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
@@ -271,6 +277,8 @@ function spawning(room) {
 
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
 
+
+    
     if (((fillers.length < fillerTargetAmount) || (room.find(FIND_HOSTILE_CREEPS) != undefined && room.find(FIND_HOSTILE_CREEPS).length > 1 && fillers.length < 4)) && storage != undefined) {
         let newName = 'Filler' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         console.log('Spawning new filler: ' + newName);
@@ -357,7 +365,7 @@ function spawning(room) {
         }
     }
 
-    if(attackers.length < 1) {
+    if(attackers.length < 0) {
         let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         console.log('Spawning new attacker: ' + newName);
         let result = spawns[0].spawnCreep(getBody([ATTACK,MOVE], room), newName, 
@@ -398,6 +406,26 @@ function spawning(room) {
         }
     }
 
+    let spawned;
+    _.forEach(Game.rooms, function(thisRoom) {
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker) {
+            let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+            let result = spawns[0].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE], newName, 
+                {memory: {role: 'attacker', targetRoom: thisRoom.name}});  
+            if(result == OK) {
+                console.log('Spawning new attacker: ' + newName);
+                spawned = true;
+                thisRoom.memory.has_hostile_structures = false;
+                return;
+            }
+        }
+    });
+    if(spawned) {
+        return;
+    }
+
+
+
 
     if(spawns[0].spawning) { 
         let spawningCreep = Game.creeps[spawns[0].spawning.name];
@@ -407,7 +435,10 @@ function spawning(room) {
             spawns[0].pos.y, 
             {align: 'left', opacity: 0.8});
     }
+}
 
+
+module.exports = spawning;
     // if(room.name == "E12S39") {
     //     let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker' && creep.room.name == room.name);
     //     let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder' && creep.room.name == room.name);
@@ -484,6 +515,3 @@ function spawning(room) {
         //     Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY], newName, 
         //         {memory: {role: 'colobuild'}});        
         // }
-}
-
-module.exports = spawning;

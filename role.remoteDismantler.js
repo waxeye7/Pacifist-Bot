@@ -7,10 +7,13 @@
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
     }
     else {
-        let thisWall = Game.getObjectById('62d07b925afcebfbab5b3b85');
-        if(thisWall) {
-            if(creep.dismantle(thisWall) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(thisWall);
+        let HostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES);
+        if (HostileStructures.length > 0) {
+            if(creep.pos.isNearTo(HostileStructures[0])) {
+                creep.dismantle(HostileStructures[0]);
+            }
+            else {
+                creep.moveTo(HostileStructures[0]);
             }
         }
     }

@@ -31,7 +31,7 @@
             }
         }
         else {
-            let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+            let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
             let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
             if(creep.pos.isNearTo(closestDropOffLocation)) {
                 creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);

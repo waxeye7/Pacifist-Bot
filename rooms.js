@@ -1,5 +1,6 @@
 let roomDefence = require('./rooms.defence');
 let spawning = require('./rooms.spawning');
+// let spawningRemote
 let market = require('./rooms.market');
 
 function identifySources(room) {
@@ -21,6 +22,18 @@ function identifySources(room) {
 
 function rooms() {
     _.forEach(Game.rooms, function(room) {
+        if(Game.time % 200 == 1) {
+            let attackersInRoom = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
+            let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
+            if (HostileStructures.length > 0 && attackersInRoom.length == 0) {
+                room.memory.has_hostile_structures = true;
+                room.memory.has_attacker = false;
+            }
+            else {
+                room.memory.has_hostile_structures = false;
+            }
+        }
+
         if (room && room.controller && room.controller.my) {
 
             spawning(room);
