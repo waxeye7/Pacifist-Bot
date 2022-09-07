@@ -48,10 +48,13 @@ const run = function (creep) {
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
-            if(creep.attack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestEnemyCreep);
-                return;
+            if(creep.pos.isNearTo(closestEnemyCreep)) {
+                creep.attack(closestEnemyCreep);
             }
+            else {
+                creep.moveTo(closestEnemyCreep);
+            }
+
             if(creep.attack(closestEnemyCreep) == 0) {
                 creep.moveTo(closestEnemyCreep);
                 return;

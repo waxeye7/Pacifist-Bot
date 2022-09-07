@@ -27,24 +27,24 @@ var roleFiller = {
 
 	    if(creep.store[RESOURCE_ENERGY] == 0) {
             if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                creep.moveTo(storage, {reusePath:10, visualizePathStyle: {stroke: '#ffaa00'}});
             }
             else if(creep.withdraw(storage, RESOURCE_ENERGY) == 0) {
                 let closestTarget = creep.pos.findClosestByRange(targets);
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(closestTarget, {reusePath:10, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
 
         else if(lowEnergyTowers.length > 0) {
             let closestTarget = creep.pos.findClosestByRange(lowEnergyTowers);
             if(creep.transfer(closestTarget, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(closestTarget, {reusePath:10, visualizePathStyle: {stroke: '#ffffff'}});
             }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] > 0) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(closestTarget, {reusePath:10, visualizePathStyle: {stroke: '#ffffff'}});
             }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                creep.moveTo(storage, {reusePath:10, visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }
 
@@ -53,7 +53,7 @@ var roleFiller = {
                 creep.transfer(terminal, RESOURCE_ENERGY);
             }
             else {
-                creep.moveTo(terminal);
+                creep.moveTo(terminal, {reusePath:10});
             }
         }
         
@@ -61,19 +61,19 @@ var roleFiller = {
         else if(targets.length > 0) {
             let closestTarget = creep.pos.findClosestByRange(targets);
             if(creep.transfer(closestTarget, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(closestTarget, {reusePath:10, visualizePathStyle: {stroke: '#ffffff'}});
             }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] > 0) {
-                creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(closestTarget, {reusePath:10, visualizePathStyle: {stroke: '#ffffff'}});
             }
             else if (creep.transfer(closestTarget, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                creep.moveTo(storage, {reusePath:10, visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }
 
         else if (targets.length == 0 && creep.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
             if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+                creep.moveTo(storage, {reusePath:10, visualizePathStyle: {stroke: '#ffaa00'}});
             }
         }
     }

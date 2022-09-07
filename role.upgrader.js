@@ -15,10 +15,10 @@ var roleUpgrader = {
             creep.memory.upgrading = false;
 			if(storage == undefined) {
 				let source = Game.getObjectById(creep.memory.source) || creep.findSource();
-				creep.moveTo(source, {visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.moveTo(source, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
 			}
 			else {
-				creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
 			}
 	    }
 
@@ -29,7 +29,7 @@ var roleUpgrader = {
 
 	    if(creep.memory.upgrading) {
             if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(creep.room.controller, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else {
@@ -38,7 +38,7 @@ var roleUpgrader = {
 			}
 			else {
 				if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-					creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
+					creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
 				}
 			}
         }

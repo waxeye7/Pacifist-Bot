@@ -27,7 +27,7 @@
                 creep.transfer(storage, RESOURCE_ENERGY);
             }
             else {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else {
@@ -37,7 +37,7 @@
                 creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);
             }
             else {
-                creep.moveTo(closestDropOffLocation);
+                creep.moveTo(closestDropOffLocation, {reusePath:20});
             }
         }
 

@@ -123,7 +123,7 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                 }
 
                 else {
-                    let result = spawn.spawnCreep([WORK,WORK,WORK,MOVE], newName, 
+                    let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,MOVE], newName, 
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                     if(result == OK) {
                         console.log('Spawning new EnergyMiner: ' + newName);
@@ -172,10 +172,10 @@ function spawn_remote_repairer(resourceData, room, spawn) {
     let foundCreepToSpawn = false;
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
-            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME) {
+            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 2) {
                 let newName = 'RemoteRepairer' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
                 if(targetRoomName != room.name) {
-                    let result = spawn.spawnCreep([WORK,CARRY,MOVE], newName, 
+                    let result = spawn.spawnCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], newName, 
                         {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                     if(result == OK) {
                         console.log('Spawning new RemoteRepairer: ' + newName);
@@ -265,9 +265,9 @@ function spawning(room) {
     let workerTargetAmount = _.get(room.memory, ['census', 'worker'], 0);
 
 
-    let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 2);
+    let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
+    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 5);
 
     let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
@@ -344,7 +344,7 @@ function spawning(room) {
         }
     }
 
-    if (upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 1) || (room.controller.level <= 5 && upgraders.length < preRCL6UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
+    if (upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 1) || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
@@ -366,15 +366,15 @@ function spawning(room) {
 
     if(attackers.length < 0) {
         let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawns[0].spawnCreep(getBody([ATTACK,MOVE], room), newName, 
-            {memory: {role: 'attacker', targetRoom: "E12S36", targetRoom2: "E12S39"}});  
+        let result = spawns[0].spawnCreep(getBody([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE], room), newName, 
+            {memory: {role: 'attacker', targetRoom: "E12S39", targetRoom2: "E12S39"}});  
         if(result == OK) {
             console.log('Spawning new attacker: ' + newName);
             return;
         }
     }
 
-    if(containerbuilders.length < 2) {
+    if(containerbuilders.length < 0) {
         let newName = 'ContainerBuilder' + Game.time + " " + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'buildcontainer', targetRoom: "E11S37"}});  

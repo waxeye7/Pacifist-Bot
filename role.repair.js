@@ -19,15 +19,8 @@ function findLocked(creep) {
     }
 }
 
-
-
  const run = function (creep) {
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-
-    // if(creep.fatigue > 0) {
-    //     console.log('hi')
-    //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
-    // }
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
@@ -65,7 +58,6 @@ function findLocked(creep) {
         else {
             creep.moveTo(storage);
         }
-        return;
     }
 
     else {

@@ -39,7 +39,7 @@ Room.prototype.findStorage = function() {
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName));
+    this.moveTo(new RoomPosition(25,25, roomName), {range:23});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
