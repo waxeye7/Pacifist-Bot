@@ -265,7 +265,7 @@ function spawning(room) {
     let workerTargetAmount = _.get(room.memory, ['census', 'worker'], 0);
 
 
-    let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
+    let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 2);
 
     let preRCL6UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
 
@@ -317,7 +317,7 @@ function spawning(room) {
     let deposit = room.find(FIND_MINERALS);
     if (MineralMiners.length < 1 && room.controller.level >= 6 && deposit[0].mineralAmount > 0) {
         let newName = 'MineralMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawns[0].spawnCreep([WORK,CARRY,MOVE], newName, 
+        let result = spawns[0].spawnCreep([WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE], newName, 
             {memory: {role: 'MineralMiner'}});
         if(result == OK) {
             console.log('Spawning new MineralMiner: ' + newName);
@@ -374,10 +374,10 @@ function spawning(room) {
         }
     }
 
-    if(containerbuilders.length < 0) {
+    if(containerbuilders.length < 2) {
         let newName = 'ContainerBuilder' + Game.time + " " + room.name;
-        let result = spawns[0].spawnCreep([MOVE,WORK,CARRY], newName, 
-            {memory: {role: 'buildcontainer', targetRoom: "E12S35"}});  
+        let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
+            {memory: {role: 'buildcontainer', targetRoom: "E11S37"}});  
         if(result == OK) {
             console.log('Spawning new ContainerBuilder: ' + newName);
             return;
@@ -387,7 +387,7 @@ function spawning(room) {
     if(claimers.length < 0) {
         let newName = 'Claimer' + Game.time + " " + room.name;
         let result = spawns[0].spawnCreep([MOVE,CLAIM], newName, 
-            {memory: {role: 'claimer', targetRoom: "E12S35"}});  
+            {memory: {role: 'claimer', targetRoom: "E11S37"}});  
         if(result == OK) {
             console.log('Spawning new Claimer: ' + newName);
             return;

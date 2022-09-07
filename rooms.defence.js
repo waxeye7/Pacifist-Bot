@@ -35,7 +35,7 @@ function roomDefence(room) {
             if(currentLowestRange > rangeToEnemy) {
                 currentLowestRange = rangeToEnemy;
                 currentRampart = rampart;
-                room.memory.rampartToMan = currentRampart;        
+                room.memory.rampartToMan = currentRampart.id;        
             }
         });
 

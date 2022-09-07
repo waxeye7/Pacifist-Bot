@@ -7,7 +7,7 @@ var roleDefender = {
 
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
-            let rampartToMan = creep.room.memory.rampartToMan.id;
+            let rampartToMan = creep.room.memory.rampartToMan;
             
             let rampart = Game.getObjectById(rampartToMan);
 
@@ -21,6 +21,10 @@ var roleDefender = {
                 return;
             }
 
+        }
+        else {
+            creep.memory.role = "RangedAttacker";
+            creep.memory.targetRoom = "E12S39";
         }
     }
 };

@@ -46,7 +46,7 @@ function rooms() {
                 identifySources(room);
             }
             
-            if(Game.time % 2000 == 1) {
+            if(Game.time % 10000 == 1) {
                 construction(room);
             }
         }
