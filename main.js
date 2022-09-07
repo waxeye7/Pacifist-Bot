@@ -22,7 +22,11 @@ global.ROLES = {
 
     EnergyMiner : require('./role.energyMiner'),
     carry: require('./role.carry'),
+
+    Dismantler: require('./role.Dismantler'),
     RemoteRepair: require('./role.remoteRepair'),
+
+
     builder: require('./role.builder'),
     upgrader: require('./role.upgrader'),
     filler: require('./role.filler'),

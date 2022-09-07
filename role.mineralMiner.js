@@ -23,18 +23,18 @@
             creep.harvest(deposit);
         }
         else {
-            creep.moveTo(deposit);
+            creep.moveTo(deposit, {reusePath:20});
         }
     }
     else {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-        if(storage && storage.store[deposit.mineralType] < 6000) {
+        if(storage && storage.store[deposit.mineralType] < 4000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.transfer(storage, deposit.mineralType);
             }
             else {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
             }
             return;
         }
@@ -47,7 +47,7 @@
                 creep.transfer(terminal, deposit.mineralType);
             }
             else {
-                creep.moveTo(terminal);
+                creep.moveTo(terminal, {reusePath:20});
             }
             return;
         }
@@ -58,7 +58,7 @@
                 creep.transfer(storage, deposit.mineralType);
             }
             else {
-                creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
             }
             return;
         }

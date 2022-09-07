@@ -23,7 +23,7 @@
                 creep.repair(closestBuildingToRepair);
             }
             else {
-                creep.moveTo(closestBuildingToRepair);
+                creep.moveTo(closestBuildingToRepair, {reusePath:20});
             }
         }
 
@@ -33,7 +33,7 @@
                 creep.build(closestBuildingtoBuild);
             }
             else {
-                creep.moveTo(closestBuildingtoBuild);
+                creep.moveTo(closestBuildingtoBuild, {reusePath:20});
             }
             return;
         }

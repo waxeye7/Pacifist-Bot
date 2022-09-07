@@ -220,6 +220,8 @@ function spawning(room) {
     let carriersInRoom = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry' && creep.room.name == room.name);
     let RemoteRepairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'RemoteRepair');
 
+    let Dismantlers = _.filter(Game.creeps, (creep) => creep.memory.role == 'Dismantler' && creep.room.name == room.name);
+
     let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer');
     let RemoteDismantlers = _.filter(Game.creeps, (creep) => creep.memory.role == 'RemoteDismantler');
 
@@ -399,7 +401,7 @@ function spawning(room) {
         let newName = 'RemoteDismantler' + Game.time + " " + room.name;
         let result = spawns[0].spawnCreep([MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, 
             {memory: {role: 'RemoteDismantler', targetRoom: "E12S35"}});  
-        if(result == OK) {console.log('Spawning new RemoteDismantler: ' + newName);
+        if(result == OK) {
             console.log('Spawning new RemoteDismantler: ' + newName);
             return;
         }
@@ -409,7 +411,7 @@ function spawning(room) {
     _.forEach(Game.rooms, function(thisRoom) {
         if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-            let result = spawns[0].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE], newName, 
+            let result = spawns[0].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE], newName, 
                 {memory: {role: 'attacker', targetRoom: thisRoom.name}});  
             if(result == OK) {
                 console.log('Spawning new attacker: ' + newName);
@@ -422,6 +424,17 @@ function spawning(room) {
     if(spawned) {
         return;
     }
+
+    if(room.controller.level <= 4 && Dismantlers.length < 0) {
+        let newName = 'Dismantler' + Game.time + " " + room.name;
+        let result = spawns[0].spawnCreep(getBody([WORK,WORK,WORK,WORK,MOVE], room), newName, 
+            {memory: {role: 'Dismantler'}});  
+        if(result == OK) {
+            console.log('Spawning new Dismantler: ' + newName);
+            return;
+        }
+    }
+
 
 
 

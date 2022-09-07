@@ -6,11 +6,11 @@
 function findLocked(creep) {
     let buildingsToRepair300mil;
 
-    if(creep.room.controller.level > 2) {
+    if(creep.room.controller.level > 4) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
     }
     else {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_WALL});
     }
 
     if(buildingsToRepair300mil.length > 0) {
@@ -45,7 +45,7 @@ function findLocked(creep) {
         if(creep.memory.locked && creep.memory.locked != false) {
             let repairTarget = Game.getObjectById(creep.memory.locked.id);
             if(creep.repair(repairTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(repairTarget);
+                creep.moveTo(repairTarget, {reusePath:20});
             }
         }
 
@@ -56,7 +56,7 @@ function findLocked(creep) {
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
         else {
-            creep.moveTo(storage);
+            creep.moveTo(storage, {reusePath:20});
         }
     }
 

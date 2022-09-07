@@ -9,7 +9,7 @@ const run = function (creep) {
         if(containers.length > 0) {
             closestContainer = creep.pos.findClosestByRange(containers);
             if(creep.pos.getRangeTo(closestContainer) <= 3 && creep.pos.getRangeTo(closestContainer) >= 1) {
-                creep.moveTo(closestContainer);
+                creep.moveTo(closestContainer, {reusePath:20});
                 return;
             }
         }

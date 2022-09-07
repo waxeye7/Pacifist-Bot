@@ -73,10 +73,10 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         }
         else if(this.pos.getRangeTo(storedSource) < 6 && Containers.length > 0) {
             let closestContainer = this.pos.findClosestByRange(Containers);
-            this.moveTo(closestContainer);
+            this.moveTo(closestContainer, {reusePath:20});
         }
         else {
-            this.moveTo(storedSource);
+            this.moveTo(storedSource, {reusePath:20});
         }
     }
 }
@@ -89,22 +89,23 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     if(dropped_resources.length > 0) {
         let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
         if(this.pickup(closestDroppedEnergy) == ERR_NOT_IN_RANGE) {
-            this.moveTo(closestDroppedEnergy, {visualizePathStyle: {stroke: '#ffaa00'}});
+            this.moveTo(closestDroppedEnergy, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
         }
         return;
     }
 
     else if(Containers.length > 0) {
-        Containers.sort((a, b) => b.store[RESOURCE_ENERGY]- a.store[RESOURCE_ENERGY]);
-        if(this.withdraw(Containers[0], RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-            this.moveTo(Containers[0]);
+        // Containers.sort((a, b) => b.store[RESOURCE_ENERGY]- a.store[RESOURCE_ENERGY]);
+        let closestContainer = this.pos.findClosestByRange(Containers);
+        if(this.withdraw(closestContainer, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+            this.moveTo(closestContainer, {reusePath:20});
         }
         return;
     }
     else if(dropped_resources_last_chance.length > 0) {
         dropped_resources_last_chance.sort((a,b) => b.amount - a.amount);
         if(this.pickup(dropped_resources_last_chance[0]) == ERR_NOT_IN_RANGE) {
-            this.moveTo(dropped_resources_last_chance[0], {visualizePathStyle: {stroke: '#ffaa00'}});
+            this.moveTo(dropped_resources_last_chance[0], {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
         }
         return;
     }

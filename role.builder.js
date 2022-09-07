@@ -40,7 +40,7 @@
         if(creep.memory.locked && creep.memory.locked != false) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
             if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(buildTarget);
+                creep.moveTo(buildTarget, {reusePath:20});
             }
         }
     }
@@ -50,7 +50,7 @@
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
         else {
-            creep.moveTo(storage);
+            creep.moveTo(storage, {reusePath:20});
         }
     }
 
