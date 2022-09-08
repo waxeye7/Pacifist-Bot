@@ -118,7 +118,7 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                             values.lastSpawn = Game.time;
                             foundCreepToSpawn = true;
                             return;
-                        }   
+                        }
                     }
                 }
 
@@ -132,7 +132,20 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                         return;
                     }
                 }
-            }  
+            }
+
+            if(Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME*2) {
+                let newName = 'EnergyMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+                let result = spawn.spawnCreep([WORK,WORK,MOVE], newName, 
+                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                if(result == OK) {
+                    console.log('Spawning new EnergyMiner: ' + newName);
+                    values.lastSpawn = Game.time;
+                    foundCreepToSpawn = true;
+                    return;
+                }
+            }
+
             if(foundCreepToSpawn != false) {return;}});if(foundCreepToSpawn != false) {return;}});if(foundCreepToSpawn != false) {return true;}
 }
 
@@ -155,6 +168,21 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     return;
                 }
             }
+
+            if(Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME*2) {
+                let newName = 'Carrier' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+                // console.log('Spawning new Carrier: ' + newName);
+
+                let result = spawn.spawnCreep([MOVE,CARRY], newName, 
+                    {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
+                if(result == OK) {
+                    console.log('Spawning new Carrier: ' + newName);
+                    values.lastSpawnCarrier = Game.time-400;
+                    foundCreepToSpawn = true;
+                    return;
+                }
+            }
+            
             if(foundCreepToSpawn != false) {
                 return;
             }
@@ -229,12 +257,17 @@ function spawning(room) {
 
     let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
 
+    let DrainTowers = _.filter(Game.creeps, (creep) => creep.memory.role == 'DrainTower');
+    let healers = _.filter(Game.creeps, (creep) => creep.memory.role == 'healer');
+
 
     console.log("Room-" + room.name + " has " + builders.length + " Builders " + upgraders.length +
     " Upgraders " + repairers.length + " Repairers " + fillers.length
     + " Fillers [" + EnergyMiners.length + " Energy-Miners in all rooms] [" + carriers.length +
      " Carriers in all rooms] [" +  RemoteRepairers.length, "RemoteRepairers in all rooms] [" + attackers.length + " Attackers in all rooms]");
 
+
+     console.log(DrainTowers.length, healers.length)
 
 // info section above
 
@@ -269,9 +302,9 @@ function spawning(room) {
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 5);
+    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
 
-    let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
+    let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 1);
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
     let repairerTargetAmount = _.get(room.memory, ['census', 'repair'], 1);
 
@@ -431,6 +464,26 @@ function spawning(room) {
             {memory: {role: 'Dismantler'}});  
         if(result == OK) {
             console.log('Spawning new Dismantler: ' + newName);
+            return;
+        }
+    }
+
+    if(DrainTowers.length < 0) {
+        let newName = 'DrainTower' + Game.time + " " + room.name;
+        let result = spawns[0].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+            {memory: {role: 'DrainTower', targetRoom: "E12S39", healRoom: "E12S38"}});  
+        if(result == OK) {
+            console.log('Spawning new DrainTower: ' + newName);
+            return;
+        }
+    }
+
+    if(healers.length < 0) {
+        let newName = 'healer' + Game.time + " " + room.name;
+        let result = spawns[0].spawnCreep([HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+            {memory: {role: 'healer', targetRoom: "E12S38"}});  
+        if(result == OK) {
+            console.log('Spawning new healer: ' + newName);
             return;
         }
     }

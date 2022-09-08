@@ -39,7 +39,7 @@ Room.prototype.findStorage = function() {
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName), {range:23});
+    this.moveTo(new RoomPosition(25,25, roomName), {range:6});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -94,7 +94,20 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         return;
     }
 
-    else if(Containers.length > 0) {
+    if(Containers.length > 1) {
+        Containers.sort((a,b) => b.amount - a.amount);
+        let Container1 = Containers[0];
+        let Container2 = Containers[1];
+        if(Container1.store[RESOURCE_ENERGY] > 3 * Container2.store[RESOURCE_ENERGY]) {
+            if(this.withdraw(Container1, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                this.moveTo(Container1, {reusePath:20});
+            }
+            return;
+        }
+    }
+
+
+    if(Containers.length > 0) {
         // Containers.sort((a, b) => b.store[RESOURCE_ENERGY]- a.store[RESOURCE_ENERGY]);
         let closestContainer = this.pos.findClosestByRange(Containers);
         if(this.withdraw(closestContainer, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
@@ -102,7 +115,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         return;
     }
-    else if(dropped_resources_last_chance.length > 0) {
+    if(dropped_resources_last_chance.length > 0) {
         dropped_resources_last_chance.sort((a,b) => b.amount - a.amount);
         if(this.pickup(dropped_resources_last_chance[0]) == ERR_NOT_IN_RANGE) {
             this.moveTo(dropped_resources_last_chance[0], {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});

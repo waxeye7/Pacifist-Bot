@@ -36,7 +36,8 @@ global.ROLES = {
     attacker: require('./role.attacker'),
     RangedAttacker: require('./role.RangedAttacker'),
 
-
+    DrainTower: require('./role.DrainTower'),
+    healer: require('./role.healer'),
 
     buildcontainer: require('./role.buildcontainer'),
     claimer: require('./role.claimer'),

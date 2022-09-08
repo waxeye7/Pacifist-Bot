@@ -10,7 +10,7 @@
         return buildingsToBuild[0].id;
     }
 	else {
-		creep.memory.role = repair;
+		creep.memory.role = "repair";
 	}
 }
 
