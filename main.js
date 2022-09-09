@@ -29,8 +29,9 @@ global.ROLES = {
 
     builder: require('./role.builder'),
     upgrader: require('./role.upgrader'),
-    filler: require('./role.filler'),
     repair: require('./role.repair'),
+    
+    filler: require('./role.filler'),
     defender: require('./role.defender'),
 
     attacker: require('./role.attacker'),

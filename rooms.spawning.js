@@ -101,7 +101,7 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                 // console.log('Spawning new EnergyMiner: ' + newName);
                 if(targetRoomName == room.name) {
                     if(room.energyCapacityAvailable >= 550) {
-                        let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
+                        let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
                             {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                         if(result == OK) {
                             console.log('Spawning new EnergyMiner: ' + newName);
@@ -173,11 +173,11 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                 let newName = 'Carrier' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
                 // console.log('Spawning new Carrier: ' + newName);
 
-                let result = spawn.spawnCreep([MOVE,CARRY], newName, 
+                let result = spawn.spawnCreep([MOVE,CARRY,CARRY], newName, 
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
                 if(result == OK) {
                     console.log('Spawning new Carrier: ' + newName);
-                    values.lastSpawnCarrier = Game.time-400;
+                    values.lastSpawnCarrier = Game.time-600;
                     foundCreepToSpawn = true;
                     return;
                 }
@@ -223,6 +223,22 @@ function spawn_remote_repairer(resourceData, room, spawn) {
     });
     if(foundCreepToSpawn != false) {
         return true;
+    }
+}
+
+function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, EnergyMinersInRoom, carriersInRoom) {
+    let foundCreepToSpawn = false;
+    if((repairers.length < repairerTargetAmount && room.controller.level > 1) || (storage && storage.store[RESOURCE_ENERGY] > 500000 && repairers.length < repairerTargetAmount + 1)) {
+        if(EnergyMinersInRoom.length > 1 && carriersInRoom.length > 1) {
+            let newName = 'Repair' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+            let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
+                {memory: {role: 'repair'}});
+            if(result == OK) {
+                console.log('Spawning new repairer: ' + newName + "-" + room.name);
+                foundCreepToSpawn = true;
+                return foundCreepToSpawn;
+            }
+        }
     }
 }
 
@@ -352,14 +368,14 @@ function spawning(room) {
     let deposit = room.find(FIND_MINERALS);
     if (MineralMiners.length < 1 && room.controller.level >= 6 && deposit[0].mineralAmount > 0) {
         let newName = 'MineralMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawns[0].spawnCreep([WORK,WORK,WORK,WORK,WORK,CARRY,MOVE,MOVE,MOVE], newName, 
+        let result = spawns[0].spawnCreep([WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], newName, 
             {memory: {role: 'MineralMiner'}});
         if(result == OK) {
             console.log('Spawning new MineralMiner: ' + newName);
             return;
         }
     }
-    if(room.memory.danger == true && defenders.length < 2) {
+    if(room.memory.danger == true && defenders.length < 5) {
         let newName = 'Defender' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE], room), newName, 
             {memory: {role: 'defender'}});  
@@ -369,7 +385,7 @@ function spawning(room) {
         }
     }
    
-    if(sites.length > 0 && builders.length < builderTargetAmount) {
+    if(sites.length > 0 && builders.length < builderTargetAmount && carriers.length > 1 && EnergyMinersInRoom.length > 1) {
         let newName = 'Builder' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'builder'}});
@@ -379,7 +395,7 @@ function spawning(room) {
         }
     }
 
-    if (upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 1) || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
+    if (carriers.length > 1 && EnergyMinersInRoom.length > 1 && upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 4) || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
@@ -389,14 +405,8 @@ function spawning(room) {
         }
     }
 
-    if(repairers.length < repairerTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 && room.controller.level > 1 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && repairers.length < repairerTargetAmount + 2)) {
-        let newName = 'Repair' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
-            {memory: {role: 'repair'}});
-        if(result == OK) {
-            console.log('Spawning new repairer: ' + newName + "-" + room.name);
-            return;
-        }
+    if(spawn_repair(room, spawns[0], storage, repairers, repairerTargetAmount, EnergyMinersInRoom, carriersInRoom) == true) {
+        return;
     }
 
     if(attackers.length < 0) {
@@ -504,6 +514,8 @@ function spawning(room) {
 
 
 module.exports = spawning;
+
+
     // if(room.name == "E12S39") {
     //     let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker' && creep.room.name == room.name);
     //     let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder' && creep.room.name == room.name);

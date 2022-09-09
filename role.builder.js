@@ -7,6 +7,7 @@
 	let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
 
     if(buildingsToBuild.length > 0) {
+		creep.say("🎯", true); 
         return buildingsToBuild[0].id;
     }
 	else {
@@ -46,12 +47,7 @@
     }
 
     else if(!creep.memory.building && storage) {
-        if(creep.pos.isNearTo(storage)) {
-            creep.withdraw(storage, RESOURCE_ENERGY);
-        }
-        else {
-            creep.moveTo(storage, {reusePath:20});
-        }
+		creep.withdrawStorage(storage);
     }
 
     else {

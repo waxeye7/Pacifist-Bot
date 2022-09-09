@@ -6,7 +6,7 @@
 function findLocked(creep) {
     let buildingsToRepair300mil;
 
-    if(creep.room.controller.level > 4) {
+    if(creep.room.controller.level > 2) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
     }
     else {
@@ -15,6 +15,7 @@ function findLocked(creep) {
 
     if(buildingsToRepair300mil.length > 0) {
         buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
+        creep.say("🎯", true);
         return buildingsToRepair300mil[0];
     }
 }
@@ -52,12 +53,7 @@ function findLocked(creep) {
     }
 
     else if(!creep.memory.repairing && storage) {
-        if(creep.pos.isNearTo(storage)) {
-            creep.withdraw(storage, RESOURCE_ENERGY);
-        }
-        else {
-            creep.moveTo(storage, {reusePath:20});
-        }
+        creep.withdrawStorage(storage);
     }
 
     else {

@@ -16,17 +16,6 @@
 
         let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
 
-
-        if(buildingsToRepair.length > 0) {
-            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-            if(creep.pos.isNearTo(closestBuildingToRepair)) {
-                creep.repair(closestBuildingToRepair);
-            }
-            else {
-                creep.moveTo(closestBuildingToRepair, {reusePath:20});
-            }
-        }
-
         if(buildingsToBuild.length > 0) {
             let closestBuildingtoBuild = creep.pos.findClosestByRange(buildingsToBuild);
             if(creep.pos.isNearTo(closestBuildingtoBuild)) {
@@ -36,6 +25,18 @@
                 creep.moveTo(closestBuildingtoBuild, {reusePath:20});
             }
             return;
+        }
+
+
+
+        if(buildingsToRepair.length > 0) {
+            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+            if(creep.pos.isNearTo(closestBuildingToRepair)) {
+                creep.repair(closestBuildingToRepair);
+            }
+            else {
+                creep.moveTo(closestBuildingToRepair, {reusePath:20});
+            }
         }
 
 

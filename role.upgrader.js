@@ -37,9 +37,7 @@ var roleUpgrader = {
 				creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 			}
 			else {
-				if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-					creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
-				}
+				creep.withdrawStorage(storage);
 			}
         }
 	}

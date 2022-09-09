@@ -3,17 +3,6 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    if(creep.room.name == creep.memory.targetRoom) {
-        const containers = creep.room.find(FIND_STRUCTURES, {filter: object => object.structureType == STRUCTURE_CONTAINER});
-        let closestContainer;
-        if(containers.length > 0) {
-            closestContainer = creep.pos.findClosestByRange(containers);
-            if(creep.pos.getRangeTo(closestContainer) <= 3 && creep.pos.getRangeTo(closestContainer) >= 1) {
-                creep.moveTo(closestContainer, {reusePath:20});
-                return;
-            }
-        }
-    }
     creep.harvestEnergy();
 }
 const roleEnergyMiner = {
