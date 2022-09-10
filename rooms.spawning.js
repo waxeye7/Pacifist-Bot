@@ -182,18 +182,7 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     return;
                 }
             }
-            
-            if(foundCreepToSpawn != false) {
-                return;
-            }
-        });
-        if(foundCreepToSpawn != false) {
-            return;
-        }
-    });
-    if(foundCreepToSpawn != false) {
-        return true;
-    }
+            if(foundCreepToSpawn != false) {return;}});if(foundCreepToSpawn != false) {return;}});if(foundCreepToSpawn != false) {return true;}
 }
 
 function spawn_remote_repairer(resourceData, room, spawn) {
@@ -266,6 +255,8 @@ function spawning(room) {
 
     let Dismantlers = _.filter(Game.creeps, (creep) => creep.memory.role == 'Dismantler' && creep.room.name == room.name);
 
+    let scouts = _.filter(Game.creeps, (creep) => creep.memory.role == 'scout');
+
     let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer');
     let RemoteDismantlers = _.filter(Game.creeps, (creep) => creep.memory.role == 'RemoteDismantler');
 
@@ -283,7 +274,7 @@ function spawning(room) {
      " Carriers in all rooms] [" +  RemoteRepairers.length, "RemoteRepairers in all rooms] [" + attackers.length + " Attackers in all rooms]");
 
 
-     console.log(DrainTowers.length, healers.length)
+    //  console.log(DrainTowers.length, healers.length)
 
 // info section above
 
@@ -320,8 +311,12 @@ function spawning(room) {
 
     let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
 
-    let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 1);
+    let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
+
+
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
+    let fillerRCL6TargetAmount = _.get(room.memory, ['census', 'filler'], 2);
+
     let repairerTargetAmount = _.get(room.memory, ['census', 'repair'], 1);
 
     let sites = room.find(FIND_CONSTRUCTION_SITES);
@@ -330,7 +325,7 @@ function spawning(room) {
 
 
     
-    if (((fillers.length < fillerTargetAmount) || (room.find(FIND_HOSTILE_CREEPS) != undefined && room.find(FIND_HOSTILE_CREEPS).length > 1 && fillers.length < 4)) && storage != undefined) {
+    if ((((fillers.length < fillerTargetAmount) || (room.find(FIND_HOSTILE_CREEPS) != undefined && room.find(FIND_HOSTILE_CREEPS).length > 1 && fillers.length < 4))) && storage != undefined || room.controller.level >= 6 && fillers.length < fillerRCL6TargetAmount && storage != undefined) {
         let newName = 'Filler' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep([CARRY,CARRY,MOVE], newName, 
             {memory: {role: 'filler'}});
@@ -364,6 +359,15 @@ function spawning(room) {
         return;
     }
 
+    if (scouts.length < 0) {
+        let newName = 'Scout' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+        let result = spawns[0].spawnCreep([MOVE], newName, 
+            {memory: {role: 'scout'}});
+        if(result == OK) {
+            console.log('Spawning new Scout: ' + newName);
+            return;
+        }
+    }
 
     let deposit = room.find(FIND_MINERALS);
     if (MineralMiners.length < 1 && room.controller.level >= 6 && deposit[0].mineralAmount > 0) {
@@ -395,7 +399,7 @@ function spawning(room) {
         }
     }
 
-    if (carriers.length > 1 && EnergyMinersInRoom.length > 1 && upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 4) || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
+    if (carriers.length > 1 && EnergyMinersInRoom.length > 1 && upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 4) && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0  || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
@@ -511,7 +515,6 @@ function spawning(room) {
             {align: 'left', opacity: 0.8});
     }
 }
-
 
 module.exports = spawning;
 

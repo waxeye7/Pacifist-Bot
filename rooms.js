@@ -34,6 +34,8 @@ function rooms() {
             }
         }
 
+
+
         if (room && room.controller && room.controller.my) {
 
             spawning(room);
@@ -41,11 +43,11 @@ function rooms() {
             roomDefence(room);
 
             market(room);
-
-            if(Game.time % 80 == 1) {
+            
+            if(Game.time % 40 == 1) {
                 identifySources(room);
             }
-            
+
             if(Game.time % 1800 == 1) {
                 construction(room);
             }

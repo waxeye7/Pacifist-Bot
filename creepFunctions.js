@@ -57,7 +57,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName), {range:6});
+    this.moveTo(new RoomPosition(25,25, roomName), {range:3});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -87,13 +87,12 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
                     let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
                     if(containers.length > 0) {
                         let closestContainer = this.pos.findClosestByRange(containers);
-                        if(this.pos.getRangeTo(closestContainer) > 4) {
-                            this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
-                        }
-                        else {
+                        if(this.pos.getRangeTo(closestContainer) < 4) {
+                            this.harvest(storedSource);
                             return;
                         }
                     }
+                    this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
                 }
             }
             this.harvest(storedSource);

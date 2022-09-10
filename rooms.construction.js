@@ -22,55 +22,161 @@ function getNeighbours(tile) {
 }
 
 
+function rampartPerimeter(tile) {
+    const perimeter = 
+    [[0,-12],[1,-12],[2,-12],[3,-12],[4,-12],[5,-12],[6,-12],[7,-12],[8,-12],[9,-12],[10,-12],[11,-12],[12,-12],
+    [12,-11],[12,-10],[12,-9],[12,-8],[12,-7],[12,-6],[12,-5],[12,-4],[12,-3],[12,-2],[12,-1],[12,0],[12,1],[12,2],[12,3],[12,4],[12,5],[12,6],[12,7],[12,8],[12,9],[12,10],[12,11],[12,12], 
+    [11,12],[10,12],[9,12],[8,12],[7,12],[6,12],[5,12],[4,12],[3,12],[2,12],[1,12],[0,12],[-1,12],[-2,12],[-3,12],[-4,12],[-5,12],[-6,12],[-7,12],[-8,12],[-9,12],[-10,12],[-11,12],[-12,12], 
+    [-12,11],[-12,10],[-12,9],[-12,8],[-12,7],[-12,6],[-12,5],[-12,4],[-12,3],[-12,2],[-12,1],[-12,0],[-12,-1],[-12,-2],[-12,-3],[-12,-4],[-12,-5],[-12,-6],[-12,-7],[-12,-8],[-12,-9],[-12,-10],[-12,-11],[-12,-12], 
+    [-11,-12],[-10,-12],[-9,-12],[-8,-12],[-7,-12],[-6,-12],[-5,-12],[-4,-12],[-3,-12],[-2,-12],[-1,-12]];
+
+
+    let neighbours = [];
+    perimeter.forEach(function(delta) {
+        neighbours.push({x: tile.x + delta[0], y: tile.y + delta[1]});
+    });
+    return neighbours;
+}
+
+
 
 function construction(room) {
-    if(room.controller.level >= 2) {
+    if(room.controller.level >= 1) {
         let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
         let spawns = room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_SPAWN}});
         let existingStructures = room.find(FIND_STRUCTURES);
 
-
-        if(storage == undefined) {
-            let spawnNeighbours = getNeighbours(spawns[0].pos);
-
-            if(existingStructures.length != 0) {
-                _.forEach(spawnNeighbours, function(block) {
-                    const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                    let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                    let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                    let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                    if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                        console.log('building here already')
-                        return;
-                    }
-                    else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                        room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
-                        return;
-                    }
-                });
+        if(room.controller.level == 4 && storage == undefined) {
+            let storageLocation = new RoomPosition(spawns[0].x, spawns[0].y -1, room.name);
+            let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
+            if(lookForExistingStructures.length != 0) {
+                lookForExistingStructures[0].destroy();
+            }
+            else {
+                room.createConstructionSite(spawns[0].x, spawns[0].y -1, STRUCTURE_STORAGE);
             }
         }
-        else {
-            let storageNeighbours = getNeighbours(storage.pos);
 
-            if(existingStructures.length != 0) {
-                _.forEach(storageNeighbours, function(block) {
-                    const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                    let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                    let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                    let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                    if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                        console.log('building here already')
-                        return;
-                    }
-                    else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                        room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
-                        return;
-                    }
-                });
+
+        if(room.controller.level >= 2) {
+            if(storage == undefined) {
+                let spawnNeighbours = getNeighbours(spawns[0].pos);
+
+                if(existingStructures.length != 0) {
+                    _.forEach(spawnNeighbours, function(block) {
+                        const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                        let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                        let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                        let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                        if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                            console.log('building here already')
+                            return;
+                        }
+                        else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                            room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
+                            return;
+                        }
+                    });
+                }
+            }
+            else {
+                let storageNeighbours = getNeighbours(storage.pos);
+
+                if(existingStructures.length != 0) {
+                    _.forEach(storageNeighbours, function(block) {
+                        const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                        let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                        let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                        let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                        if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                            console.log('building here already')
+                            return;
+                        }
+                        else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                            room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
+                            return;
+                        }
+                    });
+                }
             }
         }
+
+        if(room.controller.level == 1 || room.controller.level == 2 || room.controller.level == 3) {
+            let sources = room.find(FIND_SOURCES);
+            pathFromSpawnToSource1 = spawns[0].pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathFromSpawnToSource2 = spawns[0].pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathFromSpawnToController = spawns[0].pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+
+
+            _.forEach(pathFromSpawnToSource1, function(block) {
+                const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                    console.log('building here already')
+                    return;
+                }
+                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
+                    return;
+                }    
+            });
+
+            _.forEach(pathFromSpawnToSource2, function(block) {
+                const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                    console.log('building here already')
+                    return;
+                }
+                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
+                    return;
+                }    
+            });
+
+
+            _.forEach(pathFromSpawnToController, function(block) {
+                const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                    console.log('building here already')
+                    return;
+                }
+                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
+                    return;
+                }    
+            });
+
+        }
+        
     }
+
+
+    // if(room.controller.level > 2 && room.controller.level < 6) {
+    //     let spawnPerimeter = rampartPerimeter(spawns[0].pos);
+
+    //     _.forEach(spawnPerimeter, function(block) {
+    //         const blockSpot = new RoomPosition(block.x, block.y, room.name);
+    //         let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+    //         let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+    //         let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+    //         if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+    //             console.log('building here already')
+    //             return;
+    //         }
+    //         else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+    //             room.createConstructionSite(block.x, block.y, STRUCTURE_RAMPART);
+    //             return;
+    //         }
+    //     });
+    // }
 }
 
 

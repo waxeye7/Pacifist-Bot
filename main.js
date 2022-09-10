@@ -1,18 +1,6 @@
-let roleRemoteWorker = require('./role.remoteWorker');
-let roleAttacker = require('./role.attacker');
-let roleClaimer = require('./role.claimer');
-// let roleDefender = require('./role.defender');
-let roleBuildContainer = require('./role.buildcontainer');
-let roleCarry = require('./role.carry');
-
-
-const roleColoBuild = require('./role.colobuild');
-
 let creepFunctions = require('./creepFunctions');
-
 let rooms = require('./rooms');
 let roomPositionFunctions = require('./roomPositionFunctions');
-
 
 
 global.ROLES = {
@@ -43,7 +31,7 @@ global.ROLES = {
     buildcontainer: require('./role.buildcontainer'),
     claimer: require('./role.claimer'),
     RemoteDismantler: require('./role.remoteDismantler'),
-    // scout: require('./role.scout'),
+    scout: require('./role.scout'),
 }
 
 
