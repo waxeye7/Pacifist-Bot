@@ -12,7 +12,7 @@ var roleDefender = {
             let rampart = Game.getObjectById(rampartToMan);
 
             if(creep.rangedAttack(closestEnemyCreep) == 0) {
-                creep.say("die meanie!")
+                creep.say("die meanie!", true);
                 // return;
             }
 
@@ -22,10 +22,10 @@ var roleDefender = {
             }
 
         }
-        else {
-            creep.memory.role = "RangedAttacker";
-            creep.memory.targetRoom = "E12S39";
-        }
+        // else {
+        //     creep.memory.role = "RangedAttacker";
+        //     creep.memory.targetRoom = "E12S39";
+        // }
     }
 };
 

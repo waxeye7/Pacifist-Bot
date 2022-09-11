@@ -47,11 +47,29 @@
     }
 
     else if(!creep.memory.building && storage) {
-		creep.withdrawStorage(storage);
+		let result = creep.withdrawStorage(storage);
+		if(result == 0) {
+			if(!creep.memory.locked) {
+				creep.memory.locked = findLocked(creep);
+			}
+			if(creep.memory.locked) {
+				let buildTarget = Game.getObjectById(creep.memory.locked);
+				creep.moveTo(buildTarget, {reusePath:20});
+			}
+		}
     }
 
     else {
-        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+		if(result == 0) {
+			if(!creep.memory.locked) {
+				creep.memory.locked = findLocked(creep);
+			}
+			if(creep.memory.locked) {
+				let buildTarget = Game.getObjectById(creep.memory.locked);
+				creep.moveTo(buildTarget, {reusePath:20});
+			}
+		}
     }
 
 	// if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {

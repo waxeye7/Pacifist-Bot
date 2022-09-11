@@ -156,7 +156,36 @@ function construction(room) {
 
         }
         
+        if(room.controller.level >= 6) {
+            let extractor = Game.getObjectById(room.memory.extractor) || room.findExtractor();
+            if(!extractor) { 
+                let found_deposit = room.find(FIND_MINERALS);
+                room.createConstructionSite(found_deposit[0].pos.x, found_deposit[0].pos.y, STRUCTURE_EXTRACTOR);
+            }
+    
+            pathFromStorageToExtractor = storage.pos.findPathTo(extractor[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            
+            _.forEach(pathFromStorageToExtractor, function(block) {
+                const blockSpot = new RoomPosition(block.x, block.y, room.name);
+                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+                    console.log('building here already')
+                    return;
+                }
+                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
+                    return;
+                }    
+            });
+        }
+
+
+
     }
+
+
 
 
     // if(room.controller.level > 2 && room.controller.level < 6) {

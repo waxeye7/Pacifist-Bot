@@ -24,27 +24,46 @@
 
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
-                creep.transfer(storage, RESOURCE_ENERGY);
+                if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
+                    creep.memory.full = false;
+                }
             }
             else {
                 creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else {
-            let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-            let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
-            if(creep.pos.isNearTo(closestDropOffLocation)) {
-                creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);
+            if(creep.memory.locked) {
+                let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+                let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
+                creep.memory.locked = closestDropOffLocation.id;
             }
-            else {
-                creep.moveTo(closestDropOffLocation, {reusePath:20});
+
+            if(creep.memory.locked) {
+                let closestDropOffLocation = Game.getObjectById(creep.memory.locked);
+
+                if(creep.pos.isNearTo(closestDropOffLocation)) {
+                    creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);
+
+                    if(closestDropOffLocation.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+                        creep.memory.locked = false;
+                    }
+                    if(creep.store[RESOURCE_ENERGY] == 0) {
+                        creep.memory.full = false;
+                    }
+                    
+                }
+                else {
+                    creep.moveTo(closestDropOffLocation, {reusePath:20});
+                }
             }
+            
         }
 
 
     }
 
-    else {
+    if(!creep.memory.full) {
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoom(creep.memory.targetRoom);
         }

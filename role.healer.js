@@ -13,7 +13,7 @@
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
     }
 
-    let damagedCreepsInRoom = _.filter(Game.creeps, (creep) => creep.hits < creep.hitsMax);
+    let damagedCreepsInRoom = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == creep.room.name);
 
     if(damagedCreepsInRoom.length > 0) {
         if(creep.heal(damagedCreepsInRoom[0]) == ERR_NOT_IN_RANGE) {

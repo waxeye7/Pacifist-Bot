@@ -3,12 +3,21 @@ function roomDefence(room) {
     if(towers.length) {
         _.forEach(towers, function(tower) {
 
+
+
+            let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+            if(damagedCreeps.length > 0) {
+                tower.heal(damagedCreeps[0]);
+                return;
+            }
+
+
             let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-            
             if(closestHostile) {
                 tower.attack(closestHostile);
                 return;
             }
+
 
 
             let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
@@ -16,6 +25,7 @@ function roomDefence(room) {
 
             if(closestDamagedStructure) {
                 tower.repair(closestDamagedStructure)
+                return;
             }
 
        });

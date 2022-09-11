@@ -1,4 +1,5 @@
 let creepFunctions = require('./creepFunctions');
+let roomFunctions = require('./roomFunctions')
 let rooms = require('./rooms');
 let roomPositionFunctions = require('./roomPositionFunctions');
 
@@ -36,7 +37,9 @@ global.ROLES = {
 
 
 module.exports.loop = function () {
+    const start = Game.cpu.getUsed()
     rooms();
+    console.log('Ran in', Game.cpu.getUsed() - start, 'ms')
 
     for(let name in Memory.creeps) {
         let creep = Game.creeps[name];

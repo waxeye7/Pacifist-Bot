@@ -22,6 +22,23 @@ function identifySources(room) {
 
 function rooms() {
     _.forEach(Game.rooms, function(room) {
+        if (room && room.controller && room.controller.my) {
+
+            spawning(room);
+            
+            roomDefence(room);
+
+            market(room);
+            
+            if(Game.time % 110 == 1) {
+                identifySources(room);
+            }
+
+            if(Game.time % 1800 == 1) {
+                construction(room);
+            }
+        }
+
         if(Game.time % 200 == 1) {
             let attackersInRoom = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
             let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
@@ -35,23 +52,6 @@ function rooms() {
         }
 
 
-
-        if (room && room.controller && room.controller.my) {
-
-            spawning(room);
-            
-            roomDefence(room);
-
-            market(room);
-            
-            if(Game.time % 40 == 1) {
-                identifySources(room);
-            }
-
-            if(Game.time % 1800 == 1) {
-                construction(room);
-            }
-        }
     });
 
 }

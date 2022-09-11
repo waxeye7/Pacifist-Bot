@@ -217,7 +217,7 @@ function spawn_remote_repairer(resourceData, room, spawn) {
 
 function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, EnergyMinersInRoom, carriersInRoom) {
     let foundCreepToSpawn = false;
-    if((repairers.length < repairerTargetAmount && room.controller.level > 1) || (storage && storage.store[RESOURCE_ENERGY] > 500000 && repairers.length < repairerTargetAmount + 1)) {
+    if((repairers.length < repairerTargetAmount && room.controller.level > 1) || (storage && storage.store[RESOURCE_ENERGY] > 500000 && repairers.length < repairerTargetAmount + 0)) {
         if(EnergyMinersInRoom.length > 1 && carriersInRoom.length > 1) {
             let newName = 'Repair' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
             let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
@@ -399,7 +399,19 @@ function spawning(room) {
         }
     }
 
-    if (carriers.length > 1 && EnergyMinersInRoom.length > 1 && upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 4) && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0  || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
+
+    if(room.controller.level == 8) {
+        if(upgraders.length < 1) {
+            let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+            let result = spawns[0].spawnCreep([WORK,CARRY,MOVE], newName, 
+                {memory: {role: 'upgrader'}});  
+            if(result == OK) {
+                console.log('Spawning new upgrader: ' + newName);
+                return;
+            }
+        }
+    }
+    else if (carriers.length > 1 && EnergyMinersInRoom.length > 1 && upgraders.length < upgraderTargetAmount && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders.length < upgraderTargetAmount + 4) && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0  || (room.controller.level <= 4 && upgraders.length < preRCL5UpgraderTarget && carriersInRoom.length > 0 && EnergyMinersInRoom.length > 0 )) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawns[0].spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
