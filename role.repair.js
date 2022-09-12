@@ -10,17 +10,27 @@ function findLocked(creep) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
     }
     else {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_WALL});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
     }
 
     if(buildingsToRepair300mil.length > 0) {
         buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
         creep.say("🎯", true);
-        return buildingsToRepair300mil[0];
+        return buildingsToRepair300mil[0].id;
+    }
+    else {
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
+        if(buildingsToRepair300mil.length > 0) {
+            buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
+            creep.say("🎯", true);
+            return buildingsToRepair300mil[0].id;
+        }
     }
 }
 
  const run = function (creep) {
+    // const start = Game.cpu.getUsed()
+
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
@@ -32,7 +42,7 @@ function findLocked(creep) {
 
     if(creep.memory.repairing) {
         if(creep.memory.locked && creep.memory.locked != false) {
-            let repairTarget = Game.getObjectById(creep.memory.locked.id);
+            let repairTarget = Game.getObjectById(creep.memory.locked);
             if(repairTarget.hits == repairTarget.hitsMax) {
                 creep.memory.locked = false;
             }
@@ -44,22 +54,48 @@ function findLocked(creep) {
 
 
         if(creep.memory.locked && creep.memory.locked != false) {
-            let repairTarget = Game.getObjectById(creep.memory.locked.id);
+            let repairTarget = Game.getObjectById(creep.memory.locked);
             if(creep.repair(repairTarget) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(repairTarget, {reusePath:20});
+            }
+            else {
+                if(creep.store.getFreeCapacity() <  50) {
+                    if(creep.roadCheck()) {
+                        let roadlessLocation = creep.roadlessLocation(repairTarget);
+                        creep.moveTo(roadlessLocation);
+                    }
+                }
             }
         }
 
     }
 
     else if(!creep.memory.repairing && storage) {
-        creep.withdrawStorage(storage);
+        let result = creep.withdrawStorage(storage);
+		if(result == 0) {
+			if(!creep.memory.locked) {
+				creep.memory.locked = findLocked(creep);
+			}
+			if(creep.memory.locked) {
+				let repairTarget = Game.getObjectById(creep.memory.locked);
+				creep.moveTo(repairTarget, {reusePath:20});
+			}
+		}
     }
 
     else {
-        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+		if(result == 0) {
+			if(!creep.memory.locked) {
+				creep.memory.locked = findLocked(creep);
+			}
+			if(creep.memory.locked) {
+				let repairTarget = Game.getObjectById(creep.memory.locked);
+				creep.moveTo(repairTarget, {reusePath:20});
+			}
+		}
     }
-
+    // console.log('Repair Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
 const roleRepair = {

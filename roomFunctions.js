@@ -14,3 +14,20 @@ Room.prototype.findExtractor = function() {
     }
 
 }
+
+Room.prototype.findSpawn = function() {
+    let spawns = this.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN && !structure.spawning);}});
+    if(spawns.length) {
+        this.memory.spawn = spawns[0].id;
+        return spawns[0]
+    }
+}
+
+Room.prototype.findContainers = function(capacity) {
+    let containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});
+    containers.sort((a,b) => b.amount - a.amount);
+    if(containers.length) {
+        this.memory.container = containers[0].id;
+        return containers[0].id;
+    }
+}

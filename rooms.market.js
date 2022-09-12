@@ -1,5 +1,5 @@
 function market(room) {
-    if(room.terminal && Game.time % 50 == 1) {
+    if(room.terminal) {
         let resourceToSell;
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 1200) {
             resourceToSell = RESOURCE_HYDROGEN;

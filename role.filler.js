@@ -20,6 +20,7 @@
 
 
  const run = function (creep) {
+    // const start = Game.cpu.getUsed()
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
@@ -187,6 +188,7 @@
     //     }
     //     return;
     // }
+    // console.log('Filler Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
 const roleFiller = {

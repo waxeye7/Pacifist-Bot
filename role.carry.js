@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep) {
-
+    // const start = Game.cpu.getUsed()
     // if(creep.fatigue > 0) {
     //     console.log('hi')
     //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
@@ -67,8 +67,51 @@
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoom(creep.memory.targetRoom);
         }
-        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        if(result == 0) {
+            if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
+                return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+            }
+            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+            if(storage) {
+                if(creep.pos.isNearTo(storage)) {
+                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
+                        creep.memory.full = false;
+                    }
+                }
+                else {
+                    creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
+                }
+            }
+            else {
+                if(creep.memory.locked) {
+                    let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+                    let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
+                    creep.memory.locked = closestDropOffLocation.id;
+                }
+    
+                if(creep.memory.locked) {
+                    let closestDropOffLocation = Game.getObjectById(creep.memory.locked);
+    
+                    if(creep.pos.isNearTo(closestDropOffLocation)) {
+                        creep.transfer(closestDropOffLocation, RESOURCE_ENERGY);
+    
+                        if(closestDropOffLocation.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+                            creep.memory.locked = false;
+                        }
+                        if(creep.store[RESOURCE_ENERGY] == 0) {
+                            creep.memory.full = false;
+                        }
+                        
+                    }
+                    else {
+                        creep.moveTo(closestDropOffLocation, {reusePath:20});
+                    }
+                }
+            }
+        }
     }
+    // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
 const roleCarry = {

@@ -49,7 +49,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName), {range:3});
+    this.moveTo(new RoomPosition(25,25, roomName), {range:23, reusePath:20});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -100,7 +100,18 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 }
 
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
-    let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
+
+    let room = this.room;
+
+    let container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
+
+    // console.log(container.store[RESOURCE_ENERGY])
+    if(container && container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
+        room.findContainers(this.store.getFreeCapacity());
+    }
+
+
+    // let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
     let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > this.store.getFreeCapacity() && this.pos.getRangeTo(i) < 4 && i.resourceType == RESOURCE_ENERGY});
     let dropped_resources_last_chance = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
 
@@ -116,32 +127,13 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         return;
     }
 
-    if(Containers.length > 1) {
-        Containers.sort((a,b) => b.amount - a.amount);
-        let Container1 = Containers[0];
-        let Container2 = Containers[1];
-        if(Container1.store[RESOURCE_ENERGY] > 3 * Container2.store[RESOURCE_ENERGY]) {
-            if(this.pos.isNearTo(Container1)) {
-                let result = this.withdraw(Container1, RESOURCE_ENERGY);
-                return result;
-            }
-            else {
-                this.moveTo(Container1, {reusePath:20});
-            }
-            return;
-        }
-    }
-
-
-    if(Containers.length > 0) {
-        // Containers.sort((a, b) => b.store[RESOURCE_ENERGY]- a.store[RESOURCE_ENERGY]);
-        let closestContainer = this.pos.findClosestByRange(Containers);
-        if(this.pos.isNearTo(closestContainer)) {
-            let result = this.withdraw(closestContainer, RESOURCE_ENERGY);
+    if(container) {
+        if(this.pos.isNearTo(container)) {
+            let result = this.withdraw(container, RESOURCE_ENERGY);
             return result;
         }
         else {
-            this.moveTo(closestContainer, {reusePath:20});
+            this.moveTo(container, {reusePath:20});
         }
         return;
     }
@@ -158,7 +150,38 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     }
 }
 
+Creep.prototype.roadCheck = function roadCheck() {
+    let creepBlock = this.pos;
+    let answer = creepBlock.lookFor(LOOK_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD})
+    if(answer.length > 0) {
+        return true;
+    }
+    else {
+        return false;
+    }
+    
+}
 
+Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
+    let nearbyBlocks = this.pos.getNearbyPositions()
+    let blockFound = false;
+    _.forEach(nearbyBlocks, function(block) {
+        if(blockFound == true) {
+            return;
+        }
+        if(block.getRangeTo(repairTarget) <= 3) {
+            let structures = block.lookFor(LOOK_STRUCTURES);
+            let creeps = block.lookFor(LOOK_CREEPS);
+            if(structures.length == 0 && creeps.length == 0) {
+                blockFound = block;
+                return;
+            }
+        }
+    });
+    if(blockFound != false) {
+        return blockFound;
+    }
+}
 
 // CREEP PROTOTYPES
 

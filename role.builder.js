@@ -16,6 +16,8 @@
 }
 
  const run = function (creep) {
+	// const start = Game.cpu.getUsed()
+
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
     if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
@@ -42,6 +44,14 @@
             let buildTarget = Game.getObjectById(creep.memory.locked);
             if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(buildTarget, {reusePath:20});
+            }
+            else {
+				if(creep.store.getFreeCapacity() < 50) {
+					if(creep.roadCheck()) {
+						let roadlessLocation = creep.roadlessLocation(buildTarget);
+						creep.moveTo(roadlessLocation);
+					}
+				}
             }
         }
     }
@@ -128,6 +138,7 @@
 	// 		}
 	// 	}
 	// }
+	// console.log('Builder Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
 

@@ -21,6 +21,24 @@ function getNeighbours(tile) {
     return neighbours;
 }
 
+function pathBuilder(neighbors, structure, room) {
+    _.forEach(neighbors, function(block) {
+        const blockSpot = new RoomPosition(block.x, block.y, room.name);
+        let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
+        let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
+        let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
+        if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
+            console.log('building here already')
+            return;
+        }
+        else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+            room.createConstructionSite(block.x, block.y, structure);
+            return;
+        }
+    });
+}
+
+
 
 function rampartPerimeter(tile) {
     const perimeter = 
@@ -63,40 +81,14 @@ function construction(room) {
                 let spawnNeighbours = getNeighbours(spawns[0].pos);
 
                 if(existingStructures.length != 0) {
-                    _.forEach(spawnNeighbours, function(block) {
-                        const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                        let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                        let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                        let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                        if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                            console.log('building here already')
-                            return;
-                        }
-                        else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                            room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
-                            return;
-                        }
-                    });
+                    pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room);
                 }
             }
             else {
                 let storageNeighbours = getNeighbours(storage.pos);
 
                 if(existingStructures.length != 0) {
-                    _.forEach(storageNeighbours, function(block) {
-                        const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                        let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                        let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                        let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                        if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                            console.log('building here already')
-                            return;
-                        }
-                        else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                            room.createConstructionSite(block.x, block.y, STRUCTURE_EXTENSION);
-                            return;
-                        }
-                    });
+                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room);
                 }
             }
         }
@@ -107,52 +99,11 @@ function construction(room) {
             pathFromSpawnToSource2 = spawns[0].pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             pathFromSpawnToController = spawns[0].pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
 
+            pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room);
 
-            _.forEach(pathFromSpawnToSource1, function(block) {
-                const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                    console.log('building here already')
-                    return;
-                }
-                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
-                    return;
-                }    
-            });
+            pathBuilder(pathFromSpawnToSource2, STRUCTURE_ROAD, room);
 
-            _.forEach(pathFromSpawnToSource2, function(block) {
-                const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                    console.log('building here already')
-                    return;
-                }
-                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
-                    return;
-                }    
-            });
-
-
-            _.forEach(pathFromSpawnToController, function(block) {
-                const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                    console.log('building here already')
-                    return;
-                }
-                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
-                    return;
-                }    
-            });
+            pathBuilder(pathFromSpawnToController, STRUCTURE_ROAD, room);
 
         }
         
@@ -165,20 +116,7 @@ function construction(room) {
     
             pathFromStorageToExtractor = storage.pos.findPathTo(extractor[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             
-            _.forEach(pathFromStorageToExtractor, function(block) {
-                const blockSpot = new RoomPosition(block.x, block.y, room.name);
-                let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-                let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-                let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-                if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-                    console.log('building here already')
-                    return;
-                }
-                else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-                    room.createConstructionSite(block.x, block.y, STRUCTURE_ROAD);
-                    return;
-                }    
-            });
+            pathBuilder(pathFromStorageToExtractor, STRUCTURE_ROAD, room);
         }
 
 

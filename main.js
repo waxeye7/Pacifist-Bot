@@ -39,7 +39,7 @@ global.ROLES = {
 module.exports.loop = function () {
     const start = Game.cpu.getUsed()
     rooms();
-    console.log('Ran in', Game.cpu.getUsed() - start, 'ms')
+    console.log('Rooms Ran in', Math.floor((Game.cpu.getUsed() - start) * 1000) / 1000, 'ms')
 
     for(let name in Memory.creeps) {
         let creep = Game.creeps[name];
@@ -55,7 +55,34 @@ module.exports.loop = function () {
         }
     }
     
-    if(Game.time % 25 == 1) {
-        console.log(Game.cpu.bucket, 'unused cpu in my bucket');
+    if(Game.time % 17 == 1) {
+        console.log(" ");
+        console.log("------------------------",Game.cpu.bucket, 'unused cpu in my bucket', "------------------------");
+        console.log(" ");
+        if(Game.cpu.bucket == 10000) {
+            if(Game.cpu.generatePixel() == 0) {
+                console.log('1');
+                console.log('2');
+                console.log('3');
+                console.log('4');
+                console.log('5');
+                console.log('6');
+                console.log('7');
+                console.log('8');
+                console.log('9');
+                console.log('x');
+                console.log('generating pixel');
+                console.log('x');
+                console.log('9');
+                console.log('8');
+                console.log('7');
+                console.log('6');
+                console.log('5');
+                console.log('4');
+                console.log('3');
+                console.log('2');
+                console.log('1');
+            }
+        }
     }
 }

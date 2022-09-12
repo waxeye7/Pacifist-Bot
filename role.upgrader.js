@@ -2,7 +2,8 @@ var roleUpgrader = {
 
     /** @param {Creep} creep **/
     run: function(creep) {
-
+		// const start = Game.cpu.getUsed()
+		
 		let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
 
@@ -34,12 +35,19 @@ var roleUpgrader = {
         }
         else {
 			if(storage == undefined) {
-				creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+				if(result == 0) {
+					creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+				}
 			}
 			else {
-				creep.withdrawStorage(storage);
+				let result = creep.withdrawStorage(storage);
+				if(result == 0) {
+					creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+				}
 			}
         }
+		// console.log('Upgrader Ran in', Game.cpu.getUsed() - start, 'ms')
 	}
 };
 
