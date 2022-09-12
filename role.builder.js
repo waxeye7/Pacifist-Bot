@@ -46,7 +46,7 @@
                 creep.moveTo(buildTarget, {reusePath:20});
             }
             else {
-				if(creep.store.getFreeCapacity() < 50) {
+				if(creep.store.getFreeCapacity() == 0) {
 					if(creep.roadCheck()) {
 						let roadlessLocation = creep.roadlessLocation(buildTarget);
 						creep.moveTo(roadlessLocation);

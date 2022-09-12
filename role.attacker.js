@@ -7,7 +7,7 @@
 // }
 
 const run = function (creep) {
-    if(creep.room.name != creep.memory.targetRoom) {
+    if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
         // let road = Game.getObjectById("630c5701d149a23ed600dd3d");
         // if(road){
@@ -29,7 +29,7 @@ const run = function (creep) {
             }
         }
         
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+        return creep.moveToRoom(creep.memory.targetRoom);
     }
     else {
         // let road = Game.getObjectById("630c5701d149a23ed600dd3d");
@@ -71,16 +71,16 @@ const run = function (creep) {
             }
         }
         
-        // else {
-        //     creep.memory.targetRoom = creep.memory.targetRoom2;
-        //     if(creep.memory.targetRoom == creep.memory.targetRoom2) {
-        //         delete creep.memory.targetRoom2
-        //     }
-        //     else if(creep.memory.targetRoom == undefined) {
-        //         delete creep.memory.targetRoom
-        //         creep.suicide();
-        //     }
-        // }
+        else {
+            creep.memory.targetRoom = creep.memory.targetRoom2;
+            if(creep.memory.targetRoom == creep.memory.targetRoom2) {
+                delete creep.memory.targetRoom2
+            }
+            else if(creep.memory.targetRoom == undefined) {
+                delete creep.memory.targetRoom
+                creep.suicide();
+            }
+        }
     }
 }
 

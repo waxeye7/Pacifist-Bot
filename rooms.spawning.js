@@ -239,6 +239,15 @@ function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, En
 
 
 function spawning(room) {
+    let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+
+    if(spawn.spawning) {
+        spawn = room.findSpawn();
+        if(spawn == undefined || spawn.spawning) {
+            return;
+        }
+    }
+
     // console.log(JSON.stringify(Game.creeps))
     // info section below
     // console.log(room.extractor)
@@ -289,16 +298,6 @@ function spawning(room) {
     + " Fillers [" + EnergyMiners + " Energy-Miners in all rooms] [" + carriers +
      " Carriers in all rooms] [" +  RemoteRepairers, "RemoteRepairers in all rooms] [" + attackers + " Attackers in all rooms]");
 
-
-// info section above
-    let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
-
-    if(spawn.spawning) {
-        spawn = room.findSpawn();
-        if(spawn == undefined || spawn.spawning) {
-            return;
-        }
-    }
 
     // let worker_people = [];
     // for(let creep in Game.creeps) {
@@ -431,10 +430,10 @@ function spawning(room) {
         return;
     }
 
-    if(attackers < 0) {
+    if(attackers < 1) {
         let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawn.spawnCreep(getBody([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE], room), newName, 
-            {memory: {role: 'attacker', targetRoom: "E12S39", targetRoom2: "E12S39"}});  
+        let result = spawn.spawnCreep([ATTACK,MOVE], newName, 
+            {memory: {role: 'attacker', targetRoom: "E9S36", targetRoom2: "E9S35"}});  
         if(result == OK) {
             console.log('Spawning new attacker: ' + newName);
             return;
@@ -476,8 +475,8 @@ function spawning(room) {
     _.forEach(Game.rooms, function(thisRoom) {
         if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-            let result = spawn.spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE], newName, 
-                {memory: {role: 'attacker', targetRoom: thisRoom.name}});  
+            let result = spawn.spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+                {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S35"}});  
             if(result == OK) {
                 console.log('Spawning new attacker: ' + newName);
                 spawned = true;

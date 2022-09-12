@@ -43,6 +43,9 @@ function findLocked(creep) {
     if(creep.memory.repairing) {
         if(creep.memory.locked && creep.memory.locked != false) {
             let repairTarget = Game.getObjectById(creep.memory.locked);
+            if(!repairTarget) {
+                creep.memory.locked = false;
+            }
             if(repairTarget.hits == repairTarget.hitsMax) {
                 creep.memory.locked = false;
             }
@@ -59,7 +62,7 @@ function findLocked(creep) {
                 creep.moveTo(repairTarget, {reusePath:20});
             }
             else {
-                if(creep.store.getFreeCapacity() <  50) {
+                if(creep.store.getFreeCapacity() == 0) {
                     if(creep.roadCheck()) {
                         let roadlessLocation = creep.roadlessLocation(repairTarget);
                         creep.moveTo(roadlessLocation);

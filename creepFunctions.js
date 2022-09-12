@@ -100,20 +100,8 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 }
 
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
-
-    let room = this.room;
-
-    let container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
-
-    // console.log(container.store[RESOURCE_ENERGY])
-    if(container && container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
-        room.findContainers(this.store.getFreeCapacity());
-    }
-
-
     // let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
     let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.amount > this.store.getFreeCapacity() && this.pos.getRangeTo(i) < 4 && i.resourceType == RESOURCE_ENERGY});
-    let dropped_resources_last_chance = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
 
     if(dropped_resources.length > 0) {
         let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
@@ -127,6 +115,15 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         return;
     }
 
+    let room = this.room;
+
+    let container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
+    // console.log(container.store[RESOURCE_ENERGY])
+    // console.log(container.store[RESOURCE_ENERGY])
+    if(container && container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
+        room.findContainers(this.store.getFreeCapacity());
+    }
+
     if(container) {
         if(this.pos.isNearTo(container)) {
             let result = this.withdraw(container, RESOURCE_ENERGY);
@@ -137,6 +134,9 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         return;
     }
+
+    let dropped_resources_last_chance = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
+
     if(dropped_resources_last_chance.length > 0) {
         dropped_resources_last_chance.sort((a,b) => b.amount - a.amount);
         if(this.pos.isNearTo(dropped_resources_last_chance[0])) {
