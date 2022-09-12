@@ -118,10 +118,13 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     let room = this.room;
 
     let container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
+    
     // console.log(container.store[RESOURCE_ENERGY])
     // console.log(container.store[RESOURCE_ENERGY])
-    if(container && container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
-        room.findContainers(this.store.getFreeCapacity());
+    if(container && container.exists) {
+        if(container && container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
+            room.findContainers(this.store.getFreeCapacity());
+        }
     }
 
     if(container) {

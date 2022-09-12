@@ -240,6 +240,9 @@ function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, En
 
 function spawning(room) {
     let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+    if(spawn == undefined) {
+        return;
+    }
 
     if(spawn.spawning) {
         spawn = room.findSpawn();
@@ -443,7 +446,7 @@ function spawning(room) {
     if(containerbuilders < 0) {
         let newName = 'ContainerBuilder' + Game.time + " " + room.name;
         let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
-            {memory: {role: 'buildcontainer', targetRoom: "E11S37"}});  
+            {memory: {role: 'buildcontainer', targetRoom: "E12S35"}});  
         if(result == OK) {
             console.log('Spawning new ContainerBuilder: ' + newName);
             return;
@@ -476,7 +479,7 @@ function spawning(room) {
         if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
             let result = spawn.spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-                {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S35"}});  
+                {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S36"}});  
             if(result == OK) {
                 console.log('Spawning new attacker: ' + newName);
                 spawned = true;
