@@ -24,7 +24,7 @@ function rooms() {
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
 
-            if(Game.time % 3 == 1) {
+            if(Game.time % 5 == 1) {
                 spawning(room);
             }
             
@@ -35,7 +35,7 @@ function rooms() {
                 market(room);
             }
             
-            if(Game.time % 110 == 1) {
+            if(Game.time % 160 == 1) {
                 identifySources(room);
             }
 

@@ -481,7 +481,7 @@ function spawning(room) {
     _.forEach(Game.rooms, function(thisRoom) {
         if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.container) {
             let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
-            if(creeps > 1) {
+            if(creeps > 0) {
                 let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
                 let result = spawn.spawnCreep([MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK], newName, 
                     {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S36"}});  
