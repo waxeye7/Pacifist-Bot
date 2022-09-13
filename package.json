@@ -9,6 +9,7 @@
         "grunt-contrib-nodeunit": "^4.0.0",
         "grunt-contrib-uglify": "^5.2.2",
         "grunt-file-append": "^0.0.7",
-        "grunt-jsbeautifier": "^0.2.13"
+        "grunt-jsbeautifier": "^0.2.13",
+        "grunt-mkdir": "^1.1.0"
     }
 }

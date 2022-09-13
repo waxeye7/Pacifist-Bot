@@ -24,14 +24,14 @@ function rooms() {
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
 
-            if(Game.time % 5 == 1) {
+            if(Game.time % 7 == 1) {
                 spawning(room);
             }
             
             roomDefence(room);
 
 
-            if(Game.time % 113 == 1) {
+            if(Game.time % 313 == 1) {
                 market(room);
             }
             
@@ -44,17 +44,32 @@ function rooms() {
             }
         }
 
-        if(Game.time % 60 == 1) {
+        if(Game.time % 60  == 1) {
             let attackersInRoom = _.sum(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
             let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
             let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-            if (HostileStructures.length > 0 && attackersInRoom == 0 || HostileCreeps.length > 0 && attackersInRoom == 0) {
+            if (HostileStructures.length > 0) {
                 room.memory.has_hostile_structures = true;
-                room.memory.has_attacker = false;
             }
             else {
                 room.memory.has_hostile_structures = false;
             }
+
+            if(HostileCreeps.length > 0) {
+                room.memory.has_hostile_creeps = true;
+            }
+            else {
+                room.memory.has_hostile_creeps = false;
+            }
+
+            if(attackersInRoom == 0) {
+                room.memory.has_attacker = false;
+            }
+            else {
+                room.memory.has_attacker = true;
+            }
+
+
         }
 
 

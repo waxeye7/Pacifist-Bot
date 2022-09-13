@@ -50,11 +50,10 @@ const run = function (creep) {
         }
         else {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER && !object.my
-            });
-            Structures2 = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_ROAD && !object.my
-            });
+                filter: object => object.structureType != STRUCTURE_CONTROLLER});
+            // Structures2 = creep.room.find(FIND_STRUCTURES, {
+            //     filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_ROAD && !object.my
+            // });
         }
 
 
@@ -86,16 +85,16 @@ const run = function (creep) {
             }
         }
 
-        if(Structures2.length > 0) {
-            let closestStructure = creep.pos.findClosestByRange(Structures2);
-            if(creep.pos.isNearTo(closestStructure)) {
-                creep.attack(closestStructure);
+        // if(Structures2.length > 0) {
+        //     let closestStructure = creep.pos.findClosestByRange(Structures2);
+        //     if(creep.pos.isNearTo(closestStructure)) {
+        //         creep.attack(closestStructure);
                 
-            }
-            else{
-                creep.moveTo(closestStructure);
-            }
-        }
+        //     }
+        //     else{
+        //         creep.moveTo(closestStructure);
+        //     }
+        // }
 
 
         

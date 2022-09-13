@@ -7,7 +7,7 @@ var roleBuildContainer = {
         }
 
         else {
-            let targets = creep.room.find(FIND_CONSTRUCTION_SITES);
+            let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
             let closestTarget = creep.pos.findClosestByRange(targets);
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 

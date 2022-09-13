@@ -4,7 +4,7 @@
  **/
 
  function findLocked(creep) {
-	let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
+	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
     if(buildingsToBuild.length > 0) {
 		creep.say("🎯", true); 
