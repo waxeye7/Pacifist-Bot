@@ -435,7 +435,7 @@ function spawning(room) {
         return;
     }
 
-    if(attackers < 1) {
+    if(attackers < 0) {
         let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawn.spawnCreep([ATTACK,MOVE], newName, 
             {memory: {role: 'attacker', targetRoom: "E9S36", targetRoom2: "E9S35"}});  
@@ -466,7 +466,7 @@ function spawning(room) {
     }
 
 
-    if(RemoteDismantlers < 1) {
+    if(RemoteDismantlers < 0) {
         let newName = 'RemoteDismantler' + Game.time + " " + room.name;
         let result = spawn.spawnCreep([MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, 
             {memory: {role: 'RemoteDismantler', targetRoom: "E9S36"}});  
@@ -479,7 +479,8 @@ function spawning(room) {
     
     let spawned;
     _.forEach(Game.rooms, function(thisRoom) {
-        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my) {
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my
+            || thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my) {
             // let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
             // if(creeps > 0) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;

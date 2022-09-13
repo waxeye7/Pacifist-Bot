@@ -28,7 +28,7 @@ Room.prototype.findContainers = function(capacity) {
     containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
     if(containers.length) {
         this.memory.container = containers[0].id;
-        return containers[0].id;
+        return containers[0];
     }
 }
 
