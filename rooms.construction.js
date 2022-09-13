@@ -93,7 +93,7 @@ function construction(room) {
             }
         }
 
-        if(room.controller.level == 1 || room.controller.level == 2 || room.controller.level == 3) {
+        if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
             pathFromSpawnToSource1 = spawns[0].pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             pathFromSpawnToSource2 = spawns[0].pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
@@ -109,14 +109,13 @@ function construction(room) {
         
         if(room.controller.level >= 6) {
             let extractor = Game.getObjectById(room.memory.extractor) || room.findExtractor();
+            let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
             if(!extractor) { 
-                let found_deposit = room.find(FIND_MINERALS);
-                room.createConstructionSite(found_deposit[0].pos.x, found_deposit[0].pos.y, STRUCTURE_EXTRACTOR);
+                room.createConstructionSite(mineral.pos.x, found_deposit[0].pos.y, STRUCTURE_EXTRACTOR);
             }
     
-            pathFromStorageToExtractor = storage.pos.findPathTo(extractor[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-            
-            pathBuilder(pathFromStorageToExtractor, STRUCTURE_ROAD, room);
+            pathFromStorageToMineral = storage.pos.findPathTo(mineral, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathBuilder(pathFromStorageToMineral, STRUCTURE_ROAD, room);
         }
 
 

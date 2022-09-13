@@ -377,14 +377,16 @@ function spawning(room) {
         }
     }
 
-    let deposit = room.find(FIND_MINERALS);
-    if (MineralMiners < 1 && room.controller >= 6 && deposit[0].mineralAmount > 0) {
-        let newName = 'MineralMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], newName, 
-            {memory: {role: 'MineralMiner'}});
-        if(result == OK) {
-            console.log('Spawning new MineralMiner: ' + newName);
-            return;
+    if (MineralMiners < 1 && room.controller.level >= 6) {
+        let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
+        if(mineral.mineralAmount > 0) {
+            let newName = 'MineralMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+            let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], newName, 
+                {memory: {role: 'MineralMiner'}});
+            if(result == OK) {
+                console.log('Spawning new MineralMiner: ' + newName);
+                return;
+            }
         }
     }
     if(room.memory.danger == true && defenders < 5) {
@@ -442,7 +444,7 @@ function spawning(room) {
             return;
         }
     }
-
+    // TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK
     if(containerbuilders < 0) {
         let newName = 'ContainerBuilder' + Game.time + " " + room.name;
         let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
@@ -464,27 +466,31 @@ function spawning(room) {
     }
 
 
-    if(RemoteDismantlers < 0) {
+    if(RemoteDismantlers < 1) {
         let newName = 'RemoteDismantler' + Game.time + " " + room.name;
         let result = spawn.spawnCreep([MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, 
-            {memory: {role: 'RemoteDismantler', targetRoom: "E12S35"}});  
+            {memory: {role: 'RemoteDismantler', targetRoom: "E9S36"}});  
         if(result == OK) {
             console.log('Spawning new RemoteDismantler: ' + newName);
             return;
         }
     }
 
+    
     let spawned;
     _.forEach(Game.rooms, function(thisRoom) {
-        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker) {
-            let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-            let result = spawn.spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-                {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S36"}});  
-            if(result == OK) {
-                console.log('Spawning new attacker: ' + newName);
-                spawned = true;
-                thisRoom.memory.has_hostile_structures = false;
-                return;
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.container) {
+            let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
+            if(creeps > 1) {
+                let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+                let result = spawn.spawnCreep([MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK], newName, 
+                    {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S36"}});  
+                if(result == OK) {
+                    console.log('Spawning new room defending attacker: ' + newName);
+                    spawned = true;
+                    thisRoom.memory.has_hostile_structures = false;
+                    return;
+                }
             }
         }
     });

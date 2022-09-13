@@ -40,10 +40,23 @@ const run = function (creep) {
         //     return;
         // }
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+        let Structures;
+        let Structures2;
 
-        let Structures = creep.room.find(FIND_STRUCTURES, {
-            filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD
-        });
+        if(creep.room.controller && creep.room.controller.my) {
+            Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_CONTAINER &&  !object.my
+            });
+        }
+        else {
+            Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER && !object.my
+            });
+            Structures2 = creep.room.find(FIND_STRUCTURES, {
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_ROAD && !object.my
+            });
+        }
+
 
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
@@ -59,6 +72,7 @@ const run = function (creep) {
                 creep.moveTo(closestEnemyCreep);
                 return;
             }
+            return;
         }
 
         if(Structures.length > 0) {
@@ -71,6 +85,19 @@ const run = function (creep) {
                 creep.moveTo(closestStructure);
             }
         }
+
+        if(Structures2.length > 0) {
+            let closestStructure = creep.pos.findClosestByRange(Structures2);
+            if(creep.pos.isNearTo(closestStructure)) {
+                creep.attack(closestStructure);
+                
+            }
+            else{
+                creep.moveTo(closestStructure);
+            }
+        }
+
+
         
         else {
             creep.memory.targetRoom = creep.memory.targetRoom2;

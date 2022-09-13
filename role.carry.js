@@ -72,6 +72,7 @@
             if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
                 return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
             }
+        
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
             if(storage) {
                 if(creep.pos.isNearTo(storage)) {
@@ -111,8 +112,9 @@
             }
         }
     }
+ }
     // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
-}
+
 
 const roleCarry = {
     run,

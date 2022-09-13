@@ -16,7 +16,8 @@ var roleDefender = {
                 // return;
             }
 
-            if(creep.pos != rampart.pos) { //and range to hostile is less than x
+
+            if(creep.pos && creep.pos != rampart.pos) { //and range to hostile is less than x
                 creep.moveTo(rampart);
                 return;
             }
