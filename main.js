@@ -1,7 +1,8 @@
-let creepFunctions = require('./creepFunctions');
-let roomFunctions = require('./roomFunctions')
 let rooms = require('./rooms');
-let roomPositionFunctions = require('./roomPositionFunctions');
+
+require('./creepFunctions');
+require('./roomFunctions')
+require('./roomPositionFunctions');
 
 
 global.ROLES = {

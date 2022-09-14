@@ -7,6 +7,9 @@
 // }
 
 const run = function (creep) {
+    if(creep.notifyWhenAttacked == true) {
+        creep.notifyWhenAttacked(false);
+    }
     if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
         // let road = Game.getObjectById("630c5701d149a23ed600dd3d");

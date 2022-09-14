@@ -485,7 +485,7 @@ function spawning(room) {
             // if(creeps > 0) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
             let result = spawn.spawnCreep([MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK], newName, 
-                {memory: {role: 'attacker', targetRoom: thisRoom.name, targetRoom2: "E9S36"}});  
+                {memory: {role: 'attacker', targetRoom: thisRoom.name}});  
             if(result == OK) {
                 console.log('Spawning new room defending attacker: ' + newName);
                 spawned = true;
