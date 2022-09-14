@@ -258,8 +258,6 @@ function spawning(room) {
     // let test = _.sum(Game.creeps, (c) => c.memory.role == 'carry');
     // console.log(test)
 
-    const start = Game.cpu.getUsed()
-
     let EnergyMiners = _.sum(Game.creeps, (creep) => creep.memory.role == 'EnergyMiner');
     let EnergyMinersInRoom =  _.sum(Game.creeps, (creep) => creep.memory.role == 'EnergyMiner' && isInRoom(creep, room));
 
@@ -294,8 +292,6 @@ function spawning(room) {
     let DrainTowers = _.sum(Game.creeps, (creep) => creep.memory.role == 'DrainTower');
     let healers = _.sum(Game.creeps, (creep) => creep.memory.role == 'healer');
 
-    console.log('Ran in', Math.floor((Game.cpu.getUsed() - start) * 1000) / 1000, 'ms')
-
     console.log("Room-" + room.name + " has " + builders + " Builders " + upgraders +
     " Upgraders " + repairers + " Repairers " + fillers
     + " Fillers [" + EnergyMiners + " Energy-Miners in all rooms] [" + carriers +
@@ -318,9 +314,6 @@ function spawning(room) {
     // }
 
     // console.log(totalWorkPartsOnWorkers + " in room " + room.name)
-
-    let workerTargetAmount = _.get(room.memory, ['census', 'worker'], 0);
-
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
@@ -478,13 +471,15 @@ function spawning(room) {
 
     
     let spawned;
+    let remoteRooms = ["E12S36", "E11S38", "E12S38", "E13S37", "E13S36", "E13S35"]
+
+
     _.forEach(Game.rooms, function(thisRoom) {
-        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my
-            || thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my) {
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && remoteRooms.includes(thisRoom.name)) {
             // let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
             // if(creeps > 0) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-            let result = spawn.spawnCreep([MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK], newName, 
+            let result = spawn.spawnCreep([ATTACK,MOVE,ATTACK,MOVE,ATTACK,ATTACK], newName, 
                 {memory: {role: 'attacker', targetRoom: thisRoom.name}});  
             if(result == OK) {
                 console.log('Spawning new room defending attacker: ' + newName);
@@ -494,6 +489,19 @@ function spawning(room) {
                 // }
             }
         }
+        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && remoteRooms.includes(thisRoom.name)) {
+            let newName = 'RangedAttacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+            let result = spawn.spawnCreep([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+                {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name}});  
+            if(result == OK) {
+                console.log('Spawning new room defending ranged attacker: ' + newName);
+                spawned = true;
+                thisRoom.memory.has_hostile_creeps = false;
+                return;
+                // }
+            }
+        }
+
     });
     if(spawned) {
         return;

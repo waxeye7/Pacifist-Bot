@@ -1,4 +1,5 @@
 let roomDefence = require('./rooms.defence');
+let roomRunLinks = require('./rooms.runLinks');
 let spawning = require('./rooms.spawning');
 let construction = require('./rooms.construction');
 let market = require('./rooms.market');
@@ -42,6 +43,14 @@ function rooms() {
             if(Game.time % 2100 == 1) {
                 construction(room);
             }
+
+
+            // if(room.controller.level >= 6) {
+            //     roomRunLinks(room);
+            // }
+
+
+
         }
 
         if(Game.time % 60  == 1) {

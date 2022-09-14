@@ -6,8 +6,6 @@ require('./roomPositionFunctions');
 
 
 global.ROLES = {
-    worker: require('./role.worker'),
-
     MineralMiner: require('./role.mineralMiner'),
 
     EnergyMiner : require('./role.energyMiner'),
@@ -38,9 +36,7 @@ global.ROLES = {
 
 
 module.exports.loop = function () {
-    const start = Game.cpu.getUsed()
     rooms();
-    console.log('Rooms Ran in', Math.floor((Game.cpu.getUsed() - start) * 1000) / 1000, 'ms')
 
     for(let name in Memory.creeps) {
         let creep = Game.creeps[name];
