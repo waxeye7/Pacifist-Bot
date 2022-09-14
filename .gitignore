@@ -1,4 +1,4 @@
-/gruntfile.js
-/node_modules
-/package-lock.json
-/package.json
+gruntfile.js
+node_modules
+package-lock.json
+package.json
