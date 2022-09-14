@@ -14,11 +14,11 @@ module.exports = function (grunt) {
         js:  { files: 'js/*.js', tasks: [ 'uglify' ] },
     },
 
-    mkdir: {
-        options: {
-            create: ['tmp', 'src/roles/']
-        },
-      },
+    // mkdir: {
+    //     options: {
+    //         create: ['tmp', 'src/roles/']
+    //     },
+    //   },
 });
 
 // load plugins
