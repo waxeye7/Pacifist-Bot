@@ -12,13 +12,12 @@ const run = function (creep) {
     if(creep.ticksToLive == 1499) {
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
         creep.memory.targetLink = closestLink.id;
-        creep.memory.closestLink = undefined;
+        creep.memory.closestLink = null;
     }
-
+    
 
     if(creep.store.getFreeCapacity() == 0) {
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
-
         if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
             if(creep.pos.isNearTo(closestLink)) {
                 creep.transfer(closestLink, RESOURCE_ENERGY);
@@ -28,13 +27,13 @@ const run = function (creep) {
 
     creep.harvestEnergy();
 
-
-    let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
-    if(closestLink.store[RESOURCE_ENERGY] == 800) {
+    if(creep.store.getFreeCapacity < 100) {
+        let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
         targetLink = Game.getObjectById(creep.memory.targetLink);
-        closestLink.transferEnergy(targetLink);
+        if(closestLink.store[RESOURCE_ENERGY] == 800 && targetLink.store[RESOURCE_ENERGY] == 0) {
+            closestLink.transferEnergy(targetLink);
+        }
     }
-
 }
 const roleEnergyMiner = {
     run,

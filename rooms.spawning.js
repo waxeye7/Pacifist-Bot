@@ -175,8 +175,8 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
                 if(result == OK) {
                     console.log('Spawning new Carrier: ' + newName);
-                    if(targetRoomName.controller && targetRoomName.controller.level >= 6) {
-                        values.lastSpawnCarrier = Game.time*10000;
+                    if(Game.rooms[targetRoomName].controller.level >= 6) {
+                        values.lastSpawnCarrier = 5000000000;
                     }
                     else {
                         values.lastSpawnCarrier = Game.time;

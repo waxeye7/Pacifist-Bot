@@ -43,7 +43,6 @@ function rooms() {
                 construction(room);
             }
 
-
         }
 
         if(Game.time % 60  == 1) {

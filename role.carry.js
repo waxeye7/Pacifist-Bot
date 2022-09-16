@@ -112,6 +112,9 @@
             }
         }
     }
+    if(creep.memory.targetRoom.controller) {
+        console.log(creep.memory.targetRoom.controller.level)
+    }
  }
     // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
 
