@@ -28,6 +28,15 @@ Creep.prototype.findStorage = function() {
     }
 }
 
+Creep.prototype.findClosestLink = function() {
+    let links = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_LINK}});
+    if(links.length) {
+        let closestLink = this.pos.findClosestByRange(links);
+        this.memory.closestLink = closestLink.id;
+        return closestLink;
+    }
+}
+
 
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
@@ -87,7 +96,9 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
                     this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
                 }
             }
-            this.harvest(storedSource);
+            let result;
+            result = this.harvest(storedSource);
+            return result;
         }
         // else if(this.pos.getRangeTo(storedSource) < 6 && Containers.length > 0) {
         //     let closestContainer = this.pos.findClosestByRange(Containers);

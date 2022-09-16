@@ -11,7 +11,12 @@ var roleDefender = {
             
             let rampart = Game.getObjectById(rampartToMan);
 
-            if(creep.rangedAttack(closestEnemyCreep) == 0) {
+            if(creep.pos.isNearTo(closestEnemyCreep)) {
+                creep.rangedMassAttack();
+                creep.say("die meanie!", true);
+            }
+
+            else if(creep.rangedAttack(closestEnemyCreep) == 0) {
                 creep.say("die meanie!", true);
                 // return;
             }

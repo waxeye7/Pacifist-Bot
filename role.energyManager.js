@@ -1,0 +1,38 @@
+/**
+ * A little description of this function 
+ * @param {Creep} creep
+ **/
+ const run = function (creep) {
+    let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
+
+    if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0) {
+        if(creep.store.getFreeCapacity() > 0) {
+            if(creep.pos.isNearTo(closestLink)) {
+                creep.withdraw(closestLink, RESOURCE_ENERGY);
+            }
+            else {
+                creep.moveTo(closestLink);
+            }
+        }        
+        else if(creep.store.getFreeCapacity() == 0) {
+            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
+            if(creep.pos.isNearTo(storage)) {
+                creep.transfer(storage, RESOURCE_ENERGY);
+            }
+            else {
+                creep.moveTo(storage);
+            }
+        }
+    }
+}
+
+
+const EnergyManager = {
+    run,
+    //run: run,
+    //function2,
+    //function3
+};
+
+module.exports = EnergyManager;

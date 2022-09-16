@@ -106,8 +106,15 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                 // console.log('Spawning new EnergyMiner: ' + newName);
                 if(targetRoomName == room.name) {
                     if(room.energyCapacityAvailable >= 550) {
-                        let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
-                            {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                        let result;
+                        if(room.controller.level >= 6) {
+                            result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
+                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                        }
+                        else {
+                            result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,MOVE], newName, 
+                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                        }
                         if(result == OK) {
                             console.log('Spawning new EnergyMiner: ' + newName);
                             values.lastSpawn = Game.time;
@@ -168,7 +175,13 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
                 if(result == OK) {
                     console.log('Spawning new Carrier: ' + newName);
-                    values.lastSpawnCarrier = Game.time;
+                    if(targetRoomName.controller && targetRoomName.controller.level >= 6) {
+                        values.lastSpawnCarrier = Game.time*10000;
+                    }
+                    else {
+                        values.lastSpawnCarrier = Game.time;
+                    }
+                    
                     foundCreepToSpawn = true;
                     return;
                 }
@@ -264,8 +277,7 @@ function spawning(room) {
     let carriers = _.sum(Game.creeps, (creep) => creep.memory.role == 'carry');
     let carriersInRoom = _.sum(Game.creeps, (creep) => creep.memory.role == 'carry' && isInRoom(creep, room));
 
-
-
+    let EnergyManager = _.sum(Game.creeps, (creep) => creep.memory.role == 'EnergyManager' && isInRoom(creep, room));
 
     let MineralMiners = _.sum(Game.creeps, (creep) => creep.memory.role == 'MineralMiner' && isInRoom(creep, room));
 
@@ -345,6 +357,17 @@ function spawning(room) {
             return;
         }
     }
+
+    if(EnergyManager < 1 && room.controller.level >= 6) {
+        let newName = 'EnergyManager' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
+        let result = spawn.spawnCreep([CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
+            {memory: {role: 'EnergyManager'}});
+        if(result == OK) {
+            console.log('Spawning new EnergyManager: ' + newName);
+            return;
+        }
+    }
+
 
     let resourceData = _.get(room.memory, ['resources']);
 
