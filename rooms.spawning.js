@@ -360,7 +360,7 @@ function spawning(room) {
 
     if(EnergyManager < 1 && room.controller.level >= 6) {
         let newName = 'EnergyManager' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawn.spawnCreep([CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
+        let result = spawn.spawnCreep([CARRY,CARRY,MOVE], newName, 
             {memory: {role: 'EnergyManager'}});
         if(result == OK) {
             console.log('Spawning new EnergyManager: ' + newName);

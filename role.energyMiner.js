@@ -27,7 +27,7 @@ const run = function (creep) {
 
     creep.harvestEnergy();
 
-    if(creep.store.getFreeCapacity < 100) {
+    if(creep.store.getFreeCapacity() < 100) {
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
         targetLink = Game.getObjectById(creep.memory.targetLink);
         if(closestLink.store[RESOURCE_ENERGY] == 800 && targetLink.store[RESOURCE_ENERGY] == 0) {
