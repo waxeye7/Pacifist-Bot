@@ -111,7 +111,7 @@ function construction(room) {
             let extractor = Game.getObjectById(room.memory.extractor) || room.findExtractor();
             let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
             if(!extractor) { 
-                room.createConstructionSite(mineral.pos.x, found_deposit[0].pos.y, STRUCTURE_EXTRACTOR);
+                room.createConstructionSite(mineral.pos.x, mineral.pos.y, STRUCTURE_EXTRACTOR);
             }
     
             pathFromStorageToMineral = storage.pos.findPathTo(mineral, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});

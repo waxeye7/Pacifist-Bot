@@ -175,7 +175,7 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
                 if(result == OK) {
                     console.log('Spawning new Carrier: ' + newName);
-                    if(Game.rooms[targetRoomName].controller.level >= 6) {
+                    if(Game.rooms[targetRoomName].controller && Game.rooms[targetRoomName].controller.level >= 6) {
                         values.lastSpawnCarrier = 5000000000;
                     }
                     else {
@@ -360,7 +360,7 @@ function spawning(room) {
 
     if(EnergyManager < 1 && room.controller.level >= 6) {
         let newName = 'EnergyManager' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
-        let result = spawn.spawnCreep([CARRY,CARRY,MOVE], newName, 
+        let result = spawn.spawnCreep([CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
             {memory: {role: 'EnergyManager'}});
         if(result == OK) {
             console.log('Spawning new EnergyManager: ' + newName);
@@ -493,6 +493,8 @@ function spawning(room) {
     }
 
     
+    
+
     let spawned;
     let remoteRooms = ["E12S36", "E11S38", "E12S38", "E13S37", "E13S36", "E13S35"]
 
@@ -562,171 +564,3 @@ function spawning(room) {
 }
 
 module.exports = spawning;
-
-
-    // if(room.name == "E12S39") {
-    //     let workers = _.filter(Game.creeps, (creep) => creep.memory.role == 'worker' && creep.room.name == room.name);
-    //     let builders = _.filter(Game.creeps, (creep) => creep.memory.role == 'builder' && creep.room.name == room.name);
-    //     let upgraders = _.filter(Game.creeps, (creep) => creep.memory.role == 'upgrader' && creep.room.name == room.name);
-    //     let remoteWorkers = _.filter(Game.creeps, (creep) => creep.memory.role == 'remoteworker');
-    //     let attackers = _.filter(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
-    //     let claimers = _.filter(Game.creeps, (creep) => creep.memory.role == 'claimer' && creep.room.name == room.name);
-    //     let containerbuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
-    //     let carriers = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry');
-    //     let fillers = _.filter(Game.creeps, (creep) => creep.memory.role == 'filler' && creep.room.name == room.name);
-    //     let repairers = _.filter(Game.creeps, (creep) => creep.memory.role == 'repair' && creep.room.name == room.name);
-    //     let colobuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'colobuild');
-
-    
-//         if(Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S39"].find(FIND_HOSTILE_CREEPS).length != 0 && defenders.length < 1) {
-//             let newName = 'Defender' + Game.time;
-//             console.log('Spawning new defender: ' + newName);
-//             Game.spawns['Spawn1'].spawnCreep([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE], newName, 
-//                 {memory: {role: 'defender'}});  
-//         }
-//     }
-// }
-        // else if (Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS) != undefined && Game.rooms["E12S38"].find(FIND_HOSTILE_CREEPS).length != 0 && attackers.length < 1) {
-        // else if(attackers.length < 0) {
-        //     let newName = 'Attacker' + Game.time;
-        //     console.log('Spawning new attacker: ' + newName);
-        //     // Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-        //     Game.spawns['Spawn1'].spawnCreep([ATTACK,MOVE], newName, 
-        //         {memory: {role: 'attacker'}});        
-        //     }
-            
-        //     let newName = 'Attacker' + Game.time;
-        //     console.log('Spawning new attacker: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-        //         {memory: {role: 'attacker'}});        
-        // }
-    
-
-        // else if(remoteWorkers.length < 1 || Game.time % 1470 == 0) {
-        //     let newName = 'RemoteWorker' + Game.time;
-        //     console.log('Spawning new remote-worker: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([WORK, WORK,WORK,WORK,MOVE,MOVE], newName, 
-        //         {memory: {role: 'remoteworker'}});        
-        // }
-    
-        // else if(carriers.length < 1) {
-        //     let newName = 'Carrier' + Game.time;
-        //     console.log('Spawning new carrier: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-        //         {memory: {role: 'carry'}});        
-        // }
-    
-        // && (Game.rooms["E12S37"].find(FIND_STRUCTURES, {filter: object => object.structureType == STRUCTURE_WALL}))
-    
-    
-        // else if(claimers.length < 0) {
-        //     let newName = 'Claimer' + Game.time;
-        //     console.log('Spawning new claimer: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([MOVE,CLAIM], newName, 
-        //         {memory: {role: 'claimer'}});        
-        // // }
-    
-    
-        // else if(repairers.length < 1) {
-        //     let newName = 'Repair' + Game.time;
-        //     console.log('Spawning new repairer: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-        //         {memory: {role: 'repair'}});        
-        // }
-
-        // else if(colobuilders.length < 0) {
-        //     let newName = 'ColoBuild' + Game.time;
-        //     console.log('Spawning new colobuilder: ' + newName);
-        //     Game.spawns['Spawn1'].spawnCreep([WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY], newName, 
-        //         {memory: {role: 'colobuild'}});        
-        // }
-
-
-
-        // let workers = [];
-        // let MineralMiners = [];
-        // let builders = [];
-        // let upgraders = [];
-        // let fillers = [];
-        // let repairers = [];
-        // let defenders = [];
-        // let EnergyMiners = [];
-        // let EnergyMinersInRoom = [];
-        // let carriers = [];
-        // let carriersInRoom = [];
-        // let RemoteRepairers = [];
-        // let Dismantlers = [];
-        // let scouts = [];
-        // let claimers = [];
-        // let RemoteDismantlers = [];
-        // let attackers = [];
-        // let containerbuilders = [];
-        // let DrainTowers = [];
-        // let healers = [];
-    
-    
-    
-        // for (let creep in Game.creeps) {
-        //     if(!creep.memory.role) {
-        //         continue;
-        //     }
-        //     if(creep.memory.role) {
-        //         if(creep.memory.role == "worker" && creep.room.name == room.name) {
-        //             workers.push("a");
-        //         }
-        //         if(creep.memory.role == "MineralMiner" && creep.room.name == room.name) {
-        //             MineralMiners.push("a");
-        //         }
-        //         if(creep.memory.role == "builder" && creep.room.name == room.name) {
-        //             builders.push("a");
-        //         }
-        //         if(creep.memory.role == "upgrader" && creep.room.name == room.name) {
-        //             upgraders.push("a");
-        //         }
-        //         if(creep.memory.role == "filler" && creep.room.name == room.name) {
-        //             fillers.push("a");
-        //         }
-        //         if(creep.memory.role == "repair" && creep.room.name == room.name) {
-        //             repairers.push("a");
-        //         }
-        //         if(creep.memory.role == "EnergyMiner") {
-        //             EnergyMiners.push("a");
-        //         }
-        //         if(creep.memory.role == "EnergyMiner" && creep.room.name == room.name) {
-        //             EnergyMinersInRoom.push("a");
-        //         }
-        //         if(creep.memory.role == "carry") {
-        //             carriers.push("a");
-        //         }
-        //         if(creep.memory.role == "carry" && creep.room.name == room.name) {
-        //             carriersInRoom.push("a");
-        //         }
-        //         if(creep.memory.role == "RemoteRepair" && creep.room.name == room.name) {
-        //             RemoteRepairers.push("a");
-        //         }
-        //         if(creep.memory.role == "Dismantler" && creep.room.name == room.name) {
-        //             Dismantlers.push("a");
-        //         }
-        //         if(creep.memory.role == "scout") {
-        //             scouts.push("a");
-        //         }
-        //         if(creep.memory.role == "claimer") {
-        //             claimers.push("a");
-        //         }
-        //         if(creep.memory.role == "RemoteDismantler") {
-        //             RemoteDismantlers.push("a");
-        //         }
-        //         if(creep.memory.role == "attacker") {
-        //             attackers.push("a");
-        //         }
-        //         if(creep.memory.role == "buildcontainer") {
-        //             containerbuilders.push("a");
-        //         }
-        //         if(creep.memory.role == "DrainTower") {
-        //             DrainTowers.push("a");
-        //         }
-        //         if(creep.memory.role == "healer") {
-        //             healers.push("a");
-        //         }
-        //     }
-        // }

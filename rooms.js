@@ -35,7 +35,7 @@ function rooms() {
                 market(room);
             }
             
-            if(Game.time % 160 == 1) {
+            if(Game.time % 40 == 1) {
                 identifySources(room);
             }
 
@@ -44,22 +44,42 @@ function rooms() {
             }
 
         }
+        let list = Memory.tasks.wipeRooms.destroyStructures
+        console.log(JSON.stringify(list.length))
 
-        if(Game.time % 60  == 1) {
+        if(Game.time % 31 == 0) {
+            if(!Memory.tasks.wipeRooms.destroyStructures) {
+                Memory.tasks.wipeRooms.destroyStructures = [];
+            }
+
+            if(!Memory.tasks.wipeRooms.killCreeps) {
+                Memory.tasks.wipeRooms.killCreeps = [];
+            }
+
+            // console.log(JSON.stringify(Memory.tasks))
+
             let attackersInRoom = _.sum(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
             let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
             let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
             if (HostileStructures.length > 0) {
+                if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
+                    Memory.tasks.wipeRooms.destroyStructures.push(room.name)
+                }
                 room.memory.has_hostile_structures = true;
             }
             else {
+                Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
                 room.memory.has_hostile_structures = false;
             }
 
             if(HostileCreeps.length > 0) {
+                if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
+                    Memory.tasks.wipeRooms.killCreeps.push(room.name)
+                }
                 room.memory.has_hostile_creeps = true;
             }
             else {
+                Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
                 room.memory.has_hostile_creeps = false;
             }
 

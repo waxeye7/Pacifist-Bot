@@ -3,10 +3,15 @@ function roomDefence(room) {
     let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
     if(towers.length) {
         _.forEach(towers, function(tower) {
-            let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
-            if(damagedCreeps.length > 0) {
-                tower.heal(damagedCreeps[0]);
-                return;
+
+
+            
+            if(Game.time % 4 == 0) {
+                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+                if(damagedCreeps.length > 0) {
+                    tower.heal(damagedCreeps[0]);
+                    return;
+                }
             }
 
 
