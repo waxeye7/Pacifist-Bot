@@ -25,7 +25,11 @@ const run = function (creep) {
         }
     }
 
-    creep.harvestEnergy();
+    creep.harvestEnergy()
+    // if(creep.harvestEnergy() == -1) { 
+    //     let containers = creep
+
+    // }
 
     if(creep.store.getFreeCapacity() < 100) {
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();

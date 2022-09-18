@@ -44,8 +44,8 @@ function rooms() {
             }
 
         }
-        let list = Memory.tasks.wipeRooms.destroyStructures
-        console.log(JSON.stringify(list.length))
+        // let list = Memory.tasks.wipeRooms.destroyStructures
+        // console.log(JSON.stringify(list.length))
 
         if(Game.time % 31 == 0) {
             if(!Memory.tasks.wipeRooms.destroyStructures) {

@@ -2,10 +2,12 @@ function roomDefence(room) {
     // cache the towers.
     let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
     if(towers.length) {
+        let towerCount = -1;
+        let currentTickModTowers = Game.time % towers.length;
         _.forEach(towers, function(tower) {
 
+            towerCount = towerCount + 1;
 
-            
             if(Game.time % 4 == 0) {
                 let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
@@ -22,15 +24,16 @@ function roomDefence(room) {
             }
 
 
-            if(Game.time % 5 == 1) {
-                let closestDamagedStructure = tower.pos.findClosestByRange(FIND_STRUCTURES, {
-                    filter: structure => structure.hits < structure.hitsMax && structure.hits < (structure.hitsMax-2000) && structure.hits < 150000});
-    
-                if(closestDamagedStructure) {
-                    tower.repair(closestDamagedStructure)
+// cache here locked need TODO maybe, might not be worth.
+            if(currentTickModTowers == towerCount) {
+                buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-8000) && building.hits < 100000});
+                buildingsToRepair.sort((a,b) => a.hits - b.hits);
+                if(buildingsToRepair.length > 0) {
+                    tower.repair(buildingsToRepair[0])
                     return;
                 }
             }
+
        });
     }
 
