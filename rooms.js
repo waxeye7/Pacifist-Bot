@@ -24,7 +24,7 @@ function rooms() {
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
 
-            if(Game.time % 7 == 0) {
+            if(Game.time % 3 == 0) {
                 spawning(room);
             }
             

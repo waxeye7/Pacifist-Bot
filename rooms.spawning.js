@@ -9,7 +9,7 @@ function getBody(segment, room, divisor=1) {
     let energyAvailable = room.energyAvailable;
     
     let maxSegments = Math.floor(energyAvailable / segmentCost / divisor);
-    _.times(maxSegments, function() {_.forEach(segment, s => body.push(s));});
+    _.times(maxSegments, function() {if(segment.length + body.length <= 50){_.forEach(segment, s => body.push(s));}});
 
     return body;
 }
@@ -78,7 +78,7 @@ function getCarrierBody(sourceId, storage, spawn, room) {
         let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
-        while (energyProducedPerRoundTrip > -50) {
+        while (energyProducedPerRoundTrip > -100) {
             body.push(CARRY);
             if(alternate % 2 == 1) {
                 body.push(MOVE);
@@ -398,7 +398,7 @@ function spawning(room) {
         }
     }
 
-    if (MineralMiners < 1 && room.controller.level >= 6) {
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.extractor) {
         let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(mineral.mineralAmount > 0) {
             let newName = 'MineralMiner' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
@@ -442,7 +442,7 @@ function spawning(room) {
             }
         }
     }
-    else if (carriers > 1 && EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount && carriersInRoom > 0 && EnergyMinersInRoom  > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 4) && carriersInRoom > 0 && EnergyMinersInRoom > 0  || (room.controller.level <= 4 && upgraders < preRCL5UpgraderTarget && carriersInRoom > 0 && EnergyMinersInRoom > 0 )) {
+    if (carriers > 1 && EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount && carriersInRoom > 0 && EnergyMinersInRoom  > 0 || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 4) && carriersInRoom > 0 && EnergyMinersInRoom > 0  || (room.controller.level <= 4 && upgraders < preRCL5UpgraderTarget && carriersInRoom > 0 && EnergyMinersInRoom > 0 )) {
         let newName = 'Upgrader' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
         let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
