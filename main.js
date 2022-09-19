@@ -48,6 +48,7 @@ module.exports.loop = function () {
         else {
             if(creep.memory.role == undefined) {
                 console.log("i am undefined", name)
+                creep.suicide();
                 break;
             }
             ROLES[creep.memory.role].run(creep);

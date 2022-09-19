@@ -24,7 +24,7 @@ function rooms() {
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
 
-            if(Game.time % 7 == 1) {
+            if(Game.time % 7 == 0) {
                 spawning(room);
             }
             
@@ -47,7 +47,7 @@ function rooms() {
         // let list = Memory.tasks.wipeRooms.destroyStructures
         // console.log(JSON.stringify(list.length))
 
-        if(Game.time % 31 == 0) {
+        if(Game.time % 13 == 0) {
             if(!Memory.tasks.wipeRooms.destroyStructures) {
                 Memory.tasks.wipeRooms.destroyStructures = [];
             }

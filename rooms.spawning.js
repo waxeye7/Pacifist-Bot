@@ -175,7 +175,7 @@ function spawn_carrier(resourceData, room, spawn, storage) {
                     {memory: {role: 'carry', targetRoom: targetRoomName, homeRoom: room.name}});
                 if(result == OK) {
                     console.log('Spawning new Carrier: ' + newName);
-                    if(Game.rooms[targetRoomName].controller != undefined && Game.rooms[targetRoomName].controller.level >= 6) {
+                    if(Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller != undefined && Game.rooms[targetRoomName].controller.level >= 6) {
                         values.lastSpawnCarrier = 5000000000;
                     }
                     else {
@@ -298,6 +298,7 @@ function spawning(room) {
     let RemoteDismantlers = _.sum(Game.creeps, (creep) => creep.memory.role == 'RemoteDismantler');
 
     let attackers = _.sum(Game.creeps, (creep) => creep.memory.role == 'attacker');
+    let RangedAttackers = _.sum(Game.creeps, (creep) => creep.memory.role == 'RangedAttacker');
 
     let containerbuilders = _.sum(Game.creeps, (creep) => creep.memory.role == 'buildcontainer');
 
@@ -306,8 +307,12 @@ function spawning(room) {
 
     console.log("Room-" + room.name + " has " + builders + " Builders " + upgraders +
     " Upgraders " + repairers + " Repairers " + fillers
-    + " Fillers [" + EnergyMiners + " Energy-Miners in all rooms] [" + carriers +
-     " Carriers in all rooms] [" +  RemoteRepairers, "RemoteRepairers in all rooms] [" + attackers + " Attackers in all rooms]");
+    + " Fillers");
+    if(Game.time % 21 == 0) {
+        console.log("[" + EnergyMiners + " Energy-Miners]" + " [" + carriers +
+        " Carriers] [" +  RemoteRepairers, "RemoteRepairers] [" + attackers + " Attackers]" + " [" + RangedAttackers +  " RangedAttackers]");
+    }
+
 
 
     // let worker_people = [];
@@ -500,7 +505,8 @@ function spawning(room) {
 
 
     _.forEach(Game.rooms, function(thisRoom) {
-        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && remoteRooms.includes(thisRoom.name)) {
+        // && remoteRooms.includes(thisRoom.name)
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my) {
             // let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
             // if(creeps > 0) {
             let newName = 'Attacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
@@ -514,7 +520,8 @@ function spawning(room) {
                 // }
             }
         }
-        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && remoteRooms.includes(thisRoom.name)) {
+        //  && remoteRooms.includes(thisRoom.name)
+        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my) {
             let newName = 'RangedAttacker' + Math.floor((Game.time/11) - 3739341) + "-" + room.name;
             let result = spawn.spawnCreep([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
                 {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name}});  

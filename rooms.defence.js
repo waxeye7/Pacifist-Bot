@@ -26,7 +26,7 @@ function roomDefence(room) {
 
 // cache here locked need TODO maybe, might not be worth.
             if(currentTickModTowers == towerCount) {
-                buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-8000) && building.hits < 100000});
+                buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1000) && building.hits < 15000});
                 buildingsToRepair.sort((a,b) => a.hits - b.hits);
                 if(buildingsToRepair.length > 0) {
                     tower.repair(buildingsToRepair[0])
