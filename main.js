@@ -38,6 +38,7 @@ global.ROLES = {
 
 
 module.exports.loop = function () {
+
     rooms();
 
     for(let name in Memory.creeps) {

@@ -35,7 +35,7 @@ function rooms() {
                 market(room);
             }
             
-            if(Game.time % 40 == 1) {
+            if(Game.time % 40 == 1 || Game.time < 10) {
                 identifySources(room);
             }
 
@@ -47,7 +47,15 @@ function rooms() {
         // let list = Memory.tasks.wipeRooms.destroyStructures
         // console.log(JSON.stringify(list.length))
 
-        if(Game.time % 13 == 0) {
+        if(Game.time % 13 == 0 || Game.time < 10) {
+            if(!Memory.tasks) {
+                Memory.tasks = {};
+            }
+
+            if(!Memory.tasks.wipeRooms) {
+                Memory.tasks.wipeRooms = {};
+            }
+
             if(!Memory.tasks.wipeRooms.destroyStructures) {
                 Memory.tasks.wipeRooms.destroyStructures = [];
             }
