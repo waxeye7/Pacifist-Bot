@@ -368,7 +368,7 @@ function spawning(room) {
                     break;
                 }
 
-            case "MineralMiners":
+            case "MineralMiner":
                 if(isInRoom(creep, room)) {
                     MineralMiners ++;
                     break;
@@ -473,7 +473,7 @@ function spawning(room) {
 
 
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
-    let fillerRCL6TargetAmount = _.get(room.memory, ['census', 'filler'], );
+    let fillerRCL6TargetAmount = _.get(room.memory, ['census', 'filler'], 2);
 
     let repairerTargetAmount = _.get(room.memory, ['census', 'repair'], 1);
 
