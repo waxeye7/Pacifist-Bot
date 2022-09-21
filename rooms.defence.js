@@ -1,11 +1,21 @@
 function roomDefence(room) {
     // cache the towers.
-    let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
-    if(towers.length) {
-        let towerCount = -1;
-        let currentTickModTowers = Game.time % towers.length;
-        _.forEach(towers, function(tower) {
+    if(Game.time % 2500 == 0) {
+        room.memory.towers = [];
 
+        let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
+        if(towers.length) {
+            _.forEach(towers, function(tower) {
+                room.memory.towers.push(tower.id);
+            });
+        }    
+    }
+
+    if(room.memory.towers.length > 0) {
+        let towerCount = -1;
+        let currentTickModTowers = Game.time % room.memory.towers.length;
+        _.forEach(room.memory.towers, function(towerID) {
+            let tower = Game.getObjectById(towerID);
             towerCount = towerCount + 1;
 
             if(Game.time % 4 == 0) {

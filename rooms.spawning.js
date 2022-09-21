@@ -107,8 +107,12 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                 if(targetRoomName == room.name) {
                     if(room.energyCapacityAvailable >= 550) {
                         let result;
-                        if(room.controller.level >= 6) {
+                        if(room.controller.level == 6) {
                             result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE], newName, 
+                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                        }
+                        else if(room.controller.level > 6) {
+                            result = spawn.spawnCreep([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, 
                                 {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                         }
                         else {
@@ -263,10 +267,10 @@ function spawn_remote_repairer(resourceData, room, spawn) {
     }
 }
 
-function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, EnergyMinersInRoom, carriersInRoom) {
+function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, EnergyMinersInRoom, carriers) {
     let foundCreepToSpawn = false;
     if((repairers < repairerTargetAmount && room.controller.level > 1) || (storage && storage.store[RESOURCE_ENERGY] > 500000 && repairers < repairerTargetAmount + 0)) {
-        if(EnergyMinersInRoom > 1 && carriersInRoom > 1) {
+        if(EnergyMinersInRoom > 1 && carriers > 1) {
             let newName = 'Repair' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
             let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
                 {memory: {role: 'repair'}});
@@ -370,7 +374,7 @@ function spawning(room) {
 
 
     let fillerTargetAmount = _.get(room.memory, ['census', 'filler'], 1);
-    let fillerRCL6TargetAmount = _.get(room.memory, ['census', 'filler'], 2);
+    let fillerRCL6TargetAmount = _.get(room.memory, ['census', 'filler'], 1);
 
     let repairerTargetAmount = _.get(room.memory, ['census', 'repair'], 1);
 
@@ -472,7 +476,7 @@ function spawning(room) {
             }
         }
     }
-    if (carriersInRoom > 1 && EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 4) && EnergyMinersInRoom > 1 || (room.controller.level <= 4 && upgraders < preRCL5UpgraderTarget && carriersInRoom > 1 && EnergyMinersInRoom > 1)) {
+    if (carriers > 1 && EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 4) && EnergyMinersInRoom > 1 || (room.controller.level <= 4 && upgraders < preRCL5UpgraderTarget && carriers > 1 && EnergyMinersInRoom > 1)) {
         let newName = 'Upgrader' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
         let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
             {memory: {role: 'upgrader'}});  
@@ -482,7 +486,7 @@ function spawning(room) {
         }
     }
 
-    if(spawn_repair(room, spawn, storage, repairers, repairerTargetAmount, EnergyMinersInRoom, carriersInRoom) == true) {
+    if(spawn_repair(room, spawn, storage, repairers, repairerTargetAmount, EnergyMinersInRoom, carriers) == true) {
         return;
     }
 
@@ -536,7 +540,7 @@ function spawning(room) {
 
     _.forEach(Game.rooms, function(thisRoom) {
         // && remoteRooms.includes(thisRoom.name)
-        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && attackers < 3) {
+        if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && attackers < 2) {
             // let creeps = _.sum(Game.creeps, (creep) => creep.my && thisRoom.name == creep.room.name);
             // if(creeps > 0) {
             let newName = 'Attacker' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
@@ -551,7 +555,7 @@ function spawning(room) {
             }
         }
         //  && remoteRooms.includes(thisRoom.name)
-        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 3) {
+        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 2) {
             let newName = 'RangedAttacker' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
             let result = spawn.spawnCreep([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
                 {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name}});  

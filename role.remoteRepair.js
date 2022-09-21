@@ -10,6 +10,11 @@
         creep.memory.working = false;
     }
 
+
+    if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
+        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+    }
+
     if(creep.memory.working) {
         const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {filter: object => object.hits < object.hitsMax 
             && (object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER)});

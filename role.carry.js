@@ -15,6 +15,11 @@
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
     }
+
+    if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
+        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+    }
+
     if(creep.memory.full) {
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
