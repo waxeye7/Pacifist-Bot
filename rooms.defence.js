@@ -11,7 +11,7 @@ function roomDefence(room) {
         }    
     }
 
-    if(room.memory.towers.length > 0) {
+    if(room.memory.towers && room.memory.towers.length > 0) {
         let towerCount = -1;
         let currentTickModTowers = Game.time % room.memory.towers.length;
         _.forEach(room.memory.towers, function(towerID) {

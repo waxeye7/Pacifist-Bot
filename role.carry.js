@@ -40,8 +40,10 @@
         else {
             if(!creep.memory.locked) {
                 let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-                let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
-                creep.memory.locked = closestDropOffLocation.id;
+                if(spawnAndExtensionsAndTowers.length > 0) {
+                    let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
+                    creep.memory.locked = closestDropOffLocation.id;
+                }
             }
 
             if(creep.memory.locked) {
@@ -92,8 +94,10 @@
             else {
                 if(creep.memory.locked) {
                     let spawnAndExtensionsAndTowers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-                    let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
-                    creep.memory.locked = closestDropOffLocation.id;
+                    if(spawnAndExtensionsAndTowers.length > 0) {
+                        let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensionsAndTowers);
+                        creep.memory.locked = closestDropOffLocation.id;
+                    }
                 }
     
                 if(creep.memory.locked) {

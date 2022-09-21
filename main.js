@@ -55,8 +55,11 @@ module.exports.loop = function () {
             ROLES[creep.memory.role].run(creep);
         }
     }
-    
-    if(Game.time % 17 == 1) {
+
+    if(Game.time % 17 == 1 && Game.shard.name == "shard0" || 
+       Game.time % 17 == 1 && Game.shard.name == "shard1" || 
+       Game.time % 17 == 1 && Game.shard.name == "shard2" || 
+       Game.time % 17 == 1 && Game.shard.name == "shard3") {
         console.log(" ");
         console.log("------------------------",Game.cpu.bucket, 'unused cpu in my bucket', "------------------------");
         console.log(" ");
