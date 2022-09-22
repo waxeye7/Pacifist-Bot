@@ -16,6 +16,9 @@
     let damagedCreepsInRoom = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == creep.room.name);
 
     if(damagedCreepsInRoom.length > 0) {
+        if (creep.heal(damagedCreepsInRoom[0]) == 0) {
+            creep.moveTo(damagedCreepsInRoom[0]);
+        }
         if(creep.heal(damagedCreepsInRoom[0]) == ERR_NOT_IN_RANGE) {
             creep.moveTo(damagedCreepsInRoom[0]);
             creep.rangedHeal(damagedCreepsInRoom[0]);

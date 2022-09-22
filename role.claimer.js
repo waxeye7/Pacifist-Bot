@@ -9,6 +9,10 @@
     else {
         let controller = creep.room.controller;
         if(controller.level == 0) {
+            if(creep.claimController(controller) == 0) {
+                creep.suicide();
+                return;
+            }
             if(creep.claimController(controller) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(controller);
             }

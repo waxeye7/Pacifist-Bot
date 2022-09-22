@@ -1,5 +1,13 @@
+function findLocked(room) {
+    buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < 15000});
+    buildingsToRepair.sort((a,b) => a.hits - b.hits);
+    if(buildingsToRepair.length > 0) {
+        room.memory.lowestHitsBuildingToRepair = buildingsToRepair[0].id;
+    }
+}
+
+
 function roomDefence(room) {
-    // cache the towers.
     if(Game.time % 2500 == 0) {
         room.memory.towers = [];
 
@@ -18,7 +26,9 @@ function roomDefence(room) {
             let tower = Game.getObjectById(towerID);
             towerCount = towerCount + 1;
 
-            if(Game.time % 4 == 0) {
+            let isDanger = room.memory.danger;
+
+            if(isDanger && Game.time % 4 == 0) {
                 let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
                     tower.heal(damagedCreeps[0]);
@@ -26,20 +36,35 @@ function roomDefence(room) {
                 }
             }
 
-
-            let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-            if(closestHostile) {
-                tower.attack(closestHostile);
-                return;
+            if(isDanger) {
+                let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
+                if(closestHostile) {
+                    tower.attack(closestHostile);
+                    return;
+                }
             }
 
 
-// cache here locked need TODO maybe, might not be worth.
             if(currentTickModTowers == towerCount) {
-                buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1000) && building.hits < 15000});
-                buildingsToRepair.sort((a,b) => a.hits - b.hits);
-                if(buildingsToRepair.length > 0) {
-                    tower.repair(buildingsToRepair[0])
+                if(Game.time % 11 == 0) {
+                    findLocked(room);
+                }
+                if(room.memory.lowestHitsBuildingToRepair) {
+                    let repairTarget = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
+                    if(repairTarget.hits + 900 > repairTarget.hitsMax || repairTarget.hits > 15000) {
+                        room.memory.lowestHitsBuildingToRepair = null;
+                        return;
+                    }
+                    if(tower.repair(repairTarget) != 0) {
+                        room.memory.lowestHitsBuildingToRepair = null;
+                    }
+                }
+            }
+
+            if(Game.time % 12 == 0) {
+                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+                if(damagedCreeps.length > 0) {
+                    tower.heal(damagedCreeps[0]);
                     return;
                 }
             }
@@ -47,7 +72,7 @@ function roomDefence(room) {
        });
     }
 
-    if(Game.time % 16 == 1) {
+    if(Game.time % 10 == 1) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;

@@ -46,7 +46,9 @@ var roleBuildContainer = {
                     }
                 }
                 else {
-                    creep.harvestEnergy();
+                    if(creep.harvestEnergy() == -6 || creep.harvestEnergy() == -11)  {
+                        creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+                    }
                 }
             }
         }

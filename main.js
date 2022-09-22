@@ -38,8 +38,9 @@ global.ROLES = {
 
 
 module.exports.loop = function () {
-
+    const start = Game.cpu.getUsed()
     rooms();
+    console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
 
     for(let name in Memory.creeps) {
         let creep = Game.creeps[name];

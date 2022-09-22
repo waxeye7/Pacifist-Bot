@@ -298,6 +298,8 @@ function spawning(room) {
         }
     }
 
+    // const start = Game.cpu.getUsed()
+
     let EnergyMiners = 0;
     let EnergyMinersInRoom = 0;
 
@@ -422,6 +424,10 @@ function spawning(room) {
                 attackers ++;
                 break;
 
+            case "RangedAttacker":
+                RangedAttackers ++;
+                break;
+
             case "buildcontainer":
                 containerbuilders ++;
                 break;
@@ -446,7 +452,9 @@ function spawning(room) {
         " Carriers] [" +  RemoteRepairers, "RemoteRepairers] [" + attackers + " Attackers]" + " [" + RangedAttackers +  " RangedAttackers]");
     }
 
+    console.log("Container Builders", containerbuilders);
 
+    // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
 
     // let worker_people = [];
     // for(let creep in Game.creeps) {
@@ -467,7 +475,7 @@ function spawning(room) {
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 4);
+    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 8);
 
     let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
 
@@ -591,34 +599,36 @@ function spawning(room) {
 
     if(attackers < 0) {
         let newName = 'Attacker' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
-        let result = spawn.spawnCreep([ATTACK,MOVE], newName, 
-            {memory: {role: 'attacker', targetRoom: "E9S36", targetRoom2: "E9S35"}});  
+        let result = spawn.spawnCreep([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK
+                                        ,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK], newName, 
+            {memory: {role: 'attacker', targetRoom: "E14S36", targetRoom2: "E14S37"}});  
         if(result == OK) {
             console.log('Spawning new attacker: ' + newName);
             return;
         }
     }
     // TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK
-    if(containerbuilders < 0) {
-        let newName = 'ContainerBuilder' + Game.time + " " + room.name;
-        let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
-            {memory: {role: 'buildcontainer', targetRoom: "E12S35"}});  
-        if(result == OK) {
-            console.log('Spawning new ContainerBuilder: ' + newName);
-            return;
-        }
-    }
 
     if(claimers < 0) {
         let newName = 'Claimer' + Game.time + " " + room.name;
         let result = spawn.spawnCreep([MOVE,CLAIM], newName, 
-            {memory: {role: 'claimer', targetRoom: "E11S37"}});  
+            {memory: {role: 'claimer', targetRoom: "E14S37"}});  
         if(result == OK) {
             console.log('Spawning new Claimer: ' + newName);
             return;
         }
     }
 
+    if(containerbuilders < 0) {
+        let newName = 'ContainerBuilder' + Game.time + " " + room.name;
+        let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
+            {memory: {role: 'buildcontainer', targetRoom: "E14S37"}});  
+        if(result == OK) {
+            console.log('Spawning new ContainerBuilder: ' + newName);
+            return;
+        }
+    }
 
     if(RemoteDismantlers < 0) {
         let newName = 'RemoteDismantler' + Game.time + " " + room.name;
@@ -656,7 +666,7 @@ function spawning(room) {
         //  && remoteRooms.includes(thisRoom.name)
         if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 2) {
             let newName = 'RangedAttacker' + Math.floor((Game.time - 41784683) /5) + "-" + room.name;
-            let result = spawn.spawnCreep([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
+            let result = spawn.spawnCreep([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
                 {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name}});  
             if(result == OK) {
                 console.log('Spawning new room defending ranged attacker: ' + newName);
@@ -695,7 +705,7 @@ function spawning(room) {
     if(healers < 0) {
         let newName = 'healer' + Game.time + " " + room.name;
         let result = spawn.spawnCreep([HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-            {memory: {role: 'healer', targetRoom: "E12S38"}});  
+            {memory: {role: 'healer', targetRoom: "E14S37"}});  
         if(result == OK) {
             console.log('Spawning new healer: ' + newName);
             return;
