@@ -287,13 +287,16 @@ function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, En
 
 function spawning(room) {
     let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+
     if(spawn == undefined) {
+        delete room.memory.spawn;
         return;
     }
 
+
     if(spawn.spawning) {
         spawn = room.findSpawn();
-        if(spawn == undefined || spawn.spawning) {
+        if(spawn == undefined) {
             return;
         }
     }
@@ -449,10 +452,8 @@ function spawning(room) {
     + " Fillers");
     if(Game.time % 21 == 0) {
         console.log("[" + EnergyMiners + " Energy-Miners]" + " [" + carriers +
-        " Carriers] [" +  RemoteRepairers, "RemoteRepairers] [" + attackers + " Attackers]" + " [" + RangedAttackers +  " RangedAttackers]");
+        " Carriers] [" +  RemoteRepairers, "RemoteRepairers] [" + attackers + " Attackers]" + " [" + RangedAttackers +  " RangedAttackers]" + " [" + containerbuilders +  " Container Builders]");
     }
-
-    console.log("Container Builders", containerbuilders);
 
     // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
 
@@ -703,9 +704,9 @@ function spawning(room) {
     }
 
     if(healers < 0) {
-        let newName = 'healer' + Game.time + " " + room.name;
+        let newName = 'Healer' + Game.time + " " + room.name;
         let result = spawn.spawnCreep([HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE,MOVE], newName, 
-            {memory: {role: 'healer', targetRoom: "E14S37"}});  
+            {memory: {role: 'healer', targetRoom: "E14S36"}});  
         if(result == OK) {
             console.log('Spawning new healer: ' + newName);
             return;

@@ -34,16 +34,53 @@ const run = function (creep) {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_CONTAINER &&  !object.my
             });
         }
+
+        else if(creep.room.controller && !creep.room.controller.my) {
+            Structures = creep.room.find(FIND_STRUCTURES, {
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER &&  !object.my
+            });
+        }
+
         else {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER});
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
 
         }
 
 
         if(enemyCreeps.length > 0) {
-            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+            let closestEnemyCreep = creep.pos.findClosestByPath(enemyCreeps);
+            console.log((creep.pos.findPathTo(closestEnemyCreep)).length)
+            if((creep.pos.findPathTo(closestEnemyCreep)).length <= 51) {
+                if(creep.pos.isNearTo(closestEnemyCreep)) {
+                    creep.attack(closestEnemyCreep);
+                }
+                else {
+                    creep.moveTo(closestEnemyCreep);
+                }
+    
+                if(creep.attack(closestEnemyCreep) == 0) {
+                    creep.moveTo(closestEnemyCreep);
+                    return;
+                }
+                return;
+            }
+        }
 
+        if(Structures.length > 0) {
+            let closestStructure = creep.pos.findClosestByRange(Structures);
+            if(creep.pos.isNearTo(closestStructure)) {
+                creep.attack(closestStructure);
+                
+            }
+            else{
+                creep.moveTo(closestStructure);
+            }
+            return;
+        }
+
+        if(enemyCreeps.length > 0) {
+        let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.attack(closestEnemyCreep);
             }
@@ -58,16 +95,6 @@ const run = function (creep) {
             return;
         }
 
-        if(Structures.length > 0) {
-            let closestStructure = creep.pos.findClosestByRange(Structures);
-            if(creep.pos.isNearTo(closestStructure)) {
-                creep.attack(closestStructure);
-                
-            }
-            else{
-                creep.moveTo(closestStructure);
-            }
-        }
 
         else {
             if(Memory.tasks.wipeRooms.destroyStructures.length > 0) {

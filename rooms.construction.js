@@ -59,7 +59,7 @@ function rampartPerimeter(tile) {
 
 
 function construction(room) {
-    if(room.controller.level >= 1) {
+    if(room.controller.level >= 1 && room.memory.spawn) {
         let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
         let spawns = room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_SPAWN}});
         let existingStructures = room.find(FIND_STRUCTURES);
@@ -93,7 +93,7 @@ function construction(room) {
             }
         }
 
-        if(room.controller.level >= 1 && room.memory.spawn) {
+        if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
             pathFromSpawnToSource1 = spawns[0].pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             pathFromSpawnToSource2 = spawns[0].pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});

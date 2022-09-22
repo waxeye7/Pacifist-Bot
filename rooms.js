@@ -29,7 +29,7 @@ function establishMemory(room) {
         let attackersInRoom = _.sum(Game.creeps, (creep) => creep.memory.role == 'attacker' && creep.room.name == room.name);
         let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        if (HostileStructures.length > 0 && room.controller && !room.controller.my) {
+        if (HostileStructures.length > 0 && room.controller && room.controller.level == 0) {
             if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
                 Memory.tasks.wipeRooms.destroyStructures.push(room.name)
             }
@@ -40,7 +40,7 @@ function establishMemory(room) {
             room.memory.has_hostile_structures = false;
         }
 
-        if(HostileCreeps.length > 0 && room.controller && !room.controller.my) {
+        if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0) {
             if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                 Memory.tasks.wipeRooms.killCreeps.push(room.name)
             }
@@ -61,15 +61,6 @@ function establishMemory(room) {
 
     }
 }
-
-
-
-
-
-
-
-
-
 
 function identifySources(room) {
     if(!room.memory.resources) {
@@ -107,7 +98,7 @@ function rooms() {
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-            if(Game.time % 313 == 1) {
+            if(Game.time % 569 == 0) {
                 const start = Game.cpu.getUsed()
                 market(room);
                 console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')

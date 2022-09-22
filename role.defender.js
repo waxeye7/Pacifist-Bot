@@ -32,6 +32,10 @@ var roleDefender = {
     
             }
         }
+
+        else {
+            creep.memory.role = "RangedAttacker";
+        }
         // else {
         //     creep.memory.role = "RangedAttacker";
         //     creep.memory.targetRoom = "E12S39";
