@@ -22,20 +22,24 @@ function getNeighbours(tile) {
 }
 
 function pathBuilder(neighbors, structure, room) {
+    let buldingAlreadyHereCount = 0;
+    let constructionSitesPlaced = 0;
     _.forEach(neighbors, function(block) {
         const blockSpot = new RoomPosition(block.x, block.y, room.name);
         let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
         let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
         let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
         if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-            console.log('building here already')
+            buldingAlreadyHereCount ++;
             return;
         }
         else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
+            constructionSitesPlaced ++;
             room.createConstructionSite(block.x, block.y, structure);
             return;
         }
     });
+    console.log(room.name , structure, "[", buldingAlreadyHereCount, "buildings here already ]", "[", constructionSitesPlaced, "construction sites placed ]")
 }
 
 
@@ -61,24 +65,24 @@ function rampartPerimeter(tile) {
 function construction(room) {
     if(room.controller.level >= 1 && room.memory.spawn) {
         let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-        let spawns = room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_SPAWN}});
+        let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
         let existingStructures = room.find(FIND_STRUCTURES);
 
         if(room.controller.level == 4 && storage == undefined) {
-            let storageLocation = new RoomPosition(spawns[0].x, spawns[0].y -1, room.name);
+            let storageLocation = new RoomPosition(spawn.pos.x, spawn.pos.y -2, room.name);
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
             if(lookForExistingStructures.length != 0) {
                 lookForExistingStructures[0].destroy();
             }
             else {
-                room.createConstructionSite(spawns[0].x, spawns[0].y -2, STRUCTURE_STORAGE);
+                room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
             }
         }
 
 
         if(room.controller.level >= 2) {
             if(storage == undefined) {
-                let spawnNeighbours = getNeighbours(spawns[0].pos);
+                let spawnNeighbours = getNeighbours(spawn.pos);
 
                 if(existingStructures.length != 0) {
                     pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room);
@@ -95,9 +99,9 @@ function construction(room) {
 
         if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
-            pathFromSpawnToSource1 = spawns[0].pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-            pathFromSpawnToSource2 = spawns[0].pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-            pathFromSpawnToController = spawns[0].pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            pathFromSpawnToController = spawn.pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
 
             pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room);
 
@@ -126,7 +130,7 @@ function construction(room) {
 
 
     // if(room.controller.level > 2 && room.controller.level < 6) {
-    //     let spawnPerimeter = rampartPerimeter(spawns[0].pos);
+    //     let spawnPerimeter = rampartPerimeter(spawn.pos);
 
     //     _.forEach(spawnPerimeter, function(block) {
     //         const blockSpot = new RoomPosition(block.x, block.y, room.name);

@@ -34,6 +34,9 @@
 
 
 
+        // if(creep.memory.lockedBuild == false) {
+            
+        // }
         if(buildingsToRepair.length > 0) {
             let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
             if(creep.pos.isNearTo(closestBuildingToRepair)) {

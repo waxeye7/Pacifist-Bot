@@ -14,11 +14,11 @@ var roleDefender = {
     
                 if(creep.pos.isNearTo(closestEnemyCreep)) {
                     creep.rangedMassAttack();
-                    creep.say("die meanie!", true);
+                    // creep.say("die meanie!", true);
                 }
     
                 else if(creep.rangedAttack(closestEnemyCreep) == 0) {
-                    creep.say("die meanie!", true);
+                    // creep.say("die meanie!", true);
                     // return;
                 }
     

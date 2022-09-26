@@ -57,8 +57,13 @@ const run = function (creep) {
             }
 
             if(creep.rangedAttack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
-                return;
+                if(creep.memory.homeRoom) {
+                    return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+                }
+                else {
+                    creep.moveTo(closestEnemyCreep);
+                    return;
+                }
             }
             return;
         }

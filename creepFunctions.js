@@ -112,23 +112,28 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
     // let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
-    let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i) < 4 && i.amount > this.store.getFreeCapacity() && i.resourceType == RESOURCE_ENERGY});
-
-    if(dropped_resources.length > 0) {
-        let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
-        if(this.pos.isNearTo(closestDroppedEnergy)) {
-            let result = this.pickup(closestDroppedEnergy, RESOURCE_ENERGY);
-            return result;
-        }
-        else {
-            this.moveTo(closestDroppedEnergy, {reusePath:20});
-        }
-        return;
-    }
 
     let room = this.room;
     let container;
     container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
+
+
+    if(this.pos.isNearTo(container)) {
+        let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i) < 4 && i.amount > this.store.getFreeCapacity() && i.resourceType == RESOURCE_ENERGY});
+
+        if(dropped_resources.length > 0) {
+            let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
+            if(this.pos.isNearTo(closestDroppedEnergy)) {
+                let result = this.pickup(closestDroppedEnergy, RESOURCE_ENERGY);
+                return result;
+            }
+            else {
+                this.moveTo(closestDroppedEnergy, {reusePath:20});
+            }
+            return;
+        }
+    }
+
     
     if(container) {
         if(container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
@@ -142,7 +147,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
             return result;
         }
         else {
-            this.moveTo(container, {reusePath:20});
+            this.moveTo(container, {reusePath:5});
         }
         return;
     }
@@ -156,7 +161,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
             return result;
         }
         else {
-            this.moveTo(dropped_resources_last_chance[0], {reusePath:20});
+            this.moveTo(dropped_resources_last_chance[0], {reusePath:5});
         }
         return;
     }

@@ -1,5 +1,14 @@
 function findLocked(room) {
-    buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < 15000});
+
+    let maxRepairTower;
+    if(room.controller.level < 4) {
+        maxRepairTower = 5000;
+    }
+    else {
+        maxRepairTower = 50000
+    }
+
+    buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
     buildingsToRepair.sort((a,b) => a.hits - b.hits);
     if(buildingsToRepair.length > 0) {
         room.memory.lowestHitsBuildingToRepair = buildingsToRepair[0].id;
@@ -8,6 +17,15 @@ function findLocked(room) {
 
 
 function roomDefence(room) {
+
+    let maxRepairTower;
+    if(room.controller.level < 4) {
+        maxRepairTower = 5000;
+    }
+    else {
+        maxRepairTower = 150000
+    }
+
     if(Game.time % 2500 == 0) {
         room.memory.towers = [];
 
@@ -28,7 +46,7 @@ function roomDefence(room) {
 
             let isDanger = room.memory.danger;
 
-            if(isDanger && Game.time % 4 == 0) {
+            if(isDanger) {
                 let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
                     tower.heal(damagedCreeps[0]);
@@ -36,7 +54,7 @@ function roomDefence(room) {
                 }
             }
 
-            if(isDanger) {
+            if(isDanger && tower.store[RESOURCE_ENERGY] > 200) {
                 let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
                 if(closestHostile) {
                     tower.attack(closestHostile);
@@ -51,7 +69,7 @@ function roomDefence(room) {
                 }
                 if(room.memory.lowestHitsBuildingToRepair) {
                     let repairTarget = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
-                    if(repairTarget.hits + 900 > repairTarget.hitsMax || repairTarget.hits > 15000) {
+                    if(repairTarget.hits + 900 > repairTarget.hitsMax || repairTarget.hits > maxRepairTower) {
                         room.memory.lowestHitsBuildingToRepair = null;
                         return;
                     }
