@@ -29,6 +29,9 @@ function findLocked(creep) {
 }
 
  const run = function (creep) {
+    if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
+        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+    }
     // const start = Game.cpu.getUsed()
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();

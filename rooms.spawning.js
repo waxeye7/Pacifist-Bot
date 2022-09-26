@@ -78,7 +78,7 @@ function getCarrierBody(sourceId, storage, spawn, room) {
         let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
-        while (energyProducedPerRoundTrip > -100) {
+        while (energyProducedPerRoundTrip > -50) {
             body.push(CARRY);
             if(alternate % 2 == 1) {
                 body.push(MOVE);
@@ -156,7 +156,7 @@ function spawn_energy_miner(resourceData, room, spawn, storage) {
                         {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                     if(result == OK) {
                         console.log('Spawning new EnergyMiner: ' + newName);
-                        values.lastSpawn = Game.time;
+                        values.lastSpawn = Game.time-20;
                         foundCreepToSpawn = true;
                         return;
                     }
@@ -254,16 +254,32 @@ function spawn_remote_repairer(resourceData, room, spawn) {
     let foundCreepToSpawn = false;
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
-            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 3) {
+            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 2) {
                 let newName = 'RemoteRepairer' + Game.time + "-" + room.name;
                 if(targetRoomName != room.name) {
-                    let result = spawn.spawnCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], newName, 
-                        {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
-                    if(result == OK) {
-                        console.log('Spawning new RemoteRepairer: ' + newName);
-                        values.lastSpawnRemoteRepairer = Game.time;
-                        foundCreepToSpawn = true;
-                        return;
+                    if(room.energyCapacityAvailable > 800) {
+
+                        let result = spawn.spawnCreep([WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, 
+                            {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
+                        if(result == OK) {
+                            console.log('Spawning new RemoteRepairer: ' + newName);
+                            values.lastSpawnRemoteRepairer = Game.time+3000;
+                            foundCreepToSpawn = true;
+                            return;
+                        }
+                    }
+
+                    else {
+
+                        let result = spawn.spawnCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], newName, 
+                            {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
+                        if(result == OK) {
+                            console.log('Spawning new RemoteRepairer: ' + newName);
+                            values.lastSpawnRemoteRepairer = Game.time;
+                            foundCreepToSpawn = true;
+                            return;
+                        }
+
                     }
                 }
             }
@@ -288,7 +304,7 @@ function spawn_repair(room, spawn, storage,  repairers, repairerTargetAmount, En
         if(EnergyMinersInRoom > 1 && carriers > 1) {
             let newName = 'Repair' + Game.time + "-" + room.name;
             let result = spawn.spawnCreep(getBody([WORK,CARRY,MOVE], room), newName, 
-                {memory: {role: 'repair'}});
+                {memory: {role: 'repair', homeRoom: room.name}});
             if(result == OK) {
                 console.log('Spawning new repairer: ' + newName + "-" + room.name);
                 foundCreepToSpawn = true;

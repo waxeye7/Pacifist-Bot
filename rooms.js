@@ -89,7 +89,7 @@ function rooms() {
                 spawning(room);
                 // console.log('Spawning Ran in', Game.cpu.getUsed() - start, 'ms')
             }
-            else if(Game.time % 5 == 0) {
+            else if(Game.time % 3 == 0) {
                 // const start = Game.cpu.getUsed()
                 spawning(room);
                 // console.log('Spawning Ran in', Game.cpu.getUsed() - start, 'ms')

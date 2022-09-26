@@ -49,28 +49,58 @@ function findLockedBuild(creep) {
 
     if(creep.memory.working) {
 
-        if(creep.memory.locked_repair) {
-            let repairTarget = Game.getObjectById(creep.memory.locked_repair);
-            if(!repairTarget || repairTarget.hits == repairTarget.hitsMax) {
-                creep.memory.locked_repair = null;
-            }
-        }
+
         if(creep.memory.locked_build) {
             let buildTarget = Game.getObjectById(creep.memory.locked_build);
             if(!buildTarget) {
                 creep.memory.locked_build = null;
             }
         }
+        if(creep.memory.locked_repair) {
+            let repairTarget = Game.getObjectById(creep.memory.locked_repair);
+            if(!repairTarget || repairTarget.hits == repairTarget.hitsMax) {
+                creep.memory.locked_repair = null;
+            }
+        }
 
-        if(!creep.memory.locked_repair) {
-            findLockedRepair(creep);
-            let target = Game.getObjectById(creep.memory.locked_repair);
-            if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {reusePath:25});
-                return;
+
+        if(!creep.memory.locked_build) {
+            findLockedBuild(creep);
+            let target = Game.getObjectById(creep.memory.locked_build);
+            if(target) {
+                if(creep.build(target) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {reusePath:25});
+                    return;
+                }
             }
         }
         else {
+            let target = Game.getObjectById(creep.memory.locked_build);
+            if(creep.build(target) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, {reusePath:25});
+                return;
+            }
+            if(creep.store.getFreeCapacity() == 0) {
+                if(creep.roadCheck()) {
+                    let roadlessLocation = creep.roadlessLocation(target);
+                    creep.moveTo(roadlessLocation);
+                    return;
+                }
+            }
+        }
+
+
+        if(!creep.memory.locked_repair && !creep.memory.locked_build) {
+            findLockedRepair(creep);
+            let target = Game.getObjectById(creep.memory.locked_repair);
+            if(target) {
+                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {reusePath:25});
+                    return;
+                }
+            }
+        }
+        else if(creep.memory.locked_repair && !creep.memory.locked_build) {
             let target = Game.getObjectById(creep.memory.locked_repair);
             if(creep.repair(target) == ERR_NOT_IN_RANGE) {
                 creep.moveTo(target, {reusePath:25});
@@ -80,33 +110,13 @@ function findLockedBuild(creep) {
                 if(creep.roadCheck()) {
                     let roadlessLocation = creep.roadlessLocation(target);
                     creep.moveTo(roadlessLocation);
+                    return;
                 }
             }
         }
-
-        if(!creep.memory.locked_build && !creep.memory.locked_repair) {
-            findLockedBuild(creep);
-            let target = Game.getObjectById(creep.memory.locked_build);
-            if(creep.build(target) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {reusePath:25});
-                return;
-            }
+        if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom) {
+            creep.memory.role = "repair";
         }
-        else if(creep.memory.locked_build && !creep.memory.locked_repair) {
-            let target = Game.getObjectById(creep.memory.locked_build);
-            if(creep.build(target) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {reusePath:25});
-                return;
-            }
-            if(creep.store.getFreeCapacity() == 0) {
-                if(creep.roadCheck()) {
-                    let roadlessLocation = creep.roadlessLocation(target);
-                    creep.moveTo(roadlessLocation);
-                }
-            }
-        }
-
-
     }
 
     else {
