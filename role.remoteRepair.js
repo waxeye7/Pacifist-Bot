@@ -1,3 +1,35 @@
+function findLockedRepair(creep) {
+    let buildingsToRepair = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_WALL});
+
+    if(buildingsToRepair.length > 0) {
+        let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
+        creep.say("🎯", true);
+        creep.memory.locked_repair = closestBuildingToRepair.id;
+        return;
+    }
+    else {
+        creep.memory.locked_repair = null;
+        return;
+    }
+}
+
+
+function findLockedBuild(creep) {
+	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+
+    if(buildingsToBuild.length > 0) {
+		creep.say("🎯", true); 
+        creep.memory.locked_build = buildingsToBuild[0].id;
+        return;
+    }
+    else {
+        creep.memory.locked_build = null;
+        return;
+    }
+}
+
+
+
 /**
  * A little description of this function 
  * @param {Creep} creep
@@ -10,40 +42,67 @@
         creep.memory.working = false;
     }
 
-
     if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
     }
 
+
     if(creep.memory.working) {
-        const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {filter: object => object.hits < object.hitsMax 
-            && (object.structureType == STRUCTURE_ROAD || object.structureType == STRUCTURE_CONTAINER)});
 
-        let buildingsToBuild = creep.room.find(FIND_CONSTRUCTION_SITES);
-
-        if(buildingsToBuild.length > 0) {
-            let closestBuildingtoBuild = creep.pos.findClosestByRange(buildingsToBuild);
-            if(creep.pos.isNearTo(closestBuildingtoBuild)) {
-                creep.build(closestBuildingtoBuild);
+        if(creep.memory.locked_repair) {
+            let repairTarget = Game.getObjectById(creep.memory.locked_repair);
+            if(!repairTarget || repairTarget.hits == repairTarget.hitsMax) {
+                creep.memory.locked_repair = null;
             }
-            else {
-                creep.moveTo(closestBuildingtoBuild, {reusePath:20});
+        }
+        if(creep.memory.locked_build) {
+            let buildTarget = Game.getObjectById(creep.memory.locked_build);
+            if(!buildTarget) {
+                creep.memory.locked_build = null;
             }
-            return;
         }
 
-
-
-        // if(creep.memory.lockedBuild == false) {
-            
-        // }
-        if(buildingsToRepair.length > 0) {
-            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-            if(creep.pos.isNearTo(closestBuildingToRepair)) {
-                creep.repair(closestBuildingToRepair);
+        if(!creep.memory.locked_repair) {
+            findLockedRepair(creep);
+            let target = Game.getObjectById(creep.memory.locked_repair);
+            if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, {reusePath:25});
+                return;
             }
-            else {
-                creep.moveTo(closestBuildingToRepair, {reusePath:20});
+        }
+        else {
+            let target = Game.getObjectById(creep.memory.locked_repair);
+            if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, {reusePath:25});
+                return;
+            }
+            if(creep.store.getFreeCapacity() == 0) {
+                if(creep.roadCheck()) {
+                    let roadlessLocation = creep.roadlessLocation(target);
+                    creep.moveTo(roadlessLocation);
+                }
+            }
+        }
+
+        if(!creep.memory.locked_build && !creep.memory.locked_repair) {
+            findLockedBuild(creep);
+            let target = Game.getObjectById(creep.memory.locked_build);
+            if(creep.build(target) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, {reusePath:25});
+                return;
+            }
+        }
+        else if(creep.memory.locked_build && !creep.memory.locked_repair) {
+            let target = Game.getObjectById(creep.memory.locked_build);
+            if(creep.build(target) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(target, {reusePath:25});
+                return;
+            }
+            if(creep.store.getFreeCapacity() == 0) {
+                if(creep.roadCheck()) {
+                    let roadlessLocation = creep.roadlessLocation(target);
+                    creep.moveTo(roadlessLocation);
+                }
             }
         }
 

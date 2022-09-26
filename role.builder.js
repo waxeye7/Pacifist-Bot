@@ -16,6 +16,7 @@
 }
 
  const run = function (creep) {
+
 	// const start = Game.cpu.getUsed()
 
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -81,6 +82,7 @@
 			}
 		}
     }
+    // console.log('Builder Ran in', Game.cpu.getUsed() - start, 'ms');
 
 	// if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
 	// 	creep.memory.building = false;

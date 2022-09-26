@@ -38,10 +38,10 @@ global.ROLES = {
 
 
 module.exports.loop = function () {
-    const start = Game.cpu.getUsed()
-    rooms();
-    console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
 
+    rooms();
+
+    const start = Game.cpu.getUsed()
     for(let name in Memory.creeps) {
         let creep = Game.creeps[name];
         if(!creep) {
@@ -56,6 +56,7 @@ module.exports.loop = function () {
             ROLES[creep.memory.role].run(creep);
         }
     }
+    console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
 
     if(Game.time % 17 == 1 && Game.shard.name == "shard0" || 
        Game.time % 17 == 1 && Game.shard.name == "shard1" || 

@@ -254,7 +254,7 @@ function spawn_remote_repairer(resourceData, room, spawn) {
     let foundCreepToSpawn = false;
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
-            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 2) {
+            if (Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 3) {
                 let newName = 'RemoteRepairer' + Game.time + "-" + room.name;
                 if(targetRoomName != room.name) {
                     let result = spawn.spawnCreep([WORK,WORK,CARRY,CARRY,MOVE,MOVE], newName, 
@@ -491,7 +491,7 @@ function spawning(room) {
 
     let upgraderTargetAmount = _.get(room.memory, ['census', 'upgrader'], 1);
 
-    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 8);
+    let preRCL5UpgraderTarget = _.get(room.memory, ['census', 'upgrader'], 6);
 
     let builderTargetAmount = _.get(room.memory, ['census', 'builder'], 2);
     let builderPreRCL4TargetAmount = _.get(room.memory, ['census', 'builder'], 3);

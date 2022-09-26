@@ -36,7 +36,6 @@ function findLocked(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    // const start = Game.cpu.getUsed()
     // if(creep.fatigue > 0) {
     //     console.log('hi')
     //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
@@ -150,8 +149,8 @@ function findLocked(creep) {
     if(creep.memory.targetRoom.controller) {
         console.log(creep.memory.targetRoom.controller.level)
     }
+
  }
-    // console.log('Carry Ran in', Game.cpu.getUsed() - start, 'ms')
 
 
 const roleCarry = {

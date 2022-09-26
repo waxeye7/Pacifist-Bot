@@ -80,6 +80,7 @@ function identifySources(room) {
 
 
 function rooms() {
+    const start = Game.cpu.getUsed()
     _.forEach(Game.rooms, function(room) {
         if (room && room.controller && room.controller.my) {
 
@@ -88,7 +89,7 @@ function rooms() {
                 spawning(room);
                 // console.log('Spawning Ran in', Game.cpu.getUsed() - start, 'ms')
             }
-            else if(Game.time % 3 == 0) {
+            else if(Game.time % 5 == 0) {
                 // const start = Game.cpu.getUsed()
                 spawning(room);
                 // console.log('Spawning Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -127,7 +128,7 @@ function rooms() {
         // let list = Memory.tasks.wipeRooms.destroyStructures
         // console.log(JSON.stringify(list.length))
     });
-
+    console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
 }
 
 module.exports = rooms;
