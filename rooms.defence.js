@@ -63,7 +63,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount) {
+            if(currentTickModTowers == towerCount && tower.store[RESOURCE_ENERGY] > 400) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }

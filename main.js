@@ -39,6 +39,8 @@ global.ROLES = {
 
 module.exports.loop = function () {
 
+    console.log(Game.time % 100 + "/100");
+
     rooms();
 
     const start = Game.cpu.getUsed()

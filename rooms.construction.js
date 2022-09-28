@@ -107,6 +107,7 @@ function construction(room) {
 
             pathBuilder(pathFromSpawnToSource2, STRUCTURE_ROAD, room);
 
+            // make controller path -2 roads at the end and -1 roads at the end of the sources
             pathBuilder(pathFromSpawnToController, STRUCTURE_ROAD, room);
 
         }
