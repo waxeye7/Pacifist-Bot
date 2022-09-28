@@ -9,9 +9,22 @@ function findLocked(room) {
     }
 
     buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
-    buildingsToRepair.sort((a,b) => a.hits - b.hits);
-    if(buildingsToRepair.length > 0) {
-        room.memory.lowestHitsBuildingToRepair = buildingsToRepair[0].id;
+
+    allowedBuildingsToRepair = [];
+    _.forEach(buildingsToRepair, function(building) {
+        if(building.structureType == STRUCTURE_ROAD) {
+            if(_.includes(room.memory.keepTheseRoads, building.id, 0)) {
+                allowedBuildingsToRepair.push(building)
+            }
+        }
+        else {
+            allowedBuildingsToRepair.push(building)
+        }
+    });
+
+    allowedBuildingsToRepair.sort((a,b) => a.hits - b.hits);
+    if(allowedBuildingsToRepair.length > 0) {
+        room.memory.lowestHitsBuildingToRepair = allowedBuildingsToRepair[0].id;
     }
 }
 

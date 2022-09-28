@@ -7,8 +7,6 @@ function findLockedRepair(creep) {
         let roadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD});
 
         _.forEach(roadsInRoom, function(road) {
-            console.log(road.id, Game.rooms[creep.memory.homeRoom].memory.keepTheseRoads[0])
-
             if(_.includes(Game.rooms[creep.memory.homeRoom].memory.keepTheseRoads, road.id, 0)) {
                 creep.memory.allowed_repairs.push(road.id);
             }

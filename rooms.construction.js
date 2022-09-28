@@ -24,7 +24,7 @@ function getNeighbours(tile) {
 function pathBuilder(neighbors, structure, targetRoom, room) {
     let buldingAlreadyHereCount = 0;
     let constructionSitesPlaced = 0;
-    
+
     if(!room.memory.keepTheseRoads) {
         room.memory.keepTheseRoads = [];
     }
@@ -44,6 +44,14 @@ function pathBuilder(neighbors, structure, targetRoom, room) {
             }
         });
 
+        _.forEach(keepTheseRoads, function(road) {
+            if(!_.includes(room.memory.keepTheseRoads, road, 0)) {
+                room.memory.keepTheseRoads.push(road);
+            }
+        });
+
+
+
 
         if(structure == STRUCTURE_ROAD && lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART && lookForExistingConstructionSites.length == 0) {
             constructionSitesPlaced ++;
@@ -62,12 +70,6 @@ function pathBuilder(neighbors, structure, targetRoom, room) {
         }
     });
     console.log(room.name , structure, "[", buldingAlreadyHereCount, "buildings here already ]", "[", constructionSitesPlaced, "construction sites placed ]");
-
-    _.forEach(keepTheseRoads, function(road) {
-        if(!_.includes(room.memory.keepTheseRoads, road, 0)) {
-            room.memory.keepTheseRoads.push(road);
-        }
-    });
 }
 
 
@@ -162,8 +164,8 @@ function construction(room) {
                             let pathFromSpawnToRemoteSource = spawn.pos.findPathTo(source, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
                             pathBuilder(pathFromSpawnToRemoteSource, STRUCTURE_ROAD, Game.rooms[targetRoomName], room);
 
-                            let pathFromRemoteSourceToRemoteSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-                            pathBuilder(pathFromRemoteSourceToRemoteSpawn, STRUCTURE_ROAD, room, Game.rooms[targetRoomName]);
+                            let pathFromRemoteSourceToSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+                            pathBuilder(pathFromRemoteSourceToSpawn, STRUCTURE_ROAD, room, Game.rooms[targetRoomName]);
                         }
                     }
                 });

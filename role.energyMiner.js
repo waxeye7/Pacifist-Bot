@@ -26,6 +26,9 @@ const run = function (creep) {
                 if(creep.pos.isNearTo(closestLink)) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);
                 }
+                else {
+                    creep.moveTo(closestLink);
+                }
             }
         }
     
@@ -38,7 +41,7 @@ const run = function (creep) {
         if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             targetLink = Game.getObjectById(creep.memory.targetLink);
-            if(targetLink == null) {
+            if(targetLink == null || closestLink == null) {
                 console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom, creep.memory.homeRoom);
                 return;
             }

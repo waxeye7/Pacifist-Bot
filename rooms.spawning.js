@@ -565,17 +565,14 @@ function spawnFirstInLine(room, spawn) {
             return "spawning";
         }
         else {
-            if(room.energyAvailable < 100) {
+            if(room.energyAvailable < 150 && room.memory.spawn_list[0].length > 3) {
                 room.memory.spawn_list.shift();
                 room.memory.spawn_list.shift();
                 room.memory.spawn_list.shift();
             }
-
-
-
             console.log("spawning", room.memory.spawn_list[1], "creep error", spawnAttempt, room.name);
-            if(spawnAttempt == -6 && Game.time % 10 == 0) {
-                if(room.memory.spawn_list[0].length > 6
+            if(spawnAttempt == -6 && Game.time % 3 == 0) {
+                if(room.memory.spawn_list[0].length > 5
                 && !room.memory.spawn_list[1].startsWith("Carrier") 
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner") 
                 && !room.memory.spawn_list[1].startsWith("RemoteRepairer")) {
@@ -585,7 +582,6 @@ function spawnFirstInLine(room, spawn) {
                     room.memory.spawn_list.shift();
 
                 }
-                add_creeps_to_spawn_list(room, spawn);
             }
             if(spawnAttempt == -3 || spawnAttempt == -14 || spawnAttempt == -10) {
                 room.memory.spawn_list.shift();

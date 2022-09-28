@@ -112,7 +112,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 430 == 0) {
+            if(Game.time % 340 == 0) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
