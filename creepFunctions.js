@@ -40,8 +40,9 @@ Creep.prototype.findClosestLink = function() {
 
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
-    if(storage.store[RESOURCE_ENERGY] < 1000 && this.memory.role != "filler") {
-        console.log("Storage requires 1000 energy to withdraw. Try again later.", this.room.name)
+    if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler") {
+        console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
+        // this.acquireEnergyWithContainersAndOrDroppedEnergy();
         return;
     }
     else {

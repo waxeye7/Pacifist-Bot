@@ -1,10 +1,35 @@
 function findLockedRepair(creep) {
-    let buildingsToRepair = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_WALL});
+    if(!creep.memory.allowed_repairs) {
 
-    if(buildingsToRepair.length > 0) {
-        let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
-        creep.say("🎯", true);
-        creep.memory.locked_repair = closestBuildingToRepair.id;
+
+
+        creep.memory.allowed_repairs = [];
+        let roadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD});
+
+        _.forEach(roadsInRoom, function(road) {
+            console.log(road.id, Game.rooms[creep.memory.homeRoom].memory.keepTheseRoads[0])
+
+            if(_.includes(Game.rooms[creep.memory.homeRoom].memory.keepTheseRoads, road.id, 0)) {
+                creep.memory.allowed_repairs.push(road.id);
+            }
+        });
+
+        let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER});
+        _.forEach(nonRoadsInRoom, function(building) {
+            creep.memory.allowed_repairs.push(building.id)
+        });
+    }
+
+    if(creep.memory.allowed_repairs.length > 0) {
+        let buildingsToRepair = [];
+        _.forEach(creep.memory.allowed_repairs, function(building) {
+            buildingsToRepair.push(Game.getObjectById(building));
+        });
+        if(buildingsToRepair.length > 0) {
+            let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair)
+            creep.memory.locked_repair = closestBuildingToRepair.id;
+            creep.say("🎯", true);
+        }
         return;
     }
     else {
@@ -12,7 +37,6 @@ function findLockedRepair(creep) {
         return;
     }
 }
-
 
 function findLockedBuild(creep) {
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
@@ -80,43 +104,55 @@ function findLockedBuild(creep) {
                 creep.moveTo(target, {reusePath:25});
                 return;
             }
-            if(creep.store.getFreeCapacity() == 0) {
-                if(creep.roadCheck()) {
-                    let roadlessLocation = creep.roadlessLocation(target);
-                    creep.moveTo(roadlessLocation);
-                    return;
-                }
-            }
+            // if(creep.store.getFreeCapacity() == 0) {
+            //     if(creep.roadCheck()) {
+            //         let roadlessLocation = creep.roadlessLocation(target);
+            //         creep.moveTo(roadlessLocation);
+            //         return;
+            //     }
+            // }
         }
 
 
         if(!creep.memory.locked_repair && !creep.memory.locked_build) {
             findLockedRepair(creep);
             let target = Game.getObjectById(creep.memory.locked_repair);
-            if(target) {
+            if(target && target.hits < target.hitsMax) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
                     creep.moveTo(target, {reusePath:25});
                     return;
                 }
             }
+            else if(target && target.hits == target.hitsMax) {
+                let index = creep.memory.allowed_repairs.indexOf(target.id);
+                creep.memory.allowed_repairs.splice(index,1);
+                creep.memory.locked_repair = null;
+            }
         }
         else if(creep.memory.locked_repair && !creep.memory.locked_build) {
             let target = Game.getObjectById(creep.memory.locked_repair);
-            if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {reusePath:25});
-                return;
-            }
-            if(creep.store.getFreeCapacity() == 0) {
-                if(creep.roadCheck()) {
-                    let roadlessLocation = creep.roadlessLocation(target);
-                    creep.moveTo(roadlessLocation);
+            if(target && target.hits < target.hitsMax) {
+                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {reusePath:25});
                     return;
                 }
             }
+            else if(target && target.hits == target.hitsMax) {
+                let index = creep.memory.allowed_repairs.indexOf(target.id);
+                creep.memory.allowed_repairs.splice(index,1);
+                creep.memory.locked_repair = null;
+            }
+            // if(creep.store.getFreeCapacity() == 0) {
+            //     if(creep.roadCheck()) {
+            //         let roadlessLocation = creep.roadlessLocation(target);
+            //         creep.moveTo(roadlessLocation);
+            //         return;
+            //     }
+            // }
         }
-        if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom) {
-            creep.memory.role = "repair";
-        }
+        // if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom) {
+        //     creep.memory.role = "repair";
+        // }
     }
 
     else {

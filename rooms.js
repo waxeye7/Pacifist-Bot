@@ -112,7 +112,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 250 == 0) {
+            if(Game.time % 430 == 0) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -127,8 +127,25 @@ function rooms() {
 
         // let list = Memory.tasks.wipeRooms.destroyStructures
         // console.log(JSON.stringify(list.length))
+
+
+
+        // constructionSites = room.find(FIND_CONSTRUCTION_SITES);
+        // console.log(constructionSites.length)
+        // for (var site of constructionSites) {
+        //     if (site.structureType == STRUCTURE_ROAD) {
+        //         if(site.remove() == 0) {
+        //             console.log("it's working")
+        //         }
+        //     }
+        // }
+
+
+
     });
     console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
+
+    
 }
 
 module.exports = rooms;
