@@ -1,3 +1,5 @@
+const roleRemoteDismantler = require("./role.remoteDismantler");
+
 function findLocked(room) {
 
     let maxRepairTower;
@@ -105,7 +107,7 @@ function roomDefence(room) {
 
     if(Game.time % 10 == 1) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        if(HostileCreeps.length > 0) {
+        if(HostileCreeps.length > 1 && room.controller && room.controller.my) {
             room.memory.danger = true;
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
     
@@ -121,7 +123,23 @@ function roomDefence(room) {
                     room.memory.rampartToMan = currentRampart.id;        
                 }
             });
+        }
+        else if(HostileCreeps.length > 0 && room.controller && !room.controller.my) {
+            room.memory.danger = true;
+            let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
     
+            let currentLowestRange = 100;
+            let currentRampart;
+    
+            _.forEach(MyRamparts, function(rampart) {
+                let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
+                let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
+                if(currentLowestRange > rangeToEnemy) {
+                    currentLowestRange = rangeToEnemy;
+                    currentRampart = rampart;
+                    room.memory.rampartToMan = currentRampart.id;        
+                }
+            });
         }
         else {
             room.memory.danger = false;

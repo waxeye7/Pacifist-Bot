@@ -7,33 +7,45 @@
     if(creep.hits == creep.hitsMax) {
         creep.memory.draining = true;
     }
-    if((creep.hitsMax / 4) + creep.hits <= creep.hitsMax) {
+    if(creep.hits+750 < creep.hitsMax) {
         creep.memory.draining = false;
     }
+    if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+        if(creep.hits + 200 > creep.hitsMax) {
+            creep.memory.draining = true;
+        }
+    }
+
+    creep.heal(creep);
 
     if(creep.memory.draining) {
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
         }
-        creep.moveTo(45,2);
-    }
-
-    else {
-        if(creep.memory.healRoom && creep.memory.healRoom !== creep.room.name) {
-            return creep.moveTo(new RoomPosition(25, 25, creep.memory.healRoom));
-        }
-        let healersInRoom = creep.room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "healer"});
-        if(healersInRoom.length > 0) {
-            let closestHealerInRoom = creep.pos.findClosestByRange(healersInRoom);
-            if(creep.pos.isNearTo(closestHealerInRoom)) {
+        else {  
+            if(Game.time % 2 == 0) {
+                creep.say("vennskap?⛄", true);
+            } 
+            if(creep.pos.x > 0 && creep.pos.y > 0 && creep.pos.y < 49 && creep.pos.x < 49) {
                 return;
             }
             else {
-                creep.moveTo(closestHealerInRoom);
-            }
+                return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+            }  
+        }
+    }
+
+    else {
+        if(creep.memory.targetRoom && creep.memory.targetRoom == creep.room.name) {
+            return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
         }
         else {
-            creep.moveTo(45,47);
+            if(creep.pos.x > 0 && creep.pos.y > 0 && creep.pos.y < 49 && creep.pos.x < 49) {
+                return;
+            }
+            else {
+                return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+            }
         }
     }
 }

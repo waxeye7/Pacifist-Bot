@@ -1,18 +1,15 @@
 function findLockedRepair(creep) {
     if(!creep.memory.allowed_repairs) {
-
-
-
         creep.memory.allowed_repairs = [];
         let roadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD});
 
         _.forEach(roadsInRoom, function(road) {
-            if(_.includes(Game.rooms[creep.memory.homeRoom].memory.keepTheseRoads, road.id, 0)) {
+            if(_.includes(creep.room.memory.keepTheseRoads, road.id, 0)) {
                 creep.memory.allowed_repairs.push(road.id);
             }
         });
 
-        let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER});
+        let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_CONTAINER && building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER});
         _.forEach(nonRoadsInRoom, function(building) {
             creep.memory.allowed_repairs.push(building.id)
         });
