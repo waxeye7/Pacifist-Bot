@@ -132,20 +132,18 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
 
 
-    if(this.pos.isNearTo(container)) {
-        let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i) < 4 && i.amount > this.store.getFreeCapacity() && i.resourceType == RESOURCE_ENERGY});
+    let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i) < 5 && i.amount > this.store.getFreeCapacity() && i.resourceType == RESOURCE_ENERGY});
 
-        if(dropped_resources.length > 0) {
-            let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
-            if(this.pos.isNearTo(closestDroppedEnergy)) {
-                let result = this.pickup(closestDroppedEnergy, RESOURCE_ENERGY);
-                return result;
-            }
-            else {
-                this.moveTo(closestDroppedEnergy, {reusePath:20});
-            }
-            return;
+    if(dropped_resources.length > 0) {
+        let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
+        if(this.pos.isNearTo(closestDroppedEnergy)) {
+            let result = this.pickup(closestDroppedEnergy, RESOURCE_ENERGY);
+            return result;
         }
+        else {
+            this.moveTo(closestDroppedEnergy, {reusePath:20});
+        }
+        return;
     }
 
 
