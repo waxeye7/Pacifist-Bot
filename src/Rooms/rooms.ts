@@ -8,7 +8,7 @@ import construction from "./rooms.construction";
 import market from "./rooms.market";
 
 function establishMemory(room) {
-    if(Game.time % 13 == 0 || Game.time < 10) {
+    if(Game.time % 15 == 0 || Game.time < 10) {
         if(!Memory.tasks) {
             Memory.tasks = {};
         }
@@ -89,6 +89,14 @@ function identifySources(room) {
 function rooms() {
     const start = Game.cpu.getUsed()
     _.forEach(Game.rooms, function(room) {
+
+        if(!room.controller) {
+            delete room.memory;
+        }
+        // if(room.controller.level == 0) {
+        //     delete room.memory;
+        // }
+
         if (room && room.controller && room.controller.my) {
 
             if(room.memory.danger) {
@@ -106,7 +114,7 @@ function rooms() {
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-            if(Game.time % 569 == 0) {
+            if(Game.time % 1010 == 0) {
                 const start = Game.cpu.getUsed()
                 market(room);
                 console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -119,7 +127,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 510 == 0) {
+            if(Game.time % 818 == 0) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')

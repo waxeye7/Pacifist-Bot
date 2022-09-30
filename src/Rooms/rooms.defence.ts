@@ -8,7 +8,15 @@ function findLocked(room) {
         maxRepairTower = 50000
     }
 
-    let buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+    let buildingsToRepair;
+
+    if(room.controller.level >= 6) {
+        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+    }
+    else if(room.controller.level < 6) {
+        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+    }
+
 
     let allowedBuildingsToRepair = [];
     _.forEach(buildingsToRepair, function(building) {

@@ -3,32 +3,32 @@
 
 import { ErrorMapper } from "utils/ErrorMapper";
 
-import rooms from "./rooms";
+import rooms from "./Rooms/rooms";
 
-import "./creepFunctions";
-import "./roomFunctions";
-import "./roomPositionFunctions";
+import "./Functions/creepFunctions";
+import "./Functions/roomFunctions";
+import "./Functions/roomPositionFunctions";
 
 
-import roleMineralMiner from "./role.mineralMiner";
-import roleEnergyMiner from "./role.energyMiner";
-import roleCarry from "./role.carry";
-import roleEnergyManager from "./role.energyManager";
-import roleDismantler from "./role.Dismantler";
-import roleRemoteRepair from "./role.remoteRepair";
-import roleBuilder from "./role.builder";
-import roleUpgrader from "./role.upgrader";
-import roleRepair from "./role.repair";
-import roleFiller from "./role.filler";
-import roleDefender from "./role.defender";
-import roleAttacker from "./role.attacker";
-import roleRangedAttacker from "./role.RangedAttacker";
-import roleDrainTower from "./role.DrainTower";
-import roleHealer from "./role.healer";
-import roleBuildContainer from "./role.buildcontainer";
-import roleClaimer from "./role.claimer";
-import roleRemoteDismantler from "./role.remoteDismantler";
-import roleScout from "./role.scout";
+import roleMineralMiner from "./Roles/mineralMiner";
+import roleEnergyMiner from "./Roles/energyMiner";
+import roleCarry from "./Roles/carry";
+import roleEnergyManager from "./Roles/energyManager";
+import roleDismantler from "./Roles/Dismantler";
+import roleRemoteRepair from "./Roles/remoteRepair";
+import roleBuilder from "./Roles/builder";
+import roleUpgrader from "./Roles/upgrader";
+import roleRepair from "./Roles/repair";
+import roleFiller from "./Roles/filler";
+import roleDefender from "./Roles/defender";
+import roleAttacker from "./Roles/attacker";
+import roleRangedAttacker from "./Roles/RangedAttacker";
+import roleDrainTower from "./Roles/DrainTower";
+import roleHealer from "./Roles/healer";
+import roleBuildContainer from "./Roles/buildcontainer";
+import roleClaimer from "./Roles/claimer";
+import roleRemoteDismantler from "./Roles/remoteDismantler";
+import roleScout from "./Roles/scout";
 
 
 

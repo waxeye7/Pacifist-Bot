@@ -1,3 +1,5 @@
+import { runInThisContext } from "vm";
+
 function isInRoom(creep, room) {
     return creep.room.name == room.name;
   }
@@ -532,7 +534,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     _.forEach(Game.rooms, function(thisRoom) {
         if(thisRoom.memory.has_hostile_structures && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && attackers < 2) {
             let newName = 'Attacker-'+ randomName(6) + "-" + room.name;
-            room.memory.spawn_list.push([ATTACK,MOVE,ATTACK,MOVE,ATTACK,ATTACK], newName, {memory: {role: 'attacker', targetRoom: thisRoom.name}});
+            room.memory.spawn_list.push([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'attacker', targetRoom: thisRoom.name}});
             console.log('Adding Defending-Attacker to Spawn List: ' + newName);
             thisRoom.memory.has_hostile_structures = false;
         }
@@ -616,6 +618,11 @@ function spawning(room) {
         room.memory.spawn_list = [];
     }
 
+    if(!room.memory.lastTimeSpawnUsed) {
+        room.memory.lastTimeSpawnUsed = 0;
+    }
+
+
     console.log(room.memory.spawn_list.length/3, "creeps in spawn queue in room", room.name);
 
     let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
@@ -626,19 +633,21 @@ function spawning(room) {
     }
 
     if(spawn.spawning) {
-        // if(spawn.spawning.remainingTime == 1 && room.memory.spawn_list.length == 0 && Game.time % 99 != 0) {
-        //     add_creeps_to_spawn_list(room, spawn);
-        //     return;
-        // }
+        if(spawn.spawning.remainingTime == 1 && room.memory.spawn_list.length == 0) {
+            room.memory.lastTimeSpawnUsed = Game.time;
+            return;
+        }
         spawn = room.findSpawn();
         if(spawn == undefined) {
             return;
         }
     }
+    console.log(Game.time - room.memory.lastTimeSpawnUsed, "seconds since last time spawn was active ⛄", room.name)
 
     spawnFirstInLine(room, spawn);
 
-    if(room.memory.spawn_list.length == 0 && Game.time % 100 == 0 || Game.time % 31 == 0 && !spawn.spawning) {
+    if(room.memory.spawn_list.length == 0 && Game.time - room.memory.lastTimeSpawnUsed == 3 ||
+        room.memory.spawn_list.length == 0 && (Game.time - room.memory.lastTimeSpawnUsed) % 47 == 0) {
         add_creeps_to_spawn_list(room, spawn);
     }
 }

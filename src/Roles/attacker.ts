@@ -35,6 +35,12 @@ const run = function (creep) {
             });
         }
 
+        else if(creep.room.controller && creep.room.controller.level == 0) {
+            Structures = creep.room.find(FIND_STRUCTURES, {
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER &&  object.structureType != STRUCTURE_WALL && !object.my
+            });
+        }
+
         else if(creep.room.controller && !creep.room.controller.my) {
             Structures = creep.room.find(FIND_STRUCTURES, {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER &&  !object.my

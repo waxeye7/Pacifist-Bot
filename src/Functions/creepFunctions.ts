@@ -92,7 +92,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         // console.log(this.pos.getRangeTo(storedSource))
         // console.log(this.pos.isNearTo(storedSource), this.name)
         if(this.pos.isNearTo(storedSource)) {
-            if(this.memory.role == "EnergyMiner") {
+            if(this.memory.role == "EnergyMiner" && this.room.controller && this.room.controller.level < 6) {
                 let look = this.pos.lookFor(LOOK_STRUCTURES);
                 let looked;
                 if(look) {

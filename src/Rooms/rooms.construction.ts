@@ -144,7 +144,6 @@ function construction(room) {
             let pathFromSpawnToController = spawn.pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             pathFromSpawnToController.pop();
             pathFromSpawnToController.pop();
-            pathFromSpawnToController.pop();
 
 
             pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room, room);
