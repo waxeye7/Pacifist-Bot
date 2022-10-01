@@ -8,6 +8,7 @@
 
     if(buildingsToBuild.length > 0) {
 		creep.say("🎯", true);
+		buildingsToBuild.sort((a,b) => b.progressTotal - a.progressTotal);
         return buildingsToBuild[0].id;
     }
 	else {

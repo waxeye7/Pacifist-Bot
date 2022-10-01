@@ -6,7 +6,7 @@
 function findLocked(creep) {
     let buildingsToRepair300mil;
 
-    if(creep.room.controller.level > 6) {
+    if(creep.room.controller.level >= 6) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
     }
     else if(creep.room.controller.level > 2) {

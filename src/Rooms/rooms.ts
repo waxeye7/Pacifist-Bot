@@ -90,9 +90,9 @@ function rooms() {
     const start = Game.cpu.getUsed()
     _.forEach(Game.rooms, function(room) {
 
-        if(!room.controller) {
-            delete room.memory;
-        }
+        // if(!room.controller) {
+        //     delete room.memory;
+        // }
         // if(room.controller.level == 0) {
         //     delete room.memory;
         // }

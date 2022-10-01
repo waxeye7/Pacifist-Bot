@@ -14,7 +14,7 @@ function findLocked(room) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
     }
     else if(room.controller.level < 6) {
-        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1200) && building.hits < maxRepairTower});
     }
 
 
@@ -90,7 +90,7 @@ function roomDefence(room) {
                 }
                 if(room.memory.lowestHitsBuildingToRepair && room.memory.lowestHitsBuildingToRepair != null) {
                     let repairTarget:any = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
-                    if(repairTarget.hits + 900 > repairTarget.hitsMax || repairTarget.hits > maxRepairTower) {
+                    if(repairTarget.hits + 1200 > repairTarget.hitsMax || repairTarget.hits > maxRepairTower) {
                         room.memory.lowestHitsBuildingToRepair = null;
                         return;
                     }

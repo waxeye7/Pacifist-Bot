@@ -101,6 +101,18 @@ function construction(room) {
         let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
         let existingStructures = room.find(FIND_STRUCTURES);
 
+
+        if(room.controller.level == 1 || room.controller.level == 2 || room.controller.level == 3) {
+            let storageLocation = new RoomPosition(spawn.pos.x, spawn.pos.y -2, room.name);
+            let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
+            if(lookForExistingStructures.length != 0 && lookForExistingStructures[0].structureType != STRUCTURE_CONTAINER) {
+                lookForExistingStructures[0].destroy();
+            }
+            else {
+                room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_CONTAINER);
+            }
+        }
+
         if(room.controller.level == 4 && storage == undefined) {
             let storageLocation = new RoomPosition(spawn.pos.x, spawn.pos.y -2, room.name);
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);

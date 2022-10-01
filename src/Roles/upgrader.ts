@@ -29,6 +29,14 @@ const run = function (creep) {
 		if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
 			creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
 		}
+		else {
+			if(creep.store.getFreeCapacity() == 0) {
+				if(creep.roadCheck()) {
+					let roadlessLocation = creep.roadlessLocation(creep.room.controller);
+					creep.moveTo(roadlessLocation);
+				}
+			}
+		}
 	}
 	else {
 		if(storage == undefined) {

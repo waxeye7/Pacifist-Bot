@@ -1,5 +1,7 @@
+// import {Creep} from "../utils/Types";
 interface Creep {
-    findSource:any;
+    findSource: () => object;
+    findSpawn:any;
     findStorage:any;
     findClosestLink:any;
     withdrawStorage:any;
@@ -9,8 +11,6 @@ interface Creep {
     roadCheck:any;
     roadlessLocation:any;
 }
-
-
 // CREEP PROTOTYPES
 Creep.prototype.findSource = function() {
     let source;
@@ -33,11 +33,30 @@ Creep.prototype.findSource = function() {
     }
 }
 
+Creep.prototype.findSpawn = function() {
+    let spawns = this.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN);}});
+    if(spawns.length) {
+        this.memory.spawn = spawns[0].id;
+        return spawns[0]
+    }
+}
+
+
 Creep.prototype.findStorage = function() {
-    let storage = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
-    if(storage.length) {
-        this.memory.storage = storage[0].id;
-        return storage[0];
+    if(this.room.controller.level >= 4) {
+        let storage = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
+        if(storage.length) {
+            this.memory.storage = storage[0].id;
+            return storage[0];
+        }
+    }
+    else if(this.room.controller.level < 4 && this.room.controller.level != 0) {
+        let spawn:any = Game.getObjectById(this.memory.spawn) || this.findSpawn();
+        let storage = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_CONTAINER && spawn.pos.getRangeTo(structure) <= 4);}});
+        if(storage.length) {
+            this.memory.storage = storage[0].id;
+            return storage[0];
+        }
     }
 }
 
@@ -53,9 +72,14 @@ Creep.prototype.findClosestLink = function() {
 
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
-    if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler") {
+    if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_STORAGE) {
         console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
         // this.acquireEnergyWithContainersAndOrDroppedEnergy();
+        return;
+    }
+    else if(storage.store[RESOURCE_ENERGY] < 500 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
+        console.log("Container Storage requires 500 energy to withdraw. Try again later.", this.room.name)
+        this.acquireEnergyWithContainersAndOrDroppedEnergy();
         return;
     }
     else {
@@ -123,6 +147,8 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         }
     }
 }
+
+// try here to make ignore creeps on home path but not ignore creeps on the way there because then can stay on road when full energy for best movement but it could be risky hm
 
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
     // let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
