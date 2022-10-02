@@ -627,6 +627,7 @@ function spawnFirstInLine(room, spawn) {
                 room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
                 room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("RemoteRepairer") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3) {
                     room.memory.spawn_list[0].shift();
+                    // change to delete last one
                 }
             }
             if(spawnAttempt == -3 || spawnAttempt == -14 || spawnAttempt == -10) {

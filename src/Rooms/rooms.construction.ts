@@ -113,7 +113,7 @@ function construction(room) {
             }
         }
 
-        if(room.controller.level == 4 && storage == undefined) {
+        if(room.controller.level == 4 && storage == undefined || room.controller.level == 4 && storage.structureType == STRUCTURE_CONTAINER) {
             let storageLocation = new RoomPosition(spawn.pos.x, spawn.pos.y -2, room.name);
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
             if(lookForExistingStructures.length != 0) {
@@ -144,16 +144,16 @@ function construction(room) {
 
         if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
-            let pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
             pathFromSpawnToSource1.pop();
             pathFromSpawnToSource1.pop();
 
 
-            let pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
             pathFromSpawnToSource2.pop();
             pathFromSpawnToSource2.pop();
 
-            let pathFromSpawnToController = spawn.pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromSpawnToController = spawn.pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
             pathFromSpawnToController.pop();
             pathFromSpawnToController.pop();
 
@@ -172,10 +172,10 @@ function construction(room) {
                         let source:any = Game.getObjectById(sourceId);
 
                         if(source != null) {
-                            let pathFromSpawnToRemoteSource = spawn.pos.findPathTo(source, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+                            let pathFromSpawnToRemoteSource = spawn.pos.findPathTo(source, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
                             pathBuilder(pathFromSpawnToRemoteSource, STRUCTURE_ROAD, Game.rooms[targetRoomName], room);
 
-                            let pathFromRemoteSourceToSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+                            let pathFromRemoteSourceToSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
                             pathBuilder(pathFromRemoteSourceToSpawn, STRUCTURE_ROAD, room, Game.rooms[targetRoomName]);
                         }
                     }
@@ -190,7 +190,7 @@ function construction(room) {
                 room.createConstructionSite(mineral.pos.x, mineral.pos.y, STRUCTURE_EXTRACTOR);
             }
 
-            let pathFromStorageToMineral = storage.pos.findPathTo(mineral, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromStorageToMineral = storage.pos.findPathTo(mineral, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1, ignoreDestructibleStructures: true});
             pathFromStorageToMineral.pop();
             pathFromStorageToMineral.pop();
 

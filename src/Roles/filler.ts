@@ -11,13 +11,14 @@
     }
 
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+    console.log(creep.room.name, spawnAndExtensions)
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
         creep.memory.locked = closestDropOffLocation.id;
         return closestDropOffLocation;
     }
 
-    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity() > 0)});
+    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0)});
     if(towers2.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers2);
         creep.memory.locked = closestTower.id;
@@ -58,6 +59,10 @@
 
         if(creep.memory.locked) {
             target = Game.getObjectById(creep.memory.locked);
+
+            if(target.store.getFreeCapacity() == 0) {
+                findLocked(creep);
+            }
 
             if(creep.pos.isNearTo(target)) {
                 creep.transfer(target, RESOURCE_ENERGY);

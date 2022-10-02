@@ -72,31 +72,36 @@ Creep.prototype.findClosestLink = function() {
 
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
-    if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_STORAGE) {
-        console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
-        // this.acquireEnergyWithContainersAndOrDroppedEnergy();
-        return;
-    }
-    else if(storage.store[RESOURCE_ENERGY] < 500 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
-        console.log("Container Storage requires 500 energy to withdraw. Try again later.", this.room.name)
-        this.acquireEnergyWithContainersAndOrDroppedEnergy();
-        return;
-    }
-    else {
-        if(this.pos.isNearTo(storage)) {
-            let result = this.withdraw(storage, RESOURCE_ENERGY);
-            return result;
+    if(storage) {
+        if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_STORAGE) {
+            console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
+            // this.acquireEnergyWithContainersAndOrDroppedEnergy();
+            return;
+        }
+        else if(storage.store[RESOURCE_ENERGY] < 500 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
+            console.log("Container Storage requires 500 energy to withdraw. Try again later.", this.room.name)
+            this.acquireEnergyWithContainersAndOrDroppedEnergy();
+            return;
         }
         else {
-            this.moveTo(storage, {reusePath:20});
+            if(this.pos.isNearTo(storage)) {
+                let result = this.withdraw(storage, RESOURCE_ENERGY);
+                return result;
+            }
+            else {
+                this.moveTo(storage, {reusePath:20});
+            }
         }
+    }
+    else {
+        this.room.findStorage();
     }
 }
 
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName), {range:23, reusePath:20});
+    this.moveTo(new RoomPosition(25,25, roomName), {range:10, reusePath:20});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {

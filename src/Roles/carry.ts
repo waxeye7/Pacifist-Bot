@@ -40,6 +40,9 @@ function findLocked(creep) {
     //     console.log('hi')
     //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
     // }
+    if(creep.memory.targetRoom.controller) {
+        console.log(creep.memory.targetRoom.controller.level)
+    }
 
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
@@ -49,12 +52,12 @@ function findLocked(creep) {
     }
 
     if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+        return creep.moveToRoom(creep.memory.homeRoom);
     }
 
     if(creep.memory.full) {
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-            return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+            return creep.moveToRoom(creep.memory.homeRoom);
         }
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -103,8 +106,8 @@ function findLocked(creep) {
         }
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         if(result == 0) {
-            if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-                return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+            if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
+                return creep.moveToRoom(creep.memory.homeRoom);
             }
 
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -145,9 +148,6 @@ function findLocked(creep) {
                 }
             }
         }
-    }
-    if(creep.memory.targetRoom.controller) {
-        console.log(creep.memory.targetRoom.controller.level)
     }
 
  }
