@@ -22,8 +22,10 @@ function findLockedRepair(creep) {
         });
         if(buildingsToRepair.length > 0) {
             let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair)
-            creep.memory.locked_repair = closestBuildingToRepair.id;
-            creep.say("🎯", true);
+            if(closestBuildingToRepair && closestBuildingToRepair != null) {
+                creep.memory.locked_repair = closestBuildingToRepair.id;
+                creep.say("🎯", true);
+            }
         }
         return;
     }
@@ -54,6 +56,8 @@ function findLockedBuild(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
+    creep.fleeHomeIfInDanger();
+
     if(!creep.memory.working && creep.store.getFreeCapacity() == 0) {
         creep.memory.working = true;
     }
@@ -61,14 +65,7 @@ function findLockedBuild(creep) {
         creep.memory.working = false;
     }
 
-    if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
-    }
-
-
     if(creep.memory.working) {
-
-
         if(creep.memory.locked_build) {
             let buildTarget:any = Game.getObjectById(creep.memory.locked_build);
             if(!buildTarget) {

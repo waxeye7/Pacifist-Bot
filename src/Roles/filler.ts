@@ -11,7 +11,6 @@
     }
 
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
-    console.log(creep.room.name, spawnAndExtensions)
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
         creep.memory.locked = closestDropOffLocation.id;

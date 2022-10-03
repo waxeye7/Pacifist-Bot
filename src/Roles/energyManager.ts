@@ -25,6 +25,9 @@
             }
         }
     }
+    if(creep.roadCheck()) {
+        creep.moveAwayIfNeedTo();
+    }
 }
 
 

@@ -36,23 +36,13 @@ function findLocked(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    // if(creep.fatigue > 0) {
-    //     console.log('hi')
-    //     creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
-    // }
-    if(creep.memory.targetRoom.controller) {
-        console.log(creep.memory.targetRoom.controller.level)
-    }
+    creep.fleeHomeIfInDanger();
 
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
-    }
-
-    if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
-        return creep.moveToRoom(creep.memory.homeRoom);
     }
 
     if(creep.memory.full) {
@@ -69,7 +59,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else {
@@ -118,7 +108,7 @@ function findLocked(creep) {
                     }
                 }
                 else {
-                    creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
                 }
             }
             else {

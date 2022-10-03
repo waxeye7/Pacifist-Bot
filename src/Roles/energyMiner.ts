@@ -3,10 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    if(creep.room.name != creep.memory.homeRoom && Memory.tasks.wipeRooms.killCreeps.includes(creep.room.name) && creep.room.memory.has_hostile_creeps) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
-    }
-
+    creep.fleeHomeIfInDanger();
 
     if(creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
         creep.harvestEnergy();
@@ -32,7 +29,14 @@ const run = function (creep) {
             }
         }
 
-        creep.harvestEnergy()
+
+        let result = creep.harvestEnergy()
+
+        // if(result == 0) {
+        if(creep.roadCheck()) {
+            creep.moveAwayIfNeedTo();
+        }
+        // }
         // if(creep.harvestEnergy() == -1) {
         //     let containers = creep
 

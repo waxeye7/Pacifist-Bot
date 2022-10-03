@@ -474,7 +474,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(sites.length > 0 && builders < builderTargetAmount && carriers > 1 && EnergyMinersInRoom > 1 ||
         room.controller.level < 4 && sites.length > 0 && builders < builderPreRCL4TargetAmount && carriers > 1 && EnergyMinersInRoom > 1) {
         let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 30), newName, {memory: {role: 'builder'}});
+        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 40), newName, {memory: {role: 'builder'}});
         console.log('Adding Builder to Spawn List: ' + newName);
     }
 
@@ -490,12 +490,12 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
     else if(carriers > 1 && EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount || (storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 4) && EnergyMinersInRoom > 1 || (room.controller.level <= 4 && upgraders < preRCL5UpgraderTarget && carriers > 1 && EnergyMinersInRoom > 1)) {
         let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 20), newName, {memory: {role: 'upgrader'}});
+        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 25), newName, {memory: {role: 'upgrader'}});
         console.log('Adding Upgrader to Spawn List: ' + newName);
     }
     else if(carriers > 1 && EnergyMinersInRoom > 1 && storage && storage.store.getFreeCapacity() < 200) {
         let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 20), newName, {memory: {role: 'upgrader'}});
+        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 25), newName, {memory: {role: 'upgrader'}});
         console.log('Adding Upgrader to Spawn List: ' + newName, "because storage is full");
     }
 

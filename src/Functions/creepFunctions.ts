@@ -10,6 +10,8 @@ interface Creep {
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:any;
     roadlessLocation:any;
+    fleeHomeIfInDanger: () => CreepMoveReturnCode | void;
+    moveAwayIfNeedTo:any;
 }
 // CREEP PROTOTYPES
 Creep.prototype.findSource = function() {
@@ -101,7 +103,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName) {
-    this.moveTo(new RoomPosition(25,25, roomName), {range:10, reusePath:20});
+    this.moveTo(new RoomPosition(25,25, roomName), {range:5, reusePath:20});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -244,5 +246,71 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
     return null;
 }
 
-// CREEP PROTOTYPES
 
+Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
+    if(Memory.tasks.wipeRooms.killCreeps.includes(this.room.name) && this.memory.targetRoom != this.memory.homeRoom) {
+        return this.moveToRoom(this.memory.homeRoom);
+    }
+    if(Memory.tasks.wipeRooms.killCreeps.includes(this.memory.targetRoom) && this.memory.targetRoom != this.memory.homeRoom) {
+        if(this.pos.x > 0 && this.pos.y > 0 && this.pos.y < 49 && this.pos.x < 49) {
+            if(this.roadCheck()) {
+                let roadlessLocation = this.roadlessLocation(this.pos);
+                this.moveTo(roadlessLocation);
+            }
+            return;
+        }
+        else {
+            return this.moveToRoom(this.memory.homeRoom);
+        }
+    }
+}
+
+Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
+    function findOpenBlocks(creep) {
+        let positions = []
+        positions.push([creep.pos.x -1, creep.pos.y -1, creep.room.name]);
+        positions.push([creep.pos.x -1, creep.pos.y, creep.room.name]);
+        positions.push([creep.pos.x -1, creep.pos.y +1, creep.room.name]);
+        positions.push([creep.pos.x, creep.pos.y -1, creep.room.name]);
+        positions.push([creep.pos.x, creep.pos.y +1, creep.room.name]);
+        positions.push([creep.pos.x +1, creep.pos.y -1, creep.room.name]);
+        positions.push([creep.pos.x +1, creep.pos.y, creep.room.name]);
+        positions.push([creep.pos.x +1, creep.pos.y +1, creep.room.name]);
+
+        let creep_nearby = false;
+        let empty_block = false;
+        for (let position of positions) {
+            let positioninroom = new RoomPosition(position[0], position[1], position[2]);
+
+            let lookTerrain = positioninroom.lookFor(LOOK_TERRAIN);
+            if(lookTerrain[0] != "wall") {
+                let lookForCreeps = positioninroom.lookFor(LOOK_CREEPS);
+                let lookForStructures = positioninroom.lookFor(LOOK_STRUCTURES);
+                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0) {
+                    creep_nearby = true;
+                }
+                if(lookForCreeps.length == 0 && lookForStructures.length == 0) {
+                    empty_block = position;
+                    if(creep_nearby != false) {
+                        return empty_block;
+                    }
+                }
+            }
+        }
+        if(creep_nearby != false && empty_block != false) {
+            return empty_block;
+        }
+        return false;
+    }
+
+    let position = findOpenBlocks(this)
+    if(position != false) {
+        let LocationToMove =  new RoomPosition(position[0], position[1], position[2]);
+        this.moveTo(LocationToMove);
+        console.log(this.room.name, "moving away now")
+        return;
+    }
+}
+
+
+// CREEP PROTOTYPES
