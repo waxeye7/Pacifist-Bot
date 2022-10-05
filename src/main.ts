@@ -30,6 +30,7 @@ import roleBuildContainer from "./Roles/buildcontainer";
 import roleClaimer from "./Roles/claimer";
 import roleRemoteDismantler from "./Roles/remoteDismantler";
 import roleScout from "./Roles/scout";
+import roleSweeper from "Roles/sweeper";
 
 global.ROLES = {
   MineralMiner: roleMineralMiner,
@@ -61,6 +62,8 @@ global.ROLES = {
 
   RemoteDismantler: roleRemoteDismantler,
   scout: roleScout,
+
+  sweeper: roleSweeper,
 }
 
 

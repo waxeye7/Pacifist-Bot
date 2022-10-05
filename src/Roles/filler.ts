@@ -80,6 +80,9 @@
                 creep.moveTo(target, {reusePath:20});
             }
         }
+        else {
+            creep.moveAwayIfNeedTo()
+        }
     }
 
 

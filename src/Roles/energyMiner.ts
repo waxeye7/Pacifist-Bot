@@ -3,7 +3,10 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    creep.fleeHomeIfInDanger();
+    let did_you_move = creep.fleeHomeIfInDanger();
+    if(did_you_move == "i moved") {
+        return;
+    }
 
     if(creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
         creep.harvestEnergy();
@@ -14,6 +17,16 @@ const run = function (creep) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             creep.memory.targetLink = closestLink.id;
             creep.memory.closestLink = null;
+        }
+
+        if(creep.ticksToLive <= 3) {
+            let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
+            if(creep.pos.isNearTo(closestLink)) {
+                creep.transfer(closestLink, RESOURCE_ENERGY);
+            }
+            else {
+                creep.moveTo(closestLink);
+            }
         }
 
 

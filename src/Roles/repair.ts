@@ -71,14 +71,14 @@ function findLocked(creep) {
             if(result == ERR_NOT_IN_RANGE) {
                 creep.moveTo(repairTarget, {reusePath:20});
 
-                let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-                if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].hits < lookForExistingStructures[0].hitsMax) {
-                    creep.repair(lookForExistingStructures[0]);
-                }
+                // let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+                // if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].hits < lookForExistingStructures[0].hitsMax) {
+                //     creep.repair(lookForExistingStructures[0]);
+                // }
 
             }
             else {
-                if(creep.store.getFreeCapacity() == 0) {
+                if(creep.store.getFreeCapacity() <= 50) {
                     if(creep.roadCheck()) {
                         let roadlessLocation = creep.roadlessLocation(repairTarget);
                         creep.moveTo(roadlessLocation);

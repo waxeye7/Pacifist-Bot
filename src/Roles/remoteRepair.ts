@@ -56,7 +56,10 @@ function findLockedBuild(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    creep.fleeHomeIfInDanger();
+    let did_you_move = creep.fleeHomeIfInDanger();
+    if(did_you_move == "i moved") {
+        return;
+    }
 
     if(!creep.memory.working && creep.store.getFreeCapacity() == 0) {
         creep.memory.working = true;
