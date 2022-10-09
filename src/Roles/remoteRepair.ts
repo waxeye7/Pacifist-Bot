@@ -83,7 +83,49 @@ function findLockedBuild(creep) {
         }
 
 
-        if(!creep.memory.locked_build) {
+        if(!creep.memory.locked_repair) {
+            findLockedRepair(creep);
+            let target:any = Game.getObjectById(creep.memory.locked_repair);
+            if(target && target.hits < target.hitsMax) {
+                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {reusePath:25});
+                    return;
+                }
+                if(creep.roadCheck()) {
+                    let roadlessLocation = creep.roadlessLocation(target);
+                    creep.moveTo(roadlessLocation);
+                    return;
+                }
+            }
+            else if(target && target.hits == target.hitsMax) {
+                let index = creep.memory.allowed_repairs.indexOf(target.id);
+                creep.memory.allowed_repairs.splice(index,1);
+                creep.memory.locked_repair = null;
+            }
+        }
+        else if(creep.memory.locked_repair) {
+            let target:any = Game.getObjectById(creep.memory.locked_repair);
+            if(target && target.hits < target.hitsMax) {
+                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
+                    creep.moveTo(target, {reusePath:25});
+                    return;
+                }
+            }
+            else if(target && target.hits == target.hitsMax) {
+                let index = creep.memory.allowed_repairs.indexOf(target.id);
+                creep.memory.allowed_repairs.splice(index,1);
+                creep.memory.locked_repair = null;
+            }
+            if(creep.store.getFreeCapacity() == 0) {
+                if(creep.roadCheck()) {
+                    let roadlessLocation = creep.roadlessLocation(target);
+                    creep.moveTo(roadlessLocation);
+                    return;
+                }
+            }
+        }
+
+        if(!creep.memory.locked_build && !creep.memory.locked_repair) {
             findLockedBuild(creep);
             let target = Game.getObjectById(creep.memory.locked_build);
             if(target) {
@@ -108,43 +150,6 @@ function findLockedBuild(creep) {
             }
         }
 
-
-        if(!creep.memory.locked_repair && !creep.memory.locked_build) {
-            findLockedRepair(creep);
-            let target:any = Game.getObjectById(creep.memory.locked_repair);
-            if(target && target.hits < target.hitsMax) {
-                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
-                    return;
-                }
-            }
-            else if(target && target.hits == target.hitsMax) {
-                let index = creep.memory.allowed_repairs.indexOf(target.id);
-                creep.memory.allowed_repairs.splice(index,1);
-                creep.memory.locked_repair = null;
-            }
-        }
-        else if(creep.memory.locked_repair && !creep.memory.locked_build) {
-            let target:any = Game.getObjectById(creep.memory.locked_repair);
-            if(target && target.hits < target.hitsMax) {
-                if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
-                    return;
-                }
-            }
-            else if(target && target.hits == target.hitsMax) {
-                let index = creep.memory.allowed_repairs.indexOf(target.id);
-                creep.memory.allowed_repairs.splice(index,1);
-                creep.memory.locked_repair = null;
-            }
-            if(creep.store.getFreeCapacity() == 0) {
-                if(creep.roadCheck()) {
-                    let roadlessLocation = creep.roadlessLocation(target);
-                    creep.moveTo(roadlessLocation);
-                    return;
-                }
-            }
-        }
         if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom && creep.memory.allowed_repairs.length == 0) {
             creep.memory.role = "repair";
         }
@@ -152,7 +157,7 @@ function findLockedBuild(creep) {
 
     else {
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-            return creep.moveToRoom(creep.memory.targetRoom);
+            return creep.moveToRoom(creep.memory.targetRoom, 25, 25, true);
         }
         creep.acquireEnergyWithContainersAndOrDroppedEnergy();
     }

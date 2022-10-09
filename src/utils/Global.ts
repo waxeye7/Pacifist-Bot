@@ -8,10 +8,16 @@ declare global {
       Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
     */
     interface Memory {
+        DistressSignals:any;
         tasks: any;
         uuid: number;
         log: any;
     }
+
+    interface DistressSignals {
+        reinforce_me?:string;
+    }
+
     interface RoomMemory {
         spawn_list: Array<Array<string> | string | object>;
         has_hostile_structures: boolean;

@@ -1,8 +1,15 @@
+import roomDefence from "Rooms/rooms.defence";
+
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
  const run = function (creep) {
+
+    if(Game.time % 50 == 0 && creep.room.energyAvailable <= 300) {
+        creep.memory.role = "filler";
+    }
+
     let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
 
     if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0) {

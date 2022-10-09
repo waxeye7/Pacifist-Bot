@@ -106,8 +106,25 @@ const run = function (creep) {
             if(Memory.tasks.wipeRooms.destroyStructures.length > 0) {
                 creep.memory.targetRoom = Memory.tasks.wipeRooms.destroyStructures[0];
             }
+            else {
+                if(Game.time % 20 == 0) {
+                    _.forEach(Game.rooms, function(room) {
+                        if(room.memory.danger == true) {
+                            creep.memory.targetRoom = room.name;
+                            return;
+                        }
+                    });
+                }
+            }
         }
     }
+
+    if(Game.time % 17 == 0 && creep.roadCheck()) {
+        let roadlessLocation = creep.roadlessLocation(creep.pos);
+        creep.moveTo(roadlessLocation);
+    }
+
+
 }
 
 

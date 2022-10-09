@@ -21,10 +21,10 @@ function getNeighbours(tile) {
     return neighbours;
 }
 
-function pathBuilder(neighbors, structure, targetRoom, room) {
+function pathBuilder(neighbors, structure, room) {
+
     let buldingAlreadyHereCount = 0;
     let constructionSitesPlaced = 0;
-
     if(!room.memory.keepTheseRoads) {
         room.memory.keepTheseRoads = [];
     }
@@ -130,26 +130,26 @@ function construction(room) {
                 let spawnNeighbours = getNeighbours(spawn.pos);
 
                 if(existingStructures.length != 0) {
-                    pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room, room);
+                    pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room);
                 }
             }
             else {
                 let storageNeighbours = getNeighbours(storage.pos);
 
                 if(existingStructures.length != 0) {
-                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room, room);
+                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room);
                 }
             }
         }
 
         if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
-            let pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
             pathFromSpawnToSource1.pop();
             pathFromSpawnToSource1.pop();
 
 
-            let pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
+            let pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
             pathFromSpawnToSource2.pop();
             pathFromSpawnToSource2.pop();
 
@@ -158,11 +158,11 @@ function construction(room) {
             pathFromSpawnToController.pop();
 
 
-            pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room, room);
+            pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room);
 
-            pathBuilder(pathFromSpawnToSource2, STRUCTURE_ROAD, room, room);
+            pathBuilder(pathFromSpawnToSource2, STRUCTURE_ROAD, room);
 
-            pathBuilder(pathFromSpawnToController, STRUCTURE_ROAD, room, room);
+            pathBuilder(pathFromSpawnToController, STRUCTURE_ROAD, room);
 
 
             let resourceData = _.get(room.memory, ['resources']);
@@ -172,11 +172,18 @@ function construction(room) {
                         let source:any = Game.getObjectById(sourceId);
 
                         if(source != null) {
-                            let pathFromSpawnToRemoteSource = spawn.pos.findPathTo(source, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-                            pathBuilder(pathFromSpawnToRemoteSource, STRUCTURE_ROAD, Game.rooms[targetRoomName], room);
 
-                            let pathFromRemoteSourceToSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
-                            pathBuilder(pathFromRemoteSourceToSpawn, STRUCTURE_ROAD, room, Game.rooms[targetRoomName]);
+                            let pathFromSpawnToRemoteSource = spawn.pos.findPathTo(source, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
+                            let pathFromRemoteSourceToSpawn = source.pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
+                            // _.forEach(values.rooms_for_roads, function(roomForRoad) {
+                            pathBuilder(pathFromSpawnToRemoteSource, STRUCTURE_ROAD, room);
+                            pathBuilder(pathFromRemoteSourceToSpawn, STRUCTURE_ROAD, Game.rooms[targetRoomName]);
+                            // });
+
+                            // _.forEach(pathFromSpawnToRemoteSource, function(block) {
+                            //     block.createConstructionSite(STRUCTURE_ROAD);
+                            // });
+
                         }
                     }
                 });
@@ -194,7 +201,7 @@ function construction(room) {
             pathFromStorageToMineral.pop();
             pathFromStorageToMineral.pop();
 
-            pathBuilder(pathFromStorageToMineral, STRUCTURE_ROAD, room, room);
+            pathBuilder(pathFromStorageToMineral, STRUCTURE_ROAD, room);
         }
 
 

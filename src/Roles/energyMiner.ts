@@ -4,9 +4,16 @@
  **/
 const run = function (creep) {
     let did_you_move = creep.fleeHomeIfInDanger();
-    if(did_you_move == "i moved") {
+    if(did_you_move == 0) {
         return;
     }
+
+    // if(creep.pos.x > 0 && creep.pos.y > 0 && creep.pos.y < 49 && creep.pos.x < 49) {
+    //     return;
+    // }
+    // else {
+    //     creep.moveTo(25,25)
+    // }
 
     if(creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
         creep.harvestEnergy();

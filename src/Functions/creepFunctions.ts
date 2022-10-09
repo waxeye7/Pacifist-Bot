@@ -103,26 +103,27 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 
 
 
-Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5) {
-    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:2, reusePath:10, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 15) {
+    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:10, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
     // console.log(this, this.memory.targetRoom);
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
-        return this.moveToRoom(this.memory.targetRoom);
+        let travelTarget:any = Game.getObjectById(this.memory.sourceId);
+        if(travelTarget == null) {
+            return this.moveToRoom(this.memory.targetRoom, 25, 25);
+        }
+        return this.moveToRoom(this.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, false, 5, 3);
     }
 
     let storedSource:any = Game.getObjectById(this.memory.source);
-    if (!storedSource || (storedSource.energy == 0) || (!storedSource.pos.getOpenPositions().length && !this.pos.isNearTo(storedSource))) {
+    if (!storedSource || (!storedSource.pos.getOpenPositions().length && !this.pos.isNearTo(storedSource))) {
         delete this.memory.source;
         storedSource = this.findSource();
     }
 
     if(storedSource) {
-        // let Containers = this.room.find(FIND_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_CONTAINER);}});
-        // console.log(this.pos.getRangeTo(storedSource))
-        // console.log(this.pos.isNearTo(storedSource), this.name)
         if(this.pos.isNearTo(storedSource)) {
             if(this.memory.role == "EnergyMiner" && this.room.controller && this.room.controller.level < 6) {
                 let look = this.pos.lookFor(LOOK_STRUCTURES);
@@ -146,12 +147,8 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
             result = this.harvest(storedSource);
             return result;
         }
-        // else if(this.pos.getRangeTo(storedSource) < 6 && Containers.length > 0) {
-        //     let closestContainer = this.pos.findClosestByRange(Containers);
-        //     this.moveTo(closestContainer, {reusePath:20});
-        // }
         else {
-            this.moveTo(storedSource, {reusePath:20});
+            this.moveTo(storedSource, {reusePath: 20});
         }
     }
 }
@@ -323,7 +320,7 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
     if(position != false) {
         let LocationToMove =  new RoomPosition(position[0], position[1], position[2]);
         this.moveTo(LocationToMove);
-        console.log(this.room.name, "moving away now")
+        // console.log(this.room.name, "moving away now")
         return "i moved";
     }
     else {

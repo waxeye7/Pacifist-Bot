@@ -47,7 +47,7 @@ function roomDefence(room) {
         maxRepairTower = 150000
     }
 
-    if(Game.time % 2500 == 0) {
+    if(Game.time % 100 == 0) {
         room.memory.towers = [];
 
         let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
@@ -57,6 +57,7 @@ function roomDefence(room) {
             });
         }
     }
+
 
     if(room.memory.towers && room.memory.towers.length > 0) {
         let towerCount = -1;
@@ -111,10 +112,20 @@ function roomDefence(room) {
        });
     }
 
+
     if(Game.time % 10 == 1) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;
+
+            if(!Memory.DistressSignals) {
+                Memory.DistressSignals = {};
+            }
+            if(!Memory.DistressSignals.reinforce_me) {
+                Memory.DistressSignals.reinforce_me = room.name;
+            }
+
+
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
 
             let currentLowestRange = 100;
@@ -130,43 +141,13 @@ function roomDefence(room) {
                 }
             });
         }
-        // if(HostileCreeps.length > 1 && room.controller && room.controller.my) {
-        //     room.memory.danger = true;
-        //     let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
-
-        //     let currentLowestRange = 100;
-        //     let currentRampart;
-
-        //     _.forEach(MyRamparts, function(rampart) {
-        //         let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
-        //         let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
-        //         if(currentLowestRange > rangeToEnemy) {
-        //             currentLowestRange = rangeToEnemy;
-        //             currentRampart = rampart;
-        //             room.memory.rampartToMan = currentRampart.id;
-        //         }
-        //     });
-        // }
-        // else if(HostileCreeps.length > 0 && room.controller && !room.controller.my) {
-        //     room.memory.danger = true;
-        //     let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
-
-        //     let currentLowestRange = 100;
-        //     let currentRampart;
-
-        //     _.forEach(MyRamparts, function(rampart) {
-        //         let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
-        //         let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
-        //         if(currentLowestRange > rangeToEnemy) {
-        //             currentLowestRange = rangeToEnemy;
-        //             currentRampart = rampart;
-        //             room.memory.rampartToMan = currentRampart.id;
-        //         }
-        //     });
-        // }
         else {
             room.memory.danger = false;
             room.memory.rampartToMan = false
+
+            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && room.memory.danger == false) {
+                delete Memory.DistressSignals.reinforce_me;
+            }
         }
     }
 }

@@ -53,7 +53,7 @@ function findLocked(creep) {
 
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
             if(creep.memory.storage) {
-                return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y);
+                return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
             }
             else {
                 return creep.moveToRoom(creep.memory.homeRoom);
@@ -103,16 +103,21 @@ function findLocked(creep) {
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
                 let travelTarget:any = Game.getObjectById(creep.memory.sourceId);
                 if(travelTarget == null) {
-                    return creep.moveToRoom(creep.memory.targetRoom, 25, 25, true, 1);
+                    return creep.moveToRoom(creep.memory.targetRoom, 25, 25, true, 1, 15);
                 }
-                return creep.moveToRoom(creep.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, true, 1);
+
+                // let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+                // if(lookForExistingStructures.length == 0 && creep.room.name != creep.memory.homeRoom && creep.room.name != creep.memory.targetRoom) {
+                //     creep.pos.createConstructionSite(STRUCTURE_ROAD);
+                // }
+                return creep.moveToRoom(creep.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, true, 1, 2);
         }
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         if(result == 0) {
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
             if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
                 if(creep.memory.storage) {
-                    return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y);
+                    return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
                 }
                 else {
                     return creep.moveToRoom(creep.memory.homeRoom);

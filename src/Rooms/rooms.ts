@@ -31,6 +31,21 @@ function establishMemory(room) {
 
         let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+        let isArmed = false;
+
+        // check if has attacking parts.
+        if(HostileCreeps.length > 0) {
+
+            HostileCreeps.forEach(Hostile => {
+                for(let part of Hostile.body)
+                if(part.type == ATTACK || part.type == RANGED_ATTACK) {
+                    isArmed = true;
+                }
+            });
+
+        }
+
+
         if (HostileStructures.length > 0 && room.controller && room.controller.level == 0) {
             if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
                 Memory.tasks.wipeRooms.destroyStructures.push(room.name)
@@ -42,7 +57,7 @@ function establishMemory(room) {
             room.memory.has_hostile_structures = false;
         }
 
-        if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0) {
+        if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0 && isArmed) {
             if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                 Memory.tasks.wipeRooms.killCreeps.push(room.name)
             }
@@ -52,6 +67,7 @@ function establishMemory(room) {
             Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
             room.memory.has_hostile_creeps = false;
         }
+
         let attackersInRoom:number = 0;
         _.forEach(Game.creeps, function(creep) {
             if(creep.memory.role == 'attacker' && creep.room.name == room.name) {
@@ -99,16 +115,8 @@ function rooms() {
 
         if (room && room.controller && room.controller.my) {
 
-            if(room.memory.danger) {
-                // const start = Game.cpu.getUsed()
-                spawning(room);
-                // console.log('Spawning Ran in', Game.cpu.getUsed() - start, 'ms')
-            }
-            else if(Game.time % 1 == 0) {
-                // const start = Game.cpu.getUsed()
-                spawning(room);
-                // console.log('------------Spawning Ran in------------', Game.cpu.getUsed() - start, 'ms')
-            }
+            spawning(room);
+
 
             // const defenceTime = Game.cpu.getUsed()
             roomDefence(room);
@@ -145,7 +153,7 @@ function rooms() {
 
 
 
-        // constructionSites = room.find(FIND_CONSTRUCTION_SITES);
+        // let constructionSites = room.find(FIND_CONSTRUCTION_SITES);
         // console.log(constructionSites.length)
         // for (var site of constructionSites) {
         //     if (site.structureType == STRUCTURE_ROAD) {
