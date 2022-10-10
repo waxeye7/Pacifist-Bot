@@ -37,7 +37,7 @@ const run = function (creep) {
         }
 
 
-        if(creep.store.getFreeCapacity() == 0) {
+        if(creep.store.getFreeCapacity() <= 30) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
@@ -49,8 +49,9 @@ const run = function (creep) {
             }
         }
 
-
-        let result = creep.harvestEnergy()
+        if(creep.store.getFreeCapacity() > 20) {
+            let result = creep.harvestEnergy()
+        }
 
         // if(result == 0) {
         if(creep.roadCheck()) {
@@ -77,7 +78,7 @@ const run = function (creep) {
 }
 const roleEnergyMiner = {
     run,
-    //run: run,
+
     //function2,
     //function3
 };

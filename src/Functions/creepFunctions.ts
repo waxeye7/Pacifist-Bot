@@ -101,9 +101,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
     }
 }
 
-
-
-Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 15) {
+Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
     this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:10, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
@@ -335,6 +333,7 @@ Creep.prototype.Sweep = function Sweep() {
         if(droppedResources.length == 0) {
             return "nothing to sweep";
         }
+        droppedResources.sort((a,b) => b.amount - a.amount);
         this.memory.lockedDropped = droppedResources[0].id;
     }
 

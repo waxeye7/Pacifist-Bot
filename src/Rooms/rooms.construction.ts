@@ -202,6 +202,40 @@ function construction(room) {
             pathFromStorageToMineral.pop();
 
             pathBuilder(pathFromStorageToMineral, STRUCTURE_ROAD, room);
+
+// IMPORTNAT DO NOT DELETE
+            // let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
+
+            // if(links.length < 3) {
+            //     if(storage) {
+            //         let storageLink = storage.pos.findInRange(links, 5)[0];
+            //         if(storageLink == undefined) {
+            //             room.createConstructionSite(storage.pos.x + 1, storage.pos.y -2, STRUCTURE_LINK);
+            //         }
+
+
+            //         let sources = room.find(FIND_SOURCES);
+
+            //         let sourceLinkOne = sources[0].pos.findInRange(links, 4)[0];
+
+            //         let sourceLinkTwo = sources[1].pos.findInRange(links, 4)[0];
+
+            //         if(sourceLinkOne == undefined) {
+            //             let path = sources[0].pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: false});
+            //             path[1].x path[1.y] find empty space to place link then place the linK!
+            //             room.createConstructionSite(sources[0].pos.x, storage.pos.y -2, STRUCTURE_LINK);
+
+            //         }
+
+            //         if(sourceLinkTwo == undefined) {
+            //             room.createConstructionSite(storage.pos.x + 1, storage.pos.y -2, STRUCTURE_LINK);
+            //         }
+            //     }
+
+
+            // }
+
+
         }
 
 

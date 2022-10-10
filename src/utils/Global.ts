@@ -8,12 +8,16 @@ declare global {
       Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
     */
     interface Memory {
+        CPU:any;
         DistressSignals:any;
         tasks: any;
         uuid: number;
         log: any;
     }
 
+    interface CPU {
+        lastCPU:number;
+    }
     interface DistressSignals {
         reinforce_me?:string;
     }

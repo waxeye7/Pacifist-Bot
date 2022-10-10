@@ -1,3 +1,9 @@
-TODO ignore creeps sometimes on movement
 TODO loop through spawn queue and find if any are already in and add it to the attackers or ranged attackers count
-carrier range 1 not 2
+range on spawning backup to other rooms
+automatic link placement
+claimer remote mining
+make recycling bin to suicide creeps
+
+finish suicide on attackers
+
+make remote repair only repair container if creep is on it

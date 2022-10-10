@@ -4,12 +4,6 @@
  **/
 
  function findLocked(creep) {
-    let terminal = creep.room.terminal;
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
-        creep.memory.locked = terminal.id;
-        return terminal;
-    }
-
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
@@ -33,6 +27,12 @@
         }
     }
 
+    let terminal = creep.room.terminal;
+    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000) {
+        creep.memory.locked = terminal.id;
+        return terminal;
+    }
+
 }
 
 
@@ -41,7 +41,7 @@
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
-    if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
+    if(creep.memory.full && creep.store[RESOURCE_ENERGY] < 50) {
         creep.memory.full = false;
         creep.memory.locked = false;
     }

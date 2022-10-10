@@ -33,7 +33,7 @@ function market(room) {
         console.log(resourceToSell, "buy orders found:", orders.length);
         orders.sort(function(a,b){return b.price - a.price;});
         if(orders[0] != undefined) {
-            if(orders[0].price > 0.1) {
+            if(orders[0].price > 0.05) {
                 let orderQuantity = 200;
                 let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
                 if(result == 0) {

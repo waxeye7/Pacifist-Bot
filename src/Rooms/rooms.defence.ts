@@ -118,11 +118,13 @@ function roomDefence(room) {
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;
 
-            if(!Memory.DistressSignals) {
-                Memory.DistressSignals = {};
-            }
-            if(!Memory.DistressSignals.reinforce_me) {
-                Memory.DistressSignals.reinforce_me = room.name;
+            if(HostileCreeps.length > 1) {
+                if(!Memory.DistressSignals) {
+                    Memory.DistressSignals = {};
+                }
+                if(!Memory.DistressSignals.reinforce_me) {
+                    Memory.DistressSignals.reinforce_me = room.name;
+                }
             }
 
 

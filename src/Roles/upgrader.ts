@@ -16,7 +16,7 @@ const run = function (creep) {
 			creep.moveTo(source, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
 		}
 		else {
-			creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
+			creep.moveTo(storage, {reusePath:20, ignoreRoads:true, visualizePathStyle: {stroke: '#ffaa00'}});
 		}
 	}
 

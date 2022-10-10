@@ -122,7 +122,7 @@ function rooms() {
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-            if(Game.time % 319 == 0) {
+            if(Game.time % 123 == 0) {
                 const start = Game.cpu.getUsed()
                 market(room);
                 console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')

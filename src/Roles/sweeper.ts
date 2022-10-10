@@ -49,8 +49,8 @@ function findLocked(creep) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
-                if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
-                    creep.memory.full = false;
+                for(let resourceType in creep.carry) {
+                    creep.transfer(storage, resourceType);
                 }
             }
             else {
@@ -72,7 +72,7 @@ function findLocked(creep) {
                     }
                     else {
                         findLocked(creep);
-                        let target = Game.getObjectById(creep.memory.locked);
+                        let target:any = Game.getObjectById(creep.memory.locked);
                         if(!creep.pos.isNearTo(target)) {
                             creep.moveTo(target, {reusePath:20});
                         }

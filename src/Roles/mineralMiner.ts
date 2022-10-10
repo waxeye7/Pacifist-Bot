@@ -23,7 +23,7 @@
             creep.harvest(deposit);
         }
         else {
-            creep.moveTo(deposit, {reusePath:20});
+            creep.moveTo(deposit, {reusePath:20, ignoreRoads:true});
         }
     }
     else {
