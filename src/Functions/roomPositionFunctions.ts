@@ -1,6 +1,6 @@
 interface RoomPosition {
-    getNearbyPositions:any;
-    getOpenPositions:any;
+    getNearbyPositions:() => Array<RoomPosition>;
+    getOpenPositions:() => Array<RoomPosition>;
 }
 
 RoomPosition.prototype.getNearbyPositions = function getNearbyPositions() {

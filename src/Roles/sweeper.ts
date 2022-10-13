@@ -37,11 +37,11 @@ function findLocked(creep) {
  **/
 
  const run = function (creep) {
-    if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
-        creep.memory.full = true;
-    }
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
+    }
+    if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
+        creep.memory.full = true;
     }
 
 

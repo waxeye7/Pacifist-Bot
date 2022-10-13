@@ -7,3 +7,5 @@ make recycling bin to suicide creeps
 finish suicide on attackers
 
 make remote repair only repair container if creep is on it
+
+make melee version of defender, stand under rampart.

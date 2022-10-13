@@ -1,18 +1,18 @@
 // import {Creep} from "../utils/Types";
 interface Creep {
     findSource: () => object;
-    findSpawn:any;
-    findStorage:any;
-    findClosestLink:any;
-    withdrawStorage:any;
-    moveToRoom:any;
+    findSpawn:() => object | void;
+    findStorage:() => object | void;
+    findClosestLink:() => object | void;
+    withdrawStorage:(storage:StructureStorage | StructureContainer) => number | void;
+    moveToRoom:(roomName:string, travelTarget_x?:number, travelTarget_y?:number, ignoreRoadsBool?:boolean, swampCostValue?:number, rangeValue?:number) => void;
     harvestEnergy:any;
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
-    roadCheck:any;
-    roadlessLocation:any;
+    roadCheck:() => boolean;
+    roadlessLocation:(RoomPosition:object) => RoomPosition | null;
     fleeHomeIfInDanger: () => CreepMoveReturnCode | void;
     moveAwayIfNeedTo:any;
-    Sweep:any;
+    Sweep: () => string | number | false;
 }
 // CREEP PROTOTYPES
 Creep.prototype.findSource = function() {
@@ -271,7 +271,8 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
             return;
         }
         else {
-            return this.moveToRoom(this.memory.homeRoom);
+            this.moveToRoom(this.memory.homeRoom);
+            return 0;
         }
     }
 }
@@ -329,12 +330,19 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
 Creep.prototype.Sweep = function Sweep() {
     if(!this.memory.lockedDropped || Game.getObjectById(this.memory.lockedDropped) == null) {
         let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
+        let droppedResourcesTombstones = this.room.find(FIND_TOMBSTONES);
 
-        if(droppedResources.length == 0) {
+        if(droppedResources.length == 0 && droppedResourcesTombstones.length == 0) {
             return "nothing to sweep";
         }
-        droppedResources.sort((a,b) => b.amount - a.amount);
-        this.memory.lockedDropped = droppedResources[0].id;
+        if(droppedResources.length > 0) {
+            droppedResources.sort((a,b) => b.amount - a.amount);
+            this.memory.lockedDropped = droppedResources[0].id;
+        }
+        else if(droppedResourcesTombstones.length > 0) {
+            droppedResourcesTombstones.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+            this.memory.lockedDropped = droppedResourcesTombstones[0].id;
+        }
     }
 
     let target = Game.getObjectById(this.memory.lockedDropped);
@@ -345,6 +353,13 @@ Creep.prototype.Sweep = function Sweep() {
     else if(this.pickup(target) == ERR_NOT_IN_RANGE) {
         this.moveTo(target, {reusePath:10, ignoreRoads:true, swampCost:1});
     }
+    else if(this.withdraw(target, RESOURCE_ENERGY) == 0) {
+        return "picked up";
+    }
+    else if(this.withdraw(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+        this.moveTo(target, {reusePath:10, ignoreRoads:true, swampCost:1});
+    }
+
     return false;
 }
 

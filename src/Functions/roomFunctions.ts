@@ -1,11 +1,11 @@
 // import {Room} from "../utils/Types";
 interface Room {
-    findStorage:any;
-    findExtractor:any;
-    findSpawn:any;
-    findStorageContainer:any;
-    findContainers:any;
-    findMineral:any;
+    findStorage:() => object;
+    findExtractor:() => object | void;
+    findSpawn:() => object | void;
+    findStorageContainer:() => object | void;
+    findContainers:(capacity:number) => object | void;
+    findMineral:() => object | void;
 }
 
 Room.prototype.findStorage = function() {

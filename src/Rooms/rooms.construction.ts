@@ -146,16 +146,24 @@ function construction(room) {
             let sources = room.find(FIND_SOURCES);
             let pathFromSpawnToSource1 = spawn.pos.findPathTo(sources[0], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
             pathFromSpawnToSource1.pop();
-            pathFromSpawnToSource1.pop();
 
 
             let pathFromSpawnToSource2 = spawn.pos.findPathTo(sources[1], {ignoreCreeps: true, ignoreRoads: true, swampCost: 1.5});
             pathFromSpawnToSource2.pop();
-            pathFromSpawnToSource2.pop();
 
             let pathFromSpawnToController = spawn.pos.findPathTo(room.controller, {ignoreCreeps: true, ignoreRoads: true, swampCost: 1});
             pathFromSpawnToController.pop();
-            pathFromSpawnToController.pop();
+            let linkLocation = pathFromSpawnToController.pop();
+            if(room.controller.level >= 7) {
+                let linkRoomPosition = new RoomPosition(linkLocation.x, linkLocation.y, room.name);
+                let lookStructs = linkRoomPosition.lookFor(LOOK_STRUCTURES);
+                if(lookStructs.length == 1 && lookStructs[0].structureType != STRUCTURE_LINK) {
+                    lookStructs[0].destroy();
+                }
+                if(lookStructs.length == 0) {
+                    room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
+                }
+            }
 
 
             pathBuilder(pathFromSpawnToSource1, STRUCTURE_ROAD, room);
