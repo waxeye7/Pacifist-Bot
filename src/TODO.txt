@@ -9,3 +9,5 @@ finish suicide on attackers
 make remote repair only repair container if creep is on it
 
 make melee version of defender, stand under rampart.
+
+make road repair in each room when gets below threshold instead of having towers repair

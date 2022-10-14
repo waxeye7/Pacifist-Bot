@@ -10,7 +10,7 @@ interface Creep {
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:() => boolean;
     roadlessLocation:(RoomPosition:object) => RoomPosition | null;
-    fleeHomeIfInDanger: () => CreepMoveReturnCode | void;
+    fleeHomeIfInDanger: () => boolean;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
 }
@@ -260,7 +260,8 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
     if(Memory.tasks.wipeRooms.killCreeps.includes(this.room.name) && this.memory.targetRoom != this.memory.homeRoom) {
-        return this.moveToRoom(this.memory.homeRoom);
+        this.moveToRoom(this.memory.homeRoom);
+        return true;
     }
     if(Memory.tasks.wipeRooms.killCreeps.includes(this.memory.targetRoom) && this.memory.targetRoom != this.memory.homeRoom) {
         if(this.pos.x > 0 && this.pos.y > 0 && this.pos.y < 49 && this.pos.x < 49) {
@@ -268,13 +269,14 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
                 let roadlessLocation = this.roadlessLocation(this.pos);
                 this.moveTo(roadlessLocation);
             }
-            return;
+            return true;
         }
         else {
-            this.moveToRoom(this.memory.homeRoom);
-            return 0;
+            this.moveTo(25, 25, {range:20});
+            return true;
         }
     }
+    return false;
 }
 
 Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {

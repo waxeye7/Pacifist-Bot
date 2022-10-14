@@ -16,13 +16,13 @@
     }
 
     let Structures = creep.room.find(FIND_STRUCTURES, {
-        filter: object => object.structureType != STRUCTURE_CONTROLLER});
+        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD});
 
     if(Structures.length > 0) {
-        // let closestStructure = creep.pos.findClosestByRange(Structures);
-        Structures.sort((a,b) => a.hits - b.hits);
+        let closestStructure = creep.pos.findClosestByRange(Structures);
+        // Structures.sort((a,b) => a.hits - b.hits);
         creep.say("🎯", true);
-        return Structures[0].id;
+        return closestStructure.id;
     }
 }
 
@@ -48,7 +48,7 @@
         if(creep.memory.locked && creep.memory.locked != false) {
             dismantleTarget = Game.getObjectById(creep.memory.locked);
             if(creep.dismantle(dismantleTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(dismantleTarget, {reusePath:20});
+                creep.moveTo(dismantleTarget, {reusePath:5});
             }
         }
     }

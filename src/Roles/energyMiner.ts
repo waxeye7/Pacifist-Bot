@@ -3,8 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    let did_you_move = creep.fleeHomeIfInDanger();
-    if(did_you_move == 0) {
+    if(creep.fleeHomeIfInDanger() == true) {
         return;
     }
 
