@@ -68,6 +68,16 @@ function establishMemory(room) {
             room.memory.has_hostile_creeps = false;
         }
 
+
+        if(Game.rooms[room.name] == undefined) {
+            Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
+            room.memory.has_hostile_creeps = false;
+
+            Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
+            room.memory.has_hostile_structures = false;
+        }
+
+
         let attackersInRoom:number = 0;
         _.forEach(Game.creeps, function(creep) {
             if(creep.memory.role == 'attacker' && creep.room.name == room.name) {
@@ -105,7 +115,6 @@ function identifySources(room) {
 function rooms() {
     const start = Game.cpu.getUsed()
     _.forEach(Game.rooms, function(room) {
-
         // if(!room.controller) {
         //     delete room.memory;
         // }
@@ -162,8 +171,6 @@ function rooms() {
         //         }
         //     }
         // }
-
-
 
     });
     console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');

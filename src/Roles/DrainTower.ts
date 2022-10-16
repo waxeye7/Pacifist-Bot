@@ -23,7 +23,10 @@
             return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
         }
         else {
-            if(Game.time % 2 == 0) {
+
+            creep.rangedMassAttack();
+
+            if(Game.time % 5 == 0) {
                 creep.say("vennskap?⛄", true);
             }
             if(creep.pos.x > 0 && creep.pos.y > 0 && creep.pos.y < 49 && creep.pos.x < 49) {

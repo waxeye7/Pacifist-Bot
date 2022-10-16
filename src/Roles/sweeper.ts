@@ -129,8 +129,11 @@ function findLocked(creep) {
             }
         }
 
-        if(result == "nothing to sweep") {
+        if(result == "nothing to sweep" && creep.store.getFreeCapacity() == 200) {
             creep.suicide();
+        }
+        else {
+            creep.memory.full = true;
         }
 
     }

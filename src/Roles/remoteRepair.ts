@@ -109,6 +109,9 @@ function findLockedBuild(creep) {
                     creep.moveTo(target, {reusePath:25});
                     return;
                 }
+                else if(creep.repair(target) == 0) {
+                    return;
+                }
             }
             else if(target && target.hits == target.hitsMax) {
                 let index = creep.memory.allowed_repairs.indexOf(target.id);
