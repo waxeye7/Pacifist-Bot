@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    if(creep.notifyWhenAttacked == true) {
+    if(creep.notifyWhenAttacked(true)) {
         creep.notifyWhenAttacked(false);
     }
     if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
@@ -30,32 +30,26 @@ const run = function (creep) {
 
         if(creep.room.controller && creep.room.controller.my) {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_WALL && object.structureType != STRUCTURE_CONTAINER &&  !object.my
-            });
-        }
-
-        else if(creep.room.controller && creep.room.controller.level == 0) {
-            Structures = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER &&  object.structureType != STRUCTURE_WALL && !object.my
-            });
-        }
-
-        else if(creep.room.controller && !creep.room.controller.my) {
-            Structures = creep.room.find(FIND_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER &&  !object.my
-            });
-        }
-
+                filter: object => object.structureType != STRUCTURE_CONTROLLER});}
         else {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
 
         }
 
-
         if(enemyCreeps.length > 0) {
+            let closestEnemyCreepToTower = null;
+            if(creep.room.controller.my && creep.room.controller.level >= 4) {
+                let towerTest:any = Game.getObjectById(creep.room.memory.towers[0]);
+                closestEnemyCreepToTower = towerTest.pos.findClosestByRange(enemyCreeps);
+            }
+
+            if(closestEnemyCreepToTower != null && creep.pos.isNearTo(closestEnemyCreepToTower)) {
+                creep.attack(closestEnemyCreepToTower);
+                return;
+            }
+
             let closestEnemyCreep = creep.pos.findClosestByPath(enemyCreeps);
-            console.log((creep.pos.findPathTo(closestEnemyCreep)).length)
             if((creep.pos.findPathTo(closestEnemyCreep)).length <= 51) {
                 if(creep.pos.isNearTo(closestEnemyCreep)) {
                     creep.attack(closestEnemyCreep);
@@ -76,7 +70,6 @@ const run = function (creep) {
             let closestStructure = creep.pos.findClosestByRange(Structures);
             if(creep.pos.isNearTo(closestStructure)) {
                 creep.attack(closestStructure);
-
             }
             else{
                 creep.moveTo(closestStructure);

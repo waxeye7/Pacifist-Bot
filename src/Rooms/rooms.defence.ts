@@ -62,21 +62,31 @@ function roomDefence(room) {
     if(room.memory.towers && room.memory.towers.length > 0) {
         let towerCount = -1;
         let currentTickModTowers = Game.time % room.memory.towers.length;
+
+        let canWeShoot = 0;
+        room.memory.towers.forEach(towerID => {
+            let towerTest:any = Game.getObjectById(towerID);
+            if(towerTest.store[RESOURCE_ENERGY] > 200) {
+                canWeShoot ++;
+            }
+        });
+
         _.forEach(room.memory.towers, function(towerID) {
             let tower:any = Game.getObjectById(towerID);
+
             towerCount = towerCount + 1;
 
             let isDanger = room.memory.danger;
 
             if(isDanger) {
-                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits+500 < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
                     tower.heal(damagedCreeps[0]);
                     return;
                 }
             }
 
-            if(isDanger && tower.store[RESOURCE_ENERGY] > 200) {
+            if(isDanger && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.towers.length) {
                 let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
                 if(closestHostile) {
                     tower.attack(closestHostile);

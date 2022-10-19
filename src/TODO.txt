@@ -1,8 +1,6 @@
 automatic link placement
-claimer remote mining
-make recycling bin to suicide creeps
 
-make remote repair only repair container if creep is on it
+make recycling bin to suicide creeps
 
 make melee version of defender, stand under rampart.
 

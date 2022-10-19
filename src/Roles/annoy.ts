@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
- const run = function (creep) {
+ const run = function (creep:Creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     if(enemyCreeps.length > 0) {

@@ -11,7 +11,9 @@ function findLockedRepair(creep) {
 
         let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER});
         _.forEach(nonRoadsInRoom, function(building) {
+            // if(building.pos.lookFor(LOOK_CREEPS).length != 0) {
             creep.memory.allowed_repairs.push(building.id)
+            // }
         });
     }
 

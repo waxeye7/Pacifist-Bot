@@ -29,12 +29,22 @@ declare global {
         has_attacker: boolean;
         danger: boolean;
         name: string;
+        towers: Array<string>;
+        spawn: string;
+        container: string;
+        storage: string;
+        keepTheseRoads: Array<string>;
     }
     interface CreepMemory {
         name: string;
         role: string;
         room: object;
         working: boolean;
+        building: boolean;
+        homeRoom: string;
+        targetRoom: string;
+        suicide: boolean;
+        storage: string;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

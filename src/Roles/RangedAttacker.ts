@@ -51,6 +51,7 @@ const run = function (creep) {
             }
 
             if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee) {
+                console.log('ranged attacker melee thing log')
                 if(creep.memory.homeRoom) {
                     return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
                 }
