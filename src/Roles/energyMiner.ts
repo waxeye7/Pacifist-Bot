@@ -3,9 +3,9 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    if(creep.fleeHomeIfInDanger() == true) {
-        return;
-    }
+    // if(creep.fleeHomeIfInDanger() == true) {
+    //     return;
+    // }
 
     // if(creep.pos.x > 0 && creep.pos.y > 0 && creep.pos.y < 49 && creep.pos.x < 49) {
     //     return;
@@ -14,7 +14,7 @@ const run = function (creep) {
     //     creep.moveTo(25,25)
     // }
 
-    if(creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
+    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
         creep.harvestEnergy();
         return;
     }
@@ -49,7 +49,7 @@ const run = function (creep) {
         }
 
         if(creep.store.getFreeCapacity() > 20) {
-            let result = creep.harvestEnergy()
+            let result = creep.harvestEnergy();
         }
 
         // if(result == 0) {
@@ -61,6 +61,8 @@ const run = function (creep) {
         //     let containers = creep
 
         // }
+
+
 
         if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();

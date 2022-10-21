@@ -33,7 +33,9 @@ declare global {
         spawn: string;
         container: string;
         storage: string;
-        keepTheseRoads: Array<string>;
+        keepTheseRoads: Array<Id<_HasId>>;
+        rampartToMan: Id<_HasId>;
+        first_offence: number;
     }
     interface CreepMemory {
         name: string;
@@ -41,10 +43,15 @@ declare global {
         room: object;
         working: boolean;
         building: boolean;
+        upgrading: boolean;
+        full: boolean;
+        locked: string | boolean;
         homeRoom: string;
         targetRoom: string;
         suicide: boolean;
-        storage: string;
+        storage: Id<_HasId>;
+        source: Id<_HasId>;
+        myLink: Id<_HasId>;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

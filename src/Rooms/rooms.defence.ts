@@ -12,6 +12,11 @@ function findLocked(room) {
 
     if(room.controller.level >= 6) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+        let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+        let bin = Game.getObjectById(room.memory.bin) || room.findBin(storage);
+        if(bin) {
+            buildingsToRepair.push(bin.id);
+        }
     }
     else if(room.controller.level < 6) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1200) && building.hits < maxRepairTower});
@@ -95,13 +100,13 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower.store[RESOURCE_ENERGY] > 400) {
+            if(currentTickModTowers == towerCount && tower.store[RESOURCE_ENERGY] > 400 && !room.memory.danger) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }
                 if(room.memory.lowestHitsBuildingToRepair && room.memory.lowestHitsBuildingToRepair != null) {
                     let repairTarget:any = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
-                    if(repairTarget.hits + 1200 > repairTarget.hitsMax || repairTarget.hits > maxRepairTower) {
+                    if(repairTarget && repairTarget.hits + 1200 > repairTarget.hitsMax || repairTarget && repairTarget.hits > maxRepairTower) {
                         room.memory.lowestHitsBuildingToRepair = null;
                         return;
                     }
@@ -125,10 +130,25 @@ function roomDefence(room) {
 
     if(Game.time % 10 == 1) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        if(HostileCreeps.length > 0) {
-            room.memory.danger = true;
 
-            if(HostileCreeps.length > 1) {
+        if(HostileCreeps.length > 0 && room.memory.blown_fuse) {
+            let found = false;
+            for(let enemyCreep of HostileCreeps) {
+                for(let part of enemyCreep.body) {
+                    if(part.type == ATTACK || part.type == RANGED_ATTACK || part.type == WORK) {
+                        room.memory.danger = true;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            if(found == false) {
+                room.memory.danger = false;
+            }
+
+            let myCreeps = room.find(FIND_MY_CREEPS);
+
+            if(HostileCreeps.length > 1 && room.memory.danger && myCreeps.length > 1) {
                 if(!Memory.DistressSignals) {
                     Memory.DistressSignals = {};
                 }
@@ -157,9 +177,18 @@ function roomDefence(room) {
             room.memory.danger = false;
             room.memory.rampartToMan = false
 
-            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && room.memory.danger == false) {
+            let myCreeps = room.find(FIND_MY_CREEPS);
+
+            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && room.memory.danger == false ||
+                Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && myCreeps.length <= 1) {
                 delete Memory.DistressSignals.reinforce_me;
             }
+        }
+        if(HostileCreeps.length > 0) {
+            room.memory.blown_fuse = true;
+        }
+        else {
+            room.memory.blown_fuse = false;
         }
     }
 }

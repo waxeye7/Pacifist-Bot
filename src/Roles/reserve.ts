@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
- const run = function (creep) {
+ const run = function (creep:Creep) {
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoom(creep.memory.targetRoom);
     }

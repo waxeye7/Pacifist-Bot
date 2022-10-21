@@ -1,12 +1,10 @@
-import roomDefence from "Rooms/rooms.defence";
-
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
  const run = function (creep) {
 
-    if(Game.time % 50 == 0 && creep.room.energyAvailable <= 300) {
+    if(Game.time % 250 == 0 && creep.room.energyAvailable <= 1000 && creep.room.energyAvailable > 300 && creep.room.find(FIND_MY_CREEPS).length > 6) {
         for(let resourceType in creep.carry) {
             creep.drop(resourceType);
         }
@@ -42,6 +40,20 @@ import roomDefence from "Rooms/rooms.defence";
     }
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
+    let bin = Game.getObjectById(creep.memory.bin) || creep.findBin(storage);
+
+    if(bin && bin.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
+        if(creep.pos.isNearTo(bin)) {
+            creep.withdraw(bin, RESOURCE_ENERGY);
+            return;
+        }
+        else {
+            creep.moveTo(bin);
+            return;
+        }
+    }
+
     let terminal = creep.room.terminal;
     let Mineral:any = Game.getObjectById(creep.room.memory.mineral)
     let MineralType = Mineral.mineralType;

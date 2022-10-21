@@ -6,6 +6,7 @@ interface Room {
     findStorageContainer:() => object | void;
     findContainers:(capacity:number) => object | void;
     findMineral:() => object | void;
+    findBin:(storage) => object | void;
 }
 
 Room.prototype.findStorage = function() {
@@ -70,5 +71,14 @@ Room.prototype.findMineral = function() {
         this.memory.mineral = mineral[0].id;
         return mineral[0];
     }
+}
 
+Room.prototype.findBin = function(storage) {
+    let containers = this.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_CONTAINER}});
+
+    if(containers.length) {
+        let bin = storage.pos.findClosestByRange(containers);
+        this.memory.bin = bin.id;
+        return bin;
+    }
 }

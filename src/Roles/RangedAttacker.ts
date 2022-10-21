@@ -7,6 +7,7 @@
 // }
 
 const run = function (creep) {
+    creep.heal(creep);
     if(creep.notifyWhenAttacked == true) {
         creep.notifyWhenAttacked(false);
     }
@@ -22,7 +23,9 @@ const run = function (creep) {
                 return;
             }
             if(creep.rangedAttack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
+                if(creep.room.name != creep.memory.targetRoom && creep.pos.y != 1 && creep.pos.x != 48 && creep.pos.y != 48 && creep.pos.x != 1) {
+                    creep.moveTo(closestEnemyCreep);
+                }
                 return;
             }
         }

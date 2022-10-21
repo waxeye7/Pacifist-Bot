@@ -4,7 +4,7 @@
 // let market = require('./rooms.market');
 import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
-import construction from "./rooms.construction";
+import construction, { Build_Remote_Roads } from "./rooms.construction";
 import market from "./rooms.market";
 
 function establishMemory(room) {
@@ -62,6 +62,7 @@ function establishMemory(room) {
                 Memory.tasks.wipeRooms.killCreeps.push(room.name)
             }
             room.memory.has_hostile_creeps = true;
+            room.memory.first_offence = Game.time;
         }
         else {
             Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
@@ -146,7 +147,13 @@ function rooms() {
 
             if(Game.time % 818 == 0) {
                 const start = Game.cpu.getUsed()
+
+                _.forEach(Game.rooms, function(everyRoom) {
+                    everyRoom.memory.keepTheseRoads = [];
+                });
+
                 construction(room);
+                Build_Remote_Roads(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
 
@@ -161,16 +168,16 @@ function rooms() {
         // console.log(JSON.stringify(list.length))
 
 
+        if(Game.time % 25000 == 0) {
+            _.forEach(Game.constructionSites, function(site) {
+                if(site.room == undefined || site.room.find(FIND_MY_CREEPS).length == 0) {
+                    site.remove();
+                    console.log('site removed for being unbuilt for ages')
+                }
+            });
+        }
 
-        // let constructionSites = room.find(FIND_CONSTRUCTION_SITES);
-        // console.log(constructionSites.length)
-        // for (var site of constructionSites) {
-        //     if (site.structureType == STRUCTURE_ROAD) {
-        //         if(site.remove() == 0) {
-        //             console.log("it's working")
-        //         }
-        //     }
-        // }
+
 
     });
     console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');

@@ -1,15 +1,13 @@
 const run = function (creep) {
 	// const start = Game.cpu.getUsed()
-
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-
 
 	// if(creep.fatigue > 0) {
 	// 	console.log('hi')
 	// 	creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);
 	// }
 
-	if(creep.room.controller.level >= 7) {
+	if(creep.room.controller.level >= 7 && storage.store[RESOURCE_ENERGY] > 30000) {
 		if(!creep.memory.myLink) {
 			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
 			// if(!creep.room.memory.links) {
@@ -25,8 +23,8 @@ const run = function (creep) {
 			}
 		}
 
-		let theLink:any = Game.getObjectById(creep.memory.myLink);
-		if(theLink.store[RESOURCE_ENERGY] == 0) {
+		let theLink = Game.getObjectById(creep.memory.myLink) || storage;
+		if(theLink && theLink.store[RESOURCE_ENERGY] == 0) {
 			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
 			links.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
 			links[0].transferEnergy(theLink);

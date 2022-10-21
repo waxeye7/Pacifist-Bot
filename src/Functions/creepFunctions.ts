@@ -13,6 +13,7 @@ interface Creep {
     fleeHomeIfInDanger: () => boolean;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
+    findBin:(storage) => object | void;
 }
 // CREEP PROTOTYPES
 Creep.prototype.findSource = function() {
@@ -123,30 +124,30 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 
     if(storedSource) {
         if(this.pos.isNearTo(storedSource)) {
-            if(this.memory.role == "EnergyMiner" && this.room.controller && this.room.controller.level < 6) {
-                let look = this.pos.lookFor(LOOK_STRUCTURES);
-                let looked;
-                if(look) {
-                    looked = look.filter(object => object.structureType == STRUCTURE_CONTAINER);
-                }
-                if(looked.length == 0) {
-                    let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
-                    if(containers.length > 0) {
-                        let closestContainer = this.pos.findClosestByRange(containers);
-                        if(this.pos.getRangeTo(closestContainer) < 4) {
-                            this.harvest(storedSource);
-                            return;
-                        }
-                    }
-                    this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
-                }
-            }
+            // if(this.memory.role == "EnergyMiner" && this.room.controller && this.room.controller.level < 6) {
+            //     let look = this.pos.lookFor(LOOK_STRUCTURES);
+            //     let looked;
+            //     if(look) {
+            //         looked = look.filter(object => object.structureType == STRUCTURE_CONTAINER);
+            //     }
+            //     if(looked.length == 0) {
+            //         let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
+            //         if(containers.length > 0) {
+            //             let closestContainer = this.pos.findClosestByRange(containers);
+            //             if(this.pos.getRangeTo(closestContainer) < 4) {
+            //                 this.harvest(storedSource);
+            //                 return;
+            //             }
+            //         }
+            //         this.room.createConstructionSite(this.pos, STRUCTURE_CONTAINER);
+            //     }
+            // }
             let result;
             result = this.harvest(storedSource);
             return result;
         }
         else {
-            this.moveTo(storedSource, {reusePath: 20});
+            this.moveTo(storedSource, {reusePath: 5});
         }
     }
 }
@@ -364,5 +365,17 @@ Creep.prototype.Sweep = function Sweep() {
 
     return false;
 }
+
+Creep.prototype.findBin = function findBin(storage) {
+    let containers = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_CONTAINER}});
+
+    if(containers.length) {
+        let bin = storage.pos.findClosestByRange(containers);
+        this.memory.bin = bin.id;
+        return bin;
+    }
+}
+
+
 
 // CREEP PROTOTYPES

@@ -88,14 +88,19 @@
 
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        let result = creep.withdrawStorage(storage);
-        if(result == 0) {
-            findLocked(creep);
-            let target = Game.getObjectById(creep.memory.locked);
-            creep.moveTo(target, {reusePath:20});
+        if(storage.store[RESOURCE_ENERGY] == 0 && !creep.room.memory.danger) {
+            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         }
         else {
-            creep.moveTo(storage);
+            let result = creep.withdrawStorage(storage);
+            if(result == 0) {
+                findLocked(creep);
+                let target = Game.getObjectById(creep.memory.locked);
+                creep.moveTo(target, {reusePath:20});
+            }
+            else {
+                creep.moveTo(storage);
+            }
         }
     }
 
