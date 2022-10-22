@@ -115,6 +115,13 @@ function identifySources(room) {
 
 function rooms() {
     const start = Game.cpu.getUsed()
+
+    if(Game.time % 818 == 0) {
+        _.forEach(Game.rooms, function(everyRoom) {
+            everyRoom.memory.keepTheseRoads = [];
+        });
+    }
+
     _.forEach(Game.rooms, function(room) {
         // if(!room.controller) {
         //     delete room.memory;
@@ -147,11 +154,6 @@ function rooms() {
 
             if(Game.time % 818 == 0) {
                 const start = Game.cpu.getUsed()
-
-                _.forEach(Game.rooms, function(everyRoom) {
-                    everyRoom.memory.keepTheseRoads = [];
-                });
-
                 construction(room);
                 Build_Remote_Roads(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -176,7 +178,15 @@ function rooms() {
                 }
             });
         }
-
+        // let constructionSites = room.find(FIND_CONSTRUCTION_SITES);
+        // console.log(constructionSites.length)
+        // for (var site of constructionSites) {
+        //     if (site.structureType == STRUCTURE_ROAD) {
+        //         if(site.remove() == 0) {
+        //             console.log("it's working")
+        //         }
+        //     }
+        // }
 
 
     });

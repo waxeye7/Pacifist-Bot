@@ -28,7 +28,7 @@
 
  const run = function (creep) {
     if(creep.room.name != creep.memory.targetRoom) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+        return creep.moveToRoom(creep.memory.targetRoom);
     }
     else {
         let dismantleTarget;
@@ -39,7 +39,7 @@
             }
         }
 
-        if(!creep.memory.locked) {
+        if(!creep.memory.locked || Game.time % 60 == 0) {
             dismantleTarget = findLocked(creep);
             creep.memory.locked = dismantleTarget;
         }

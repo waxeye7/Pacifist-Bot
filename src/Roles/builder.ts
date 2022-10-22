@@ -12,7 +12,7 @@
         return buildingsToBuild[0].id;
     }
 	else {
-		creep.memory.role = "repair";
+		creep.memory.suicide = true;
 	}
 }
 
@@ -83,6 +83,15 @@
 			}
 		}
     }
+
+	if(creep.ticksToLive <= 60 && !creep.memory.building) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
+ }
     // console.log('Builder Ran in', Game.cpu.getUsed() - start, 'ms');
 
 	// if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
@@ -142,7 +151,7 @@
 	// 	}
 	// }
 	// console.log('Builder Ran in', Game.cpu.getUsed() - start, 'ms')
-}
+
 
 
 const roleBuilder = {

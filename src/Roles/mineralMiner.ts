@@ -63,6 +63,14 @@
             return;
         }
     }
+
+	if(creep.ticksToLive <= 60 && creep.memory.mining) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
 }
 
 const roleMineralMiner = {

@@ -20,6 +20,13 @@ const run = function (creep:Creep) {
             }
         }
     }
+    else if(Game.time % 50 == 0) {
+        creep.memory.suicide = true;
+    }
+
+    if(creep.memory.suicide == true) {
+        creep.recycle();
+    }
 }
 
 const roleRampartDefender = {

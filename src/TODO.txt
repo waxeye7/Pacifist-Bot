@@ -1,6 +1,4 @@
-automatic link placement
-
-make melee version of defender, stand under rampart.
+NOT DONE AT ALL:
 
 make road repair in each room when gets below threshold instead of having towers repair
 
@@ -10,4 +8,16 @@ boost
 
 attack code
 
-container building problem
+auto rampart perimeter placement
+
+
+
+
+ALMOST DONE:
+
+add buildings to cost matrix when making road placement pathfinder HALF DONE FUCK YOU
+automatic link placement -- make the final link at the controller
+
+
+Look at pathlength of creepcarrierbody function creating too big or small creeps because swampcost is 3:1 ratio not 1:2 or lessssss
+might be a problem with path finder in below E14S37 because one is trying to be built on a wall !?!?!?!?/

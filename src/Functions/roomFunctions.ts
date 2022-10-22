@@ -74,7 +74,7 @@ Room.prototype.findMineral = function() {
 }
 
 Room.prototype.findBin = function(storage) {
-    let containers = this.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_CONTAINER}});
+    let containers = this.find(FIND_STRUCTURES, {filter: { structureType : STRUCTURE_CONTAINER}});
 
     if(containers.length) {
         let bin = storage.pos.findClosestByRange(containers);

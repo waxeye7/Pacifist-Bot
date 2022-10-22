@@ -36,6 +36,7 @@ declare global {
         keepTheseRoads: Array<Id<_HasId>>;
         rampartToMan: Id<_HasId>;
         first_offence: number;
+        bin: Id<_HasId>;
     }
     interface CreepMemory {
         name: string;

@@ -1,6 +1,7 @@
 interface RoomPosition {
     getNearbyPositions:() => Array<RoomPosition>;
     getOpenPositions:() => Array<RoomPosition>;
+    getOpenPositionsIgnoreCreeps:() => Array<RoomPosition>;
 }
 
 RoomPosition.prototype.getNearbyPositions = function getNearbyPositions() {
@@ -33,4 +34,14 @@ RoomPosition.prototype.getOpenPositions = function getOpenPositions() {
         return !pos.lookFor(LOOK_CREEPS).length;});
 
     return freePositions;
+}
+
+RoomPosition.prototype.getOpenPositionsIgnoreCreeps = function getOpenPositionsIgnoreCreeps() {
+    let nearbyPositions = this.getNearbyPositions();
+
+    let terrain = Game.map.getRoomTerrain(this.roomName);
+    let walkablePositions = _.filter(nearbyPositions, function(pos:any) {
+        return terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL;});
+
+    return walkablePositions;
 }

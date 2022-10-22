@@ -256,7 +256,7 @@ function spawn_carrier(resourceData, room, spawn, storage) {
 function spawn_remote_repairer(resourceData, room) {
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
-            if(Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 2 && Game.rooms[targetRoomName] != undefined && Game.rooms[targetRoomName].controller.reservation != undefined && Game.rooms[targetRoomName].controller.reservation.username == "PacifistBot") {
+            if(Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 2) {
                 let newName = 'RemoteRepairer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 if(targetRoomName != room.name) {
 
@@ -265,17 +265,18 @@ function spawn_remote_repairer(resourceData, room) {
                     }
 
                     if(room.controller.level >= 6) {
-                        room.memory.spawn_list.push([WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE], newName,
+                        getBody([WORK,CARRY,MOVE], room)
+                        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 23), newName,
                             {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                         console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                        values.lastSpawnRemoteRepairer = Game.time+1000;
+                        values.lastSpawnRemoteRepairer = Game.time+500;
                     }
 
                     else if(room.energyCapacityAvailable >= 600) {
                         room.memory.spawn_list.push([WORK,CARRY,MOVE,WORK,CARRY,MOVE,WORK,CARRY,MOVE], newName,
                             {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                         console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                        values.lastSpawnRemoteRepairer = Game.time+1000;
+                        values.lastSpawnRemoteRepairer = Game.time+750;
                     }
 
                     else if(room.energyCapacityAvailable >= 400) {
@@ -666,12 +667,11 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding ContainerBuilder to Spawn List: ' + newName);
     }
 
-    if(RemoteDismantlers < 0 && Game.map.getRoomLinearDistance(room.name, "E15S38") <= 2) {
+    if(RemoteDismantlers < 3 && Game.map.getRoomLinearDistance(room.name, "E15S38") <= 2) {
         let newName = 'RemoteDismantler-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: "E15S38"}});
+        room.memory.spawn_list.push([MOVE,WORK,WORK,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: "E15S38"}});
         console.log('Adding RemoteDismantler to Spawn List: ' + newName);
     }
-
 
     if(room.controller.level <= 4 && Dismantlers < 0) {
         let newName = 'Dismantler-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -708,22 +708,22 @@ function add_creeps_to_spawn_list(room, spawn) {
                 thisRoom.memory.has_hostile_structures = false;
             }
         }
-        if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 1 && Game.time - thisRoom.memory.first_offence <= 2000) {
-            if(Game.map.getRoomLinearDistance(room.name, thisRoom.name) <= 2) {
-                let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-                room.memory.spawn_list.push(getBody([MOVE,RANGED_ATTACK], room, 20), newName, {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name, homeRoom: room.name}});
-                console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
-                thisRoom.memory.has_hostile_creeps = false;
-            }
-        }
-        else if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 3 && Game.time - thisRoom.memory.first_offence > 2000) {
-        if(Game.map.getRoomLinearDistance(room.name, thisRoom.name) <= 2) {
-            let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name, homeRoom: room.name}});
-            console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
-            thisRoom.memory.has_hostile_creeps = false;
-            }
-        }
+        // if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 1 && Game.time - thisRoom.memory.first_offence <= 200) {
+        //     if(Game.map.getRoomLinearDistance(room.name, thisRoom.name) <= 2) {
+        //         let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        //         room.memory.spawn_list.push(getBody([MOVE,RANGED_ATTACK], room, 20), newName, {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name, homeRoom: room.name}});
+        //         console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
+        //         thisRoom.memory.has_hostile_creeps = false;
+        //     }
+        // }
+        // else if(thisRoom.memory.has_hostile_creeps && !thisRoom.memory.has_attacker && thisRoom.controller && !thisRoom.controller.my && RangedAttackers < 3 && Game.time - thisRoom.memory.first_offence > 200) {
+        // if(Game.map.getRoomLinearDistance(room.name, thisRoom.name) <= 2) {
+        //     let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        //     room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: thisRoom.name, homeRoom: room.name}});
+        //     console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
+        //     thisRoom.memory.has_hostile_creeps = false;
+        //     }
+        // }
     });
 
 

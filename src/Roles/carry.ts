@@ -36,9 +36,21 @@ function findLocked(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    if(creep.fleeHomeIfInDanger() == true) {
+    if(creep.memory.suicide == true) {
+        creep.recycle();
         return;
     }
+
+
+    let fleeStatus = creep.fleeHomeIfInDanger();
+    if(fleeStatus == true) {
+        return;
+    }
+    else if(fleeStatus == "in position") {
+        creep.memory.suicide = true;
+        return;
+    }
+
 
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
@@ -161,6 +173,14 @@ function findLocked(creep) {
             }
         }
     }
+
+	if(creep.ticksToLive <= 30 && !creep.memory.full) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
 
  }
 

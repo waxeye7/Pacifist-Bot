@@ -116,6 +116,14 @@ const run = function (creep) {
 
 	}
 	// console.log('Upgrader Ran in', Game.cpu.getUsed() - start, 'ms')
+
+
+	if(creep.ticksToLive <= 60 && !creep.memory.upgrading) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
 }
 
 const roleUpgrader = {

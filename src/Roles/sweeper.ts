@@ -1,3 +1,5 @@
+import { createPrivateKey } from "crypto";
+
 function findLocked(creep) {
     let terminal = creep.room.terminal;
     if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
@@ -130,12 +132,14 @@ function findLocked(creep) {
         }
 
         if(result == "nothing to sweep" && creep.store.getFreeCapacity() == 200) {
-            creep.suicide();
+            creep.recycle();
         }
-        else {
+        else if(creep.store.getFreeCapacity() <= 200) {
             creep.memory.full = true;
         }
-
+        else {
+            creep.memory.full = false;
+        }
     }
 
 

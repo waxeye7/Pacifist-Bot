@@ -5,6 +5,8 @@
  const run = function (creep:Creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
     if(enemyCreeps.length > 0) {
         let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
             if(creep.pos.isNearTo(closestEnemyCreep)) {
@@ -21,12 +23,22 @@
             return;
         }
 
+    else if(Structures.length > 0) {
+        let closestStructure = creep.pos.findClosestByRange(Structures)
+        if(creep.pos.isNearTo(closestStructure)) {
+            creep.attack(closestStructure)
+        }
+        else {
+            creep.moveTo(closestStructure);
+        }
+    }
+
     else {
         creep.moveTo(13,46);
     }
 
     if(creep.room.name != creep.memory.targetRoom) {
-        return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
+        return creep.moveToRoom(creep.memory.targetRoom);
     }
 }
 

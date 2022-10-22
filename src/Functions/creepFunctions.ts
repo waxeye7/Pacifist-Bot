@@ -10,10 +10,10 @@ interface Creep {
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:() => boolean;
     roadlessLocation:(RoomPosition:object) => RoomPosition | null;
-    fleeHomeIfInDanger: () => boolean;
+    fleeHomeIfInDanger: () => boolean | string;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
-    findBin:(storage) => object | void;
+    recycle: () => void;
 }
 // CREEP PROTOTYPES
 Creep.prototype.findSource = function() {
@@ -270,11 +270,11 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
                 let roadlessLocation = this.roadlessLocation(this.pos);
                 this.moveTo(roadlessLocation);
             }
-            return true;
+            return "in position";
         }
         else {
             this.moveTo(25, 25, {range:20});
-            return true;
+            return "in position";
         }
     }
     return false;
@@ -366,16 +366,49 @@ Creep.prototype.Sweep = function Sweep() {
     return false;
 }
 
-Creep.prototype.findBin = function findBin(storage) {
-    let containers = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_CONTAINER}});
 
-    if(containers.length) {
-        let bin = storage.pos.findClosestByRange(containers);
-        this.memory.bin = bin.id;
-        return bin;
+Creep.prototype.recycle = function recycle() {
+    if(this.memory.homeRoom && this.room.name != this.memory.homeRoom) {
+        return this.moveToRoom(this.memory.homeRoom);
+    }
+
+    if(this.room.memory.bin) {
+        let bin:any = Game.getObjectById(this.room.memory.bin)
+        if(bin && bin.store[RESOURCE_ENERGY] < 2000) {
+            if(this.pos.x == bin.pos.x && this.pos.y == bin.pos.y) {
+                this.suicide();
+            }
+            else {
+                this.moveTo(bin, {reusePath:10, ignoreCreeps:false});
+            }
+        }
+        else if(this.room.memory.storage) {
+            let storage:any = Game.getObjectById(this.room.memory.storage);
+            if(storage) {
+                if(this.pos.isNearTo(storage)) {
+                    this.suicide();
+                }
+                else {
+                    this.moveTo(storage, {reusePath:10, ignoreCreeps:false});
+                }
+            }
+        }
+        else if(this.room.memory.spawn) {
+            let spawn:any = Game.getObjectById(this.room.memory.spawn);
+            if(spawn) {
+                if(this.pos.isNearTo(spawn)) {
+                    this.suicide();
+                }
+                else {
+                    this.moveTo(spawn, {reusePath:10, ignoreCreeps:false});
+                }
+            }
+        }
+    }
+    else {
+        let storage = Game.getObjectById(this.room.memory.storage) || this.room.findStorage();
+        this.room.findBin(storage);
     }
 }
-
-
 
 // CREEP PROTOTYPES

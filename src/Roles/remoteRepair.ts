@@ -58,7 +58,18 @@ function findLockedBuild(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    if(creep.fleeHomeIfInDanger() == true) {
+    if(creep.memory.suicide == true) {
+        creep.recycle();
+        return;
+    }
+
+
+    let fleeStatus = creep.fleeHomeIfInDanger();
+    if(fleeStatus == true) {
+        return;
+    }
+    else if(fleeStatus == "in position") {
+        creep.memory.suicide = true;
         return;
     }
 
@@ -155,7 +166,7 @@ function findLockedBuild(creep) {
         }
 
         if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom && creep.memory.allowed_repairs.length == 0) {
-            creep.memory.role = "repair";
+            creep.recycle();
         }
     }
 

@@ -114,6 +114,14 @@ function findLocked(creep) {
 			}
 		}
     }
+
+	if(creep.ticksToLive <= 60 && !creep.memory.repairing) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
     // console.log('Repair Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 

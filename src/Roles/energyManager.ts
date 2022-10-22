@@ -11,6 +11,10 @@
         creep.memory.role = "filler";
     }
 
+    if(creep.roadCheck()) {
+        creep.moveAwayIfNeedTo();
+    }
+
     let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
 
     if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
@@ -41,11 +45,13 @@
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    let bin = Game.getObjectById(creep.memory.bin) || creep.findBin(storage);
+    let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
 
-    if(bin && bin.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
+    if(bin && bin.store.getFreeCapacity() != 0 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
         if(creep.pos.isNearTo(bin)) {
-            creep.withdraw(bin, RESOURCE_ENERGY);
+            for(let resourceType in bin.store) {
+                creep.withdraw(bin, resourceType);
+            }
             return;
         }
         else {
