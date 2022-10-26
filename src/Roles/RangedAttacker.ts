@@ -36,18 +36,27 @@ const run = function (creep) {
 
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 
-
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
             let isMelee = false;
-            for(let part of closestEnemyCreep.body)
-            if(part.type == ATTACK) {
-                isMelee = true;
+            for(let part of closestEnemyCreep.body) {
+                if(part.type == ATTACK) {
+                    isMelee = true;
+                }
             }
 
             if(creep.pos.isNearTo(closestEnemyCreep)) {
-                creep.rangedAttack(closestEnemyCreep);
+                creep.rangedMassAttack();
+                if(isMelee) {
+                    if(creep.memory.homeRoom) {
+                        return creep.moveToRoom(creep.memory.homeRoom);
+                    }
+                }
+                else {
+                    creep.moveTo(closestEnemyCreep);
+                    return;
+                }
             }
             else {
                 creep.moveTo(closestEnemyCreep);
@@ -56,7 +65,7 @@ const run = function (creep) {
             if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee) {
                 console.log('ranged attacker melee thing log')
                 if(creep.memory.homeRoom) {
-                    return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
+                    return creep.moveToRoom(creep.memory.homeRoom);
                 }
                 else {
                     creep.moveTo(closestEnemyCreep);
@@ -96,10 +105,19 @@ const run = function (creep) {
 
 
         else {
+            let found = false;
             if(Memory.tasks.wipeRooms.killCreeps.length > 0) {
-                creep.memory.targetRoom = Memory.tasks.wipeRooms.killCreeps[0];
+                let resourceData = _.get(Game.rooms[creep.memory.homeRoom].memory, ['resources']);
+                _.forEach(resourceData, function(data, targetRoomName) {
+                    _.forEach(Memory.tasks.wipeRooms.killCreeps, function(thisRoom) {
+                        if(targetRoomName == thisRoom) {
+                            creep.memory.targetRoom = thisRoom;
+                            found = true;
+                        }
+                    });
+                });
             }
-            else {
+            if(found == false) {
                 if(Game.time % 20 == 0) {
                     let found_room = false;
                     _.forEach(Game.rooms, function(room) {
@@ -125,48 +143,13 @@ const run = function (creep) {
 
 
     // if you are afraid of death, look away.
-    if(Game.time % 50 == 0 && !creep.memory.targetRoom) {
+    if(Game.time % 55 == 0 && !creep.memory.targetRoom) {
         creep.memory.suicide = true;
     }
 
-    if(creep.memory.suicide == true) {
-        if(creep.memory.homeRoom && creep.room.name != creep.memory.homeRoom) {
-            return creep.moveToRoom(creep.memory.homeRoom);
-        }
-        if(creep.room.memory.container) {
-            let container:any = Game.getObjectById(creep.room.memory.container);
-            if(container && container.store[RESOURCE_ENERGY] < 2000) {
-                if(creep.pos == container.pos) {
-                    creep.suicide();
-                }
-                else {
-                    creep.moveTo(container, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                }
-            }
-            else if(creep.room.memory.storage) {
-                let storage:any = Game.getObjectById(creep.room.memory.storage);
-                if(storage) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.suicide();
-                    }
-                    else {
-                        creep.moveTo(storage, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                    }
-                }
-            }
-            else if(creep.room.memory.spawn) {
-                let spawn:any = Game.getObjectById(creep.room.memory.spawn);
-                if(spawn) {
-                    if(creep.pos.isNearTo(spawn)) {
-                        creep.suicide();
-                    }
-                    else {
-                        creep.moveTo(spawn, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                    }
-                }
-            }
-        }
-    }
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
     // suicide section
 
 

@@ -6,6 +6,97 @@ import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
 import construction, { Build_Remote_Roads } from "./rooms.construction";
 import market from "./rooms.market";
+import labs from "./rooms.labs";
+
+function rooms() {
+    const start = Game.cpu.getUsed()
+
+    if(Game.time % 818 == 0) {
+        _.forEach(Game.rooms, function(everyRoom) {
+            everyRoom.memory.keepTheseRoads = [];
+        });
+    }
+
+    // _.forEach(Memory.rooms, function(RoomMemory) {
+
+    // });
+
+    _.forEach(Game.rooms, function(room) {
+        // if(!room.controller) {
+        //     delete room.memory;
+        // }
+        // if(room.controller.level == 0) {
+        //     delete room.memory;
+        // }
+
+        if (room && room.controller && room.controller.my) {
+
+            spawning(room);
+
+
+            // const defenceTime = Game.cpu.getUsed()
+            roomDefence(room);
+            // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
+
+            if(Game.time % 1 == 0 && room.terminal && room.controller.level >= 6) {
+                const start = Game.cpu.getUsed()
+                market(room);
+                console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
+                if(room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LAB}).length >= 3) {
+                    labs(room);
+                }
+            }
+
+            if(Game.time % 40 == 1 || Game.time < 10) {
+                // const start = Game.cpu.getUsed()
+                identifySources(room);
+                // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
+            }
+
+
+            if(Game.time % 818 == 0) {
+                const start = Game.cpu.getUsed()
+                construction(room);
+                Build_Remote_Roads(room);
+                console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
+            }
+
+        }
+
+        // const establishMemoryTime = Game.cpu.getUsed()
+        establishMemory(room);
+        // console.log('Establish Memory Ran in', Game.cpu.getUsed() - establishMemoryTime, 'ms');
+
+
+        // let list = Memory.tasks.wipeRooms.destroyStructures
+        // console.log(JSON.stringify(list.length))
+
+
+        if(Game.time % 25000 == 0) {
+            _.forEach(Game.constructionSites, function(site) {
+                if(site.room == undefined || site.room.find(FIND_MY_CREEPS).length == 0) {
+                    site.remove();
+                    console.log('site removed for being unbuilt for ages')
+                }
+            });
+        }
+        // let constructionSites = room.find(FIND_CONSTRUCTION_SITES);
+        // console.log(constructionSites.length)
+        // for (var site of constructionSites) {
+        //     if (site.structureType == STRUCTURE_ROAD) {
+        //         if(site.remove() == 0) {
+        //             console.log("it's working")
+        //         }
+        //     }
+        // }
+
+
+    });
+    console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
+
+
+}
+
 
 function establishMemory(room) {
     if(Game.time % 15 == 0 || Game.time < 10) {
@@ -113,86 +204,6 @@ function identifySources(room) {
 }
 
 
-function rooms() {
-    const start = Game.cpu.getUsed()
 
-    if(Game.time % 818 == 0) {
-        _.forEach(Game.rooms, function(everyRoom) {
-            everyRoom.memory.keepTheseRoads = [];
-        });
-    }
-
-    _.forEach(Game.rooms, function(room) {
-        // if(!room.controller) {
-        //     delete room.memory;
-        // }
-        // if(room.controller.level == 0) {
-        //     delete room.memory;
-        // }
-
-        if (room && room.controller && room.controller.my) {
-
-            spawning(room);
-
-
-            // const defenceTime = Game.cpu.getUsed()
-            roomDefence(room);
-            // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
-
-            if(Game.time % 123 == 0) {
-                const start = Game.cpu.getUsed()
-                market(room);
-                console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
-            }
-
-            if(Game.time % 40 == 1 || Game.time < 10) {
-                // const start = Game.cpu.getUsed()
-                identifySources(room);
-                // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
-            }
-
-
-            if(Game.time % 818 == 0) {
-                const start = Game.cpu.getUsed()
-                construction(room);
-                Build_Remote_Roads(room);
-                console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
-            }
-
-        }
-
-        // const establishMemoryTime = Game.cpu.getUsed()
-        establishMemory(room);
-        // console.log('Establish Memory Ran in', Game.cpu.getUsed() - establishMemoryTime, 'ms');
-
-
-        // let list = Memory.tasks.wipeRooms.destroyStructures
-        // console.log(JSON.stringify(list.length))
-
-
-        if(Game.time % 25000 == 0) {
-            _.forEach(Game.constructionSites, function(site) {
-                if(site.room == undefined || site.room.find(FIND_MY_CREEPS).length == 0) {
-                    site.remove();
-                    console.log('site removed for being unbuilt for ages')
-                }
-            });
-        }
-        // let constructionSites = room.find(FIND_CONSTRUCTION_SITES);
-        // console.log(constructionSites.length)
-        // for (var site of constructionSites) {
-        //     if (site.structureType == STRUCTURE_ROAD) {
-        //         if(site.remove() == 0) {
-        //             console.log("it's working")
-        //         }
-        //     }
-        // }
-
-
-    });
-    console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
-
-
-}
 export default rooms;
 // module.exports = rooms;

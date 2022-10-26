@@ -28,11 +28,38 @@
     }
 
     let terminal = creep.room.terminal;
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000) {
+    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000 && storage && storage.store[RESOURCE_ENERGY] > 250000) {
         creep.memory.locked = terminal.id;
         return terminal;
     }
 
+
+    if(creep.room.memory.labs.length == 3) {
+        let labIDS = creep.room.memory.labs;
+
+        let ThreeLabs = []
+
+        labIDS.forEach(lab => {
+            ThreeLabs.push(Game.getObjectById(lab));
+        });
+
+
+        for(let lab of ThreeLabs) {
+            if(lab.store[RESOURCE_ENERGY] <= 1800) {
+                creep.memory.locked = lab.id;
+                return lab;
+            }
+        }
+
+        // let resultLab = ThreeLabs[0];
+        // let firstLab = ThreeLabs[1];
+        // let secondLab = ThreeLabs[2];
+
+
+
+
+    }
 }
 
 
@@ -103,6 +130,33 @@
             }
         }
     }
+
+	if(creep.ticksToLive <= 14 && !creep.memory.full) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
+}
+
+const roleFiller = {
+    run,
+    //run: run,
+    //function2,
+    //function3
+};
+export default roleFiller;
+
+
+
+
+
+
+
+
+
+
 
     // if(creep.store[RESOURCE_ENERGY] == 0) {
     //     creep.memory.full = false;
@@ -222,13 +276,3 @@
     //     return;
     // }
     // console.log('Filler Ran in', Game.cpu.getUsed() - start, 'ms')
-}
-
-const roleFiller = {
-    run,
-    //run: run,
-    //function2,
-    //function3
-};
-export default roleFiller;
-

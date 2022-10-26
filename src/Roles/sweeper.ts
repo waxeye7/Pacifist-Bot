@@ -56,7 +56,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 20, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else {
@@ -132,13 +132,17 @@ function findLocked(creep) {
         }
 
         if(result == "nothing to sweep" && creep.store.getFreeCapacity() == 200) {
-            creep.recycle();
+            creep.memory.suicide = true;
         }
-        else if(creep.store.getFreeCapacity() <= 200) {
+        else if(creep.store.getFreeCapacity() < 200) {
             creep.memory.full = true;
         }
         else {
             creep.memory.full = false;
+        }
+
+        if(creep.memory.suicide == true) {
+            creep.recycle();
         }
     }
 

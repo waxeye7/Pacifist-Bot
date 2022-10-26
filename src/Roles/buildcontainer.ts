@@ -38,10 +38,8 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             }
         }
         else {
-            if(storage) {
-                if(creep.withdraw(storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(storage, {visualizePathStyle: {stroke: '#ffaa00'}});
-                }
+            if(storage && storage.store[RESOURCE_ENERGY] != 0) {
+                let result = creep.withdrawStorage(storage)
             }
             else {
                 if(creep.harvestEnergy() == -6 || creep.harvestEnergy() == -11)  {

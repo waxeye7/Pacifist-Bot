@@ -166,7 +166,7 @@ function findLockedBuild(creep) {
         }
 
         if(!creep.memory.locked_repair && !creep.memory.locked_build && creep.room.name == creep.memory.targetRoom && creep.memory.allowed_repairs.length == 0) {
-            creep.recycle();
+            creep.memory.suicide = true;
         }
     }
 

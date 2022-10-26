@@ -37,6 +37,10 @@ declare global {
         rampartToMan: Id<_HasId>;
         first_offence: number;
         bin: Id<_HasId>;
+        in_position: boolean;
+        labs: any;
+        attack_target:any;
+        // labs: Array<Id<_HasId>>;
     }
     interface CreepMemory {
         name: string;

@@ -175,7 +175,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
                 this.moveTo(closestDroppedEnergy, {reusePath:20, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(closestDroppedEnergy, {reusePath:20, ignoreRoads:true});
+                this.moveTo(closestDroppedEnergy, {reusePath:20});
             }
         }
         return;
@@ -198,7 +198,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
                 this.moveTo(container, {reusePath:5, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(container, {reusePath:5, ignoreRoads:true});
+                this.moveTo(container, {reusePath:5});
             }
         }
         return;
@@ -217,7 +217,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
                 this.moveTo(dropped_resources_last_chance[0], {reusePath:5, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(dropped_resources_last_chance[0], {reusePath:5, ignoreRoads:true});
+                this.moveTo(dropped_resources_last_chance[0], {reusePath:5});
             }
         }
         return;
@@ -238,23 +238,53 @@ Creep.prototype.roadCheck = function roadCheck() {
 
 Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
     let nearbyBlocks = this.pos.getNearbyPositions()
-    let blockFound = false;
+    let blockFound = [];
     _.forEach(nearbyBlocks, function(block) {
-        if(blockFound == true) {
-            return;
-        }
-        if(block.getRangeTo(repairTarget) <= 3) {
+        if(block.getRangeTo(repairTarget) == 3) {
             let structures = block.lookFor(LOOK_STRUCTURES);
             let creeps = block.lookFor(LOOK_CREEPS);
             if(structures.length == 0 && creeps.length == 0) {
-                blockFound = block;
+                blockFound.push(block);
                 return;
             }
         }
     });
-    if(blockFound != false) {
+    if(blockFound.length > 0) {
+        let closestBlock = 100;
+        let currentClosest = null;
+        if(this.room.memory.storage) {
+            let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
+            for(let block of blockFound) {
+                let range = block.getRangeTo(storage);
+                if(range < closestBlock) {
+                    console.log("test")
+                    currentClosest = block;
+                    closestBlock = range;
+                }
+            }
+            return currentClosest;
+        }
+        else {
+            return blockFound[0];
+        }
+    }
+
+    let found;
+    _.forEach(nearbyBlocks, function(block) {
+        if(block.getRangeTo(repairTarget) <= 3) {
+            let structures = block.lookFor(LOOK_STRUCTURES);
+            let creeps = block.lookFor(LOOK_CREEPS);
+            if(structures.length == 0 && creeps.length == 0) {
+                found = block;
+                return;
+            }
+        }
+    });
+    if(found != false) {
         return blockFound;
     }
+
+
     return null;
 }
 
@@ -333,13 +363,13 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
 Creep.prototype.Sweep = function Sweep() {
     if(!this.memory.lockedDropped || Game.getObjectById(this.memory.lockedDropped) == null) {
         let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
-        let droppedResourcesTombstones = this.room.find(FIND_TOMBSTONES);
+        let droppedResourcesTombstones = this.room.find(FIND_TOMBSTONES, {filter: tombstone => tombstone.store[RESOURCE_ENERGY] > 0});
 
         if(droppedResources.length == 0 && droppedResourcesTombstones.length == 0) {
             return "nothing to sweep";
         }
         if(droppedResources.length > 0) {
-            droppedResources.sort((a,b) => b.amount - a.amount);
+            droppedResources.sort((a,b) => a.amount - b.amount);
             this.memory.lockedDropped = droppedResources[0].id;
         }
         else if(droppedResourcesTombstones.length > 0) {

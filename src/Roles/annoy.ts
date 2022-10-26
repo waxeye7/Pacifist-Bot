@@ -1,8 +1,23 @@
+import roomDefence from "Rooms/rooms.defence";
+
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
  const run = function (creep:Creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
+
+    if(creep.memory.targetRoom == creep.memory.homeRoom) {
+        let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);
+        creep.moveTo(rampart);
+        let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+        if(enemyCreeps.length > 0) {
+            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+            if(creep.pos.isNearTo(closestEnemyCreep)) {
+                creep.attack(closestEnemyCreep);
+            }
+        }
+        return;
+    }
 
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {

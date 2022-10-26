@@ -1,4 +1,5 @@
 const run = function (creep) {
+	sayThings(creep);
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
@@ -25,9 +26,14 @@ const run = function (creep) {
 
 		let theLink = Game.getObjectById(creep.memory.myLink) || storage;
 		if(theLink && theLink.store[RESOURCE_ENERGY] == 0) {
-			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
-			links.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-			links[0].transferEnergy(theLink);
+			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK && building.store[RESOURCE_ENERGY] > 0});
+			if(links.length > 0) {
+				links.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+				links[0].transferEnergy(theLink);
+			}
+			else {
+				creep.withdrawStorage();
+			}
 		}
 
 		if(creep.memory.upgrading && creep.store[RESOURCE_ENERGY] == 0) {
@@ -125,6 +131,67 @@ const run = function (creep) {
 		creep.recycle();
 	}
 }
+
+
+function sayThings(creep:any) {
+	if(creep.ticksToLive % 300 == 10) {
+		creep.say("☮️", true);
+	}
+	else if(creep.ticksToLive % 300 == 9) {
+		creep.say("This", true);
+	}
+	else if(creep.ticksToLive % 300 == 8) {
+		creep.say("Room", true);
+	}
+	else if(creep.ticksToLive % 300 == 7) {
+		creep.say("Is", true);
+	}
+	else if(creep.ticksToLive % 300 == 6) {
+		creep.say("Getting", true);
+	}
+	else if(creep.ticksToLive % 300 == 5) {
+		creep.say("Quite", true);
+	}
+	else if(creep.ticksToLive % 300 == 4) {
+		creep.say("Cramped", true);
+	}
+	else if(creep.ticksToLive % 300 == 3) {
+		creep.say("I", true);
+	}
+	else if(creep.ticksToLive % 300 == 2) {
+		creep.say("Must", true);
+	}
+	else if(creep.ticksToLive % 300 == 1) {
+		creep.say("Admit", true);
+	}
+	else if(creep.ticksToLive % 300 == 0) {
+		creep.say("☮️", true);
+	}
+
+	else if(creep.ticksToLive % 300 == 177) {
+		creep.say("☮️", true);
+	}
+	else if(creep.ticksToLive % 300 == 176) {
+		creep.say("I", true);
+	}
+	else if(creep.ticksToLive % 300 == 175) {
+		creep.say("Could", true);
+	}
+	else if(creep.ticksToLive % 300 == 174) {
+		creep.say("Use", true);
+	}
+	else if(creep.ticksToLive % 300 == 173) {
+		creep.say("A", true);
+	}
+	else if(creep.ticksToLive % 300 == 172) {
+		creep.say("Cigarette", true);
+	}
+	else if(creep.ticksToLive % 300 == 171) {
+		creep.say("☮️", true);
+	}
+
+}
+
 
 const roleUpgrader = {
     run,

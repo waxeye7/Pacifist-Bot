@@ -1,44 +1,49 @@
 function findLocked(room) {
+    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let bin = Game.getObjectById(room.memory.bin) || room.findBin(storage);
+    if(bin && bin.hits < 125000) {
+        room.memory.lowestHitsBuildingToRepair = bin.id;
+        return;
+    }
+
+
 
     let maxRepairTower;
     if(room.controller.level < 4) {
-        maxRepairTower = 5000;
+        maxRepairTower = 6000;
     }
     else {
-        maxRepairTower = 50000
+        maxRepairTower = 50000;
     }
 
     let buildingsToRepair;
 
     if(room.controller.level >= 6) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
-        let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-        let bin = Game.getObjectById(room.memory.bin) || room.findBin(storage);
-        if(bin) {
-            buildingsToRepair.push(bin.id);
-        }
     }
     else if(room.controller.level < 6) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1200) && building.hits < maxRepairTower});
     }
 
-
     let allowedBuildingsToRepair = [];
+
     _.forEach(buildingsToRepair, function(building) {
         if(building.structureType == STRUCTURE_ROAD) {
             if(_.includes(room.memory.keepTheseRoads, building.id, 0)) {
-                allowedBuildingsToRepair.push(building)
+                allowedBuildingsToRepair.push(building);
             }
         }
         else {
-            allowedBuildingsToRepair.push(building)
+            allowedBuildingsToRepair.push(building);
         }
     });
 
     allowedBuildingsToRepair.sort((a,b) => a.hits - b.hits);
     if(allowedBuildingsToRepair.length > 0) {
         room.memory.lowestHitsBuildingToRepair = allowedBuildingsToRepair[0].id;
+        return;
     }
+
 }
 
 
@@ -71,7 +76,7 @@ function roomDefence(room) {
         let canWeShoot = 0;
         room.memory.towers.forEach(towerID => {
             let towerTest:any = Game.getObjectById(towerID);
-            if(towerTest.store[RESOURCE_ENERGY] > 200) {
+            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 200) {
                 canWeShoot ++;
             }
         });
@@ -84,23 +89,50 @@ function roomDefence(room) {
             let isDanger = room.memory.danger;
 
             if(isDanger) {
-                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits+500 < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits+300 < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
                     tower.heal(damagedCreeps[0]);
                     return;
                 }
             }
 
-            if(isDanger && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.towers.length) {
-                let closestHostile = tower.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
-                if(closestHostile) {
-                    tower.attack(closestHostile);
-                    return;
+            if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.towers.length) {
+                let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+                // HostileCreeps.sort((a,b) => a.pos.getRangeTo(tower) - b.pos.getRangeTo(tower));
+                let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
+                let rampartDefendersLength = rampartDefenders.length;
+                let closestHostile = tower.pos.findClosestByRange(HostileCreeps);
+                if(closestHostile && HostileCreeps.length > 1 && rampartDefendersLength >= 1 && room.memory.in_position || closestHostile && HostileCreeps.length == 1 || rampartDefendersLength == 0 && closestHostile) {
+                    // if(tower.id == "6334aeac2b2c07bdd3fe6cfe" && Game.time % 2) {
+                    //     tower.attack(HostileCreeps[0]);
+                    // }
+                    // make the tower shoot the healer every second tick to make it lose a heal
+                    // if(rampartDefendersLength > 0) {
+                    //     tower.attack(rampartDefenders[-1].pos.findClosestByRange(HostileCreeps));
+                    //     return;
+                    // }
+                    // else {
+                    let attackTarget = room.memory.attack_target;
+                    let target = Game.getObjectById(attackTarget);
+                    if(target && Game.time % 17 == 0 || target && Game.time % 17 == 1 || target && Game.time % 17 == 2 || target && Game.time % 17 == 3 || target && Game.time % 17 == 4
+                        || target && Game.time % 17 == 5 || target && Game.time % 17 == 6 || target && Game.time % 17 == 7 || target && Game.time % 17 == 8) {
+                        tower.attack(target);
+                        return;
+                    }
+                    else if(Game.time % 17 >= 9 && Game.time % 17 < 17) {
+                        tower.attack(closestHostile);
+                        return;
+                    }
+                    else if(HostileCreeps.length > 1){
+                        tower.attack(closestHostile);
+                        return;
+                    }
+                    // }
                 }
             }
 
 
-            if(currentTickModTowers == towerCount && tower.store[RESOURCE_ENERGY] > 400 && !room.memory.danger) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 400) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }
@@ -116,6 +148,7 @@ function roomDefence(room) {
                 }
             }
 
+
             if(Game.time % 12 == 0) {
                 let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
                 if(damagedCreeps.length > 0) {
@@ -128,17 +161,22 @@ function roomDefence(room) {
     }
 
 
-    if(Game.time % 10 == 1) {
+    if(Game.time % 10 == 0 || room.memory.danger && Game.time % 1 == 0) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
 
         if(HostileCreeps.length > 0 && room.memory.blown_fuse) {
+            let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
+
             let found = false;
             for(let enemyCreep of HostileCreeps) {
                 for(let part of enemyCreep.body) {
                     if(part.type == ATTACK || part.type == RANGED_ATTACK || part.type == WORK) {
-                        room.memory.danger = true;
-                        found = true;
-                        break;
+                        MyRamparts.forEach(rampart => {
+                            if(enemyCreep.pos.getRangeTo(rampart) <= 3) {
+                                room.memory.danger = true;
+                                found = true;
+                            }
+                        });
                     }
                 }
             }
@@ -158,12 +196,17 @@ function roomDefence(room) {
             }
 
 
-            let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
 
             let currentLowestRange = 100;
             let currentRampart;
 
+            let found_creep = false;
             _.forEach(MyRamparts, function(rampart) {
+                if(rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RampartDefender" || rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "defender") {
+                    room.memory.in_position = true;
+                    found_creep = true;
+                    return;
+                }
                 let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
                 let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
                 if(currentLowestRange > rangeToEnemy) {
@@ -172,6 +215,9 @@ function roomDefence(room) {
                     room.memory.rampartToMan = currentRampart.id;
                 }
             });
+            if(found_creep == false) {
+                room.memory.in_position = false;
+            }
         }
         else {
             room.memory.danger = false;
@@ -190,6 +236,7 @@ function roomDefence(room) {
         else {
             room.memory.blown_fuse = false;
         }
+
     }
 }
 export default roomDefence;

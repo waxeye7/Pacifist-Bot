@@ -14,7 +14,7 @@ const run = function (creep) {
     //     creep.moveTo(25,25)
     // }
 
-    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom) {
+    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK}).length < 3) {
         creep.harvestEnergy();
         return;
     }
