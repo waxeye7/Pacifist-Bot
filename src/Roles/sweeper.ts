@@ -39,8 +39,20 @@ function findLocked(creep) {
  **/
 
  const run = function (creep) {
-    if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
+    if(!creep.memory.MaxStorage) {
+        let carryPartsAmount = 0
+        for(let part of creep.body) {
+            if(part.type == CARRY) {
+                carryPartsAmount += 1;
+            }
+        }
+        creep.memory.MaxStorage = carryPartsAmount * 50;
+    }
+    let MaxStorage = creep.memory.MaxStorage;
+
+    if(creep.memory.full && creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.full = false;
+        creep.memory.lockedDropped = false;
     }
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
@@ -91,7 +103,7 @@ function findLocked(creep) {
 
         let result = creep.Sweep();
 
-        if(result == "picked up") {
+        if(result == "picked up" && creep.store.getFreeCapacity() == 0) {
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
             if(storage) {
                 if(creep.pos.isNearTo(storage)) {
@@ -130,11 +142,11 @@ function findLocked(creep) {
                 }
             }
         }
-
-        if(result == "nothing to sweep" && creep.store.getFreeCapacity() == 200) {
+//  && _.keys(creep.store).length == 0
+        if(result == "nothing to sweep") {
             creep.memory.suicide = true;
         }
-        else if(creep.store.getFreeCapacity() < 200) {
+        else if(creep.store.getFreeCapacity() == 0) {
             creep.memory.full = true;
         }
         else {

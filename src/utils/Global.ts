@@ -26,6 +26,7 @@ declare global {
         spawn_list: Array<Array<string> | string | object>;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;
+        has_safe_creeps: boolean;
         has_attacker: boolean;
         danger: boolean;
         name: string;

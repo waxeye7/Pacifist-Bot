@@ -42,13 +42,13 @@
         }
 
 
-        if(creep.memory.locked && creep.memory.locked != false) {
+        if(creep.memory.locked) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
             if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(buildTarget, {reusePath:20});
+                creep.moveTo(buildTarget, {reusePath:5});
             }
             else {
-				if(creep.store.getFreeCapacity() == 0) {
+				if(creep.store.getFreeCapacity() <= 50) {
 					if(creep.roadCheck()) {
 						let roadlessLocation = creep.roadlessLocation(buildTarget);
 						creep.moveTo(roadlessLocation);
@@ -66,7 +66,7 @@
 			}
 			if(creep.memory.locked) {
 				let buildTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(buildTarget, {reusePath:20});
+				creep.moveTo(buildTarget, {reusePath:5});
 			}
 		}
     }
@@ -79,12 +79,12 @@
 			}
 			if(creep.memory.locked) {
 				let buildTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(buildTarget, {reusePath:20});
+				creep.moveTo(buildTarget, {reusePath:5});
 			}
 		}
     }
 
-	if(creep.ticksToLive <= 60 && !creep.memory.building) {
+	if(creep.ticksToLive <= 30 && !creep.memory.building) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {

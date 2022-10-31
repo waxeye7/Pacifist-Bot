@@ -21,12 +21,14 @@ function findLocked(creep) {
         return closestDropOffLocation;
     }
 
-    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] >= 0)});
+    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] >= 0 && building.store.getFreeCapacity() > 0)});
     if(towers2.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers2);
         creep.memory.locked = closestTower.id;
         return closestTower;
     }
+    creep.memory.locked = false;
+    return false;
 }
 
 
@@ -51,7 +53,7 @@ function findLocked(creep) {
         return;
     }
 
-
+    // && creep.room.name != creep.memory.homeRoom add maybe to make creep only switch if in room idkidk
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
@@ -60,7 +62,12 @@ function findLocked(creep) {
     }
 
     if(creep.memory.full) {
+        let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+        let bin;
+        if(storage) {
+            bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
+        }
 
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
             if(creep.memory.storage) {
@@ -72,9 +79,9 @@ function findLocked(creep) {
         }
 
 
-        if(storage) {
+        if(storage && storage.store.getFreeCapacity() != 0) {
             if(creep.pos.isNearTo(storage)) {
-                if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
+                if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
                     creep.memory.full = false;
                 }
             }
@@ -82,13 +89,47 @@ function findLocked(creep) {
                 creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
+        else if(bin && bin.store.getFreeCapacity() != 0) {
+            if(creep.pos.isNearTo(bin)) {
+                if(creep.transfer(bin, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.memory.full = false;
+                }
+            }
+            else {
+                creep.moveTo(bin, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+            }
+        }
         else {
             if(!creep.memory.locked) {
                 let target = findLocked(creep);
+
+                if(!target) {
+                    if(spawn) {
+                        if(creep.pos.isNearTo(spawn)) {
+                            creep.drop(RESOURCE_ENERGY);
+                        }
+                        else {
+                            creep.moveTo(spawn);
+                        }
+                        return;
+                    }
+                }
             }
 
             if(creep.memory.locked) {
                 let target = Game.getObjectById(creep.memory.locked);
+
+                if(!target) {
+                    if(spawn) {
+                        if(creep.pos.isNearTo(spawn)) {
+                            creep.drop(RESOURCE_ENERGY);
+                        }
+                        else {
+                            creep.moveTo(spawn);
+                        }
+                        return;
+                    }
+                }
 
                 if(creep.pos.isNearTo(target)) {
                     creep.transfer(target, RESOURCE_ENERGY);
@@ -125,6 +166,7 @@ function findLocked(creep) {
         }
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         if(result == 0 && creep.store.getFreeCapacity() == 0) {
+            let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
             if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
                 if(creep.memory.storage) {
@@ -137,7 +179,7 @@ function findLocked(creep) {
 
             if(storage) {
                 if(creep.pos.isNearTo(storage)) {
-                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
+                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
                         creep.memory.full = false;
                     }
                 }
@@ -148,10 +190,34 @@ function findLocked(creep) {
             else {
                 if(!creep.memory.locked) {
                     let target = findLocked(creep);
+
+                    if(!target) {
+                        if(spawn) {
+                            if(creep.pos.isNearTo(spawn)) {
+                                creep.drop(RESOURCE_ENERGY);
+                            }
+                            else {
+                                creep.moveTo(spawn);
+                            }
+                            return;
+                        }
+                    }
                 }
 
                 if(creep.memory.locked) {
                     let target = Game.getObjectById(creep.memory.locked);
+
+                    if(!target) {
+                        if(spawn) {
+                            if(creep.pos.isNearTo(spawn)) {
+                                creep.drop(RESOURCE_ENERGY);
+                            }
+                            else {
+                                creep.moveTo(spawn);
+                            }
+                            return;
+                        }
+                    }
 
                     if(creep.pos.isNearTo(target)) {
                         creep.transfer(target, RESOURCE_ENERGY);

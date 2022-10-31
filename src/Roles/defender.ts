@@ -8,6 +8,41 @@ const run = function (creep) {
 
             let rampart:any = Game.getObjectById(rampartToMan);
 
+            if(creep.body.length <= 3 || creep.body.length % 3 == 0) {
+                let rampartDefenders = creep.room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
+                if(rampartDefenders.length >= 0) {
+                    if(creep.pos.findInRange(enemyCreeps, 2).length > 1 && Game.time % 20 >10 && Game.time % 20 <=20) {
+                        creep.rangedMassAttack();
+                    }
+                    else if(creep.pos.findInRange(enemyCreeps, 1).length > 0 && Game.time % 20 <10 && Game.time % 20 > 0) {
+                        creep.rangedAttack(closestEnemyCreep);
+                    }
+                    else {
+                        creep.rangedAttack(closestEnemyCreep);
+                    }
+                    if(rampart) {
+                        if(creep.pos.lookFor(LOOK_STRUCTURES).length == 0 || creep.pos.lookFor(LOOK_STRUCTURES).length == 1 && creep.pos.lookFor(LOOK_STRUCTURES)[0].structureType == STRUCTURE_ROAD) {
+                            creep.moveTo(rampart);
+                        }
+                        else {
+                            let structuresHere = creep.pos.lookFor(LOOK_STRUCTURES);
+                            if(structuresHere.length == 0 || (structuresHere.length == 1 && structuresHere[0].structureType == STRUCTURE_ROAD) || (structuresHere.length == 1 && structuresHere[0].structureType == STRUCTURE_CONTAINER) || (rampart && creep.pos.isNearTo(rampart) && Game.time % 6 == 0)) {
+                                creep.moveTo(rampart);
+                            }
+                        }
+                    }
+                }
+                else {
+                    if(Game.time % 100 == 0) {
+                        creep.memory.suicide = true;
+                    }
+                    if(creep.memory.suicide) {
+                        creep.recycle();
+                    }
+                }
+                return;
+            }
+
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.rangedMassAttack();
                 if(rampart && creep.pos.isNearTo(rampart) || Game.time % 5 ==0) {
@@ -42,6 +77,14 @@ const run = function (creep) {
         }
     }
 
+    else {
+        if(creep.memory.suicide == true) {
+            creep.recycle();
+        }
+        if(Game.time % 100 == 0) {
+            creep.memory.suicide = true;
+        }
+    }
     // else {
     //     creep.memory.role = "RangedAttacker";
     // }

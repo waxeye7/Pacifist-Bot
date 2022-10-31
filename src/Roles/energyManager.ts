@@ -4,9 +4,30 @@
  **/
  const run = function (creep) {
 
+    if(!creep.memory.MaxStorage) {
+        let carryPartsAmount = 0
+        for(let part of creep.body) {
+            if(part.type == CARRY) {
+                carryPartsAmount += 1;
+            }
+        }
+        creep.memory.MaxStorage = carryPartsAmount * 50;
+    }
+    let MaxStorage = creep.memory.MaxStorage;
+
+	if(creep.ticksToLive <= 10 && _.keys(creep.store).length == 0) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
+
     if(Game.time % 250 == 0 && creep.room.energyAvailable <= 1000 && creep.room.energyAvailable > 300 && creep.room.find(FIND_MY_CREEPS).length > 6) {
         for(let resourceType in creep.carry) {
-            creep.drop(resourceType);
+            if(resourceType != RESOURCE_ENERGY) {
+                creep.drop(resourceType);
+            }
         }
         creep.memory.role = "filler";
     }
@@ -17,7 +38,7 @@
 
     let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
 
-    if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
+    if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() == MaxStorage) {
         if(creep.pos.isNearTo(closestLink)) {
             creep.withdraw(closestLink, RESOURCE_ENERGY);
             return;
@@ -47,7 +68,7 @@
 
     let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
 
-    if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() != 0 && creep.store[RESOURCE_ENERGY] == 0) {
+    if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() == MaxStorage) {
         if(creep.pos.isNearTo(bin)) {
             for(let resourceType in bin.store) {
                 creep.withdraw(bin, resourceType);
@@ -62,7 +83,7 @@
 
     let terminal = creep.room.terminal;
 
-    if(terminal && terminal.store[RESOURCE_ENERGY] > 27000 && creep.store.getFreeCapacity() >= 200) {
+    if(terminal && terminal.store[RESOURCE_ENERGY] > 27000 && creep.store.getFreeCapacity() == MaxStorage) {
         if(creep.pos.isNearTo(terminal)) {
             creep.withdraw(terminal, RESOURCE_ENERGY);
             if(!creep.pos.isNearTo(storage)) {
@@ -90,8 +111,7 @@
         let secondLab = ThreeLabs[2];
 
 
-        if(resultLab && resultLab.store[RESOURCE_UTRIUM_HYDRIDE] < 1600 && terminal && terminal.store[RESOURCE_UTRIUM_HYDRIDE] >= 800) {
-
+        if(resultLab && resultLab.store[RESOURCE_UTRIUM_HYDRIDE] < 1800 && (storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] >= MaxStorage || terminal && terminal.store[RESOURCE_UTRIUM_HYDRIDE] >= MaxStorage)) {
             if(creep.store[RESOURCE_UTRIUM_HYDRIDE] > 0) {
                 if(creep.pos.isNearTo(resultLab)) {
                     creep.transfer(resultLab, RESOURCE_UTRIUM_HYDRIDE);
@@ -102,17 +122,27 @@
                 return;
             }
             else {
-                if(creep.pos.isNearTo(terminal)) {
-                    creep.withdraw(terminal, RESOURCE_UTRIUM_HYDRIDE);
+                if(storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] >= MaxStorage) {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.withdraw(storage, RESOURCE_UTRIUM_HYDRIDE);
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
                 }
-                else {
-                    creep.moveTo(terminal);
+                else if(terminal && terminal.store[RESOURCE_UTRIUM_HYDRIDE] >= MaxStorage) {
+                    if(creep.pos.isNearTo(terminal)) {
+                        creep.withdraw(terminal, RESOURCE_UTRIUM_HYDRIDE);
+                    }
+                    else {
+                        creep.moveTo(terminal);
+                    }
                 }
             }
 
         }
 
-        else if(firstLab && firstLab.store[RESOURCE_UTRIUM] <= 1400) {
+        else if(firstLab && firstLab.store[RESOURCE_UTRIUM] <= 3000 - MaxStorage && !creep.room.memory.danger && secondLab && secondLab.store[RESOURCE_HYDROGEN] > firstLab.store[RESOURCE_UTRIUM]) {
             //  && terminal.store[RESOURCE_UTRIUM] >= 200
             if(creep.store[RESOURCE_UTRIUM] > 0) {
                 if(creep.pos.isNearTo(firstLab)) {
@@ -132,7 +162,7 @@
                 }
             }
         }
-        else if(secondLab && secondLab.store[RESOURCE_HYDROGEN] <= 1400) {
+        else if(secondLab && secondLab.store[RESOURCE_HYDROGEN] <= 3000 - MaxStorage && !creep.room.memory.danger) {
             // && terminal.store[RESOURCE_HYDROGEN] >= 200
             if(creep.store[RESOURCE_HYDROGEN] > 0) {
                 if(creep.pos.isNearTo(secondLab)) {
@@ -153,9 +183,7 @@
             }
         }
 
-
-
-        else if(resultLab && resultLab.store[RESOURCE_UTRIUM_HYDRIDE] >= 2600) {
+        else if(resultLab && resultLab.store[RESOURCE_UTRIUM_HYDRIDE] >= 2600 && !creep.room.memory.danger) {
 
             if(creep.store[RESOURCE_UTRIUM_HYDRIDE] > 0) {
                 if(creep.pos.isNearTo(storage)) {
@@ -177,39 +205,39 @@
 
         }
 
-        else if(resultLab && resultLab.store[RESOURCE_UTRIUM_HYDRIDE] < 1600 && storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] >= 400) {
+
+        else if(terminal && terminal.store[RESOURCE_UTRIUM_HYDRIDE] > 3000 + MaxStorage && storage && storage.store.getFreeCapacity() > MaxStorage) {
 
             if(creep.store[RESOURCE_UTRIUM_HYDRIDE] > 0) {
-                if(creep.pos.isNearTo(resultLab)) {
-                    creep.transfer(resultLab, RESOURCE_UTRIUM_HYDRIDE);
+                if(creep.pos.isNearTo(storage)) {
+                    creep.transfer(storage, RESOURCE_UTRIUM_HYDRIDE);
                 }
                 else {
-                    creep.moveTo(resultLab);
+                    creep.moveTo(storage);
                 }
                 return;
             }
             else {
-                if(creep.pos.isNearTo(storage)) {
-                    creep.withdraw(storage, RESOURCE_UTRIUM_HYDRIDE);
+                if(creep.pos.isNearTo(terminal)) {
+                    creep.withdraw(terminal, RESOURCE_UTRIUM_HYDRIDE);
                 }
                 else {
-                    creep.moveTo(storage);
+                    creep.moveTo(terminal);
                 }
             }
 
         }
 
 
-
         else {
-            if(creep.pos.isNearTo(terminal)) {
+            if(creep.pos.isNearTo(storage)) {
                 for(let resourceType in creep.carry) {
-                    creep.transfer(terminal, resourceType);
+                    creep.transfer(storage, resourceType);
                 }
                 return;
             }
             else {
-                creep.moveTo(terminal);
+                creep.moveTo(storage);
                 return;
             }
         }
@@ -217,9 +245,10 @@
 
 
 
-    let Mineral:any = Game.getObjectById(creep.room.memory.mineral)
+    let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
     let MineralType = Mineral.mineralType;
-    if(storage && storage.store[MineralType] > 10000 && terminal && terminal.store.getFreeCapacity() > 200 && creep.store[RESOURCE_ENERGY] == 0 && creep.store[MineralType] == 0) {
+    //  && creep.store[RESOURCE_ENERGY] == 0 && creep.store[MineralType] == 0
+    if(storage && storage.store[MineralType] > 10000 && terminal && terminal.store.getFreeCapacity() > MaxStorage && _.keys(creep.store).length == 0) {
         if(creep.pos.isNearTo(storage)) {
             creep.withdraw(storage, MineralType);
             if(!creep.pos.isNearTo(terminal)) {
@@ -231,7 +260,7 @@
         }
         return;
     }
-    else if(terminal && terminal.store.getFreeCapacity() > 200 && creep.store.getFreeCapacity() == 0) {
+    else if(terminal && terminal.store.getFreeCapacity() > MaxStorage && creep.store.getFreeCapacity() == 0) {
         if(creep.pos.isNearTo(terminal)) {
             creep.transfer(terminal, MineralType);
             if(!creep.pos.isNearTo(storage)) {

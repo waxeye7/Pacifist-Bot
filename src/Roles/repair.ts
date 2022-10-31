@@ -10,15 +10,16 @@ function findLocked(creep) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
     }
     else if(creep.room.controller.level > 2) {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
     }
     else {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
+        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000});
     }
 
     if(buildingsToRepair300mil.length > 0) {
         buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
         creep.say("🎯", true);
+        creep.memory.locked = buildingsToRepair300mil[0].id;
         return buildingsToRepair300mil[0].id;
     }
     else {
@@ -26,12 +27,14 @@ function findLocked(creep) {
         if(buildingsToRepair300mil.length > 0) {
             buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
             creep.say("🎯", true);
+            creep.memory.locked = buildingsToRepair300mil[0].id;
             return buildingsToRepair300mil[0].id;
         }
     }
 }
 
  const run = function (creep) {
+    // console.log(_.keys(creep.store).length)
     if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
     }
@@ -50,22 +53,25 @@ function findLocked(creep) {
     }
 
     if(creep.memory.repairing) {
-        if(creep.memory.locked && creep.memory.locked != false) {
-            let repairTarget:any = Game.getObjectById(creep.memory.locked);
-            if(!repairTarget) {
-                creep.memory.locked = false;
-            }
-            if(repairTarget && repairTarget.hits == repairTarget.hitsMax) {
-                creep.memory.locked = false;
-            }
+        let repairTarget:any = Game.getObjectById(creep.memory.locked);
+
+        if(!repairTarget) {
+            creep.memory.locked = findLocked(creep);
         }
-// || creep.memory.locked && creep.ticksToLive % 600 == 0
-        if(!creep.memory.locked) {
+        else if(repairTarget && repairTarget.hits == repairTarget.hitsMax) {
             creep.memory.locked = findLocked(creep);
         }
 
+        if(!creep.memory.locked || creep.room.memory.danger && creep.memory.locked && creep.ticksToLive % 100 == 0) {
+            let rampart = creep.room.memory.rampart;
+            let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+            if(rampart && HostileCreeps.length > 0 && rampart.pos.getRangeTo(rampart.pos.findClosestByRange(HostileCreeps)) <= 2) {
+                creep.memory.locked = findLocked(creep);
+            }
+        }
 
-        if(creep.memory.locked && creep.memory.locked != false) {
+
+        if(creep.memory.locked) {
             let repairTarget = Game.getObjectById(creep.memory.locked);
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
@@ -115,7 +121,7 @@ function findLocked(creep) {
 		}
     }
 
-	if(creep.ticksToLive <= 60 && !creep.memory.repairing) {
+	if(creep.ticksToLive <= 84 && (!creep.memory.repairing || _.keys(creep.store).length) == 0) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {

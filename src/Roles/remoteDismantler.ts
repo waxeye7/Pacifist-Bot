@@ -3,6 +3,8 @@
  * @param {Creep} creep
  **/
 
+import { createPrivateKey } from "crypto";
+
  function findLocked(creep) {
 
     let HostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
@@ -27,6 +29,7 @@
 }
 
  const run = function (creep) {
+
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoom(creep.memory.targetRoom);
     }

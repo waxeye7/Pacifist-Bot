@@ -124,7 +124,7 @@ const run = function (creep) {
 	// console.log('Upgrader Ran in', Game.cpu.getUsed() - start, 'ms')
 
 
-	if(creep.ticksToLive <= 60 && !creep.memory.upgrading) {
+	if(creep.ticksToLive <= 50 && !creep.memory.upgrading) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {
@@ -134,41 +134,7 @@ const run = function (creep) {
 
 
 function sayThings(creep:any) {
-	if(creep.ticksToLive % 300 == 10) {
-		creep.say("☮️", true);
-	}
-	else if(creep.ticksToLive % 300 == 9) {
-		creep.say("This", true);
-	}
-	else if(creep.ticksToLive % 300 == 8) {
-		creep.say("Room", true);
-	}
-	else if(creep.ticksToLive % 300 == 7) {
-		creep.say("Is", true);
-	}
-	else if(creep.ticksToLive % 300 == 6) {
-		creep.say("Getting", true);
-	}
-	else if(creep.ticksToLive % 300 == 5) {
-		creep.say("Quite", true);
-	}
-	else if(creep.ticksToLive % 300 == 4) {
-		creep.say("Cramped", true);
-	}
-	else if(creep.ticksToLive % 300 == 3) {
-		creep.say("I", true);
-	}
-	else if(creep.ticksToLive % 300 == 2) {
-		creep.say("Must", true);
-	}
-	else if(creep.ticksToLive % 300 == 1) {
-		creep.say("Admit", true);
-	}
-	else if(creep.ticksToLive % 300 == 0) {
-		creep.say("☮️", true);
-	}
-
-	else if(creep.ticksToLive % 300 == 177) {
+	if(creep.ticksToLive % 300 == 177) {
 		creep.say("☮️", true);
 	}
 	else if(creep.ticksToLive % 300 == 176) {

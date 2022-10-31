@@ -47,7 +47,7 @@ function rooms() {
                 }
             }
 
-            if(Game.time % 40 == 1 || Game.time < 10) {
+            if(Game.time % 10 == 1 || Game.time < 10) {
                 // const start = Game.cpu.getUsed()
                 identifySources(room);
                 // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -155,9 +155,13 @@ function establishMemory(room) {
             room.memory.has_hostile_creeps = true;
             room.memory.first_offence = Game.time;
         }
+        else if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0) {
+            room.memory.has_safe_creeps = true;
+        }
         else {
             Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
             room.memory.has_hostile_creeps = false;
+            room.memory.has_safe_creeps = false;
         }
 
 

@@ -4,7 +4,7 @@ const run = function (creep:Creep) {
     if(creep.room.memory.danger) {
 
 
-        if(creep.body.length > 40 && creep.body[42].boost == undefined && creep.ticksToLive > 1300 && creep.room.find(FIND_HOSTILE_CREEPS).length > 1) {
+        if(creep.body.length > 40 && creep.body[24].boost == undefined && creep.ticksToLive > 1300 && creep.room.find(FIND_HOSTILE_CREEPS).length > 1) {
             let boostLabID = creep.room.memory.labs[0]
             let boostLab:any = Game.getObjectById(boostLabID);
             if(boostLab && boostLab.store[RESOURCE_UTRIUM_HYDRIDE] >= 100) {
@@ -18,12 +18,12 @@ const run = function (creep:Creep) {
             }
         }
 
-        if(creep.body.length > 40 && creep.body[38].boost != undefined && creep.ticksToLive < 100 && !creep.room.memory.danger) {
+        if(creep.body.length > 40 && creep.body[24].boost != undefined && creep.ticksToLive < 50 && !creep.room.memory.danger) {
             let boostLabID = creep.room.memory.labs[0]
             let boostLab:any = Game.getObjectById(boostLabID);
             if(boostLab) {
                 if(creep.pos.isNearTo(boostLab)) {
-                    boostLab.unboostCreep(creep);
+                    console.log(boostLab.unboostCreep(creep))
                 }
                 else {
                     creep.moveTo(boostLab);
@@ -65,12 +65,11 @@ const run = function (creep:Creep) {
                                 creep.say("☮️", true);
                             }
 
-                            if(rampart && creep.pos.isNearTo(rampart) && Game.time % 10 == 1) {
+                            if(rampart && creep.pos.isNearTo(rampart) && !creep.pos.isEqualTo(rampart) && Game.time % 10 == 1) {
                                 creep.moveTo(rampart);
                             }
                             if(creep.attack(closestEnemyCreep) == 0) {
                                 return;
-
                             }
                         }
                     }
@@ -80,8 +79,15 @@ const run = function (creep:Creep) {
 
             if(rampart) {
 
-                if(creep.pos.lookFor(LOOK_STRUCTURES).length == 0 || creep.pos.lookFor(LOOK_STRUCTURES).length == 1 && creep.pos.lookFor(LOOK_STRUCTURES)[0].structureType == STRUCTURE_ROAD && creep.ticksToLive % 8 == 0) {
+                // if(creep.pos.getRangeTo(rampart) <= 12 && creep.pos.getRangeTo(rampart) > 4) {
+                //     creep.moveTo(16,41, {reusePath: 0});
+                //     return;
+                // }
+
+
+                if(creep.pos.lookFor(LOOK_STRUCTURES).length == 0 || creep.pos.lookFor(LOOK_STRUCTURES).length == 1 && creep.pos.lookFor(LOOK_STRUCTURES)[0].structureType == STRUCTURE_ROAD) {
                     creep.moveTo(rampart);
+                    creep.attack(closestEnemyCreep);
                     return;
                 }
 
@@ -106,14 +112,36 @@ const run = function (creep:Creep) {
                 // }
 
                 // && rampart.pos.lookFor(LOOK_CREEPS).length == 1
-                else if(creep.pos && creep.pos != rampart.pos && enemyCreeps.length == 1 && creep.pos.getRangeTo(closestEnemyCreep) <= 2) {
+                else if(creep.pos && creep.pos != rampart.pos && enemyCreeps.length <= 1 && creep.pos.getRangeTo(closestEnemyCreep) <= 2 && creep.hits == 5000) {
                     creep.moveTo(closestEnemyCreep);
                     creep.attack(closestEnemyCreep);
+                    return;
                 }
                 else {
-                    creep.moveTo(rampart);
+                    let structuresHere = creep.pos.lookFor(LOOK_STRUCTURES);
+                    if(structuresHere.length == 0 || (structuresHere.length == 1 && structuresHere[0].structureType == STRUCTURE_ROAD) || (rampart && creep.pos.isNearTo(rampart) && Game.time % 5 == 0) || (rampart && creep.pos.getRangeTo(rampart) == 2 && Game.time % 21 == 0)) {
+                        if(creep.pos.isNearTo(rampart)){
+                            creep.moveTo(rampart);
+                        }
+                        else {
+                            creep.moveTo(creep.room.terminal)
+                        }
+                    }
+                    creep.attack(closestEnemyCreep);
+                    // else if(creep.pos.getRangeTo(rampart) == 2) {
+                    //     if(creep.room.terminal) {
+                    //         creep.moveTo(creep.room.terminal);
+                    //     }
+                    // }
                 }
             }
+        }
+    }
+    else if(creep.body.length > 40 && creep.body[24].boost != undefined) {
+        let boostLabID = creep.room.memory.labs[0]
+        let boostLab:any = Game.getObjectById(boostLabID);
+        if(boostLab) {
+            creep.moveTo(boostLab)
         }
     }
     // else if(Game.time % 500 == 0) {

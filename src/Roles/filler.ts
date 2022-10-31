@@ -11,7 +11,7 @@
         return closestDropOffLocation;
     }
 
-    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0)});
+    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100)});
     if(towers2.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers2);
         creep.memory.locked = closestTower.id;
@@ -35,7 +35,7 @@
     }
 
 
-    if(creep.room.memory.labs.length == 3) {
+    if(creep.room.memory.labs && creep.room.memory.labs.length == 3) {
         let labIDS = creep.room.memory.labs;
 
         let ThreeLabs = []
@@ -46,7 +46,7 @@
 
 
         for(let lab of ThreeLabs) {
-            if(lab.store[RESOURCE_ENERGY] <= 1800) {
+            if(lab.store[RESOURCE_ENERGY] <= 1900) {
                 creep.memory.locked = lab.id;
                 return lab;
             }
@@ -64,6 +64,25 @@
 
 
  const run = function (creep) {
+	if(creep.ticksToLive <= 14 && !creep.memory.full) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
+
+    if(!creep.memory.MaxStorage) {
+        let carryPartsAmount = 0
+        for(let part of creep.body) {
+            if(part.type == CARRY) {
+                carryPartsAmount += 1;
+            }
+        }
+        creep.memory.MaxStorage = carryPartsAmount * 50;
+    }
+    let MaxStorage = creep.memory.MaxStorage;
+
+
     // const start = Game.cpu.getUsed()
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
@@ -87,17 +106,16 @@
             target = Game.getObjectById(creep.memory.locked) || findLocked(creep);
 
             if(target.store.getFreeCapacity() == 0) {
-                findLocked(creep);
+                target = findLocked(creep);
             }
 
             if(creep.pos.isNearTo(target)) {
                 creep.transfer(target, RESOURCE_ENERGY);
-                if(creep.store[RESOURCE_ENERGY] == 0) {
+                if(_.keys(creep.store).length == 0) {
                     creep.memory.full = false;
                 }
                 else {
-                    findLocked(creep);
-                    let target = Game.getObjectById(creep.memory.locked);
+                    target = findLocked(creep);
                     if(!creep.pos.isNearTo(target)) {
                         creep.moveTo(target, {reusePath:20});
                     }
@@ -115,28 +133,35 @@
 
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        if(storage.store[RESOURCE_ENERGY] == 0 && !creep.room.memory.danger) {
-            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
+        if(bin && bin.store[RESOURCE_ENERGY] > MaxStorage) {
+            if(creep.pos.isNearTo(bin)) {
+                creep.withdraw(bin, RESOURCE_ENERGY);
+                findLocked(creep);
+            }
+            else {
+                creep.moveTo(bin);
+            }
         }
-        else {
+        else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
             let result = creep.withdrawStorage(storage);
             if(result == 0) {
-                findLocked(creep);
-                let target = Game.getObjectById(creep.memory.locked);
-                creep.moveTo(target, {reusePath:20});
+                let target = findLocked(creep);
+                creep.moveTo(target, {reusePath:7});
             }
             else {
                 creep.moveTo(storage);
             }
         }
+        else if(!creep.room.memory.danger) {
+            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        }
+        else {
+            if(creep.roadCheck()) {
+                creep.moveAwayIfNeedTo();
+            }
+        }
     }
-
-	if(creep.ticksToLive <= 14 && !creep.memory.full) {
-		creep.memory.suicide = true;
-	}
-	if(creep.memory.suicide == true) {
-		creep.recycle();
-	}
 
 }
 
