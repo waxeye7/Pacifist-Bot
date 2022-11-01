@@ -107,13 +107,15 @@ function findLockedBuild(creep) {
             let target:any = Game.getObjectById(creep.memory.locked_repair);
             if(target && target.hits < target.hitsMax) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
+                    creep.moveTo(target, {reusePath:7});
                     return;
                 }
-                if(creep.roadCheck()) {
-                    let roadlessLocation = creep.roadlessLocation(target);
-                    creep.moveTo(roadlessLocation);
-                    return;
+                else {
+                    if(creep.roadCheck()) {
+                        let roadlessLocation = creep.roadlessLocation(target);
+                        creep.moveTo(roadlessLocation);
+                        return;
+                    }
                 }
             }
             else if(target && target.hits == target.hitsMax) {

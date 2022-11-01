@@ -7,6 +7,7 @@
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
     if(buildingsToBuild.length > 0) {
+		creep.memory.suicide = false;
 		creep.say("🎯", true);
 		buildingsToBuild.sort((a,b) => b.progressTotal - a.progressTotal);
         return buildingsToBuild[0].id;

@@ -123,48 +123,13 @@ const run = function (creep) {
 
 
     // if you are afraid of death, look away.
-    if(Game.time % 50 == 0 && !creep.memory.targetRoom) {
+    if(Game.time % 55 == 0 && !creep.memory.targetRoom) {
         creep.memory.suicide = true;
     }
 
-    if(creep.memory.suicide == true) {
-        if(creep.memory.homeRoom && creep.room.name != creep.memory.homeRoom) {
-            return creep.moveToRoom(creep.memory.homeRoom);
-        }
-        if(creep.room.memory.container) {
-            let container:any = Game.getObjectById(creep.room.memory.container);
-            if(container && container.store[RESOURCE_ENERGY] < 2000) {
-                if(creep.pos == container.pos) {
-                    creep.suicide();
-                }
-                else {
-                    creep.moveTo(container, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                }
-            }
-            else if(creep.room.memory.storage) {
-                let storage:any = Game.getObjectById(creep.room.memory.storage);
-                if(storage) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.suicide();
-                    }
-                    else {
-                        creep.moveTo(storage, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                    }
-                }
-            }
-            else if(creep.room.memory.spawn) {
-                let spawn:any = Game.getObjectById(creep.room.memory.spawn);
-                if(spawn) {
-                    if(creep.pos.isNearTo(spawn)) {
-                        creep.suicide();
-                    }
-                    else {
-                        creep.moveTo(spawn, {reusePath:20, ignoreRoads:true, ignoreCreeps:false});
-                    }
-                }
-            }
-        }
-    }
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
     // suicide section
 
 

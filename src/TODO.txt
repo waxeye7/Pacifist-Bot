@@ -1,34 +1,25 @@
-NOT DONE AT ALL:
-
-automate all construction of all buildings
-
-perhaps works on the repair when room attacked and make him not walk into them better when there are more repaierers there or maybe i just get a boost and less creeps repair to make better defence
+REPAIR:
+Boost repair on defence
 make road repair in each room when gets below threshold instead of having towers repair
 
-make repair boost for when under siege
-
+LAB:
 lab reaction
-
 boost
-
-attack code
-
-auto rampart perimeter placement
-
 lab manager
-count amount of different resources dropped on floor in tombstone instead of counting just 1. too risky before potential attack.
 
-on room.memory.danger repair repairs the closest to rampartoman within 5 blocks maybe unless there is one below x
-
-sweeper spawn body based on how much energy on the floor
-access memory through Memory.rooms.roomname instead of Game.rooms[roomname].memory
+BUILD:
+auto rampart perimeter placement
+RCL8!?
 
 ALMOST DONE:
 problem with recycling the  parts for the rampart defender
-might be a problem with path finder in below E14S37 because one is trying to be built on a wall !?!?!?!?/
+might be a problem with path finder in below E14S37 because one is trying to be built on a wall!?
 
 
+DISTANT FUTURE:
+automate all construction of all buildings of RCL 8 idk how to do that yet ~
+attack code ~
 
 
-don't repair the container that's not in the route omg
-
+ASK:
+ask screeps-help why pathfinder is going into walls instead of correct path and send code screenshot

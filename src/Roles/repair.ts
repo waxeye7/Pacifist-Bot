@@ -4,6 +4,20 @@
  **/
 
 function findLocked(creep) {
+
+    if(creep.room.memory.danger) {
+        let target:any = Game.getObjectById(creep.memory.locked);
+        if(creep.room.memory.rampartToMan && !target || creep.room.memory.rampartToMan && target && target.hits < 1000000) {
+            let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);
+            let RampartsNearRampartToMan = rampart.pos.findInRange(FIND_MY_STRUCTURES, {filter: (building) => {return (building.structureType == STRUCTURE_RAMPART);}}, 5);
+            if(RampartsNearRampartToMan.length > 0) {
+                RampartsNearRampartToMan.sort((a,b) => a.hits - b.hits);
+                creep.memory.locked = RampartsNearRampartToMan[0].id;
+                return RampartsNearRampartToMan[0].id;
+            }
+        }
+    }
+
     let buildingsToRepair300mil;
 
     if(creep.room.controller.level >= 6) {
@@ -72,6 +86,9 @@ function findLocked(creep) {
 
 
         if(creep.memory.locked) {
+            if(Game.time % 75 == 0 && creep.room.memory.danger) {
+                creep.memory.locked = findLocked(creep);
+            }
             let repairTarget = Game.getObjectById(creep.memory.locked);
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
@@ -89,6 +106,9 @@ function findLocked(creep) {
                         let roadlessLocation = creep.roadlessLocation(repairTarget);
                         creep.moveTo(roadlessLocation);
                     }
+                }
+                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                    creep.moveAwayIfNeedTo();
                 }
             }
         }

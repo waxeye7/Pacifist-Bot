@@ -1,5 +1,3 @@
-import roomDefence from "Rooms/rooms.defence";
-
 /**
  * A little description of this function
  * @param {Creep} creep

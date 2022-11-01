@@ -103,6 +103,13 @@ function findLocked(creep) {
             if(!creep.memory.locked) {
                 let target = findLocked(creep);
 
+                if(!target && storage && storage.store[RESOURCE_ENERGY] > 2000) {
+                    if(creep.roadCheck()) {
+                        let roadlessLocation = creep.roadlessLocation(creep.pos);
+                        creep.moveTo(roadlessLocation);
+                    }
+                }
+
                 if(!target) {
                     if(spawn) {
                         if(creep.pos.isNearTo(spawn)) {

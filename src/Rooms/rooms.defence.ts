@@ -10,7 +10,7 @@ function findLocked(room) {
 
     let maxRepairTower;
     if(room.controller.level < 5) {
-        maxRepairTower = 6000;
+        maxRepairTower = 11000;
     }
     else {
         maxRepairTower = 50000;
@@ -84,7 +84,7 @@ function roomDefence(room) {
         let canWeShoot = 0;
         room.memory.towers.forEach(towerID => {
             let towerTest:any = Game.getObjectById(towerID);
-            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 200) {
+            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 100) {
                 canWeShoot ++;
             }
         });
@@ -162,7 +162,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 400) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 300) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }

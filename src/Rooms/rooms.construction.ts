@@ -5,7 +5,7 @@ function getNeighbours(tile) {
     const checkerboard =
     [[-2,-2], [2,-2], [2,0], [2,2],
     [-3,-3], [-1,-3], [1,-3], [3,-3], [-3,-1], [-3,1], [-3,3], [-1,3], [1,3], [3,3],
-    [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[4,-2],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
+    [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
     [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[-5,3],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],
     [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[6,-2],[-6,0],[6,0],[-6,2],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6]];
 
@@ -29,6 +29,7 @@ function pathBuilder(neighbors, structure, room) {
 
     let keepTheseRoads = [];
     // structure != STRUCTURE_ROAD
+
     if (structure == STRUCTURE_EXTENSION) {
         _.forEach(neighbors, function(block) {
 
@@ -44,6 +45,18 @@ function pathBuilder(neighbors, structure, room) {
                 return;
             }
             new RoomVisual(blockSpot.roomName).circle(blockSpot.x, blockSpot.y, {fill: 'transparent', radius: 0.25, stroke: '#FABFAB'});
+
+            if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_ROAD) {
+                if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
+                    constructionSitesPlaced ++;
+                    let result = Game.rooms[blockSpot.roomName].createConstructionSite(blockSpot.x, blockSpot.y, structure)
+                    if(result !== -8 && result !== -14) {
+                        lookForExistingStructures[0].destroy();
+                    }
+                    return;
+                }
+            }
+
             if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
                 buldingAlreadyHereCount ++;
                 return;
@@ -57,6 +70,12 @@ function pathBuilder(neighbors, structure, room) {
     }
     else {
         _.forEach(neighbors.path, function(block) {
+
+            if(structure == STRUCTURE_ROAD && Game.rooms[block.roomName] && Game.rooms[block.roomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
+                // console.log("roads should be built after everything else");
+                return;
+            }
+
             let lookForExistingConstructionSites = block.lookFor(LOOK_CONSTRUCTION_SITES);
             let lookForExistingStructures = block.lookFor(LOOK_STRUCTURES);
             let lookForTerrain = block.lookFor(LOOK_TERRAIN);
@@ -232,16 +251,11 @@ function construction(room) {
                     if(spawns.length < 2 && storage) {
                         let secondSpawnPosition = new RoomPosition(storage.pos.x, storage.pos.y - 2, room.name);
                         new RoomVisual(room.name).circle(secondSpawnPosition.x, secondSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
-                        let existingStructuresHere = secondSpawnPosition.lookFor(LOOK_STRUCTURES);
-                        if(existingStructuresHere.length != 0) {
-                            if(existingStructuresHere[0].structureType != STRUCTURE_SPAWN) {
-                                existingStructuresHere[0].destroy();
-                            }
-                        }
-                        else {
-                            secondSpawnPosition.createConstructionSite(STRUCTURE_SPAWN, randomWords({exactly:1,wordsPerString:3,join: '-'}));
-                        }
+                        let listOfSpawnPositions = [];
+                        listOfSpawnPositions.push(secondSpawnPosition);
 
+
+                        DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
                     }
                 }
 
@@ -283,20 +297,19 @@ function construction(room) {
             if(storage) {
                 let TowerLocations = [];
                 TowerLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y - 1, room.name));
-                TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y - 1, room.name));
-                TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 1, room.name));
-                TowerLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 2, room.name));
-                TowerLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 1, room.name));
-
-                for(let towerlocation of TowerLocations) {
-                    let lookForExistingStructures = towerlocation.lookFor(LOOK_STRUCTURES);
-                    if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].structureType != STRUCTURE_TOWER) {
-                        lookForExistingStructures[0].destroy();
-                    }
-                    else {
-                        room.createConstructionSite(towerlocation, STRUCTURE_TOWER);
-                    }
+                if(room.controller.level >= 5) {
+                    TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y - 1, room.name));
                 }
+                if(room.controller.level >= 7) {
+                    TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 1, room.name));
+                }
+                if(room.controller.level == 8) {
+                    TowerLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 2, room.name));
+                    TowerLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y - 2, room.name));
+                    TowerLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 1, room.name));
+                }
+
+                DestroyAndBuild(room, TowerLocations, STRUCTURE_TOWER);
             }
         }
 
@@ -313,29 +326,19 @@ function construction(room) {
                 if(storageLink == undefined) {
                     let storageLinkPosition = new RoomPosition(storage.pos.x-2, storage.pos.y, room.name);
                     new RoomVisual(room.name).circle(storageLinkPosition.x, storageLinkPosition.y, {fill: 'transparent', radius: .75, stroke: 'red'});
-                    let existingStructuresHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
-                    if(existingStructuresHere.length != 0) {
-                        if(existingStructuresHere[0].structureType != STRUCTURE_LINK) {
-                            existingStructuresHere[0].destroy();
-                        }
-                    }
-                    else {
-                        storageLinkPosition.createConstructionSite(STRUCTURE_LINK);
-                    }
+                    let positionsList = [];
+                    positionsList.push(storageLinkPosition);
+
+                    DestroyAndBuild(room, positionsList, STRUCTURE_LINK);
                 }
 
                 if(!room.terminal) {
                     let terminalPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y + 2, room.name);
+                    let positionsList = [];
+                    positionsList.push(terminalPosition);
                     new RoomVisual(room.name).circle(terminalPosition.x, terminalPosition.y, {fill: 'transparent', radius: .75, stroke: 'green'});
-                    let existingStructuresHere = terminalPosition.lookFor(LOOK_STRUCTURES);
-                    if(existingStructuresHere.length != 0) {
-                        if(existingStructuresHere[0].structureType != STRUCTURE_TERMINAL) {
-                            existingStructuresHere[0].destroy();
-                        }
-                    }
-                    else {
-                        terminalPosition.createConstructionSite(STRUCTURE_LINK);
-                    }
+
+                    DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
                 }
 
                 if(room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length < 3) {
@@ -345,16 +348,7 @@ function construction(room) {
                     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
                     LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name));
 
-                    for(let lablocation of LabLocations) {
-                        let lookForExistingStructures = lablocation.lookFor(LOOK_STRUCTURES);
-                        if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].structureType != STRUCTURE_LAB) {
-                            lookForExistingStructures[0].destroy();
-                        }
-                        else {
-                            room.createConstructionSite(lablocation, STRUCTURE_LAB);
-                        }
-                    }
-
+                    DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
                 }
 
 
@@ -453,6 +447,29 @@ function construction(room) {
     // }
 }
 
+
+function DestroyAndBuild(room, LocationsList, StructureType:string) {
+    for(let location of LocationsList) {
+        let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
+        if(lookForExistingStructures.length > 0) {
+            for(let existingstructure of lookForExistingStructures) {
+                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART) {
+                    existingstructure.destroy();
+                }
+            }
+        }
+        else {
+            if(StructureType == STRUCTURE_SPAWN) {
+                room.createConstructionSite(location, StructureType, randomWords({exactly:3,wordsPerString:1,join: '-'}));
+            }
+            else {
+                room.createConstructionSite(location, StructureType);
+            }
+        }
+    }
+}
+
+
 const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
     let currentRoom = Game.rooms[roomName];
     let existingStructures = currentRoom.find(FIND_STRUCTURES);
@@ -487,8 +504,9 @@ function Build_Remote_Roads(room) {
                 let source:any = Game.getObjectById(sourceId);
                 if(source != null && storage) {
                     let pathFromStorageToRemoteSource = PathFinder.search(storage.pos, {pos:source.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
-                    let containerSpot = pathFromStorageToRemoteSource.path.pop();
+                    let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
                     values.pathLength = pathFromStorageToRemoteSource.path.length;
+
                     Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
                     pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
                 }
