@@ -16,6 +16,7 @@ const run = function (creep) {
 
     if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK}).length < 3) {
         creep.harvestEnergy();
+        // could add if not on container, move to container nearby but cbf rn
         return;
     }
     else {

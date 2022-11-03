@@ -54,12 +54,15 @@ const run = function (creep) {
 				creep.moveTo(creep.room.controller, {reusePath:6, visualizePathStyle: {stroke: '#ffffff'}});
 			}
 			else {
-				if(creep.store.getFreeCapacity() == 0) {
+				if(creep.store.getFreeCapacity() <= 50) {
 					if(creep.roadCheck()) {
 						let roadlessLocation = creep.roadlessLocation(creep.room.controller);
 						creep.moveTo(roadlessLocation);
 					}
 				}
+                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                    creep.moveAwayIfNeedTo();
+                }
 			}
 		}
 		else {
@@ -101,12 +104,16 @@ const run = function (creep) {
 				creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
 			}
 			else {
-				if(creep.store.getFreeCapacity() == 0) {
+				if(creep.store.getFreeCapacity() <= 50) {
 					if(creep.roadCheck()) {
 						let roadlessLocation = creep.roadlessLocation(creep.room.controller);
 						creep.moveTo(roadlessLocation);
 					}
+
 				}
+                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                    creep.moveAwayIfNeedTo();
+                }
 			}
 		}
 		else {
@@ -135,6 +142,9 @@ const run = function (creep) {
 	if(creep.memory.suicide == true) {
 		creep.recycle();
 	}
+
+
+
 }
 
 

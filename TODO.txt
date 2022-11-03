@@ -11,7 +11,7 @@ build road to closest rampart in bunch
 perhaps make remote roads go lower costmatrix on roads
 
 ALMOST DONE:
-problem with recycling the parts for the rampart defender
+problem with recycling the boost parts for the rampart defender
 
 DISTANT FUTURE:
 attack code ~

@@ -668,7 +668,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     if((repairers < repairerTargetAmount && room.controller.level > 1) ||
-    (storage && storage.store[RESOURCE_ENERGY] > 750000 && repairers < repairerTargetAmount + 1) ||
+    (storage && storage.store[RESOURCE_ENERGY] > 850000 && repairers < repairerTargetAmount + 1) ||
     (room.memory.danger == true && repairers < 6 && room.controller.level > 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {
             let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -678,7 +678,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             else {
                 room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 20), newName, {memory: {role: 'repair', homeRoom: room.name}});
             }
-            console.log('Adding Repairer to Spawn List: ' + newName + "-" + room.name);
+            console.log('Adding Repairer to Spawn List: ' + newName);
         }
     }
 

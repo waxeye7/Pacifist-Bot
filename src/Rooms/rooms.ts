@@ -163,14 +163,14 @@ function establishMemory(room) {
             room.memory.has_hostile_structures = false;
         }
 
-        if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0 && isArmed) {
+        if(HostileCreeps.length > 0 && isArmed && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
             if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                 Memory.tasks.wipeRooms.killCreeps.push(room.name)
             }
             room.memory.has_hostile_creeps = true;
             room.memory.first_offence = Game.time;
         }
-        else if(HostileCreeps.length > 0 && room.controller && room.controller.level == 0) {
+        else if(HostileCreeps.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
             room.memory.has_safe_creeps = true;
         }
         else {

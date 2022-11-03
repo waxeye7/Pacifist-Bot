@@ -374,7 +374,7 @@ function construction(room) {
             let sources = room.find(FIND_SOURCES);
 
             sources.forEach(source => {
-                let sourceLink = source.pos.findInRange(links, 4)[0];
+                let sourceLink = source.pos.findInRange(links, 3)[0];
                 if(sourceLink == undefined) {
                     let open = source.pos.getOpenPositionsIgnoreCreeps();
                     findTwoOpenSpotsForLink(open)

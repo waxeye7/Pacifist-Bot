@@ -91,9 +91,9 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
-        else if(storage.store[RESOURCE_ENERGY] < 1000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
+        else if(storage.store[RESOURCE_ENERGY] < 500 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
             if(Game.time % 10 == 0) {
-                console.log("Container Storage requires 1000 energy to withdraw. Try again later.", this.room.name)
+                console.log("Container Storage requires 500 energy to withdraw. Try again later.", this.room.name)
             }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;

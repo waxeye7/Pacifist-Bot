@@ -3,6 +3,8 @@
  * @param {Creep} creep
  **/
 
+import { filter } from "lodash";
+
 function findLocked(creep) {
 
     if(creep.room.memory.danger) {
@@ -102,13 +104,92 @@ function findLocked(creep) {
 
     if(creep.memory.repairing) {
         let repairTarget:any = Game.getObjectById(creep.memory.locked);
+//  && creep.pos.getRangeTo(creep.pos.findClosestByRange(creep.room.find(FIND_HOSTILE_CREEPS))) <= 5
+        if(repairTarget && creep.room.memory.danger && creep.pos.getRangeTo(repairTarget) < 3) {
+            let fleeOutOfFire = PathFinder.search(
+                creep.pos, {pos:repairTarget.pos, range:3}, {flee: true})
 
-        // if(creep.hits != creep.hitsMax) {
-        //     let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-        //     if(HostileCreeps.length) {
-        //         creep.pos.findClosestByRange(HostileCreeps);
-        //     }
-        // }
+                let pos = fleeOutOfFire.path[0];
+                creep.move(creep.pos.getDirectionTo(pos));
+                creep.repair(repairTarget)
+                return;
+            }
+
+        if(repairTarget && creep.room.memory.danger && creep.pos.getRangeTo(repairTarget) <= 5) {
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_RAMPART);}});
+            let rampartsInTwoOrLessRange = creep.pos.findInRange(rampartsInRoom, 2);
+
+            if(rampartsInTwoOrLessRange.length) {
+                let fleeOutOfFire = PathFinder.search(
+                    creep.pos, {pos:rampartsInTwoOrLessRange[0].pos, range:3}, {flee: true, roomCallback: function(roomName){
+
+                        let costs = new PathFinder.CostMatrix;
+                        repairTarget.pos.x
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x+1, rampartsInTwoOrLessRange[0].pos.y, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y-1, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y+1, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y-1, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y+1, 3);
+                        costs.set(rampartsInTwoOrLessRange[0].pos.x+1, rampartsInTwoOrLessRange[0].pos.y-1, 3);
+
+                        costs.set(repairTarget.pos.x, repairTarget.pos.y, 3);
+                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y, 3);
+                        costs.set(repairTarget.pos.x+1, repairTarget.pos.y, 3);
+                        costs.set(repairTarget.pos.x, repairTarget.pos.y-1, 3);
+                        costs.set(repairTarget.pos.x, repairTarget.pos.y+1, 3);
+                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y-1, 3);
+                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y+1, 3);
+                        costs.set(repairTarget.pos.x+1, repairTarget.pos.y-1, 3);
+
+
+                        if(storage) {
+                            if(storage.pos.x > creep.pos.x) {
+                                costs.set(creep.pos.x+1, creep.pos.y, 3);
+                                costs.set(creep.pos.x+1, creep.pos.y+1, 2);
+                                costs.set(creep.pos.x+1, creep.pos.y-1, 2);
+                            }
+                            else if(storage.pos.x < creep.pos.x) {
+                                costs.set(creep.pos.x-1, creep.pos.y, 3);
+                                costs.set(creep.pos.x-1, creep.pos.y+1, 2);
+                                costs.set(creep.pos.x-1, creep.pos.y-1, 2);
+                            }
+
+                            if(storage.pos.y > creep.pos.y) {
+                                costs.set(creep.pos.x, creep.pos.y+1, 3);
+                                costs.set(creep.pos.x-1, creep.pos.y+1, 2);
+                                costs.set(creep.pos.x+1, creep.pos.y+1, 2);
+                            }
+                            else if(storage.pos.y < creep.pos.y) {
+                                costs.set(creep.pos.x, creep.pos.y-1, 3);
+                                costs.set(creep.pos.x-1, creep.pos.y-1, 2);
+                                costs.set(creep.pos.x+1, creep.pos.y-1, 2);
+                            }
+
+                            if(storage.pos.x > creep.pos.x && storage.pos.y > creep.pos.y) {
+                                costs.set(creep.pos.x+1, creep.pos.y+1, 3);
+                            }
+                            else if(storage.pos.x < creep.pos.x && storage.pos.y > creep.pos.y) {
+                                costs.set(creep.pos.x-1, creep.pos.y+1, 3);
+                            }
+                            else if(storage.pos.x > creep.pos.x && storage.pos.y < creep.pos.y) {
+                                costs.set(creep.pos.x+1, creep.pos.y-1, 3);
+                            }
+                            else if(storage.pos.x < creep.pos.x && storage.pos.y < creep.pos.y) {
+                                costs.set(creep.pos.x-1, creep.pos.y-1, 3);
+                            }
+                        }
+                        return costs;
+                    }});
+
+                    let pos = fleeOutOfFire.path[0];
+                    creep.move(creep.pos.getDirectionTo(pos));
+                    creep.repair(repairTarget)
+                    return;
+            }
+        }
+
         // flee to away to realign repair range 3 away so cant be hit by ranged attackers
 
         if(!repairTarget) {
@@ -189,7 +270,6 @@ function findLocked(creep) {
 	if(creep.memory.suicide == true) {
 		creep.recycle();
 	}
-
     // console.log('Repair Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
