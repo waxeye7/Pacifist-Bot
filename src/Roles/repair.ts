@@ -52,12 +52,46 @@ function findLocked(creep) {
     if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
     }
+
+    if(creep.room.controller && creep.room.controller.level >= 6 && creep.room.memory.labs && creep.room.memory.labs.length >= 3 &&
+        creep.ticksToLive >= 1480 && creep.body[creep.body.length-3].boost == undefined) {
+        let outputLab:any = Game.getObjectById(creep.room.memory.labs.outputLab);
+        let boostLab;
+        if(creep.room.memory.labs.boostLab) {
+            boostLab = Game.getObjectById(creep.room.memory.labs.boostLab);
+        }
+        if(outputLab && (outputLab.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 30 || outputLab.store[RESOURCE_LEMERGIUM_ACID] >= 30 || outputLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30)) {
+            if(creep.pos.isNearTo(outputLab)) {
+                outputLab.boostCreep(creep);
+            }
+            else {
+                creep.moveTo(outputLab);
+            }
+            return;
+        }
+        else if(boostLab && (boostLab.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 30 || boostLab.store[RESOURCE_LEMERGIUM_ACID] >= 30 || boostLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30)) {
+            if(creep.pos.isNearTo(boostLab)) {
+                boostLab.boostCreep(creep);
+            }
+            else {
+                creep.moveTo(boostLab);
+            }
+            return;
+        }
+    }
+
     // if(creep.memory.targetRoom) {
 
     // }
     // const start = Game.cpu.getUsed()
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
+    if(creep.room.controller.level == 4 && !storage) {
+        creep.memory.role = "builder";
+        creep.memory.locked = false;
+    }
+
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
@@ -68,6 +102,14 @@ function findLocked(creep) {
 
     if(creep.memory.repairing) {
         let repairTarget:any = Game.getObjectById(creep.memory.locked);
+
+        // if(creep.hits != creep.hitsMax) {
+        //     let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+        //     if(HostileCreeps.length) {
+        //         creep.pos.findClosestByRange(HostileCreeps);
+        //     }
+        // }
+        // flee to away to realign repair range 3 away so cant be hit by ranged attackers
 
         if(!repairTarget) {
             creep.memory.locked = findLocked(creep);

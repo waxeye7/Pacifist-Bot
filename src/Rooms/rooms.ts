@@ -1,7 +1,3 @@
-// let roomDefence = require('./rooms.defence');
-// let spawning = require('./rooms.spawning');
-// let construction = require('./rooms.construction');
-// let market = require('./rooms.market');
 import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
 import construction, { Build_Remote_Roads } from "./rooms.construction";
@@ -10,12 +6,6 @@ import labs from "./rooms.labs";
 
 function rooms() {
     const start = Game.cpu.getUsed()
-
-    if(Game.time % 818 == 0) {
-        _.forEach(Game.rooms, function(everyRoom) {
-            everyRoom.memory.keepTheseRoads = [];
-        });
-    }
 
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
@@ -28,6 +18,22 @@ function rooms() {
         // if(room.controller.level == 0) {
         //     delete room.memory;
         // }
+
+        let roomsIController = 0;
+        if (room && room.controller && room.controller.my) {
+            roomsIController += 1;
+        }
+
+        if(Game.time % 300 == 0) {
+            if(Game.gcl.level > roomsIController) {
+                Memory.CanClaimRemote = true;
+            }
+            else {
+                Memory.CanClaimRemote = false;
+            }
+        }
+
+
 
         if (room && room.controller && room.controller.my) {
 
@@ -42,7 +48,7 @@ function rooms() {
                 const start = Game.cpu.getUsed()
                 market(room);
                 console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
-                if(room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LAB}).length >= 3) {
+                if(room.memory.labs && room.memory.labs.length >= 3 && room.controller.level >= 6) {
                     labs(room);
                 }
             }
@@ -54,14 +60,23 @@ function rooms() {
             }
 
 
+            if(Game.time % 818 == 817) {
+                _.forEach(Game.rooms, function(everyRoom) {
+                    if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
+                        everyRoom.memory.keepTheseRoads = [];
+                    }
+                });
+            }
+
             if(Game.time % 818 == 0) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 Build_Remote_Roads(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
-
         }
+
+
 
         // const establishMemoryTime = Game.cpu.getUsed()
         establishMemory(room);
@@ -137,7 +152,7 @@ function establishMemory(room) {
         }
 
 
-        if (HostileStructures.length > 0 && room.controller && room.controller.level == 0) {
+        if (HostileStructures.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
             if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
                 Memory.tasks.wipeRooms.destroyStructures.push(room.name)
             }

@@ -4,6 +4,14 @@
  **/
 
  function findLocked(creep) {
+    let towers1 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] <= 250)});
+    if(towers1.length > 0) {
+        let closestTower = creep.pos.findClosestByRange(towers1);
+        creep.memory.locked = closestTower.id;
+        return closestTower;
+    }
+
+
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
@@ -35,29 +43,15 @@
     }
 
 
-    if(creep.room.memory.labs && creep.room.memory.labs.length == 3) {
-        let labIDS = creep.room.memory.labs;
-
-        let ThreeLabs = []
-
-        labIDS.forEach(lab => {
-            ThreeLabs.push(Game.getObjectById(lab));
-        });
-
-
-        for(let lab of ThreeLabs) {
-            if(lab.store[RESOURCE_ENERGY] <= 1900) {
+    if(creep.room.memory.labs && creep.room.memory.labs.length >= 3) {
+        let labs = creep.room.memory.labs;
+        for(let labID of labs) {
+            let lab:any = Game.getObjectById(labID);
+            if(lab && lab.store[RESOURCE_ENERGY] <= creep.memory.MaxStorage) {
                 creep.memory.locked = lab.id;
                 return lab;
             }
         }
-
-        // let resultLab = ThreeLabs[0];
-        // let firstLab = ThreeLabs[1];
-        // let secondLab = ThreeLabs[2];
-
-
-
 
     }
 }
@@ -91,6 +85,11 @@
         creep.memory.full = false;
         creep.memory.locked = false;
     }
+
+    if(!creep.memory.full && Game.time % 2 == 0 && creep.roadCheck()) {
+        creep.moveAwayIfNeedTo();
+    }
+
     if(creep.memory.full) {
         let target;
         target = Game.getObjectById(creep.memory.locked);
@@ -162,6 +161,12 @@
             }
         }
     }
+	if(creep.ticksToLive <= 5 && _.keys(creep.store).length == 0) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
 
 }
 

@@ -28,15 +28,14 @@ function findLocked(room) {
     let allowedBuildingsToRepair = [];
 
     _.forEach(buildingsToRepair, function(building) {
-        if(room.controller.level <= 4 && storage) {
-            allowedBuildingsToRepair.push(storage);
+        if(building.structureType == STRUCTURE_CONTAINER && room.controller.level < 6) {
+            allowedBuildingsToRepair.push(building);
         }
-
-        if(bin) {
+        else if(bin && bin.id == building.id) {
             allowedBuildingsToRepair.push(bin);
         }
 
-        if(building.structureType == STRUCTURE_ROAD || building.structureType == STRUCTURE_CONTAINER) {
+        if(building.structureType == STRUCTURE_ROAD) {
             if(_.includes(room.memory.keepTheseRoads, building.id, 0)) {
                 allowedBuildingsToRepair.push(building);
             }
@@ -84,7 +83,7 @@ function roomDefence(room) {
         let canWeShoot = 0;
         room.memory.towers.forEach(towerID => {
             let towerTest:any = Game.getObjectById(towerID);
-            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 100) {
+            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 400) {
                 canWeShoot ++;
             }
         });
@@ -162,7 +161,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 300) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }

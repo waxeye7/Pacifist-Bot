@@ -60,7 +60,7 @@ function findLockedBuild(creep) {
  const run = function (creep) {
     if(creep.memory.suicide == true) {
 
-        if(Game.time % 5 == 0 && creep.room.name != creep.memory.homeRoom && creep.room.find(FIND_CONSTRUCTION_SITES).length > 0) {
+        if(Game.time % 7 == 0 && creep.room.name != creep.memory.homeRoom && creep.room.find(FIND_CONSTRUCTION_SITES).length > 0) {
             creep.memory.targetRoom = creep.room.name;
             creep.memory.suicide = false;
             return;
@@ -71,14 +71,14 @@ function findLockedBuild(creep) {
     }
 
 
-    let fleeStatus = creep.fleeHomeIfInDanger();
-    if(fleeStatus == true) {
-        return;
-    }
-    else if(fleeStatus == "in position") {
-        creep.memory.suicide = true;
-        return;
-    }
+    // let fleeStatus = creep.fleeHomeIfInDanger();
+    // if(fleeStatus == true) {
+    //     return;
+    // }
+    // else if(fleeStatus == "in position") {
+    //     creep.memory.suicide = true;
+    //     return;
+    // }
 
     if(!creep.memory.working && creep.store.getFreeCapacity() == 0) {
         creep.memory.working = true;
@@ -187,7 +187,7 @@ function findLockedBuild(creep) {
             //     creep.memory.targetRoom = creep.room.name;
             // }
 
-            return creep.moveToRoom(creep.memory.targetRoom, 25, 25, true);
+            return creep.moveToRoom(creep.memory.targetRoom, 25, 25, false, 5, 17);
         }
         creep.acquireEnergyWithContainersAndOrDroppedEnergy();
     }

@@ -38,30 +38,14 @@ const run = function (creep) {
         }
 
         if(enemyCreeps.length > 0) {
-            let closestEnemyCreepToTower = null;
-            if(creep.room.controller.my && creep.room.controller.level >= 4) {
-                let towerTest:any = Game.getObjectById(creep.room.memory.towers[0]);
-                closestEnemyCreepToTower = towerTest.pos.findClosestByRange(enemyCreeps);
-            }
+            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
-            if(closestEnemyCreepToTower != null && creep.pos.isNearTo(closestEnemyCreepToTower)) {
-                creep.attack(closestEnemyCreepToTower);
+            if(creep.attack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(closestEnemyCreep);
                 return;
             }
-
-            let closestEnemyCreep = creep.pos.findClosestByPath(enemyCreeps);
-            if((creep.pos.findPathTo(closestEnemyCreep)).length <= 51) {
-                if(creep.pos.isNearTo(closestEnemyCreep)) {
-                    creep.attack(closestEnemyCreep);
-                }
-                else {
-                    creep.moveTo(closestEnemyCreep);
-                }
-
-                if(creep.attack(closestEnemyCreep) == 0) {
-                    creep.moveTo(closestEnemyCreep);
-                    return;
-                }
+            if(creep.attack(closestEnemyCreep) == 0) {
+                creep.moveTo(closestEnemyCreep);
                 return;
             }
         }

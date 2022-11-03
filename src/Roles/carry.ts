@@ -44,14 +44,14 @@ function findLocked(creep) {
     }
 
 
-    let fleeStatus = creep.fleeHomeIfInDanger();
-    if(fleeStatus == true) {
-        return;
-    }
-    else if(fleeStatus == "in position") {
-        creep.memory.suicide = true;
-        return;
-    }
+    // let fleeStatus = creep.fleeHomeIfInDanger();
+    // if(fleeStatus == true) {
+    //     return;
+    // }
+    // else if(fleeStatus == "in position") {
+    //     creep.memory.suicide = true;
+    //     return;
+    // }
 
     // && creep.room.name != creep.memory.homeRoom add maybe to make creep only switch if in room idkidk
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
@@ -112,7 +112,7 @@ function findLocked(creep) {
 
                 if(!target) {
                     if(spawn) {
-                        if(creep.pos.isNearTo(spawn)) {
+                        if(creep.pos.isNearTo(spawn) && creep.room.controller.level > 1) {
                             creep.drop(RESOURCE_ENERGY);
                         }
                         else {
@@ -247,9 +247,10 @@ function findLocked(creep) {
         }
     }
 
-	if(creep.ticksToLive <= 30 && !creep.memory.full) {
+	if(creep.ticksToLive <= 30 && !creep.memory.full && creep.memory.targetRoom === creep.room.name) {
 		creep.memory.suicide = true;
 	}
+    else if(creep.ticksToLive <= 75 && !creep.memory.full && creep.memory.targetRoom !== creep.room.name)
 	if(creep.memory.suicide == true) {
 		creep.recycle();
 	}

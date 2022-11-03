@@ -3,6 +3,11 @@ const run = function (creep) {
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
+    if(creep.room.controller.level == 4 && !storage) {
+        creep.memory.role = "builder";
+        creep.memory.locked = false;
+    }
+
 	// if(creep.fatigue > 0) {
 	// 	console.log('hi')
 	// 	creep.room.createConstructionSite(creep.pos, STRUCTURE_ROAD);

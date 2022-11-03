@@ -85,12 +85,16 @@ Creep.prototype.findClosestLink = function() {
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
     if(storage) {
         if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_STORAGE) {
-            console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
+            if(Game.time % 10 == 1) {
+                console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
+            }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
         else if(storage.store[RESOURCE_ENERGY] < 1000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
-            console.log("Container Storage requires 1000 energy to withdraw. Try again later.", this.room.name)
+            if(Game.time % 10 == 0) {
+                console.log("Container Storage requires 1000 energy to withdraw. Try again later.", this.room.name)
+            }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
@@ -110,7 +114,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 }
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
-    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:10, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:6, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -413,10 +417,23 @@ Creep.prototype.recycle = function recycle() {
         let bin:any = Game.getObjectById(this.room.memory.bin)
         if(bin && bin.store[RESOURCE_ENERGY] < 2000) {
             if(this.pos.x == bin.pos.x && this.pos.y == bin.pos.y) {
-                this.suicide();
+                let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
+                // creepBlock.lookFor(LOOK_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD})
+                let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
+                if(StructuresOnSpawnLocation.length > 0) {
+                    for(let building of StructuresOnSpawnLocation) {
+                        if(building.structureType == STRUCTURE_SPAWN) {
+                            let spawn:any = building;
+                            spawn.recycleCreep(this)
+                        }
+                    }
+                }
+                else {
+                    this.suicide();
+                }
             }
             else {
-                this.moveTo(bin, {reusePath:10, ignoreCreeps:false});
+                this.moveTo(bin, {reusePath:5, ignoreCreeps:false});
             }
         }
         else if(this.room.memory.storage) {
@@ -426,7 +443,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(storage, {reusePath:10, ignoreCreeps:false});
+                    this.moveTo(storage, {reusePath:5, ignoreCreeps:false});
                 }
             }
         }
@@ -437,7 +454,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(spawn, {reusePath:10, ignoreCreeps:false});
+                    this.moveTo(spawn, {reusePath:5, ignoreCreeps:false});
                 }
             }
         }

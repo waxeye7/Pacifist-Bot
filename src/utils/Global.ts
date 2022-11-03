@@ -9,6 +9,7 @@ declare global {
     */
     interface Memory {
         CPU:any;
+        CanClaimRemote:boolean;
         DistressSignals:any;
         tasks: any;
         uuid: number;
@@ -51,6 +52,7 @@ declare global {
         building: boolean;
         upgrading: boolean;
         full: boolean;
+        claim: boolean;
         locked: string | boolean;
         homeRoom: string;
         targetRoom: string;
