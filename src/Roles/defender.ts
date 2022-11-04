@@ -1,4 +1,5 @@
 const run = function (creep) {
+    creep.Speak();
     if(creep.room.memory.danger) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 

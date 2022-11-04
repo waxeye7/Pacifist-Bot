@@ -1,5 +1,6 @@
 // import {Creep} from "../utils/Types";
 interface Creep {
+    Speak: () => void;
     findSource: () => object;
     findSpawn:() => object | void;
     findStorage:() => object | void;
@@ -16,6 +17,93 @@ interface Creep {
     recycle: () => void;
 }
 // CREEP PROTOTYPES
+Creep.prototype.Speak = function Speak() {
+    if(this.saying == "AB42") {
+        this.say("BBB4", true);
+        return;
+    }
+    else if(this.saying == "BBB4") {
+        this.say("33472A", true);
+        return;
+    }
+    else if(this.saying == "BB14") {
+        this.say("BBB4", true);
+        return;
+    }
+    else if(this.saying == "My") {
+        this.say("Time", true);
+        return;
+    }
+    else if(this.saying == "Time") {
+        this.say("Has", true);
+        return;
+    }
+    else if(this.saying == "Has") {
+        this.say("Come", true);
+        return;
+    }
+    else if(this.saying == "Come") {
+        this.say("I", true);
+        return;
+    }
+    else if(this.saying == "I") {
+        this.say("Must", true);
+        return;
+    }
+    else if(this.saying == "Must") {
+        this.say("Suicide", true);
+        return;
+    }
+    else if(this.saying == "Knock") {
+        this.say("knock", true);
+    }
+    else if(this.saying == "knock") {
+        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
+        closest.say("Who's", true);
+    }
+    else if(this.saying == "Who's") {
+        this.say("there?", true);
+    }
+    else if(this.saying == "there?") {
+        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
+        closest.say("Hatch", true);
+    }
+    else if(this.saying == "Hatch") {
+        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
+        closest.say("hatch who?", true);
+    }
+    else if(this.saying == "hatch who?") {
+        let closest = this.pos.findClosestByRange(this.room.find(FIND_MY_CREEPS, {filter: creep => creep.pos.getRangeTo(this) > 0}));
+        closest.say("Bless you!", true);
+    }
+    else if(this.saying == "I Could") {
+        this.say("Use A", true);
+    }
+    else if(this.saying == "Use A") {
+        this.say("Cigarette", true);
+    }
+
+    let randomNum = Math.floor(Math.random() * 4004);
+
+    if(randomNum == 0) {
+        this.say("AB42", true);
+    }
+    else if(randomNum == 1) {
+        this.say("BB14", true);
+    }
+    else if(randomNum == 2 && this.memory.suicide) {
+        this.say("My", true);
+    }
+    else if(randomNum == 3 && this.room.find(FIND_MY_CREEPS).length > 1) {
+        this.say("Knock", true);
+    }
+    else if(randomNum == 4 && (this.memory.role == "upgrader" || this.memory.role == "repair")) {
+        this.say("I Could", true);
+    }
+
+}
+
+
 Creep.prototype.findSource = function() {
     let source;
 
@@ -173,7 +261,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
 
 
-    let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i) < 5 && i.amount > this.store.getFreeCapacity() && i.resourceType == RESOURCE_ENERGY});
+    let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.findPathTo(i.pos).length < 6 && i.amount > this.store.getFreeCapacity() + this.pos.findPathTo(i.pos).length + 1 && i.resourceType == RESOURCE_ENERGY});
 
     if(dropped_resources.length > 0) {
         let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
@@ -183,10 +271,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(closestDroppedEnergy, {reusePath:20, ignoreRoads:true, swampCost:1});
+                this.moveTo(closestDroppedEnergy, {reusePath:7, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(closestDroppedEnergy, {reusePath:20});
+                this.moveTo(closestDroppedEnergy, {reusePath:7});
             }
         }
         return;
@@ -194,7 +282,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
 
 
     if(container) {
-        if(container.store[RESOURCE_ENERGY] < this.store.getFreeCapacity()) {
+        if(container.store[RESOURCE_ENERGY] <= this.store.getFreeCapacity()) {
             container = room.findContainers(this.store.getFreeCapacity());
         }
     }
@@ -342,7 +430,7 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
             if(lookTerrain[0] != "wall") {
                 let lookForCreeps = positioninroom.lookFor(LOOK_CREEPS);
                 let lookForStructures = positioninroom.lookFor(LOOK_STRUCTURES);
-                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager") {
+                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader") {
                     creep_nearby = true;
                 }
                 if(lookForCreeps.length == 0 && lookForStructures.length == 0) {

@@ -133,6 +133,8 @@ function labs(room) {
     let pair4Lab1;
     let pair4Lab2;
 
+    let labPairs = [];
+
     if(room.memory.labs.outputLab) {
         outputLab = Game.getObjectById(room.memory.labs.outputLab)
     }
@@ -164,12 +166,180 @@ function labs(room) {
         pair4Lab2 = Game.getObjectById(room.memory.labs.pair4Lab2)
     }
 
-    let lab1Input = RESOURCE_LEMERGIUM;
-    let lab2Input = RESOURCE_HYDROGEN;
+
+    if(pair1Lab1 && pair1Lab2) {
+        labPairs.push([pair1Lab1, pair1Lab2])
+    }
+    if(pair2Lab1 && pair2Lab2) {
+        labPairs.push([pair2Lab1, pair2Lab2])
+    }
+    if(pair3Lab1 && pair3Lab2) {
+        labPairs.push([pair3Lab1, pair3Lab2])
+    }
+    if(pair4Lab1 && pair4Lab2) {
+        labPairs.push([pair4Lab1, pair4Lab2])
+    }
+
+    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+
+    if(!room.memory.labs.status) {
+        room.memory.labs.status = {};
+    }
+    if(!room.memory.labs.status.currentOutput) {
+        room.memory.labs.status.currentOutput = false;
+    }
+    if(!room.memory.labs.status.lab1Input) {
+        room.memory.labs.status.lab1Input = false;
+    }
+    if(!room.memory.labs.status.lab2Input) {
+        room.memory.labs.status.lab2Input = false;
+    }
+
+
+    let lab1Input:MineralConstant | MineralCompoundConstant | any = RESOURCE_LEMERGIUM;
+    let lab2Input:MineralConstant | MineralCompoundConstant | any = RESOURCE_HYDROGEN;
+    let currentOutput:MineralConstant | MineralCompoundConstant | any = RESOURCE_LEMERGIUM_HYDRIDE;
+
+    if(storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] > 5000) {
+        lab1Input = RESOURCE_UTRIUM;
+        lab2Input = RESOURCE_HYDROGEN;
+        currentOutput = RESOURCE_UTRIUM_HYDRIDE;
+    }
+    else if(storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] > 5000 && storage.store[RESOURCE_UTRIUM_HYDRIDE] > 5000) {
+        lab1Input = RESOURCE_OXYGEN;
+        lab2Input = RESOURCE_HYDROGEN;
+        currentOutput = RESOURCE_HYDROXIDE;
+    }
+    else if(storage && storage.store[RESOURCE_LEMERGIUM_HYDRIDE] > 1000 && storage.store[RESOURCE_HYDROXIDE] > 1000) {
+        lab1Input = RESOURCE_LEMERGIUM_HYDRIDE;
+        lab2Input = RESOURCE_HYDROXIDE;
+        currentOutput = RESOURCE_LEMERGIUM_ACID;
+    }
+
+
+    if(room.memory.labs.status.lab1Input != lab1Input) {
+        room.memory.labs.status.lab1Input = lab1Input;
+    }
+    if(room.memory.labs.status.lab2Input != lab2Input) {
+        room.memory.labs.status.lab2Input = lab2Input;
+    }
+    if(room.memory.labs.status.currentOutput != currentOutput) {
+        room.memory.labs.status.currentOutput = currentOutput;
+    }
+
+
+
+    if(lab1Input === RESOURCE_HYDROGEN && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_HYDROGEN && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_HYDROXIDE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM && lab2Input === RESOURCE_KEANIUM || lab2Input === RESOURCE_ZYNTHIUM && lab1Input === RESOURCE_KEANIUM) {
+        room.memory.labs.status.currentOutput = RESOURCE_ZYNTHIUM_KEANITE;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM && lab2Input === RESOURCE_LEMERGIUM || lab2Input === RESOURCE_UTRIUM && lab1Input === RESOURCE_LEMERGIUM) {
+        room.memory.labs.status.currentOutput = RESOURCE_UTRIUM_LEMERGITE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM_KEANITE && lab2Input === RESOURCE_UTRIUM_LEMERGITE || lab2Input === RESOURCE_ZYNTHIUM_KEANITE && lab1Input === RESOURCE_UTRIUM_LEMERGITE) {
+        room.memory.labs.status.currentOutput = RESOURCE_GHODIUM;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM && lab2Input === RESOURCE_HYDROGEN || lab2Input === RESOURCE_UTRIUM && lab1Input === RESOURCE_HYDROGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_UTRIUM_HYDRIDE;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_UTRIUM && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_UTRIUM_OXIDE;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM && lab2Input === RESOURCE_HYDROGEN || lab2Input === RESOURCE_KEANIUM && lab1Input === RESOURCE_HYDROGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_KEANIUM_HYDRIDE;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_KEANIUM && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_KEANIUM_OXIDE;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM && lab2Input === RESOURCE_HYDROGEN || lab2Input === RESOURCE_LEMERGIUM && lab1Input === RESOURCE_HYDROGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_LEMERGIUM_HYDRIDE;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_LEMERGIUM && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_LEMERGIUM_OXIDE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM && lab2Input === RESOURCE_HYDROGEN || lab2Input === RESOURCE_ZYNTHIUM && lab1Input === RESOURCE_HYDROGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_ZYNTHIUM_HYDRIDE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_ZYNTHIUM && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_ZYNTHIUM_OXIDE;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM && lab2Input === RESOURCE_HYDROGEN || lab2Input === RESOURCE_GHODIUM && lab1Input === RESOURCE_HYDROGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_GHODIUM_HYDRIDE;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM && lab2Input === RESOURCE_OXYGEN || lab2Input === RESOURCE_GHODIUM && lab1Input === RESOURCE_OXYGEN) {
+        room.memory.labs.status.currentOutput = RESOURCE_GHODIUM_OXIDE;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM_HYDRIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_UTRIUM_HYDRIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_UTRIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM_OXIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_UTRIUM_OXIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_UTRIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM_HYDRIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_KEANIUM_HYDRIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_KEANIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM_OXIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_KEANIUM_OXIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_KEANIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM_HYDRIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_LEMERGIUM_HYDRIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_LEMERGIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM_OXIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_LEMERGIUM_OXIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_LEMERGIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM_HYDRIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_ZYNTHIUM_HYDRIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_ZYNTHIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM_OXIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_ZYNTHIUM_OXIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_ZYNTHIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM_HYDRIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_GHODIUM_HYDRIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_GHODIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM_OXIDE && lab2Input === RESOURCE_HYDROXIDE || lab2Input === RESOURCE_GHODIUM_OXIDE && lab1Input === RESOURCE_HYDROXIDE) {
+        room.memory.labs.status.currentOutput = RESOURCE_GHODIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM_ACID && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_UTRIUM_ACID && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_UTRIUM_ALKALIDE && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_UTRIUM_ALKALIDE && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_UTRIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM_ACID && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_KEANIUM_ACID && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_KEANIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_KEANIUM_ALKALIDE && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_KEANIUM_ALKALIDE && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM_ACID && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_LEMERGIUM_ACID && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_LEMERGIUM_ALKALIDE && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_LEMERGIUM_ALKALIDE && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM_ACID && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_ZYNTHIUM_ACID && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_ZYNTHIUM_ALKALIDE && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_ZYNTHIUM_ALKALIDE && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM_ACID && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_GHODIUM_ACID && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_GHODIUM_ACID;
+    }
+    else if(lab1Input === RESOURCE_GHODIUM_ALKALIDE && lab2Input === RESOURCE_CATALYST || lab2Input === RESOURCE_GHODIUM_ALKALIDE && lab1Input === RESOURCE_CATALYST) {
+        room.memory.labs.status.currentOutput = RESOURCE_CATALYZED_GHODIUM_ALKALIDE;
+    }
+
+
+
 
     if(outputLab && outputLab.store.getFreeCapacity() != 0) {
-        if(pair1Lab1 && pair1Lab1.store[lab1Input] >= 5 && pair1Lab2 && pair1Lab2.store[lab2Input] >= 5) {
-            outputLab.runReaction(pair1Lab1, pair1Lab2);
+        for(let labPair of labPairs) {
+            if(labPair[0] && labPair[0].store[lab1Input] >= 5 && labPair[1] && labPair[1].store[lab2Input] >= 5) {
+                outputLab.runReaction(labPair[0], labPair[1]);
+            }
         }
     }
 

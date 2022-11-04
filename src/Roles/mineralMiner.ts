@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep) {
+    creep.Speak();
 
     if(!creep.memory.deposit) {
         let found_deposit = creep.room.find(FIND_MINERALS);

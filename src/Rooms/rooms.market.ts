@@ -53,7 +53,15 @@ function market(room):any {
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
             for(let resource of BaseResources) {
                 if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType) {
-                    let result = buy_resource(resource);
+                    let result = buy_resource(resource, 5);
+                    if(result == 0) {
+                        return;
+                    }
+                    result = buy_resource(resource, 10);
+                    if(result == 0) {
+                        return;
+                    }
+                    result = buy_resource(resource, 15);
                     if(result == 0) {
                         return;
                     }
@@ -61,8 +69,7 @@ function market(room):any {
             }
         }
 
-        function buy_resource(resource:ResourceConstant):any | void {
-            let OrderPrice = 10;
+        function buy_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
             let OrderAmount = 25;
             let OrderMaxEnergy = OrderAmount * 3;
             let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
@@ -154,7 +161,7 @@ function market(room):any {
 
 
 
-        if(Game.resources.pixel > 0 && room.terminal && Game.time % 100 == 0) {
+        if(Game.resources.pixel > 0 && room.terminal && Game.time % 1000 == 0) {
             let OrderPrice = 20000;
 
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: PIXEL});

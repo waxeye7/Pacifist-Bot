@@ -38,6 +38,8 @@ function findLocked(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
+    creep.Speak();
+
     if(creep.memory.suicide == true) {
         creep.recycle();
         return;

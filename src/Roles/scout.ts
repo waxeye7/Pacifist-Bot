@@ -4,6 +4,8 @@
  **/
 
  const run = function (creep) {
+    creep.Speak();
+
     if(creep.room.name == 'W7N8') {
         creep.moveTo(24,32);
     }

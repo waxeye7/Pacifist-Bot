@@ -58,6 +58,8 @@
 
 
  const run = function (creep) {
+    creep.Speak();
+
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;
 	}

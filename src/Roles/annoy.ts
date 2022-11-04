@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep:Creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
+    creep.Speak();
 
     if(creep.memory.targetRoom == creep.memory.homeRoom) {
         let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);

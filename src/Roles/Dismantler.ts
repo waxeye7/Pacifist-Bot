@@ -16,6 +16,8 @@
 
 
  const run = function (creep) {
+    creep.Speak();
+
     if(creep.memory.locked && creep.memory.locked != false) {
         let dismantleTarget = Game.getObjectById(creep.memory.locked);
         if(dismantleTarget == undefined) {

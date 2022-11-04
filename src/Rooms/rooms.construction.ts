@@ -1,14 +1,16 @@
 import randomWords from "random-words";
 
+let checkerboard =
+[[-2,-2], [2,-2], [2,0], [2,2],
+[-3,-3], [-1,-3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3], [3,3],
+[-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
+[-5,-5],[-5,3],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,1],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],
+[-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[-6,0],[-6,2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
+[-7,-7],[-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[7,-7],[-7,-5],[-7,-3],[-7,-1],[-7,1],[-7,3],[-7,5],[-7,7],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5]];
+
+
 function getNeighbours(tile) {
     // const deltas = [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1]]; not checkerboard
-    const checkerboard =
-    [[-2,-2], [2,-2], [2,0], [2,2],
-    [-3,-3], [-1,-3], [1,-3], [3,-3], [-3,-1], [-3,3], [1,3], [3,3],
-    [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
-    [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],
-    [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
-    [-7,-7],[-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[7,-7],[-7,-5],[-7,-3],[-7,-1],[-7,3],[-7,5],[-7,7],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5]];
 
     const negative_checkerboard =
     [[0,-1],[-1,0],[1,0],[0,1],
@@ -198,9 +200,122 @@ function construction(room) {
 
 
 
+
+
     if(room.controller.level >= 1 && room.memory.spawn) {
         let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
         let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+
+        if(room.controller.level >= 3) {
+            if(spawn) {
+                let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
+                if(spawnlocationlook.length == 1) {
+                    spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
+                }
+            }
+            if(storage) {
+                let storagelocationlook = storage.pos.lookFor(LOOK_STRUCTURES);
+                if(storagelocationlook.length == 1) {
+                    storage.pos.createConstructionSite(STRUCTURE_RAMPART);
+                }
+            }
+        }
+
+            // var index = array.indexOf(item);
+            // if (index !== -1) {
+            //   array.splice(index, 1);
+            // }
+
+
+
+            let LabLocations = [];
+            LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+
+            LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+
+            LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
+
+            if(room.controller.level >= 7) {
+                LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name));
+
+                LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name));
+
+                // boost lab don't remove from checkerboard because i never added it back in
+                LabLocations.push(new RoomPosition(storage.pos.x - 1, storage.pos.y + 3, room.name));
+            }
+            if(room.controller.level == 8) {
+                LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 2, room.name));
+
+                LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
+
+                LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
+
+                LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y - 1, room.name));
+            }
+
+            let newlocation = false;
+            for(let location of LabLocations) {
+                if(location.lookFor(LOOK_TERRAIN)[0] === TERRAIN_MASK_WALL && newlocation == false) {
+                    LabLocations = [];
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 4, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 6, storage.pos.y + 4, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name));
+
+                    if(room.controller.level >= 7) {
+                        LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 5, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 6, room.name));
+
+                        // boost lab don't remove from checkerboard because i never added it back in
+                        LabLocations.push(new RoomPosition(storage.pos.x - 1, storage.pos.y + 3, room.name));
+                    }
+                    if(room.controller.level == 8) {
+                        LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 5, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 2, storage.pos.y + 4, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 3, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 2, room.name));
+                    }
+                    newlocation = true;
+                }
+            }
+
+            if(newlocation == true) {
+                checkerboard = checkerboard.filter(item => item[0] !== 4 && item[1] !== 4);
+                checkerboard = checkerboard.filter(item => item[0] !== 6 && item[1] !== 4);
+                checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 3);
+                checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 5);
+                checkerboard = checkerboard.filter(item => item[0] !== 4 && item[1] !== 6);
+                checkerboard = checkerboard.filter(item => item[0] !== 3 && item[1] !== 5);
+                checkerboard = checkerboard.filter(item => item[0] !== 2 && item[1] !== 4);
+                checkerboard = checkerboard.filter(item => item[0] !== 3 && item[1] !== 3);
+                checkerboard = checkerboard.filter(item => item[0] !== 4 && item[1] !== 2);
+            }
+            else {
+                checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
+                checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
+                checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
+                checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 2);
+                checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 3);
+                checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 2);
+                checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
+                checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
+                checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== -1);
+            }
+
+            if(room.controller.level >= 6 && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
+
+                DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
+
+            }
+
+
+
 
         let binLocation;
         if(room.controller.level >= 5 && storage) {
@@ -265,6 +380,20 @@ function construction(room) {
 
                 if(lookForExistingStructures.length != 0) {
                     pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room);
+
+                    let aroundStorageList = [
+                        new RoomPosition(storage.pos.x + 1, storage.pos.y + 1, room.name),
+                        new RoomPosition(storage.pos.x + 1, storage.pos.y - 1, room.name),
+                        new RoomPosition(storage.pos.x -1, storage.pos.y + 1, room.name),
+                        new RoomPosition(storage.pos.x -1, storage.pos.y - 1, room.name),
+                        new RoomPosition(storage.pos.x + 1, storage.pos.y, room.name),
+                        new RoomPosition(storage.pos.x - 1, storage.pos.y, room.name),
+                        new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name),
+                        new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
+                    ]
+
+                    pathBuilder(aroundStorageList, STRUCTURE_ROAD, room, false);
+
                 }
             }
         }
@@ -403,24 +532,49 @@ function construction(room) {
                     DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
                 }
 
-                if(room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length < 3) {
+                if(room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length < 10) {
+
+                    // var index = array.indexOf(item);
+                    // if (index !== -1) {
+                    //   array.splice(index, 1);
+                    // }
 
                     let LabLocations = [];
                     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+                    checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
+
                     LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+                    checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
+
                     LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
+                    checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
 
                     if(room.controller.level >= 7) {
                         LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 2);
+
                         LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 3);
+
+                        // boost lab don't remove from checkerboard because i never added it back in
                         LabLocations.push(new RoomPosition(storage.pos.x - 1, storage.pos.y + 3, room.name));
                     }
                     if(room.controller.level == 8) {
                         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 2, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 2);
+
                         LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
+
                         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
+
                         LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y - 1, room.name));
+                        checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== -1);
                     }
+
+
+
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
                 }
 

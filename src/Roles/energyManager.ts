@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep) {
+    creep.Speak();
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
@@ -97,13 +98,13 @@
     }
 
     if(creep.room.memory.labs && creep.room.memory.labs.length >= 3) {
-        let outputLab = creep.room.memory.labs.outputLab;
-        let pair1Lab1 = creep.room.memory.labs.pair1Lab1;
-        let pair1Lab2 = creep.room.memory.labs.pair1Lab2;
+        let outputLab:any = Game.getObjectById(creep.room.memory.labs.outputLab);
+        let pair1Lab1:any = Game.getObjectById(creep.room.memory.labs.pair1Lab1);
+        let pair1Lab2:any = Game.getObjectById(creep.room.memory.labs.pair1Lab2);
 
-        let currentOutput = RESOURCE_LEMERGIUM_HYDRIDE;
-        let lab1Input = RESOURCE_LEMERGIUM;
-        let lab2Input = RESOURCE_HYDROGEN;
+        let currentOutput = creep.room.memory.labs.status.outputLab;
+        let lab1Input = creep.room.memory.labs.status.lab1Input;
+        let lab2Input = creep.room.memory.labs.status.lab2Input;
 
         if(outputLab && outputLab.mineralType != currentOutput) {
             if(creep.store[outputLab.mineralType] > 0) {

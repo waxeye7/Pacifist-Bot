@@ -4,6 +4,7 @@
  **/
 
  const run = function (creep) {
+    creep.Speak();
 
     if(creep.hits < creep.hitsMax) {
         creep.heal(creep);

@@ -7,6 +7,8 @@
 // }
 
 const run = function (creep) {
+    creep.Speak();
+
     creep.heal(creep);
     if(creep.notifyWhenAttacked == true) {
         creep.notifyWhenAttacked(false);

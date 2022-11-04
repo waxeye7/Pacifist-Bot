@@ -21,8 +21,17 @@ function rooms() {
 
         let roomsIController = 0;
         if (room && room.controller && room.controller.my) {
+            if(room.memory.danger) {
+                room.memory.danger_timer ++;
+            }
+            else if(!room.memory.danger && room.memory.danger_timer > 0) {
+                room.memory.danger_timer --;
+            }
+
             roomsIController += 1;
         }
+
+
 
         if(Game.time % 300 == 0) {
             if(Game.gcl.level > roomsIController) {

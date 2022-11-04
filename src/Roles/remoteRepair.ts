@@ -58,6 +58,8 @@ function findLockedBuild(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
+    creep.Speak();
+
     if(creep.memory.suicide == true) {
 
         if(Game.time % 7 == 0 && creep.room.name != creep.memory.homeRoom && creep.room.find(FIND_CONSTRUCTION_SITES).length > 0) {

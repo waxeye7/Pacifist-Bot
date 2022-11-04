@@ -1,10 +1,15 @@
 LAB:
 lab manager when there is room danger to reallocate labs to boosting
+loop through every lab pair
 
 DANGER:
 make variable that increases by 1 every tick that room memory danger is true and then fire off extra measures code if that's the case.
 
 BUILD:
+
+lookForAtArea(type, top, left, bottom, right, [asArray])
+Lab placement 5x5 windmill stamp requires 25 free space in 5x5 find a place for it!
+
 auto rampart perimeter placement
 RCL8!?
 build road to closest rampart in bunch

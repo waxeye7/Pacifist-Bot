@@ -18,6 +18,7 @@
 }
 
  const run = function (creep) {
+	creep.Speak();
 
 	// const start = Game.cpu.getUsed()
 

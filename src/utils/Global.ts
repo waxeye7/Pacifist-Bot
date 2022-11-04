@@ -37,6 +37,7 @@ declare global {
         storage: string;
         keepTheseRoads: Array<Id<_HasId>>;
         rampartToMan: Id<_HasId>;
+        danger_timer: number;
         first_offence: number;
         bin: Id<_HasId>;
         in_position: boolean;

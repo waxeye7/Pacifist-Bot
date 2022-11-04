@@ -2,9 +2,6 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-
-import { filter } from "lodash";
-
 function findLocked(creep) {
 
     if(creep.room.memory.danger) {
@@ -50,6 +47,7 @@ function findLocked(creep) {
 }
 
  const run = function (creep) {
+    creep.Speak();
     // console.log(_.keys(creep.store).length)
     if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
@@ -89,7 +87,7 @@ function findLocked(creep) {
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller.level == 4 && !storage) {
+    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 8) {
         creep.memory.role = "builder";
         creep.memory.locked = false;
     }

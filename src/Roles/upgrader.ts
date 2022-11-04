@@ -1,9 +1,9 @@
 const run = function (creep) {
-	sayThings(creep);
+	creep.Speak();
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller.level == 4 && !storage) {
+    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 8) {
         creep.memory.role = "builder";
         creep.memory.locked = false;
     }
@@ -60,7 +60,7 @@ const run = function (creep) {
 						creep.moveTo(roadlessLocation);
 					}
 				}
-                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                if(creep.store.getFreeCapacity() > 30 && creep.roadCheck()) {
                     creep.moveAwayIfNeedTo();
                 }
 			}
@@ -111,7 +111,7 @@ const run = function (creep) {
 					}
 
 				}
-                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                if(creep.store.getFreeCapacity() >= 30 && creep.roadCheck()) {
                     creep.moveAwayIfNeedTo();
                 }
 			}
@@ -148,30 +148,6 @@ const run = function (creep) {
 }
 
 
-function sayThings(creep:any) {
-	if(creep.ticksToLive % 300 == 177) {
-		creep.say("☮️", true);
-	}
-	else if(creep.ticksToLive % 300 == 176) {
-		creep.say("I", true);
-	}
-	else if(creep.ticksToLive % 300 == 175) {
-		creep.say("Could", true);
-	}
-	else if(creep.ticksToLive % 300 == 174) {
-		creep.say("Use", true);
-	}
-	else if(creep.ticksToLive % 300 == 173) {
-		creep.say("A", true);
-	}
-	else if(creep.ticksToLive % 300 == 172) {
-		creep.say("Cigarette", true);
-	}
-	else if(creep.ticksToLive % 300 == 171) {
-		creep.say("☮️", true);
-	}
-
-}
 
 
 const roleUpgrader = {
