@@ -1,3 +1,5 @@
+import { createPrivateKey } from "crypto";
+
 function findLocked(creep) {
     let terminal = creep.room.terminal;
     if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
@@ -72,7 +74,7 @@ function findLocked(creep) {
         }
 
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-            if(creep.memory.storage) {
+            if(Game.getObjectById(creep.memory.storage)) {
                 return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
             }
             else {
@@ -88,7 +90,12 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                if(storage && creep.room.controller && creep.room.controller.level >= 4) {
+                    creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                }
+                else {
+                    creep.moveTo(storage);
+                }
             }
         }
         else if(bin && bin.store.getFreeCapacity() != 0) {
@@ -98,7 +105,12 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.moveTo(bin, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                if(storage && bin && creep.room.controller && creep.room.controller.level >= 4) {
+                    creep.moveTo(bin, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                }
+                else {
+                    creep.moveTo(bin);
+                }
             }
         }
         else {
@@ -193,7 +205,12 @@ function findLocked(creep) {
                     }
                 }
                 else {
-                    creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                    if(storage && creep.room.controller && creep.room.controller.level >= 4) {
+                        creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
                 }
             }
             else {

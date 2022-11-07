@@ -16,7 +16,16 @@ const run = function (creep) {
     // }
 
     if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK}).length < 3) {
-        creep.harvestEnergy();
+        if(creep.roadCheck()) {
+            creep.moveAwayIfNeedTo();
+        }
+        let result = creep.harvestEnergy();
+        if(result == 0) {
+            let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 1 });
+            if(containerNearby[0].pos != creep.pos) {
+                creep.moveTo(containerNearby[0])
+            }
+        }
 
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();

@@ -161,7 +161,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }
@@ -206,8 +206,8 @@ function roomDefence(room) {
                             //     room.controller.activateSafeMode();
                             //     console.log("Activating Safe Mode")
                             // }
-
-                            if(enemyCreep.pos.getRangeTo(rampart) <= 3) {
+                            let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+                            if(enemyCreep.pos.getRangeTo(rampart) <= 11 || enemyCreep.pos.getRangeTo(storage) <= 8) {
                                 room.memory.danger = true;
                                 found = true;
                             }

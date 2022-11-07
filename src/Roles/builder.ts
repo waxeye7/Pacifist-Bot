@@ -6,15 +6,26 @@
  function findLocked(creep) {
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
+	if(buildingsToBuild.length > 0) {
+		let storageAndLinks = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE;});
+		if(storageAndLinks.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🎯", true);
+			storageAndLinks.sort((a,b) => b.progressTotal - a.progressTotal);
+			return storageAndLinks[0].id;
+		}
+	}
+
     if(buildingsToBuild.length > 0) {
 		creep.memory.suicide = false;
 		creep.say("🎯", true);
-		buildingsToBuild.sort((a,b) => b.progressTotal - a.progressTotal);
-        return buildingsToBuild[0].id;
+		let closestBuildingToBuild = creep.pos.findClosestByRange(buildingsToBuild);
+		// buildingsToBuild.sort((a,b) => b.progressTotal - a.progressTotal);
+        // return buildingsToBuild[0].id;
+		return closestBuildingToBuild.id;
+		// if building is link or storage build first.
     }
-	else {
-		creep.memory.suicide = true;
-	}
+	creep.memory.suicide = true;
 }
 
  const run = function (creep) {

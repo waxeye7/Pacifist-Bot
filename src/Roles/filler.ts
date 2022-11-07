@@ -43,11 +43,42 @@
     }
 
 
-    if(creep.room.memory.labs && creep.room.memory.labs.length >= 3) {
-        let labs = creep.room.memory.labs;
-        for(let labID of labs) {
-            let lab:any = Game.getObjectById(labID);
-            if(lab && lab.store[RESOURCE_ENERGY] <= creep.memory.MaxStorage) {
+    if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
+        let labs = [];
+
+        if(creep.room.memory.labs.outputLab) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.outputLab));
+        }
+        if(creep.room.memory.labs.pair1Lab1) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair1Lab1));
+        }
+        if(creep.room.memory.labs.pair1Lab2) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair1Lab2));
+        }
+        if(creep.room.memory.labs.boostLab) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.boostLab));
+        }
+        if(creep.room.memory.labs.pair2Lab1) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair2Lab1));
+        }
+        if(creep.room.memory.labs.pair2Lab2) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair2Lab2));
+        }
+        if(creep.room.memory.labs.pair3Lab1) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair3Lab1));
+        }
+        if(creep.room.memory.labs.pair3Lab2) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair3Lab2));
+        }
+        if(creep.room.memory.labs.pair4Lab1) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair4Lab1));
+        }
+        if(creep.room.memory.labs.pair4Lab2) {
+            labs.push(Game.getObjectById(creep.room.memory.labs.pair4Lab2));
+        }
+
+        for(let lab of labs) {
+            if(lab && lab.store[RESOURCE_ENERGY] <= 2000 - creep.memory.MaxStorage) {
                 creep.memory.locked = lab.id;
                 return lab;
             }
@@ -60,12 +91,17 @@
  const run = function (creep) {
     creep.Speak();
 
+
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {
 		creep.recycle();
 	}
+
+    if(creep.roadCheck()) {
+        creep.moveAwayIfNeedTo();
+    }
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
@@ -163,12 +199,6 @@
             }
         }
     }
-	if(creep.ticksToLive <= 5 && _.keys(creep.store).length == 0) {
-		creep.memory.suicide = true;
-	}
-	if(creep.memory.suicide == true) {
-		creep.recycle();
-	}
 
 }
 

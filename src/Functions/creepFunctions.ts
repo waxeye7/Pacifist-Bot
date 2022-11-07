@@ -7,6 +7,7 @@ interface Creep {
     findClosestLink:() => object | void;
     withdrawStorage:(storage:StructureStorage | StructureContainer) => number | void;
     moveToRoom:(roomName:string, travelTarget_x?:number, travelTarget_y?:number, ignoreRoadsBool?:boolean, swampCostValue?:number, rangeValue?:number) => void;
+    moveToRoomAvoidEnemyRooms:any;
     harvestEnergy:any;
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:() => boolean;
@@ -83,7 +84,7 @@ Creep.prototype.Speak = function Speak() {
         this.say("Cigarette", true);
     }
 
-    let randomNum = Math.floor(Math.random() * 4004);
+    let randomNum = Math.floor(Math.random() * 17004);
 
     if(randomNum == 0) {
         this.say("AB42", true);
@@ -203,6 +204,23 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
     this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:6, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+}
+
+Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms() {
+    let route:any = Game.map.findRoute(this.room.name, this.memory.targetRoom, {
+        routeCallback(roomName, fromRoomName) {
+            if(Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.level > 0 && !Game.rooms[roomName].controller.my) {
+                return Infinity;
+            }
+            return 1;
+    }});
+
+    if(route.length > 0) {
+        console.log('Now heading to room '+route[0].room);
+        const exit = this.pos.findClosestByRange(route[0].exit);
+        this.moveTo(exit, {reusePath:7});
+        return;
+    }
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
@@ -430,10 +448,10 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
             if(lookTerrain[0] != "wall") {
                 let lookForCreeps = positioninroom.lookFor(LOOK_CREEPS);
                 let lookForStructures = positioninroom.lookFor(LOOK_STRUCTURES);
-                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader") {
+                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "filler") {
                     creep_nearby = true;
                 }
-                if(lookForCreeps.length == 0 && lookForStructures.length == 0) {
+                if(lookForCreeps.length == 0 && lookForStructures.length == 0 || lookForStructures.length == 1 && lookForStructures[0].structureType == STRUCTURE_ROAD) {
                     empty_block = position;
                     if(creep_nearby != false) {
                         return empty_block;

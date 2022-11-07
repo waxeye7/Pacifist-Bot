@@ -3,7 +3,7 @@ const run = function (creep) {
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 8) {
+    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 9) {
         creep.memory.role = "builder";
         creep.memory.locked = false;
     }
@@ -70,7 +70,7 @@ const run = function (creep) {
 				creep.withdraw(theLink, RESOURCE_ENERGY);
 			}
 			else {
-				creep.moveTo(theLink, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+				creep.moveTo(theLink, {reusePath:7, visualizePathStyle: {stroke: '#ffffff'}});
 			}
 		}
 
@@ -87,10 +87,10 @@ const run = function (creep) {
 			creep.memory.upgrading = false;
 			if(storage == undefined) {
 				let source = Game.getObjectById(creep.memory.source) || creep.findSource();
-				creep.moveTo(source, {reusePath:20, visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.moveTo(source, {reusePath:7, visualizePathStyle: {stroke: '#ffaa00'}});
 			}
 			else {
-				creep.moveTo(storage, {reusePath:20, ignoreRoads:true, visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.moveTo(storage, {reusePath:7, ignoreRoads:true, visualizePathStyle: {stroke: '#ffaa00'}});
 			}
 		}
 
@@ -101,7 +101,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading) {
 			if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-				creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+				creep.moveTo(creep.room.controller, {reusePath:7, visualizePathStyle: {stroke: '#ffffff'}});
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {
@@ -120,13 +120,13 @@ const run = function (creep) {
 			if(storage == undefined) {
 				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 				if(result == 0) {
-					creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+					creep.moveTo(creep.room.controller, {reusePath:7, visualizePathStyle: {stroke: '#ffffff'}});
 				}
 			}
 			else {
 				let result = creep.withdrawStorage(storage);
 				if(result == 0) {
-					creep.moveTo(creep.room.controller, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+					creep.moveTo(creep.room.controller, {reusePath:7, visualizePathStyle: {stroke: '#ffffff'}});
 				}
 			}
 		}

@@ -137,13 +137,13 @@ const run = function (creep:Creep) {
             }
         }
     }
-    else if(creep.body.length > 40 && creep.body[24].boost != undefined) {
-        let boostLabID = creep.room.memory.labs[0]
-        let boostLab:any = Game.getObjectById(boostLabID);
-        if(boostLab) {
-            creep.moveTo(boostLab)
-        }
-    }
+    // else if(creep.body.length > 40 && creep.body[24].boost != undefined) {
+    //     let boostLabID = creep.room.memory.labs[0]
+    //     let boostLab:any = Game.getObjectById(boostLabID);
+    //     if(boostLab) {
+    //         creep.moveTo(boostLab)
+    //     }
+    // }
     // else if(Game.time % 500 == 0) {
     //     creep.memory.suicide = true;
     //     creep.room.memory.in_position = false;

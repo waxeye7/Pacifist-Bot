@@ -3,20 +3,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     if(creep.room.name != creep.memory.targetRoom) {
 
-        let route:any = Game.map.findRoute(creep.room.name, creep.memory.targetRoom, {
-            routeCallback(roomName, fromRoomName) {
-                if(Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.level > 0 && !Game.rooms[roomName].controller.my) {
-                    return Infinity;
-                }
-                return 1;
-        }});
-
-        if(route.length > 0) {
-            console.log('Now heading to room '+route[0].room);
-            const exit = creep.pos.findClosestByRange(route[0].exit);
-            creep.moveTo(exit, {reusePath:7});
-            return;
-        }
+        creep.moveToRoomAvoidEnemyRooms();
 
         // return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
     }

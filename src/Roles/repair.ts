@@ -53,7 +53,7 @@ function findLocked(creep) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
     }
 
-    if(creep.room.controller && creep.room.controller.level >= 6 && creep.room.memory.labs && creep.room.memory.labs.length >= 3 &&
+    if(creep.room.controller && creep.room.controller.level >= 6 && creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4 &&
         creep.ticksToLive >= 1480 && creep.body[creep.body.length-3].boost == undefined) {
         let outputLab:any = Game.getObjectById(creep.room.memory.labs.outputLab);
         let boostLab;

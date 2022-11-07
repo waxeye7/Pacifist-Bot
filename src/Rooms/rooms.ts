@@ -3,6 +3,7 @@ import spawning from "./rooms.spawning";
 import construction, { Build_Remote_Roads } from "./rooms.construction";
 import market from "./rooms.market";
 import labs from "./rooms.labs";
+import factory from "./room.factory";
 
 function rooms() {
     const start = Game.cpu.getUsed()
@@ -10,7 +11,7 @@ function rooms() {
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
     // });
-
+    let roomsIController = 0;
     _.forEach(Game.rooms, function(room) {
         // if(!room.controller) {
         //     delete room.memory;
@@ -19,7 +20,6 @@ function rooms() {
         //     delete room.memory;
         // }
 
-        let roomsIController = 0;
         if (room && room.controller && room.controller.my) {
             if(room.memory.danger) {
                 room.memory.danger_timer ++;
@@ -57,10 +57,14 @@ function rooms() {
                 const start = Game.cpu.getUsed()
                 market(room);
                 console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
-                if(room.memory.labs && room.memory.labs.length >= 3 && room.controller.level >= 6) {
+                if(room.controller.level >= 6) {
                     labs(room);
                 }
             }
+            // if(room.factory && room.controller.level >= 7) {
+
+            // }
+
 
             if(Game.time % 10 == 1 || Game.time < 10) {
                 // const start = Game.cpu.getUsed()
@@ -116,9 +120,23 @@ function rooms() {
 
 
     });
+
+
+    if(Game.time % 10000 == 0) {
+
+        _.forEach(Memory.rooms, function(memoryRoom, roomName) {
+            if(!Game.rooms[roomName] || (Game.rooms[roomName].controller && Game.rooms[roomName].controller.level == 0))  {
+                delete Memory.rooms[roomName];
+            }
+        });
+
+    }
+        // let uselessMemory = false;
+        // if(!visibleRoom.controller || (visibleRoom.controller && visibleRoom.controller.level == 0)) {
+        //     delete Memory.rooms[visibleRoom.name];
+        // }
+
     console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
-
-
 }
 
 
