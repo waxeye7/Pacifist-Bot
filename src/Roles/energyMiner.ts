@@ -22,7 +22,7 @@ const run = function (creep) {
         let result = creep.harvestEnergy();
         if(result == 0) {
             let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 1 });
-            if(containerNearby[0].pos != creep.pos) {
+            if(containerNearby.length && containerNearby[0].pos != creep.pos) {
                 creep.moveTo(containerNearby[0])
             }
         }

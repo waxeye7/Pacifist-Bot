@@ -81,24 +81,26 @@ const run = function (creep) {
 
 
         else {
-            if(Memory.tasks.wipeRooms.destroyStructures.length > 0) {
-                creep.memory.targetRoom = Memory.tasks.wipeRooms.destroyStructures[0];
-            }
-            else {
-                if(Game.time % 20 == 0) {
-                    let found_room = false;
-                    _.forEach(Game.rooms, function(room) {
-                        if(room.memory.danger == true) {
-                            creep.memory.targetRoom = room.name;
-                            found_room = true;
-                            return;
-                        }
-                    });
-                    if(found_room == false) {
-                        delete creep.memory.targetRoom;
-                    }
-                }
-            }
+            delete creep.memory.targetRoom;
+        //     if(Memory.tasks.wipeRooms.destroyStructures.length > 0) {
+        //         creep.memory.targetRoom = Memory.tasks.wipeRooms.destroyStructures[0];
+        //     }
+        //     else {
+        //         if(Game.time % 20 == 0) {
+        //             let found_room = false;
+        //             _.forEach(Game.rooms, function(room) {
+        //                 if(room.memory.danger == true) {
+        //                     creep.memory.targetRoom = room.name;
+        //                     found_room = true;
+        //                     return;
+        //                 }
+        //             });
+        //             if(found_room == false) {
+        //                 delete creep.memory.targetRoom;
+        //             }
+        //         }
+        //     }
+        // }
         }
     }
 

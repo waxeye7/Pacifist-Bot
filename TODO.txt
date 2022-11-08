@@ -1,8 +1,4 @@
-LAB:
-lab manager when there is room danger to reallocate labs to boosting
-
 BUILD:
-
 lookForAtArea(type, top, left, bottom, right, [asArray])
 Lab placement 5x5 windmill stamp requires 25 free space in 5x5 find a place for it!
 
@@ -12,10 +8,14 @@ problem with recycling the boost parts for the rampart defender
 on no danger recycle boost to lab
 ///////////////
 
-DISTANT FUTURE:
+
+
 attack code ~
 
 extensions near source
 
 Make remote mineral miner for rooms with the 4 invaders on the corners
-Make remote comomodities miner
+Make remote comomodities miner not die to rooms
+
+
+carry creeps look adjacent and transfer to extension if nearby

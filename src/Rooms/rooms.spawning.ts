@@ -130,6 +130,9 @@ function spawn_energy_miner(resourceData, room) {
             if (Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME) {
                 let newName = 'EnergyMiner-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 if(targetRoomName == room.name) {
+                    if(room.memory.danger && values.pathLength && values.pathLength >= 12) {
+                        return;
+                    }
                     if(room.energyCapacityAvailable >= 650) {
                         if(room.controller.level > 6 && !room.memory.danger) {
                             // [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,WORK,CARRY,MOVE]
@@ -418,7 +421,14 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let annoyers = 0;
 
+    let billtongs = 0;
+
+    let rams = 0;
+    let signifers = 0;
+
     let RampartDefenders = 0;
+
+    let goblins = 0;
 
     _.forEach(Game.creeps, function(creep) {
         // console.log(creep.memory.role)
@@ -517,11 +527,21 @@ function add_creeps_to_spawn_list(room, spawn) {
                 break;
 
             case "attacker":
-                attackers ++;
+                if(creep.memory.homeRoom == room.name) {
+                    attackers ++;
+                }
+                break;
+
+            case "billtong":
+                if(creep.memory.homeRoom == room.name) {
+                    billtongs ++;
+                }
                 break;
 
             case "RangedAttacker":
-                RangedAttackers ++;
+                if(creep.memory.homeRoom == room.name) {
+                    RangedAttackers ++;
+                }
                 break;
 
             case "buildcontainer":
@@ -544,11 +564,29 @@ function add_creeps_to_spawn_list(room, spawn) {
                 annoyers ++;
                 break;
 
+            case "ram":
+                if(creep.memory.homeRoom == room.name) {
+                    rams ++;
+                }
+                break;
+
+            case "signifer":
+                if(creep.memory.homeRoom == room.name) {
+                    signifers ++;
+                }
+                break;
+
             case "sweeper":
                 if(isInRoom(creep, room)) {
                     sweepers ++;
                     break;
                 }
+
+            case "goblin":
+                if(creep.memory.homeRoom == room.name) {
+                    goblins ++;
+                }
+                break;
         }
 
     });
@@ -688,7 +726,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         let found = false;
         for(let enemyCreep of HostileCreeps) {
             for(let part of enemyCreep.body) {
-                if(part.type == ATTACK) {
+                if(part.type == ATTACK || part.tyle == WORK) {
                     found = true;
                 }
             }
@@ -778,6 +816,21 @@ function add_creeps_to_spawn_list(room, spawn) {
     // }
 
 
+    if(billtongs < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 300000 && !room.memory.danger) {
+        let newName = 'Billtong-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([WORK,CARRY,MOVE], newName, {memory: {role: 'billtong', homeRoom:room.name}});
+        console.log('Adding Billtong to Spawn List: ' + newName);
+    }
+
+
+    let richRoom = "E34N59";
+    if(goblins < 0 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) < 3 && storage.store[RESOURCE_ENERGY] > 100000 && !room.memory.danger) {
+        let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push(getBody([CARRY,CARRY,MOVE], room, 15), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
+        console.log('Adding Goblin to Spawn List: ' + newName);
+    }
+
+
 
 
     if(RemoteDismantlers < 0 && room.controller.level >= 4 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 10) {
@@ -837,10 +890,21 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     _.forEach(resourceData, function(data, targetRoomName) {
-        if(!room.memory.danger && !Game.rooms[targetRoomName] && Memory.tasks.wipeRooms.killCreeps.includes(targetRoomName) && attackers < 1) {
-            let newName = 'Attacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(getBody([MOVE,ATTACK,ATTACK], room, 12), newName, {memory: {role: 'attacker', targetRoom: targetRoomName, homeRoom:room.name}});
-            console.log('Adding Defending-Attacker to Spawn List: ' + newName);
+        if(room.controller.level >= 5) {
+            if(!room.memory.danger && Memory.tasks.wipeRooms.killCreeps.includes(targetRoomName) && RangedAttackers < 1) {
+                let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                let body = getBody([RANGED_ATTACK,MOVE], room, 20);
+                room.memory.spawn_list.push(body, newName, {memory: {role: 'RangedAttacker', targetRoom: targetRoomName, homeRoom: room.name}});
+                console.log('Adding Defending Ranged-Attacker to Spawn List: ' + newName);
+            }
+        }
+        else {
+            if(!room.memory.danger && Memory.tasks.wipeRooms.killCreeps.includes(targetRoomName) && attackers < 1) {
+                let newName = 'Attacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                let body = getBody([MOVE,ATTACK,ATTACK], room, 18);
+                room.memory.spawn_list.push(body, newName, {memory: {role: 'attacker', targetRoom: targetRoomName, homeRoom:room.name}});
+                console.log('Adding Defending-Attacker to Spawn List: ' + newName);
+            }
         }
     });
 
@@ -904,15 +968,35 @@ function add_creeps_to_spawn_list(room, spawn) {
                 //     }
                 // }
 
-    // let labIDS = room.memory.labs;
+    let attackRoom = "E47N59";
 
-    // let ThreeLabs = []
+    if(attackRoom && room.controller.level >= 6 && rams < 1 && Game.map.getRoomLinearDistance(room.name, attackRoom) <= 3) {
+        let newName = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+            newName, {memory: {role: 'ram', targetRoom: attackRoom, homeRoom: room.name}});
+        console.log('Adding Ram to Spawn List: ' + newName);
+    }
 
-    // labIDS.forEach(lab => {
-    //     ThreeLabs.push(Game.getObjectById(lab));
-    // });
+    // [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+    //     ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+    //     ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+    //     ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+    //     MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]
 
-    // let resultLab = ThreeLabs[0];
+    // [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,HEAL,HEAL,HEAL,HEAL,HEAL,
+    //     HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+    //     HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+    //     HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+    //     MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]
+
+    if(attackRoom && room.controller.level >= 6 && signifers < 2 && Game.map.getRoomLinearDistance(room.name, attackRoom) <= 3) {
+        let newName = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+            newName, {memory: {role: 'signifer', targetRoom: attackRoom, homeRoom: room.name}});
+        console.log('Adding Signifer to Spawn List: ' + newName);
+    }
+
+
     let outputLab:any;
     if(room.controller.level >= 6) {
         outputLab = room.memory.labs.outputLab;

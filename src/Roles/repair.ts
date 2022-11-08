@@ -53,14 +53,14 @@ function findLocked(creep) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));
     }
 
-    if(creep.room.controller && creep.room.controller.level >= 6 && creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4 &&
+    if(creep.room.controller && creep.room.controller.level >= 6 && creep.room.memory.danger && creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4 &&
         creep.ticksToLive >= 1480 && creep.body[creep.body.length-3].boost == undefined) {
         let outputLab:any = Game.getObjectById(creep.room.memory.labs.outputLab);
         let boostLab;
         if(creep.room.memory.labs.boostLab) {
             boostLab = Game.getObjectById(creep.room.memory.labs.boostLab);
         }
-        if(outputLab && (outputLab.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 30 || outputLab.store[RESOURCE_LEMERGIUM_ACID] >= 30 || outputLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30)) {
+        if(outputLab && outputLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30) {
             if(creep.pos.isNearTo(outputLab)) {
                 outputLab.boostCreep(creep);
             }
@@ -69,7 +69,7 @@ function findLocked(creep) {
             }
             return;
         }
-        else if(boostLab && (boostLab.store[RESOURCE_LEMERGIUM_HYDRIDE] >= 30 || boostLab.store[RESOURCE_LEMERGIUM_ACID] >= 30 || boostLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30)) {
+        else if(boostLab && boostLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 30) {
             if(creep.pos.isNearTo(boostLab)) {
                 boostLab.boostCreep(creep);
             }

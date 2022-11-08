@@ -5,17 +5,17 @@
  const run = function (creep:Creep) {
     creep.Speak();
 
-    if(creep.room.name == creep.memory.homeRoom) {
-        if(creep.room.controller && creep.room.controller.my && creep.room.controller.sign.text !== "we come in peace") {
-            if(creep.pos.isNearTo(creep.room.controller)) {
-                creep.signController(creep.room.controller, "we come in peace")
-            }
-            else {
-                creep.moveTo(creep.room.controller);
-            }
-            return;
-        }
-    }
+    // if(creep.room.name == creep.memory.homeRoom) {
+    //     if(creep.room.controller && creep.room.controller.my && creep.room.controller.sign.text !== "we come in peace") {
+    //         if(creep.pos.isNearTo(creep.room.controller)) {
+    //             creep.signController(creep.room.controller, "we come in peace")
+    //         }
+    //         else {
+    //             creep.moveTo(creep.room.controller);
+    //         }
+    //         return;
+    //     }
+    // }
 
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoom(creep.memory.targetRoom);

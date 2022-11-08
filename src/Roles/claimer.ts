@@ -6,7 +6,7 @@
     creep.Speak();
 
     if(creep.room.name != creep.memory.targetRoom) {
-        creep.moveToRoomAvoidEnemyRooms();
+        creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
     else {
         let controller = creep.room.controller;

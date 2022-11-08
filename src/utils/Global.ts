@@ -61,6 +61,9 @@ declare global {
         storage: Id<_HasId>;
         source: Id<_HasId>;
         myLink: Id<_HasId>;
+        deposit: Id<_HasId>;
+        MaxStorage: number;
+        searchedRooms: Array<string>;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

@@ -250,7 +250,7 @@
 // remove stuff because input changed above ^^^^
 // add stuff to current input below or remove overflowing output lab below >>>>
 
-        if(outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 3000 - MaxStorage || outputLab.store[currentOutput] >= 3000 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
+        if(outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 1600 - MaxStorage || outputLab.store[currentOutput] >= 1600 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
             console.log('test4')
 
             if(creep.store[currentOutput] > 0) {
@@ -393,7 +393,7 @@
     let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
     let MineralType = Mineral.mineralType;
     //  && creep.store[RESOURCE_ENERGY] == 0 && creep.store[MineralType] == 0
-    if(storage && storage.store[MineralType] > 1200 && terminal && terminal.store.getFreeCapacity() > MaxStorage && _.keys(creep.store).length == 0) {
+    if(storage && storage.store[MineralType] > 3000 && terminal && terminal.store.getFreeCapacity() > MaxStorage && _.keys(creep.store).length == 0) {
         console.log('test11')
 
         if(creep.pos.isNearTo(storage)) {

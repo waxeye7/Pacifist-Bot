@@ -34,6 +34,10 @@ import roleSweeper from "Roles/sweeper";
 import roleAnnoy from "Roles/annoy";
 import roleReserve from "Roles/reserve";
 import roleRampartDefender from "Roles/RampartDefender";
+import roleRam from "Roles/ram";
+import roleSignifer from "Roles/signifer";
+import roleBilltong from "./Roles/billtong"
+import roleGoblin from "Roles/goblin";
 
 global.ROLES = {
   MineralMiner: roleMineralMiner,
@@ -72,6 +76,13 @@ global.ROLES = {
   annoy: roleAnnoy,
 
   RampartDefender: roleRampartDefender,
+
+
+  ram: roleRam,
+  signifer: roleSignifer,
+
+  billtong: roleBilltong,
+  goblin: roleGoblin,
 }
 
 

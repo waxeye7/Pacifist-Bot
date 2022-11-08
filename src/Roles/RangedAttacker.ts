@@ -50,7 +50,7 @@ const run = function (creep) {
 
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.rangedMassAttack();
-                if(isMelee) {
+                if(isMelee && creep.pos.getRangeTo(closestEnemyCreep) <= 2) {
                     if(creep.memory.homeRoom) {
                         return creep.moveToRoom(creep.memory.homeRoom);
                     }
@@ -106,35 +106,35 @@ const run = function (creep) {
         }
 
 
-        else {
-            let found = false;
-            if(Memory.tasks.wipeRooms.killCreeps.length > 0) {
-                let resourceData = _.get(Game.rooms[creep.memory.homeRoom].memory, ['resources']);
-                _.forEach(resourceData, function(data, targetRoomName) {
-                    _.forEach(Memory.tasks.wipeRooms.killCreeps, function(thisRoom) {
-                        if(targetRoomName == thisRoom) {
-                            creep.memory.targetRoom = thisRoom;
-                            found = true;
-                        }
-                    });
-                });
-            }
-            if(found == false) {
-                if(Game.time % 20 == 0) {
-                    let found_room = false;
-                    _.forEach(Game.rooms, function(room) {
-                        if(room.memory.danger == true) {
-                            creep.memory.targetRoom = room.name;
-                            found_room = true;
-                            return;
-                        }
-                    });
-                    if(found_room == false) {
-                        delete creep.memory.targetRoom;
-                    }
-                }
-            }
-        }
+        // else {
+        //     let found = false;
+        //     if(Memory.tasks.wipeRooms.killCreeps.length > 0) {
+        //         let resourceData = _.get(Game.rooms[creep.memory.homeRoom].memory, ['resources']);
+        //         _.forEach(resourceData, function(data, targetRoomName) {
+        //             _.forEach(Memory.tasks.wipeRooms.killCreeps, function(thisRoom) {
+        //                 if(targetRoomName == thisRoom) {
+        //                     creep.memory.targetRoom = thisRoom;
+        //                     found = true;
+        //                 }
+        //             });
+        //         });
+        //     }
+        //     if(found == false) {
+        //         if(Game.time % 20 == 0) {
+        //             let found_room = false;
+        //             _.forEach(Game.rooms, function(room) {
+        //                 if(room.memory.danger == true) {
+        //                     creep.memory.targetRoom = room.name;
+        //                     found_room = true;
+        //                     return;
+        //                 }
+        //             });
+        //             if(found_room == false) {
+        //                 delete creep.memory.targetRoom;
+        //             }
+        //         }
+        //     }
+        // }
     }
 
 

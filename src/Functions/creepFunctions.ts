@@ -206,17 +206,17 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
     this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:6, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
-Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms() {
-    let route:any = Game.map.findRoute(this.room.name, this.memory.targetRoom, {
+Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
+    let route:any = Game.map.findRoute(this.room.name, targetRoom, {
         routeCallback(roomName, fromRoomName) {
-            if(Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.level > 0 && !Game.rooms[roomName].controller.my) {
+            if(Game.rooms[roomName] && Game.rooms[roomName].controller && (Game.rooms[roomName].controller.level != 0 && !Game.rooms[roomName].controller.my || Game.rooms[roomName].controller.reservation)) {
                 return Infinity;
             }
             return 1;
     }});
 
     if(route.length > 0) {
-        console.log('Now heading to room '+route[0].room);
+        console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         const exit = this.pos.findClosestByRange(route[0].exit);
         this.moveTo(exit, {reusePath:7});
         return;
@@ -448,7 +448,7 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
             if(lookTerrain[0] != "wall") {
                 let lookForCreeps = positioninroom.lookFor(LOOK_CREEPS);
                 let lookForStructures = positioninroom.lookFor(LOOK_STRUCTURES);
-                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "filler") {
+                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "filler" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "repair") {
                     creep_nearby = true;
                 }
                 if(lookForCreeps.length == 0 && lookForStructures.length == 0 || lookForStructures.length == 1 && lookForStructures[0].structureType == STRUCTURE_ROAD) {

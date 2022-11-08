@@ -65,7 +65,6 @@ function rooms() {
 
             // }
 
-
             if(Game.time % 10 == 1 || Game.time < 10) {
                 // const start = Game.cpu.getUsed()
                 identifySources(room);

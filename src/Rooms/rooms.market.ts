@@ -92,7 +92,7 @@ function market(room):any {
         }
 
         function buy_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
-            let OrderAmount = 25;
+            let OrderAmount = 100;
             let OrderMaxEnergy = OrderAmount * 4;
             let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
@@ -119,7 +119,7 @@ function market(room):any {
 
         function sell_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
             let OrderAmount = 100;
-            let OrderMaxEnergy = OrderAmount * 5;
+            let OrderMaxEnergy = OrderAmount * 4;
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
             if(orders.length > 0) {
