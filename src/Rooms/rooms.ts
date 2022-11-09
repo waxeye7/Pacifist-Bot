@@ -45,6 +45,10 @@ function rooms() {
 
 
         if (room && room.controller && room.controller.my) {
+            if(Game.time % 24 == 0 && room.controller.level > 1) {
+                console.log(room.name, "has", Math.floor(room.controller.progress/10000), "out of", Math.floor(room.controller.progressTotal/10000), "and is level", room.controller.level);
+            }
+
 
             spawning(room);
 
@@ -72,7 +76,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 818 == 817) {
+            if(Game.time % 1004 == 1003) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
@@ -80,7 +84,7 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 818 == 0) {
+            if(Game.time % 1004 == 0) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 Build_Remote_Roads(room);

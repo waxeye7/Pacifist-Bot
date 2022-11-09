@@ -262,7 +262,7 @@ function findLocked(creep) {
 		}
     }
 
-	if(creep.ticksToLive <= 84 && (!creep.memory.repairing || _.keys(creep.store).length) == 0) {
+	if(creep.ticksToLive <= 74 && (!creep.memory.repairing || _.keys(creep.store).length == 0)) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {

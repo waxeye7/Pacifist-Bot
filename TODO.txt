@@ -2,20 +2,13 @@ BUILD:
 lookForAtArea(type, top, left, bottom, right, [asArray])
 Lab placement 5x5 windmill stamp requires 25 free space in 5x5 find a place for it!
 
-ALMOST DONE:
-///////////////
-problem with recycling the boost parts for the rampart defender
-on no danger recycle boost to lab
-///////////////
-
-
-
-attack code ~
-
-extensions near source
-
 Make remote mineral miner for rooms with the 4 invaders on the corners
+
 Make remote comomodities miner not die to rooms
 
 
 carry creeps look adjacent and transfer to extension if nearby
+
+
+extensions near source
+if room no danger then build the extensions again near source and room level is bigger or equal to 6 and then the guy transfers the energy to extensions findinrange 1 and then yeah

@@ -42,7 +42,8 @@ declare global {
         bin: Id<_HasId>;
         in_position: boolean;
         labs: any;
-        attack_target:any;
+        attack_target: any;
+        request_unboost: boolean;
         // labs: Array<Id<_HasId>>;
     }
     interface CreepMemory {

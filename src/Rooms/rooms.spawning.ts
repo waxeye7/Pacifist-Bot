@@ -823,19 +823,19 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    let richRoom = "E34N59";
-    if(goblins < 0 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) < 3 && storage.store[RESOURCE_ENERGY] > 100000 && !room.memory.danger) {
+    let richRoom = "E27N57";
+    if(goblins < 0 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) < 10 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
         let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([CARRY,CARRY,MOVE], room, 15), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
+        room.memory.spawn_list.push(getBody([CARRY,CARRY,MOVE], room, 9), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
         console.log('Adding Goblin to Spawn List: ' + newName);
     }
 
 
 
 
-    if(RemoteDismantlers < 0 && room.controller.level >= 4 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 10) {
+    if(RemoteDismantlers < 0 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 30000 && Game.map.getRoomLinearDistance(room.name, "E25N57") <= 10) {
         let newName = 'RemoteDismantler-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: target_colonise}});
+        room.memory.spawn_list.push([MOVE,MOVE,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: "E25N57"}});
         console.log('Adding RemoteDismantler to Spawn List: ' + newName);
     }
 
@@ -968,7 +968,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 //     }
                 // }
 
-    let attackRoom = "E47N59";
+    let attackRoom = false;
 
     if(attackRoom && room.controller.level >= 6 && rams < 1 && Game.map.getRoomLinearDistance(room.name, attackRoom) <= 3) {
         let newName = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;

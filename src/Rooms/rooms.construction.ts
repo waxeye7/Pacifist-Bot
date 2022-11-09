@@ -46,6 +46,54 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
     if(structure == STRUCTURE_RAMPART && !usingPathfinder) {
+        // let EastOrWest = room.name[0];
+        // let NorthOrSouth = room.name[3];
+        // let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
+        // let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
+
+        // let leftOfRoom = [homeRoomNameX - 1, homeRoomNameY];
+        // let rightOfRoom = [homeRoomNameX + 1, homeRoomNameY];
+        // let aboveRoom;
+        // let belowRoom;
+
+        // if(NorthOrSouth == "N") {
+        //     aboveRoom = [homeRoomNameX, homeRoomNameY + 1];
+        //     belowRoom = [homeRoomNameX, homeRoomNameY + 1];
+        // }
+        // else {
+        //     aboveRoom = [homeRoomNameX, homeRoomNameY - 1];
+        //     belowRoom = [homeRoomNameX, homeRoomNameY - 1];
+        // }
+
+        // let left = EastOrWest + leftOfRoom[0].toString() + NorthOrSouth + leftOfRoom[1].toString();
+        // let right = EastOrWest + rightOfRoom[0].toString() + NorthOrSouth + rightOfRoom[1].toString();
+        // let top = EastOrWest + aboveRoom[0].toString() + NorthOrSouth + aboveRoom[1].toString();
+        // let bot = EastOrWest + belowRoom[0].toString() + NorthOrSouth + belowRoom[1].toString();
+
+
+        // let exits = [];
+        // exits.push(room.findExitTo(left))
+        // exits.push(room.findExitTo(right));
+        // exits.push(room.findExitTo(top));
+        // exits.push(room.findExitTo(bot));
+
+        // for(let exit of exits) {
+
+        //     if(exit == 1) {
+        //         let y = 0;
+        //         for(let x=1; x<49; x++) {
+        //             let position = new RoomPosition(x, y, room.name);
+        //             let LookForTerrain = position.lookFor(LOOK_TERRAIN);
+        //             if(LookForTerrain[0] == "plain") {
+
+        //                 break;
+        //             }
+        //         }
+        //     }
+
+        // }
+
+
         let positionArray = [];
         _.forEach(neighbors, function(block) {
             positionArray.push(new RoomPosition(block.x, block.y, room.name))
@@ -65,30 +113,123 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 return;
             }
 
-            if(blockSpot.findPathTo(storage).length >= 16) {
+            if(blockSpot.findPathTo(storage).length >= 17) {
                 return;
             }
 
 
-            let pathFromStorageToRampart = PathFinder.search(storage.pos, {pos:blockSpot, range:0}, {plainCost: 1, swampCost: 2, maxCost:35, roomCallback: function(roomName) {
+            let exits = Game.map.describeExits(room.name);
+            let incomplete = true;
+            if(exits[1] && incomplete) {
+
+                let positionInRoom = new RoomPosition(25, 25, exits[1]);
+                let pathFromRampartToOtherRoom = PathFinder.search(blockSpot, {pos:positionInRoom, range:22}, {plainCost: 1, swampCost: 1, maxCost:100, roomCallback: function(roomName) {
+                    let room = Game.rooms[roomName];
+                    let costs = new PathFinder.CostMatrix;
+                    if(room) {
+                        room.find(FIND_STRUCTURES).forEach(function(struct) {
+                            if (struct.structureType === STRUCTURE_RAMPART){costs.set(struct.pos.x, struct.pos.y, 255);}});return costs;
+                        }
+                    else  {
+                        return costs;
+                    }}});
+
+
+                if(!pathFromRampartToOtherRoom.incomplete) {
+                    incomplete = false;
+                }
+            }
+
+
+            if(exits[3] && incomplete) {
+
+                let positionInRoom = new RoomPosition(25, 25, exits[3]);
+                let pathFromRampartToOtherRoom = PathFinder.search(blockSpot, {pos:positionInRoom, range:22}, {plainCost: 1, swampCost: 1, maxCost:100, roomCallback: function(roomName) {
+                    let room = Game.rooms[roomName];
+                    let costs = new PathFinder.CostMatrix;
+                    if(room) {
+                        room.find(FIND_STRUCTURES).forEach(function(struct) {
+                            if (struct.structureType === STRUCTURE_RAMPART){costs.set(struct.pos.x, struct.pos.y, 255);}});return costs;
+                        }
+                    else  {
+                        return costs;
+                    }}});
+
+
+                if(!pathFromRampartToOtherRoom.incomplete) {
+                    incomplete = false;
+                }
+            }
+
+            if(exits[5] && incomplete) {
+
+                let positionInRoom = new RoomPosition(25, 25, exits[5]);
+                let pathFromRampartToOtherRoom = PathFinder.search(blockSpot, {pos:positionInRoom, range:22}, {plainCost: 1, swampCost: 1, maxCost:100, roomCallback: function(roomName) {
+                    let room = Game.rooms[roomName];
+                    let costs = new PathFinder.CostMatrix;
+                    if(room) {
+                        room.find(FIND_STRUCTURES).forEach(function(struct) {
+                            if (struct.structureType === STRUCTURE_RAMPART){costs.set(struct.pos.x, struct.pos.y, 255);}});return costs;
+                        }
+                    else  {
+                        return costs;
+                    }}});
+
+
+                if(!pathFromRampartToOtherRoom.incomplete) {
+                    incomplete = false;
+                }
+            }
+            if(exits[7] && incomplete) {
+
+                let positionInRoom = new RoomPosition(25, 25, exits[7]);
+                let pathFromRampartToOtherRoom = PathFinder.search(blockSpot, {pos:positionInRoom, range:22}, {plainCost: 1, swampCost: 1, maxCost:100, roomCallback: function(roomName) {
+                    let room = Game.rooms[roomName];
+                    let costs = new PathFinder.CostMatrix;
+                    if(room) {
+                        room.find(FIND_STRUCTURES).forEach(function(struct) {
+                            if (struct.structureType === STRUCTURE_RAMPART){costs.set(struct.pos.x, struct.pos.y, 255);}});return costs;
+                        }
+                    else  {
+                        return costs;
+                    }}});
+
+
+                if(!pathFromRampartToOtherRoom.incomplete) {
+                    incomplete = false;
+                }
+            }
+            if(incomplete) {
+                if(lookForExistingStructures.length > 0) {
+                    for(let i=0; i<lookForExistingStructures.length; i++) {
+                        if(lookForExistingStructures[i].structureType == STRUCTURE_RAMPART) {
+                            lookForExistingStructures[i].destroy();
+                        }
+                    }
+                }
+                return;
+            }
+
+
+
+            if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
+                return;
+            }
+
+
+            let pathFromStorageToRampart = PathFinder.search(storage.pos, {pos:blockSpot, range:0}, {plainCost: 1, swampCost: 2, maxCost:50, roomCallback: function(roomName) {
                 let room = Game.rooms[roomName];
                 let costs = new PathFinder.CostMatrix;
                 room.find(FIND_STRUCTURES).forEach(function(struct) {
                     if (struct.structureType === STRUCTURE_RAMPART){costs.set(struct.pos.x, struct.pos.y, 255);}});return costs;
                 }});
 
-
             if(pathFromStorageToRampart.incomplete == true) {
                 return;
             }
 
-
-
             if(lookForExistingStructures.length == 0) {
                 blockSpot.createConstructionSite(structure);
-                return;
-            }
-            if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
                 return;
             }
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType != STRUCTURE_RAMPART && blockSpot.findPathTo(storage).length <= 14) {

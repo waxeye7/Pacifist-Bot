@@ -122,6 +122,7 @@ function labs(room) {
         }
     }
 
+
     let outputLab;
     let boostLab;
     let pair1Lab1;
@@ -201,7 +202,7 @@ function labs(room) {
         let currentOutput:MineralConstant | MineralCompoundConstant | any = outputLab.mineralType || false;
 
         if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
-            storage && storage.store[RESOURCE_HYDROXIDE] < 6000 && currentOutput == RESOURCE_HYDROXIDE) {
+            storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) {
                 lab1Input = RESOURCE_OXYGEN
                 lab2Input = RESOURCE_HYDROGEN;
                 currentOutput = RESOURCE_HYDROXIDE;
@@ -224,7 +225,7 @@ function labs(room) {
             }
 
         else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 1000 && currentOutput != RESOURCE_CATALYZED_LEMERGIUM_ACID ||
-            storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 6000 && currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ACID) {
+            storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 8000 && currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ACID) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_LEMERGIUM_ACID;
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
@@ -253,6 +254,40 @@ function labs(room) {
                 lab2Input = RESOURCE_LEMERGIUM_ALKALIDE;
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE;
             }
+
+
+            // chain to get catalyzed ghodium alkalide
+
+        else if(storage && storage.store[RESOURCE_GHODIUM] < 1000 && currentOutput != RESOURCE_GHODIUM ||
+            storage && storage.store[RESOURCE_GHODIUM] < 6000 && currentOutput == RESOURCE_GHODIUM) {
+                lab1Input = RESOURCE_ZYNTHIUM_KEANITE
+                lab2Input = RESOURCE_UTRIUM_LEMERGITE;
+                currentOutput = RESOURCE_GHODIUM;
+            }
+
+        else if(storage && storage.store[RESOURCE_GHODIUM_OXIDE] < 1000 && currentOutput != RESOURCE_GHODIUM_OXIDE ||
+            storage && storage.store[RESOURCE_GHODIUM_OXIDE] < 6000 && currentOutput == RESOURCE_GHODIUM_OXIDE) {
+                lab1Input = RESOURCE_GHODIUM
+                lab2Input = RESOURCE_OXYGEN;
+                currentOutput = RESOURCE_GHODIUM_OXIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_GHODIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_GHODIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_GHODIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_GHODIUM_ALKALIDE) {
+                lab1Input = RESOURCE_GHODIUM_OXIDE;
+                lab2Input = RESOURCE_HYDROXIDE;
+                currentOutput = RESOURCE_GHODIUM_ALKALIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_CATALYZED_GHODIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) {
+                lab1Input = RESOURCE_GHODIUM_ALKALIDE;
+                lab2Input = RESOURCE_CATALYST;
+                currentOutput = RESOURCE_CATALYZED_GHODIUM_ALKALIDE;
+            }
+
+
+
 
         if(room.memory.labs.status.lab1Input != lab1Input) {
             room.memory.labs.status.lab1Input = lab1Input;
@@ -375,11 +410,9 @@ function labs(room) {
     // }
 
 
-
-
     if(outputLab && outputLab.cooldown == 0 && outputLab.store.getFreeCapacity() != 0) {
         for(let labPair of labPairs) {
-            if(labPair[0] && labPair[0].store[lab1Input] >= 5 && labPair[1] && labPair[1].store[lab2Input] >= 5) {
+            if(labPair[0] && labPair[0].store[lab1Input] >= 5 && labPair[1] && labPair[1].store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
                 outputLab.runReaction(labPair[0], labPair[1]);
             }
         }
