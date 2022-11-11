@@ -37,9 +37,6 @@
     //     creep.memory.role = "filler";
     // }
 
-    if(creep.roadCheck()) {
-        creep.moveAwayIfNeedTo();
-    }
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
@@ -116,274 +113,265 @@
 
 
     if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
-        let outputLab;
-        let boostLab;
-        let pair1Lab1;
-        let pair1Lab2;
-        let pair2Lab1;
-        let pair2Lab2;
-        let pair3Lab1;
-        let pair3Lab2;
-        let pair4Lab1;
-        let pair4Lab2;
+        let inputLab1;
+        let inputLab2;
+        let outputLab1;
+        let outputLab2;
+        let outputLab3;
+        let outputLab4;
+        let outputLab5;
+        let outputLab6;
+        let outputLab7;
+        let outputLab8;
 
-        let labPairs = [];
+        let outputLabs = [];
 
-        if(creep.room.memory.labs.outputLab) {
-            outputLab = Game.getObjectById(creep.room.memory.labs.outputLab)
+        if(creep.room.memory.labs.inputLab1) {
+            inputLab1 = Game.getObjectById(creep.room.memory.labs.inputLab1)
         }
-        if(creep.room.memory.labs.pair1Lab1) {
-            pair1Lab1 = Game.getObjectById(creep.room.memory.labs.pair1Lab1)
+        if(creep.room.memory.labs.inputLab2) {
+            inputLab2 = Game.getObjectById(creep.room.memory.labs.inputLab2)
         }
-        if(creep.room.memory.labs.pair1Lab2) {
-            pair1Lab2 = Game.getObjectById(creep.room.memory.labs.pair1Lab2)
+        if(creep.room.memory.labs.outputLab1) {
+            outputLab1 = Game.getObjectById(creep.room.memory.labs.outputLab1)
+            outputLabs.push(outputLab1)
         }
-        if(creep.room.memory.labs.boostLab) {
-            boostLab = Game.getObjectById(creep.room.memory.labs.boostLab)
+        if(creep.room.memory.labs.outputLab2) {
+            outputLab2 = Game.getObjectById(creep.room.memory.labs.outputLab2)
+            outputLabs.push(outputLab2)
         }
-        if(creep.room.memory.labs.pair2Lab1) {
-            pair2Lab1 = Game.getObjectById(creep.room.memory.labs.pair2Lab1)
+        if(creep.room.memory.labs.outputLab3) {
+            outputLab3 = Game.getObjectById(creep.room.memory.labs.outputLab3)
+            outputLabs.push(outputLab3)
         }
-        if(creep.room.memory.labs.pair2Lab2) {
-            pair2Lab2 = Game.getObjectById(creep.room.memory.labs.pair2Lab2)
+        if(creep.room.memory.labs.outputLab4) {
+            outputLab4 = Game.getObjectById(creep.room.memory.labs.outputLab4)
+            outputLabs.push(outputLab4)
         }
-        if(creep.room.memory.labs.pair3Lab1) {
-            pair3Lab1 = Game.getObjectById(creep.room.memory.labs.pair3Lab1)
+        if(creep.room.memory.labs.outputLab5) {
+            outputLab5 = Game.getObjectById(creep.room.memory.labs.outputLab5)
+            outputLabs.push(outputLab5)
         }
-        if(creep.room.memory.labs.pair3Lab2) {
-            pair3Lab2 = Game.getObjectById(creep.room.memory.labs.pair3Lab2)
+        if(creep.room.memory.labs.outputLab6) {
+            outputLab6 = Game.getObjectById(creep.room.memory.labs.outputLab6)
+            outputLabs.push(outputLab6)
         }
-        if(creep.room.memory.labs.pair4Lab1) {
-            pair4Lab1 = Game.getObjectById(creep.room.memory.labs.pair4Lab1)
+        if(creep.room.memory.labs.outputLab7) {
+            outputLab7 = Game.getObjectById(creep.room.memory.labs.outputLab7)
+            outputLabs.push(outputLab7)
         }
-        if(creep.room.memory.labs.pair4Lab2) {
-            pair4Lab2 = Game.getObjectById(creep.room.memory.labs.pair4Lab2)
-        }
-
-
-        if(pair1Lab1 && pair1Lab2) {
-            labPairs.push([pair1Lab1, pair1Lab2])
-        }
-        if(pair2Lab1 && pair2Lab2) {
-            labPairs.push([pair2Lab1, pair2Lab2])
-        }
-        if(pair3Lab1 && pair3Lab2) {
-            labPairs.push([pair3Lab1, pair3Lab2])
-        }
-        if(pair4Lab1 && pair4Lab2) {
-            labPairs.push([pair4Lab1, pair4Lab2])
+        if(creep.room.memory.labs.outputLab8) {
+            outputLab8 = Game.getObjectById(creep.room.memory.labs.outputLab8)
+            outputLabs.push(outputLab8)
         }
 
         let currentOutput = creep.room.memory.labs.status.currentOutput;
         let lab1Input = creep.room.memory.labs.status.lab1Input;
         let lab2Input = creep.room.memory.labs.status.lab2Input;
 
-        if(outputLab && outputLab.store[outputLab.mineralType] > 0 && outputLab.mineralType != currentOutput) {
-            console.log('test1')
+        for(let outputLab of outputLabs) {
+            if(outputLab && outputLab.store[outputLab.mineralType] > 0 && outputLab.mineralType != currentOutput) {
+                console.log('test1')
 
-            if(creep.store[outputLab.mineralType] > 0) {
+                if(creep.store[outputLab.mineralType] > 0) {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.transfer(storage, outputLab.mineralType);
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
+                }
+                else {
+                    if(creep.pos.isNearTo(outputLab)) {
+                        creep.withdraw(outputLab, outputLab.mineralType);
+                    }
+                    else {
+                        creep.moveTo(outputLab);
+                    }
+                }
+                return;
+            }
+        }
+
+
+        if(inputLab1 && inputLab1.store[inputLab1.mineralType] > 0 && inputLab1.mineralType != lab1Input) {
+            console.log('test2')
+
+            if(creep.store[inputLab1.mineralType] > 0) {
                 if(creep.pos.isNearTo(storage)) {
-                    creep.transfer(storage, outputLab.mineralType);
+                    creep.transfer(storage, inputLab1.mineralType);
                 }
                 else {
                     creep.moveTo(storage);
                 }
             }
             else {
-                if(creep.pos.isNearTo(outputLab)) {
-                    creep.withdraw(outputLab, outputLab.mineralType);
+                if(creep.pos.isNearTo(inputLab1)) {
+                    creep.withdraw(inputLab1, inputLab1.mineralType);
                 }
                 else {
-                    creep.moveTo(outputLab);
+                    creep.moveTo(inputLab1);
                 }
             }
             return;
         }
 
-        for(let labPair of labPairs) {
+        if(inputLab2 && inputLab2.store[inputLab2.mineralType] > 0 && inputLab2.mineralType != lab2Input) {
+            console.log('test3')
 
-            if(labPair[0] && labPair[0].store[labPair[0].mineralType] > 0 && labPair[0].mineralType != lab1Input) {
-                console.log('test2')
-
-                if(creep.store[labPair[0].mineralType] > 0) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.transfer(storage, labPair[0].mineralType);
-                    }
-                    else {
-                        creep.moveTo(storage);
-                    }
+            if(creep.store[inputLab2.mineralType] > 0) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.transfer(storage, inputLab2.mineralType);
                 }
                 else {
-                    if(creep.pos.isNearTo(labPair[0])) {
-                        creep.withdraw(labPair[0], labPair[0].mineralType);
-                    }
-                    else {
-                        creep.moveTo(labPair[0]);
-                    }
+                    creep.moveTo(storage);
                 }
-                return;
             }
-
-            if(labPair[1] && labPair[1].store[labPair[1].mineralType] > 0 && labPair[1].mineralType != lab2Input) {
-                console.log('test3')
-
-                if(creep.store[labPair[1].mineralType] > 0) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.transfer(storage, labPair[1].mineralType);
-                    }
-                    else {
-                        creep.moveTo(storage);
-                    }
+            else {
+                if(creep.pos.isNearTo(inputLab2)) {
+                    creep.withdraw(inputLab2, inputLab2.mineralType);
                 }
                 else {
-                    if(creep.pos.isNearTo(labPair[1])) {
-                        creep.withdraw(labPair[1], labPair[1].mineralType);
-                    }
-                    else {
-                        creep.moveTo(labPair[1]);
-                    }
+                    creep.moveTo(inputLab2);
                 }
-                return;
             }
+            return;
         }
 
 // remove stuff because input changed above ^^^^
 // add stuff to current input below or remove overflowing output lab below >>>>
 
-        if(outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 1600 - MaxStorage || outputLab.store[currentOutput] >= 1600 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
-            console.log('test4')
+        for(let outputLab of outputLabs) {
 
-            if(creep.store[currentOutput] > 0) {
-                if(creep.pos.isNearTo(storage)) {
-                    creep.transfer(storage, currentOutput);
+            if(outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 1600 - MaxStorage || outputLab.store[currentOutput] >= 1600 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
+                console.log('test4')
+
+                if(creep.store[currentOutput] > 0) {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.transfer(storage, currentOutput);
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
+                    return;
                 }
                 else {
-                    creep.moveTo(storage);
+                    if(creep.pos.isNearTo(outputLab)) {
+                        creep.withdraw(outputLab, currentOutput);
+                    }
+                    else {
+                        creep.moveTo(outputLab);
+                    }
                 }
                 return;
             }
-            else {
-                if(creep.pos.isNearTo(outputLab)) {
-                    creep.withdraw(outputLab, currentOutput);
-                }
-                else {
-                    creep.moveTo(outputLab);
-                }
-            }
-            return;
         }
 
 
         // if(outputLab && outputLab.store.getFreeCapacity() != 0) {
         //     for(let labPair of labPairs) {
-        //         if(labPair[0] && labPair[0].store[lab1Input] >= 5 && labPair[1] && labPair[1].store[lab2Input] >= 5) {
-        //             outputLab.runReaction(labPair[0], labPair[1]);
+        //         if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
+        //             outputLab.runReaction(inputLab1, inputLab2);
         //         }
         //     }
         // }
 
-
-
-
-        for(let labPair of labPairs) {
-
             // storage withdraw
 
-            if(labPair[0] && labPair[0].store[lab1Input] < MaxStorage*3 && labPair[0].store[lab1Input] < 1000 && storage && storage.store[lab1Input] >= MaxStorage) {
-                console.log('test7')
+        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < 1000 && storage && storage.store[lab1Input] >= MaxStorage) {
+            console.log('test7')
 
-                if(creep.store[lab1Input] > 0) {
-                    if(creep.pos.isNearTo(labPair[0])) {
-                        creep.transfer(labPair[0], lab1Input);
-                    }
-                    else {
-                        creep.moveTo(labPair[0]);
-                    }
-                    return;
+            if(creep.store[lab1Input] > 0) {
+                if(creep.pos.isNearTo(inputLab1)) {
+                    creep.transfer(inputLab1, lab1Input);
                 }
                 else {
-                    if(creep.pos.isNearTo(storage)) {
-                        let result = creep.withdraw(storage, lab1Input);
-                        if(result == 0) {
-                            creep.moveTo(labPair[1]);
-                        }
+                    creep.moveTo(inputLab1);
+                }
+                return;
+            }
+            else {
+                if(creep.pos.isNearTo(storage)) {
+                    let result = creep.withdraw(storage, lab1Input);
+                    if(result == 0) {
+                        creep.moveTo(inputLab2);
                     }
-                    else {
-                        creep.moveTo(storage);
-                    }
+                }
+                else {
+                    creep.moveTo(storage);
                 }
             }
+        }
 
-            if(labPair[1] && labPair[1].store[lab2Input] < MaxStorage*3 && labPair[1].store[lab2Input] < 1000 && storage && storage.store[lab2Input] >= MaxStorage) {
-                console.log('test8')
+        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < 1000 && storage && storage.store[lab2Input] >= MaxStorage) {
+            console.log('test8')
 
-                if(creep.store[lab2Input] > 0) {
+            if(creep.store[lab2Input] > 0) {
 
-                    if(creep.pos.isNearTo(labPair[1])) {
-                        creep.transfer(labPair[1], lab2Input);
-                    }
-                    else {
-                        creep.moveTo(labPair[1]);
-                    }
-                    return;
+                if(creep.pos.isNearTo(inputLab2)) {
+                    creep.transfer(inputLab2, lab2Input);
                 }
                 else {
-                    if(creep.pos.isNearTo(storage)) {
-                        let result = creep.withdraw(storage, lab2Input);
-                        if(result == 0) {
-                            creep.moveTo(labPair[1]);
-                        }
+                    creep.moveTo(inputLab2);
+                }
+                return;
+            }
+            else {
+                if(creep.pos.isNearTo(storage)) {
+                    let result = creep.withdraw(storage, lab2Input);
+                    if(result == 0) {
+                        creep.moveTo(inputLab2);
                     }
-                    else {
-                        creep.moveTo(storage);
-                    }
+                }
+                else {
+                    creep.moveTo(storage);
                 }
             }
+        }
 
 
 
-            if(labPair[0] && labPair[0].store[lab1Input] < MaxStorage*3 && labPair[0].store[labPair[0].mineralType] < MaxStorage*3 && terminal && terminal.store[lab1Input] >= MaxStorage) {
-                console.log('test5')
+        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < MaxStorage*3 && terminal && terminal.store[lab1Input] >= MaxStorage) {
+            console.log('test5')
 
-                if(creep.store[lab1Input] > 0) {
-                    if(creep.pos.isNearTo(labPair[0])) {
-                        creep.transfer(labPair[0], lab1Input);
-                    }
-                    else {
-                        creep.moveTo(labPair[0]);
-                    }
-                    return;
+            if(creep.store[lab1Input] > 0) {
+                if(creep.pos.isNearTo(inputLab1)) {
+                    creep.transfer(inputLab1, lab1Input);
                 }
                 else {
-                    if(creep.pos.isNearTo(terminal)) {
-                        creep.withdraw(terminal, lab1Input);
-                    }
-                    else {
-                        creep.moveTo(terminal);
-                    }
+                    creep.moveTo(inputLab1);
+                }
+                return;
+            }
+            else {
+                if(creep.pos.isNearTo(terminal)) {
+                    creep.withdraw(terminal, lab1Input);
+                }
+                else {
+                    creep.moveTo(terminal);
                 }
             }
+        }
 
-            if(labPair[1] && labPair[1].store[lab2Input] < MaxStorage*3 && labPair[1].store[labPair[1].mineralType] < MaxStorage*3 && terminal && terminal.store[lab2Input] >= MaxStorage) {
-                console.log('test6')
+        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < MaxStorage*3 && terminal && terminal.store[lab2Input] >= MaxStorage) {
+            console.log('test6')
 
-                if(creep.store[lab2Input] > 0) {
+            if(creep.store[lab2Input] > 0) {
 
-                    if(creep.pos.isNearTo(labPair[1])) {
-                        creep.transfer(labPair[1], lab2Input);
-                    }
-                    else {
-                        creep.moveTo(labPair[1]);
-                    }
-                    return;
+                if(creep.pos.isNearTo(inputLab2)) {
+                    creep.transfer(inputLab2, lab2Input);
                 }
                 else {
-                    if(creep.pos.isNearTo(terminal)) {
-                        creep.withdraw(terminal, lab2Input);
-                    }
-                    else {
-                        creep.moveTo(terminal);
-                    }
+                    creep.moveTo(inputLab2);
+                }
+                return;
+            }
+            else {
+                if(creep.pos.isNearTo(terminal)) {
+                    creep.withdraw(terminal, lab2Input);
+                }
+                else {
+                    creep.moveTo(terminal);
                 }
             }
         }
@@ -393,7 +381,7 @@
     let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
     let MineralType = Mineral.mineralType;
     //  && creep.store[RESOURCE_ENERGY] == 0 && creep.store[MineralType] == 0
-    if(storage && storage.store[MineralType] > 3000 && terminal && terminal.store.getFreeCapacity() > MaxStorage && _.keys(creep.store).length == 0) {
+    if(storage && storage.store[MineralType] > 5000 && terminal && terminal.store.getFreeCapacity() > MaxStorage && _.keys(creep.store).length == 0) {
         console.log('test11')
 
         if(creep.pos.isNearTo(storage)) {
@@ -407,7 +395,7 @@
         }
         return;
     }
-    else if(terminal && terminal.store.getFreeCapacity() > MaxStorage && creep.store.getFreeCapacity() == 0) {
+    else if(terminal && terminal.store.getFreeCapacity() > MaxStorage && creep.store.getFreeCapacity() == 0 && creep.store[MineralType] > 0) {
         console.log('test10')
 
         if(creep.pos.isNearTo(terminal)) {
@@ -423,16 +411,44 @@
     }
 
 
-    // if(storage && creep.store.getFreeCapacity() == 0) {
-    //     if(creep.pos.isNearTo(storage)) {
-    //         for(let resourceType in creep.carry) {
-    //             creep.transfer(storage, resourceType);
-    //         }
-    //     }
-    //     else {
-    //         creep.moveTo(storage);
-    //     }
-    // }
+    if(storage && creep.store.getFreeCapacity() == 0) {
+        if(creep.pos.isNearTo(storage)) {
+            for(let resourceType in creep.store) {
+                creep.transfer(storage, resourceType);
+            }
+        }
+        else {
+            creep.moveTo(storage);
+        }
+    }
+
+
+    if(terminal && _.keys(terminal.store).length > 0) {
+        for(let resource in terminal.store) {
+            if(resource != RESOURCE_ENERGY && resource != RESOURCE_HYDROGEN && resource != RESOURCE_OXYGEN && resource != RESOURCE_UTRIUM && resource != RESOURCE_KEANIUM
+                && resource != RESOURCE_LEMERGIUM && resource != RESOURCE_ZYNTHIUM && resource != RESOURCE_CATALYST && resource != RESOURCE_MIST && resource != RESOURCE_SILICON
+                && resource != RESOURCE_BIOMASS && resource != RESOURCE_METAL)
+            {
+                if(creep.store[resource] > 0) {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.transfer(storage, resource);
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
+                    return;
+                }
+                else {
+                    if(creep.pos.isNearTo(terminal)) {
+                        creep.withdraw(terminal, resource);
+                    }
+                    else {
+                        creep.moveTo(terminal);
+                    }
+                }
+            }
+        }
+    }
 
     // if(storage && creep.store.getFreeCapacity() != MaxStorage &&
     // creep.store[RESOURCE_LEMERGIUM] == 0 && creep.store[RESOURCE_CATALYST] == 0 &&

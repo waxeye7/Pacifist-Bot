@@ -10,33 +10,33 @@ function labs(room) {
 
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
 
-            let outputLabPosition = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
-            let lookForOutputLabPosition = outputLabPosition.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLabPosition.length) {
-                for(let building of lookForOutputLabPosition) {
+            let inputLab1Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
+            let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
+            if(lookForInputLab1Position.length) {
+                for(let building of lookForInputLab1Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab = building.id;
+                        room.memory.labs.inputLab1 = building.id;
                         // outputLab = building;
                     }
                 }
             }
 
-            let pair1Lab1Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name);
-            let lookForPair1Lab1Position = pair1Lab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair1Lab1Position.length) {
-                for(let building of lookForPair1Lab1Position) {
+            let inputLab2Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name);
+            let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
+            if(lookForInputLab2Position.length) {
+                for(let building of lookForInputLab2Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair1Lab1 = building.id;
+                        room.memory.labs.inputLab2 = building.id;
                     }
                 }
             }
 
-            let pair1Lab2Position = new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name);
-            let lookForPair1Lab2Position = pair1Lab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair1Lab2Position.length) {
-                for(let building of lookForPair1Lab2Position) {
+            let outputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name);
+            let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab1Position.length) {
+                for(let building of lookForOutputLab1Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair1Lab2 = building.id;
+                        room.memory.labs.outputLab1 = building.id;
                     }
                 }
             }
@@ -45,32 +45,32 @@ function labs(room) {
 
         if(room.controller.level >= 7 && LabsInRoom.length >= 6) {
 
-            let pair2Lab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name);
-            let lookForPair2Lab1Position = pair2Lab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair2Lab1Position.length) {
-                for(let building of lookForPair2Lab1Position) {
+            let outputLab2Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name);
+            let lookForOutputLab2Position = outputLab2Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab2Position.length) {
+                for(let building of lookForOutputLab2Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair2Lab1 = building.id;
+                        room.memory.labs.outputLab2 = building.id;
                     }
                 }
             }
 
-            let pair2Lab2Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name);
-            let lookForPair2Lab2Position = pair2Lab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair2Lab2Position.length) {
-                for(let building of lookForPair2Lab2Position) {
+            let outputLab3Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name);
+            let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab3Position.length) {
+                for(let building of lookForOutputLab3Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair2Lab2 = building.id;
+                        room.memory.labs.outputLab3 = building.id;
                     }
                 }
             }
 
-            let boostLabPosition = new RoomPosition(storage.pos.x - 1, storage.pos.y + 3, room.name);
-            let lookForBoostLab = boostLabPosition.lookFor(LOOK_STRUCTURES);
-            if(lookForBoostLab.length) {
-                for(let building of lookForBoostLab) {
+            let outputLab4Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name);
+            let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab4Position.length) {
+                for(let building of lookForOutputLab4Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.boostLab = building.id;
+                        room.memory.labs.outputLab4 = building.id;
                     }
                 }
             }
@@ -79,42 +79,42 @@ function labs(room) {
 
         if(room.controller.level == 8 && LabsInRoom.length == 10) {
 
-            let pair3Lab1Position = new RoomPosition(storage.pos.x - 6, storage.pos.y + 2, room.name);
-            let lookForPair3Lab1Position = pair3Lab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair3Lab1Position.length) {
-                for(let building of lookForPair3Lab1Position) {
+            let outputLab5Position = new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name);
+            let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab5Position.length) {
+                for(let building of lookForOutputLab5Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair3Lab1 = building.id;
+                        room.memory.labs.outputLab5 = building.id;
                     }
                 }
             }
 
-            let pair3Lab2Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name);
-            let lookForPair3Lab2Position = pair3Lab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair3Lab2Position.length) {
-                for(let building of lookForPair3Lab2Position) {
+            let outputLab6Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name);
+            let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab6Position.length) {
+                for(let building of lookForOutputLab6Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair3Lab2 = building.id;
+                        room.memory.labs.outputLab6 = building.id;
                     }
                 }
             }
 
-            let pair4Lab1Position = new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name);
-            let lookForPair4Lab1Position = pair4Lab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair4Lab1Position.length) {
-                for(let building of lookForPair4Lab1Position) {
+            let outputLab7Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name);
+            let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab7Position.length) {
+                for(let building of lookForOutputLab7Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair4Lab1 = building.id;
+                        room.memory.labs.outputLab7 = building.id;
                     }
                 }
             }
 
-            let pair4Lab2Position = new RoomPosition(storage.pos.x - 5, storage.pos.y - 1, room.name);
-            let lookForPair4Lab2Position = pair4Lab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForPair4Lab2Position.length) {
-                for(let building of lookForPair4Lab2Position) {
+            let outputLab8Position = new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name);
+            let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
+            if(lookForOutputLab8Position.length) {
+                for(let building of lookForOutputLab8Position) {
                     if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.pair4Lab2 = building.id;
+                        room.memory.labs.outputLab8 = building.id;
                     }
                 }
             }
@@ -123,62 +123,46 @@ function labs(room) {
     }
 
 
-    let outputLab;
-    let boostLab;
-    let pair1Lab1;
-    let pair1Lab2;
-    let pair2Lab1;
-    let pair2Lab2;
-    let pair3Lab1;
-    let pair3Lab2;
-    let pair4Lab1;
-    let pair4Lab2;
+    let inputLab1;
+    let inputLab2;
+    let outputLab1;
+    let outputLab2;
+    let outputLab3;
+    let outputLab4;
+    let outputLab5;
+    let outputLab6;
+    let outputLab7;
+    let outputLab8;
 
-    let labPairs = [];
-
-    if(room.memory.labs.outputLab) {
-        outputLab = Game.getObjectById(room.memory.labs.outputLab)
+    if(room.memory.labs.inputLab1) {
+        inputLab1 = Game.getObjectById(room.memory.labs.inputLab1)
     }
-    if(room.memory.labs.pair1Lab1) {
-        pair1Lab1 = Game.getObjectById(room.memory.labs.pair1Lab1)
+    if(room.memory.labs.inputLab2) {
+        inputLab2 = Game.getObjectById(room.memory.labs.inputLab2)
     }
-    if(room.memory.labs.pair1Lab2) {
-        pair1Lab2 = Game.getObjectById(room.memory.labs.pair1Lab2)
+    if(room.memory.labs.outputLab1) {
+        outputLab1 = Game.getObjectById(room.memory.labs.outputLab1)
     }
-    if(room.memory.labs.boostLab) {
-        boostLab = Game.getObjectById(room.memory.labs.boostLab)
+    if(room.memory.labs.outputLab2) {
+        outputLab2 = Game.getObjectById(room.memory.labs.outputLab2)
     }
-    if(room.memory.labs.pair2Lab1) {
-        pair2Lab1 = Game.getObjectById(room.memory.labs.pair2Lab1)
+    if(room.memory.labs.outputLab3) {
+        outputLab3 = Game.getObjectById(room.memory.labs.outputLab3)
     }
-    if(room.memory.labs.pair2Lab2) {
-        pair2Lab2 = Game.getObjectById(room.memory.labs.pair2Lab2)
+    if(room.memory.labs.outputLab4) {
+        outputLab4 = Game.getObjectById(room.memory.labs.outputLab4)
     }
-    if(room.memory.labs.pair3Lab1) {
-        pair3Lab1 = Game.getObjectById(room.memory.labs.pair3Lab1)
+    if(room.memory.labs.outputLab5) {
+        outputLab5 = Game.getObjectById(room.memory.labs.outputLab5)
     }
-    if(room.memory.labs.pair3Lab2) {
-        pair3Lab2 = Game.getObjectById(room.memory.labs.pair3Lab2)
+    if(room.memory.labs.outputLab6) {
+        outputLab6 = Game.getObjectById(room.memory.labs.outputLab6)
     }
-    if(room.memory.labs.pair4Lab1) {
-        pair4Lab1 = Game.getObjectById(room.memory.labs.pair4Lab1)
+    if(room.memory.labs.outputLab7) {
+        outputLab7 = Game.getObjectById(room.memory.labs.outputLab7)
     }
-    if(room.memory.labs.pair4Lab2) {
-        pair4Lab2 = Game.getObjectById(room.memory.labs.pair4Lab2)
-    }
-
-
-    if(pair1Lab1 && pair1Lab2) {
-        labPairs.push([pair1Lab1, pair1Lab2])
-    }
-    if(pair2Lab1 && pair2Lab2) {
-        labPairs.push([pair2Lab1, pair2Lab2])
-    }
-    if(pair3Lab1 && pair3Lab2) {
-        labPairs.push([pair3Lab1, pair3Lab2])
-    }
-    if(pair4Lab1 && pair4Lab2) {
-        labPairs.push([pair4Lab1, pair4Lab2])
+    if(room.memory.labs.outputLab8) {
+        outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
@@ -199,9 +183,18 @@ function labs(room) {
     if(!room.memory.labs.status.lab1Input || !room.memory.labs.status.lab2Input || !room.memory.labs.status.currentOutput || Game.time % 750 == 0) {
         let lab1Input:MineralConstant | MineralCompoundConstant | any;
         let lab2Input:MineralConstant | MineralCompoundConstant | any;
-        let currentOutput:MineralConstant | MineralCompoundConstant | any = outputLab.mineralType || false;
+        let currentOutput:MineralConstant | MineralCompoundConstant | any = outputLab1.mineralType || false;
 
-        if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
+
+        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
+            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 20000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
+                lab1Input = RESOURCE_OXYGEN;
+                lab2Input = RESOURCE_UTRIUM;
+                currentOutput = RESOURCE_UTRIUM_OXIDE;
+            }
+
+
+        else if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
             storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) {
                 lab1Input = RESOURCE_OXYGEN
                 lab2Input = RESOURCE_HYDROGEN;
@@ -286,6 +279,76 @@ function labs(room) {
                 currentOutput = RESOURCE_CATALYZED_GHODIUM_ALKALIDE;
             }
 
+        // chain to get catalyzed keanium alkalide
+
+        else if(storage && storage.store[RESOURCE_KEANIUM_OXIDE] < 1000 && currentOutput != RESOURCE_KEANIUM_OXIDE ||
+            storage && storage.store[RESOURCE_KEANIUM_OXIDE] < 6000 && currentOutput == RESOURCE_KEANIUM_OXIDE) {
+                lab1Input = RESOURCE_KEANIUM
+                lab2Input = RESOURCE_OXYGEN;
+                currentOutput = RESOURCE_KEANIUM_OXIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_KEANIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_KEANIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_KEANIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_KEANIUM_ALKALIDE) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_KEANIUM_OXIDE;
+                currentOutput = RESOURCE_KEANIUM_ALKALIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_CATALYZED_KEANIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_KEANIUM_ALKALIDE;
+                currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
+            }
+
+        // chain to get catalyzed utrium acid
+
+        else if(storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_HYDRIDE ||
+            storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 6000 && currentOutput == RESOURCE_UTRIUM_HYDRIDE) {
+                lab1Input = RESOURCE_UTRIUM;
+                lab2Input = RESOURCE_HYDROGEN;
+                currentOutput = RESOURCE_UTRIUM_HYDRIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_UTRIUM_ACID] < 1000 && currentOutput != RESOURCE_UTRIUM_ACID ||
+            storage && storage.store[RESOURCE_UTRIUM_ACID] < 6000 && currentOutput == RESOURCE_UTRIUM_ACID) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_UTRIUM_HYDRIDE;
+                currentOutput = RESOURCE_UTRIUM_ACID;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 1000 && currentOutput != RESOURCE_CATALYZED_UTRIUM_ACID ||
+            storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 6000 && currentOutput == RESOURCE_CATALYZED_UTRIUM_ACID) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_UTRIUM_ACID;
+                currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
+            }
+
+
+
+        // chain to get catalyzed utrium acid
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_OXIDE ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 6000 && currentOutput == RESOURCE_ZYNTHIUM_OXIDE) {
+                lab1Input = RESOURCE_OXYGEN;
+                lab2Input = RESOURCE_ZYNTHIUM;
+                currentOutput = RESOURCE_ZYNTHIUM_OXIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_ZYNTHIUM_ALKALIDE) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_ZYNTHIUM_OXIDE;
+                currentOutput = RESOURCE_ZYNTHIUM_ALKALIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 6000 && currentOutput == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
+                currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
+            }
 
 
 
@@ -410,13 +473,47 @@ function labs(room) {
     // }
 
 
-    if(outputLab && outputLab.cooldown == 0 && outputLab.store.getFreeCapacity() != 0) {
-        for(let labPair of labPairs) {
-            if(labPair[0] && labPair[0].store[lab1Input] >= 5 && labPair[1] && labPair[1].store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-                outputLab.runReaction(labPair[0], labPair[1]);
-            }
+    if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab1.runReaction(inputLab1, inputLab2);
         }
     }
+    if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab2.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab3.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab4.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab5.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab6.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab7.runReaction(inputLab1, inputLab2);
+        }
+    }
+    if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity() != 0) {
+        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+            outputLab8.runReaction(inputLab1, inputLab2);
+        }
+    }
+
 
     // if(resultLab.store[RESOURCE_UTRIUM_HYDRIDE] <= 2995 && firstLab.store[RESOURCE_UTRIUM] >= 5 && secondLab.store[RESOURCE_HYDROGEN] >= 5) {
     //     resultLab.runReaction(firstLab, secondLab);

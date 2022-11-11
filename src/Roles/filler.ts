@@ -44,40 +44,61 @@
 
 
     if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
-        let labs = [];
+        let inputLab1;
+        let inputLab2;
+        let outputLab1;
+        let outputLab2;
+        let outputLab3;
+        let outputLab4;
+        let outputLab5;
+        let outputLab6;
+        let outputLab7;
+        let outputLab8;
 
-        if(creep.room.memory.labs.outputLab) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.outputLab));
+        let Labs = [];
+
+        if(creep.room.memory.labs.inputLab1) {
+            inputLab1 = Game.getObjectById(creep.room.memory.labs.inputLab1)
+            Labs.push(inputLab1)
         }
-        if(creep.room.memory.labs.pair1Lab1) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair1Lab1));
+        if(creep.room.memory.labs.inputLab2) {
+            inputLab2 = Game.getObjectById(creep.room.memory.labs.inputLab2)
+            Labs.push(inputLab2)
         }
-        if(creep.room.memory.labs.pair1Lab2) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair1Lab2));
+        if(creep.room.memory.labs.outputLab1) {
+            outputLab1 = Game.getObjectById(creep.room.memory.labs.outputLab1)
+            Labs.push(outputLab1)
         }
-        if(creep.room.memory.labs.boostLab) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.boostLab));
+        if(creep.room.memory.labs.outputLab2) {
+            outputLab2 = Game.getObjectById(creep.room.memory.labs.outputLab2)
+            Labs.push(outputLab2)
         }
-        if(creep.room.memory.labs.pair2Lab1) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair2Lab1));
+        if(creep.room.memory.labs.outputLab3) {
+            outputLab3 = Game.getObjectById(creep.room.memory.labs.outputLab3)
+            Labs.push(outputLab3)
         }
-        if(creep.room.memory.labs.pair2Lab2) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair2Lab2));
+        if(creep.room.memory.labs.outputLab4) {
+            outputLab4 = Game.getObjectById(creep.room.memory.labs.outputLab4)
+            Labs.push(outputLab4)
         }
-        if(creep.room.memory.labs.pair3Lab1) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair3Lab1));
+        if(creep.room.memory.labs.outputLab5) {
+            outputLab5 = Game.getObjectById(creep.room.memory.labs.outputLab5)
+            Labs.push(outputLab5)
         }
-        if(creep.room.memory.labs.pair3Lab2) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair3Lab2));
+        if(creep.room.memory.labs.outputLab6) {
+            outputLab6 = Game.getObjectById(creep.room.memory.labs.outputLab6)
+            Labs.push(outputLab6)
         }
-        if(creep.room.memory.labs.pair4Lab1) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair4Lab1));
+        if(creep.room.memory.labs.outputLab7) {
+            outputLab7 = Game.getObjectById(creep.room.memory.labs.outputLab7)
+            Labs.push(outputLab7)
         }
-        if(creep.room.memory.labs.pair4Lab2) {
-            labs.push(Game.getObjectById(creep.room.memory.labs.pair4Lab2));
+        if(creep.room.memory.labs.outputLab8) {
+            outputLab8 = Game.getObjectById(creep.room.memory.labs.outputLab8)
+            Labs.push(outputLab8)
         }
 
-        for(let lab of labs) {
+        for(let lab of Labs) {
             if(lab && lab.store[RESOURCE_ENERGY] <= 2000 - creep.memory.MaxStorage) {
                 creep.memory.locked = lab.id;
                 return lab;

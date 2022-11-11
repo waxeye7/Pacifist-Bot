@@ -26,7 +26,7 @@
 
     if(creep.memory.full) {
         if(creep.room.name != creep.memory.homeRoom) {
-            return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            return creep.moveToRoom(creep.memory.homeRoom);
         }
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -43,10 +43,25 @@
     }
     if(!creep.memory.full) {
         if(creep.room.name != creep.memory.targetRoom) {
-            return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+            return creep.moveToRoom(creep.memory.targetRoom);
         }
 
+
+
+        let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_LINK) && _.keys(building.store).length > 0});
+        if(target) {
+            if(creep.pos.isNearTo(target)) {
+                for(let resource in target.store) {
+                    creep.withdraw(target, resource)
+                }
+            }
+            else {
+                creep.moveTo(target);
+            }
+            return;
+        }
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);
+
         if(droppedTarget.length > 0) {
             droppedTarget.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedTarget[0])) {
@@ -57,17 +72,6 @@
             }
 
             return;
-        }
-
-
-        let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_LINK) && _.keys(building.store).length > 0});
-        if(creep.pos.isNearTo(target)) {
-            for(let resource in target.store) {
-                creep.withdraw(target, resource)
-            }
-        }
-        else {
-            creep.moveTo(target);
         }
 
     }

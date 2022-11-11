@@ -45,10 +45,20 @@ function rooms() {
 
 
         if (room && room.controller && room.controller.my) {
-            if(Game.time % 24 == 0 && room.controller.level > 1) {
+            if(Game.time % 84 == 0 && room.controller.level > 1) {
                 console.log(room.name, "has", Math.floor(room.controller.progress/10000), "out of", Math.floor(room.controller.progressTotal/10000), "and is level", room.controller.level);
             }
 
+            if(room.controller.level == 1 && Game.time % 1000 == 0) {
+                let walls = room.find(FIND_STRUCTURES, {filter: (building) => building.structureType == STRUCTURE_WALL});
+                for(let wall of walls) {
+                    wall.destroy();
+                }
+            }
+
+            if(!Memory.AvoidRooms) {
+                Memory.AvoidRooms = [];
+            }
 
             spawning(room);
 
@@ -76,7 +86,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 1004 == 1003) {
+            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
@@ -84,7 +94,7 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 0) {
+            if(Game.time % 1004 == 0 && Game.cpu.bucket > 1000) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 Build_Remote_Roads(room);

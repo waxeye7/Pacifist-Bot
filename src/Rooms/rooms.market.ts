@@ -1,7 +1,5 @@
-import { globalAgent } from "http";
-
 function market(room):any {
-    if(room.terminal && room.terminal.cooldown == 0) {
+    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 13 == 0) {
         let resourceToSell;
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 7000) {
             resourceToSell = RESOURCE_HYDROGEN;
@@ -53,14 +51,14 @@ function market(room):any {
         let BaseResources = [RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_KEANIUM, RESOURCE_LEMERGIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST];
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 5);
-                    if(result == 0) {
-                        return;
-                    }
-                }
-            }
+            // for(let resource of BaseResources) {
+            //     if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+            //         let result = buy_resource(resource, 5);
+            //         if(result == 0) {
+            //             return;
+            //         }
+            //     }
+            // }
             for(let resource of BaseResources) {
                 if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
                     let result = buy_resource(resource, 10);
@@ -70,25 +68,25 @@ function market(room):any {
                 }
             }
 
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 15);
-                    if(result == 0) {
-                        return;
-                    }
-                }
-            }
+            // for(let resource of BaseResources) {
+            //     if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+            //         let result = buy_resource(resource, 15);
+            //         if(result == 0) {
+            //             return;
+            //         }
+            //     }
+            // }
 
-            if(Game.time % 41 == 0) {
-                for(let resource of BaseResources) {
-                    if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                        let result = buy_resource(resource, 20);
-                        if(result == 0) {
-                            return;
-                        }
-                    }
-                }
-            }
+            // if(Game.time % 41 == 0) {
+            //     for(let resource of BaseResources) {
+            //         if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+            //             let result = buy_resource(resource, 20);
+            //             if(result == 0) {
+            //                 return;
+            //             }
+            //         }
+            //     }
+            // }
         }
 
         function buy_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
@@ -225,13 +223,67 @@ function market(room):any {
             }
 
         }
-
-
-
-
-
-
     }
+
+    if(Game.time % 26 == 0 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+        let crawler_list = [
+            RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_ZYNTHIUM,RESOURCE_GHODIUM,
+            RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,
+            RESOURCE_UTRIUM_OXIDE,RESOURCE_KEANIUM_HYDRIDE,RESOURCE_KEANIUM_OXIDE,RESOURCE_LEMERGIUM_HYDRIDE,RESOURCE_LEMERGIUM_OXIDE,RESOURCE_ZYNTHIUM_HYDRIDE,
+            RESOURCE_ZYNTHIUM_OXIDE,RESOURCE_GHODIUM_HYDRIDE,RESOURCE_GHODIUM_OXIDE,RESOURCE_UTRIUM_ACID,RESOURCE_UTRIUM_ALKALIDE,RESOURCE_KEANIUM_ACID,
+            RESOURCE_KEANIUM_ALKALIDE,RESOURCE_LEMERGIUM_ACID,RESOURCE_LEMERGIUM_ALKALIDE,RESOURCE_ZYNTHIUM_ACID,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_GHODIUM_ACID,
+            RESOURCE_GHODIUM_ALKALIDE,RESOURCE_CATALYZED_UTRIUM_ACID,RESOURCE_CATALYZED_UTRIUM_ALKALIDE,RESOURCE_CATALYZED_KEANIUM_ACID,RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+            RESOURCE_CATALYZED_LEMERGIUM_ACID,RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,RESOURCE_CATALYZED_ZYNTHIUM_ACID,RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+            RESOURCE_CATALYZED_GHODIUM_ACID,RESOURCE_CATALYZED_GHODIUM_ALKALIDE,RESOURCE_OPS,RESOURCE_UTRIUM_BAR,RESOURCE_LEMERGIUM_BAR,RESOURCE_ZYNTHIUM_BAR,
+            RESOURCE_KEANIUM_BAR,RESOURCE_GHODIUM_MELT,RESOURCE_OXIDANT,RESOURCE_REDUCTANT,RESOURCE_PURIFIER,RESOURCE_BATTERY,RESOURCE_COMPOSITE,RESOURCE_CRYSTAL,
+            RESOURCE_LIQUID,RESOURCE_WIRE,RESOURCE_SWITCH,RESOURCE_TRANSISTOR,RESOURCE_MICROCHIP,RESOURCE_CIRCUIT,RESOURCE_DEVICE,RESOURCE_CELL,RESOURCE_PHLEGM,
+            RESOURCE_TISSUE,RESOURCE_MUSCLE,RESOURCE_ORGANOID,RESOURCE_ORGANISM,RESOURCE_ALLOY,RESOURCE_TUBE,RESOURCE_FIXTURES,RESOURCE_FRAME,RESOURCE_HYDRAULICS,
+            RESOURCE_MACHINE,RESOURCE_CONDENSATE,RESOURCE_CONCENTRATE,RESOURCE_EXTRACT,RESOURCE_SPIRIT,RESOURCE_EMANATION,RESOURCE_ESSENCE
+        ]
+
+        let shuffled_crawler_list = crawler_list
+            .map(value => ({ value, sort: Math.random() }))
+            .sort((a, b) => a.sort - b.sort)
+            .map(({ value }) => value);
+
+        if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
+            for(let resource of shuffled_crawler_list) {
+                let result = buy_resource(resource, 3);
+                if(result == 0) {
+                    return;
+                }
+            }
+        }
+
+        function buy_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
+            let OrderAmount = 50;
+            let OrderMaxEnergy = OrderAmount * 8;
+            let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
+            orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
+            if(orders.length > 0) {
+                orders.sort((a,b) => a.price - b.price);
+                let orderID = orders[0].id;
+
+                console.log(JSON.stringify(orders[0]))
+                console.log(Game.market.calcTransactionCost(OrderAmount, room.name, orders[0].roomName))
+
+                let result = Game.market.deal(orderID, OrderAmount, room.name);
+                if(result == 0) {
+                    console.log(OrderAmount, resource, "Bought at Price:", orders[0].price, "=", OrderAmount * orders[0].price);
+                    return result;
+                }
+                else {
+                    console.log(result);
+                }
+            }
+            else {
+                console.log("no order found below price of", OrderPrice, "for", resource)
+            }
+        }
+    }
+
+
+
 }
 
 export default market;

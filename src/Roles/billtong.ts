@@ -127,7 +127,7 @@ import roomDefence from "Rooms/rooms.defence";
                 creep.moveTo(deposit);
             }
         }
-        if(creep.room.name != creep.memory.targetRoom) {
+        if(creep.memory.targetRoom && creep.room.name != creep.memory.targetRoom) {
             creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
     }

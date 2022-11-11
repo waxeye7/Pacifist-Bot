@@ -40,6 +40,68 @@ const run = function (creep) {
             creep.memory.closestLink = null;
         }
 
+
+        if(creep.body.length <= 11 && creep.body[creep.body.length - 3].boost == undefined && creep.ticksToLive > 1465 && creep.room.memory.labs && creep.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
+
+            let outputLabs = [];
+            let outputLab1;
+            let outputLab2;
+            let outputLab3;
+            let outputLab4;
+            let outputLab5;
+            let outputLab6;
+            let outputLab7;
+            let outputLab8;
+
+            if(creep.creep.room.memory.labs.outputLab1) {
+                outputLab1 = Game.getObjectById(creep.room.memory.labs.outputLab1)
+                outputLabs.push(outputLab1)
+            }
+            if(creep.room.memory.labs.outputLab2) {
+                outputLab2 = Game.getObjectById(creep.room.memory.labs.outputLab2)
+                outputLabs.push(outputLab2)
+            }
+            if(creep.room.memory.labs.outputLab3) {
+                outputLab3 = Game.getObjectById(creep.room.memory.labs.outputLab3)
+                outputLabs.push(outputLab3)
+            }
+            if(creep.room.memory.labs.outputLab4) {
+                outputLab4 = Game.getObjectById(creep.room.memory.labs.outputLab4)
+                outputLabs.push(outputLab4)
+            }
+            if(creep.room.memory.labs.outputLab5) {
+                outputLab5 = Game.getObjectById(creep.room.memory.labs.outputLab5)
+                outputLabs.push(outputLab5)
+            }
+            if(creep.room.memory.labs.outputLab6) {
+                outputLab6 = Game.getObjectById(creep.room.memory.labs.outputLab6)
+                outputLabs.push(outputLab6)
+            }
+            if(creep.room.memory.labs.outputLab7) {
+                outputLab7 = Game.getObjectById(creep.room.memory.labs.outputLab7)
+                outputLabs.push(outputLab7)
+            }
+            if(creep.room.memory.labs.outputLab8) {
+                outputLab8 = Game.getObjectById(creep.room.memory.labs.outputLab8)
+                outputLabs.push(outputLab8)
+            }
+
+            if(outputLabs.length > 1) {
+                outputLabs.sort((a,b) => b.store[creep.room.memory.labs.status.currentOutput] - a.store[creep.room.memory.labs.status.currentOutput]);
+            }
+
+            if(outputLabs[0] && outputLabs[0].store[creep.room.memory.labs.status.currentOutput] >= 90) {
+                if(creep.pos.isNearTo(outputLabs[0])) {
+                    outputLabs[0].boostCreep(creep);
+                }
+                else {
+                    creep.moveTo(outputLabs[0]);
+                }
+                return;
+            }
+        }
+
+
         if(creep.ticksToLive <= 3) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             if(creep.pos.isNearTo(closestLink)) {
@@ -51,7 +113,32 @@ const run = function (creep) {
         }
 
 
-        if(creep.store.getFreeCapacity() <= 30) {
+        if(creep.store.getFreeCapacity() <= 50) {
+            let source = Game.getObjectById(creep.memory.sourceId);
+            if(creep.pos.isNearTo(source)) {
+                if(!creep.memory.NearbyExtensions) {
+                    creep.memory.NearbyExtensions = [];
+                    let mystructures = creep.room.find(FIND_MY_STRUCTURES);
+                    let buildings = creep.pos.findInRange(mystructures, 1)
+                    for(let building of buildings) {
+                        if(building.structureType == STRUCTURE_EXTENSION) {
+                            creep.memory.NearbyExtensions.push(building.id);
+                        }
+                    }
+                }
+            }
+
+            if(creep.memory.NearbyExtensions && creep.memory.NearbyExtensions.length > 0) {
+                for(let extensionID of creep.memory.NearbyExtensions) {
+                    let extension:any = Game.getObjectById(extensionID);
+                    if(extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                        creep.transfer(extension, RESOURCE_ENERGY);
+                        return;
+                    }
+                }
+            }
+
+
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {

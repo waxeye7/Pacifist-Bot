@@ -5,6 +5,14 @@
  const run = function (creep:any) {
     creep.Speak();
 
+    if(Game.rooms[creep.memory.targetRoom] && Game.rooms[creep.memory.targetRoom].controller.safeMode && Game.rooms[creep.memory.targetRoom].controller.safeMode > 0) {
+        creep.memory.suicide = true;
+    }
+    if(creep.memory.suicide) {
+        creep.recycle();
+        return;
+    }
+
     if((creep.pos.x <= 1 || creep.pos.y >= 48 || creep.pos.y <= 1 || creep.pos.x >= 48) && creep.room.name != creep.memory.targetRoom) {
         let creepsInRoom = creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "ram");}});
         if(creepsInRoom.length > 0) {
@@ -65,13 +73,23 @@
     //     }
     // }
 
-
-    if(target && target.hitsMax - target.hits >= creep.hitsMax - creep.hits) {
+    if(creep.hits == creep.hitsMax) {
         creep.heal(target);
     }
-    else if(target && creep.hitsMax - creep.hits > target.hitsMax - target.hits) {
+    else {
         creep.heal(creep);
     }
+
+
+    // if(target && target.hitsMax - target.hits >= creep.hitsMax - creep.hits) {
+    //     creep.heal(target);
+    // }
+    // else if(target && creep.hitsMax - creep.hits > target.hitsMax - target.hits) {
+    //     creep.heal(creep);
+    // }
+    // else {
+    //     creep.heal(creep);
+    // }
 
 }
 

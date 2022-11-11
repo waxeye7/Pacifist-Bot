@@ -9,6 +9,7 @@ declare global {
     */
     interface Memory {
         CPU:any;
+        AvoidRooms: any;
         CanClaimRemote:boolean;
         DistressSignals:any;
         tasks: any;
@@ -16,6 +17,9 @@ declare global {
         log: any;
     }
 
+    interface AvoidRooms {
+        RoomsToAvoid:Array<string>;
+    }
     interface CPU {
         lastCPU:number;
     }
@@ -45,6 +49,8 @@ declare global {
         attack_target: any;
         request_unboost: boolean;
         // labs: Array<Id<_HasId>>;
+        AvoidRooms: Array<string>;
+        Energy_Spent_First: Array<string>;
     }
     interface CreepMemory {
         name: string;

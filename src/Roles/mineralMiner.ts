@@ -11,6 +11,10 @@
     }
 
     let deposit:any = Game.getObjectById(creep.memory.deposit.id);
+    if(deposit.mineralAmount == 0) {
+        creep.memory.suicide = true;
+    }
+
 
     if(!creep.memory.mining && creep.store[deposit.mineralType] == 0) {
         creep.memory.mining = true;
@@ -43,7 +47,7 @@
 
         let terminal = creep.room.terminal;
 
-        if(terminal && terminal.store[deposit.mineralType] < 3000) {
+        if(terminal && terminal.store[deposit.mineralType] < 5000) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.transfer(terminal, deposit.mineralType);
             }

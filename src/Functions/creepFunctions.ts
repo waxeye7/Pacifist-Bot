@@ -207,9 +207,16 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
+    if(Game.time % 1 == 0 && this.room.name != this.memory.homeRoom) {
+        if(this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
+            Memory.AvoidRooms.push(this.room.name);
+        }
+    }
+
+
     let route:any = Game.map.findRoute(this.room.name, targetRoom, {
         routeCallback(roomName, fromRoomName) {
-            if(Game.rooms[roomName] && Game.rooms[roomName].controller && (Game.rooms[roomName].controller.level != 0 && !Game.rooms[roomName].controller.my || Game.rooms[roomName].controller.reservation)) {
+            if(_.includes(Memory.AvoidRooms, roomName, 0)) {
                 return Infinity;
             }
             return 1;
