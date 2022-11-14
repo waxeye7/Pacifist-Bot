@@ -27,6 +27,19 @@ import roomDefence from "Rooms/rooms.defence";
     }
 
     if(!creep.memory.targetRoom) {
+
+        if(Memory.billtong_rooms && Memory.billtong_rooms.length > 0) {
+            let copy_of_list = Memory.billtong_rooms;
+            copy_of_list.sort((a,b) => Game.map.getRoomLinearDistance(creep.room.name, a) - Game.map.getRoomLinearDistance(creep.room.name, b));
+            for(let billtong_room of copy_of_list) {
+                 Game.map.getRoomLinearDistance(creep.room.name, billtong_room)
+                if(creep.memory.searchedRooms && !creep.memory.searchedRooms.includes(billtong_room) && Game.map.getRoomLinearDistance(creep.room.name, billtong_room) <= 4) {
+                    creep.memory.targetRoom = billtong_room;
+                    return;
+                }
+            }
+        }
+
         let listOfPossibleRooms = [];
 
         let EastOrWest = creep.memory.homeRoom[0];
@@ -95,6 +108,9 @@ import roomDefence from "Rooms/rooms.defence";
             if(deposits.length > 0) {
                 creep.memory.deposit = deposits[0].id;
                 creep.memory.targetRoom = deposits[0].room.name;
+                if(!Memory.billtong_rooms.includes(creep.room.name)) {
+                    Memory.billtong_rooms.push(creep.room.name);
+                }
             }
 
             if(creep.room.name == creep.memory.targetRoom) {

@@ -20,7 +20,7 @@
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
     }
-    if(creep.memory.full && creep.store.getFreeCapacity() > MaxStorage) {
+    if(creep.memory.full && creep.store.getFreeCapacity() >= MaxStorage) {
         creep.memory.full = false;
     }
 
@@ -48,7 +48,11 @@
 
 
 
-        let target = creep.pos.findClosestByRange(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_LINK) && _.keys(building.store).length > 0});
+        let targets:any = creep.room.find(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_LINK) && _.keys(building.store).length > 0});
+        if(targets.length > 0) {
+            targets = targets.filter(target => target.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() || target.store[RESOURCE_ENERGY] == 0);
+        }
+        let target = creep.pos.findClosestByRange(targets);
         if(target) {
             if(creep.pos.isNearTo(target)) {
                 for(let resource in target.store) {

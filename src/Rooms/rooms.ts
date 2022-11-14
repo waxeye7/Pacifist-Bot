@@ -46,7 +46,7 @@ function rooms() {
 
         if (room && room.controller && room.controller.my) {
             if(Game.time % 84 == 0 && room.controller.level > 1) {
-                console.log(room.name, "has", Math.floor(room.controller.progress/10000), "out of", Math.floor(room.controller.progressTotal/10000), "and is level", room.controller.level);
+                console.log(room.name, "has", Math.floor((room.controller.progress/room.controller.progressTotal) * 100) + "%", "and is level", room.controller.level);
             }
 
             if(room.controller.level == 1 && Game.time % 1000 == 0) {
@@ -56,8 +56,18 @@ function rooms() {
                 }
             }
 
+            if(room.controller.level >= 6) {
+                if(!room.memory.spawning_squad) {
+                    room.memory.spawning_squad = {};
+                }
+            }
+
             if(!Memory.AvoidRooms) {
                 Memory.AvoidRooms = [];
+            }
+
+            if(!Memory.billtong_rooms) {
+                Memory.billtong_rooms = [];
             }
 
             spawning(room);
@@ -136,7 +146,6 @@ function rooms() {
 
 
     if(Game.time % 10000 == 0) {
-
         _.forEach(Memory.rooms, function(memoryRoom, roomName) {
             if(!Game.rooms[roomName] || (Game.rooms[roomName].controller && Game.rooms[roomName].controller.level == 0))  {
                 delete Memory.rooms[roomName];

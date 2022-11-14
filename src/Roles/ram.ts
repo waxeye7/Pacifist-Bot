@@ -88,6 +88,11 @@
         if(enemySpawns.length > 0) {
             let closestEnemySpawn = creep.pos.findClosestByRange(enemySpawns);
             target = closestEnemySpawn;
+            // if(creep.pos.findPathTo(target.pos).length > 51) {
+            //     let enemyRampartsAndWalls = Structures.filter(function(building) {return building.structureType == STRUCTURE_RAMPART || building.structureType == STRUCTURE_WALL})
+            //     target = creep.pos.findClosestByRange(enemyRampartsAndWalls);
+            // }
+
         }
     }
 

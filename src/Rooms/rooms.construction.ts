@@ -1,5 +1,4 @@
 import randomWords from "random-words";
-import roleMineralMiner from "Roles/mineralMiner";
 
 let checkerboard =
 [[-2,-2], [2,-2], [2,0],
@@ -387,12 +386,12 @@ function construction(room) {
     }
 
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-    if(room.controller.level >= 6) {
+    if(room.controller.level >= 6 && storage) {
         let sources = room.find(FIND_SOURCES);
 
         sources.forEach(source => {
             let open = source.pos.getOpenPositionsIgnoreCreeps();
-            findOpenSpotsForExtensions(open, storage, room);
+            findOpenSpotsForExtensions(open, storage, room, source.pos);
         });
     }
 
@@ -421,63 +420,85 @@ function construction(room) {
             // }
 
 
-            if(storage) {
+            if(storage ) {
                 let LabLocations = [];
-                LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
 
-                LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
-
-                LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
-
-                if(room.controller.level >= 7) {
-                    LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
-
-                    LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
-
-                    LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
-                }
-                if(room.controller.level == 8) {
-                    LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
-
-                    LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
-
-                    LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
-
-                    LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
-                }
-
-                let newlocation = false;
-                for(let location of LabLocations) {
-                    if(location.lookFor(LOOK_TERRAIN)[0] === TERRAIN_MASK_WALL && newlocation == false) {
-                        LabLocations = [];
-
-                        LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 4, room.name));
-
-                        LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 5, room.name));
-
-                        LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 3, room.name));
-
-                        if(room.controller.level >= 7) {
-                            LabLocations.push(new RoomPosition(storage.pos.x + 2, storage.pos.y + 4, room.name));
-
-                            LabLocations.push(new RoomPosition(storage.pos.x + 2, storage.pos.y + 5, room.name));
-
-                            LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 6, room.name));
+                let first_location_good = true;
+                let testLabLocations = [];
+                testLabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
+                testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
+                for(let location of testLabLocations) {
+                    let lookForWall = location.lookFor(LOOK_TERRAIN);
+                    if(lookForWall.length > 0) {
+                        if(lookForWall[0] == "wall") {
+                            first_location_good = false;
                         }
-                        if(room.controller.level == 8) {
-                            LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name));
-
-                            LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name));
-
-                            LabLocations.push(new RoomPosition(storage.pos.x + 6, storage.pos.y + 4, room.name));
-
-                            LabLocations.push(new RoomPosition(storage.pos.x + 6, storage.pos.y + 5, room.name));
-                        }
-                        newlocation = true;
                     }
                 }
 
-                if(newlocation == true) {
+
+                if(first_location_good) {
+                    LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
+
+                    if(room.controller.level >= 7) {
+                        LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
+                    }
+                    if(room.controller.level == 8) {
+                        LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
+                    }
+
+                }
+                else if(!first_location_good) {
+                    LabLocations = [];
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 4, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 5, room.name));
+
+                    LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 3, room.name));
+
+                    if(room.controller.level >= 7) {
+                        LabLocations.push(new RoomPosition(storage.pos.x + 2, storage.pos.y + 4, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 2, storage.pos.y + 5, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 6, room.name));
+                    }
+                    if(room.controller.level == 8) {
+                        LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 6, storage.pos.y + 4, room.name));
+
+                        LabLocations.push(new RoomPosition(storage.pos.x + 6, storage.pos.y + 5, room.name));
+                    }
+                }
+
+
+                if(!first_location_good) {
                     checkerboard = checkerboard.filter(item => item[0] !== 4 && item[1] !== 4);
                     checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 5);
                     checkerboard = checkerboard.filter(item => item[0] !== 3 && item[1] !== 3);
@@ -507,8 +528,42 @@ function construction(room) {
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
                 }
-            }
 
+                if(room.controller.level >= 5 && storage) {
+                    let ramparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
+                    if(ramparts.legnth > 0) {
+                        let topLeftRamparts = ramparts.filter(rampart => rampart.pos.x < storage.pos.x && rampart.pos.y < storage.pos.y);
+                        if(topLeftRamparts.length > 0) {
+                            // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                            let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
+                            let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
+                            pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
+                        }
+                        let topRightRamparts = ramparts.filter(rampart => rampart.pos.x > storage.pos.x && rampart.pos.y < storage.pos.y);
+                        if(topRightRamparts.length > 0) {
+                            // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                            let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
+                            let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
+                            pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
+                        }
+
+                        let bottomRightRamparts = ramparts.filter(rampart => rampart.pos.x > storage.pos.x && rampart.pos.y > storage.pos.y);
+                        if(bottomRightRamparts.length > 0) {
+                            // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                            let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
+                            let pathFromStorageToFurthestBottomRightRampart = PathFinder.search(storage.pos, {pos:closestBottomRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
+                            pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
+                        }
+                        let bottomLeftRamparts = ramparts.filter(rampart => rampart.pos.x < storage.pos.x && rampart.pos.y > storage.pos.y);
+                        if(bottomLeftRamparts.length > 0) {
+                            // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                            let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
+                            let pathFromStorageToFurthestBottomLeftRampart = PathFinder.search(storage.pos, {pos:closestBottomLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
+                            pathBuilder(pathFromStorageToFurthestBottomLeftRampart, STRUCTURE_ROAD, room);
+                        }
+                    }
+                }
+            }
 
 
 
@@ -982,13 +1037,12 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
 function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
     if(open.length > 1) {
         open.sort((a,b) => a.findPathTo(storage).length - b.findPathTo(storage).length)
-        open = open.filter(position => position.findPathTo(storage.pos).length < open[0].findPathTo(storage.pos).length + 2);
+        open = open.filter(position => position.findPathTo(storage.pos).length < open[0].findPathTo(storage.pos).length + 3);
         if(open.length > 1) {
             // let closestOpen = storage.pos.findClosestByRange(open);
             new RoomVisual(room.name).circle(open[1].x, open[1].y, {fill: 'transparent', radius: 0.75, stroke: 'red'});
             for (let i = 1; i < open.length; i++) {
                 let result = open[i].createConstructionSite(STRUCTURE_LINK);
-                console.log(result)
                 if(result == 0) {
                     return;
                 }
@@ -1007,28 +1061,46 @@ function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
     }
 }
 
-function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room) {
+function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, origin) {
     if(open.length > 1) {
         open.sort((a,b) => a.findPathTo(storage).length - b.findPathTo(storage).length)
+        open = open.filter(position => position.findPathTo(storage.pos).length < open[0].findPathTo(storage.pos).length + 3);
         if(open.length > 1) {
-            for(let spot of open) {
-                new RoomVisual(room.name).circle(spot.x, spot.y, {fill: 'transparent', radius: 0.75, stroke: 'green'});
-            }
-            for (let i = 0; i < open.length; i++) {
-                let lookForStructures = open[i].lookFor(LOOK_STRUCTURES);
-                if(lookForStructures.length == 0 && open[i] != open[0]) {
-                    open[i].createConstructionSite(STRUCTURE_EXTENSION);
+            // let closestOpen = storage.pos.findClosestByRange(open);
+
+            let opennumberone = open[1].lookFor(LOOK_STRUCTURES);
+            let opennumberzero = open[0].lookFor(LOOK_STRUCTURES)
+            if(opennumberone.length > 0) {
+                for(let building of opennumberone) {
+                    if(building.structureType == STRUCTURE_LINK && opennumberzero.length > 0) {
+                        let listToBuildExtensions = open[0].getOpenPositionsIgnoreCreeps();
+                        for(let location of listToBuildExtensions) {
+                            let buildingsinlocation = location.lookFor(LOOK_STRUCTURES);
+                            if(buildingsinlocation.length == 0) {
+                                location.createConstructionSite(STRUCTURE_EXTENSION);
+                            }
+                        }
+                    }
+                    else if(building.structureType == STRUCTURE_LINK && opennumberzero.length == 0) {
+                        let listToBuildExtensions = origin.getOpenPositionsIgnoreCreeps();
+                        for(let location of listToBuildExtensions) {
+                            let buildingsinlocation = location.lookFor(LOOK_STRUCTURES);
+                            if(buildingsinlocation.length == 0) {
+                                location.createConstructionSite(STRUCTURE_EXTENSION);
+                            }
+                        }
+                    }
                 }
             }
         }
         else {
             let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-            findOpenSpotsForExtensions(NewOpen, storage, room)
+            findOpenSpotsForExtensions(NewOpen, storage, room, open[0])
         }
     }
     else {
         let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-        findOpenSpotsForExtensions(NewOpen, storage, room)
+        findOpenSpotsForExtensions(NewOpen, storage, room, open[0])
     }
 }
 
@@ -1067,9 +1139,9 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
             if(building.structureType != STRUCTURE_RAMPART && building.structureType != STRUCTURE_CONTAINER && building.structureType != STRUCTURE_ROAD) {
                 costs.set(building.pos.x, building.pos.y, 255);
             }
-            else {
-                costs.set(building.pos.x, building.pos.y, 0);
-            }
+            // else {
+            //     costs.set(building.pos.x, building.pos.y, 0);
+            // }
         });
     }
     return costs;

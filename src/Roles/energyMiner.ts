@@ -41,7 +41,7 @@ const run = function (creep) {
         }
 
 
-        if(creep.body.length <= 11 && creep.body[creep.body.length - 3].boost == undefined && creep.ticksToLive > 1465 && creep.room.memory.labs && creep.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
+        if(creep.body.length <= 12 && creep.body[creep.body.length - 3].boost == undefined && creep.ticksToLive > 1465 && creep.room.memory.labs && creep.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
 
             let outputLabs = [];
             let outputLab1;
@@ -53,7 +53,7 @@ const run = function (creep) {
             let outputLab7;
             let outputLab8;
 
-            if(creep.creep.room.memory.labs.outputLab1) {
+            if(creep.room.memory.labs.outputLab1) {
                 outputLab1 = Game.getObjectById(creep.room.memory.labs.outputLab1)
                 outputLabs.push(outputLab1)
             }
@@ -90,7 +90,7 @@ const run = function (creep) {
                 outputLabs.sort((a,b) => b.store[creep.room.memory.labs.status.currentOutput] - a.store[creep.room.memory.labs.status.currentOutput]);
             }
 
-            if(outputLabs[0] && outputLabs[0].store[creep.room.memory.labs.status.currentOutput] >= 90) {
+            if(outputLabs[0] && outputLabs[0].store[creep.room.memory.labs.status.currentOutput] >= 30) {
                 if(creep.pos.isNearTo(outputLabs[0])) {
                     outputLabs[0].boostCreep(creep);
                 }

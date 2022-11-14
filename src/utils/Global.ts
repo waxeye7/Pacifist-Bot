@@ -10,11 +10,16 @@ declare global {
     interface Memory {
         CPU:any;
         AvoidRooms: any;
+        billtong_rooms: any;
         CanClaimRemote:boolean;
         DistressSignals:any;
         tasks: any;
         uuid: number;
         log: any;
+    }
+
+    interface billtong_rooms {
+        billtong_rooms:Array<string>;
     }
 
     interface AvoidRooms {
@@ -51,6 +56,7 @@ declare global {
         // labs: Array<Id<_HasId>>;
         AvoidRooms: Array<string>;
         Energy_Spent_First: Array<string>;
+        spawning_squad: object;
     }
     interface CreepMemory {
         name: string;

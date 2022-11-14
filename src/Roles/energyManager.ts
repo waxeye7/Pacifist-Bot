@@ -49,7 +49,6 @@
         else {
             creep.moveTo(storage);
         }
-        return;
     }
 
 
@@ -410,11 +409,26 @@
         return;
     }
 
+    if(terminal) {
+        for(let resource in creep.store) {
+            if(resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_OPS || resource == RESOURCE_POWER)
+            {
+                if(creep.pos.isNearTo(terminal)) {
+                    creep.transfer(terminal, resource);
+                }
+                else {
+                    creep.moveTo(terminal);
+                }
+                return;
+            }
+        }
+    }
 
-    if(storage && creep.store.getFreeCapacity() == 0) {
+
+    if(storage && creep.store.getFreeCapacity() <= 50 && creep.store[RESOURCE_MIST] == 0 && creep.store[RESOURCE_METAL] == 0  && creep.store[RESOURCE_SILICON] == 0  && creep.store[RESOURCE_BIOMASS] == 0  && creep.store[RESOURCE_BIOMASS] == 0  && creep.store[RESOURCE_OPS] == 0  && creep.store[RESOURCE_POWER] == 0) {
         if(creep.pos.isNearTo(storage)) {
-            for(let resourceType in creep.store) {
-                creep.transfer(storage, resourceType);
+            for(let resource in creep.store) {
+                creep.transfer(storage, resource);
             }
         }
         else {
@@ -423,11 +437,11 @@
     }
 
 
-    if(terminal && _.keys(terminal.store).length > 0) {
+    if(terminal && storage && _.keys(terminal.store).length > 0) {
         for(let resource in terminal.store) {
             if(resource != RESOURCE_ENERGY && resource != RESOURCE_HYDROGEN && resource != RESOURCE_OXYGEN && resource != RESOURCE_UTRIUM && resource != RESOURCE_KEANIUM
                 && resource != RESOURCE_LEMERGIUM && resource != RESOURCE_ZYNTHIUM && resource != RESOURCE_CATALYST && resource != RESOURCE_MIST && resource != RESOURCE_SILICON
-                && resource != RESOURCE_BIOMASS && resource != RESOURCE_METAL)
+                && resource != RESOURCE_BIOMASS && resource != RESOURCE_METAL && resource != RESOURCE_POWER && resource != RESOURCE_OPS)
             {
                 if(creep.store[resource] > 0) {
                     if(creep.pos.isNearTo(storage)) {
@@ -449,6 +463,32 @@
             }
         }
     }
+
+    if(storage && terminal &&  _.keys(storage.store).length > 0) {
+        for(let resource in storage.store) {
+            if(resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_OPS || resource == RESOURCE_POWER)
+            {
+                if(creep.store[resource] > 0) {
+                    if(creep.pos.isNearTo(terminal)) {
+                        creep.transfer(terminal, resource);
+                    }
+                    else {
+                        creep.moveTo(terminal);
+                    }
+                    return;
+                }
+                else {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.withdraw(storage, resource);
+                    }
+                    else {
+                        creep.moveTo(storage);
+                    }
+                }
+            }
+        }
+    }
+
 
     // if(storage && creep.store.getFreeCapacity() != MaxStorage &&
     // creep.store[RESOURCE_LEMERGIUM] == 0 && creep.store[RESOURCE_CATALYST] == 0 &&

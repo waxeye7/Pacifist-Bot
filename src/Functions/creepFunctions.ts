@@ -223,7 +223,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
     }});
 
     if(route.length > 0) {
-        console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
+        // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         const exit = this.pos.findClosestByRange(route[0].exit);
         this.moveTo(exit, {reusePath:7});
         return;
@@ -455,8 +455,11 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
             if(lookTerrain[0] != "wall") {
                 let lookForCreeps = positioninroom.lookFor(LOOK_CREEPS);
                 let lookForStructures = positioninroom.lookFor(LOOK_STRUCTURES);
-                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "filler" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "repair") {
-                    creep_nearby = true;
+                if(lookForCreeps.length > 0 && lookForCreeps[0].store.getFreeCapacity() == 0 && lookForCreeps[0].memory.role != "EnergyManager" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "EnergyMiner" && lookForCreeps[0].memory.role != "upgrader" && lookForCreeps[0].memory.role != "repair" && lookForCreeps[0].memory.role != "filler") {
+                    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+                    if(!storage || lookForCreeps[0].pos.getRangeTo(storage) >= creep.pos.getRangeTo(storage)) {
+                        creep_nearby = true;
+                    }
                 }
                 if(lookForCreeps.length == 0 && lookForStructures.length == 0 || lookForStructures.length == 1 && lookForStructures[0].structureType == STRUCTURE_ROAD) {
                     empty_block = position;

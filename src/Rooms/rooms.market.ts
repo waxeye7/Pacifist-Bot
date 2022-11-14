@@ -111,7 +111,7 @@ function market(room):any {
                 }
             }
             else {
-                console.log("no order found below price of", OrderPrice, "for", resource)
+                console.log("no order found below price of", OrderPrice, "for", resource, room.name)
             }
         }
 
@@ -137,7 +137,7 @@ function market(room):any {
                 }
             }
             else {
-                console.log("no order found above price of", OrderPrice, "for", resource)
+                console.log("no order found above price of", OrderPrice, "for", resource, room.name)
             }
         }
 
@@ -224,8 +224,8 @@ function market(room):any {
 
         }
     }
-
-    if(Game.time % 26 == 0 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 39 == 0 && Game.cpu.bucket > 500 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
         let crawler_list = [
             RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_ZYNTHIUM,RESOURCE_GHODIUM,
             RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,
@@ -247,15 +247,21 @@ function market(room):any {
             .map(({ value }) => value);
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
+            let count = 0;
+            let price = 3;
             for(let resource of shuffled_crawler_list) {
-                let result = buy_resource(resource, 3);
+                let result = buy_resource_crawler(resource, price);
                 if(result == 0) {
                     return;
                 }
+                else if(!result) {
+                    count += 1
+                }
             }
+            console.log(count, "items not found by the market crawler below price of", price, room.name);
         }
 
-        function buy_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
+        function buy_resource_crawler(resource:ResourceConstant, OrderPrice:number=5):any | void {
             let OrderAmount = 50;
             let OrderMaxEnergy = OrderAmount * 8;
             let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
@@ -277,7 +283,7 @@ function market(room):any {
                 }
             }
             else {
-                console.log("no order found below price of", OrderPrice, "for", resource)
+                return false;
             }
         }
     }

@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
- const run = function (creep:Creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
+ const run = function (creep:Creep) {
     creep.Speak();
 
     if(creep.memory.targetRoom == creep.memory.homeRoom) {
@@ -20,18 +20,23 @@
 
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
+        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR && object.structureType != STRUCTURE_STORAGE && object.structureType != STRUCTURE_TERMINAL});
+    let ConstructionSites = creep.room.find(FIND_HOSTILE_CONSTRUCTION_SITES);
     if(enemyCreeps.length > 0) {
         let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.attack(closestEnemyCreep);
             }
             else {
-                creep.moveTo(closestEnemyCreep);
+                if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
+                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                }
             }
 
             if(creep.attack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
+                if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
+                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                }
                 return;
             }
             return;
@@ -43,9 +48,19 @@
             creep.attack(closestStructure)
         }
         else {
-            creep.moveTo(closestStructure);
+            creep.moveTo(closestStructure, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
         }
     }
+
+    else if(ConstructionSites.length > 0) {
+        ConstructionSites.sort((a,b) => b.progress - a.progress);
+        if(creep.pos.x != ConstructionSites[0].pos.x && creep.pos.y != ConstructionSites[0].pos.y) {
+            creep.moveTo(ConstructionSites[0], {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+        }
+        // .pos.x, ConstructionSites[0].pos.y
+    }
+
+
 
     else {
         creep.moveTo(13,46);

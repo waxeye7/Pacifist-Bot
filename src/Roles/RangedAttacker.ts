@@ -145,7 +145,7 @@ const run = function (creep) {
 
 
     // if you are afraid of death, look away.
-    if(Game.time % 55 == 0 && !creep.memory.targetRoom) {
+    if(Game.time % 35 == 0 && !creep.memory.targetRoom) {
         creep.memory.suicide = true;
     }
 

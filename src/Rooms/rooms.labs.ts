@@ -10,16 +10,28 @@ function labs(room) {
 
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
 
+
             let inputLab1Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
             let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForInputLab1Position.length) {
+            if(lookForInputLab1Position.length > 0) {
                 for(let building of lookForInputLab1Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.inputLab1 = building.id;
-                        // outputLab = building;
                     }
                 }
             }
+            if(room.memory.labs.inputLab1 == undefined) {
+                let inputLab1Position = new RoomPosition(storage.pos.x + 4, storage.pos.y + 4, room.name);
+                let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
+                if(lookForInputLab1Position.length > 0) {
+                    for(let building of lookForInputLab1Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.inputLab1 = building.id;
+                        }
+                    }
+                }
+            }
+
 
             let inputLab2Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name);
             let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
@@ -30,6 +42,18 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.inputLab2 == undefined) {
+                let inputLab2Position = new RoomPosition(storage.pos.x + 4, storage.pos.y + 5, room.name);
+                let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
+                if(lookForInputLab2Position.length > 0) {
+                    for(let building of lookForInputLab2Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.inputLab2 = building.id;
+                        }
+                    }
+                }
+            }
+
 
             let outputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name);
             let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
@@ -40,6 +64,19 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab1 == undefined) {
+                let outputLab1Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 3, room.name);
+                let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab1Position.length) {
+                    for(let building of lookForOutputLab1Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab1 = building.id;
+                        }
+                    }
+                }
+            }
+
+
 
         }
 
@@ -54,6 +91,19 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab2 == undefined) {
+                let outputLab2Position = new RoomPosition(storage.pos.x + 2, storage.pos.y + 4, room.name);
+                let lookForOutputLab2Position = outputLab2Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab2Position.length) {
+                    for(let building of lookForOutputLab2Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab2 = building.id;
+                        }
+                    }
+                }
+            }
+
+
 
             let outputLab3Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name);
             let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
@@ -64,6 +114,19 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab3 == undefined) {
+                let outputLab3Position = new RoomPosition(storage.pos.x + 2, storage.pos.y + 5, room.name);
+                let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab3Position.length) {
+                    for(let building of lookForOutputLab3Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab3 = building.id;
+                        }
+                    }
+                }
+            }
+
+
 
             let outputLab4Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name);
             let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
@@ -74,6 +137,18 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab4 == undefined) {
+                let outputLab4Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 6, room.name);
+                let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab4Position.length) {
+                    for(let building of lookForOutputLab4Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab4 = building.id;
+                        }
+                    }
+                }
+            }
+
 
         }
 
@@ -88,6 +163,18 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab5 == undefined) {
+                let outputLab5Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name);
+                let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab5Position.length) {
+                    for(let building of lookForOutputLab5Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab5 = building.id;
+                        }
+                    }
+                }
+            }
+
 
             let outputLab6Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name);
             let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
@@ -98,6 +185,19 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab6 == undefined) {
+                let outputLab6Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name);
+                let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab6Position.length) {
+                    for(let building of lookForOutputLab6Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab6 = building.id;
+                        }
+                    }
+                }
+            }
+
+
 
             let outputLab7Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name);
             let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
@@ -108,6 +208,18 @@ function labs(room) {
                     }
                 }
             }
+            if(room.memory.labs.outputLab7 == undefined) {
+                let outputLab7Position = new RoomPosition(storage.pos.x + 6, storage.pos.y + 4, room.name);
+                let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab7Position.length) {
+                    for(let building of lookForOutputLab7Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab7 = building.id;
+                        }
+                    }
+                }
+            }
+
 
             let outputLab8Position = new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name);
             let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
@@ -118,7 +230,17 @@ function labs(room) {
                     }
                 }
             }
-
+            if(room.memory.labs.outputLab8 == undefined) {
+                let outputLab8Position = new RoomPosition(storage.pos.x + 6, storage.pos.y + 5, room.name);
+                let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
+                if(lookForOutputLab8Position.length) {
+                    for(let building of lookForOutputLab8Position) {
+                        if(building.structureType == STRUCTURE_LAB) {
+                            room.memory.labs.outputLab8 = building.id;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -183,10 +305,15 @@ function labs(room) {
     if(!room.memory.labs.status.lab1Input || !room.memory.labs.status.lab2Input || !room.memory.labs.status.currentOutput || Game.time % 750 == 0) {
         let lab1Input:MineralConstant | MineralCompoundConstant | any;
         let lab2Input:MineralConstant | MineralCompoundConstant | any;
-        let currentOutput:MineralConstant | MineralCompoundConstant | any = outputLab1.mineralType || false;
+        let currentOutput;
+        if(outputLab1 && outputLab1.mineralType) {
+            currentOutput = outputLab1.mineralType;
+        }
+        else {
+            currentOutput = false;
+        }
 
-
-        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
+        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 10000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
             storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 20000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
                 lab1Input = RESOURCE_OXYGEN;
                 lab2Input = RESOURCE_UTRIUM;

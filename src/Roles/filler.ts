@@ -37,7 +37,7 @@
 
     let terminal = creep.room.terminal;
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000 && storage && storage.store[RESOURCE_ENERGY] > 250000) {
+    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000 && storage && storage.store[RESOURCE_ENERGY] > 200000) {
         creep.memory.locked = terminal.id;
         return terminal;
     }

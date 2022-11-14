@@ -39,6 +39,11 @@ import roleSignifer from "Roles/signifer";
 import roleBilltong from "./Roles/billtong"
 import roleGoblin from "Roles/goblin";
 
+import roleSquadCreepA from "Roles/Squad/SquadCreepA";
+import roleSquadCreepB from "Roles/Squad/SquadCreepB";
+import roleSquadCreepY from "Roles/Squad/SquadCreepY";
+import roleSquadCreepZ from "Roles/Squad/SquadCreepZ";
+
 global.ROLES = {
   MineralMiner: roleMineralMiner,
 
@@ -83,6 +88,11 @@ global.ROLES = {
 
   billtong: roleBilltong,
   goblin: roleGoblin,
+
+  SquadCreepA: roleSquadCreepA,
+  SquadCreepB: roleSquadCreepB,
+  SquadCreepY: roleSquadCreepY,
+  SquadCreepZ: roleSquadCreepZ,
 }
 
 
