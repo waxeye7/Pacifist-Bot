@@ -288,6 +288,15 @@ function market(room):any {
         }
     }
 
+    let targetRampRoom = "E33N59"
+    if(Game.time % 100 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
+        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 25000) {
+            let theirRoom:any = Game.rooms[targetRampRoom];
+            let theirStorage = Game.getObjectById(theirRoom.memory.storage) || theirRoom.findStorage();
+            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 600000 && room.terminal.store[RESOURCE_ENERGY] > 20000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {
+                room.terminal.send(RESOURCE_ENERGY, 5500, targetRampRoom, "enjoy this energy, other room!");
+            }
+    }
 
 
 }

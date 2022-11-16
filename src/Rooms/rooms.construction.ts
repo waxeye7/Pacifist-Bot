@@ -232,8 +232,9 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_ROAD) {
                 if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
                     constructionSitesPlaced ++;
-                    let result = Game.rooms[blockSpot.roomName].createConstructionSite(blockSpot.x, blockSpot.y, structure)
-                    if(result !== -8 && result !== -14) {
+                    let result = blockSpot.createConstructionSite(structure);
+                    if(result == 0) {
+                    // if(result !== -8 && result !== -14) {
                         lookForExistingStructures[0].destroy();
                     }
                     return;
@@ -246,7 +247,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
             }
             if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
                 constructionSitesPlaced ++;
-                Game.rooms[blockSpot.roomName].createConstructionSite(blockSpot.x, blockSpot.y, structure);
+                blockSpot.createConstructionSite(structure);
                 return;
             }
         });
@@ -384,8 +385,51 @@ function construction(room) {
     if(room.memory.danger) {
         return;
     }
-
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+
+    if(room.controller.level >= 5) {
+        let nukes = room.find(FIND_NUKES);
+        if(nukes.length > 0) {
+            for(let nuke of nukes) {
+                if(nuke.pos.getRangeTo(storage) > 7 && nuke.pos.getRangeTo(storage) < 13) {
+                    let perimeter = [
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y - 1, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y + 1, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y - 2, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y + 2, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x + 3, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x + 2, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x + 2, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x + 1, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x + 1, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y - 1, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y + 1, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y - 2, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y + 2, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x - 3, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x - 2, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x - 2, nuke.pos.y + 3, room.name),
+                        new RoomPosition(nuke.pos.x - 1, nuke.pos.y - 3, room.name),
+                        new RoomPosition(nuke.pos.x - 1, nuke.pos.y + 3, room.name)
+                    ];
+                    for(let position of perimeter) {
+                        if(position.getRangeTo(storage) > 10) {
+                            position.createConstructionSite(STRUCTURE_RAMPART);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+
     if(room.controller.level >= 6 && storage) {
         let sources = room.find(FIND_SOURCES);
 
@@ -610,10 +654,18 @@ function construction(room) {
         let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
         if(room.controller.level >= 4 && !storage || room.controller.level == 4 && storage.structureType == STRUCTURE_CONTAINER) {
             if(lookForExistingStructures.length > 0) {
+                for(let building of lookForExistingStructures) {
+                    if(building.structureType == STRUCTURE_CONTAINER) {
+                        building.destroy();
+                    }
+                }
                 // for(let building of lookForExistingStructures) {
                 //     if(building.)
                 // }
                 lookForExistingStructures[0].destroy();
+            }
+            else if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
+                room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
             }
             else {
                 room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
@@ -621,19 +673,20 @@ function construction(room) {
         }
 
 
-        if(room.controller.level >= 2) {
+        if(room.controller.level >= 2 && room.controller.level <= 3) {
             if(spawn && !storage) {
                 let spawnNeighbours = getNeighbours(spawn.pos, checkerboard);
-
-                if(lookForExistingStructures.length != 0) {
-                    pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room);
-                }
+                pathBuilder(spawnNeighbours, STRUCTURE_EXTENSION, room, false);
             }
             else if(storage) {
                 let storageNeighbours = getNeighbours(storage.pos, checkerboard);
+                if(room.controller.level < 4) {
+                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room, false);
+                }
+
 
                 if(lookForExistingStructures.length != 0 && room.controller.level >= 4) {
-                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room);
+                    pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room, false);
 
                     let aroundStorageList = [
                         new RoomPosition(storage.pos.x + 1, storage.pos.y + 1, room.name),
@@ -649,12 +702,12 @@ function construction(room) {
                     pathBuilder(aroundStorageList, STRUCTURE_ROAD, room, false);
                 }
 
-                if(room.terminal) {
+                if(room.terminal && room.controller.level >= 6) {
                     let aroundTerminalList = [
-                        new RoomPosition(storage.pos.x + 1, storage.pos.y, room.name),
-                        new RoomPosition(storage.pos.x - 1, storage.pos.y, room.name),
-                        new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name),
-                        new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
+                        new RoomPosition(room.terminal.pos.x + 1, room.terminal.pos.y, room.name),
+                        new RoomPosition(room.terminal.pos.x - 1, room.terminal.pos.y, room.name),
+                        new RoomPosition(room.terminal.pos.x, room.terminal.pos.y + 1, room.name),
+                        new RoomPosition(room.terminal.pos.x, room.terminal.pos.y - 1, room.name),
                     ]
                     pathBuilder(aroundTerminalList, STRUCTURE_ROAD, room, false);
 
@@ -818,8 +871,8 @@ function construction(room) {
 
                     DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
                 }
-
-                if(room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length < 10) {
+                let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
+                if(labsInRoom.length < 10) {
 
                     // var index = array.indexOf(item);
                     // if (index !== -1) {
@@ -864,8 +917,8 @@ function construction(room) {
 
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
-                    for(let lab of LabLocations) {
-                        if(lab.lookFor(LOOK_STRUCTURES).length == 1) {
+                    for(let lab of labsInRoom) {
+                        if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
                             lab.createConstructionSite(STRUCTURE_RAMPART);
                         }
                     }

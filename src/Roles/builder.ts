@@ -96,8 +96,10 @@
 			}
 		}
     }
-
-	if(creep.ticksToLive <= 30 && !creep.memory.building) {
+	if(creep.memory.suicide && creep.store[RESOURCE_ENERGY] == 0 && storage && storage.store[RESOURCE_ENERGY] >= 300) {
+		creep.memory.suicide = false;
+	}
+	if(creep.ticksToLive <= 30 && !creep.memory.building || storage && storage.store[RESOURCE_ENERGY] < 300 && Game.time % 21 == 0 && creep.store[RESOURCE_ENERGY] == 0) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {

@@ -1,10 +1,10 @@
 power
 4 corner room mineral miner
-energymanager store some items from storage to terminal
-
 
 Quad Squad:
 check if clear move 2 blocks ahead of the front creeps to move
 
-improve level7/8 link to controller properties
+improve level7/8 link energy to controller properties
 same game.time tick for energy miner value in memory and messing it up so only 1 spawns idk why
+
+more carry parts pre storage where the extensions aren't filled enough.

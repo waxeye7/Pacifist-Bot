@@ -16,6 +16,7 @@ interface Creep {
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
     recycle: () => void;
+    RangedAttackFleeFromMelee:any;
 }
 // CREEP PROTOTYPES
 Creep.prototype.Speak = function Speak() {
@@ -180,9 +181,9 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
-        else if(storage.store[RESOURCE_ENERGY] < 500 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
+        else if(storage.store[RESOURCE_ENERGY] < 300 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
             if(Game.time % 10 == 0) {
-                console.log("Container Storage requires 500 energy to withdraw. Try again later.", this.room.name)
+                console.log("Container Storage requires 300 energy to withdraw. Try again later.", this.room.name)
             }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
@@ -579,6 +580,13 @@ Creep.prototype.recycle = function recycle() {
         let storage = Game.getObjectById(this.room.memory.storage) || this.room.findStorage();
         this.room.findBin(storage);
     }
+}
+
+Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(fleeTarget) {
+    let FleePath = PathFinder.search(this.pos,{pos:fleeTarget.pos, range:3}, {flee:true});
+    let FirstPathGuy = FleePath.path[0];
+    this.move(this.pos.getDirectionTo(FirstPathGuy));
+    return;
 }
 
 // CREEP PROTOTYPES

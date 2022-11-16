@@ -904,10 +904,11 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    let richRoom = "E47N59";
-    if(goblins < 0 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 4 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
+    let richRoom = "E32N59";
+    if(goblins < 1 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 5 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
+    goblins < 2 && Game.cpu.bucket > 7000 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 5 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
         let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([CARRY,CARRY,MOVE], room, 6), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
+        room.memory.spawn_list.push(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
         console.log('Adding Goblin to Spawn List: ' + newName);
     }
 
@@ -942,9 +943,9 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(annoyers < 1 && Game.time % 6000 < 1000 && Game.map.getRoomLinearDistance(room.name, "E47N59") <= 2) {
+    if(annoyers < 1 && Game.time % 6000 < 1000 && Game.map.getRoomLinearDistance(room.name, "E47N59") <= 3) {
         let newName = 'Annoy-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([ATTACK,MOVE], newName, {memory: {role: 'annoy', targetRoom: "E47N59"}});
+        room.memory.spawn_list.push([ATTACK,MOVE], newName, {memory: {role: 'annoy', targetRoom: "E48N59"}});
         console.log('Adding Annoyer to Spawn List: ' + newName);
     }
 
@@ -1100,7 +1101,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(room.memory.danger) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
-        else if(storage && storage.store[RESOURCE_ENERGY] < 50000) {
+        else if(storage && storage.store[RESOURCE_ENERGY] < 10000) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {

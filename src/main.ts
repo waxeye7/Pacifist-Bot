@@ -101,6 +101,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   rooms();
 
+
   const start = Game.cpu.getUsed()
   for(let name in Memory.creeps) {
       let creep = Game.creeps[name];
@@ -117,6 +118,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
       }
   }
   console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
+
 
   if(Game.time % 100 == 0) {
     let difference = Game.cpu.bucket - Memory.CPU
@@ -137,9 +139,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
       if(Game.cpu.bucket == 10000) {
           if(Game.cpu.generatePixel() == 0) {
               console.log('- generating pixel -');
-              console.log('-- generating pixel --');
-              console.log('--- generating pixel ---');
-              console.log('-- generating pixel --');
+              console.log('- generating pixel -');
+              console.log('- generating pixel -');
+              console.log('- generating pixel -');
               console.log('- generating pixel -');
           }
       }
