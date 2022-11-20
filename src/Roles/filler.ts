@@ -37,7 +37,7 @@
 
     let terminal = creep.room.terminal;
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000 && storage && storage.store[RESOURCE_ENERGY] > 200000) {
+    if (terminal && terminal.store[RESOURCE_ENERGY] < 25000 && storage && storage.store[RESOURCE_ENERGY] > 50000) {
         creep.memory.locked = terminal.id;
         return terminal;
     }
@@ -104,8 +104,16 @@
                 return lab;
             }
         }
-
     }
+
+    if(creep.room.memory.factory) {
+        let factory:any = Game.getObjectById(creep.room.memory.factory);
+        if(factory && factory.store[RESOURCE_ENERGY] < 2500) {
+            creep.memory.locked = factory.id;
+            return factory;
+        }
+    }
+
 }
 
 
@@ -205,7 +213,7 @@
             let result = creep.withdrawStorage(storage);
             if(result == 0) {
                 let target = findLocked(creep);
-                creep.moveTo(target, {reusePath:7});
+                creep.moveTo(target, {reusePath:20});
             }
             else {
                 creep.moveTo(storage);

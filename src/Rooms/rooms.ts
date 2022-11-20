@@ -12,7 +12,7 @@ function rooms() {
 
     // });
     let roomsIController = 0;
-    _.forEach(Game.rooms, function(room) {
+    _.forEach(Game.rooms, function(room:any) {
         // if(!room.controller) {
         //     delete room.memory;
         // }
@@ -85,6 +85,10 @@ function rooms() {
                     labs(room);
                 }
             }
+
+            factory(room);
+
+
             // if(room.factory && room.controller.level >= 7) {
 
             // }
@@ -104,7 +108,7 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 0 && Game.cpu.bucket > 1000) {
+            if(Game.time % 1004 == 0 && Game.cpu.bucket > 300) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 Build_Remote_Roads(room);

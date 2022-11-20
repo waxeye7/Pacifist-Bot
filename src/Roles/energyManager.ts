@@ -1,3 +1,6 @@
+import roomDefence from "Rooms/rooms.defence";
+import { createSecurePair } from "tls";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -94,6 +97,10 @@
     }
 
     let terminal = creep.room.terminal;
+    let factory;
+    if(creep.room.controller.level >= 7 && creep.room.memory.factory) {
+        factory = Game.getObjectById(creep.room.memory.factory);
+    }
 
     if(terminal && terminal.store[RESOURCE_ENERGY] > 27000 && creep.store.getFreeCapacity() == MaxStorage) {
         if(creep.pos.isNearTo(terminal)) {
@@ -109,6 +116,28 @@
         return;
     }
 
+
+    if(factory && factory.store[RESOURCE_KEANIUM] < 2500 && (creep.store[RESOURCE_KEANIUM] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
+        console.log('test222')
+
+        if(creep.store[RESOURCE_KEANIUM] > 0) {
+            if(creep.pos.isNearTo(factory)) {
+                creep.transfer(factory, RESOURCE_KEANIUM);
+            }
+            else {
+                creep.moveTo(factory);
+            }
+        }
+        else {
+            if(creep.pos.isNearTo(terminal)) {
+                creep.withdraw(terminal, RESOURCE_KEANIUM);
+            }
+            else {
+                creep.moveTo(terminal);
+            }
+        }
+        return;
+    }
 
 
     if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
@@ -242,7 +271,7 @@
 
         for(let outputLab of outputLabs) {
 
-            if(outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 1600 - MaxStorage || outputLab.store[currentOutput] >= 1600 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
+            if((creep.store[currentOutput] > 0 || creep.store.getFreeCapacity() == MaxStorage) && outputLab && outputLab.mineralType == currentOutput && (outputLab.store[currentOutput] >= 1600 - MaxStorage || outputLab.store[currentOutput] >= 1600 - MaxStorage*2 && creep.store[currentOutput] > 0)) {
                 console.log('test4')
 
                 if(creep.store[currentOutput] > 0) {
@@ -276,8 +305,8 @@
         // }
 
             // storage withdraw
-
-        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < 1000 && storage && storage.store[lab1Input] >= MaxStorage) {
+            // && storage && storage.store[lab1Input] >= MaxStorage
+        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < 1000 && ((storage && storage.store[lab1Input] >= MaxStorage) || creep.store[lab1Input] > 0)) {
             console.log('test7')
 
             if(creep.store[lab1Input] > 0) {
@@ -301,8 +330,8 @@
                 }
             }
         }
-
-        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < 1000 && storage && storage.store[lab2Input] >= MaxStorage) {
+        // && storage && storage.store[lab2Input] >= MaxStorage
+        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < 1000 && ((storage && storage.store[lab2Input] >= MaxStorage) || creep.store[lab2Input] > 0)) {
             console.log('test8')
 
             if(creep.store[lab2Input] > 0) {
@@ -413,6 +442,15 @@
         for(let resource in creep.store) {
             if(resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_OPS || resource == RESOURCE_POWER)
             {
+                if(factory && (resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS)) {
+                    if(creep.pos.isNearTo(factory)) {
+                        creep.transfer(factory, resource);
+                    }
+                    else {
+                        creep.moveTo(factory);
+                    }
+                    return;
+                }
                 if(creep.pos.isNearTo(terminal)) {
                     creep.transfer(terminal, resource);
                 }
@@ -484,6 +522,19 @@
                     else {
                         creep.moveTo(storage);
                     }
+                }
+            }
+        }
+    }
+
+    if(factory && terminal && (terminal.store[RESOURCE_MIST] || terminal.store[RESOURCE_SILICON] || terminal.store[RESOURCE_BIOMASS] || terminal.store[RESOURCE_METAL])) {
+        for(let resource in terminal.store) {
+            if(resource == RESOURCE_MIST || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_METAL) {
+                if(creep.pos.isNearTo(terminal)) {
+                    creep.withdraw(terminal, resource);
+                }
+                else {
+                    creep.moveTo(terminal);
                 }
             }
         }

@@ -1,5 +1,39 @@
 function factory(room) {
-    return;
+    if(room.controller && room.controller.my && room.controller.level >= 7 && Game.time % 10 == 0) {
+        if(!room.memory.factory && Game.time % 70 == 0) {
+            let factories = room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_FACTORY});
+            if(factories.length > 0) {
+                room.memory.factory = factories[0].id;
+            }
+        }
+
+
+
+        if(room.memory.factory) {
+            let factory:any = Game.getObjectById(room.memory.factory);
+
+
+
+            if(factory.cooldown == 0) {
+                if(factory.store[RESOURCE_KEANIUM_BAR] < 3000 &&
+                    factory.store[RESOURCE_ENERGY] >= 200 &&
+                    factory.store[RESOURCE_KEANIUM] >= 500) {
+                    factory.produce(RESOURCE_KEANIUM_BAR);
+                }
+                else if(factory.store[RESOURCE_KEANIUM_BAR] >= 20 &&
+                    factory.store[RESOURCE_ENERGY] >= 40 &&
+                    factory.store[RESOURCE_MIST] >= 100) {
+                        factory.produce(RESOURCE_CONDENSATE);
+                    }
+            }
+
+
+
+        }
+
+
+
+    }
 }
 
 export default factory;

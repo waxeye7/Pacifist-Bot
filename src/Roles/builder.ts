@@ -7,7 +7,7 @@
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
 	if(buildingsToBuild.length > 0) {
-		let storageAndLinks = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE;});
+		let storageAndLinks = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_CONTAINER;});
 		if(storageAndLinks.length > 0) {
 			creep.memory.suicide = false;
 			creep.say("🎯", true);

@@ -194,7 +194,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
                 return result;
             }
             else {
-                this.moveTo(storage, {reusePath:7, ignoreRoads:true});
+                this.moveTo(storage, {reusePath:25, ignoreRoads:true});
             }
         }
     }
@@ -204,7 +204,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 }
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
-    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:6, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:25, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
@@ -226,7 +226,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
     if(route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         const exit = this.pos.findClosestByRange(route[0].exit);
-        this.moveTo(exit, {reusePath:7});
+        this.moveTo(exit, {reusePath:25});
         return;
     }
 }
@@ -272,7 +272,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
             return result;
         }
         else {
-            this.moveTo(storedSource, {reusePath: 5});
+            this.moveTo(storedSource, {reusePath: 25});
         }
     }
 }
@@ -297,10 +297,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(closestDroppedEnergy, {reusePath:7, ignoreRoads:true, swampCost:1});
+                this.moveTo(closestDroppedEnergy, {reusePath:25, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(closestDroppedEnergy, {reusePath:7});
+                this.moveTo(closestDroppedEnergy, {reusePath:25});
             }
         }
         return;
@@ -320,10 +320,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(container, {reusePath:5, ignoreRoads:true, swampCost:1});
+                this.moveTo(container, {reusePath:25, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(container, {reusePath:5});
+                this.moveTo(container, {reusePath:25});
             }
         }
         return;
@@ -339,10 +339,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(dropped_resources_last_chance[0], {reusePath:5, ignoreRoads:true, swampCost:1});
+                this.moveTo(dropped_resources_last_chance[0], {reusePath:25, ignoreRoads:true, swampCost:1});
             }
             else {
-                this.moveTo(dropped_resources_last_chance[0], {reusePath:5});
+                this.moveTo(dropped_resources_last_chance[0], {reusePath:25});
             }
         }
         return;
@@ -512,13 +512,13 @@ Creep.prototype.Sweep = function Sweep() {
         return "picked up";
     }
     else if(this.pickup(target) == ERR_NOT_IN_RANGE) {
-        this.moveTo(target, {reusePath:10, ignoreRoads:true, swampCost:1});
+        this.moveTo(target, {reusePath:25, ignoreRoads:true, swampCost:1});
     }
     else if(this.withdraw(target, RESOURCE_ENERGY) == 0) {
         return "picked up";
     }
     else if(this.withdraw(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-        this.moveTo(target, {reusePath:10, ignoreRoads:true, swampCost:1});
+        this.moveTo(target, {reusePath:25, ignoreRoads:true, swampCost:1});
     }
 
     return false;
@@ -550,7 +550,7 @@ Creep.prototype.recycle = function recycle() {
                 }
             }
             else {
-                this.moveTo(bin, {reusePath:5, ignoreCreeps:false});
+                this.moveTo(bin, {reusePath:25, ignoreCreeps:false});
             }
         }
         else if(this.room.memory.storage) {
@@ -571,7 +571,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(spawn, {reusePath:5, ignoreCreeps:false});
+                    this.moveTo(spawn, {reusePath:25, ignoreCreeps:false});
                 }
             }
         }

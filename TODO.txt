@@ -8,3 +8,8 @@ improve level7/8 link energy to controller properties
 same game.time tick for energy miner value in memory and messing it up so only 1 spawns idk why
 
 more carry parts pre storage where the extensions aren't filled enough.
+
+
+sweeper sweep in vicinity instead of all dropped resources first
+
+construction extensions near source for transfer by energy miners could potentially block the way to ramparts

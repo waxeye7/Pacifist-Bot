@@ -60,7 +60,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 15, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 15, ignoreCreeps:true , visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
     }
@@ -72,7 +72,7 @@ import roomDefence from "Rooms/rooms.defence";
 
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);
 
-        droppedTarget = droppedTarget.filter(function(resource) {return resource.pos.getRangeTo(creep.pos) < 10 && resource.amount > 500;});
+        droppedTarget = droppedTarget.filter(function(resource) {return resource.pos.getRangeTo(creep.pos) < 4 && resource.amount > 250;});
         if(droppedTarget.length > 0) {
             droppedTarget.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedTarget[0])) {
@@ -87,14 +87,29 @@ import roomDefence from "Rooms/rooms.defence";
 
 
         let targets:any = creep.room.find(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_POWER_SPAWN) && _.keys(building.store).length > 0});
+        let specialTargets;
+
         if(targets.length > 0) {
             targets = targets.filter(target => _.keys(target.store).length > 0);
+            specialTargets = targets.filter(function(building) {return building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_TERMINAL;});
         }
+
+        let specialTarget = creep.pos.findClosestByRange(specialTargets);
         let target = creep.pos.findClosestByRange(targets);
-        if(target) {
+
+        if(specialTarget) {
+            if(creep.pos.isNearTo(specialTarget)) {
+                for(let resource in specialTarget.store) {
+                    creep.withdraw(specialTarget, resource)
+                }
+            }
+            else {
+                creep.moveTo(specialTarget);
+            }
+        }
+
+        else if(target) {
             if(creep.pos.isNearTo(target)) {
-                // let storedResources = target.store;
-                // storedResources.sort((a,b) => a.amount - b.amount);
                 for(let resource in target.store) {
                     creep.withdraw(target, resource)
                 }
@@ -102,7 +117,6 @@ import roomDefence from "Rooms/rooms.defence";
             else {
                 creep.moveTo(target);
             }
-            return;
         }
     }
 }

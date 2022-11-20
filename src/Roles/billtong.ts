@@ -112,6 +112,12 @@ import roomDefence from "Rooms/rooms.defence";
                     Memory.billtong_rooms.push(creep.room.name);
                 }
             }
+            else {
+                if(Memory.billtong_rooms.includes(creep.room.name)) {
+                    let indexOfUselessRoom = Memory.billtong_rooms.indexOf(creep.room.name);
+                    delete Memory.billtong_rooms[indexOfUselessRoom];
+                }
+            }
 
             if(creep.room.name == creep.memory.targetRoom) {
                 if(!creep.memory.searchedRooms) {

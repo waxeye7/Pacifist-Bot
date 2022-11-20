@@ -169,11 +169,23 @@ const run = function (creep) {
         if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             let targetLink:any = Game.getObjectById(creep.memory.targetLink);
+            let closestLinkToController;
+            if(creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.controllerLink) {
+                creep.memory.controllerLink = creep.room.controller.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}})).id;
+            }
             if(targetLink == null || closestLink == null) {
                 console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom, creep.memory.homeRoom);
                 return;
             }
-            if(closestLink.store[RESOURCE_ENERGY] == 800 && targetLink.store[RESOURCE_ENERGY] == 0) {
+
+            if(creep.memory.controllerLink) {
+                closestLinkToController = Game.getObjectById(creep.memory.controllerLink);
+            }
+            if(closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
+                closestLink.transferEnergy(closestLinkToController);
+            }
+
+            else if(closestLink.store[RESOURCE_ENERGY] == 800 && targetLink.store[RESOURCE_ENERGY] == 0) {
                 closestLink.transferEnergy(targetLink);
             }
         }

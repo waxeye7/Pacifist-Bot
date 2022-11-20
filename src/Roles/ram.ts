@@ -16,29 +16,29 @@
         return;
     }
 
-    if(creep.pos.x < 48 && creep.pos.x > 1 && creep.pos.y < 48 && creep.pos.y > 1) {
-        let AroundCreepPositions = creep.pos.getNearbyPositions();
-        let found = false;
+    // if(creep.pos.x < 48 && creep.pos.x > 1 && creep.pos.y < 48 && creep.pos.y > 1) {
+    //     let AroundCreepPositions = creep.pos.getNearbyPositions();
+    //     let found = false;
 
-        for(let position of AroundCreepPositions) {
-            let lookForCreep = position.lookFor(LOOK_CREEPS);
-            if(lookForCreep.length >= 1) {
-                if(lookForCreep[0].my && lookForCreep[0].memory.role == "signifer" && lookForCreep[0].fatigue == 0) {
-                    found = true;
-                }
-            }
-        }
+    //     for(let position of AroundCreepPositions) {
+    //         let lookForCreep = position.lookFor(LOOK_CREEPS);
+    //         if(lookForCreep.length >= 1) {
+    //             if(lookForCreep[0].my && lookForCreep[0].memory.role == "signifer" && lookForCreep[0].fatigue == 0) {
+    //                 found = true;
+    //             }
+    //         }
+    //     }
 
-        if(!found) {
-            if(creep.room.name == creep.memory.homeRoom) {
-                if(creep.roadCheck()) {
-                    creep.moveAwayIfNeedTo();
-                }
-            }
-            return;
-        }
+    //     if(!found) {
+    //         if(creep.room.name == creep.memory.homeRoom) {
+    //             if(creep.roadCheck()) {
+    //                 creep.moveAwayIfNeedTo();
+    //             }
+    //         }
+    //         return;
+    //     }
 
-    }
+    // }
 
 
 

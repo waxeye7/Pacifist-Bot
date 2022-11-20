@@ -1,5 +1,5 @@
 function market(room):any {
-    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 13 == 0) {
+    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 10 == 0) {
         let resourceToSell;
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 7000) {
             resourceToSell = RESOURCE_HYDROGEN;
@@ -225,7 +225,7 @@ function market(room):any {
         }
     }
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 39 == 0 && Game.cpu.bucket > 500 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 110 == 0 && Game.cpu.bucket > 6000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
         let crawler_list = [
             RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_ZYNTHIUM,RESOURCE_GHODIUM,
             RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,

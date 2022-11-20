@@ -57,6 +57,7 @@ declare global {
         AvoidRooms: Array<string>;
         Energy_Spent_First: Array<string>;
         spawning_squad: object;
+        factory:any;
     }
     interface CreepMemory {
         name: string;
@@ -77,6 +78,7 @@ declare global {
         deposit: Id<_HasId>;
         MaxStorage: number;
         searchedRooms: Array<string>;
+        controllerLink:any;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

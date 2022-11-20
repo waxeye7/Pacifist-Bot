@@ -322,7 +322,7 @@ function labs(room) {
 
 
         else if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
-            storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) {
+            storage && storage.store[RESOURCE_HYDROXIDE] < 20000 && currentOutput == RESOURCE_HYDROXIDE) {
                 lab1Input = RESOURCE_OXYGEN
                 lab2Input = RESOURCE_HYDROGEN;
                 currentOutput = RESOURCE_HYDROXIDE;
@@ -364,7 +364,7 @@ function labs(room) {
         else if(storage && storage.store[RESOURCE_LEMERGIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_LEMERGIUM_ALKALIDE ||
             storage && storage.store[RESOURCE_LEMERGIUM_ALKALIDE] < 7000 && currentOutput == RESOURCE_LEMERGIUM_ALKALIDE) {
                 lab1Input = RESOURCE_HYDROXIDE
-                lab2Input = RESOURCE_LEMERGIUM_ALKALIDE;
+                lab2Input = RESOURCE_LEMERGIUM_OXIDE;
                 currentOutput = RESOURCE_LEMERGIUM_ALKALIDE;
             }
 
