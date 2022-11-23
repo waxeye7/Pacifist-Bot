@@ -82,9 +82,8 @@ global.ROLES = {
 
   RampartDefender: roleRampartDefender,
 
-
-  ram: roleRam,
   signifer: roleSignifer,
+  ram: roleRam,
 
   billtong: roleBilltong,
   goblin: roleGoblin,

@@ -1,6 +1,3 @@
-import roomDefence from "Rooms/rooms.defence";
-import { createSecurePair } from "tls";
-
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -198,7 +195,7 @@ import { createSecurePair } from "tls";
         let lab2Input = creep.room.memory.labs.status.lab2Input;
 
         for(let outputLab of outputLabs) {
-            if(outputLab && outputLab.store[outputLab.mineralType] > 0 && outputLab.mineralType != currentOutput) {
+            if(outputLab && outputLab.store[outputLab.mineralType] > 0 && outputLab.mineralType != currentOutput && (creep.store[outputLab.mineralType] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
                 console.log('test1')
 
                 if(creep.store[outputLab.mineralType] > 0) {
@@ -222,7 +219,7 @@ import { createSecurePair } from "tls";
         }
 
 
-        if(inputLab1 && inputLab1.store[inputLab1.mineralType] > 0 && inputLab1.mineralType != lab1Input) {
+        if(inputLab1 && inputLab1.store[inputLab1.mineralType] > 0 && inputLab1.mineralType != lab1Input && (creep.store[inputLab1.mineralType] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
             console.log('test2')
 
             if(creep.store[inputLab1.mineralType] > 0) {
@@ -244,7 +241,7 @@ import { createSecurePair } from "tls";
             return;
         }
 
-        if(inputLab2 && inputLab2.store[inputLab2.mineralType] > 0 && inputLab2.mineralType != lab2Input) {
+        if(inputLab2 && inputLab2.store[inputLab2.mineralType] > 0 && inputLab2.mineralType != lab2Input && (creep.store[inputLab2.mineralType] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
             console.log('test3')
 
             if(creep.store[inputLab2.mineralType] > 0) {
@@ -303,12 +300,10 @@ import { createSecurePair } from "tls";
         //         }
         //     }
         // }
-
             // storage withdraw
             // && storage && storage.store[lab1Input] >= MaxStorage
-        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < 1000 && ((storage && storage.store[lab1Input] >= MaxStorage) || creep.store[lab1Input] > 0)) {
-            console.log('test7')
-
+        if(inputLab1 && inputLab1.store[lab1Input] < MaxStorage*3 && inputLab1.store[lab1Input] < 1000 && storage && storage.store[lab1Input] >= MaxStorage && ((inputLab1.store[lab1Input.mineralType] == undefined && inputLab1.mineralType == undefined)  || inputLab1.mineralType == lab1Input) && (creep.store[lab1Input] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
+            console.log('test7', creep.room.name)
             if(creep.store[lab1Input] > 0) {
                 if(creep.pos.isNearTo(inputLab1)) {
                     creep.transfer(inputLab1, lab1Input);
@@ -331,7 +326,7 @@ import { createSecurePair } from "tls";
             }
         }
         // && storage && storage.store[lab2Input] >= MaxStorage
-        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < 1000 && ((storage && storage.store[lab2Input] >= MaxStorage) || creep.store[lab2Input] > 0)) {
+        if(inputLab2 && inputLab2.store[lab2Input] < MaxStorage*3 && inputLab2.store[lab2Input] < 1000 && storage && storage.store[lab2Input] >= MaxStorage && ((inputLab2.store[lab2Input.mineralType] == undefined && inputLab2.mineralType == undefined) || inputLab2.mineralType == lab2Input) && (creep.store[lab2Input] > 0 || creep.store.getFreeCapacity() == MaxStorage)) {
             console.log('test8')
 
             if(creep.store[lab2Input] > 0) {
@@ -504,7 +499,7 @@ import { createSecurePair } from "tls";
 
     if(storage && terminal &&  _.keys(storage.store).length > 0) {
         for(let resource in storage.store) {
-            if(resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_OPS || resource == RESOURCE_POWER)
+            if(resource == RESOURCE_MIST || resource == RESOURCE_METAL || resource == RESOURCE_SILICON || resource == RESOURCE_BIOMASS || resource == RESOURCE_OPS || resource == RESOURCE_POWER || resource == RESOURCE_BATTERY)
             {
                 if(creep.store[resource] > 0) {
                     if(creep.pos.isNearTo(terminal)) {
@@ -536,6 +531,27 @@ import { createSecurePair } from "tls";
                 else {
                     creep.moveTo(terminal);
                 }
+            }
+        }
+    }
+
+    if(factory && terminal && (factory.store[RESOURCE_KEANIUM_BAR] > 5000 || creep.store[RESOURCE_KEANIUM_BAR] > 0) && terminal.store.getFreeCapacity() > MaxStorage) {
+        if(creep.store[RESOURCE_KEANIUM_BAR] > 0) {
+
+            if(creep.pos.isNearTo(terminal)) {
+                creep.transfer(RESOURCE_KEANIUM_BAR, terminal);
+            }
+            else {
+                creep.moveTo(terminal);
+            }
+            return;
+        }
+        else {
+            if(creep.pos.isNearTo(factory)) {
+                creep.withdraw(factory, RESOURCE_KEANIUM_BAR);
+            }
+            else {
+                creep.moveTo(factory);
             }
         }
     }

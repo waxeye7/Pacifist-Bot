@@ -115,7 +115,7 @@ import roomDefence from "Rooms/rooms.defence";
             else {
                 if(Memory.billtong_rooms.includes(creep.room.name)) {
                     let indexOfUselessRoom = Memory.billtong_rooms.indexOf(creep.room.name);
-                    delete Memory.billtong_rooms[indexOfUselessRoom];
+                    Memory.billtong_rooms.splice(indexOfUselessRoom, 1);
                 }
             }
 

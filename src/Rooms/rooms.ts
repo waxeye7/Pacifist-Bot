@@ -80,7 +80,9 @@ function rooms() {
             if(Game.time % 1 == 0 && room.terminal && room.controller.level >= 6) {
                 const start = Game.cpu.getUsed()
                 market(room);
-                console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
+                if(Game.time % 10 == 0) {
+                    console.log('Market Ran in', Game.cpu.getUsed() - start, 'ms')
+                }
                 if(room.controller.level >= 6) {
                     labs(room);
                 }

@@ -1,25 +1,25 @@
 function market(room):any {
     if(room.terminal && room.terminal.cooldown == 0 && Game.time % 10 == 0) {
         let resourceToSell;
-        if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_HYDROGEN] >= 7000) {
+        if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_HYDROGEN] >= 7500) {
             resourceToSell = RESOURCE_HYDROGEN;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_OXYGEN] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_OXYGEN] >= 7500) {
             resourceToSell = RESOURCE_OXYGEN;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_UTRIUM] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_UTRIUM] >= 7500) {
             resourceToSell = RESOURCE_UTRIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_KEANIUM] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_KEANIUM] >= 7500) {
             resourceToSell = RESOURCE_KEANIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_LEMERGIUM] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_LEMERGIUM] >= 7500) {
             resourceToSell = RESOURCE_LEMERGIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 7500) {
             resourceToSell = RESOURCE_ZYNTHIUM;
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 2000 && room.terminal.store[RESOURCE_CATALYST] >= 7000) {
+        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_CATALYST] >= 7500) {
             resourceToSell = RESOURCE_CATALYST;
         }
         else {
@@ -60,13 +60,35 @@ function market(room):any {
             //     }
             // }
             for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 10);
+                if(room.terminal.store[resource] < 3000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                    let result = buy_resource(resource, 33);
                     if(result == 0) {
                         return;
                     }
                 }
             }
+
+            for(let resource of BaseResources) {
+                if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                    let result = buy_resource(resource, 12.5);
+                    if(result == 0) {
+                        return;
+                    }
+                }
+            }
+
+
+            let SellResources = [RESOURCE_OPS, RESOURCE_BATTERY, RESOURCE_KEANIUM_BAR];
+
+            for(let resource of SellResources) {
+                if(room.terminal.store[resource] >= 50) {
+                    let result = sell_resource(resource, 20);
+                    if(result == 0) {
+                        return;
+                    }
+                }
+            }
+
 
             // for(let resource of BaseResources) {
             //     if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
@@ -115,9 +137,9 @@ function market(room):any {
             }
         }
 
-        function sell_resource(resource:ResourceConstant, OrderPrice:number=5):any | void {
-            let OrderAmount = 100;
-            let OrderMaxEnergy = OrderAmount * 4;
+        function sell_resource(resource:ResourceConstant | RESOURCE_BATTERY | RESOURCE_OPS, OrderPrice:number=5):any | void {
+            let OrderAmount = 50;
+            let OrderMaxEnergy = OrderAmount * 8;
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
             if(orders.length > 0) {
@@ -289,8 +311,8 @@ function market(room):any {
     }
 
     let targetRampRoom = "E33N59"
-    if(Game.time % 100 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
-        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 25000) {
+    if(Game.time % 30 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
+        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 30000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.storage) || theirRoom.findStorage();
             if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 600000 && room.terminal.store[RESOURCE_ENERGY] > 20000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {

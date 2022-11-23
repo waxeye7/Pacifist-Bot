@@ -653,8 +653,8 @@ function construction(room) {
                     }
 
 
-                    let spawns = room.find(FIND_MY_SPAWNS);
-                    if(spawns.length < 2 && storage) {
+                    let mySpawns = room.find(FIND_MY_SPAWNS);
+                    if(mySpawns.length < 2 && storage) {
                         let secondSpawnPosition = new RoomPosition(storage.pos.x, storage.pos.y - 2, room.name);
                         new RoomVisual(room.name).circle(secondSpawnPosition.x, secondSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
                         let listOfSpawnPositions = [];
@@ -1041,12 +1041,7 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
             }
         }
         else {
-            if(StructureType == STRUCTURE_SPAWN) {
-                room.createConstructionSite(location, StructureType, randomWords({exactly:3,wordsPerString:1,join: '-'}));
-            }
-            else {
-                room.createConstructionSite(location, StructureType);
-            }
+            room.createConstructionSite(location, StructureType);
         }
     }
 }

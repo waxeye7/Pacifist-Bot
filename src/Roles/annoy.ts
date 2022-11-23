@@ -5,10 +5,14 @@
  const run = function (creep:Creep) {
     creep.Speak();
 
+    if(creep.room.controller && !creep.room.controller.my && creep.room.controller.safeMode > 0) {
+        return creep.moveToRoom(creep.memory.targetRoom);
+    }
+
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
         filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR && object.structureType != STRUCTURE_STORAGE && object.structureType != STRUCTURE_TERMINAL});
-    let ConstructionSites = creep.room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {filter: site => site.structureType != STRUCTURE_ROAD});
+    let ConstructionSites = creep.room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {filter: site => site.structureType != STRUCTURE_ROAD && site.progress != 0});
     if(enemyCreeps.length > 0) {
         let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
             if(creep.pos.isNearTo(closestEnemyCreep)) {
@@ -52,12 +56,13 @@
     else {
         let buildings = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_WALL});
         if(buildings.length > 0) {
-            let closestWall = creep.pos.findClosestByRange(buildings);
-            if(creep.pos.isNearTo(closestWall)) {
-                creep.attack(closestWall);
+            buildings.sort((a,b) => a.pos.getRangeTo(creep.room.controller) - b.pos.getRangeTo(creep.room.controller));
+            // let closestWall = creep.pos.findClosestByRange(buildings);
+            if(creep.pos.isNearTo(buildings[0])) {
+                creep.attack(buildings[0]);
             }
             else {
-                creep.moveTo(closestWall);
+                creep.moveTo(buildings[0]);
             }
         }
         else {

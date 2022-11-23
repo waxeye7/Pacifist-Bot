@@ -15,9 +15,11 @@ function factory(room) {
 
 
             if(factory.cooldown == 0) {
-                if(factory.store[RESOURCE_KEANIUM_BAR] < 3000 &&
+                let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+                if(factory.store[RESOURCE_KEANIUM_BAR] < 10000 &&
                     factory.store[RESOURCE_ENERGY] >= 200 &&
-                    factory.store[RESOURCE_KEANIUM] >= 500) {
+                    factory.store[RESOURCE_KEANIUM] >= 500 &&
+                    storage && storage.store[RESOURCE_ENERGY] > 475000) {
                     factory.produce(RESOURCE_KEANIUM_BAR);
                 }
                 else if(factory.store[RESOURCE_KEANIUM_BAR] >= 20 &&
