@@ -9,7 +9,6 @@ same game.time tick for energy miner value in memory and messing it up so only 1
 
 more carry parts pre storage where the extensions aren't filled enough.
 
-
 sweeper sweep in vicinity instead of all dropped resources first
 
 construction extensions near source for transfer by energy miners could potentially block the way to ramparts
