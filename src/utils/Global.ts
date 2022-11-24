@@ -63,6 +63,7 @@ declare global {
         name: string;
         role: string;
         room: object;
+        target: any;
         working: boolean;
         building: boolean;
         upgrading: boolean;
