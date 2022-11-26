@@ -90,7 +90,7 @@
             creep.harvest(deposit);
         }
         else {
-            creep.moveTo(deposit, {reusePath:20, ignoreRoads:true});
+            creep.moveTo(deposit, {reusePath:25, ignoreRoads:true});
         }
     }
     else {
@@ -101,7 +101,7 @@
                 creep.transfer(storage, deposit.mineralType);
             }
             else {
-                creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
             }
             return;
         }
@@ -114,7 +114,7 @@
                 creep.transfer(terminal, deposit.mineralType);
             }
             else {
-                creep.moveTo(terminal, {reusePath:20});
+                creep.moveTo(terminal, {reusePath:25});
             }
             return;
         }
@@ -125,7 +125,7 @@
                 creep.transfer(storage, deposit.mineralType);
             }
             else {
-                creep.moveTo(storage, {reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
             }
             return;
         }

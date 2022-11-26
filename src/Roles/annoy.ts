@@ -20,13 +20,13 @@
             }
             else {
                 if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
-                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
                 }
             }
 
             if(creep.attack(closestEnemyCreep) == 0) {
                 if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
-                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
                 }
                 return;
             }
@@ -39,14 +39,14 @@
             creep.attack(closestStructure)
         }
         else {
-            creep.moveTo(closestStructure, {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+            creep.moveTo(closestStructure, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
         }
     }
 
     else if(ConstructionSites.length > 0) {
         ConstructionSites.sort((a,b) => b.progress - a.progress);
         if(creep.pos.x != ConstructionSites[0].pos.x || creep.pos.y != ConstructionSites[0].pos.y) {
-            creep.moveTo(ConstructionSites[0], {swampCost:2, reusePath:20, visualizePathStyle: {stroke: '#ffffff'}});
+            creep.moveTo(ConstructionSites[0], {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
         }
         // .pos.x, ConstructionSites[0].pos.y
     }

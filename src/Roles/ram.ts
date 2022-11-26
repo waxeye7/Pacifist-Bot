@@ -99,13 +99,33 @@
     console.log(target)
 
     if(target) {
-        if(creep.pos.isNearTo(target)) {
-            creep.attack(target);
+        let FleePath = PathFinder.search(creep.pos, {pos:target.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(creep.room.name)});
+
+        if(!FleePath.incomplete) {
+            if(creep.pos.isNearTo(target)) {
+                creep.attack(target);
+            }
+            else {
+                creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
+            }
         }
         else {
-            creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
-            creep.attack(creep.pos.findClosestByRange(enemyCreeps))
+            let targetStructures = Structures.filter(function(building) {return building.structureType == STRUCTURE_WALL || building.structureType == STRUCTURE_RAMPART});
+            target = creep.pos.findClosestByRange(targetStructures);
+            if(target) {
+                if(creep.pos.isNearTo(target)) {
+                    creep.attack(target);
+
+                }
+                else {
+                    creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
+
+                }
+
+            }
         }
+
+        creep.attack(creep.pos.findClosestByRange(enemyCreeps))
     }
 
     if(!target) {
@@ -128,6 +148,29 @@
     }
 
 
+
+
+}
+
+const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
+    let currentRoom = Game.rooms[roomName];
+    if(currentRoom == undefined || currentRoom === undefined || !currentRoom || currentRoom === null || currentRoom == null) {
+        return false;
+    }
+    let costs = new PathFinder.CostMatrix;
+
+    let existingStructures = currentRoom.find(FIND_STRUCTURES);
+    if(existingStructures.length > 0) {
+        existingStructures.forEach(building => {
+            if(building.structureType != STRUCTURE_RAMPART && building.structureType != STRUCTURE_CONTAINER && building.structureType != STRUCTURE_ROAD) {
+                costs.set(building.pos.x, building.pos.y, 255);
+            }
+            // else {
+            //     costs.set(building.pos.x, building.pos.y, 0);
+            // }
+        });
+    }
+    return costs;
 }
 
 

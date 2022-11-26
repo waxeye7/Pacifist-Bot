@@ -100,13 +100,13 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
     else {
         if(room.controller.level >= 5) {
-            threeWorkParts = fiveWorkParts + 2;
+            threeWorkParts = fiveWorkParts;
         }
         let ticksPerRoundTrip = (values.pathLength * 2) + 2;
         let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
-        while (energyProducedPerRoundTrip > +100 && (body.length * 50) <= (room.energyCapacityAvailable-100)) {
+        while (energyProducedPerRoundTrip > 0 && (body.length * 50) <= (room.energyCapacityAvailable-100)) {
             body.push(CARRY);
             if(alternate % 2 == 1) {
                 body.push(MOVE);
@@ -706,40 +706,41 @@ function add_creeps_to_spawn_list(room, spawn) {
     // }
 
     let attack_room = "E47N59";
-    // if(attack_room && room.memory.spawning_squad && !room.memory.spawning_squad.status) {
-    //     room.memory.spawning_squad.status = true;
-    //     room.memory.spawning_squad.creepA = false;
-    //     room.memory.spawning_squad.creepB = false;
-    //     room.memory.spawning_squad.creepY = false;
-    //     room.memory.spawning_squad.creepZ = false;
-    // }
-    if(room.controller.level >= 6 && room.memory.spawning_squad && room.memory.spawning_squad.status) {
-        if(!room.memory.spawning_squad.creepA) {
-            let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([RANGED_ATTACK,MOVE], newName, {memory: {role: 'SquadCreepA', homeRoom: room.name}});
-            console.log('Adding SquadCreepA to Spawn List: ' + newName);
-        }
-        if(!room.memory.spawning_squad.creepB) {
-            let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([RANGED_ATTACK,MOVE], newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
-            console.log('Adding SquadCreepB to Spawn List: ' + newName);
-        }
-        if(!room.memory.spawning_squad.creepY) {
-            let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([HEAL,MOVE], newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
-            console.log('Adding SquadCreepY to Spawn List: ' + newName);
-        }
-        if(!room.memory.spawning_squad.creepZ) {
-            let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([HEAL,MOVE], newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
-            console.log('Adding SquadCreepZ to Spawn List: ' + newName);
-        }
-        room.memory.spawning_squad.status = false;
+    if(attack_room && room.memory.spawning_squad && room.memory.spawning_squad.status) {
         room.memory.spawning_squad.creepA = true;
         room.memory.spawning_squad.creepB = true;
         room.memory.spawning_squad.creepY = true;
         room.memory.spawning_squad.creepZ = true;
+    }
+    if(room.controller.level >= 7 && room.memory.spawning_squad && room.memory.spawning_squad.status) {
+        if(room.memory.spawning_squad.creepA) {
+            let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push([RANGED_ATTACK,MOVE], newName, {memory: {role: 'SquadCreepA', homeRoom: room.name}});
+            console.log('Adding SquadCreepA to Spawn List: ' + newName);
+            room.memory.spawning_squad.creepA = false;
+        }
+        if(room.memory.spawning_squad.creepB) {
+            let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push([RANGED_ATTACK,MOVE], newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+            console.log('Adding SquadCreepB to Spawn List: ' + newName);
+            room.memory.spawning_squad.creepB = false;
+        }
+        if(room.memory.spawning_squad.creepY) {
+            let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push([HEAL,MOVE], newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+            console.log('Adding SquadCreepY to Spawn List: ' + newName);
+            room.memory.spawning_squad.creepY = false;
+        }
+        if(room.memory.spawning_squad.creepZ) {
+            let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push([HEAL,MOVE], newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            console.log('Adding SquadCreepZ to Spawn List: ' + newName);
+            room.memory.spawning_squad.creepZ = false;
+        }
 
+        if(!room.memory.spawning_squad.creepA && !room.memory.spawning_squad.creepB && !room.memory.spawning_squad.creepY && !room.memory.spawning_squad.creepZ) {
+            room.memory.spawning_squad.status = false;
+        }
     }
 
 
@@ -772,7 +773,10 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount && room.controller.level >= 7 && !room.memory.danger) {
         let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        if(storage && storage.store[RESOURCE_ENERGY] > 450000) {
+        if(storage && storage.store[RESOURCE_ENERGY] > 550000) {
+            room.memory.spawn_list.push(getBody([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, 10), newName, {memory: {role: 'upgrader'}});
+        }
+        else if(storage && storage.store[RESOURCE_ENERGY] > 450000) {
             room.memory.spawn_list.push(getBody([WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, 8), newName, {memory: {role: 'upgrader'}});
         }
         else if (storage && storage.store[RESOURCE_ENERGY] > 300000) {
@@ -880,7 +884,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     let target_colonise = "E49N59";
-    if(Memory.CanClaimRemote && claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 8 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined && Game.time % 8000 < 1000) ||
+    if(Memory.CanClaimRemote && claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 8 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined && Game.time % 1000 < 300) ||
     claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 5 && Game.time % 2000 < 1000) {
         let newName = 'Claimer-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'claimer', targetRoom: target_colonise, homeRoom:room.name}});
@@ -901,7 +905,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding ContainerBuilder to Spawn List: ' + newName);
     }
 
-    if(billtongs < 1 && Game.cpu.bucket > 5000 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
+    if(billtongs < 0 && Game.cpu.bucket > 5000 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
         let newName = 'Billtong-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 6), newName, {memory: {role: 'billtong', homeRoom:room.name}});
         console.log('Adding Billtong to Spawn List: ' + newName);
@@ -909,8 +913,8 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     let richRoom = "E32N59";
-    if(goblins < 0 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
-    goblins < 0 && Game.cpu.bucket > 6000 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 5 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
+    if(goblins < 1 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 1 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
+    goblins < 2 && Game.cpu.bucket > 6000 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
         let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
         console.log('Adding Goblin to Spawn List: ' + newName);
@@ -1067,7 +1071,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(attackRoom && room.controller.level >= 7 && rams < 1 && Game.map.getRoomLinearDistance(room.name, attackRoom) <= 8) {
         let newName = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK],
+        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK],
             newName, {memory: {role: 'ram', targetRoom: attackRoom, homeRoom: room.name}});
         console.log('Adding Ram to Spawn List: ' + newName);
     }

@@ -91,7 +91,7 @@ function findLocked(creep) {
             }
             else {
                 if(storage && creep.room.controller && creep.room.controller.level >= 4) {
-                    creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
                 }
                 else {
                     creep.moveTo(storage);
@@ -106,7 +106,7 @@ function findLocked(creep) {
             }
             else {
                 if(storage && bin && creep.room.controller && creep.room.controller.level >= 4) {
-                    creep.moveTo(bin, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                    creep.moveTo(bin, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
                 }
                 else {
                     creep.moveTo(bin);
@@ -161,12 +161,12 @@ function findLocked(creep) {
                         findLocked(creep);
                         let target = Game.getObjectById(creep.memory.locked);
                         if(!creep.pos.isNearTo(target)) {
-                            creep.moveTo(target, {reusePath:20});
+                            creep.moveTo(target, {reusePath:25});
                         }
                     }
                 }
                 else {
-                    creep.moveTo(target, {reusePath:20});
+                    creep.moveTo(target, {reusePath:25});
                 }
             }
         }
@@ -206,7 +206,7 @@ function findLocked(creep) {
                 }
                 else {
                     if(storage && creep.room.controller && creep.room.controller.level >= 4) {
-                        creep.moveTo(storage, {reusePath: 20, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
+                        creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
                     }
                     else {
                         creep.moveTo(storage);
@@ -254,12 +254,12 @@ function findLocked(creep) {
                             findLocked(creep);
                             let target = Game.getObjectById(creep.memory.locked);
                             if(!creep.pos.isNearTo(target)) {
-                                creep.moveTo(target, {reusePath:20});
+                                creep.moveTo(target, {reusePath:25});
                             }
                         }
                     }
                     else {
-                        creep.moveTo(target, {reusePath:20});
+                        creep.moveTo(target, {reusePath:25});
                     }
                 }
             }

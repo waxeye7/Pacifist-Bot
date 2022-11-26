@@ -109,7 +109,7 @@ function findLockedBuild(creep) {
             let target:any = Game.getObjectById(creep.memory.locked_repair);
             if(target && target.hits < target.hitsMax) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:7});
+                    creep.moveTo(target, {reusePath:25});
                     return;
                 }
                 else {

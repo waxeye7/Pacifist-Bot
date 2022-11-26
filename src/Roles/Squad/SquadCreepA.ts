@@ -1,3 +1,5 @@
+import {roomCallbackSquadA} from "./SquadHelperFunctions";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -5,8 +7,8 @@
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1450) {
-        creep.moveTo(39,39);
+    if(creep.ticksToLive > 1470) {
+        creep.moveTo(38,39);
         return;
     }
     // if(creep.ticksToLive < 1400) {
@@ -62,63 +64,40 @@
     let y;
     let z;
 
-    if(squad.length == 4) {
+    if(squad.length == 4 && creep.ticksToLive <= 1440) {
         a = squad[0];
         b = squad[1];
         y = squad[2];
         z = squad[3];
 
-        let move_location = new RoomPosition(30,39,creep.room.name);
+        let move_location = new RoomPosition(47,34,creep.room.name);
 
         if(creep.pos.isNearTo(a) && creep.pos.isNearTo(b) && creep.pos.isNearTo(y) && creep.pos.isNearTo(z) &&
         a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
 
+            let path = PathFinder.search(
+                creep.pos, {pos:move_location, range:0},
+                {
+                    // We need to set the defaults costs higher so that we
+                    // can set the road cost lower in `roomCallback`
+                    plainCost: 3,
+                    swampCost: 15,
+                    roomCallback: () => roomCallbackSquadA(creep.room.name)
+                }
+                );
 
-            // if(y.pos.x < creep.pos.x && creep.pos.y > move_location.y) {
-            //     creep.moveTo(y);
-            // }
-
-            if(z.pos.x < creep.pos.x && creep.pos.x > move_location.x ||
-                z.pos.x > creep.pos.x && creep.pos.x < move_location.x) {
-                creep.moveTo(z);
+            let pos = path.path[0];
+            let direction = creep.pos.getDirectionTo(pos);
+            if(pos) {
+                a.memory.direction = direction
+                creep.move(direction);
             }
-            // else if(z.pos.y < creep.pos.y && creep.pos.y > move_location.y && creep.pos.x == move_location.x) {
-
-            // }
-            // else if(z.pos.y > creep.pos.y && creep.pos.y < move_location.y && creep.pos.x == move_location.x) {
-            //     creep.moveTo(z);
-            // }
             else {
-                if(creep.pos.x > move_location.x) {
-                    move_location.y += 1;
-                    move_location.x -= 1;
-                }
-
-                if(creep.pos.x > move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP_LEFT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM_RIGHT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP_RIGHT);
-                }
-                else if(creep.pos.x > move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM_LEFT);
-                }
-                else if(creep.pos.x == move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM);
-                }
-                else if(creep.pos.x == move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP);
-                }
-                else if(creep.pos.x > move_location.x && creep.pos.y == move_location.y) {
-                    creep.move(LEFT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y == move_location.y) {
-                    creep.move(RIGHT);
-                }
+                a.memory.direction = false;
             }
+
+
+
         }
     }
 

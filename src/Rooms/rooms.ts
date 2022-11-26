@@ -88,7 +88,7 @@ function rooms() {
                 }
             }
 
-            factory(room);
+            // factory(room);
 
 
             // if(room.factory && room.controller.level >= 7) {

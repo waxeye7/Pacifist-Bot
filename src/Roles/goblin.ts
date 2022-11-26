@@ -49,7 +49,7 @@ import roomDefence from "Rooms/rooms.defence";
 
     if(creep.memory.full) {
         if(creep.room.name != creep.memory.dropRoom) {
-            return creep.moveToRoom(creep.memory.dropRoom);
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.dropRoom);
         }
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -60,13 +60,13 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 15, ignoreCreeps:true , visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true , visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
     }
     if(!creep.memory.full) {
         if(creep.room.name != creep.memory.targetRoom) {
-            return creep.moveToRoom(creep.memory.targetRoom);
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
 
 
@@ -79,7 +79,7 @@ import roomDefence from "Rooms/rooms.defence";
                 creep.pickup(droppedTarget[0]);
             }
             else {
-                creep.moveTo(droppedTarget[0], {reusePath:5, ignoreRoads:true, swampCost:1});
+                creep.moveTo(droppedTarget[0], {reusePath:25, ignoreRoads:true, swampCost:1});
             }
 
             return;

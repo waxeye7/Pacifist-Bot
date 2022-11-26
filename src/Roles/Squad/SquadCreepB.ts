@@ -1,3 +1,4 @@
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -5,8 +6,8 @@
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1450) {
-        creep.moveTo(39,40);
+    if(creep.ticksToLive > 1470) {
+        creep.moveTo(39,39);
         return;
     }
     // if(creep.ticksToLive < 1400) {
@@ -72,40 +73,34 @@
 
         if(creep.pos.isNearTo(a) && creep.pos.isNearTo(b) && creep.pos.isNearTo(y) && creep.pos.isNearTo(z) &&
         a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
-
-            if(y.pos.x < creep.pos.x && creep.pos.x > move_location.x ||
-                y.pos.x > creep.pos.x && creep.pos.x < move_location.x) {
-                creep.moveTo(y);
+            if(a.memory.direction) {
+                if(a.memory.direction == 1) {
+                    creep.move(TOP)
+                }
+                else if(a.memory.direction == 2) {
+                    creep.move(TOP_RIGHT)
+                }
+                else if(a.memory.direction == 3) {
+                    creep.move(RIGHT)
+                }
+                else if(a.memory.direction == 4) {
+                    creep.move(BOTTOM_RIGHT)
+                }
+                else if(a.memory.direction == 5) {
+                    creep.move(BOTTOM)
+                }
+                else if(a.memory.direction == 6) {
+                    creep.move(BOTTOM_LEFT)
+                }
+                else if(a.memory.direction == 7) {
+                    creep.move(LEFT)
+                }
+                else if(a.memory.direction == 8) {
+                    creep.move(TOP_LEFT)
+                }
             }
-            else {
-                if(creep.pos.x > move_location.x) {
-                    move_location.y -= 1;
-                    move_location.x -= 1;
-                }
-                if(creep.pos.x > move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP_LEFT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM_RIGHT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP_RIGHT);
-                }
-                else if(creep.pos.x > move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM_LEFT);
-                }
-                else if(creep.pos.x == move_location.x && creep.pos.y < move_location.y) {
-                    creep.move(BOTTOM);
-                }
-                else if(creep.pos.x == move_location.x && creep.pos.y > move_location.y) {
-                    creep.move(TOP);
-                }
-                else if(creep.pos.x > move_location.x && creep.pos.y == move_location.y) {
-                    creep.move(LEFT);
-                }
-                else if(creep.pos.x < move_location.x && creep.pos.y == move_location.y) {
-                    creep.move(RIGHT);
-                }            }
+
+
         }
     }
 }

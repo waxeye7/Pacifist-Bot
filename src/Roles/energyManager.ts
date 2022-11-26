@@ -161,7 +161,7 @@
             }
 
             for(let outputLab of outputLabs) {
-                if(outputLab && outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) {
+                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > 1600) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;

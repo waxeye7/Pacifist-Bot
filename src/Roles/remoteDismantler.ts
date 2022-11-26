@@ -49,7 +49,7 @@
         if(creep.memory.locked && creep.memory.locked != false) {
             dismantleTarget = Game.getObjectById(creep.memory.locked);
             if(creep.dismantle(dismantleTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(dismantleTarget, {reusePath:5});
+                creep.moveTo(dismantleTarget, {reusePath:25});
             }
         }
     }

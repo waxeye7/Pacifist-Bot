@@ -1085,6 +1085,11 @@ function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, ori
 
                 let firstSpotOnPath = new RoomPosition(firstLocation.x, firstLocation.y, room.name);
 
+                let lookForBuildingsOnFirstSpotOnPath = firstSpotOnPath.lookFor(LOOK_STRUCTURES);
+                if(lookForBuildingsOnFirstSpotOnPath.length == 0) {
+                    firstSpotOnPath.createConstructionSite(STRUCTURE_RAMPART);
+                }
+
                 let buildhere = firstSpotOnPath.getOpenPositionsIgnoreCreeps();
 
                 for (let i = 0; i < buildhere.length; i++) {

@@ -214,7 +214,7 @@ function findLocked(creep) {
             let repairTarget = Game.getObjectById(creep.memory.locked);
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
-                creep.moveTo(repairTarget, {reusePath:5});
+                creep.moveTo(repairTarget, {reusePath:25});
 
                 // let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
                 // if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].hits < lookForExistingStructures[0].hitsMax) {
@@ -245,7 +245,7 @@ function findLocked(creep) {
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(repairTarget, {reusePath:5});
+				creep.moveTo(repairTarget, {reusePath:25});
 			}
 		}
     }
@@ -258,7 +258,7 @@ function findLocked(creep) {
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(repairTarget, {reusePath:5});
+				creep.moveTo(repairTarget, {reusePath:25});
 			}
 		}
     }

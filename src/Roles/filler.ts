@@ -183,12 +183,12 @@
                 else {
                     target = findLocked(creep);
                     if(!creep.pos.isNearTo(target)) {
-                        creep.moveTo(target, {reusePath:20});
+                        creep.moveTo(target, {reusePath:25});
                     }
                 }
             }
             else {
-                creep.moveTo(target, {reusePath:20});
+                creep.moveTo(target, {reusePath:25});
             }
         }
         else {
@@ -213,7 +213,7 @@
             let result = creep.withdrawStorage(storage);
             if(result == 0) {
                 let target = findLocked(creep);
-                creep.moveTo(target, {reusePath:20});
+                creep.moveTo(target, {reusePath:25});
             }
             else {
                 creep.moveTo(storage);

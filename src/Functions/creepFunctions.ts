@@ -560,7 +560,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(storage, {reusePath:5, ignoreCreeps:false});
+                    this.moveTo(storage, {reusePath:25, ignoreCreeps:false});
                 }
             }
         }

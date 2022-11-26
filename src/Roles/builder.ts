@@ -58,7 +58,7 @@
         if(creep.memory.locked) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
             if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(buildTarget, {reusePath:5});
+                creep.moveTo(buildTarget, {reusePath:25});
             }
             else {
 				if(creep.store.getFreeCapacity() <= 50) {
@@ -79,7 +79,7 @@
 			}
 			if(creep.memory.locked) {
 				let buildTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(buildTarget, {reusePath:5});
+				creep.moveTo(buildTarget, {reusePath:25});
 			}
 		}
     }
@@ -92,7 +92,7 @@
 			}
 			if(creep.memory.locked) {
 				let buildTarget = Game.getObjectById(creep.memory.locked);
-				creep.moveTo(buildTarget, {reusePath:5});
+				creep.moveTo(buildTarget, {reusePath:25});
 			}
 		}
     }

@@ -87,7 +87,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(terminal, {reusePath: 15, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(terminal, {reusePath: 30, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
         else if(storage && creep.store.getFreeCapacity() < MaxStorage) {
@@ -97,7 +97,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 15, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.moveTo(storage, {reusePath: 30, visualizePathStyle: {stroke: '#ffffff'}});
             }
         }
     }
