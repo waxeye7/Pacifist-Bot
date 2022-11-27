@@ -7,7 +7,7 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1470) {
+    if(creep.ticksToLive > 1450) {
         creep.moveTo(38,39);
         return;
     }
@@ -15,6 +15,41 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
     //     creep.moveTo(39,39);
     //     return;
     // }
+
+    let move_location = creep.memory.targetPosition;
+
+
+    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my});
+    let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    if(enemyCreeps.length > 0) {
+        let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+        if(creep.pos.getRangeTo(closestEnemyCreep) <= 3) {
+            creep.rangedAttack(closestEnemyCreep)
+        }
+        if(creep.pos.isNearTo(closestEnemyCreep)) {
+            creep.rangedMassAttack();
+        }
+
+        if(creep.memory.targetPosition.roomName == creep.room.name) {
+            move_location = closestEnemyCreep.pos;
+        }
+    }
+    if(structures.length > 0) {
+        let closestStructure = creep.pos.findClosestByRange(structures);
+        if(creep.pos.getRangeTo(closestStructure) <= 3 && closestStructure.structureType !== STRUCTURE_ROAD) {
+            creep.rangedAttack(closestStructure);
+        }
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_ROAD && closestStructure.structureType !== STRUCTURE_WALL) {
+            creep.rangedMassAttack();
+        }
+    }
+
+
+
+
+
+
+
 
 
     if(!creep.memory.squad) {
@@ -64,33 +99,88 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
     let y;
     let z;
 
-    if(squad.length == 4 && creep.ticksToLive <= 1440) {
+    if(squad.length == 4 && creep.ticksToLive <= 1300) {
         a = squad[0];
         b = squad[1];
         y = squad[2];
         z = squad[3];
 
-        let move_location = new RoomPosition(47,34,creep.room.name);
 
-        if(creep.pos.isNearTo(a) && creep.pos.isNearTo(b) && creep.pos.isNearTo(y) && creep.pos.isNearTo(z) &&
-        a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
+        if(a && b && y && z) {
+            squad.sort((a,b) => a.hits - b.hits);
+            if(squad[0].hits == creep.hits) {
+                if(enemyCreeps.length > 0 || creep.hits < creep.hitsMax) {
+                    creep.heal(creep);
+                }
+            }
+            else {
+                creep.heal[squad[0]];
+            }
+        }
+        else {
+            if(creep.hits !== creep.hitsMax) {
+                creep.heal(creep)
+            }
+        }
+
+
+        // let move_location = new RoomPosition(20,29,creep.room.name);
+
+
+        if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
 
             let path = PathFinder.search(
-                creep.pos, {pos:move_location, range:0},
+                creep.pos, {pos:move_location, range:1},
                 {
                     // We need to set the defaults costs higher so that we
                     // can set the road cost lower in `roomCallback`
-                    plainCost: 3,
-                    swampCost: 15,
+                    plainCost: 1,
+                    swampCost: 5,
                     roomCallback: () => roomCallbackSquadA(creep.room.name)
                 }
                 );
 
+            path.path.forEach(spot => {
+                new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
+            });
+
             let pos = path.path[0];
             let direction = creep.pos.getDirectionTo(pos);
-            if(pos) {
-                a.memory.direction = direction
-                creep.move(direction);
+            console.log(JSON.stringify(pos))
+            // && a.room.name == y.room.name && a.room.name == z.room.name) || (a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) || (a.room.name == y.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(b))
+            if(
+                pos &&
+
+                (a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) ||
+
+                (
+                ((a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) ||
+                (a.room.name == y.room.name && a.pos.isNearTo(y) && !a.pos.isNearTo(b)))
+                &&
+                (b.room.name == a.room.name && b.pos.isNearTo(a) && !b.pos.isNearTo(z) ||
+                b.room.name == z.room.name && b.pos.isNearTo(z) && !b.pos.isNearTo(a))
+                &&
+                (z.room.name == y.room.name && z.pos.isNearTo(y) && !z.pos.isNearTo(b) ||
+                z.room.name == b.room.name && z.pos.isNearTo(b) && !z.pos.isNearTo(y))
+                &&
+                (y.room.name == a.room.name && y.pos.isNearTo(a) && !y.pos.isNearTo(z) ||
+                y.room.name == z.room.name && y.pos.isNearTo(z) && !y.pos.isNearTo(a))
+                )
+            )
+            {
+
+                if(((direction == 2 || direction == 3 || direction == 4) && a.room.name == b.room.name && a.pos.x == 48) ||
+                   ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
+                   ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
+                   ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
+                    a.memory.direction = false;
+                }
+
+                else {
+                    a.memory.direction = direction
+                    creep.move(direction);
+                }
+
             }
             else {
                 a.memory.direction = false;

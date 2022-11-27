@@ -6,15 +6,34 @@
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1470) {
+    if(creep.ticksToLive > 1450) {
         creep.moveTo(39,40);
         return;
     }
 
-    // if(creep.ticksToLive < 1400) {
-    //     creep.moveTo(38,40);
-    //     return;
-    // }
+
+    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my});
+    let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    if(enemyCreeps.length > 0) {
+        let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+        if(creep.pos.getRangeTo(closestEnemyCreep) <= 3) {
+            creep.rangedAttack(closestEnemyCreep)
+        }
+        if(creep.pos.isNearTo(closestEnemyCreep)) {
+            creep.rangedMassAttack();
+        }
+
+    }
+    if(structures.length > 0) {
+        let closestStructure = creep.pos.findClosestByRange(structures);
+        if(creep.pos.getRangeTo(closestStructure) <= 3) {
+            creep.rangedAttack(closestStructure);
+        }
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_ROAD && closestStructure.structureType !== STRUCTURE_WALL) {
+            creep.rangedMassAttack();
+        }
+    }
+
 
     if(!creep.memory.squad) {
         creep.memory.squad = {};
@@ -69,10 +88,24 @@
         y = squad[2];
         z = squad[3];
 
-        let move_location = new RoomPosition(29,40, creep.room.name);
+        if(a && b && y && z) {
+            squad.sort((a,b) => a.hits - b.hits);
+            if(squad[0].hits == creep.hits) {
+                if(enemyCreeps.length > 0 || creep.hits < creep.hitsMax) {
+                    creep.heal(creep);
+                }
+            }
+            else {
+                creep.heal[squad[0]];
+            }
+        }
+        else {
+            if(creep.hits !== creep.hitsMax) {
+                creep.heal(creep)
+            }
+        }
 
-        if(creep.pos.isNearTo(a) && creep.pos.isNearTo(b) && creep.pos.isNearTo(y) && creep.pos.isNearTo(z) &&
-        a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
+        if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
             if(a.memory.direction) {
                 if(a.memory.direction == 1) {
                     creep.move(TOP)

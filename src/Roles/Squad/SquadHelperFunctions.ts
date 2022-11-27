@@ -29,7 +29,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
                 problemTiles.push(terrain.get(x + 1, y));
                 problemTiles.push(terrain.get(x, y + 1));
                 problemTiles.push(terrain.get(x + 1, y + 1));
-
+                // , [terrain.get(x + 2, y), terrain.get(x + 2, y + 1)]]
                 for(let tile of problemTiles) {
                     if(tile == TERRAIN_MASK_WALL) {
                         weight = 255;
@@ -43,67 +43,39 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
         }
     }
 
+    _.forEach(room.find(FIND_STRUCTURES), function(struct) {
+        if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
+            return;
+        }
 
-    room.find(FIND_STRUCTURES).forEach(function(struct) {
-      if (struct.structureType !== STRUCTURE_ROAD) {
-
-        let weight:any = 255;
-
-        costs.set(struct.pos.x, struct.pos.y, 255);
-        costs.set(struct.pos.x + 1, struct.pos.y, 255);
-        costs.set(struct.pos.x + 1, struct.pos.y + 1, 255);
-        costs.set(struct.pos.x, struct.pos.y + 1, 255);
-
-
-
+        else if(struct.structureType !== STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+            costs.set(struct.pos.x - 1, struct.pos.y, 255);
+            costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
+            costs.set(struct.pos.x, struct.pos.y - 1, 255);
         }
     });
 
-    room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_RAMPART}).forEach(function(struct) {
-        let lookForStructuresHere = struct.pos.lookFor(LOOK_STRUCTURES);
-        for(let building of lookForStructuresHere) {
-            if(building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_RAMPART) {
-
-                let weight:any = 255;
-
-                costs.set(struct.pos.x, struct.pos.y, weight);
-                costs.set(struct.pos.x + 1, struct.pos.y, weight);
-                costs.set(struct.pos.x + 1, struct.pos.y + 1, weight);
-                costs.set(struct.pos.x, struct.pos.y + 1, weight);
-
-
-                break;
-            }
-        }
-        let weight:any = 1;
-        if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-            costs.set(struct.pos.x, struct.pos.y, 1);
-        }
-        if(costs.get(struct.pos.x + 1, struct.pos.y) !== 255) {
-            costs.set(struct.pos.x + 1, struct.pos.y, 1);
-        }
-        if(costs.get(struct.pos.x + 1, struct.pos.y) !== 255) {
-            costs.set(struct.pos.x + 1, struct.pos.y + 1, 1);
-        }
-        if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-            costs.set(struct.pos.x, struct.pos.y + 1, 1);
-        }
-
-
-      });
 
     room.find(FIND_CREEPS).forEach(function(creep) {
-        if(creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ") {
+        if(!creep.my || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
 
             let weight:any = 255;
 
             costs.set(creep.pos.x, creep.pos.y, weight);
-            costs.set(creep.pos.x + 1, creep.pos.y, weight);
-            costs.set(creep.pos.x + 1, creep.pos.y + 1, weight);
-            costs.set(creep.pos.x, creep.pos.y + 1, weight);
+            costs.set(creep.pos.x - 1, creep.pos.y, weight);
+            costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
+            costs.set(creep.pos.x, creep.pos.y - 1, weight);
+
 
 
         }
+        // else if(creep.memory.role === "SquadCreepA" || creep.memory.role === "SquadCreepB" || creep.memory.role === "SquadCreepY" || creep.memory.role === "SquadCreepZ") {
+        //     costs.set(creep.pos.x, creep.pos.y, 0);
+        //     costs.set(creep.pos.x + 1, creep.pos.y, 0);
+        //     costs.set(creep.pos.x + 1, creep.pos.y + 1, 0);
+        //     costs.set(creep.pos.x, creep.pos.y + 1, 0);
+        // }
 
 
     });

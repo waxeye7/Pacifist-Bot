@@ -2,7 +2,7 @@ power
 4 corner room mineral miner
 
 Quad Squad:
-check if clear move 2 blocks ahead of the front creeps to move
+improve movement over swamp
 
 improve level7/8 link energy to controller properties
 same game.time tick for energy miner value in memory and messing it up so only 1 spawns idk why
