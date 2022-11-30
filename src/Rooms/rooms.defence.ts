@@ -19,7 +19,7 @@ function findLocked(room) {
     let buildingsToRepair;
 
     if(room.controller.level >= 6) {
-        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.pos.getRangeTo(storage) <= 15 && building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
+        buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => (building.pos.getRangeTo(storage) <= 15 || building.structureType == STRUCTURE_ROAD) && building.structureType != STRUCTURE_CONTAINER && building.hits < building.hitsMax && building.hits < (building.hitsMax-900) && building.hits < maxRepairTower});
     }
     else if(room.controller.level < 6) {
         buildingsToRepair = room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < (building.hitsMax-1200) && building.hits < maxRepairTower});

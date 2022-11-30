@@ -705,8 +705,9 @@ function add_creeps_to_spawn_list(room, spawn) {
     //     room.memory.spawning_squad.status = true;
     // }
 
-    let attack_room = "E47N59";
-    if(attack_room && room.memory.spawning_squad && room.memory.spawning_squad.status) {
+
+
+    if(room.memory.spawning_squad && room.memory.spawning_squad.status) {
         room.memory.spawning_squad.creepA = true;
         room.memory.spawning_squad.creepB = true;
         room.memory.spawning_squad.creepY = true;
@@ -715,30 +716,34 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(room.controller.level >= 7 && room.memory.spawning_squad && room.memory.spawning_squad.status) {
 
         let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+        console.log('Adding filler to Spawn List: ' + newName);
+
+        let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
         console.log('Adding filler to Spawn List: ' + newName);
 
         if(room.memory.spawning_squad.creepA) {
             let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(18,43,"E48N58")}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(26,44,"E43N58")}});
             console.log('Adding SquadCreepA to Spawn List: ' + newName);
             room.memory.spawning_squad.creepA = false;
         }
         if(room.memory.spawning_squad.creepB) {
             let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
             console.log('Adding SquadCreepB to Spawn List: ' + newName);
             room.memory.spawning_squad.creepB = false;
         }
         if(room.memory.spawning_squad.creepY) {
             let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
             console.log('Adding SquadCreepY to Spawn List: ' + newName);
             room.memory.spawning_squad.creepY = false;
         }
         if(room.memory.spawning_squad.creepZ) {
             let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
             console.log('Adding SquadCreepZ to Spawn List: ' + newName);
             room.memory.spawning_squad.creepZ = false;
         }
@@ -747,6 +752,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             room.memory.spawning_squad.status = false;
         }
     }
+
 
 
     if (scouts < 0) {
@@ -889,7 +895,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     let target_colonise = "E49N59";
-    if(Memory.CanClaimRemote && claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 8 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined && Game.time % 1000 < 300) ||
+    if(Memory.CanClaimRemote && claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 6 && ((Game.rooms[target_colonise] && !Game.rooms[target_colonise].controller.my) || Game.rooms[target_colonise] == undefined && Game.time % 1000 < 300) ||
     claimers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 5 && Game.time % 2000 < 1000) {
         let newName = 'Claimer-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'claimer', targetRoom: target_colonise, homeRoom:room.name}});
@@ -937,7 +943,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(RemoteDismantlers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.map.getRoomLinearDistance(room.name, "E45N58") <= 2) {
+    if(RemoteDismantlers < 0 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.map.getRoomLinearDistance(room.name, "E45N58") <= 2) {
         let newName = 'RemoteDismantler-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([MOVE,MOVE,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: "E45N58", homeRoom: room.name}});
         console.log('Adding RemoteDismantler to Spawn List: ' + newName);
@@ -1115,6 +1121,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
+
     let outputLab:any;
     if(room.controller.level >= 6 && room.memory.labs && room.memory.labs.outputLab) {
         outputLab = room.memory.labs.outputLab;
@@ -1197,7 +1204,7 @@ function spawnFirstInLine(room, spawn) {
         else {
             console.log("spawning", room.memory.spawn_list[1], "creep error", spawnAttempt, room.name);
             let segment:string[] = room.memory.spawn_list[0]
-            if(spawnAttempt == -6 && Game.time % 2 == 0) {
+            if(spawnAttempt == -6 && Game.time % 3 == 0) {
                 if(room.memory.spawn_list[0].length >= 4
                 && !room.memory.spawn_list[1].startsWith("Carrier")
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner")
@@ -1206,6 +1213,7 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("SquadCreepB")
                 && !room.memory.spawn_list[1].startsWith("SquadCreepY")
                 && !room.memory.spawn_list[1].startsWith("SquadCreepZ")
+
                 // && !room.memory.spawn_list[1].startsWith("RemoteRepairer")
                 // && !room.memory.spawn_list[1].startsWith("Reserver")
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
@@ -1251,7 +1259,7 @@ function spawning(room: any) {
         room.memory.lastTimeSpawnUsed = Game.time;
     }
 
-    if(Game.time % 100 == 0 && Game.time - room.memory.lastTimeSpawnUsed > 1000) {
+    if(Game.time % 100 == 0 && Game.time - room.memory.lastTimeSpawnUsed > 1200) {
         room.memory.spawn_list = [];
     }
 

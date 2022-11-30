@@ -7,22 +7,30 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1450) {
-        creep.moveTo(38,39);
+    if(!creep.memory.go && (creep.pos.x !== 38 || creep.pos.y !== 39) && creep.pos.roomName === creep.memory.homeRoom) {
+        creep.moveTo(new RoomPosition(38,39,"E45N59"));
         return;
     }
-    // if(creep.ticksToLive < 1400) {
-    //     creep.moveTo(39,39);
-    //     return;
-    // }
 
     let move_location = creep.memory.targetPosition;
 
+    let route:any;
 
-    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my});
+    if(creep.room.name != creep.memory.targetPosition.roomName) {
+        route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName);
+        if(route && route !== 2 && route.length > 2) {
+            move_location = new RoomPosition(25, 25, route[0].room);
+        }
+    }
+
+
+
+
+    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    let closestEnemyCreep
     if(enemyCreeps.length > 0) {
-        let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+        closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
         if(creep.pos.getRangeTo(closestEnemyCreep) <= 3) {
             creep.rangedAttack(closestEnemyCreep)
         }
@@ -36,11 +44,14 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
     }
     if(structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(structures);
-        if(creep.pos.getRangeTo(closestStructure) <= 3 && closestStructure.structureType !== STRUCTURE_ROAD) {
+        if(creep.pos.getRangeTo(closestStructure) <= 3) {
             creep.rangedAttack(closestStructure);
         }
-        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_ROAD && closestStructure.structureType !== STRUCTURE_WALL) {
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL) {
             creep.rangedMassAttack();
+        }
+        if(creep.memory.targetPosition.roomName == creep.room.name && !closestEnemyCreep || creep.memory.targetPosition.roomName == creep.room.name && closestEnemyCreep && creep.pos.getRangeTo(closestEnemyCreep) > 3) {
+            move_location = closestStructure.pos;
         }
     }
 
@@ -94,59 +105,66 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
         squad.push(Game.getObjectById(creep.memory.squad.z));
     }
 
+
+    if(squad[0] && squad[0].pos.x == 38 && squad[0].pos.y == 39 && squad[0].pos.roomName == "E45N59" &&
+    squad[1] && squad[1].pos.x == 39 && squad[1].pos.y == 39 && squad[1].pos.roomName == "E45N59" &&
+    squad[2] && squad[2].pos.x == 38 && squad[2].pos.y == 40 && squad[2].pos.roomName == "E45N59" &&
+    squad[3] && squad[3].pos.x == 39 && squad[3].pos.y == 40 && squad[3].pos.roomName == "E45N59")
+    {
+    squad[0].memory.go = true;
+    squad[1].memory.go = true;
+    squad[2].memory.go = true;
+    squad[3].memory.go = true;
+    }
+
+
+
     let a;
     let b;
     let y;
     let z;
 
-    if(squad.length == 4 && creep.ticksToLive <= 1300) {
+
+
+    if(squad.length == 4 && creep.memory.go) {
         a = squad[0];
         b = squad[1];
         y = squad[2];
         z = squad[3];
 
 
-        if(a && b && y && z) {
-            squad.sort((a,b) => a.hits - b.hits);
-            if(squad[0].hits == creep.hits) {
-                if(enemyCreeps.length > 0 || creep.hits < creep.hitsMax) {
-                    creep.heal(creep);
-                }
-            }
-            else {
-                creep.heal[squad[0]];
-            }
+
+
+
+        let range;
+
+        if(move_location.roomName == creep.memory.targetPosition.roomName || route && route.length == 1) {
+            range = 1
         }
         else {
-            if(creep.hits !== creep.hitsMax) {
-                creep.heal(creep)
-            }
+            range = 18;
         }
-
-
-        // let move_location = new RoomPosition(20,29,creep.room.name);
 
 
         if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
 
             let path = PathFinder.search(
-                creep.pos, {pos:move_location, range:1},
+                creep.pos, {pos:move_location, range:range},
                 {
-                    // We need to set the defaults costs higher so that we
-                    // can set the road cost lower in `roomCallback`
                     plainCost: 1,
                     swampCost: 5,
-                    roomCallback: () => roomCallbackSquadA(creep.room.name)
+                    maxOps: 8000,
+                    maxRooms: 64,
+                    roomCallback: (roomName) => roomCallbackSquadA(roomName)
                 }
                 );
 
             path.path.forEach(spot => {
                 new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
             });
-
+            console.log(path.incomplete)
             let pos = path.path[0];
             let direction = creep.pos.getDirectionTo(pos);
-            console.log(JSON.stringify(pos))
             // && a.room.name == y.room.name && a.room.name == z.room.name) || (a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) || (a.room.name == y.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(b))
             if(
                 pos &&
@@ -173,22 +191,62 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
                    ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
                    ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
                    ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
-                    a.memory.direction = false;
+                    creep.memory.direction = false;
+                }
+
+                else if(((direction == 2 || direction == 3 || direction == 4) && a.room.name != b.room.name && a.pos.x == 49) ||
+                        ((direction == 4 || direction == 5 || direction == 6) && a.room.name != y.room.name && a.pos.y == 49) ||
+                        ((direction == 6 || direction == 7 || direction == 8) && a.room.name != b.room.name && a.pos.x == 48) ||
+                        ((direction == 8 || direction == 1 || direction == 2) && a.room.name != y.room.name && a.pos.y == 48)) {
+                        creep.memory.direction = false;
                 }
 
                 else {
-                    a.memory.direction = direction
+                    // if(creep.pos.x == 48 && (direction == 2 || direction == 4)) {
+                    //     direction = 3;
+                    // }
+                    // else if(creep.pos.x == 1 && (direction == 6 || direction == 8)) {
+                    //     direction = 7;
+                    // }
+                    // else if(creep.pos.y == 48 && (direction == 4 || direction == 6)) {
+                    //     direction = 5;
+                    // }
+                    // else if(creep.pos.y == 1 && (direction == 8 || direction == 2)) {
+                    //     direction = 1;
+                    // }
+
+                    creep.memory.direction = direction
                     creep.move(direction);
+
+
                 }
 
             }
             else {
-                a.memory.direction = false;
+                creep.memory.direction = false;
             }
 
 
 
         }
+
+        if(a && b && y && z) {
+            let target;
+            let lowest = creep.hitsMax;
+            for(let squadmember of squad) {
+                if(squadmember.hits < lowest) {
+                    lowest = squadmember.hits;
+                    target = squadmember;
+                }
+            }
+            if(target) {
+                creep.heal(target);
+            }
+            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && creep.pos.getRangeTo(closestEnemyCreep) <= 4) {
+                creep.heal(creep);
+            }
+        }
+
     }
 
 }

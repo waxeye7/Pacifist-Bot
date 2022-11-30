@@ -6,8 +6,8 @@
  const run = function (creep:any) {
     creep.Speak();
 
-    if(creep.ticksToLive > 1450) {
-        creep.moveTo(39,39);
+    if(!creep.memory.go) {
+        creep.moveTo(new RoomPosition(39,39,"E45N59"));
         return;
     }
     // if(creep.ticksToLive < 1400) {
@@ -17,10 +17,12 @@
 
 
 
-    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my});
+
+    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    let closestEnemyCreep;
     if(enemyCreeps.length > 0) {
-        let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+        closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
         if(creep.pos.getRangeTo(closestEnemyCreep) <= 3) {
             creep.rangedAttack(closestEnemyCreep)
         }
@@ -34,7 +36,7 @@
         if(creep.pos.getRangeTo(closestStructure) <= 3) {
             creep.rangedAttack(closestStructure);
         }
-        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_ROAD && closestStructure.structureType !== STRUCTURE_WALL) {
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL) {
             creep.rangedMassAttack();
         }
     }
@@ -100,22 +102,7 @@
         y = squad[2];
         z = squad[3];
 
-        if(a && b && y && z) {
-            squad.sort((a,b) => a.hits - b.hits);
-            if(squad[0].hits == creep.hits) {
-                if(enemyCreeps.length > 0 || creep.hits < creep.hitsMax) {
-                    creep.heal(creep);
-                }
-            }
-            else {
-                creep.heal[squad[0]];
-            }
-        }
-        else {
-            if(creep.hits !== creep.hitsMax) {
-                creep.heal(creep)
-            }
-        }
+
 
         if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
             if(a.memory.direction) {
@@ -146,6 +133,22 @@
             }
 
 
+        }
+        if(a && b && y && z) {
+            let target;
+            let lowest = creep.hitsMax;
+            for(let squadmember of squad) {
+                if(squadmember.hits < lowest) {
+                    lowest = squadmember.hits;
+                    target = squadmember;
+                }
+            }
+            if(target) {
+                creep.heal(target);
+            }
+            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && creep.pos.getRangeTo(closestEnemyCreep) <= 4) {
+                creep.heal(creep);
+            }
         }
     }
 }
