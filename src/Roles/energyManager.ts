@@ -79,6 +79,27 @@
             return;
         }
 
+		if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
+			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+			if(links.length > 3) {
+				let controllerLink = creep.room.controller.pos.findClosestByRange(links);
+				creep.memory.controllerLink = controllerLink.id;
+			}
+		}
+        if(creep.room.controller && creep.room.controller.level >= 7 && creep.memory.controllerLink) {
+            let controllerLink:any = Game.getObjectById(creep.memory.controllerLink);
+            if(controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 200) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_ENERGY);
+                    creep.memory.target = controllerLink.id;
+                }
+                else {
+                    creep.moveTo(storage);
+                }
+                return;
+            }
+        }
+
 
         if(terminal && terminal.store[RESOURCE_ENERGY] > 27000 && creep.store.getFreeCapacity() == MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
@@ -161,7 +182,7 @@
             }
 
             for(let outputLab of outputLabs) {
-                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > 1600) {
+                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;

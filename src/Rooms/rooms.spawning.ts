@@ -433,6 +433,111 @@ function spawn_reserver(resourceData, room, storage) {
 
 
 function add_creeps_to_spawn_list(room, spawn) {
+
+
+    let spawnrules = {
+
+        RCL1: {
+
+            upgrade_creep: {
+
+                amount: 6,
+                body:   getBody([WORK,CARRY,MOVE], room),
+
+            },
+
+            build_creep: {
+
+                amount: 4,
+                body:   getBody([WORK,CARRY,MOVE], room),
+
+            },
+
+            energyminer_creep: {
+
+                amount: 2,
+
+            },
+
+            carry_creep: {
+
+                amount:2,
+
+            },
+
+        },
+
+        RCL2: {
+
+            upgrade_creep: {
+
+                amount: 5,
+                body:   getBody([WORK,CARRY,MOVE], room),
+
+            },
+
+            build_creep: {
+
+                amount: 4,
+                body:   getBody([WORK,CARRY,MOVE], room),
+
+            },
+
+            repair_creep: {
+
+                amount: 1,
+                body:   getBody([WORK,CARRY,MOVE], room),
+
+            },
+
+            filler_creep: {
+
+                amount: 1,
+                body:   [CARRY,MOVE],
+
+            },
+
+            energyminer_creep: {
+
+                amount: 2,
+
+            },
+
+            carry_creep: {
+
+                amount:2,
+
+            },
+
+        },
+
+        RCL3: {
+
+        },
+
+        RCL4: {
+
+        },
+
+        RCL5: {
+
+        },
+
+        RCL6: {
+
+        },
+
+        RCL7: {
+
+        },
+
+        RCL8: {
+
+        }
+
+    }
+
+
     let EnergyMiners = 0;
     let EnergyMinersInRoom = 0;
 
@@ -715,35 +820,48 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
     if(room.controller.level >= 7 && room.memory.spawning_squad && room.memory.spawning_squad.status) {
 
-        let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        console.log('Adding filler to Spawn List: ' + newName);
+        if(fillers < 3) {
+            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+            console.log('Adding filler to Spawn List: ' + newName);
+        }
 
-        let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
-        console.log('Adding filler to Spawn List: ' + newName);
+        if(fillers < 4) {
+            let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
+            console.log('Adding filler to Spawn List: ' + newName2);
+        }
+
+
+        let body = [RANGED_ATTACK,
+            MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+            HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,HEAL];
+
+        let body2 = [RANGED_ATTACK,MOVE,MOVE,HEAL];
+
+        let body3 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL];
 
         if(room.memory.spawning_squad.creepA) {
             let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(26,44,"E43N58")}});
+            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(37,3,"E44N53")}});
             console.log('Adding SquadCreepA to Spawn List: ' + newName);
             room.memory.spawning_squad.creepA = false;
         }
         if(room.memory.spawning_squad.creepB) {
             let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
             console.log('Adding SquadCreepB to Spawn List: ' + newName);
             room.memory.spawning_squad.creepB = false;
         }
         if(room.memory.spawning_squad.creepY) {
             let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
             console.log('Adding SquadCreepY to Spawn List: ' + newName);
             room.memory.spawning_squad.creepY = false;
         }
         if(room.memory.spawning_squad.creepZ) {
             let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
             console.log('Adding SquadCreepZ to Spawn List: ' + newName);
             room.memory.spawning_squad.creepZ = false;
         }
@@ -782,7 +900,13 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Builder to Spawn List: ' + newName);
     }
 
-    if(EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount && room.controller.level >= 7 && !room.memory.danger) {
+    if(storage && storage.store[RESOURCE_ENERGY] > 540000 && upgraders == 1 && EnergyMinersInRoom > 1 && room.controller.level >= 7 && !room.memory.danger) {
+        let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'upgrader'}});
+        console.log('Adding Upgrader to Spawn List: ' + newName);
+    }
+
+    else if(EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount && room.controller.level >= 7 && !room.memory.danger) {
         let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         if(storage && storage.store[RESOURCE_ENERGY] > 550000) {
             room.memory.spawn_list.push(getBody([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], room, 10), newName, {memory: {role: 'upgrader'}});
@@ -799,11 +923,6 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Upgrader to Spawn List: ' + newName);
     }
 
-    else if(storage && storage.store[RESOURCE_ENERGY] > 525000 && upgraders < upgraderTargetAmount && EnergyMinersInRoom > 1 && room.controller.level >= 7 && !room.memory.danger) {
-        let newName = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,WORK,WORK,CARRY,MOVE], room, 20), newName, {memory: {role: 'upgrader'}});
-        console.log('Adding Upgrader to Spawn List: ' + newName);
-    }
 
     else if(EnergyMinersInRoom > 1 && upgraders < upgraderTargetAmount ||
         storage && storage.store[RESOURCE_ENERGY] > 500000 && upgraders < upgraderTargetAmount + 7 && EnergyMinersInRoom > 1 && !room.memory.danger && room.controller.level <= 6 ||
@@ -1139,7 +1258,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         console.log('Adding Energy Manager to Spawn List: ' + newName);
     }
@@ -1181,7 +1300,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
         else if(fillers == 1) {
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
 
         }
         console.log('Adding filler to Spawn List: ' + newName);

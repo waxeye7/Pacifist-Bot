@@ -42,7 +42,6 @@
         return terminal;
     }
 
-
     if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
         let inputLab1;
         let inputLab2;
@@ -106,6 +105,22 @@
         }
     }
 
+
+    if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
+        let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+        if(links.length > 3) {
+            let controllerLink = creep.room.controller.pos.findClosestByRange(links);
+            creep.memory.controllerLink = controllerLink.id;
+        }
+    }
+    if(creep.room.controller && creep.room.controller.level >= 7 && creep.memory.controllerLink) {
+        let controllerLink:any = Game.getObjectById(creep.memory.controllerLink);
+        if(controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 400) {
+            creep.memory.locked = controllerLink.id;
+            return controllerLink;
+        }
+    }
+
     if(creep.room.memory.factory) {
         let factory:any = Game.getObjectById(creep.room.memory.factory);
         if(factory && factory.store[RESOURCE_ENERGY] < 2500) {
@@ -142,6 +157,16 @@
         creep.memory.MaxStorage = carryPartsAmount * 50;
     }
     let MaxStorage = creep.memory.MaxStorage;
+
+
+    if(creep.memory.locked) {
+
+        let target:any = Game.getObjectById(creep.memory.locked);
+        if(target && target.structureType == STRUCTURE_LINK && target.store.getFreeCapacity() > MaxStorage) {
+            creep.memory.locked = false;
+        }
+
+    }
 
 
     // const start = Game.cpu.getUsed()

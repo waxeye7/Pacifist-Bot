@@ -55,10 +55,10 @@ const run = function (creep) {
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {
-					if(creep.roadCheck()) {
-						let roadlessLocation = creep.roadlessLocation(creep.room.controller);
-						creep.moveTo(roadlessLocation);
-					}
+					// if(creep.roadCheck()) {
+					// 	let roadlessLocation = creep.roadlessLocation(creep.room.controller);
+					// 	creep.moveTo(roadlessLocation);
+					// }
 				}
                 if(creep.store.getFreeCapacity() > 30 && creep.roadCheck()) {
                     creep.moveAwayIfNeedTo();
@@ -110,10 +110,10 @@ const run = function (creep) {
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {
-					if(creep.roadCheck()) {
-						let roadlessLocation = creep.roadlessLocation(creep.room.controller);
-						creep.moveTo(roadlessLocation);
-					}
+					// if(creep.roadCheck()) {
+					// 	let roadlessLocation = creep.roadlessLocation(creep.room.controller);
+					// 	creep.moveTo(roadlessLocation);
+					// }
 
 				}
                 if(creep.store.getFreeCapacity() >= 30 && creep.roadCheck()) {
@@ -141,7 +141,7 @@ const run = function (creep) {
 	// console.log('Upgrader Ran in', Game.cpu.getUsed() - start, 'ms')
 
 
-	if(creep.ticksToLive <= 50 && !creep.memory.upgrading) {
+	if(creep.ticksToLive <= 50 && !creep.memory.upgrading && creep.room.controller < 7) {
 		creep.memory.suicide = true;
 	}
 	if(creep.memory.suicide == true) {

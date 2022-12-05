@@ -521,6 +521,16 @@ function construction(room) {
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
                 }
+                let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
+                if(labsInRoom.length > 0) {
+                    for(let lab of labsInRoom) {
+                        if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
+                            lab.pos.createConstructionSite(STRUCTURE_RAMPART);
+                        }
+                    }
+                }
+
+
 
                 if(room.controller.level >= 5 && storage) {
                     let ramparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
@@ -643,6 +653,8 @@ function construction(room) {
 
                 let linkLocation = pathFromStorageToController.path.pop();
 
+                pathFromStorageToController.path.pop();
+
                 if(room.controller.level >= 7) {
                     let lookStructs = linkLocation.lookFor(LOOK_STRUCTURES);
                     if(lookStructs.length == 1 && lookStructs[0].structureType != STRUCTURE_LINK) {
@@ -753,7 +765,7 @@ function construction(room) {
             if(room.terminal && room.controller.level >= 6) {
                 let aroundTerminalList = [
                     new RoomPosition(room.terminal.pos.x + 1, room.terminal.pos.y, room.name),
-                    new RoomPosition(room.terminal.pos.x - 1, room.terminal.pos.y, room.name),
+                    // new RoomPosition(room.terminal.pos.x - 1, room.terminal.pos.y, room.name),
                     new RoomPosition(room.terminal.pos.x, room.terminal.pos.y + 1, room.name),
                     new RoomPosition(room.terminal.pos.x, room.terminal.pos.y - 1, room.name),
                 ]
@@ -836,59 +848,60 @@ function construction(room) {
 
                     DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
                 }
-                let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
-                if(labsInRoom.length < 10) {
 
-                    // var index = array.indexOf(item);
-                    // if (index !== -1) {
-                    //   array.splice(index, 1);
-                    // }
+                // let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
+                // if(labsInRoom.length < 10) {
 
-                    let LabLocations = [];
-                    LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
-                    checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
+                //     // var index = array.indexOf(item);
+                //     // if (index !== -1) {
+                //     //   array.splice(index, 1);
+                //     // }
 
-                    LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
-                    checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 2);
+                //     let LabLocations = [];
+                //     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+                //     checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
 
-                    LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
-                    checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
+                //     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
+                //     checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 2);
 
-                    if(room.controller.level >= 7) {
-                        LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 2);
+                //     LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
+                //     checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
 
-                        LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 3);
+                //     if(room.controller.level >= 7) {
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 2);
 
-                        LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 3);
-                    }
-                    if(room.controller.level == 8) {
-                        LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 3);
 
-                        LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 3);
+                //     }
+                //     if(room.controller.level == 8) {
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
 
-                        LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 2);
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
 
-                        LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
-                        checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
-                    }
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 2);
+
+                //         LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+                //         checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
+                //     }
 
 
 
-                    DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
+                //     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
-                    for(let lab of labsInRoom) {
-                        if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
-                            lab.pos.createConstructionSite(STRUCTURE_RAMPART);
-                        }
-                    }
+                //     for(let lab of labsInRoom) {
+                //         if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
+                //             lab.pos.createConstructionSite(STRUCTURE_RAMPART);
+                //         }
+                //     }
 
-                }
+                // }
 
 
             }

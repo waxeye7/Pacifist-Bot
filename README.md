@@ -1,1 +1,1 @@
-<h1>Merlin Stemmer's Screeps World Bot -- PacifistBot</h1>
+<h4>PacifistBot</h4>

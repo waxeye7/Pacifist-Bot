@@ -217,7 +217,8 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 
     let route:any = Game.map.findRoute(this.room.name, targetRoom, {
         routeCallback(roomName, fromRoomName) {
-            if(_.includes(Memory.AvoidRooms, roomName, 0) && !_.includes(Memory.AvoidRooms, targetRoom, 0)) {
+            // !_.includes(Memory.AvoidRooms, targetRoom, 0)
+            if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== targetRoom) {
                 return Infinity;
             }
             return 1;

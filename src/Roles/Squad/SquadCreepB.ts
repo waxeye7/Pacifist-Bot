@@ -1,3 +1,4 @@
+import { indexOf } from "lodash";
 
 /**
  * A little description of this function
@@ -103,6 +104,23 @@
         z = squad[3];
 
 
+        if(a && b && y && z) {
+            let target;
+            let lowest = creep.hitsMax;
+            for(let squadmember of squad) {
+                if(squadmember.hits < lowest) {
+                    lowest = squadmember.hits;
+                    target = squadmember;
+                }
+            }
+            if(target) {
+                creep.heal(target);
+            }
+            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && creep.pos.getRangeTo(closestEnemyCreep) <= 4) {
+                creep.heal(creep);
+            }
+        }
+
 
         if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
             if(a.memory.direction) {
@@ -130,25 +148,13 @@
                 else if(a.memory.direction == 8) {
                     creep.move(TOP_LEFT)
                 }
-            }
 
-
-        }
-        if(a && b && y && z) {
-            let target;
-            let lowest = creep.hitsMax;
-            for(let squadmember of squad) {
-                if(squadmember.hits < lowest) {
-                    lowest = squadmember.hits;
-                    target = squadmember;
+                else if(a.memory.direction == "join") {
+                    creep.moveTo(new RoomPosition(a.pos.x + 1, a.pos.y, a.room.name));
                 }
             }
-            if(target) {
-                creep.heal(target);
-            }
-            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && creep.pos.getRangeTo(closestEnemyCreep) <= 4) {
-                creep.heal(creep);
-            }
+
+
         }
     }
 }
