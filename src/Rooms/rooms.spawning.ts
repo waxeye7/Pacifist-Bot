@@ -253,7 +253,7 @@ function spawn_energy_miner(resourceData, room) {
                         room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
                             {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                         console.log('Adding Energy Miner to Spawn List: ' + newName);
-                        values.lastSpawn = Game.time-50;
+                        values.lastSpawn = Game.time-650;
                     }
                 }
             }
@@ -843,25 +843,25 @@ function add_creeps_to_spawn_list(room, spawn) {
 
         if(room.memory.spawning_squad.creepA) {
             let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(37,3,"E44N53")}});
+            room.memory.spawn_list.push(body3, newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(39,40,"E48N59")}});
             console.log('Adding SquadCreepA to Spawn List: ' + newName);
             room.memory.spawning_squad.creepA = false;
         }
         if(room.memory.spawning_squad.creepB) {
             let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+            room.memory.spawn_list.push(body3, newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
             console.log('Adding SquadCreepB to Spawn List: ' + newName);
             room.memory.spawning_squad.creepB = false;
         }
         if(room.memory.spawning_squad.creepY) {
             let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+            room.memory.spawn_list.push(body3, newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
             console.log('Adding SquadCreepY to Spawn List: ' + newName);
             room.memory.spawning_squad.creepY = false;
         }
         if(room.memory.spawning_squad.creepZ) {
             let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(body, newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            room.memory.spawn_list.push(body3, newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
             console.log('Adding SquadCreepZ to Spawn List: ' + newName);
             room.memory.spawning_squad.creepZ = false;
         }
@@ -1029,7 +1029,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     //         everyRoom.memory.keepTheseRoads = [];
     //     }
     // });
-    if(containerbuilders < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 12 && Game.rooms[target_colonise] && Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
+    if(containerbuilders < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.map.getRoomLinearDistance(room.name, target_colonise) <= 7 && Game.rooms[target_colonise] && Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
         let newName = 'ContainerBuilder-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 30), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
         console.log('Adding ContainerBuilder to Spawn List: ' + newName);

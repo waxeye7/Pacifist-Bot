@@ -106,7 +106,7 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
                     let distance = creep.pos.getRangeTo(closestTower);
 
                     let fleeTowerPath = PathFinder.search(
-                        creep.pos, {pos:closestTower.pos, range:distance + 2},
+                        creep.pos, {pos:closestTower.pos, range:distance + 4},
                         {
                           plainCost: 1,
                           swampCost: 5,
@@ -335,8 +335,195 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
 
                     }
                     else {
-                        creep.memory.direction = direction
-                        creep.move(direction);
+                        let allow = false;
+                        if(creep.pos.x <= 47 && creep.pos.x >= 1 && creep.pos.y <= 47 && creep.pos.y >= 1) {
+                            if(direction == 1) {
+
+                                let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
+                                    LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
+                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+
+                            }
+
+                            else if(direction == 2) {
+                                let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresTopRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresTopRightRight.length == 0 || LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my ||
+                                    LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my && LookStructuresTopRightRight[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[1].my && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD) &&
+
+                                    (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
+                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
+
+
+                                (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
+                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+
+                            }
+                            else if(direction == 3) {
+
+                                let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
+                                    LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
+                                    LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+
+                            }
+                            else if(direction == 4) {
+                                let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresRightBottomBottom:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresDoubleRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresRightBottomBottom.length == 0 || LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my ||
+                                    LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[1].my && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD) &&
+
+                                    (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
+                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresDoubleRightBottom.length == 0 || LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my ||
+                                    LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[1].my && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+
+                            }
+                            else if(direction == 5) {
+
+                                let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresBottomRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
+                                    LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresBottomRight.length == 0 || LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my ||
+                                    LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my && LookStructuresBottomRight[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[1].my && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+
+                            }
+                            else if(direction == 6) {
+                                let LookStructuresLeftBottom:any = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
+                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD) &&
+
+                                    (LookStructuresLeftBottom.length == 0 || LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my ||
+                                        LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my && LookStructuresLeftBottom[1].structureType == STRUCTURE_ROAD ||
+                                        LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[1].my && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
+                                    LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+                            }
+                            else if(direction == 7) {
+                                let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
+                                    LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
+                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+                            }
+                            else if(direction == 8) {
+                                let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresTopLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
+                                if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
+                                (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
+                                    LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
+                                    LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
+
+                                (LookStructuresTopLeft.length == 0 || LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my ||
+                                    LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my && LookStructuresTopLeft[1].structureType == STRUCTURE_ROAD ||
+                                    LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[1].my && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD)) {
+                                        allow = true;
+                                }
+                            }
+                        }
+                        else {
+                            allow = true;
+                        }
+
+                        if(allow) {
+                            creep.memory.direction = direction
+                            creep.move(direction);
+                        }
+                        else {
+                            creep.memory.direction = false;
+                        }
+
                     }
 
                 }

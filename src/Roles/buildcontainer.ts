@@ -3,7 +3,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     if(creep.room.name != creep.memory.targetRoom) {
 
-        creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+        creep.moveToRoom(creep.memory.targetRoom);
 
         // return creep.moveTo(new RoomPosition(25, 25, creep.memory.targetRoom));
     }

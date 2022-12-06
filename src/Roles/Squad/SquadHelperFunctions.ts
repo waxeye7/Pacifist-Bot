@@ -71,25 +71,25 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
             }
             else if(!struct.my) {
                 if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y, 255);
+                    costs.set(struct.pos.x, struct.pos.y, 50);
                 }
                 else {
                     costs.set(struct.pos.x, struct.pos.y, 255);
                 }
                 if(costs.get(struct.pos.x - 1, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y, 255);
+                    costs.set(struct.pos.x - 1, struct.pos.y, 50);
                 }
                 else {
                     costs.set(struct.pos.x - 1, struct.pos.y, 255);
                 }
                 if(costs.get(struct.pos.x - 1, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
+                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 50);
                 }
                 else {
                     costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
                 }
                 if(costs.get(struct.pos.x, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y - 1, 255);
+                    costs.set(struct.pos.x, struct.pos.y - 1, 50);
                 }
                 else {
                     costs.set(struct.pos.x, struct.pos.y - 1, 255);
