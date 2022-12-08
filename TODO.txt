@@ -9,3 +9,8 @@ more carry parts pre storage where the extensions aren't filled enough.
 sweeper sweep in vicinity instead of all dropped resources first
 
 construction extensions near source for transfer by energy miners could potentially block the way to ramparts
+
+
+CHANGE SPAWN COOLDOWN ON ENERGY MINER AND CARRIER IN LOW RCL WHERE THEY CAN'T CARRY ALL AND MINE ALL WITH SMALL BODY WILL BE HARDER FOR CARRY
+
+squad quad when register team mate quads to memory on each guy, only take higher ticks to live than of a

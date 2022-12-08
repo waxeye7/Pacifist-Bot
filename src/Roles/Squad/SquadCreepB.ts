@@ -7,9 +7,9 @@ import { indexOf } from "lodash";
  const run = function (creep:any) {
     creep.Speak();
 
-    if(!creep.memory.go) {
-        creep.moveTo(new RoomPosition(39,39,"E45N59"));
-        return;
+    if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
+        let a:any = Game.getObjectById(creep.memory.squad.a);
+        creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y,a.room.name));
     }
     // if(creep.ticksToLive < 1400) {
     //     creep.moveTo(39,40);
@@ -21,23 +21,48 @@ import { indexOf } from "lodash";
 
     let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-    let closestEnemyCreep;
-    if(enemyCreeps.length > 0) {
-        closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
-        if(creep.pos.getRangeTo(closestEnemyCreep) <= 3) {
-            creep.rangedAttack(closestEnemyCreep)
+    let enemyCreepInRangeThree = creep.pos.findInRange(enemyCreeps, 3);
+    let targetCreep;
+    if(enemyCreepInRangeThree.length > 0) {
+        let attack_able = false;
+        for(let e_creep of enemyCreepInRangeThree) {
+
+            if(e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
+                attack_able = true;
+                targetCreep = e_creep;
+                break;
+            }
+            else {
+                let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
+                if(lookStructuresOnEnemyCreep.length > 0) {
+                    for(let structure of lookStructuresOnEnemyCreep) {
+                        if(structure.structureType == STRUCTURE_RAMPART) {
+                            attack_able = false;
+                        }
+                    }
+                }
+                else {
+                    attack_able = false;
+                }
+            }
         }
-        if(creep.pos.isNearTo(closestEnemyCreep)) {
-            creep.rangedMassAttack();
+
+        if(targetCreep) {
+            creep.rangedAttack(targetCreep)
+
+            if(creep.pos.isNearTo(targetCreep)) {
+                creep.rangedMassAttack();
+            }
         }
+
 
     }
     if(structures.length > 0) {
-        let closestStructure = creep.pos.findClosestByRange(structures);
-        if(creep.pos.getRangeTo(closestStructure) <= 3) {
+        let closestStructure = creep.pos.findClosestByPath(structures);
+        if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
         }
-        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL) {
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
             creep.rangedMassAttack();
         }
     }
@@ -57,24 +82,28 @@ import { indexOf } from "lodash";
     if(!creep.memory.squad.a) {
         let squadcreepa = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepA");}});
         if(squadcreepa.length > 0) {
+            squadcreepa.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.squad.a = squadcreepa[0].id;
         }
     }
     if(!creep.memory.squad.b) {
         let squadcreepb = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepB");}});
         if(squadcreepb.length > 0) {
+            squadcreepb.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.squad.b = squadcreepb[0].id;
         }
     }
     if(!creep.memory.squad.y) {
         let squadcreepy = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepY");}});
         if(squadcreepy.length > 0) {
+            squadcreepy.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.squad.y = squadcreepy[0].id;
         }
     }
     if(!creep.memory.squad.z) {
         let squadcreepz = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepZ");}});
         if(squadcreepz.length > 0) {
+            squadcreepz.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.squad.z = squadcreepz[0].id;
         }
     }
@@ -116,7 +145,7 @@ import { indexOf } from "lodash";
             if(target) {
                 creep.heal(target);
             }
-            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && creep.pos.getRangeTo(closestEnemyCreep) <= 4) {
+            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && enemyCreepInRangeThree.length > 0) {
                 creep.heal(creep);
             }
         }
