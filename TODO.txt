@@ -14,3 +14,6 @@ construction extensions near source for transfer by energy miners could potentia
 CHANGE SPAWN COOLDOWN ON ENERGY MINER AND CARRIER IN LOW RCL WHERE THEY CAN'T CARRY ALL AND MINE ALL WITH SMALL BODY WILL BE HARDER FOR CARRY
 
 squad quad when register team mate quads to memory on each guy, only take higher ticks to live than of a
+
+
+make squad leader say target the wall in the path and the one next to it to break through

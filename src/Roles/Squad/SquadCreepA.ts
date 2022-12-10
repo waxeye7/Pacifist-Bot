@@ -1,4 +1,4 @@
-import {roomCallbackSquadA} from "./SquadHelperFunctions";
+import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
 
 // Game.rooms["E45N59"].memory.spawning_squad.status = true;
 
@@ -41,7 +41,12 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
         }
 
         if(!creep.memory.go && route && route !== 2 && route.length > 0) {
-            if(creep.pos.x !== 1 && creep.pos.x !== 47 && creep.pos.y !== 1 && creep.pos.y !== 47) {
+
+            if(creep.pos.x >= 3 && creep.pos.x <= 45 && creep.pos.y >= 3 && creep.pos.y <= 45) {
+                creep.moveTo(new RoomPosition(25, 25, route[0].room),{range:23});
+            }
+
+            else if(creep.pos.x !== 1 && creep.pos.x !== 47 && creep.pos.y !== 1 && creep.pos.y !== 47) {
 
                 let nearExit = route[0].room;
 
@@ -52,7 +57,7 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
                         swampCost: 5,
                         maxOps: 4000,
                         maxRooms: 40,
-                        roomCallback: (roomName) => roomCallbackSquadA(roomName)
+                        roomCallback: (roomName) => roomCallbackSquadGetReady(roomName)
                     }
                     );
                     let pos = path.path[0];
@@ -61,7 +66,7 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
                     creep.move(direction);
             }
 
-            else if(Game.time % 30 == 0 && (creep.pos.x == 1 || creep.pos.x == 47 || creep.pos.y == 1 || creep.pos.y == 47)) {
+            else if((Game.time % 30 == 0 || Game.time % 30 == 1) && (creep.pos.x == 1 || creep.pos.x == 47 || creep.pos.y == 1 || creep.pos.y == 47)) {
                 creep.moveTo(new RoomPosition(25,25,creep.room.name), {range:14});
             }
         }
@@ -76,22 +81,24 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
         let attack_able = false;
         for(let e_creep of enemyCreepInRangeThree) {
 
+
+
             if(e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
                 attack_able = true;
                 targetCreep = e_creep;
-                break;
             }
             else {
                 let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
                 if(lookStructuresOnEnemyCreep.length > 0) {
                     for(let structure of lookStructuresOnEnemyCreep) {
-                        if(structure.structureType == STRUCTURE_RAMPART) {
+                        if(structure.structureType == STRUCTURE_RAMPART && !attack_able) {
                             attack_able = false;
                         }
                     }
                 }
                 else {
-                    attack_able = false;
+                    attack_able = true;
+                    targetCreep = e_creep;
                 }
             }
         }
@@ -122,54 +129,6 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
             move_location = closestStructure.pos;
         }
     }
-
-
-    if(creep.room.name == creep.memory.targetPosition.roomName) {
-        if(structures.length > 0) {
-
-            let spawns = structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
-            if(spawns.length > 0) {
-                 let closestSpawn = creep.pos.findClosestByRange(spawns);
-                 creep.memory.targetPosition = closestSpawn.pos;
-                 move_location = creep.memory.targetPosition
-            }
-
-            let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER;});
-            if(towers.length > 0) {
-
-                let closestTower = creep.pos.findClosestByRange(towers);
-
-                let totalTowerDamage = TowerDamageCalculator(creep.pos, closestTower.pos) * towers.length;
-
-                let HealParts = creep.getActiveBodyparts(HEAL);
-                let HealPower = HealParts * 12
-                if(creep.body[creep.body.length - 1].boost) {
-                    HealPower *= 4;
-                }
-
-                HealPower *= 4;
-                console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
-
-                if(totalTowerDamage > HealPower) {
-
-                    let distance = creep.pos.getRangeTo(closestTower);
-
-                    let fleeTowerPath = PathFinder.search(
-                        creep.pos, {pos:closestTower.pos, range:distance + 4},
-                        {
-                          plainCost: 1,
-                          swampCost: 5,
-                          flee: true,
-                        }
-                    );
-                    move_location = fleeTowerPath.path[fleeTowerPath.path.length - 1];
-                }
-            }
-        }
-    }
-
-
-
 
 
 
@@ -247,10 +206,29 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
         z = squad[3];
 
 
-        if(a && b && y && z) {
+        let aliveCreeps = [];
+
+        if(a) {
+            aliveCreeps.push(a);
+        }
+        if(b) {
+            aliveCreeps.push(b);
+        }
+        if(y) {
+            aliveCreeps.push(y);
+        }
+        if(z) {
+            aliveCreeps.push(z);
+        }
+
+
+
+        if(aliveCreeps.length > 0) {
+            let healPartsTotal = 0;
             let target;
             let lowest = creep.hitsMax;
-            for(let squadmember of squad) {
+            for(let squadmember of aliveCreeps) {
+                healPartsTotal += squadmember.getActiveBodyparts(HEAL);
                 if(squadmember.hits < lowest) {
                     lowest = squadmember.hits;
                     target = squadmember;
@@ -261,6 +239,50 @@ import {roomCallbackSquadA} from "./SquadHelperFunctions";
             }
             else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && enemyCreepInRangeThree.length > 0) {
                 creep.heal(creep);
+            }
+
+
+
+            if(creep.room.name == creep.memory.targetPosition.roomName) {
+                if(structures.length > 0) {
+
+                    let spawns = structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
+                    if(spawns.length > 0) {
+                        let closestSpawn = creep.pos.findClosestByRange(spawns);
+                        creep.memory.targetPosition = closestSpawn.pos;
+                        move_location = creep.memory.targetPosition
+                    }
+
+                    let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] > 9;});
+                    if(towers.length > 0) {
+
+                        let closestTower = creep.pos.findClosestByRange(towers);
+
+                        let totalTowerDamage = TowerDamageCalculator(creep.pos, closestTower.pos) * towers.length;
+
+                        let HealPower = healPartsTotal * 12;
+                        if(creep.body[creep.body.length - 1].boost) {
+                            HealPower *= 4;
+                        }
+
+                        console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
+
+                        if(totalTowerDamage > HealPower || target && target.hits + 1000 < target.hitsMax) {
+
+                            let distance = creep.pos.getRangeTo(closestTower);
+
+                            let fleeTowerPath = PathFinder.search(
+                                creep.pos, {pos:closestTower.pos, range:distance + 4},
+                                {
+                                plainCost: 1,
+                                swampCost: 5,
+                                flee: true,
+                                }
+                            );
+                            move_location = fleeTowerPath.path[fleeTowerPath.path.length - 1];
+                        }
+                    }
+                }
             }
         }
 
@@ -863,7 +885,7 @@ function TowerDamageCalculator(creepPosition, closestTowerPosition) {
         return 150;
     }
     else if(distance > 5 && distance < 20) {
-        return 450/distance*6.7 // might be wrong but it'll do for now.
+        return 450/distance*7.5 // might be wrong but it'll do for now.
     }
     else {
         return 600;

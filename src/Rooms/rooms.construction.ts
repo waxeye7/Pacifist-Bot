@@ -60,7 +60,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 }
             }
 
-            if(lookForExistingConstructionSites.length) {
+            if(lookForExistingConstructionSites.length > 0) {
                 return;
             }
 
@@ -68,15 +68,15 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 return;
             }
 
-            if(blockSpot.findPathTo(storage, {ignoreCreeps:true}).length >= 17) {
+            if(blockSpot.findPathTo(storage, {ignoreCreeps:true}).length >= 18) {
                 return;
             }
 
 
-            let pathFromStorageToRampart = PathFinder.search(storage.pos, {pos:blockSpot, range:0}, {plainCost: 1, swampCost: 2, maxCost:50, roomCallback: () => RampartBorderCallbackFunction(room.name)});
+            let pathFromRampartToStorage = PathFinder.search(blockSpot, {pos:storage.pos, range:1}, {plainCost: 1, swampCost: 2, maxCost:50, roomCallback: () => RampartBorderCallbackFunction(room.name)});
 
 
-            if(pathFromStorageToRampart.incomplete) {
+            if(pathFromRampartToStorage.incomplete) {
                 return;
             }
 
@@ -177,7 +177,6 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 }
             }
 
-
             if(blockSpot.findPathTo(storage, {ignoreCreeps:true}).length > 10) {
                 return;
             }
@@ -188,7 +187,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 buldingAlreadyHereCount ++;
                 return;
             }
-            new RoomVisual(blockSpot.roomName).circle(blockSpot.x, blockSpot.y, {fill: 'transparent', radius: 0.25, stroke: '#FABFAB'});
+            new RoomVisual(blockSpot.roomName).circle(blockSpot.x, blockSpot.y, {fill: '#000000', radius: 0.25, stroke: '#FABFAB'});
 
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_ROAD) {
                 if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
@@ -198,7 +197,6 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                     // if(result !== -8 && result !== -14) {
                         lookForExistingStructures[0].destroy();
                     }
-                    return;
                 }
             }
 
@@ -492,28 +490,28 @@ function construction(room) {
 
 
                 if(!first_location_good) {
-                    checkerboard = checkerboard.filter(item => item[0] !== 4 && item[1] !== 4);
-                    checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 5);
-                    checkerboard = checkerboard.filter(item => item[0] !== 3 && item[1] !== 3);
-                    checkerboard = checkerboard.filter(item => item[0] !== 2 && item[1] !== 4);
-                    checkerboard = checkerboard.filter(item => item[0] !== 2 && item[1] !== 5);
-                    checkerboard = checkerboard.filter(item => item[0] !== 3 && item[1] !== 6);
-                    checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 6);
-                    checkerboard = checkerboard.filter(item => item[0] !== 5 && item[1] !== 3);
-                    checkerboard = checkerboard.filter(item => item[0] !== 6 && item[1] !== 4);
-                    checkerboard = checkerboard.filter(item => item[0] !== 6 && item[1] !== 5);
+
+                    checkerboard = [
+                        [-2,-2], [2,-2], [2,0],
+                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[4,0],[-4,4],[-2,4],[0,4],
+                        [-5,-5],[-5,3],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,1],[-5,-1],[-5,5],[-3,5],[-1,5],[1,5],
+                        [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[-6,0],[-6,2],[6,-2],[6,0],[6,2],[-6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
+                        [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,1],[-7,3],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5]
+                    ];
+
                 }
                 else {
-                    checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
-                    checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 2);
-                    checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
-                    checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
-                    checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 2);
-                    checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 3);
-                    checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 3);
-                    checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
-                    checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 2);
-                    checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
+
+                    checkerboard = [
+                        [-2,-2], [2,-2], [2,0],
+                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1], [1,3], [3,3],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
+                        [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],
+                        [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[-6,2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
+                        [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,3],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5]
+                    ];
+
                 }
 
                 if(room.controller.level >= 6 && room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}}).length <= 10) {
@@ -738,6 +736,7 @@ function construction(room) {
         }
         else if(storage) {
             let storageNeighbours = getNeighbours(storage.pos, checkerboard);
+
             storageNeighbours.sort((a,b) => new RoomPosition (a.x, a.y, room.name).getRangeTo(storage) - new RoomPosition (b.x, b.y, room.name).getRangeTo(storage));
 
             if(room.controller.level < 4) {
@@ -745,7 +744,7 @@ function construction(room) {
             }
 
 
-            if(lookForExistingStructures.length != 0 && room.controller.level >= 4) {
+            if(room.controller.level >= 4) {
                 pathBuilder(storageNeighbours, STRUCTURE_EXTENSION, room, false);
 
                 let aroundStorageList = [

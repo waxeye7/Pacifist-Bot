@@ -30,7 +30,6 @@ import { indexOf } from "lodash";
             if(e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
                 attack_able = true;
                 targetCreep = e_creep;
-                break;
             }
             else {
                 let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
@@ -43,6 +42,7 @@ import { indexOf } from "lodash";
                 }
                 else {
                     attack_able = false;
+                    targetCreep = e_creep;
                 }
             }
         }
@@ -126,17 +126,36 @@ import { indexOf } from "lodash";
     let y;
     let z;
 
-    if(squad.length == 4) {
+
+
+    if(squad.length == 4 && creep.memory.go) {
         a = squad[0];
         b = squad[1];
         y = squad[2];
         z = squad[3];
 
 
-        if(a && b && y && z) {
+        let aliveCreeps = [];
+
+        if(a) {
+            aliveCreeps.push(a);
+        }
+        if(b) {
+            aliveCreeps.push(b);
+        }
+        if(y) {
+            aliveCreeps.push(y);
+        }
+        if(z) {
+            aliveCreeps.push(z);
+        }
+
+
+
+        if(aliveCreeps.length > 0) {
             let target;
             let lowest = creep.hitsMax;
-            for(let squadmember of squad) {
+            for(let squadmember of aliveCreeps) {
                 if(squadmember.hits < lowest) {
                     lowest = squadmember.hits;
                     target = squadmember;
