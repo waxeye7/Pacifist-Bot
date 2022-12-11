@@ -29,7 +29,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
             routeCallback(roomName, fromRoomName) {
                 if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
-                    return 2;
+                    return 5;
                 }
                 return 1;
         }});
@@ -46,7 +46,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 creep.moveTo(new RoomPosition(25, 25, route[0].room),{range:23});
             }
 
-            else if(creep.pos.x !== 1 && creep.pos.x !== 47 && creep.pos.y !== 1 && creep.pos.y !== 47) {
+            else if(creep.pos.x > 1 && creep.pos.x < 47 && creep.pos.y > 1 && creep.pos.y < 47) {
 
                 let nearExit = route[0].room;
 
@@ -78,7 +78,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
     let enemyCreepInRangeThree = creep.pos.findInRange(enemyCreeps, 3);
     let targetCreep;
     if(enemyCreepInRangeThree.length > 0) {
-        let attack_able = false;
+        let attack_able:any = 0;
         for(let e_creep of enemyCreepInRangeThree) {
 
 
@@ -96,7 +96,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                         }
                     }
                 }
-                else {
+                if(lookStructuresOnEnemyCreep.length == 0 || attack_able == 0) {
                     attack_able = true;
                     targetCreep = e_creep;
                 }
@@ -180,9 +180,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
     }
 
 
-    if(squad[0] && squad[1] && squad[1].pos.x == squad[0].pos.x + 1 && squad[1].pos.y == squad[0].pos.y &&
-    squad[2] && squad[2].pos.x == squad[0].pos.x && squad[2].pos.y == squad[0].pos.y + 1 &&
-    squad[3] && squad[3].pos.x == squad[0].pos.x + 1 && squad[3].pos.y == squad[0].pos.y + 1)
+    if(squad[0] && squad[1] && squad[2] && squad[3] && squad[1].pos.x == squad[0].pos.x + 1 && squad[1].pos.y == squad[0].pos.y &&
+    squad[2].pos.x == squad[0].pos.x && squad[2].pos.y == squad[0].pos.y + 1 &&
+    squad[3].pos.x == squad[0].pos.x + 1 && squad[3].pos.y == squad[0].pos.y + 1)
     {
     squad[0].memory.go = true;
     squad[1].memory.go = true;
@@ -248,9 +248,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                     let spawns = structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
                     if(spawns.length > 0) {
-                        let closestSpawn = creep.pos.findClosestByRange(spawns);
-                        creep.memory.targetPosition = closestSpawn.pos;
-                        move_location = creep.memory.targetPosition
+                        // let closestSpawn = creep.pos.findClosestByRange(spawns);
+                        // creep.memory.targetPosition = closestSpawn.pos;
+                        // move_location = creep.memory.targetPosition
                     }
 
                     let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] > 9;});
@@ -267,7 +267,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower || target && target.hits + 1000 < target.hitsMax) {
+                        if(totalTowerDamage > HealPower || target && target.hits + 350 < target.hitsMax) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -455,6 +455,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                     }
 
                     else {
+                        console.log(direction, creep.ticksToLive)
                         let allow = false;
                         if(creep.pos.x <= 47 && creep.pos.x >= 2 && creep.pos.y <= 47 && creep.pos.y >= 2) {
                             if(direction == 1) {
@@ -709,7 +710,6 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                             allow = true;
                                     }
                                 }
-
                             }
                             else if(direction == 4) {
                                 if(creep.pos.x >= 48 || creep.pos.y >= 48) {
@@ -861,6 +861,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                             creep.memory.direction = false;
                         }
 
+                        console.log('teeest')
                     }
 
                 }

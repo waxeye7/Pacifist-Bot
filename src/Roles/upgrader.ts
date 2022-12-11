@@ -80,6 +80,9 @@ const run = function (creep) {
 		}
 
 
+		if(creep.ticksToLive == 1) {
+			creep.transfer(theLink, RESOURCE_ENERGY);
+		}
 
 
 	}

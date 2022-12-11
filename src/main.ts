@@ -94,6 +94,20 @@ global.ROLES = {
   SquadCreepZ: roleSquadCreepZ,
 }
 
+global.SQ = function(roomName, targetRoomName, boosted=false) {
+    Game.rooms[roomName].memory.spawning_squad.status = true;
+    Game.rooms[roomName].memory.spawning_squad.targetRoom = targetRoomName;
+    Game.rooms[roomName].memory.spawning_squad.boosted = boosted;
+
+    return "Success!"
+}
+global.SRD = function(roomName, targetRoomName) {
+    let newName = 'RemoteDismantler-BIGBOY' + roomName + Math.floor(Math.random() * 100);
+    Game.rooms[roomName].memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: targetRoomName, homeRoom: roomName}});
+    console.log('Adding RemoteDismantler to Spawn List: ' + newName);
+    return "Success!"
+}
+
 
 export const loop = ErrorMapper.wrapLoop(() => {
 //   console.log(Game.time % 100 + "/100");

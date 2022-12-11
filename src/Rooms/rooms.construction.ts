@@ -1064,6 +1064,11 @@ function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
         open.sort((a,b) => a.findPathTo(storage, {ignoreCreeps:true}).length - b.findPathTo(storage, {ignoreCreeps:true}).length)
         open = open.filter(position => position.findPathTo(storage.pos, {ignoreCreeps:true}).length < open[0].findPathTo(storage.pos, {ignoreCreeps:true}).length + 3);
         if(open.length > 1) {
+            if(open.length == 2 && open[0].getRangeTo(open[1]) > 1) {
+                let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
+                findTwoOpenSpotsForLink(NewOpen, storage, room)
+            }
+            else {
             // let closestOpen = storage.pos.findClosestByRange(open);
             new RoomVisual(room.name).circle(open[1].x, open[1].y, {fill: 'transparent', radius: 0.75, stroke: 'red'});
             for (let i = 1; i < open.length; i++) {
@@ -1071,6 +1076,7 @@ function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
                 if(result == 0) {
                     return;
                 }
+            }
             }
         }
         else {

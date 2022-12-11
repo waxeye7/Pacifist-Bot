@@ -8,7 +8,9 @@
 
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
-        creep.moveTo(new RoomPosition(a.pos.x,a.pos.y+1,a.room.name));
+        if(a) {
+            creep.moveTo(new RoomPosition(a.pos.x,a.pos.y+1,a.room.name));
+        }
     }
 
 

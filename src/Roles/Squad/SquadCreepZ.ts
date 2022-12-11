@@ -8,7 +8,9 @@
 
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
-        creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y+1,a.room.name));
+        if(a) {
+            creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y+1,a.room.name));
+        }
     }
 
     let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});

@@ -9,7 +9,9 @@ import { indexOf } from "lodash";
 
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
-        creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y,a.room.name));
+        if(a) {
+            creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y,a.room.name));
+        }
     }
     // if(creep.ticksToLive < 1400) {
     //     creep.moveTo(39,40);

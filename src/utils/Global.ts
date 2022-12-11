@@ -7,6 +7,11 @@ declare global {
       Types added in this `global` block are in an ambient, global context. This is needed because `main.ts` is a module file (uses import or export).
       Interfaces matching on name from @types/screeps will be merged. This is how you can extend the 'built-in' interfaces from @types/screeps.
     */
+    interface Object {
+        status:any;
+        targetRoom:any;
+        boosted:boolean;
+    }
     interface Memory {
         CPU:any;
         AvoidRooms: any;
@@ -87,6 +92,9 @@ declare global {
     namespace NodeJS {
         interface Global {
             ROLES: any;
+            SQ: any;
+            SRD:any;
+
         }
     }
 }

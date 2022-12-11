@@ -494,10 +494,29 @@ Creep.prototype.Sweep = function Sweep() {
         let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
         let droppedResourcesTombstones = this.room.find(FIND_TOMBSTONES, {filter: tombstone => _.keys(tombstone.store).length > 0});
 
+        let droppedResourcesNearby;
+        let droppedResourcesTombstonesNearby;
+
+        if(droppedResources.length > 0) {
+            droppedResourcesNearby = droppedResources.filter(function(resource) {return resource.pos.getRangeTo(this) < 6;});
+        }
+        if(droppedResourcesTombstones.length > 0) {
+            droppedResourcesTombstonesNearby = droppedResourcesTombstones.filter(function(tomb) {return tomb.pos.getRangeTo(this) < 6;});
+        }
+
         if(droppedResources.length == 0 && droppedResourcesTombstones.length == 0) {
             return "nothing to sweep";
         }
-        if(droppedResources.length > 0) {
+
+        if(droppedResourcesNearby && droppedResourcesNearby.length > 0) {
+            droppedResourcesNearby.sort((a,b) => a.amount - b.amount);
+            this.memory.lockedDropped = droppedResourcesNearby[0].id;
+        }
+        else if(droppedResourcesTombstonesNearby && droppedResourcesTombstonesNearby.length > 0) {
+            droppedResourcesTombstonesNearby.sort((a,b) => a.amount - b.amount);
+            this.memory.lockedDropped = droppedResourcesTombstonesNearby[0].id;
+        }
+        else if(droppedResources.length > 0) {
             droppedResources.sort((a,b) => a.amount - b.amount);
             this.memory.lockedDropped = droppedResources[0].id;
         }
