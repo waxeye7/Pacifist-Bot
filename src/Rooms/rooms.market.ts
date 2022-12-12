@@ -313,8 +313,8 @@ function market(room):any {
         }
     }
 
-    let targetRampRoom = "E45N59"
-    if(Game.time % 30 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
+    let targetRampRoom = Memory.targetRampRoom;
+    if(targetRampRoom && Game.time % 30 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 30000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.storage) || theirRoom.findStorage();

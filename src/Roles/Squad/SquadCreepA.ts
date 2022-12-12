@@ -455,7 +455,6 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                     }
 
                     else {
-                        console.log(direction, creep.ticksToLive)
                         let allow = false;
                         if(creep.pos.x <= 47 && creep.pos.x >= 2 && creep.pos.y <= 47 && creep.pos.y >= 2) {
                             if(direction == 1) {
@@ -860,8 +859,6 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                         else {
                             creep.memory.direction = false;
                         }
-
-                        console.log('teeest')
                     }
 
                 }

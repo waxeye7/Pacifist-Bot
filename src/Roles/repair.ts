@@ -17,6 +17,12 @@ function findLocked(creep) {
         }
     }
 
+    let nukes = creep.room.find(FIND_NUKES);
+    let nukeBOOL = false;
+    if(nukes.length > 0) {
+        nukeBOOL = true;
+    }
+
     let buildingsToRepair300mil;
 
     if(creep.room.controller.level >= 6) {
@@ -28,6 +34,54 @@ function findLocked(creep) {
     else {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000});
     }
+
+
+    if(nukeBOOL) {
+        if(creep.room.controller.level >= 6) {
+
+            let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL});
+
+            let ramparts_on_important_structures = []
+
+            for(let structure of important_structures) {
+                let lookForStructs = structure.pos.lookFor(LOOK_STRUCTURES);
+                for(let buildingOnHere of lookForStructs) {
+                    if(buildingOnHere.structureType == STRUCTURE_RAMPART) {
+                        ramparts_on_important_structures.push(buildingOnHere);
+                    }
+                }
+            }
+
+            let important_structures_data = []
+            for(let important_rampart of ramparts_on_important_structures) {
+                important_structures_data.push([important_rampart, important_rampart.hits])
+            }
+
+            for(let nuke of nukes) {
+                for(let building_data of important_structures_data) {
+                    if(nuke.pos.x == building_data[0].pos.x && nuke.pos.y == building_data[0].pos.y) {
+                        building_data[1] -= 10000000;
+                    }
+                    else if(nuke.pos.getRangeTo(building_data[0]) <= 2) {
+                        building_data[1] -= 5000000;
+                    }
+                }
+            }
+
+            for(let data of important_structures_data) {
+                if(data[1] <= 25000) {
+                    creep.say("🎯", true);
+                    creep.memory.locked = data[0].id;
+                    return data[0].id;
+                }
+            }
+
+
+        }
+
+
+    }
+
 
     if(buildingsToRepair300mil.length > 0) {
         buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
@@ -261,6 +315,26 @@ function findLocked(creep) {
 				creep.moveTo(repairTarget, {reusePath:25});
 			}
 		}
+    }
+
+    if(creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) >= creep.store[RESOURCE_ENERGY])  {
+        creep.withdraw(storage, RESOURCE_ENERGY);
+        if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x && creep.pos.y == storage.pos.y + 1) {
+            if(creep.move(RIGHT) == 0) {
+                return;
+            }
+            else if(creep.move(TOP_RIGHT) == 0) {
+                return;
+            }
+            else if(creep.move(TOP_LEFT) == 0) {
+                return;
+            }
+        }
+        else if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x - 1 && creep.pos.y == storage.pos.y + 1) {
+            if(creep.move(TOP) == 0) {
+                return;
+            }
+        }
     }
 
 	if(creep.ticksToLive <= 74 && (!creep.memory.repairing || _.keys(creep.store).length == 0)) {

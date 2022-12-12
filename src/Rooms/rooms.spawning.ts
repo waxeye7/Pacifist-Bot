@@ -953,7 +953,15 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Upgrader to Spawn List: ' + newName, "because storage is full");
     }
 
-    if((repairers < repairerTargetAmount && room.controller.level > 1) ||
+    let nukes = room.find(FIND_NUKES);
+    Memory.targetRampRoom = room.name;
+    if(nukes.length > 0 && room.controller.level >= 6 && repairers < 3 && storage && storage.store[RESOURCE_ENERGY] > 210000) {
+        let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE], newName, {memory: {role: 'repair', homeRoom: room.name}});
+        console.log('Adding MEGA Repairer to Spawn List: ' + newName);
+    }
+
+    else if((repairers < repairerTargetAmount && room.controller.level > 1) ||
     (storage && storage.store[RESOURCE_ENERGY] > 550000 && repairers < repairerTargetAmount + 1) ||
     (room.memory.danger == true && repairers < 6 && room.controller.level > 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {

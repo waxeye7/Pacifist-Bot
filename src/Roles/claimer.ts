@@ -11,20 +11,19 @@
     else {
         let controller = creep.room.controller;
 
-        if(controller && controller.level == 0 && controller.reservation && controller.reservation.ticksToEnd == 0) {
+        if(controller && controller.level == 0 && !controller.reservation) {
 
-            if(controller.level == 0) {
-                if(creep.claimController(controller) == 0) {
-                    creep.suicide();
-                    return;
-                }
-                if(creep.claimController(controller) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(controller);
-                }
+            if(creep.claimController(controller) == 0) {
+                creep.suicide();
+                return;
             }
+            if(creep.claimController(controller) == ERR_NOT_IN_RANGE) {
+                creep.moveTo(controller);
+            }
+
         }
 
-        else if(controller && !controller.my && controller.level > 0  && controller.reservation && controller.reservation.ticksToEnd == 0) {
+        else if(controller && !controller.my && controller.level > 0 && !controller.reservation) {
             if(creep.pos.isNearTo(controller)) {
                 let result = creep.attackController(controller);
                 if(result == 0) {

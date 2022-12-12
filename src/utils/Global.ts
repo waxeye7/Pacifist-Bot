@@ -21,6 +21,7 @@ declare global {
         tasks: any;
         uuid: number;
         log: any;
+        targetRampRoom:string | false;
     }
 
     interface billtong_rooms {

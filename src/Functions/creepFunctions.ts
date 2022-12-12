@@ -5,6 +5,7 @@ interface Creep {
     findSpawn:() => object | void;
     findStorage:() => object | void;
     findClosestLink:() => object | void;
+    findClosestLinkToStorage:() => object | void;
     withdrawStorage:(storage:StructureStorage | StructureContainer) => number | void;
     moveToRoom:(roomName:string, travelTarget_x?:number, travelTarget_y?:number, ignoreRoadsBool?:boolean, swampCostValue?:number, rangeValue?:number) => void;
     moveToRoomAvoidEnemyRooms:any;
@@ -169,6 +170,17 @@ Creep.prototype.findClosestLink = function() {
         return closestLink;
     }
 }
+
+Creep.prototype.findClosestLinkToStorage = function() {
+    let links = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_LINK}});
+    let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
+    if(links.length && storage) {
+        let closestLink = storage.pos.findClosestByRange(links);
+        this.memory.closestLink = closestLink.id;
+        return closestLink;
+    }
+}
+
 
 
 

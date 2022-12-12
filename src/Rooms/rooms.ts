@@ -11,6 +11,8 @@ function rooms() {
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
     // });
+
+
     let roomsIController = 0;
     _.forEach(Game.rooms, function(room:any) {
         // if(!room.controller) {
@@ -31,7 +33,9 @@ function rooms() {
             roomsIController += 1;
         }
 
-
+        if(Game.time % 500 == 0) {
+            Memory.targetRampRoom = "E45N59";
+        }
 
         if(Game.time % 300 == 0) {
             if(Game.gcl.level > roomsIController) {
