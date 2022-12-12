@@ -39,7 +39,7 @@ function findLocked(creep) {
     if(nukeBOOL) {
         if(creep.room.controller.level >= 6) {
 
-            let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL});
+            let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL || s.structureType == STRUCTURE_FACTORY || s.structureType == STRUCTURE_LAB});
 
             let ramparts_on_important_structures = []
 
@@ -69,9 +69,10 @@ function findLocked(creep) {
             }
 
             for(let data of important_structures_data) {
-                if(data[1] <= 25000) {
+                if(data[1] <= 250000) {
                     creep.say("🎯", true);
                     creep.memory.locked = data[0].id;
+                    creep.room.memory.NukeRepair = true;
                     return data[0].id;
                 }
             }
@@ -79,6 +80,7 @@ function findLocked(creep) {
 
         }
 
+        creep.room.memory.NukeRepair = false;
 
     }
 
@@ -318,7 +320,12 @@ function findLocked(creep) {
     }
 
     if(creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) >= creep.store[RESOURCE_ENERGY])  {
-        creep.withdraw(storage, RESOURCE_ENERGY);
+        if(creep.ticksToLive > 3) {
+            if(creep.ticksToLive % 250 == 0) {
+                creep.memory.locked = false;
+            }
+            creep.withdraw(storage, RESOURCE_ENERGY);
+        }
         if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x && creep.pos.y == storage.pos.y + 1) {
             if(creep.move(RIGHT) == 0) {
                 return;

@@ -22,6 +22,8 @@ declare global {
         uuid: number;
         log: any;
         targetRampRoom:string | false;
+        // my_goods:Array<Array<string & string>>;
+        my_goods:any;
     }
 
     interface billtong_rooms {
@@ -64,6 +66,7 @@ declare global {
         Energy_Spent_First: Array<string>;
         spawning_squad: object;
         factory:any;
+        NukeRepair:boolean;
     }
     interface CreepMemory {
         name: string;

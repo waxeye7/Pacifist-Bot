@@ -96,7 +96,7 @@
     else {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-        if(storage && storage.store[deposit.mineralType] < 10000) {
+        if(storage && storage.store[deposit.mineralType] < 19500) {
             if(creep.pos.isNearTo(storage)) {
                 creep.transfer(storage, deposit.mineralType);
             }

@@ -36,7 +36,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
 
 
-        if(route && route !== 2 && route.length > 2) {
+        if(route && route !== 2 && route.length > 1) {
             move_location = new RoomPosition(25, 25, route[0].room);
         }
 
@@ -125,7 +125,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
             creep.rangedMassAttack();
         }
-        if(creep.memory.targetPosition.roomName == creep.room.name && !targetCreep) {
+        if(creep.memory.targetPosition.roomName == creep.room.name && !targetCreep && closestStructure) {
             move_location = closestStructure.pos;
         }
     }
@@ -248,9 +248,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                     let spawns = structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
                     if(spawns.length > 0) {
-                        // let closestSpawn = creep.pos.findClosestByRange(spawns);
-                        // creep.memory.targetPosition = closestSpawn.pos;
-                        // move_location = creep.memory.targetPosition
+                        let closestSpawn = creep.pos.findClosestByRange(spawns);
+                        creep.memory.targetPosition = closestSpawn.pos;
+                        move_location = creep.memory.targetPosition
                     }
 
                     let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] > 9;});

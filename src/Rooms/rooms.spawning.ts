@@ -824,7 +824,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         room.memory.spawning_squad.creepY = true;
         room.memory.spawning_squad.creepZ = true;
     }
-    if(room.controller.level >= 7 && room.memory.spawning_squad && room.memory.spawning_squad.status && room.memory.spawning_squad.targetRoom) {
+    if(room.controller.level >= 7 && room.memory.spawning_squad && room.memory.spawning_squad.status && room.memory.spawning_squad.targetRoom && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if(fillers < 3) {
             let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -955,7 +955,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let nukes = room.find(FIND_NUKES);
     Memory.targetRampRoom = room.name;
-    if(nukes.length > 0 && room.controller.level >= 6 && repairers < 3 && storage && storage.store[RESOURCE_ENERGY] > 210000) {
+    if(nukes.length > 0 && room.memory.NukeRepair && room.controller.level >= 6 && repairers < 3 && storage && storage.store[RESOURCE_ENERGY] > 225000 && storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(nukes)) <= 4) {
         let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE], newName, {memory: {role: 'repair', homeRoom: room.name}});
         console.log('Adding MEGA Repairer to Spawn List: ' + newName);
@@ -969,7 +969,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(storage && storage.store[RESOURCE_ENERGY] > 750000 || room.memory.danger) {
                 room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), newName, {memory: {role: 'repair', homeRoom: room.name}});
             }
-            else if(room.controller.level >= 6 && Game.time % 3000 < 1000) {
+            else if(room.controller.level >= 6 && Game.time % 3000 < 1000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {
                 room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), newName, {memory: {role: 'repair', homeRoom: room.name}});
             }
             else if(room.controller.level <= 5) {
@@ -1286,7 +1286,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(room.memory.danger) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
-        else if(storage && storage.store[RESOURCE_ENERGY] < 10000) {
+        else if(storage && storage.store[RESOURCE_ENERGY] < 10000 || nukes.length > 0) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {
@@ -1328,13 +1328,13 @@ function add_creeps_to_spawn_list(room, spawn) {
     else if (room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] != 0 && (fillers < 2 && room.energyAvailable < room.energyCapacityAvailable || fillers < 1)) {
         let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
 
-        if(fillers == 0) {
+        // if(fillers == 0) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(fillers == 1) {
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+        // }
+        // else if(fillers == 1) {
+            // room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
 
-        }
+        // }
         console.log('Adding filler to Spawn List: ' + newName);
     }
 }

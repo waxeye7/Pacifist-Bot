@@ -101,7 +101,7 @@
         }
 
 
-        if(terminal && terminal.store[RESOURCE_ENERGY] > 27000 && creep.store.getFreeCapacity() == MaxStorage) {
+        if(terminal && terminal.store[RESOURCE_ENERGY] > 105000 && creep.store.getFreeCapacity() == MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.withdraw(terminal, RESOURCE_ENERGY);
                 creep.memory.target = storage.id;
@@ -246,7 +246,7 @@
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
 
-        if(storage && storage.store[MineralType] > 15000 && terminal && terminal.store.getFreeCapacity() > MaxStorage) {
+        if(storage && storage.store[MineralType] > 20000 && terminal && terminal.store.getFreeCapacity() > MaxStorage) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, MineralType);
                 creep.memory.target = terminal.id;
