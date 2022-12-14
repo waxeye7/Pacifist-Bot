@@ -1,6 +1,6 @@
 // rollup -cw --environment DEST:main
 
-
+// import { Commands } from "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 
 import global from "./utils/Global";
@@ -39,6 +39,8 @@ import roleSignifer from "Roles/signifer";
 import roleBilltong from "./Roles/billtong"
 import roleGoblin from "Roles/goblin";
 
+import roleWallClearer from "Roles/WallClearer";
+
 import roleSquadCreepA from "Roles/Squad/SquadCreepA";
 import roleSquadCreepB from "Roles/Squad/SquadCreepB";
 import roleSquadCreepY from "Roles/Squad/SquadCreepY";
@@ -73,6 +75,7 @@ global.ROLES = {
   buildcontainer: roleBuildContainer,
   claimer: roleClaimer,
 
+
   RemoteDismantler: roleRemoteDismantler,
   scout: roleScout,
 
@@ -87,6 +90,9 @@ global.ROLES = {
 
   billtong: roleBilltong,
   goblin: roleGoblin,
+
+
+  WallClearer: roleWallClearer,
 
   SquadCreepA: roleSquadCreepA,
   SquadCreepB: roleSquadCreepB,
@@ -107,7 +113,11 @@ global.SRD = function(roomName, targetRoomName) {
     console.log('Adding RemoteDismantler to Spawn List: ' + newName);
     return "Success!"
 }
-
+global.SC = function(targetRoomName, x, y) {
+    Memory.target_colonise.room = targetRoomName;
+    Memory.target_colonise.spawn_pos = new RoomPosition(x,y,targetRoomName);
+    return "Success!"
+}
 
 export const loop = ErrorMapper.wrapLoop(() => {
 //   console.log(Game.time % 100 + "/100");

@@ -344,6 +344,13 @@ function construction(room) {
     if(room.memory.danger) {
         return;
     }
+
+    if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
+        let position = Memory.target_colonise.spawn_pos
+        Game.rooms[Memory.target_colonise.room].createConstructionSite(position.x, position.y, STRUCTURE_SPAWN, randomWords({exactly:2,wordsPerString:1,join: '-'}));
+        return;
+    }
+
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
 
     if(room.controller.level >= 5) {
@@ -652,18 +659,20 @@ function construction(room) {
                 let linkLocation = pathFromStorageToController.path.pop();
 
                 pathFromStorageToController.path.pop();
+                let mySpawns = room.find(FIND_MY_SPAWNS);
 
                 if(room.controller.level >= 7) {
                     let lookStructs = linkLocation.lookFor(LOOK_STRUCTURES);
                     if(lookStructs.length == 1 && lookStructs[0].structureType != STRUCTURE_LINK) {
                         lookStructs[0].destroy();
                     }
-                    if(lookStructs.length == 0) {
+                    let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
+                    // room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3
+                    if(lookStructs.length == 0 && links.length == 3) {
                         room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
                     }
 
 
-                    let mySpawns = room.find(FIND_MY_SPAWNS);
                     if(mySpawns.length < 2 && storage) {
                         let secondSpawnPosition = new RoomPosition(storage.pos.x, storage.pos.y - 2, room.name);
                         new RoomVisual(room.name).circle(secondSpawnPosition.x, secondSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
@@ -691,6 +700,17 @@ function construction(room) {
                     }
 
                 }
+
+                if(room.controller.level == 8 && mySpawns.length == 2) {
+                    let thirdSpawnPosition = new RoomPosition(storage.pos.x + 2, storage.pos.y, room.name);
+                    new RoomVisual(room.name).circle(thirdSpawnPosition.x, thirdSpawnPosition.y, {fill: 'transparent', radius: .75, stroke: '#BABABA'});
+                    let listOfSpawnPositions = [];
+                    listOfSpawnPositions.push(thirdSpawnPosition);
+
+
+                    DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
+                }
+
 
                 if(room.controller.level < 6) {
                     Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);

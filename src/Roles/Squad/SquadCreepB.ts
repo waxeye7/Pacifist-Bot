@@ -172,6 +172,18 @@ import { indexOf } from "lodash";
         }
 
 
+        if(a && a.memory.target && !targetCreep) {
+            let targetStructure:any = Game.getObjectById(a.memory.target);
+            if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || targetStructure.structureType == STRUCTURE_CONTAINER ||
+                targetStructure.structureType == STRUCTURE_ROAD || creep.pos.getRangeTo(targetStructure) > 1)) {
+                creep.rangedAttack(targetStructure)
+            }
+            else {
+                creep.rangedMassAttack();
+            }
+        }
+
+
         if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
             if(a.memory.direction) {
                 if(a.memory.direction == 1) {

@@ -24,6 +24,7 @@ declare global {
         targetRampRoom:string | false;
         // my_goods:Array<Array<string & string>>;
         my_goods:any;
+        target_colonise:any;
     }
 
     interface billtong_rooms {
@@ -98,6 +99,7 @@ declare global {
             ROLES: any;
             SQ: any;
             SRD:any;
+            SC:any;
 
         }
     }

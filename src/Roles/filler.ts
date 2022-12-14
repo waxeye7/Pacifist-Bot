@@ -196,7 +196,7 @@
         if(creep.memory.locked) {
             target = Game.getObjectById(creep.memory.locked) || findLocked(creep);
 
-            if(target.store.getFreeCapacity() == 0) {
+            if(target && target.store.getFreeCapacity() == 0) {
                 target = findLocked(creep);
             }
 

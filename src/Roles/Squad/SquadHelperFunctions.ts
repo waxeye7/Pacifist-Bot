@@ -11,6 +11,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
 
 
 
+
     for(let y = 1; y < 49; y++) {
         for(let x = 1; x < 49; x++) {
             const tile = terrain.get(x, y);
@@ -58,7 +59,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
     }
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD) {
+        if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD || struct.structureType == STRUCTURE_CONTAINER) {
             return;
         }
 
@@ -71,29 +72,40 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
             }
             else if(!struct.my && struct.structureType !== STRUCTURE_CONTROLLER) {
                 if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y, 100);
-                }
-                else {
-                    costs.set(struct.pos.x, struct.pos.y, 100);
+                    if(costs.get(struct.pos.x, struct.pos.y) == 60) {
+                        costs.set(struct.pos.x, struct.pos.y, 120);
+                    }
+                    else {
+                        costs.set(struct.pos.x, struct.pos.y, 60);
+                    }
                 }
                 if(costs.get(struct.pos.x - 1, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y, 100);
+                    if(costs.get(struct.pos.x - 1, struct.pos.y) == 60) {
+                        costs.set(struct.pos.x - 1, struct.pos.y, 120);
+                    }
+                    else {
+                        costs.set(struct.pos.x - 1, struct.pos.y, 60);
+                    }
                 }
-                else {
-                    costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                }
+
                 if(costs.get(struct.pos.x - 1, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 100);
+                    if(costs.get(struct.pos.x - 1, struct.pos.y - 1) == 60) {
+                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 120);
+                    }
+                    else {
+                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 60);
+                    }
                 }
-                else {
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                }
+
                 if(costs.get(struct.pos.x, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y - 1, 100);
+                    if(costs.get(struct.pos.x, struct.pos.y - 1) == 60) {
+                        costs.set(struct.pos.x, struct.pos.y - 1, 120);
+                    }
+                    else {
+                        costs.set(struct.pos.x, struct.pos.y - 1, 60);
+                    }
                 }
-                else {
-                    costs.set(struct.pos.x, struct.pos.y - 1, 255);
-                }
+
             }
             else {
                 costs.set(struct.pos.x, struct.pos.y, 255);
@@ -113,9 +125,9 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
 
 
     room.find(FIND_CREEPS).forEach(function(creep) {
-        if(!creep.my || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
+        if(!creep.my || creep.memory.role == "carry" || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
 
-            let weight:any = 255;
+            let weight:any = 10;
 
             costs.set(creep.pos.x, creep.pos.y, weight);
             costs.set(creep.pos.x - 1, creep.pos.y, weight);
@@ -132,6 +144,9 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
         //     costs.set(creep.pos.x, creep.pos.y, 0);
         // }
     });
+
+
+
 
 
 
@@ -165,15 +180,15 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
         }
     }
 
-    // for(let y = 0; y < 50; y++) {
-    //     for(let x = 0; x < 50; x++) {
-    //         const tile = terrain.get(x, y);
-    //         let cost = costs.get(x,y);
-    //         if(cost !== 255) {
-    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
-    //         }
-    //     }
-    // }
+    for(let y = 0; y < 50; y++) {
+        for(let x = 0; x < 50; x++) {
+            const tile = terrain.get(x, y);
+            let cost = costs.get(x,y);
+            if(cost !== 255) {
+                new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
+            }
+        }
+    }
 
 
 

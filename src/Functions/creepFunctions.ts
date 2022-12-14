@@ -236,7 +236,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
             return 1;
     }});
 
-    if(route.length > 0) {
+    if(route != 2 && route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         const exit = this.pos.findClosestByRange(route[0].exit);
         this.moveTo(exit, {reusePath:25});

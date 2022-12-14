@@ -91,6 +91,7 @@ function market(room):any {
                         for(let room_with_mineral of Memory.my_goods[resource]) {
                             if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 20000) {
                                 Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
+                                break;
                             }
                         }
                     }
@@ -187,7 +188,7 @@ function market(room):any {
                 }
             }
             else {
-                console.log("no order found below price of", OrderPrice, "for", resource, room.name)
+                // console.log("no order found below price of", OrderPrice, "for", resource, room.name)
             }
         }
 

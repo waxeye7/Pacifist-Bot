@@ -12,8 +12,10 @@ const run = function (creep) {
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures;
 
+    if(creep.hits != creep.hitsMax || (enemyCreeps.length > 0 && creep.pos.getRangeTo(creep.pos.findClosestByRange(enemyCreeps)) <= 4)) {
+        creep.heal(creep);
+    }
 
-    creep.heal(creep);
     if(creep.notifyWhenAttacked == true) {
         creep.notifyWhenAttacked(false);
     }
@@ -41,7 +43,7 @@ const run = function (creep) {
             }
         }
 
-        return creep.moveToRoom(creep.memory.targetRoom);
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
     else {
 
@@ -72,6 +74,9 @@ const run = function (creep) {
 
             if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee && creep.pos.getRangeTo(closestEnemyCreep) <= 2) {
                 creep.RangedAttackFleeFromMelee(closestEnemyCreep);
+            }
+            else if(creep.rangedAttack(closestEnemyCreep) == 0 && creep.pos.getRangeTo(closestEnemyCreep) == 3) {
+                creep.moveTo(creep)
             }
             else if(creep.rangedAttack(closestEnemyCreep) == 0) {
                 creep.moveTo(closestEnemyCreep);
@@ -104,7 +109,7 @@ const run = function (creep) {
             }
         }
 
-        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0) {
+        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && creep.memory.sticky == false) {
             creep.memory.targetRoom = false;
         }
     }

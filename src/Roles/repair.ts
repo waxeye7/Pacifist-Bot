@@ -69,7 +69,7 @@ function findLocked(creep) {
             }
 
             for(let data of important_structures_data) {
-                if(data[1] <= 250000) {
+                if(data[1] <= 600000) {
                     creep.say("🎯", true);
                     creep.memory.locked = data[0].id;
                     creep.room.memory.NukeRepair = true;

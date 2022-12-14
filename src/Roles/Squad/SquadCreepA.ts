@@ -126,7 +126,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             creep.rangedMassAttack();
         }
         if(creep.memory.targetPosition.roomName == creep.room.name && !targetCreep && closestStructure) {
+            // if(closestStructure.structureType !== STRUCTURE_WALL) {
             move_location = closestStructure.pos;
+            // }
         }
     }
 
@@ -267,7 +269,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower || target && target.hits + 350 < target.hitsMax) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits + 350 < target.hitsMax) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -851,6 +853,183 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                         else {
                             allow = true;
                         }
+                        if(!allow && creep.pos.x <= 46 && creep.pos.x >= 2 && creep.pos.y <= 46 && creep.pos.y >= 2) {
+                            if(direction == 1) {
+
+                                let Position = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 2) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 3) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 4) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 5) {
+
+                                let Position = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 6) {
+
+                                let Position = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 7) {
+
+                                let Position = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x- 1, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 8) {
+
+                                let Position = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                        }
+                        else {
+                            creep.memory.target = false;
+                        }
+
+                        if(creep.memory.target && !targetCreep) {
+                            let targetStructure:any = Game.getObjectById(creep.memory.target);
+                            if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || targetStructure.structureType == STRUCTURE_CONTAINER ||
+                                targetStructure.structureType == STRUCTURE_ROAD || creep.pos.getRangeTo(targetStructure) > 1)) {
+                                creep.rangedAttack(targetStructure)
+                            }
+                            else {
+                                creep.rangedMassAttack();
+                            }
+                        }
+
 
                         if(allow) {
                             creep.memory.direction = direction
