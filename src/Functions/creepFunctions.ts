@@ -216,7 +216,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 }
 
 Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
-    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:25, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:100, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
@@ -239,7 +239,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
     if(route != 2 && route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         const exit = this.pos.findClosestByRange(route[0].exit);
-        this.moveTo(exit, {reusePath:25});
+        this.moveTo(exit, {reusePath:100});
         return;
     }
 }

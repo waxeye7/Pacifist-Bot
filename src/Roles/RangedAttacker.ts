@@ -58,32 +58,36 @@ const run = function (creep) {
                 }
             }
 
-            if(creep.pos.isNearTo(closestEnemyCreep)) {
-                creep.rangedMassAttack();
-                if(isMelee) {
+
+            if(creep.pos.getRangeTo(closestEnemyCreep) == 1) {
+                creep.rangedMassAttack()
+            }
+            else if(creep.pos.getRangeTo(closestEnemyCreep) == 2 || creep.pos.getRangeTo(closestEnemyCreep) == 3) {
+                creep.rangedAttack(closestEnemyCreep)
+            }
+
+            if(isMelee && creep.pos.getRangeTo(closestEnemyCreep) <= 2) {
+                if(closestEnemyCreep.fatigue == 0) {
                     creep.RangedAttackFleeFromMelee(closestEnemyCreep);
                 }
                 else {
-                    creep.moveTo(closestEnemyCreep);
-                    return;
+                    creep.moveTo(creep);
                 }
+            }
+            else if(isMelee && creep.pos.getRangeTo(closestEnemyCreep) == 3) {
+
+            }
+            else if(!isMelee) {
+                creep.moveTo(closestEnemyCreep);
             }
             else {
                 creep.moveTo(closestEnemyCreep);
             }
 
-            if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee && creep.pos.getRangeTo(closestEnemyCreep) <= 2) {
-                creep.RangedAttackFleeFromMelee(closestEnemyCreep);
+            if((creep.pos.x == 1 || creep.pos.x == 48 || creep.pos.y == 1 || creep.pos.y == 48) && !isMelee) {
+                creep.moveTo(creep);
             }
-            else if(creep.rangedAttack(closestEnemyCreep) == 0 && creep.pos.getRangeTo(closestEnemyCreep) == 3) {
-                creep.moveTo(creep)
-            }
-            else if(creep.rangedAttack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
-            }
-            else {
-                creep.moveTo(closestEnemyCreep);
-            }
+
             return;
         }
 

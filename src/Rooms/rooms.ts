@@ -34,7 +34,26 @@ function rooms() {
         }
 
         if(Game.time % 500 == 0) {
-            Memory.targetRampRoom = "E45N59";
+            let progress = 0;
+            let level = 1;
+            let current = false;
+            _.forEach(Game.rooms, function(anyroom:any) {
+                if(anyroom && anyroom.controller && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
+                    if(anyroom.controller.level > level) {
+                        current = anyroom.name;
+                        level = anyroom.controller.level;
+                        progress = anyroom.controller.progress;
+                    }
+                    else if(anyroom.controller.level == level) {
+                        if(anyroom.controller.progress > progress) {
+                            current = anyroom.name;
+                            level = anyroom.controller.level;
+                            progress = anyroom.controller.progress;
+                        }
+                    }
+                }
+            });
+            Memory.targetRampRoom = current;
         }
 
         if(Game.time % 300 == 0) {

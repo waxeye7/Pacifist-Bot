@@ -4,6 +4,10 @@
  **/
 
  function findLocked(creep) {
+    // if(creep.room.energyAvailable == creep.room.energyCapacityAvailable) {
+    //     return false;
+    // }
+
     let towers1 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] <= 250)});
     if(towers1.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers1);

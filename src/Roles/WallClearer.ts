@@ -8,8 +8,11 @@ const run = function (creep) {
     creep.Speak();
 
     let controller = creep.room.controller;
+    let openControllerPositions;
+    if(controller) {
+        openControllerPositions = controller.pos.getOpenPositionsIgnoreCreeps();
+    }
 
-    let openControllerPositions = controller.pos.getOpenPositionsIgnoreCreeps();
     let walls = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
 
     if(controller && controller.my && controller.level == 1 && controller.ticksToDowngrade > 19997) {

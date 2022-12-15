@@ -341,15 +341,18 @@ function rampartPerimeter(tile) {
 
 
 function construction(room) {
-    if(room.memory.danger) {
-        return;
-    }
-
     if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
         let position = Memory.target_colonise.spawn_pos
         Game.rooms[Memory.target_colonise.room].createConstructionSite(position.x, position.y, STRUCTURE_SPAWN, randomWords({exactly:2,wordsPerString:1,join: '-'}));
         return;
     }
+
+
+    if(room.memory.danger) {
+        return;
+    }
+
+
 
     let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
 

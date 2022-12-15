@@ -314,7 +314,7 @@ function labs(room) {
         }
 
         if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
-            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 4000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
+            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 11000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
                 lab1Input = RESOURCE_OXYGEN;
                 lab2Input = RESOURCE_UTRIUM;
                 currentOutput = RESOURCE_UTRIUM_OXIDE;

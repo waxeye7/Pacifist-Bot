@@ -5,5 +5,3 @@ improve level7/8 link energy to controller properties
 
 more carry parts pre storage where the extensions aren't enough to make right body.
 CHANGE SPAWN COOLDOWN ON ENERGY MINER AND CARRIER IN LOW RCL WHERE THEY CAN'T CARRY ALL AND MINE ALL WITH SMALL BODY WILL BE HARDER FOR CARRY
-
-make squad leader say target the wall in the path and the one next to it to break through
