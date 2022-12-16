@@ -1,5 +1,3 @@
-import { createPrivateKey } from "crypto";
-
 function findLocked(creep) {
     let terminal = creep.room.terminal;
     if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {

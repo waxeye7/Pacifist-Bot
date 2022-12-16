@@ -586,6 +586,9 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let goblins = 0;
 
+    let SpecialRepairers = 0;
+    let SpecialCarriers = 0;
+
     let CreepA = 0;
     let CreepB = 0;
     let CreepY = 0;
@@ -752,6 +755,18 @@ function add_creeps_to_spawn_list(room, spawn) {
                 break;
 
 
+            case "SpecialRepair":
+                if(isInRoom(creep, room)) {
+                    SpecialRepairers ++;
+                    break;
+                }
+
+            case "SpecialCarry":
+                if(isInRoom(creep, room)) {
+                    SpecialCarriers ++;
+                    break;
+                }
+
             case "SquadCreepA":
                 if(isInRoom(creep, room)) {
                     CreepA ++;
@@ -895,6 +910,18 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
+    if(SpecialRepairers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6) {
+        let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
+        console.log('Adding SpecialRepair to Spawn List: ' + newName);
+    }
+    if(SpecialCarriers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6) {
+        let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialCarry'}});
+        console.log('Adding SpecialCarry to Spawn List: ' + newName);
+    }
+
+
     if (scouts < 0) {
         let newName = 'Scout-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout'}});
@@ -917,9 +944,23 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     if(sites.length > 0 && builders < 3 && EnergyMinersInRoom > 1 && storage && storage.store[RESOURCE_ENERGY] > 15000 && room.controller.level >= 4) {
-        let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'builder'}});
-        console.log('Adding Builder to Spawn List: ' + newName);
+        let allowSpawn = true;
+        if(room.controller.level >= 6) {
+            for(let site of sites) {
+                if(site.structureType == STRUCTURE_CONTAINER) {
+                    allowSpawn = false;
+                }
+                else {
+                    allowSpawn = true;
+                }
+            }
+        }
+
+        if(allowSpawn) {
+            let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'builder'}});
+            console.log('Adding Builder to Spawn List: ' + newName);
+        }
     }
 
     if(storage && storage.store[RESOURCE_ENERGY] > 540000 && upgraders < 2 && EnergyMinersInRoom > 1 && room.controller.level >= 7 && !room.memory.danger) {
@@ -971,7 +1012,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     else if((repairers < repairerTargetAmount && room.controller.level > 1) ||
     (storage && storage.store[RESOURCE_ENERGY] > 550000 && repairers < repairerTargetAmount + 1) ||
-    (room.memory.danger == true && repairers < 6 && room.controller.level > 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
+    (room.memory.danger == true && repairers < 0 && room.controller.level > 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {
             let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             if(storage && storage.store[RESOURCE_ENERGY] > 750000 || room.memory.danger) {

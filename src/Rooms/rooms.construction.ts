@@ -838,7 +838,7 @@ function construction(room) {
 // IMPORTNAT DO NOT DELETE
         let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
 
-        if(room.controller.level >= 5 && links.length < 2) {
+        if(room.controller.level >= 5) {
             let sources = room.find(FIND_SOURCES);
 
             sources.forEach(source => {

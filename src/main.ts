@@ -39,6 +39,9 @@ import roleSignifer from "Roles/signifer";
 import roleBilltong from "./Roles/billtong"
 import roleGoblin from "Roles/goblin";
 
+import roleSpecialRepair from "Roles/SpecialRepair";
+import roleSpecialCarry from "Roles/SpecialCarry";
+
 import roleWallClearer from "Roles/WallClearer";
 
 import roleSquadCreepA from "Roles/Squad/SquadCreepA";
@@ -91,6 +94,9 @@ global.ROLES = {
   billtong: roleBilltong,
   goblin: roleGoblin,
 
+
+  SpecialRepair: roleSpecialRepair,
+  SpecialCarry: roleSpecialCarry,
 
   WallClearer: roleWallClearer,
 

@@ -163,7 +163,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
                 }
                 else {
 
-                    costs.set(x, y, 15);
+                    costs.set(x, y, 40);
 
                     if(y==49 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
                         costs.set(x, y, 255);

@@ -367,7 +367,7 @@ function labs(room) {
                 currentOutput = RESOURCE_LEMERGIUM_ALKALIDE;
             }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] < 6000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] < 25000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_LEMERGIUM_ALKALIDE;
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE;
