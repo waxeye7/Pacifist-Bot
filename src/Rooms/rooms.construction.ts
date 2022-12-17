@@ -728,6 +728,45 @@ function construction(room) {
                 pathBuilder(pathFromStorageToController, STRUCTURE_ROAD, room);
 
                 if(room.controller.level >= 6) {
+
+                    if(storage) {
+                        let first_road_position = new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name)
+                        first_road_position.createConstructionSite(STRUCTURE_ROAD);
+                        let lookForFirstRoad = first_road_position.lookFor(LOOK_STRUCTURES);
+                        let road1;
+                        if(lookForFirstRoad.length > 0) {
+                            for(let building of lookForFirstRoad) {
+                                if(building.structureType == STRUCTURE_ROAD) {
+                                    road1 = building.id;
+                                }
+                            }
+                        }
+
+                        if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, road1, 0)) {
+                            room.memory.keepTheseRoads.push(road1);
+                        }
+
+                        let second_road_position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name)
+                        first_road_position.createConstructionSite(STRUCTURE_ROAD);
+                        let lookForSecondRoad = second_road_position.lookFor(LOOK_STRUCTURES);
+                        let road2;
+                        if(lookForSecondRoad.length > 0) {
+                            for(let building of lookForSecondRoad) {
+                                if(building.structureType == STRUCTURE_ROAD) {
+                                    road2 = building.id;
+                                }
+                            }
+                        }
+
+                        if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, road2, 0)) {
+                            room.memory.keepTheseRoads.push(road2);
+                        }
+
+
+
+                    }
+
+
                     let extractor = Game.getObjectById(room.memory.extractor) || room.findExtractor();
                     let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
                     if(!extractor) {

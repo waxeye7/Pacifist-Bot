@@ -910,10 +910,25 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(SpecialRepairers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6) {
+    if(SpecialRepairers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
         let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
         console.log('Adding SpecialRepair to Spawn List: ' + newName);
+
+        // if room memory danger
+        if(true && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab2) {
+            if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                room.memory.labs.status.boost = {};
+            }
+            if(room.memory.labs.status.boost) {
+                room.memory.labs.status.boost.lab2 = [1080, true];
+            }
+
+            room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab2]}});
+        }
+        else {
+            room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
+        }
+
     }
     if(SpecialCarriers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6) {
         let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -1010,7 +1025,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding MEGA Repairer to Spawn List: ' + newName);
     }
 
-    else if((repairers < repairerTargetAmount && room.controller.level > 1) ||
+    else if((repairers < repairerTargetAmount && room.controller.level > 1 && room.controller.level < 4) ||
     (storage && storage.store[RESOURCE_ENERGY] > 550000 && repairers < repairerTargetAmount + 1) ||
     (room.memory.danger == true && repairers < 0 && room.controller.level > 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {

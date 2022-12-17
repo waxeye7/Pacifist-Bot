@@ -359,14 +359,14 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             )
             {
 
-                if(((direction == 2 || direction == 3 || direction == 4) && a.room.name == b.room.name && a.pos.x == 48) ||
-                   ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
-                   ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
-                   ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
-                    creep.memory.direction = false;
-                }
+                // if(((direction == 2 || direction == 3 || direction == 4) && a.room.name == b.room.name && a.pos.x == 48) ||
+                //    ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
+                //    ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
+                //    ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
+                //     creep.memory.direction = false;
+                // }
 
-                else if(((direction == 2 || direction == 3 || direction == 4) && a.room.name != b.room.name && a.pos.x == 49) ||
+                if(((direction == 2 || direction == 3 || direction == 4) && a.room.name != b.room.name && a.pos.x == 49) ||
                         ((direction == 4 || direction == 5 || direction == 6) && a.room.name != y.room.name && a.pos.y == 49) ||
                         ((direction == 6 || direction == 7 || direction == 8) && a.room.name != b.room.name && a.pos.x == 48) ||
                         ((direction == 8 || direction == 1 || direction == 2) && a.room.name != y.room.name && a.pos.y == 48)) {
@@ -374,18 +374,6 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 }
 
                 else {
-                    // if(creep.pos.x == 48 && (direction == 2 || direction == 4)) {
-                    //     direction = 3;
-                    // }
-                    // else if(creep.pos.x == 1 && (direction == 6 || direction == 8)) {
-                    //     direction = 7;
-                    // }
-                    // else if(creep.pos.y == 48 && (direction == 4 || direction == 6)) {
-                    //     direction = 5;
-                    // }
-                    // else if(creep.pos.y == 1 && (direction == 8 || direction == 2)) {
-                    //     direction = 1;
-                    // }
 
                     let lookCreepsRight:any = true;
                     let lookCreepsBottomRight:any = true;

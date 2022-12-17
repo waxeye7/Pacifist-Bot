@@ -1,3 +1,5 @@
+import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -101,17 +103,6 @@
         }
 
 
-        if(terminal && terminal.store[RESOURCE_ENERGY] > 105000 && creep.store.getFreeCapacity() == MaxStorage) {
-            if(creep.pos.isNearTo(terminal)) {
-                creep.withdraw(terminal, RESOURCE_ENERGY);
-                creep.memory.target = storage.id;
-            }
-            else {
-                creep.moveTo(terminal);
-            }
-            return;
-        }
-
         if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
             let inputLab1; let inputLab2;
             let outputLab1; let outputLab2; let outputLab3; let outputLab4;
@@ -158,7 +149,6 @@
             let lab1Input = creep.room.memory.labs.status.lab1Input;
             let lab2Input = creep.room.memory.labs.status.lab2Input;
 
-
             if(inputLab1 && inputLab1.mineralType != undefined && inputLab1.mineralType != lab1Input) {
                 if(creep.pos.isNearTo(inputLab1)) {
                     creep.withdraw(inputLab1, inputLab1.mineralType);
@@ -180,9 +170,45 @@
                 }
                 return;
             }
-
+            let number = 1;
             for(let outputLab of outputLabs) {
-                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
+                if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2[1]) {
+                    if(creep.room.memory.labs.status.boost.lab2[0] == 0) {
+                        // do nothing
+                    }
+                    else {
+                        if(outputLab && outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_LEMERGIUM_ACID) {
+                            if(creep.pos.isNearTo(outputLab)) {
+                                creep.withdraw(outputLab, outputLab.mineralType);
+                                creep.memory.target = storage.id;
+                            }
+                            else {
+                                creep.moveTo(outputLab);
+                            }
+                            return;
+                        }
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab2[0]) {
+                            if(creep.pos.isNearTo(storage)) {
+                                if(creep.room.memory.labs.status.boost.lab2[0] >= MaxStorage) {
+                                    creep.room.memory.labs.status.boost.lab2[0] -= MaxStorage
+
+                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
+                                }
+                                else {
+                                    creep.room.memory.labs.status.boost.lab2[0] = 0;
+                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID, creep.room.memory.labs.status.boost.lab2[0]);
+                                }
+                                creep.memory.target = outputLab.id;
+                            }
+                            else {
+                                creep.moveTo(storage);
+                            }
+                            return;
+                        }
+                    }
+                }
+
+                else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;
@@ -192,9 +218,11 @@
                     }
                     return;
                 }
+
+                number += 1;
             }
 
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 600) &&
+            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 300) &&
             storage && storage.store[lab1Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, lab1Input);
@@ -206,7 +234,7 @@
                 return;
             }
 
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 600) &&
+            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 300) &&
             terminal && terminal.store[lab1Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(terminal)) {
                     creep.withdraw(terminal, lab1Input);
@@ -218,7 +246,7 @@
                 return;
             }
 
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 600) &&
+            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 300) &&
             storage && storage.store[lab2Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, lab2Input);
@@ -230,7 +258,7 @@
                 return;
             }
 
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 600) &&
+            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 300) &&
             terminal && terminal.store[lab2Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(terminal)) {
                     creep.withdraw(terminal, lab2Input);
@@ -242,6 +270,21 @@
                 return;
             }
         }
+
+
+
+        if(terminal && terminal.store[RESOURCE_ENERGY] > 105000 && creep.store.getFreeCapacity() == MaxStorage) {
+            if(creep.pos.isNearTo(terminal)) {
+                creep.withdraw(terminal, RESOURCE_ENERGY);
+                creep.memory.target = storage.id;
+            }
+            else {
+                creep.moveTo(terminal);
+            }
+            return;
+        }
+
+
 
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;

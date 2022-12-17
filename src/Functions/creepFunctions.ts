@@ -1,5 +1,6 @@
 // import {Creep} from "../utils/Types";
 interface Creep {
+    Boost: () => boolean | "done";
     Speak: () => void;
     findSource: () => object;
     findSpawn:() => object | void;
@@ -20,6 +21,34 @@ interface Creep {
     RangedAttackFleeFromMelee:any;
 }
 // CREEP PROTOTYPES
+
+Creep.prototype.Boost = function Boost() {
+    if(this.memory.boostlabs.length == 0) {
+        return "done";
+    }
+    else {
+        let labs = [];
+        for(let labID of this.memory.boostlabs) {
+            labs.push(Game.getObjectById(labID));
+        }
+        let closestLab = this.pos.findClosestByRange(labs);
+        if(this.pos.isNearTo(closestLab)) {
+            let result = closestLab.boostCreep(this);
+            if(result == 0) {
+                let idToRemove = closestLab.id;
+                this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
+                return true;
+            }
+        }
+        else {
+            this.moveTo(closestLab);
+        }
+    }
+    return false;
+}
+
+
+
 Creep.prototype.Speak = function Speak() {
     if(this.saying == "AB42") {
         this.say("BBB4", true);

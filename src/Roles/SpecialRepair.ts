@@ -6,6 +6,15 @@
 const run = function (creep) {
     creep.Speak();
 
+    let result = creep.Boost();
+    if(result) {
+        creep.room.memory.labs.status.boost.lab2[1] = false;
+    }
+    if(!result) {
+        return;
+    }
+
+
     if(!creep.memory.rampart_to_repair) {
         let rampartLocations = [];
         for(let i = -10; i<11; i++) {

@@ -54,6 +54,11 @@ function rooms() {
                 }
             });
             Memory.targetRampRoom = current;
+
+
+            if(room.controller && room.controller.level == 6 && room.controller.progress < 250000) {
+                Memory.targetRampRoom = room.name
+            }
         }
 
         if(Game.time % 300 == 0) {
