@@ -6,12 +6,15 @@
 const run = function (creep) {
     creep.Speak();
 
-    let result = creep.Boost();
-    if(result) {
-        creep.room.memory.labs.status.boost.lab2[1] = false;
-    }
-    if(!result) {
-        return;
+    if(creep.memory.boostlabs) {
+        let result = creep.Boost();
+        if(result) {
+            creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],false];
+        }
+        if(!result) {
+            creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],true];
+            return;
+        }
     }
 
 

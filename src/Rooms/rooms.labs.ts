@@ -344,7 +344,7 @@ function labs(room) {
                 currentOutput = RESOURCE_LEMERGIUM_ACID;
             }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 6000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 15000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_LEMERGIUM_ACID;
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
@@ -619,12 +619,22 @@ function labs(room) {
 
     if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
         if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab1.runReaction(inputLab1, inputLab2);
+            if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && !room.memory.labs.status.boost.lab1[1]) {
+                outputLab1.runReaction(inputLab1, inputLab2);
+            }
+            else if(!room.memory.labs.status.boost|| !room.memory.labs.status.boost.lab1) {
+                outputLab1.runReaction(inputLab1, inputLab2);
+            }
         }
     }
     if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
         if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab2.runReaction(inputLab1, inputLab2);
+            if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && !room.memory.labs.status.boost.lab2[1]) {
+                outputLab2.runReaction(inputLab1, inputLab2);
+            }
+            else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab2) {
+                outputLab2.runReaction(inputLab1, inputLab2);
+            }
         }
     }
     if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {

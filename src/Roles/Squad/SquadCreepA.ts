@@ -248,12 +248,12 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             if(creep.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
-                    let spawns = structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
-                    if(spawns.length > 0) {
-                        let closestSpawn = creep.pos.findClosestByRange(spawns);
+                    // let spawns = structures.filter(function(building) {return !building.my;});
+                    // if(spawns.length > 0) {
+                        let closestSpawn = creep.pos.findClosestByRange(structures);
                         creep.memory.targetPosition = closestSpawn.pos;
                         move_location = creep.memory.targetPosition
-                    }
+                    // }
 
                     let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] > 9;});
                     if(towers.length > 0) {
@@ -294,7 +294,8 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         let range;
 
         if(move_location.roomName == creep.memory.targetPosition.roomName || route && route.length == 1) {
-            range = 1
+            // range = 1
+            range = 23;
         }
         else {
             range = 23;
@@ -324,7 +325,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 {
                     plainCost: 1,
                     swampCost: 5,
-                    maxOps: 4000,
+                    maxOps: 2000,
                     maxRooms: 40,
                     roomCallback: (roomName) => roomCallbackSquadA(roomName)
                 }
@@ -359,18 +360,22 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             )
             {
 
-                // if(((direction == 2 || direction == 3 || direction == 4) && a.room.name == b.room.name && a.pos.x == 48) ||
-                //    ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
-                //    ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
-                //    ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
-                //     creep.memory.direction = false;
-                // }
+                if(((direction == 2 || direction == 3 || direction == 4) && a.room.name == b.room.name && a.pos.x == 48) ||
+                   ((direction == 4 || direction == 5 || direction == 6) && a.room.name == y.room.name && a.pos.y == 48) ||
+                   ((direction == 6 || direction == 7 || direction == 8) && a.room.name == b.room.name && a.pos.x == 0) ||
+                   ((direction == 8 || direction == 1 || direction == 2) && a.room.name == y.room.name && a.pos.y == 0)) {
+                    creep.memory.direction = false;
+                }
 
-                if(((direction == 2 || direction == 3 || direction == 4) && a.room.name != b.room.name && a.pos.x == 49) ||
+                else if(((direction == 2 || direction == 3 || direction == 4) && a.room.name != b.room.name && a.pos.x == 49) ||
                         ((direction == 4 || direction == 5 || direction == 6) && a.room.name != y.room.name && a.pos.y == 49) ||
                         ((direction == 6 || direction == 7 || direction == 8) && a.room.name != b.room.name && a.pos.x == 48) ||
                         ((direction == 8 || direction == 1 || direction == 2) && a.room.name != y.room.name && a.pos.y == 48)) {
                         creep.memory.direction = false;
+                        // if(Game.time%5 == 0) {
+                        //     creep.move(LEFT)
+
+                        // }
                 }
 
                 else {

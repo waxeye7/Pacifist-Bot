@@ -56,7 +56,7 @@ function rooms() {
             Memory.targetRampRoom = current;
 
 
-            if(room.controller && room.controller.level == 6 && room.controller.progress < 250000) {
+            if(room.controller && room.controller.level == 6 && room.controller.progress < 100000) {
                 Memory.targetRampRoom = room.name
             }
         }

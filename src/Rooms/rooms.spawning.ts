@@ -125,55 +125,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
 
 function spawn_energy_miner(resourceData, room) {
-    let outputLabs = [];
-
-
-    if(room.controller.level >= 6 && room.memory.labs && room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
-        let outputLab1;
-        let outputLab2;
-        let outputLab3;
-        let outputLab4;
-        let outputLab5;
-        let outputLab6;
-        let outputLab7;
-        let outputLab8;
-
-        if(room.memory.labs.outputLab1) {
-            outputLab1 = Game.getObjectById(room.memory.labs.outputLab1)
-            outputLabs.push(outputLab1)
-        }
-        if(room.memory.labs.outputLab2) {
-            outputLab2 = Game.getObjectById(room.memory.labs.outputLab2)
-            outputLabs.push(outputLab2)
-        }
-        if(room.memory.labs.outputLab3) {
-            outputLab3 = Game.getObjectById(room.memory.labs.outputLab3)
-            outputLabs.push(outputLab3)
-        }
-        if(room.memory.labs.outputLab4) {
-            outputLab4 = Game.getObjectById(room.memory.labs.outputLab4)
-            outputLabs.push(outputLab4)
-        }
-        if(room.memory.labs.outputLab5) {
-            outputLab5 = Game.getObjectById(room.memory.labs.outputLab5)
-            outputLabs.push(outputLab5)
-        }
-        if(room.memory.labs.outputLab6) {
-            outputLab6 = Game.getObjectById(room.memory.labs.outputLab6)
-            outputLabs.push(outputLab6)
-        }
-        if(room.memory.labs.outputLab7) {
-            outputLab7 = Game.getObjectById(room.memory.labs.outputLab7)
-            outputLabs.push(outputLab7)
-        }
-        if(room.memory.labs.outputLab8) {
-            outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
-            outputLabs.push(outputLab8)
-        }
-    }
-    if(outputLabs.length > 1) {
-        outputLabs.sort((a,b) => b.store[room.memory.labs.status.currentOutput] - a.store[room.memory.labs.status.currentOutput]);
-    }
+    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
 
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
@@ -184,10 +136,23 @@ function spawn_energy_miner(resourceData, room) {
                         return;
                     }
                     if(room.energyCapacityAvailable >= 650) {
-                        if(room.controller.level >= 6 && !room.memory.danger) {
-                            if(outputLabs && outputLabs.length > 0 && outputLabs[0].store[RESOURCE_UTRIUM_OXIDE] > 90) {
-                                room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,WORK,CARRY,MOVE], newName,
-                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                        if(room.controller.level >= 6) {
+                            if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 360 && room.memory.labs && room.memory.labs.outputLab1) {
+                                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                                    room.memory.labs.status.boost = {};
+                                }
+                                if(room.memory.labs.status.boost) {
+                                    if(room.memory.labs.status.boost.lab1) {
+                                        room.memory.labs.status.boost.lab1 = [room.memory.labs.status.boost.lab1[0] + 360, true];
+                                    }
+                                    else {
+                                        room.memory.labs.status.boost.lab1 = [360, true];
+                                    }
+                                }
+
+                                room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,WORK,CARRY,MOVE], newName,
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});
+
                             }
                             else {
                                 room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,WORK,CARRY,MOVE], newName,
@@ -228,8 +193,6 @@ function spawn_energy_miner(resourceData, room) {
                     if(targetRoomName != room.name && room.memory.danger) {
                         return;
                     }
-                    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-
                     if(!Game.rooms[targetRoomName] || Game.rooms[targetRoomName] == undefined || Game.rooms[targetRoomName].memory.has_hostile_creeps == true) {
                         room.memory.spawn_list.push([WORK,WORK,MOVE], newName,
                             {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
@@ -910,7 +873,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(SpecialRepairers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
+    if(SpecialRepairers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
         let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         console.log('Adding SpecialRepair to Spawn List: ' + newName);
 
@@ -920,7 +883,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.labs.status.boost = {};
             }
             if(room.memory.labs.status.boost) {
-                room.memory.labs.status.boost.lab2 = [1080, true];
+                if(room.memory.labs.status.boost.lab2) {
+                    room.memory.labs.status.boost.lab2 = [room.memory.labs.status.boost.lab2[0] + 1080, true];
+                }
+                else {
+                    room.memory.labs.status.boost.lab2 = [1080, true];
+                }
             }
 
             room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab2]}});
@@ -930,7 +898,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
     }
-    if(SpecialCarriers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 6) {
+    if(SpecialCarriers < 1 && room.name == Memory.targetRampRoom && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
         let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialCarry'}});
         console.log('Adding SpecialCarry to Spawn List: ' + newName);
@@ -1368,11 +1336,11 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(room.memory.danger) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
-        else if(storage && storage.store[RESOURCE_ENERGY] < 10000 || nukes.length > 0 && room.memory.NukeRepair) {
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+        else if((storage && storage.store[RESOURCE_ENERGY] < 10000) || nukes.length > 0 && room.memory.NukeRepair || Memory.targetRampRoom == room.name) {
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         console.log('Adding Energy Manager to Spawn List: ' + newName);
     }

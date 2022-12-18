@@ -129,7 +129,7 @@ const run = function (creep) {
             if(target && container && creep.pos.isNearTo(container) && container.store.getFreeCapacity() !== 0) {
                 creep.transfer(container, RESOURCE_ENERGY);
             }
-            else if(target && creep.pos.isNearTo(target) && creep.memory.container_target && target.store.getFreeCapacity() >= 50) {
+            else if(target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 50) {
                 creep.transfer(target, RESOURCE_ENERGY);
             }
 

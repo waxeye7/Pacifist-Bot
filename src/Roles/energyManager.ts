@@ -56,51 +56,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
         let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
 
 
-        if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() == MaxStorage) {
-            if(creep.pos.isNearTo(closestLink)) {
-                creep.withdraw(closestLink, RESOURCE_ENERGY);
-                creep.memory.target = storage.id;
-            }
-            else {
-                creep.moveTo(closestLink);
-            }
-            return;
-        }
 
-
-        if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() == MaxStorage) {
-            if(creep.pos.isNearTo(bin)) {
-                for(let resourceType in bin.store) {
-                    creep.withdraw(bin, resourceType);
-                }
-                creep.memory.target = storage.id;
-            }
-            else {
-                creep.moveTo(bin);
-            }
-            return;
-        }
-
-		if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
-			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
-			if(links.length > 3) {
-				let controllerLink = creep.room.controller.pos.findClosestByRange(links);
-				creep.memory.controllerLink = controllerLink.id;
-			}
-		}
-        if(creep.room.controller && creep.room.controller.level >= 7 && creep.memory.controllerLink) {
-            let controllerLink:any = Game.getObjectById(creep.memory.controllerLink);
-            if(controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 200) {
-                if(creep.pos.isNearTo(storage)) {
-                    creep.withdraw(storage, RESOURCE_ENERGY);
-                    creep.memory.target = controllerLink.id;
-                }
-                else {
-                    creep.moveTo(storage);
-                }
-                return;
-            }
-        }
 
 
         if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
@@ -172,12 +128,53 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
             }
             let number = 1;
             for(let outputLab of outputLabs) {
-                if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2[1]) {
+
+                if(number == 1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1[1]) {
+                    if(creep.room.memory.labs.status.boost.lab1[0] == 0) {
+                        // do nothing
+                    }
+                    else {
+
+
+                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_UTRIUM_OXIDE)) {
+                            if(creep.pos.isNearTo(outputLab)) {
+                                creep.withdraw(outputLab, outputLab.mineralType);
+                                creep.memory.target = storage.id;
+                            }
+                            else {
+                                creep.moveTo(outputLab);
+                            }
+                            return;
+                        }
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_UTRIUM_OXIDE) && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= creep.room.memory.labs.status.boost.lab1[0]) {
+                            if(creep.pos.isNearTo(storage)) {
+                                if(creep.room.memory.labs.status.boost.lab1[0] >= MaxStorage) {
+                                    creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0] - MaxStorage,creep.room.memory.labs.status.boost.lab1[1]]
+
+                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
+                                }
+                                else {
+                                    creep.room.memory.labs.status.boost.lab1 = [0,creep.room.memory.labs.status.boost.lab1[1]]
+                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE, creep.room.memory.labs.status.boost.lab1[0]);
+                                }
+                                creep.memory.target = outputLab.id;
+                            }
+                            else {
+                                creep.moveTo(storage);
+                            }
+                            return;
+                        }
+
+                    }
+                }
+
+
+                else if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2[1]) {
                     if(creep.room.memory.labs.status.boost.lab2[0] == 0) {
                         // do nothing
                     }
                     else {
-                        if(outputLab && outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_LEMERGIUM_ACID) {
+                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
                             if(creep.pos.isNearTo(outputLab)) {
                                 creep.withdraw(outputLab, outputLab.mineralType);
                                 creep.memory.target = storage.id;
@@ -190,12 +187,12 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab2[0]) {
                             if(creep.pos.isNearTo(storage)) {
                                 if(creep.room.memory.labs.status.boost.lab2[0] >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab2[0] -= MaxStorage
+                                    creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0] - MaxStorage,creep.room.memory.labs.status.boost.lab2[1]]
 
                                     creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
                                 }
                                 else {
-                                    creep.room.memory.labs.status.boost.lab2[0] = 0;
+                                    creep.room.memory.labs.status.boost.lab2[0] = [0,creep.room.memory.labs.status.boost.lab2[1]]
                                     creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID, creep.room.memory.labs.status.boost.lab2[0]);
                                 }
                                 creep.memory.target = outputLab.id;
@@ -222,7 +219,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 number += 1;
             }
 
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 300) &&
+            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < MaxStorage-20) &&
             storage && storage.store[lab1Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, lab1Input);
@@ -234,7 +231,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 return;
             }
 
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < 300) &&
+            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < MaxStorage-20) &&
             terminal && terminal.store[lab1Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(terminal)) {
                     creep.withdraw(terminal, lab1Input);
@@ -246,7 +243,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 return;
             }
 
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 300) &&
+            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < MaxStorage-20) &&
             storage && storage.store[lab2Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, lab2Input);
@@ -258,7 +255,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 return;
             }
 
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < 300) &&
+            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < MaxStorage-20) &&
             terminal && terminal.store[lab2Input] >= MaxStorage) {
                 if(creep.pos.isNearTo(terminal)) {
                     creep.withdraw(terminal, lab2Input);
@@ -270,6 +267,53 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 return;
             }
         }
+
+        if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() == MaxStorage) {
+            if(creep.pos.isNearTo(closestLink)) {
+                creep.withdraw(closestLink, RESOURCE_ENERGY);
+                creep.memory.target = storage.id;
+            }
+            else {
+                creep.moveTo(closestLink);
+            }
+            return;
+        }
+
+
+        if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() == MaxStorage) {
+            if(creep.pos.isNearTo(bin)) {
+                for(let resourceType in bin.store) {
+                    creep.withdraw(bin, resourceType);
+                }
+                creep.memory.target = storage.id;
+            }
+            else {
+                creep.moveTo(bin);
+            }
+            return;
+        }
+
+		if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
+			let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+			if(links.length > 3) {
+				let controllerLink = creep.room.controller.pos.findClosestByRange(links);
+				creep.memory.controllerLink = controllerLink.id;
+			}
+		}
+        if(creep.room.controller && creep.room.controller.level >= 7 && creep.memory.controllerLink) {
+            let controllerLink:any = Game.getObjectById(creep.memory.controllerLink);
+            if(controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 200) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_ENERGY);
+                    creep.memory.target = controllerLink.id;
+                }
+                else {
+                    creep.moveTo(storage);
+                }
+                return;
+            }
+        }
+
 
 
 
