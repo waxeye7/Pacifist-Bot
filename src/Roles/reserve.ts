@@ -30,7 +30,7 @@
                     return;
                 }
                 if(creep.claimController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(creep.room.controller);
+                    creep.MoveCostMatrixIgnoreRoads(creep.room.controller, 1)
                     return;
                 }
             }
@@ -40,7 +40,7 @@
             creep.reserveController(creep.room.controller);
         }
         else {
-            creep.moveTo(creep.room.controller);
+            creep.MoveCostMatrixIgnoreRoads(creep.room.controller, 1)
         }
 
         if(creep.room.controller.reservation && creep.room.controller.reservation.ticksToEnd >= 4999) {

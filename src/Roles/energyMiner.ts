@@ -40,16 +40,16 @@ const run = function (creep) {
             creep.memory.closestLink = null;
         }
 
-        if(creep.memory.boostlabs) {
-            let result = creep.Boost();
-            if(result) {
-                creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],false];
-            }
-            if(!result) {
-                creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],true];
-                return;
-            }
-        }
+        // if(creep.memory.boostlabs) {
+        //     let result = creep.Boost();
+        //     if(result) {
+        //         creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],false];
+        //     }
+        //     if(!result) {
+        //         creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],true];
+        //         return;
+        //     }
+        // }
 
 
 

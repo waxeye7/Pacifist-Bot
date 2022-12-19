@@ -207,10 +207,10 @@ function roomDefence(room) {
                             //     console.log("Activating Safe Mode")
                             // }
                             let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-                            if(enemyCreep.pos.getRangeTo(rampart) <= 5 && enemyCreep.pos.getRangeTo(storage) <= 16) {
+                            // if(enemyCreep.pos.getRangeTo(rampart) <= 5 && enemyCreep.pos.getRangeTo(storage) <= 16) {
                                 room.memory.danger = true;
                                 found = true;
-                            }
+                            // }
                         });
                     }
                 }

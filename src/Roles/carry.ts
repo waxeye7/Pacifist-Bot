@@ -88,12 +88,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                if(storage && creep.room.controller && creep.room.controller.level >= 4) {
-                    creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
-                }
-                else {
-                    creep.moveTo(storage);
-                }
+                creep.MoveCostMatrixRoadPrio(storage, 1)
             }
         }
         else if(bin && bin.store.getFreeCapacity() != 0) {
@@ -103,12 +98,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                if(storage && bin && creep.room.controller && creep.room.controller.level >= 4) {
-                    creep.moveTo(bin, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
-                }
-                else {
-                    creep.moveTo(bin);
-                }
+                creep.MoveCostMatrixRoadPrio(storage, 1)
             }
         }
         else {
@@ -128,7 +118,7 @@ function findLocked(creep) {
                             creep.drop(RESOURCE_ENERGY);
                         }
                         else {
-                            creep.moveTo(spawn);
+                            creep.MoveCostMatrixRoadPrio(spawn, 1)
                         }
                         return;
                     }
@@ -144,7 +134,7 @@ function findLocked(creep) {
                             creep.drop(RESOURCE_ENERGY);
                         }
                         else {
-                            creep.moveTo(spawn);
+                            creep.MoveCostMatrixRoadPrio(spawn, 1)
                         }
                         return;
                     }
@@ -159,12 +149,12 @@ function findLocked(creep) {
                         findLocked(creep);
                         let target = Game.getObjectById(creep.memory.locked);
                         if(!creep.pos.isNearTo(target)) {
-                            creep.moveTo(target, {reusePath:25});
+                            creep.MoveCostMatrixRoadPrio(target, 1)
                         }
                     }
                 }
                 else {
-                    creep.moveTo(target, {reusePath:25});
+                    creep.MoveCostMatrixRoadPrio(target, 1)
                 }
             }
         }
@@ -203,12 +193,7 @@ function findLocked(creep) {
                     }
                 }
                 else {
-                    if(storage && creep.room.controller && creep.room.controller.level >= 4) {
-                        creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true, visualizePathStyle: {stroke: '#ffffff'}});
-                    }
-                    else {
-                        creep.moveTo(storage);
-                    }
+                    creep.MoveCostMatrixRoadPrio(storage, 1)
                 }
             }
             else {
@@ -221,7 +206,7 @@ function findLocked(creep) {
                                 creep.drop(RESOURCE_ENERGY);
                             }
                             else {
-                                creep.moveTo(spawn);
+                                creep.MoveCostMatrixRoadPrio(spawn, 1)
                             }
                             return;
                         }
@@ -237,7 +222,7 @@ function findLocked(creep) {
                                 creep.drop(RESOURCE_ENERGY);
                             }
                             else {
-                                creep.moveTo(spawn);
+                                creep.MoveCostMatrixRoadPrio(spawn, 1)
                             }
                             return;
                         }
@@ -252,12 +237,12 @@ function findLocked(creep) {
                             findLocked(creep);
                             let target = Game.getObjectById(creep.memory.locked);
                             if(!creep.pos.isNearTo(target)) {
-                                creep.moveTo(target, {reusePath:25});
+                                creep.MoveCostMatrixRoadPrio(target, 1)
                             }
                         }
                     }
                     else {
-                        creep.moveTo(target, {reusePath:25});
+                        creep.MoveCostMatrixRoadPrio(target, 1)
                     }
                 }
             }

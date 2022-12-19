@@ -6,16 +6,16 @@
 const run = function (creep) {
     creep.Speak();
 
-    if(creep.memory.boostlabs) {
-        let result = creep.Boost();
-        if(result) {
-            creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],false];
-        }
-        if(!result) {
-            creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],true];
-            return;
-        }
-    }
+    // if(creep.memory.boostlabs) {
+    //     let result = creep.Boost();
+    //     if(result) {
+    //         creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],false];
+    //     }
+    //     if(!result) {
+    //         creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],true];
+    //         return;
+    //     }
+    // }
 
 
     if(!creep.memory.rampart_to_repair) {
@@ -88,10 +88,6 @@ const run = function (creep) {
                     }
                     );
 
-
-                path.path.forEach(spot => {
-                    new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#000000'});
-                });
                 let pos = path.path[0];
                 let direction = creep.pos.getDirectionTo(pos);
 
@@ -307,18 +303,6 @@ const roomCallbackSpecialRepair = (roomName: string): boolean | CostMatrix => {
             }
         }
     });
-
-
-
-    for(let y = 0; y < 50; y++) {
-        for(let x = 0; x < 50; x++) {
-            const tile = terrain.get(x, y);
-            let cost = costs.get(x,y);
-            if(cost !== 255) {
-                new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'red', font: 0.6});
-            }
-        }
-    }
 
     return costs;
 }

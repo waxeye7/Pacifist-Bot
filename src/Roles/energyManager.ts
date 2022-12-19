@@ -45,7 +45,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
             }
         }
         else {
-            creep.moveTo(target);
+            creep.MoveCostMatrixRoadPrio(target, 1)
         }
     }
     if(!creep.memory.target) {
@@ -111,7 +111,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = storage.id;
                 }
                 else {
-                    creep.moveTo(inputLab1);
+                    creep.MoveCostMatrixRoadPrio(inputLab1, 1);
                 }
                 return;
             }
@@ -122,101 +122,102 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = storage.id;
                 }
                 else {
-                    creep.moveTo(inputLab2);
+                    creep.MoveCostMatrixRoadPrio(inputLab2, 1);
                 }
                 return;
             }
-            let number = 1;
+            let number = 0;
             for(let outputLab of outputLabs) {
+                number += 1;
 
-                if(number == 1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1[1]) {
-                    if(creep.room.memory.labs.status.boost.lab1[0] == 0) {
-                        // do nothing
-                    }
-                    else {
+                // if(number == 1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1[1]) {
+                //     console.log('it gets here',creep.room.name, "adsfhdsaf")
+                //     if(creep.room.memory.labs.status.boost.lab1[0] == 0) {
+                //         // do nothing
+                //     }
+                //     else {
+                //         console.log('it gets here',creep.room.name)
+
+                //         if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_UTRIUM_OXIDE)) {
+                //             if(creep.pos.isNearTo(outputLab)) {
+                //                 creep.withdraw(outputLab, outputLab.mineralType);
+                //                 creep.memory.target = storage.id;
+                //             }
+                //             else {
+                //                 creep.moveTo(outputLab);
+                //             }
+                //             return;
+                //         }
+                //         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_UTRIUM_OXIDE) && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= creep.room.memory.labs.status.boost.lab1[0]) {
+                //             if(creep.pos.isNearTo(storage)) {
+                //                 if(creep.room.memory.labs.status.boost.lab1[0] >= MaxStorage) {
+                //                     creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0] - MaxStorage,creep.room.memory.labs.status.boost.lab1[1]]
+
+                //                     creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
+                //                 }
+                //                 else {
+                //                     creep.room.memory.labs.status.boost.lab1 = [0,creep.room.memory.labs.status.boost.lab1[1]]
+                //                     creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
+                //                 }
+                //                 creep.memory.target = outputLab.id;
+                //             }
+                //             else {
+                //                 creep.moveTo(storage);
+                //             }
+                //             return;
+                //         }
+
+                //     }
+                // }
 
 
-                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_UTRIUM_OXIDE)) {
-                            if(creep.pos.isNearTo(outputLab)) {
-                                creep.withdraw(outputLab, outputLab.mineralType);
-                                creep.memory.target = storage.id;
-                            }
-                            else {
-                                creep.moveTo(outputLab);
-                            }
-                            return;
-                        }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_UTRIUM_OXIDE) && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= creep.room.memory.labs.status.boost.lab1[0]) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab1[0] >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0] - MaxStorage,creep.room.memory.labs.status.boost.lab1[1]]
+                // else if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2[1]) {
+                //     if(creep.room.memory.labs.status.boost.lab2[0] == 0) {
+                //         // do nothing
+                //     }
+                //     else {
+                //         if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
+                //             if(creep.pos.isNearTo(outputLab)) {
+                //                 creep.withdraw(outputLab, outputLab.mineralType);
+                //                 creep.memory.target = storage.id;
+                //             }
+                //             else {
+                //                 creep.moveTo(outputLab);
+                //             }
+                //             return;
+                //         }
+                //         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab2[0]) {
+                //             if(creep.pos.isNearTo(storage)) {
+                //                 if(creep.room.memory.labs.status.boost.lab2[0] >= MaxStorage) {
+                //                     creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0] - MaxStorage ,creep.room.memory.labs.status.boost.lab2[1]]
 
-                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
-                                }
-                                else {
-                                    creep.room.memory.labs.status.boost.lab1 = [0,creep.room.memory.labs.status.boost.lab1[1]]
-                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE, creep.room.memory.labs.status.boost.lab1[0]);
-                                }
-                                creep.memory.target = outputLab.id;
-                            }
-                            else {
-                                creep.moveTo(storage);
-                            }
-                            return;
-                        }
+                //                     creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
+                //                 }
+                //                 else {
+                //                     creep.room.memory.labs.status.boost.lab2 = [0,creep.room.memory.labs.status.boost.lab2[1]]
+                //                     creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
+                //                 }
+                //                 creep.memory.target = outputLab.id;
+                //             }
+                //             else {
+                //                 creep.moveTo(storage);
+                //             }
+                //             return;
+                //         }
+                //     }
+                // }
 
-                    }
-                }
-
-
-                else if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2[1]) {
-                    if(creep.room.memory.labs.status.boost.lab2[0] == 0) {
-                        // do nothing
-                    }
-                    else {
-                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
-                            if(creep.pos.isNearTo(outputLab)) {
-                                creep.withdraw(outputLab, outputLab.mineralType);
-                                creep.memory.target = storage.id;
-                            }
-                            else {
-                                creep.moveTo(outputLab);
-                            }
-                            return;
-                        }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab2[0]) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab2[0] >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0] - MaxStorage,creep.room.memory.labs.status.boost.lab2[1]]
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
-                                }
-                                else {
-                                    creep.room.memory.labs.status.boost.lab2[0] = [0,creep.room.memory.labs.status.boost.lab2[1]]
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID, creep.room.memory.labs.status.boost.lab2[0]);
-                                }
-                                creep.memory.target = outputLab.id;
-                            }
-                            else {
-                                creep.moveTo(storage);
-                            }
-                            return;
-                        }
-                    }
-                }
-
-                else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
+                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;
                     }
                     else {
-                        creep.moveTo(outputLab);
+                        creep.MoveCostMatrixRoadPrio(outputLab, 1);
                     }
                     return;
                 }
 
-                number += 1;
             }
 
             if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < MaxStorage-20) &&
@@ -226,7 +227,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = inputLab1.id;
                 }
                 else {
-                    creep.moveTo(storage);
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
                 return;
             }
@@ -238,7 +239,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = inputLab1.id;
                 }
                 else {
-                    creep.moveTo(terminal);
+                    creep.MoveCostMatrixRoadPrio(terminal, 1);
                 }
                 return;
             }
@@ -250,7 +251,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = inputLab2.id;
                 }
                 else {
-                    creep.moveTo(storage);
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
                 return;
             }
@@ -262,7 +263,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = inputLab2.id;
                 }
                 else {
-                    creep.moveTo(terminal);
+                    creep.MoveCostMatrixRoadPrio(terminal, 1);
                 }
                 return;
             }
@@ -274,7 +275,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = storage.id;
             }
             else {
-                creep.moveTo(closestLink);
+                creep.MoveCostMatrixRoadPrio(closestLink, 1);
             }
             return;
         }
@@ -288,7 +289,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = storage.id;
             }
             else {
-                creep.moveTo(bin);
+                creep.MoveCostMatrixRoadPrio(bin, 1);
             }
             return;
         }
@@ -308,7 +309,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                     creep.memory.target = controllerLink.id;
                 }
                 else {
-                    creep.moveTo(storage);
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
                 }
                 return;
             }
@@ -323,7 +324,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = storage.id;
             }
             else {
-                creep.moveTo(terminal);
+                creep.MoveCostMatrixRoadPrio(terminal, 1);
             }
             return;
         }
@@ -339,7 +340,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = terminal.id;
             }
             else {
-                creep.moveTo(storage);
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
             return;
         }
@@ -355,7 +356,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = terminal.id;
             }
             else {
-                creep.moveTo(storage);
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
             return;
         }
@@ -371,7 +372,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = factory.id;
             }
             else {
-                creep.moveTo(storage);
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
             return;
         }
@@ -387,7 +388,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = factory.id;
             }
             else {
-                creep.moveTo(terminal);
+                creep.MoveCostMatrixRoadPrio(terminal, 1);
             }
             return;
         }
@@ -403,7 +404,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
                 creep.memory.target = terminal.id;
             }
             else {
-                creep.moveTo(factory);
+                creep.MoveCostMatrixRoadPrio(factory, 1);
             }
             return;
         }

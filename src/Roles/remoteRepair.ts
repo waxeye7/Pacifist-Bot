@@ -109,7 +109,7 @@ function findLockedBuild(creep) {
             let target:any = Game.getObjectById(creep.memory.locked_repair);
             if(target && target.hits < target.hitsMax) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
+                    creep.MoveCostMatrixRoadPrio(target, 3)
                     return;
                 }
                 else {
@@ -130,7 +130,7 @@ function findLockedBuild(creep) {
             let target:any = Game.getObjectById(creep.memory.locked_repair);
             if(target && target.hits < target.hitsMax) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
+                    creep.MoveCostMatrixRoadPrio(target, 3)
                     return;
                 }
                 else if(creep.repair(target) == 0) {
@@ -164,7 +164,7 @@ function findLockedBuild(creep) {
         else {
             let target = Game.getObjectById(creep.memory.locked_build);
             if(creep.build(target) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(target, {reusePath:25});
+                creep.MoveCostMatrixRoadPrio(target, 3)
                 return;
             }
             if(creep.store.getFreeCapacity() == 0) {

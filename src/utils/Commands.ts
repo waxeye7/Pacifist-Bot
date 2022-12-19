@@ -14,5 +14,6 @@ global.SRD = function(roomName, targetRoomName) {
 global.SC = function(targetRoomName, x, y) {
     Memory.target_colonise.room = targetRoomName;
     Memory.target_colonise.spawn_pos = new RoomPosition(x,y,targetRoomName);
+    Memory.target_colonise.lastSpawnRanger = 1501;
     return "Success!"
 }

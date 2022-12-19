@@ -199,7 +199,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
     let y;
     let z;
 
-
+    if(creep.room.name == creep.memory.targetPosition.roomName && creep.room.controller && !creep.room.controller.my && creep.room.controller.safeMode > 0) {
+        creep.memory.targetPosition = new RoomPosition(25,25,creep.memory.homeRoom);
+    }
 
     if(squad.length == 4 && creep.memory.go) {
         a = squad[0];
@@ -248,10 +250,10 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             if(creep.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
-                    // let spawns = structures.filter(function(building) {return !building.my;});
+                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
                     // if(spawns.length > 0) {
-                        let closestSpawn = creep.pos.findClosestByRange(structures);
-                        creep.memory.targetPosition = closestSpawn.pos;
+                        let closestBuilding = creep.pos.findClosestByRange(nowall);
+                        creep.memory.targetPosition = closestBuilding.pos;
                         move_location = creep.memory.targetPosition
                     // }
 
@@ -293,9 +295,12 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
         let range;
 
-        if(move_location.roomName == creep.memory.targetPosition.roomName || route && route.length == 1) {
+        if(move_location.roomName == creep.memory.targetPosition.roomName) {
             // range = 1
-            range = 23;
+            range = 1;
+        }
+        else if(route && route.length == 1) {
+            range = 20;
         }
         else {
             range = 23;
@@ -315,7 +320,6 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             //     }
 
             // }
-
 
 
 

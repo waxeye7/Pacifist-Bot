@@ -19,12 +19,12 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
         if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
             creep.memory.building = true;
-            creep.moveTo(closestTarget);
+            creep.MoveCostMatrixRoadPrio(closestTarget, 3);
         }
         if(creep.memory.building) {
             if(targets.length > 0) {
                 if(creep.build(closestTarget) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(closestTarget, {visualizePathStyle: {stroke: '#000'}});
+                    creep.MoveCostMatrixRoadPrio(closestTarget, 3);
                 }
             }
             else {
@@ -36,7 +36,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 if(buildingsToRepair.length > 0) {
                     let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
                     if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
-                        creep.moveTo(closestBuildingToRepair);
+                        creep.MoveCostMatrixRoadPrio(closestTarget, 3);
                     }
                 }
             }

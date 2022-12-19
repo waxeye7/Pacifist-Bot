@@ -73,12 +73,19 @@ function rooms() {
 
 
         if (room && room.controller && room.controller.my) {
+            if(Game.time % 1000) {
+                if(Memory.AvoidRooms.includes(room.name)) {
+                    Memory.AvoidRooms = Memory.AvoidRooms.filter(function(roomname) {return roomname !== room.name;});
+                }
+            }
+
+
             if(Game.time % 84 == 0 && room.controller.level > 1) {
                 console.log(room.name, "has", Math.floor((room.controller.progress/room.controller.progressTotal) * 100) + "%", "and is level", room.controller.level);
             }
 
             if(room.controller.level == 1 && Game.time % 1000 == 0) {
-                let walls = room.find(FIND_STRUCTURES, {filter: (building) => building.structureType == STRUCTURE_WALL});
+                let walls = room.find(FIND_STRUCTURES, {filter: (building) => building.structureType == STRUCTURE_WALL || !building.my && building.structureType != STRUCTURE_ROAD && building.structureType != STRUCTURE_CONTAINER});
                 for(let wall of walls) {
                     wall.destroy();
                 }

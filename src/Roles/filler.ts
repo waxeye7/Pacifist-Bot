@@ -217,7 +217,7 @@
                 }
             }
             else {
-                creep.moveTo(target, {reusePath:25});
+                creep.MoveCostMatrixRoadPrio(target, 1);
             }
         }
         else {
@@ -235,17 +235,17 @@
                 findLocked(creep);
             }
             else {
-                creep.moveTo(bin);
+                creep.MoveCostMatrixRoadPrio(bin, 1);
             }
         }
         else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
             let result = creep.withdrawStorage(storage);
             if(result == 0) {
                 let target = findLocked(creep);
-                creep.moveTo(target, {reusePath:25});
+                creep.MoveCostMatrixRoadPrio(target, 1);
             }
             else {
-                creep.moveTo(storage);
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
         }
         else if(!creep.room.memory.danger) {

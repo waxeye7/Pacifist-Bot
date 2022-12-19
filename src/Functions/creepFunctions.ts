@@ -19,6 +19,10 @@ interface Creep {
     Sweep: () => string | number | false;
     recycle: () => void;
     RangedAttackFleeFromMelee:any;
+    SwapPositionWithCreep:any;
+    MoveCostMatrixRoadPrio:any;
+    MoveCostMatrixSwampPrio:any;
+    MoveCostMatrixIgnoreRoads:any;
 }
 // CREEP PROTOTYPES
 
@@ -41,7 +45,7 @@ Creep.prototype.Boost = function Boost() {
             }
         }
         else {
-            this.moveTo(closestLab);
+            this.MoveCostMatrixIgnoreRoads(closestLab, 1);
         }
     }
     return false;
@@ -235,7 +239,7 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
                 return result;
             }
             else {
-                this.moveTo(storage, {reusePath:25, ignoreRoads:true});
+                this.MoveCostMatrixIgnoreRoads(storage, 1);
             }
         }
     }
@@ -314,9 +318,12 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
             return result;
         }
         else {
-            this.moveTo(storedSource, {reusePath: 25});
+            if(!this.pos.isNearTo(storedSource)) {
+                this.MoveCostMatrixRoadPrio(storedSource, 1);
+            }
         }
     }
+
 }
 
 // try here to make ignore creeps on home path but not ignore creeps on the way there because then can stay on road when full energy for best movement but it could be risky hm
@@ -339,10 +346,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(closestDroppedEnergy, {reusePath:25, ignoreRoads:true, swampCost:1});
+                this.MoveCostMatrixSwampPrio(closestDroppedEnergy, 1)
             }
             else {
-                this.moveTo(closestDroppedEnergy, {reusePath:25});
+                this.MoveCostMatrixRoadPrio(closestDroppedEnergy, 1)
             }
         }
         return;
@@ -362,10 +369,10 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
         }
         else {
             if(this.memory.role == "carry") {
-                this.moveTo(container, {reusePath:25, ignoreRoads:true, swampCost:1});
+                this.MoveCostMatrixSwampPrio(container, 1)
             }
             else {
-                this.moveTo(container, {reusePath:25});
+                this.MoveCostMatrixRoadPrio(container, 1)
             }
         }
         return;
@@ -579,7 +586,7 @@ Creep.prototype.Sweep = function Sweep() {
         return "picked up";
     }
     else if(this.withdraw(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-        this.moveTo(target, {reusePath:25, ignoreRoads:true, swampCost:1});
+        this.MoveCostMatrixSwampPrio(target, 1)
     }
 
     return false;
@@ -611,7 +618,7 @@ Creep.prototype.recycle = function recycle() {
                 }
             }
             else {
-                this.moveTo(bin, {reusePath:25, ignoreCreeps:false});
+                this.MoveCostMatrixRoadPrio(bin, 0);
             }
         }
         else if(this.room.memory.storage) {
@@ -648,6 +655,300 @@ Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(f
     let FirstPathGuy = FleePath.path[0];
     this.move(this.pos.getDirectionTo(FirstPathGuy));
     return;
+}
+
+
+
+Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction) {
+    if(direction == 1) {
+        let targetRoomPosition = new RoomPosition(this.pos.x, this.pos.y - 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(5);
+        }
+    }
+    else if(direction == 2) {
+        let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y - 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(6);
+        }
+    }
+    else if(direction == 3) {
+        let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(7);
+        }
+    }
+    else if(direction == 4) {
+        let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y + 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(8);
+        }
+    }
+    else if(direction == 5) {
+        let targetRoomPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(1);
+        }
+    }
+    else if(direction == 6) {
+        let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y + 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(2);
+        }
+    }
+    else if(direction == 7) {
+        let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(3);
+        }
+    }
+    else if(direction == 8) {
+        let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y - 1, this.room.name)
+        let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+        if(lookCreep.length > 0) {
+            lookCreep[0].move(4);
+        }
+    }
+}
+
+
+
+Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
+    if(target) {
+        let path = PathFinder.search(
+            this.pos, {pos:target.pos, range:range},
+            {
+                plainCost: 2,
+                swampCost: 10,
+                maxOps: 500,
+                maxRooms: 1,
+                roomCallback: (roomName) => roomCallbackRoadPrio(roomName)
+            }
+            );
+
+        let pos = path.path[0];
+        let direction = this.pos.getDirectionTo(pos);
+
+        this.SwapPositionWithCreep(direction);
+
+        this.move(direction);
+    }
+
+}
+const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 1; y < 49; y++) {
+        for(let x = 1; x < 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 5;
+            }
+            else if(tile == 0){
+                weight = 0;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
+    });
+
+    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_RAMPART) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+    });
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else if(struct.structureType !== STRUCTURE_RAMPART) {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+
+    return costs;
+}
+
+Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target, range) {
+    if(target) {
+        let path = PathFinder.search(
+            this.pos, {pos:target.pos, range:range},
+            {
+                plainCost: 2,
+                swampCost: 1,
+                maxOps: 500,
+                maxRooms: 1,
+                roomCallback: (roomName) => roomCallbackSwampPrio(roomName)
+            }
+            );
+
+        let pos = path.path[0];
+        let direction = this.pos.getDirectionTo(pos);
+
+        this.SwapPositionWithCreep(direction);
+
+        this.move(direction);
+    }
+
+}
+
+const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 1; y < 49; y++) {
+        for(let x = 1; x < 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 1;
+            }
+            else if(tile == 0){
+                weight = 2;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
+    });
+
+    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_RAMPART) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+    });
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 3);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else {
+            if(struct.structureType !== STRUCTURE_RAMPART) {
+                costs.set(struct.pos.x, struct.pos.y, 255);
+            }
+        }
+    });
+
+
+    return costs;
+}
+
+
+Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(target, range) {
+    if(target) {
+        let path = PathFinder.search(
+            this.pos, {pos:target.pos, range:range},
+            {
+                plainCost: 1,
+                swampCost: 5,
+                maxOps: 500,
+                maxRooms: 1,
+                roomCallback: (roomName) => roomCallbackIgnoreRoads(roomName)
+            }
+            );
+
+        let pos = path.path[0];
+        let direction = this.pos.getDirectionTo(pos);
+
+        this.SwapPositionWithCreep(direction);
+
+        this.move(direction);
+    }
+
+}
+const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 1; y < 49; y++) {
+        for(let x = 1; x < 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 1;
+            }
+            else if(tile == 0){
+                weight = 2;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
+    });
+
+    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_RAMPART) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+    });
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 2);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else {
+            if(struct.structureType !== STRUCTURE_RAMPART) {
+                costs.set(struct.pos.x, struct.pos.y, 255);
+            }
+        }
+    });
+
+
+    return costs;
 }
 
 // CREEP PROTOTYPES

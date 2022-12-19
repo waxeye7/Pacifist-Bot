@@ -12,6 +12,7 @@ const run = function (creep) {
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
     }
+    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
     if(creep.memory.full) {
 
@@ -44,10 +45,6 @@ const run = function (creep) {
                     }
                     );
 
-
-                path.path.forEach(spot => {
-                    new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: 'blue'});
-                });
                 let pos = path.path[0];
                 let direction = creep.pos.getDirectionTo(pos);
 
@@ -114,11 +111,13 @@ const run = function (creep) {
 
 
             if(!creep.memory.container_target) {
-                let structuresHere = target.pos.lookFor(LOOK_STRUCTURES)
-                if(structuresHere.length > 0) {
-                    for(let structure of structuresHere) {
-                        if(structure.structureType == STRUCTURE_CONTAINER) {
-                            creep.memory.container_target = structure.id;
+                if(storage && target.pos.getRangeTo(storage) > 4) {
+                    let structuresHere = target.pos.lookFor(LOOK_STRUCTURES)
+                    if(structuresHere.length > 0) {
+                        for(let structure of structuresHere) {
+                            if(structure.structureType == STRUCTURE_CONTAINER) {
+                                creep.memory.container_target = structure.id;
+                            }
                         }
                     }
                 }
@@ -137,8 +136,6 @@ const run = function (creep) {
 
     }
     else {
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-
         if(storage && !creep.pos.isNearTo(storage)) {
             let path = PathFinder.search(
                 creep.pos, {pos:storage.pos, range:0},
@@ -151,10 +148,6 @@ const run = function (creep) {
                 }
                 );
 
-
-            path.path.forEach(spot => {
-                new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: 'blue'});
-            });
             let pos = path.path[0];
             let direction = creep.pos.getDirectionTo(pos);
 
@@ -222,6 +215,13 @@ const run = function (creep) {
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
     }
+
+    if(creep.ticksToLive <= 20 && !creep.memory.full) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide == true) {
+		creep.recycle();
+	}
 }
 
 
@@ -289,17 +289,6 @@ const roomCallbackSpecialRepair = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-
-
-    // for(let y = 0; y < 50; y++) {
-    //     for(let x = 0; x < 50; x++) {
-    //         const tile = terrain.get(x, y);
-    //         let cost = costs.get(x,y);
-    //         if(cost !== 255) {
-    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'indigo', font: 0.5});
-    //         }
-    //     }
-    // }
 
     return costs;
 }

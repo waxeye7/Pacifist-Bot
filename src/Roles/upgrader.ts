@@ -43,7 +43,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading && creep.store[RESOURCE_ENERGY] == 0) {
 			creep.memory.upgrading = false;
-			creep.moveTo(theLink, {reusePath:25, visualizePathStyle: {stroke: '#ffaa00'}});
+			creep.MoveCostMatrixIgnoreRoads(theLink, 1);
 		}
 		if(!creep.memory.upgrading && creep.store[RESOURCE_ENERGY] > 0) {
 			creep.memory.upgrading = true;
@@ -51,7 +51,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading) {
 			if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-				creep.moveTo(creep.room.controller, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
+				this.MoveCostMatrixRoadPrio(creep.room.controller, 3);
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {
@@ -75,7 +75,7 @@ const run = function (creep) {
 				creep.withdraw(theLink, RESOURCE_ENERGY);
 			}
 			else {
-				creep.moveTo(theLink, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
+				creep.MoveCostMatrixIgnoreRoads(theLink, 1);
 			}
 		}
 
