@@ -68,7 +68,7 @@ function findLocked(creep) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         let bin;
         if(storage) {
-            bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
+            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
         }
 
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {

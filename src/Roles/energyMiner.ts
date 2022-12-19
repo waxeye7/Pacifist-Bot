@@ -34,12 +34,6 @@ const run = function (creep) {
         return;
     }
     else {
-        if(creep.ticksToLive == 1499) {
-            let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
-            creep.memory.targetLink = closestLink.id;
-            creep.memory.closestLink = null;
-        }
-
         // if(creep.memory.boostlabs) {
         //     let result = creep.Boost();
         //     if(result) {
@@ -53,7 +47,7 @@ const run = function (creep) {
 
 
 
-        if(creep.ticksToLive <= 3) {
+        if(creep.ticksToLive <= 2) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
             if(creep.pos.isNearTo(closestLink)) {
                 creep.transfer(closestLink, RESOURCE_ENERGY);
@@ -64,7 +58,7 @@ const run = function (creep) {
         }
 
 
-        if(creep.store.getFreeCapacity() <= 50) {
+        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 2 || creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 6) {
             let source = Game.getObjectById(creep.memory.sourceId);
             if(creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
@@ -119,24 +113,24 @@ const run = function (creep) {
 
         if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
-            let targetLink:any = Game.getObjectById(creep.memory.targetLink);
+            let targetLink:any = Game.getObjectById(creep.room.memory.Structures.StorageLink) || creep.room.findStorageLink();
             let closestLinkToController;
             if(creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.controllerLink) {
                 creep.memory.controllerLink = creep.room.controller.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}})).id;
             }
             if(targetLink == null || closestLink == null) {
-                console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom, creep.memory.homeRoom);
+                console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
                 return;
             }
 
             if(creep.memory.controllerLink) {
                 closestLinkToController = Game.getObjectById(creep.memory.controllerLink);
             }
-            if(closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
+            if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 closestLink.transferEnergy(closestLinkToController);
             }
 
-            else if(closestLink.store[RESOURCE_ENERGY] == 800 && targetLink.store[RESOURCE_ENERGY] == 0) {
+            else if(closestLink && closestLink.store[RESOURCE_ENERGY] == 800 && targetLink && targetLink.store[RESOURCE_ENERGY] == 0) {
                 closestLink.transferEnergy(targetLink);
             }
         }

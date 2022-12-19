@@ -333,7 +333,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
 
     let room = this.room;
     let container;
-    container = Game.getObjectById(room.memory.container) || room.findContainers(this.store.getFreeCapacity());
+    container = Game.getObjectById(room.memory.Structures.container) || room.findContainers(this.store.getFreeCapacity());
 
 
     let dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.findPathTo(i.pos).length < 6 && i.amount > this.store.getFreeCapacity() + this.pos.findPathTo(i.pos).length + 1 && i.resourceType == RESOURCE_ENERGY});
@@ -426,7 +426,7 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
     if(blockFound.length > 0) {
         let closestBlock = 100;
         let currentClosest = null;
-        if(this.room.memory.storage) {
+        if(this.room.memory.Structures.storage) {
             let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
             for(let block of blockFound) {
                 let range = block.getRangeTo(storage);
@@ -598,8 +598,8 @@ Creep.prototype.recycle = function recycle() {
         return this.moveToRoom(this.memory.homeRoom);
     }
 
-    if(this.room.memory.bin) {
-        let bin:any = Game.getObjectById(this.room.memory.bin)
+    if(this.room.memory.Structures.bin) {
+        let bin:any = Game.getObjectById(this.room.memory.Structures.bin)
         if(bin && bin.store[RESOURCE_ENERGY] < 2000) {
             if(this.pos.x == bin.pos.x && this.pos.y == bin.pos.y) {
                 let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
@@ -621,8 +621,8 @@ Creep.prototype.recycle = function recycle() {
                 this.MoveCostMatrixRoadPrio(bin, 0);
             }
         }
-        else if(this.room.memory.storage) {
-            let storage:any = Game.getObjectById(this.room.memory.storage);
+        else if(this.room.memory.Structures.storage) {
+            let storage:any = Game.getObjectById(this.room.memory.Structures.storage);
             if(storage) {
                 if(this.pos.isNearTo(storage)) {
                     this.suicide();
@@ -632,8 +632,8 @@ Creep.prototype.recycle = function recycle() {
                 }
             }
         }
-        else if(this.room.memory.spawn) {
-            let spawn:any = Game.getObjectById(this.room.memory.spawn);
+        else if(this.room.memory.Structures.spawn) {
+            let spawn:any = Game.getObjectById(this.room.memory.Structures.spawn);
             if(spawn) {
                 if(this.pos.isNearTo(spawn)) {
                     this.suicide();
@@ -645,7 +645,7 @@ Creep.prototype.recycle = function recycle() {
         }
     }
     else {
-        let storage = Game.getObjectById(this.room.memory.storage) || this.room.findStorage();
+        let storage = Game.getObjectById(this.room.memory.Structures.storage) || this.room.findStorage();
         this.room.findBin(storage);
     }
 }
@@ -773,12 +773,6 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
-    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART) {
-            costs.set(struct.pos.x, struct.pos.y, 1);
-        }
-    });
-
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 1);
@@ -847,12 +841,6 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
-    });
-
-    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART) {
-            costs.set(struct.pos.x, struct.pos.y, 1);
-        }
     });
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
@@ -925,12 +913,6 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
-    });
-
-    _.forEach(room.find(FIND_MY_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART) {
-            costs.set(struct.pos.x, struct.pos.y, 1);
-        }
     });
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {

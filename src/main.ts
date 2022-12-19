@@ -106,7 +106,12 @@ global.ROLES = {
   SquadCreepZ: roleSquadCreepZ,
 }
 
+
+
+import { memHack } from "utils/MemHack";
+
 export const loop = ErrorMapper.wrapLoop(() => {
+  memHack.run()
 //   console.log(Game.time % 100 + "/100");
 
   rooms();

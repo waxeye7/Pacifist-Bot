@@ -220,7 +220,7 @@ function market(room):any {
         }
 
 
-        let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+        let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
         if(room.terminal.store[RESOURCE_ENERGY] > 500 && room.terminal.store[RESOURCE_ENERGY] < 10000 && storage && storage.store[RESOURCE_ENERGY] < 40000) {
 
             let OrderPrice = 20;
@@ -302,7 +302,7 @@ function market(room):any {
 
         }
     }
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
     if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 110 == 0 && Game.cpu.bucket > 6000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
         let crawler_list = [
             RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_ZYNTHIUM,RESOURCE_GHODIUM,
@@ -370,7 +370,7 @@ function market(room):any {
     if(targetRampRoom && Game.time % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 150000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
-            let theirStorage = Game.getObjectById(theirRoom.memory.storage) || theirRoom.findStorage();
+            let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
             if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 600000 && room.terminal.store[RESOURCE_ENERGY] > 75000 && storage && storage.store[RESOURCE_ENERGY] > 300000) {
                 room.terminal.send(RESOURCE_ENERGY, 10000, targetRampRoom, "enjoy this energy, other room!");
                 console.log("sending room", targetRampRoom, "10000 energy")

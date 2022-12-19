@@ -125,7 +125,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
 
 function spawn_energy_miner(resourceData, room) {
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId) {
@@ -151,7 +151,7 @@ function spawn_energy_miner(resourceData, room) {
                                 }
 
                                 room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,WORK,CARRY,MOVE], newName,
-                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
 
                             }
                             else {
@@ -777,7 +777,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let sites = room.find(FIND_CONSTRUCTION_SITES);
 
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     let resourceData = _.get(room.memory, ['resources']);
 
@@ -911,7 +911,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Scout to Spawn List: ' + newName);
     }
 
-    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.extractor && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 100000) {
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures.extractor && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 100000) {
         let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(mineral.mineralAmount > 0) {
             let newName = 'MineralMiner-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -1470,16 +1470,16 @@ function spawning(room: any) {
 
     // console.log(room.memory.spawn_list.length/3, "creeps in spawn queue in room", room.name);
 
-    let spawn: any = Game.getObjectById(room.memory.spawn)
+    let spawn: any = Game.getObjectById(room.memory.Structures.spawn)
     if(spawn && spawn.spawning && spawn.spawning.remainingTime == 1 && room.memory.spawn_list.length == 0) {
         room.memory.lastTimeSpawnUsed = Game.time;
     }
 
 
-    spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+    spawn = Game.getObjectById(room.memory.Structures.spawn) || room.findSpawn();
 
     if(spawn == undefined) {
-        delete room.memory.spawn;
+        delete room.memory.Structures.spawn;
         return;
     }
 

@@ -40,7 +40,7 @@
     }
 
     let terminal = creep.room.terminal;
-    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    let storage = Game.getObjectById(creep.memory.storage) || creep.room.findStorage();
     if (terminal && terminal.store[RESOURCE_ENERGY] < 100000 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
         creep.memory.locked = terminal.id;
         return terminal;
@@ -125,8 +125,8 @@
         }
     }
 
-    if(creep.room.memory.factory) {
-        let factory:any = Game.getObjectById(creep.room.memory.factory);
+    if(creep.room.memory.Structures.factory) {
+        let factory:any = Game.getObjectById(creep.room.memory.Structures.factory);
         if(factory && factory.store[RESOURCE_ENERGY] < 2500) {
             creep.memory.locked = factory.id;
             return factory;
@@ -228,7 +228,7 @@
 
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
+        let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
         if(bin && bin.store[RESOURCE_ENERGY] > MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
                 creep.withdraw(bin, RESOURCE_ENERGY);

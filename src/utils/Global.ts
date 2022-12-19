@@ -31,6 +31,10 @@ declare global {
         billtong_rooms:Array<string>;
     }
 
+    interface RawMemory {
+        _parsed:any;
+    }
+
     interface AvoidRooms {
         RoomsToAvoid:Array<string>;
     }
@@ -96,6 +100,7 @@ declare global {
     // Syntax for adding proprties to `global` (ex "global.log")
     namespace NodeJS {
         interface Global {
+            Memory:any;
             ROLES: any;
             SQ: any;
             SRD:any;

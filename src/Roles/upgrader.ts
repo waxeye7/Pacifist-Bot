@@ -51,7 +51,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading) {
 			if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-				this.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+				creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {

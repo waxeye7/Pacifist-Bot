@@ -1,6 +1,6 @@
 function findLocked(room) {
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
-    let bin = Game.getObjectById(room.memory.bin) || room.findBin(storage);
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+    let bin = Game.getObjectById(room.memory.Structures.bin) || room.findBin(storage);
     if(bin && bin.hits < 125000) {
         room.memory.lowestHitsBuildingToRepair = bin.id;
         return;
@@ -65,30 +65,30 @@ function roomDefence(room) {
     }
 
     if(Game.time % 100 == 0) {
-        room.memory.towers = [];
+        room.memory.Structures.towers = [];
 
         let towers = room.find(FIND_MY_STRUCTURES, { filter: {structureType: STRUCTURE_TOWER}});
         if(towers.length) {
             _.forEach(towers, function(tower) {
-                room.memory.towers.push(tower.id);
+                room.memory.Structures.towers.push(tower.id);
             });
         }
     }
 
 
-    if(room.memory.towers && room.memory.towers.length > 0) {
+    if(room.memory.Structures.towers && room.memory.Structures.towers.length > 0) {
         let towerCount = -1;
-        let currentTickModTowers = Game.time % room.memory.towers.length;
+        let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
 
         let canWeShoot = 0;
-        room.memory.towers.forEach(towerID => {
+        room.memory.Structures.towers.forEach(towerID => {
             let towerTest:any = Game.getObjectById(towerID);
             if(towerTest && towerTest.store[RESOURCE_ENERGY] > 400) {
                 canWeShoot ++;
             }
         });
 
-        _.forEach(room.memory.towers, function(towerID) {
+        _.forEach(room.memory.Structures.towers, function(towerID) {
             let tower:any = Game.getObjectById(towerID);
 
             towerCount = towerCount + 1;
@@ -118,7 +118,7 @@ function roomDefence(room) {
                 }
             }
 
-            if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.towers.length) {
+            if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.Structures.towers.length) {
                 let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
                 // HostileCreeps.sort((a,b) => a.pos.getRangeTo(tower) - b.pos.getRangeTo(tower));
                 let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
@@ -206,7 +206,7 @@ function roomDefence(room) {
                             //     room.controller.activateSafeMode();
                             //     console.log("Activating Safe Mode")
                             // }
-                            let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+                            let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
                             // if(enemyCreep.pos.getRangeTo(rampart) <= 5 && enemyCreep.pos.getRangeTo(storage) <= 16) {
                                 room.memory.danger = true;
                                 found = true;

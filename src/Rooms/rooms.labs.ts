@@ -5,7 +5,7 @@ function labs(room) {
             room.memory.labs = {};
         }
 
-        let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+        let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
         let LabsInRoom = room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LAB});
 
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
@@ -287,7 +287,7 @@ function labs(room) {
         outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     if(!room.memory.labs.status) {
         room.memory.labs.status = {};

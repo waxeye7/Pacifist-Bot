@@ -72,7 +72,17 @@ function rooms() {
 
 
 
-        if (room && room.controller && room.controller.my) {
+        if(room && room.controller && room.controller.my) {
+            // memory part a bit
+            if(!room.memory.Structures) {
+                room.memory.Structures = {};
+            }
+            if(room.controller.level >= 5 && room.memory.Structures.container) {
+                delete room.memory.Structures.container;
+            }
+
+
+
             if(Game.time % 1000) {
                 if(Memory.AvoidRooms.includes(room.name)) {
                     Memory.AvoidRooms = Memory.AvoidRooms.filter(function(roomname) {return roomname !== room.name;});
@@ -90,6 +100,13 @@ function rooms() {
                     wall.destroy();
                 }
             }
+
+
+
+            if(room.memory.danger && (room.controller.level == 2 || room.controller.level == 3) && room.memory.Structures.towers.length == 0 ) {
+                room.controller.activateSafeMode();
+            }
+
 
             if(room.controller.level >= 6) {
                 if(!room.memory.spawning_squad) {
@@ -242,31 +259,48 @@ function establishMemory(room) {
         }
 
 
-        if (HostileStructures.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
-            if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
-                Memory.tasks.wipeRooms.destroyStructures.push(room.name)
+        if(room.controller && !room.controller.my) {
+            if (HostileStructures.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+                if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
+                    Memory.tasks.wipeRooms.destroyStructures.push(room.name)
+                }
+                room.memory.has_hostile_structures = true;
             }
-            room.memory.has_hostile_structures = true;
-        }
-        else {
-            Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
-            room.memory.has_hostile_structures = false;
-        }
+            else {
+                Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
+                room.memory.has_hostile_structures = false;
+            }
 
-        if(HostileCreeps.length > 0 && isArmed && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
-            if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
-                Memory.tasks.wipeRooms.killCreeps.push(room.name)
+            if(HostileCreeps.length > 0 && isArmed && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+                if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
+                    Memory.tasks.wipeRooms.killCreeps.push(room.name)
+                }
+                room.memory.has_hostile_creeps = true;
             }
-            room.memory.has_hostile_creeps = true;
-            room.memory.first_offence = Game.time;
-        }
-        else if(HostileCreeps.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
-            room.memory.has_safe_creeps = true;
-        }
-        else {
-            Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
-            room.memory.has_hostile_creeps = false;
-            room.memory.has_safe_creeps = false;
+            else if(HostileCreeps.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+                room.memory.has_safe_creeps = true;
+            }
+            else {
+                Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
+                room.memory.has_hostile_creeps = false;
+                room.memory.has_safe_creeps = false;
+            }
+
+
+
+
+            let attackersInRoom:number = 0;
+            _.forEach(Game.creeps, function(creep) {
+                if(creep.memory.role == 'attacker' && creep.room.name == room.name) {
+                    attackersInRoom += 1;
+                }
+            });
+            if(attackersInRoom == 0) {
+                room.memory.has_attacker = false;
+            }
+            else {
+                room.memory.has_attacker = true;
+            }
         }
 
 
@@ -276,20 +310,6 @@ function establishMemory(room) {
 
             Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
             room.memory.has_hostile_structures = false;
-        }
-
-
-        let attackersInRoom:number = 0;
-        _.forEach(Game.creeps, function(creep) {
-            if(creep.memory.role == 'attacker' && creep.room.name == room.name) {
-                attackersInRoom += 1;
-            }
-        });
-        if(attackersInRoom == 0) {
-            room.memory.has_attacker = false;
-        }
-        else {
-            room.memory.has_attacker = true;
         }
 
 

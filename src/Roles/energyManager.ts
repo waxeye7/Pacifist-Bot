@@ -51,9 +51,9 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
     if(!creep.memory.target) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         let terminal = creep.room.terminal;
-        let factory; if(creep.room.controller.level >= 7 && creep.room.memory.factory) {factory = Game.getObjectById(creep.room.memory.factory);}
+        let factory; if(creep.room.controller.level >= 7 && creep.room.memory.Structures.factory) {factory = Game.getObjectById(creep.room.memory.Structures.factory);}
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
-        let bin = Game.getObjectById(creep.room.memory.bin) || creep.room.findBin(storage);
+        let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
 
 
 

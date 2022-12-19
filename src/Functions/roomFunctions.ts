@@ -7,12 +7,30 @@ interface Room {
     findContainers:(capacity:number) => object | void;
     findMineral:() => object | void;
     findBin:(storage) => object | void;
+    findStorageLink:() => object | void;
+}
+
+Room.prototype.findStorageLink = function(): object | void {
+    let links = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
+    if(links.length > 0) {
+        let storage = Game.getObjectById(this.memory.Structures.storage) || this.findStorage();
+        let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.name);
+        let lookStructuresHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
+        if(lookStructuresHere.length > 0) {
+            for(let building of lookStructuresHere) {
+                if(building.structureType == STRUCTURE_LINK) {
+                    this.memory.Structures.StorageLink = building.id;
+                    return building;
+                }
+            }
+        }
+    }
 }
 
 Room.prototype.findStorage = function() {
     let storage = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
     if(storage.length) {
-        this.memory.storage = storage[0].id;
+        this.memory.Structures.storage = storage[0].id;
         return storage[0];
     }
     else {
@@ -23,7 +41,7 @@ Room.prototype.findStorage = function() {
 Room.prototype.findExtractor = function() {
     let extractor = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_EXTRACTOR);}});
     if(extractor.length) {
-        this.memory.extractor = extractor[0].id;
+        this.memory.Structures.extractor = extractor[0].id;
         return extractor[0];
     }
 
@@ -32,7 +50,7 @@ Room.prototype.findExtractor = function() {
 Room.prototype.findSpawn = function() {
     let spawns = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN && !structure.spawning);}});
     if(spawns.length) {
-        this.memory.spawn = spawns[0].id;
+        this.memory.Structures.spawn = spawns[0].id;
         return spawns[0]
     }
 }
@@ -46,7 +64,7 @@ Room.prototype.findStorageContainer = function(): object | void {
         if(storagePositionStructures.length > 0) {
             for(let building of storagePositionStructures) {
                 if(building.structureType == STRUCTURE_CONTAINER) {
-                    this.memory.storage = building.id;
+                    this.memory.Structures.storage = building.id;
                     return building;
                 }
             }
@@ -67,7 +85,7 @@ Room.prototype.findContainers = function(capacity) {
     }
     containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
     if(containers.length) {
-        this.memory.container = containers[0].id;
+        this.memory.Structures.container = containers[0].id;
         return containers[0];
     }
 }
@@ -87,7 +105,7 @@ Room.prototype.findBin = function(storage): object | void {
         if(binPositionStructures.length > 0) {
             for(let building of binPositionStructures) {
                 if(building.structureType == STRUCTURE_CONTAINER) {
-                    this.memory.bin = building.id;
+                    this.memory.Structures.bin = building.id;
                     return building;
                 }
             }

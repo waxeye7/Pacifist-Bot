@@ -35,7 +35,7 @@ function getNeighbours(tile, listOfLocations) {
 }
 
 function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
     let buldingAlreadyHereCount = 0;
     let constructionSitesPlaced = 0;
 
@@ -354,7 +354,7 @@ function construction(room) {
 
 
 
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     if(room.controller.level >= 5) {
         let nukes = room.find(FIND_NUKES);
@@ -397,8 +397,8 @@ function construction(room) {
         }
     }
 
-    if(room.controller.level >= 1 && room.memory.spawn) {
-        let spawn = Game.getObjectById(room.memory.spawn) || room.findSpawn();
+    if(room.controller.level >= 1 && room.memory.Structures.spawn) {
+        let spawn = Game.getObjectById(room.memory.Structures.spawn) || room.findSpawn();
 
         if(room.controller.level >= 3) {
             if(spawn) {
@@ -767,7 +767,7 @@ function construction(room) {
                     }
 
 
-                    let extractor = Game.getObjectById(room.memory.extractor) || room.findExtractor();
+                    let extractor = Game.getObjectById(room.memory.Structures.extractor) || room.findExtractor();
                     let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
                     if(!extractor) {
                         room.createConstructionSite(mineral.pos.x, mineral.pos.y, STRUCTURE_EXTRACTOR);
@@ -1264,7 +1264,7 @@ const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix =
 
     let costs = new PathFinder.CostMatrix;
 
-    let storage = Game.getObjectById(currentRoom.memory.storage) || currentRoom.findStorage();
+    let storage = Game.getObjectById(currentRoom.memory.Structures.storage) || currentRoom.findStorage();
 
 
     let rampartLocations = [];
@@ -1309,7 +1309,7 @@ function Build_Remote_Roads(room) {
     if(room.memory.danger) {
         return;
     }
-    let storage = Game.getObjectById(room.memory.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     let resourceData = _.get(room.memory, ['resources']);
     _.forEach(resourceData, function(data, targetRoomName){
