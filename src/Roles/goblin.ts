@@ -8,6 +8,7 @@ import roomDefence from "Rooms/rooms.defence";
  const run = function (creep:any) {
     creep.Speak();
 
+
     if(creep.memory.homeRoom && !creep.memory.dropRoom) {
         creep.memory.dropRoom = creep.memory.homeRoom;
     }

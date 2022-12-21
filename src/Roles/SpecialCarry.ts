@@ -5,6 +5,8 @@
 
 const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
+
 
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;

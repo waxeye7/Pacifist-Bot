@@ -177,7 +177,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 }
             }
 
-            if(blockSpot.findPathTo(storage, {ignoreCreeps:true}).length > 10) {
+            if(blockSpot.getRangeTo(storage) > 10) {
                 return;
             }
 

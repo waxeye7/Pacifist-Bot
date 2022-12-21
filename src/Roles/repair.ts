@@ -86,10 +86,19 @@ function findLocked(creep) {
 
 
     if(buildingsToRepair300mil.length > 0) {
-        buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
-        creep.say("🎯", true);
-        creep.memory.locked = buildingsToRepair300mil[0].id;
-        return buildingsToRepair300mil[0].id;
+        if(creep.room.controller && creep.room.controller.level <= 3) {
+            let closestToRepair = creep.pos.findClosestByRange(buildingsToRepair300mil);
+            creep.say("🎯", true);
+            creep.memory.locked = closestToRepair.id;
+            return closestToRepair.id;
+        }
+        else {
+            buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
+            creep.say("🎯", true);
+            creep.memory.locked = buildingsToRepair300mil[0].id;
+            return buildingsToRepair300mil[0].id;
+        }
+
     }
     else {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
@@ -104,6 +113,7 @@ function findLocked(creep) {
 
  const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
     // console.log(_.keys(creep.store).length)
     if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {
         return creep.moveTo(new RoomPosition(25, 25, creep.memory.homeRoom));

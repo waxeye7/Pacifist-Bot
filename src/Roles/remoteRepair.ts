@@ -59,6 +59,7 @@ function findLockedBuild(creep) {
  **/
  const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
 
     if(creep.memory.suicide == true) {
 

@@ -1,11 +1,11 @@
-import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
-
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
  const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
+
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
@@ -318,7 +318,7 @@ import { roomCallbackSquadA } from "./Squad/SquadHelperFunctions";
 
 
 
-        if(terminal && terminal.store[RESOURCE_ENERGY] > 105000 && creep.store.getFreeCapacity() == MaxStorage) {
+        if(terminal && terminal.store[RESOURCE_ENERGY] > 105000 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 10000 && terminal && terminal.store[RESOURCE_ENERGY] > 1000) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.withdraw(terminal, RESOURCE_ENERGY);
                 creep.memory.target = storage.id;

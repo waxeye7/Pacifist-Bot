@@ -95,6 +95,8 @@ declare global {
         searchedRooms: Array<string>;
         controllerLink:any;
         go:boolean;
+        direction:number | false;
+        moving:boolean;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

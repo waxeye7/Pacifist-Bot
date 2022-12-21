@@ -922,7 +922,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(room.controller.level <= 3 && sites.length > 0 && builders < builderPreRCL4TargetAmount && carriers > 1 && EnergyMinersInRoom > 1) {
         let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room), newName, {memory: {role: 'builder'}});
+        room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'builder'}});
         console.log('Adding Builder to Spawn List: ' + newName);
     }
 
@@ -1097,13 +1097,13 @@ function add_creeps_to_spawn_list(room, spawn) {
         // });
         let distance_to_target_room = Game.map.getRoomLinearDistance(room.name, target_colonise);
 
-        if(target_colonise && containerbuilders < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
+        if(target_colonise && containerbuilders < 2 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && distance_to_target_room <= 6 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
             let newName = 'ContainerBuilder-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 30), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
             console.log('Adding ContainerBuilder to Spawn List: ' + newName);
         }
 
-        if(target_colonise && RangedAttackers < 3 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 10000 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my && Game.time - Memory.target_colonise.lastSpawnRanger > 1500) {
+        if(target_colonise && RangedAttackers < 3 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 10000 && distance_to_target_room <= 6 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my && Game.time - Memory.target_colonise.lastSpawnRanger > 1500) {
             let newName = 'RangedAttacker-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true}});
 
@@ -1340,7 +1340,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(room.memory.danger) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
-        else if((storage && storage.store[RESOURCE_ENERGY] < 10000) || nukes.length > 0 && room.memory.NukeRepair || Memory.targetRampRoom == room.name) {
+        else if(nukes.length > 0 && room.memory.NukeRepair || Memory.targetRampRoom == room.name) {
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {

@@ -138,7 +138,7 @@
 
  const run = function (creep) {
     creep.Speak();
-
+    creep.memory.moving = false;
 
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;
@@ -228,7 +228,10 @@
 
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+        let bin;
+        if(creep.room.memory.Structures) {
+            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+        }
         if(bin && bin.store[RESOURCE_ENERGY] > MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
                 creep.withdraw(bin, RESOURCE_ENERGY);

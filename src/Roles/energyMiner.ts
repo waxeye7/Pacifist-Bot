@@ -4,6 +4,8 @@
  **/
 const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
+
     // if(creep.fleeHomeIfInDanger() == true) {
     //     return;
     // }
@@ -59,7 +61,7 @@ const run = function (creep) {
 
 
         if(!creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 2 || creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 6) {
-            let source = Game.getObjectById(creep.memory.sourceId);
+            let source:any = Game.getObjectById(creep.memory.sourceId);
             if(creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
                     creep.memory.NearbyExtensions = [];
@@ -84,7 +86,7 @@ const run = function (creep) {
             }
 
 
-            let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
+            let closestLink = Game.getObjectById(creep.memory.sourceLink) || source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK}));
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);

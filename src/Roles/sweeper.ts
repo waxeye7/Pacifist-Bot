@@ -38,6 +38,8 @@ function findLocked(creep) {
 
  const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
+
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0

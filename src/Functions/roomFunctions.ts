@@ -57,7 +57,7 @@ Room.prototype.findSpawn = function() {
 
 
 Room.prototype.findStorageContainer = function(): object | void {
-    let spawn:any = Game.getObjectById(this.memory.spawn);
+    let spawn:any = Game.getObjectById(this.memory.Structures.spawn);
     if(spawn) {
         let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.name);
         let storagePositionStructures = storagePosition.lookFor(LOOK_STRUCTURES);

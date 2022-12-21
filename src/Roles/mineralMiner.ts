@@ -4,6 +4,7 @@
  **/
  const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
 
     // if(creep.body[creep.body.length - 3].boost == undefined && creep.ticksToLive > 1465 && creep.room.memory.labs && creep.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
 

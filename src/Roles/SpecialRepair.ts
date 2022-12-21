@@ -5,6 +5,8 @@
 
 const run = function (creep) {
     creep.Speak();
+    creep.memory.moving = false;
+
 
     // if(creep.memory.boostlabs) {
     //     let result = creep.Boost();

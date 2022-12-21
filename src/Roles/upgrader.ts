@@ -1,5 +1,7 @@
 const run = function (creep) {
 	creep.Speak();
+	creep.memory.moving = false;
+
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
@@ -43,7 +45,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading && creep.store[RESOURCE_ENERGY] == 0) {
 			creep.memory.upgrading = false;
-			creep.MoveCostMatrixIgnoreRoads(theLink, 1);
+			creep.MoveCostMatrixRoadPrio(theLink, 1);
 		}
 		if(!creep.memory.upgrading && creep.store[RESOURCE_ENERGY] > 0) {
 			creep.memory.upgrading = true;
@@ -75,7 +77,7 @@ const run = function (creep) {
 				creep.withdraw(theLink, RESOURCE_ENERGY);
 			}
 			else {
-				creep.MoveCostMatrixIgnoreRoads(theLink, 1);
+				creep.MoveCostMatrixRoadPrio(theLink, 1);
 			}
 		}
 
@@ -95,10 +97,10 @@ const run = function (creep) {
 			creep.memory.upgrading = false;
 			if(storage == undefined) {
 				let source = Game.getObjectById(creep.memory.source) || creep.findSource();
-				creep.moveTo(source, {reusePath:25, visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.MoveCostMatrixRoadPrio(source, 3)
 			}
 			else {
-				creep.moveTo(storage, {reusePath:25, ignoreRoads:true, visualizePathStyle: {stroke: '#ffaa00'}});
+				creep.MoveCostMatrixRoadPrio(storage, 3)
 			}
 		}
 
@@ -109,7 +111,7 @@ const run = function (creep) {
 
 		if(creep.memory.upgrading) {
 			if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
-				creep.moveTo(creep.room.controller, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
+				creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
 			}
 			else {
 				if(creep.store.getFreeCapacity() <= 50) {
@@ -128,13 +130,13 @@ const run = function (creep) {
 			if(storage == undefined) {
 				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 				if(result == 0) {
-					creep.moveTo(creep.room.controller, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
+					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
 				}
 			}
 			else {
 				let result = creep.withdrawStorage(storage);
 				if(result == 0) {
-					creep.moveTo(creep.room.controller, {reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
+					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
 				}
 			}
 		}

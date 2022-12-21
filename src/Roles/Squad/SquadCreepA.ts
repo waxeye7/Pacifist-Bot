@@ -336,9 +336,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 );
 
 
-            path.path.forEach(spot => {
-                new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
-            });
+            // path.path.forEach(spot => {
+            //     new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
+            // });
             console.log(path.incomplete)
             let pos = path.path[0];
             let direction = creep.pos.getDirectionTo(pos);
