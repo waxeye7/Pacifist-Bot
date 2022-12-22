@@ -164,6 +164,9 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
     if (structure == STRUCTURE_EXTENSION) {
         _.forEach(neighbors, function(block) {
+            if(block.x < 1 || block.x > 48 || block.y < 1 || block.y > 48) {
+                return;
+            }
             let blockSpot = new RoomPosition(block.x, block.y, room.name);
             let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
             let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
@@ -213,6 +216,9 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
     }
     else if(!usingPathfinder && structure == STRUCTURE_ROAD) {
         _.forEach(neighbors, function(block) {
+            if(block.x < 1 || block.x > 48 || block.y < 1 || block.y > 48) {
+                return;
+            }
             let lookForExistingConstructionSites = block.lookFor(LOOK_CONSTRUCTION_SITES);
             let lookForExistingStructures = block.lookFor(LOOK_STRUCTURES);
             let lookForTerrain = block.lookFor(LOOK_TERRAIN);
@@ -262,6 +268,9 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
     }
     else {
         _.forEach(neighbors.path, function(block) {
+            if(block.x < 1 || block.x > 48 || block.y < 1 || block.y > 48) {
+                return;
+            }
             let lookForExistingConstructionSites = block.lookFor(LOOK_CONSTRUCTION_SITES);
             let lookForExistingStructures = block.lookFor(LOOK_STRUCTURES);
             let lookForTerrain = block.lookFor(LOOK_TERRAIN);
@@ -798,7 +807,7 @@ function construction(room) {
         }
         else if(storage) {
             let storageNeighbours = getNeighbours(storage.pos, checkerboard);
-
+            storageNeighbours = storageNeighbours.filter(function(location) {return location.x > 0 && location.x < 49 && location.y > 0 && location.y < 49;})
             storageNeighbours.sort((a,b) => new RoomPosition (a.x, a.y, room.name).getRangeTo(storage) - new RoomPosition (b.x, b.y, room.name).getRangeTo(storage));
 
             if(room.controller.level < 4) {

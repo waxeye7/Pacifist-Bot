@@ -75,7 +75,7 @@ Room.prototype.findStorageContainer = function(): object | void {
 
 
 Room.prototype.findContainers = function(capacity) {
-    let spawn:any = Game.getObjectById(this.memory.spawn)
+    let spawn:any = Game.getObjectById(this.memory.Structures.spawn)
     let containers;
     if(this.controller && this.controller.my && this.controller.level != 0) {
         containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && spawn && spawn.pos.getRangeTo(i) > 4});
@@ -83,8 +83,9 @@ Room.prototype.findContainers = function(capacity) {
     else {
         containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});
     }
-    containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-    if(containers.length) {
+    if(containers.length > 0) {
+        containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+
         this.memory.Structures.container = containers[0].id;
         return containers[0];
     }

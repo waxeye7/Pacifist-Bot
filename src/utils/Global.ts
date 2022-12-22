@@ -83,7 +83,7 @@ declare global {
         upgrading: boolean;
         full: boolean;
         claim: boolean;
-        locked: string | boolean;
+        locked: any;
         homeRoom: string;
         targetRoom: string;
         suicide: boolean;
@@ -97,6 +97,7 @@ declare global {
         go:boolean;
         direction:number | false;
         moving:boolean;
+        path:any;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

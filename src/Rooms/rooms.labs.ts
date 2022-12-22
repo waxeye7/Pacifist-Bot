@@ -617,56 +617,59 @@ function labs(room) {
     // }
 
 
-    if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && !room.memory.labs.status.boost.lab1[1]) {
-                outputLab1.runReaction(inputLab1, inputLab2);
-            }
-            else if(!room.memory.labs.status.boost|| !room.memory.labs.status.boost.lab1) {
-                outputLab1.runReaction(inputLab1, inputLab2);
-            }
-        }
-    }
-    if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && !room.memory.labs.status.boost.lab2[1]) {
-                outputLab2.runReaction(inputLab1, inputLab2);
-            }
-            else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab2) {
-                outputLab2.runReaction(inputLab1, inputLab2);
+    if(Game.cpu.bucket > 200) {
+        if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && !room.memory.labs.status.boost.lab1[1]) {
+                    outputLab1.runReaction(inputLab1, inputLab2);
+                }
+                else if(!room.memory.labs.status.boost|| !room.memory.labs.status.boost.lab1) {
+                    outputLab1.runReaction(inputLab1, inputLab2);
+                }
             }
         }
-    }
-    if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab3.runReaction(inputLab1, inputLab2);
+        if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && !room.memory.labs.status.boost.lab2[1]) {
+                    outputLab2.runReaction(inputLab1, inputLab2);
+                }
+                else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab2) {
+                    outputLab2.runReaction(inputLab1, inputLab2);
+                }
+            }
+        }
+        if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab3.runReaction(inputLab1, inputLab2);
+            }
+        }
+        if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab4.runReaction(inputLab1, inputLab2);
+            }
+        }
+        if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab5.runReaction(inputLab1, inputLab2);
+            }
+        }
+        if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab6.runReaction(inputLab1, inputLab2);
+            }
+        }
+        if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab7.runReaction(inputLab1, inputLab2);
+            }
+        }
+        if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity() != 0) {
+            if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
+                outputLab8.runReaction(inputLab1, inputLab2);
+            }
         }
     }
-    if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab4.runReaction(inputLab1, inputLab2);
-        }
-    }
-    if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab5.runReaction(inputLab1, inputLab2);
-        }
-    }
-    if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab6.runReaction(inputLab1, inputLab2);
-        }
-    }
-    if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab7.runReaction(inputLab1, inputLab2);
-        }
-    }
-    if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity() != 0) {
-        if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5 && !room.memory.labs.status.Boost_Mode) {
-            outputLab8.runReaction(inputLab1, inputLab2);
-        }
-    }
+
 
 
     // if(resultLab.store[RESOURCE_UTRIUM_HYDRIDE] <= 2995 && firstLab.store[RESOURCE_UTRIUM] >= 5 && secondLab.store[RESOURCE_HYDROGEN] >= 5) {

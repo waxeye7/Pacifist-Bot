@@ -780,28 +780,50 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-        let path = PathFinder.search(
-            this.pos, {pos:target.pos, range:range},
-            {
-                plainCost: 2,
-                swampCost: 10,
-                maxOps: 500,
-                maxRooms: 5,
-                roomCallback: (roomName) => roomCallbackRoadPrio(roomName)
-            }
-            );
 
-        let pos = path.path[0];
-        let direction = this.pos.getDirectionTo(pos);
+        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
+            this.memory.path.shift();
+        }
 
-        this.SwapPositionWithCreep(direction);
 
-        this.move(direction);
+        if(!this.memory.path || this.memory.path.length == 0) {
+            let costMatrix = roomCallbackRoadPrio;
+
+            let path = PathFinder.search(
+                this.pos, {pos:target.pos, range:range},
+                {
+                    maxOps: 500,
+                    maxRooms: 1,
+                    roomCallback: (roomName) => costMatrix(roomName)
+                }
+                );
+
+            let pos = path.path[0];
+            let direction = this.pos.getDirectionTo(pos);
+
+            this.SwapPositionWithCreep(direction);
+
+
+            this.memory.path = path.path;
+
+        }
         this.memory.moving = true;
-    }
+        let pos = this.memory.path[0];
+        if(this.pos.getRangeTo(pos) > 1) {
+            this.memory.path = false;
+        }
+        let direction = this.pos.getDirectionTo(pos.x, pos.y);
+        this.move(direction);
+
+        if(this.memory.path && this.memory.path.length == 1) {
+            this.memory.path.shift();
+            this.memory.moving = false;
+        }
+     }
 
 }
-const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
+
+const roomCallbackPathAroundCreeps = (roomName: string): boolean | CostMatrix => {
     let room = Game.rooms[roomName];
     if (!room || room == undefined || room === undefined || room == null || room === null) {
         return false;
@@ -852,26 +874,117 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 1; y < 49; y++) {
+        for(let x = 1; x < 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 10;
+            }
+            else if(tile == 0){
+                weight = 2;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
+    });
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else if(struct.structureType == STRUCTURE_RAMPART) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 5);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 3);
+            }
+        }
+    });
+
+    return costs;
+}
+
 Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-        let path = PathFinder.search(
-            this.pos, {pos:target.pos, range:range},
-            {
-                plainCost: 2,
-                swampCost: 1,
-                maxOps: 500,
-                maxRooms: 5,
-                roomCallback: (roomName) => roomCallbackSwampPrio(roomName)
-            }
-            );
 
-        let pos = path.path[0];
-        let direction = this.pos.getDirectionTo(pos);
+        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
+            this.memory.path.shift();
+        }
 
-        this.SwapPositionWithCreep(direction);
+        if(!this.memory.path || this.memory.path.length == 0) {
+            let path = PathFinder.search(
+                this.pos, {pos:target.pos, range:range},
+                {
+                    maxOps: 500,
+                    maxRooms: 1,
+                    roomCallback: (roomName) => roomCallbackSwampPrio(roomName)
+                }
+                );
 
-        this.move(direction);
+            let pos = path.path[0];
+            let direction = this.pos.getDirectionTo(pos);
+
+            this.SwapPositionWithCreep(direction);
+
+            this.memory.path = path.path;
+        }
         this.memory.moving = true;
+        let pos = this.memory.path[0];
+        if(this.pos.getRangeTo(pos) > 1) {
+            this.memory.path = false;
+        }
+        let direction = this.pos.getDirectionTo(pos.x, pos.y);
+        this.move(direction);
+
+        if(this.memory.path && this.memory.path.length == 1) {
+            this.memory.path.shift();
+            this.memory.moving = false;
+        }
     }
 
 }
@@ -894,7 +1007,7 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
                 weight = 255
             }
             else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 1;
+                weight = 2;
             }
             else if(tile == 0){
                 weight = 2;
@@ -902,6 +1015,12 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(x, y, weight);
         }
     }
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
 
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
@@ -928,24 +1047,39 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
 
 Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-        let path = PathFinder.search(
-            this.pos, {pos:target.pos, range:range},
-            {
-                plainCost: 1,
-                swampCost: 5,
-                maxOps: 500,
-                maxRooms: 5,
-                roomCallback: (roomName) => roomCallbackIgnoreRoads(roomName)
-            }
-            );
 
-        let pos = path.path[0];
-        let direction = this.pos.getDirectionTo(pos);
+        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
+            this.memory.path.shift();
+        }
 
-        this.SwapPositionWithCreep(direction);
+        if(!this.memory.path || this.memory.path.length == 0) {
+            let path = PathFinder.search(
+                this.pos, {pos:target.pos, range:range},
+                {
+                    maxOps: 500,
+                    maxRooms: 1,
+                    roomCallback: (roomName) => roomCallbackIgnoreRoads(roomName)
+                }
+                );
 
-        this.move(direction);
+            let pos = path.path[0];
+            let direction = this.pos.getDirectionTo(pos);
+
+            this.SwapPositionWithCreep(direction);
+            this.memory.path = path.path;
+        }
         this.memory.moving = true;
+        let pos = this.memory.path[0];
+        if(this.pos.getRangeTo(pos) > 1) {
+            this.memory.path = false;
+        }
+        let direction = this.pos.getDirectionTo(pos.x, pos.y);
+        this.move(direction);
+
+        if(this.memory.path && this.memory.path.length == 1) {
+            this.memory.path.shift();
+            this.memory.moving = false;
+        }
     }
 
 }
@@ -967,7 +1101,7 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
                 weight = 255
             }
             else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 1;
+                weight = 10;
             }
             else if(tile == 0){
                 weight = 2;
@@ -976,13 +1110,20 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
         }
     }
 
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+
+
     room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
-            costs.set(struct.pos.x, struct.pos.y, 2);
+            costs.set(struct.pos.x, struct.pos.y, 3);
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;

@@ -163,7 +163,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
                 }
                 else {
 
-                    costs.set(x, y, 40);
+                    costs.set(x, y, 5);
 
                     if(y==49 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
                         costs.set(x, y, 255);
@@ -182,15 +182,15 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
         }
     }
 
-    for(let y = 0; y < 50; y++) {
-        for(let x = 0; x < 50; x++) {
-            const tile = terrain.get(x, y);
-            let cost = costs.get(x,y);
-            if(cost !== 255) {
-                new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
-            }
-        }
-    }
+    // for(let y = 0; y < 50; y++) {
+    //     for(let x = 0; x < 50; x++) {
+    //         const tile = terrain.get(x, y);
+    //         let cost = costs.get(x,y);
+    //         if(cost !== 255) {
+    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
+    //         }
+    //     }
+    // }
 
 
 

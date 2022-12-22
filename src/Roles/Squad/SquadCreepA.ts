@@ -251,11 +251,11 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 if(structures.length > 0) {
 
                     let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
-                    // if(spawns.length > 0) {
+                    if(nowall.length > 0) {
                         let closestBuilding = creep.pos.findClosestByRange(nowall);
                         creep.memory.targetPosition = closestBuilding.pos;
                         move_location = creep.memory.targetPosition
-                    // }
+                    }
 
                     let towers = structures.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] > 9;});
                     if(towers.length > 0) {
@@ -286,6 +286,17 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                             move_location = fleeTowerPath.path[fleeTowerPath.path.length - 1];
                         }
                     }
+                }
+            }
+            else if(z && z.room.name == creep.memory.targetPosition.roomName) {
+                if(structures.length > 0) {
+
+                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
+                    // if(spawns.length > 0) {
+                        let closestBuilding = z.pos.findClosestByRange(nowall);
+                        creep.memory.targetPosition = closestBuilding.pos;
+                        move_location = creep.memory.targetPosition
+                    // }
                 }
             }
         }
@@ -336,9 +347,9 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 );
 
 
-            // path.path.forEach(spot => {
-            //     new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
-            // });
+            path.path.forEach(spot => {
+                new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
+            });
             console.log(path.incomplete)
             let pos = path.path[0];
             let direction = creep.pos.getDirectionTo(pos);

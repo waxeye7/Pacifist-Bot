@@ -97,7 +97,7 @@ const run = function (creep) {
             }
         }
 
-        if(creep.store.getFreeCapacity() > 20) {
+        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() >= creep.getActiveBodyparts(WORK) * 2 || creep.memory.boostlabs && creep.store.getFreeCapacity() >= creep.getActiveBodyparts(WORK) * 6) {
             let result = creep.harvestEnergy();
         }
 
