@@ -108,6 +108,7 @@ declare global {
             SQ: any;
             SRD:any;
             SC:any;
+            SD:any;
 
         }
     }

@@ -1434,6 +1434,9 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("SquadCreepY")
                 && !room.memory.spawn_list[1].startsWith("SquadCreepZ")
 
+                && !room.memory.spawn_list[1].startsWith("Ram")
+                && !room.memory.spawn_list[1].startsWith("Signifer")
+
                 // && !room.memory.spawn_list[1].startsWith("RemoteRepairer")
                 // && !room.memory.spawn_list[1].startsWith("Reserver")
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable

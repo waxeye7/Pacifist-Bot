@@ -157,7 +157,7 @@ function findLockedBuild(creep) {
             let target = Game.getObjectById(creep.memory.locked_build);
             if(target) {
                 if(creep.build(target) == ERR_NOT_IN_RANGE) {
-                    creep.moveTo(target, {reusePath:25});
+                    creep.MoveCostMatrixRoadPrio(target, 3);
                     return;
                 }
             }

@@ -55,7 +55,7 @@ const run = function (creep) {
                 creep.transfer(closestLink, RESOURCE_ENERGY);
             }
             else {
-                creep.moveTo(closestLink);
+                creep.MoveCostMatrixRoadPrio(closestLink, 1);
             }
         }
 
@@ -92,7 +92,7 @@ const run = function (creep) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);
                 }
                 else {
-                    creep.moveTo(closestLink);
+                    creep.MoveCostMatrixRoadPrio(closestLink, 1);
                 }
             }
         }

@@ -212,7 +212,7 @@
                 else {
                     target = findLocked(creep);
                     if(!creep.pos.isNearTo(target)) {
-                        creep.moveTo(target, {reusePath:25});
+                        creep.MoveCostMatrixRoadPrio(target, 1);
                     }
                 }
             }

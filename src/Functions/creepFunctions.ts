@@ -630,7 +630,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(storage, {reusePath:25, ignoreCreeps:false});
+                    this.MoveCostMatrixRoadPrio(storage, 0);
                 }
             }
         }
@@ -641,7 +641,7 @@ Creep.prototype.recycle = function recycle() {
                     this.suicide();
                 }
                 else {
-                    this.moveTo(spawn, {reusePath:25, ignoreCreeps:false});
+                    this.MoveCostMatrixRoadPrio(spawn, 0);
                 }
             }
         }
@@ -707,7 +707,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
     else if(direction == 4) {
         let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y + 1, this.room.name)
         let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-        if(lookCreep.length > 0 && !lookCreep[0].memory.moving) {
+        if(lookCreep.length > 0 && lookCreep[0] && !lookCreep[0].memory.moving) {
             if(lookCreep[0].ticksToLive % 2 < 1) {
                 lookCreep[0].move(8);
             }
@@ -781,10 +781,9 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
-        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
-            this.memory.path.shift();
+        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+            this.memory.path = false;
         }
-
 
         if(!this.memory.path || this.memory.path.length == 0) {
             let costMatrix = roomCallbackRoadPrio;
@@ -802,23 +801,15 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             let direction = this.pos.getDirectionTo(pos);
 
             this.SwapPositionWithCreep(direction);
-
-
             this.memory.path = path.path;
-
         }
-        this.memory.moving = true;
+
         let pos = this.memory.path[0];
-        if(this.pos.getRangeTo(pos) > 1) {
-            this.memory.path = false;
-        }
-        let direction = this.pos.getDirectionTo(pos.x, pos.y);
-        this.move(direction);
+        let direction = this.pos.getDirectionTo(pos);
 
-        if(this.memory.path && this.memory.path.length == 1) {
-            this.memory.path.shift();
-            this.memory.moving = false;
-        }
+        this.move(direction);
+        this.memory.path.shift();
+        // this.moveByPath(this.memory.path);
      }
 
 }
@@ -952,8 +943,8 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
 Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
-        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
-            this.memory.path.shift();
+        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+            this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0) {
@@ -973,18 +964,11 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target
 
             this.memory.path = path.path;
         }
-        this.memory.moving = true;
         let pos = this.memory.path[0];
-        if(this.pos.getRangeTo(pos) > 1) {
-            this.memory.path = false;
-        }
-        let direction = this.pos.getDirectionTo(pos.x, pos.y);
-        this.move(direction);
+        let direction = this.pos.getDirectionTo(pos);
 
-        if(this.memory.path && this.memory.path.length == 1) {
-            this.memory.path.shift();
-            this.memory.moving = false;
-        }
+        this.move(direction);
+        this.memory.path.shift();
     }
 
 }
@@ -1048,8 +1032,8 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
 Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
-        if(this.memory.path && this.memory.path.length > 0 && this.memory.path[0].x == this.pos.x && this.memory.path[0].y == this.pos.y) {
-            this.memory.path.shift();
+        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+            this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0) {
@@ -1068,18 +1052,11 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
         }
-        this.memory.moving = true;
         let pos = this.memory.path[0];
-        if(this.pos.getRangeTo(pos) > 1) {
-            this.memory.path = false;
-        }
-        let direction = this.pos.getDirectionTo(pos.x, pos.y);
-        this.move(direction);
+        let direction = this.pos.getDirectionTo(pos);
 
-        if(this.memory.path && this.memory.path.length == 1) {
-            this.memory.path.shift();
-            this.memory.moving = false;
-        }
+        this.move(direction);
+        this.memory.path.shift();
     }
 
 }
