@@ -271,7 +271,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits + 350 < target.hitsMax) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hitsMax/2 <= target.hitsMax) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -288,15 +288,16 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                     }
                 }
             }
+            // somehow could do find closest building and make it the target but seems to hard (when have vision. hmm)
             else if(z && z.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
                     let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
-                    // if(spawns.length > 0) {
+                    if(nowall.length > 0) {
                         let closestBuilding = z.pos.findClosestByRange(nowall);
                         creep.memory.targetPosition = closestBuilding.pos;
                         move_location = creep.memory.targetPosition
-                    // }
+                    }
                 }
             }
         }

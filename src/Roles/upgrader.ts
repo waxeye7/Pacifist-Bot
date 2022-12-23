@@ -5,7 +5,7 @@ const run = function (creep) {
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 9) {
+    if(creep.room.controller && creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 9) {
         creep.memory.role = "builder";
         creep.memory.locked = false;
     }

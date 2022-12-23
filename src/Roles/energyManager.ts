@@ -303,7 +303,7 @@
 		}
         if(creep.room.controller && creep.room.controller.level >= 7 && creep.memory.controllerLink) {
             let controllerLink:any = Game.getObjectById(creep.memory.controllerLink);
-            if(controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 200) {
+            if(controllerLink && controllerLink.store[RESOURCE_ENERGY] == 0) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, RESOURCE_ENERGY);
                     creep.memory.target = controllerLink.id;

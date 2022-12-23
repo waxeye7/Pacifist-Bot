@@ -86,7 +86,7 @@ function market(room):any {
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
 
             for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 10000 && resource != Mineral.mineralType) {
+                if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
                     if(Memory.my_goods[resource].length > 0) {
                         for(let room_with_mineral of Memory.my_goods[resource]) {
                             if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 20000) {

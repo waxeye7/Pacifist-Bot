@@ -134,6 +134,12 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
                 costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
                 costs.set(creep.pos.x, creep.pos.y - 1, weight);
             }
+            else {
+                costs.set(creep.pos.x, creep.pos.y, 255);
+                costs.set(creep.pos.x - 1, creep.pos.y, 255);
+                costs.set(creep.pos.x - 1, creep.pos.y - 1, 255);
+                costs.set(creep.pos.x, creep.pos.y - 1, 255);
+            }
 
 
             // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
