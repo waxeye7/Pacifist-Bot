@@ -1,3 +1,5 @@
+import { indexOf } from "lodash";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -55,7 +57,10 @@
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
         let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
 
-
+        if(creep.store.getFreeCapacity() == 0) {
+            creep.memory.target = storage.id;
+            return;
+        }
 
 
 
@@ -130,45 +135,41 @@
             for(let outputLab of outputLabs) {
                 number += 1;
 
-                // if(number == 1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1[1]) {
-                //     console.log('it gets here',creep.room.name, "adsfhdsaf")
-                //     if(creep.room.memory.labs.status.boost.lab1[0] == 0) {
-                //         // do nothing
-                //     }
-                //     else {
-                //         console.log('it gets here',creep.room.name)
+                if(number == 1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1.use) {
+                    if(creep.room.memory.labs.status.boost.lab1.amount == 0) {
+                        // do nothing
+                    }
+                    else {
+                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_UTRIUM_OXIDE)) {
+                            if(creep.pos.isNearTo(outputLab)) {
+                                creep.withdraw(outputLab, outputLab.mineralType);
+                                creep.memory.target = storage.id;
+                            }
+                            else {
+                                creep.moveTo(outputLab);
+                            }
+                            return;
+                        }
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_UTRIUM_OXIDE) && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= creep.room.memory.labs.status.boost.lab1.amount) {
+                            if(creep.pos.isNearTo(storage)) {
+                                if(creep.room.memory.labs.status.boost.lab1.amount >= MaxStorage) {
+                                    creep.room.memory.labs.status.boost.lab1.amount -= MaxStorage;
+                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
+                                }
+                                else {
+                                    creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE, creep.room.memory.labs.status.boost.lab1.amount);
+                                    creep.room.memory.labs.status.boost.lab1.amount = 0;
+                                }
+                                creep.memory.target = outputLab.id;
+                            }
+                            else {
+                                creep.moveTo(storage);
+                            }
+                            return;
+                        }
 
-                //         if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_UTRIUM_OXIDE)) {
-                //             if(creep.pos.isNearTo(outputLab)) {
-                //                 creep.withdraw(outputLab, outputLab.mineralType);
-                //                 creep.memory.target = storage.id;
-                //             }
-                //             else {
-                //                 creep.moveTo(outputLab);
-                //             }
-                //             return;
-                //         }
-                //         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_UTRIUM_OXIDE) && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= creep.room.memory.labs.status.boost.lab1[0]) {
-                //             if(creep.pos.isNearTo(storage)) {
-                //                 if(creep.room.memory.labs.status.boost.lab1[0] >= MaxStorage) {
-                //                     creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0] - MaxStorage,creep.room.memory.labs.status.boost.lab1[1]]
-
-                //                     creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
-                //                 }
-                //                 else {
-                //                     creep.room.memory.labs.status.boost.lab1 = [0,creep.room.memory.labs.status.boost.lab1[1]]
-                //                     creep.withdraw(storage, RESOURCE_UTRIUM_OXIDE);
-                //                 }
-                //                 creep.memory.target = outputLab.id;
-                //             }
-                //             else {
-                //                 creep.moveTo(storage);
-                //             }
-                //             return;
-                //         }
-
-                //     }
-                // }
+                    }
+                }
 
 
                 // else if(number == 2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2[1]) {
@@ -207,7 +208,7 @@
                 //     }
                 // }
 
-                if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
+                else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;

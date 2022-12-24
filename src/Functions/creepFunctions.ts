@@ -804,12 +804,11 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = [];
+            this.memory.path = undefined;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
             let costMatrix = roomCallbackRoadPrio;
 
             let path = PathFinder.search(
@@ -826,7 +825,10 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
+            this.memory.MoveTargetId = target.id;
         }
+
+
 
         let pos = this.memory.path[0];
         let direction = this.pos.getDirectionTo(pos);
@@ -979,10 +981,10 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = [];
+            this.memory.path = undefined;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
             let path = PathFinder.search(
                 this.pos, {pos:target.pos, range:range},
                 {
@@ -998,7 +1000,11 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target
             this.SwapPositionWithCreep(direction);
 
             this.memory.path = path.path;
+            this.memory.MoveTargetId = target.id;
         }
+
+
+
         let pos = this.memory.path[0];
         let direction = this.pos.getDirectionTo(pos);
 
@@ -1077,10 +1083,10 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = [];
+            this.memory.path = undefined;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
             let path = PathFinder.search(
                 this.pos, {pos:target.pos, range:range},
                 {
@@ -1095,7 +1101,11 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
+            this.memory.MoveTargetId = target.id;
         }
+
+
+
         let pos = this.memory.path[0];
         let direction = this.pos.getDirectionTo(pos);
 

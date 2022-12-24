@@ -106,7 +106,7 @@
                 creep.attack(target);
             }
             else {
-                creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
+                creep.moveTo(target, {swampCost:4});
             }
         }
         else {
@@ -118,7 +118,7 @@
 
                 }
                 else {
-                    creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
+                    creep.moveTo(target, {swampCost:4});
 
                 }
 

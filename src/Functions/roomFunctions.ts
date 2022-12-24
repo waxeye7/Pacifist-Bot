@@ -84,10 +84,19 @@ Room.prototype.findContainers = function(capacity) {
         containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});
     }
     if(containers.length > 0) {
-        containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+        if(this.memory.Structures && this.memory.Structures.container) {
+            let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
+            if(CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
+                this.memory.Structures.container = CurrentContainer.id;
+                return CurrentContainer;
+            }
+        }
+        else {
+            containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
 
-        this.memory.Structures.container = containers[0].id;
-        return containers[0];
+            this.memory.Structures.container = containers[0].id;
+            return containers[0];
+        }
     }
 }
 

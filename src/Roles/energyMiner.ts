@@ -18,9 +18,9 @@ const run = function (creep) {
     // }
 
     if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK}).length < 3) {
-        if(creep.roadCheck()) {
-            creep.moveAwayIfNeedTo();
-        }
+        // if(creep.roadCheck()) {
+        //     creep.moveAwayIfNeedTo();
+        // }
         let result = creep.harvestEnergy();
         if(result == 0) {
             let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 1 });
@@ -36,16 +36,16 @@ const run = function (creep) {
         return;
     }
     else {
-        // if(creep.memory.boostlabs) {
-        //     let result = creep.Boost();
-        //     if(result) {
-        //         creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],false];
-        //     }
-        //     if(!result) {
-        //         creep.room.memory.labs.status.boost.lab1 = [creep.room.memory.labs.status.boost.lab1[0],true];
-        //         return;
-        //     }
-        // }
+        if(creep.memory.boostlabs) {
+            let result = creep.Boost();
+            if(result) {
+                creep.room.memory.labs.status.boost.lab1.use = false;
+            }
+            if(!result) {
+                creep.room.memory.labs.status.boost.lab1.use = true;
+                return;
+            }
+        }
 
 
 
@@ -102,9 +102,9 @@ const run = function (creep) {
         }
 
         // if(result == 0) {
-        if(creep.roadCheck()) {
-            creep.moveAwayIfNeedTo();
-        }
+        // if(creep.roadCheck()) {
+        //     creep.moveAwayIfNeedTo();
+        // }
         // }
         // if(creep.harvestEnergy() == -1) {
         //     let containers = creep

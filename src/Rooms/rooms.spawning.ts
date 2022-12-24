@@ -135,7 +135,7 @@ function spawn_energy_miner(resourceData, room) {
                     if(room.memory.danger && values.pathLength && values.pathLength >= 12) {
                         return;
                     }
-                    if(room.energyCapacityAvailable >= 650) {
+                    if(room.energyCapacityAvailable >= 750) {
                         if(room.controller.level >= 6) {
                             if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 360 && room.memory.labs && room.memory.labs.outputLab1) {
                                 if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
@@ -143,15 +143,18 @@ function spawn_energy_miner(resourceData, room) {
                                 }
                                 if(room.memory.labs.status.boost) {
                                     if(room.memory.labs.status.boost.lab1) {
-                                        room.memory.labs.status.boost.lab1 = [room.memory.labs.status.boost.lab1[0] + 360, false];
+                                        room.memory.labs.status.boost.lab1.amount += 360;
+                                        room.memory.labs.status.boost.lab1.use = true;
                                     }
                                     else {
-                                        room.memory.labs.status.boost.lab1 = [360, false];
+                                        room.memory.labs.status.boost.lab1 = {};
+                                        room.memory.labs.status.boost.lab1.amount = 360;
+                                        room.memory.labs.status.boost.lab1.use = true;
                                     }
                                 }
 
-                                room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], newName,
-                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                                room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE], newName,
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});
 
                             }
                             else {
@@ -161,7 +164,7 @@ function spawn_energy_miner(resourceData, room) {
                             // [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,WORK,CARRY,MOVE]
                         }
                         else {
-                            room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,MOVE], newName,
+                            room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE], newName,
                                 {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                         }
                         console.log('Adding Energy Miner to Spawn List: ' + newName);
@@ -933,13 +936,13 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
     }
 
-    if(room.controller.level <= 4 && sites.length > 0 && builders < builderPreRCL4TargetAmount && carriers > 1 && EnergyMinersInRoom > 1) {
+    if(room.controller.level <= 4 && sites.length > 0 && builders < builderPreRCL4TargetAmount && carriers > 1 && EnergyMinersInRoom > 1 && !storage) {
         let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'builder'}});
         console.log('Adding Builder to Spawn List: ' + newName);
     }
 
-    if(sites.length > 0 && builders < 3 && EnergyMinersInRoom > 1 && storage && storage.store[RESOURCE_ENERGY] > 15000 && room.controller.level > 4) {
+    else if(sites.length > 0 && builders < 3 && EnergyMinersInRoom > 1 && storage && storage.store[RESOURCE_ENERGY] > 15000 && room.controller.level >= 4) {
         let allowSpawn = true;
         if(room.controller.level >= 6) {
             for(let site of sites) {
@@ -1432,7 +1435,7 @@ function spawnFirstInLine(room, spawn) {
             console.log("spawning", room.memory.spawn_list[1], "creep error", spawnAttempt, room.name);
             let segment:string[] = room.memory.spawn_list[0]
             if(spawnAttempt == -6) {
-                if(room.memory.spawn_list[0].length >= 4
+                if((room.memory.spawn_list[0].length >= 4
                 && !room.memory.spawn_list[1].startsWith("Carrier")
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner")
 
@@ -1442,7 +1445,7 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("SquadCreepZ")
 
                 && !room.memory.spawn_list[1].startsWith("Ram")
-                && !room.memory.spawn_list[1].startsWith("Signifer")
+                && !room.memory.spawn_list[1].startsWith("Signifer"))
 
                 // && !room.memory.spawn_list[1].startsWith("RemoteRepairer")
                 // && !room.memory.spawn_list[1].startsWith("Reserver")
