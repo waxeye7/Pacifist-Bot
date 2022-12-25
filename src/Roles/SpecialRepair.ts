@@ -8,16 +8,12 @@ const run = function (creep) {
     creep.memory.moving = false;
 
 
-    // if(creep.memory.boostlabs) {
-    //     let result = creep.Boost();
-    //     if(result) {
-    //         creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],false];
-    //     }
-    //     if(!result) {
-    //         creep.room.memory.labs.status.boost.lab2 = [creep.room.memory.labs.status.boost.lab2[0],true];
-    //         return;
-    //     }
-    // }
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
 
 
     if(!creep.memory.rampart_to_repair) {

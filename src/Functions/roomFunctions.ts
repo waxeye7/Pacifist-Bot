@@ -86,7 +86,7 @@ Room.prototype.findContainers = function(capacity) {
     if(containers.length > 0) {
         if(this.memory.Structures && this.memory.Structures.container) {
             let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
-            if(CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
+            if(CurrentContainer && CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
                 this.memory.Structures.container = CurrentContainer.id;
                 return CurrentContainer;
             }

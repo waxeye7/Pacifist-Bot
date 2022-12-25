@@ -26,9 +26,10 @@ interface Creep {
 }
 // CREEP PROTOTYPES
 
-Creep.prototype.Boost = function Boost() {
-    if(this.memory.boostlabs.length == 0) {
-        return "done";
+Creep.prototype.Boost = function Boost():any {
+
+    if(this.memory.boostlabs.length == 0 || this.ticksToLive < 800) {
+        return;
     }
     else {
         let labs = [];
@@ -39,16 +40,46 @@ Creep.prototype.Boost = function Boost() {
         if(this.pos.isNearTo(closestLab)) {
             let result = closestLab.boostCreep(this);
             if(result == 0) {
+                // if(closestLab.mineralType == undefined) {
+                if(this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id && this.getActiveBodyparts(WORK) * 30 == closestLab.store[RESOURCE_UTRIUM_OXIDE] ||
+                this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id && (this.getActiveBodyparts(WORK) * 30) * 1.9 >= closestLab.store[RESOURCE_UTRIUM_OXIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
+                    this.room.memory.labs.status.boost.lab1.use = false;
+                }
+                else if(this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id && this.getActiveBodyparts(WORK) * 30 == closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] ||
+                this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id && (this.getActiveBodyparts(WORK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ACID) {
+                    this.room.memory.labs.status.boost.lab2.use = false;
+                }
+                else if(this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id && this.getActiveBodyparts(ATTACK) * 30 == closestLab.store[RESOURCE_CATALYZED_UTRIUM_ACID] ||
+                this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id && (this.getActiveBodyparts(ATTACK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_UTRIUM_ACID] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_UTRIUM_ACID) {
+                    this.room.memory.labs.status.boost.lab3.use = false;
+                }
+                else if(this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id && this.getActiveBodyparts(HEAL) * 30 == closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] ||
+                this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id && (this.getActiveBodyparts(HEAL) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) {
+                    this.room.memory.labs.status.boost.lab4.use = false;
+                }
+                else if(this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id && this.getActiveBodyparts(RANGED_ATTACK) * 30 == closestLab.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] ||
+                this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id && (this.getActiveBodyparts(RANGED_ATTACK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) {
+                    this.room.memory.labs.status.boost.lab5.use = false;
+                }
+                else if(this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id && this.getActiveBodyparts(MOVE) * 30 == closestLab.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] ||
+                this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id && (this.getActiveBodyparts(MOVE) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) {
+                    this.room.memory.labs.status.boost.lab6.use = false;
+                }
+                else if(this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id && this.getActiveBodyparts(TOUGH) * 30 == closestLab.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] ||
+                this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id && (this.getActiveBodyparts(TOUGH) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) {
+                    this.room.memory.labs.status.boost.lab7.use = false;
+                }
+                // }
                 let idToRemove = closestLab.id;
                 this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
-                return true;
+                return;
             }
         }
         else {
-            this.MoveCostMatrixIgnoreRoads(closestLab, 1);
+            this.MoveCostMatrixRoadPrio(closestLab, 1);
+            return false;
         }
     }
-    return false;
 }
 
 
@@ -149,9 +180,11 @@ Creep.prototype.findSource = function() {
     if(!source) {
         let sources = this.room.find(FIND_SOURCES, {filter: s => s.energy > 0});
         if(sources.length) {
-            source = _.find(sources, function(s) {
-            let open = s.pos.getOpenPositions();
-            return open.length > 0;});
+            sources = sources.filter(function(thisSource) {return thisSource.pos.getOpenPositions().length > 0;});
+            source = this.pos.findClosestByRange(sources);
+            // source = _.find(sources, function(s) {
+            // let open = s.pos.getOpenPositions();
+            // return open.length > 0;});
         }
     }
 
@@ -805,7 +838,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = undefined;
+            this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
@@ -962,6 +995,9 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
                 costs.set(creep.pos.x, creep.pos.y, 3);
             }
         }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
+        }
     });
 
 
@@ -981,7 +1017,7 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = undefined;
+            this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
@@ -1066,6 +1102,28 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
         }
     });
 
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 5);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 3);
+            }
+        }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+    });
+
+
     for(let y = 0; y < 50; y++) {
         for(let x = 0; x < 50; x++) {
             if(x == 0 || x == 49 || y == 0 || y == 49) {
@@ -1083,7 +1141,7 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
         if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
-            this.memory.path = undefined;
+            this.memory.path = false;
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
@@ -1164,6 +1222,28 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
             if(struct.structureType !== STRUCTURE_RAMPART) {
                 costs.set(struct.pos.x, struct.pos.y, 255);
             }
+        }
+    });
+
+
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 5);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 3);
+            }
+        }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
         }
     });
 

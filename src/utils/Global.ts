@@ -72,6 +72,7 @@ declare global {
         spawning_squad: object;
         factory:any;
         NukeRepair:boolean;
+        Structures:any;
     }
     interface CreepMemory {
         name: string;
@@ -98,6 +99,7 @@ declare global {
         direction:number | false;
         moving:boolean;
         path:any;
+        boostlabs:Array<any>;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

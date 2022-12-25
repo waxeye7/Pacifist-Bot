@@ -5,6 +5,13 @@
  const run = function (creep:any) {
     creep.Speak();
 
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
     if(Game.rooms[creep.memory.targetRoom] && Game.rooms[creep.memory.targetRoom].controller.safeMode && Game.rooms[creep.memory.targetRoom].controller.safeMode > 0) {
         creep.memory.suicide = true;
     }

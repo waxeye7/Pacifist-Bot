@@ -341,7 +341,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                 {
                     plainCost: 1,
                     swampCost: 5,
-                    maxOps: 4000,
+                    maxOps: 3600,
                     maxRooms: 40,
                     roomCallback: (roomName) => roomCallbackSquadA(roomName)
                 }

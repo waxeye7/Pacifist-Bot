@@ -4,10 +4,6 @@ power
 improve level7/8 link energy to controller properties
 
 more carry parts pre storage where the extensions aren't enough to make right body.
-CHANGE SPAWN COOLDOWN ON ENERGY MINER AND CARRIER IN LOW RCL WHERE THEY CAN'T CARRY ALL AND MINE ALL WITH SMALL BODY WILL BE HARDER FOR CARRY
 
-
-special repair lower on road no?
-fix potential bug on special repair guy no build const sites
 
 squad sees better route outside room, make the target for 10 ticks be to that way

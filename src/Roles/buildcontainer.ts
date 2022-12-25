@@ -16,6 +16,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
 
         if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
+            creep.memory.source = false;
             creep.memory.building = false;
         }
         if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
@@ -43,6 +44,14 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             }
         }
         else {
+
+
+            let source:any = Game.getObjectById(creep.memory.source);
+            if(source && source.energy == 0) {
+                creep.memory.source = false;
+            }
+
+
             if(storage && storage.store[RESOURCE_ENERGY] != 0) {
                 let result = creep.withdrawStorage(storage)
             }

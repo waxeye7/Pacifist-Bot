@@ -73,6 +73,11 @@ function rooms() {
 
 
         if(room && room.controller && room.controller.my) {
+
+            if(room.controller.level >= 7) {
+                console.log(JSON.stringify(room.memory.labs.status.boost.lab1), room.name)
+                // room.memory.labs.status.boost.lab1.amount = 1000;
+            }
             // memory part a bit
             if(!room.memory.Structures) {
                 room.memory.Structures = {};

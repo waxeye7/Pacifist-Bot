@@ -371,13 +371,13 @@ function market(room):any {
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 150000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
-            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 600000 && room.terminal.store[RESOURCE_ENERGY] > 75000 && storage && storage.store[RESOURCE_ENERGY] > 300000) {
+            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 600000 && room.terminal.store[RESOURCE_ENERGY] > 75000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {
                 room.terminal.send(RESOURCE_ENERGY, 10000, targetRampRoom, "enjoy this energy, other room!");
                 console.log("sending room", targetRampRoom, "10000 energy")
             }
     }
-
-    if(Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 25000000) {
+    // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
+    if(Game.time % 10 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 1000000) {
         let foundInRoomEnergyOrder = false;
 
         let Orders = Game.market.orders;
@@ -389,7 +389,7 @@ function market(room):any {
                 foundInRoomEnergyOrder = true;
             }
 
-            if(order.roomName == room.name && order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.amount <= 1000 && storage && storage.store[RESOURCE_ENERGY] < 600000 && room.controller.level < 8) {
+            if(order.roomName == room.name && order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.amount <= 1000 && storage && storage.store[RESOURCE_ENERGY] < 10000) {
                 Game.market.extendOrder(orderID, 20000);
             }
         }

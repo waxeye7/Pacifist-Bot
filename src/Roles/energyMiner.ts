@@ -36,13 +36,9 @@ const run = function (creep) {
         return;
     }
     else {
-        if(creep.memory.boostlabs) {
+        if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
             let result = creep.Boost();
-            if(result) {
-                creep.room.memory.labs.status.boost.lab1.use = false;
-            }
             if(!result) {
-                creep.room.memory.labs.status.boost.lab1.use = true;
                 return;
             }
         }

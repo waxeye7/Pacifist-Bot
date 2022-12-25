@@ -1,36 +1,14 @@
 const run = function (creep:Creep) {
     creep.Speak();
 
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
     if(creep.room.memory.danger) {
-
-
-        // if(creep.body.length > 40 && creep.body[24].boost == undefined && creep.ticksToLive > 1300 && creep.room.find(FIND_HOSTILE_CREEPS).length > 1) {
-        //     let boostLabID = creep.room.memory.labs[0]
-        //     let boostLab:any = Game.getObjectById(boostLabID);
-        //     if(boostLab && boostLab.store[RESOURCE_UTRIUM_HYDRIDE] >= 100) {
-        //         if(creep.pos.isNearTo(boostLab)) {
-        //             boostLab.boostCreep(creep);
-        //         }
-        //         else {
-        //             creep.moveTo(boostLab);
-        //         }
-        //         return;
-        //     }
-        // }
-
-        // if(creep.body.length > 40 && creep.body[24].boost != undefined && creep.ticksToLive < 50 && !creep.room.memory.danger) {
-        //     let boostLabID = creep.room.memory.labs[0]
-        //     let boostLab:any = Game.getObjectById(boostLabID);
-        //     if(boostLab) {
-        //         if(creep.pos.isNearTo(boostLab)) {
-        //             console.log(boostLab.unboostCreep(creep))
-        //         }
-        //         else {
-        //             creep.moveTo(boostLab);
-        //         }
-        //         return;
-        //     }
-        // }
 
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 

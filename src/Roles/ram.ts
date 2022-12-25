@@ -5,6 +5,13 @@
  const run = function (creep:any) {
     creep.Speak();
 
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
     // if((creep.pos.x == 49 || creep.pos.x == 0 || creep.pos.y == 49 || creep.pos.y == 0) && creep.room.name == creep.memory.targetRoom) {
     //     creep.moveTo(25,25, {range:22});
     // }
@@ -84,7 +91,7 @@
 
     let Structures = creep.room.find(FIND_STRUCTURES);
     if(Structures.length > 0 && !target) {
-        let enemySpawns = Structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_EXTENSION});
+        let enemySpawns = Structures.filter(function(building) {return building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_RAMPART});
         if(enemySpawns.length > 0) {
             let closestEnemySpawn = creep.pos.findClosestByRange(enemySpawns);
             target = closestEnemySpawn;
@@ -106,7 +113,7 @@
                 creep.attack(target);
             }
             else {
-                creep.moveTo(target, {swampCost:4});
+                creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
             }
         }
         else {
@@ -118,7 +125,7 @@
 
                 }
                 else {
-                    creep.moveTo(target, {swampCost:4});
+                    creep.moveTo(target, {swampCost:4, ignoreCreeps:true});
 
                 }
 
