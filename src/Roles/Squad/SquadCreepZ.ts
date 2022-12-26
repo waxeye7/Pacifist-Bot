@@ -6,6 +6,14 @@
  const run = function (creep:any) {
     creep.Speak();
 
+
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
         if(a) {

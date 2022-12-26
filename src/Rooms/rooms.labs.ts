@@ -620,7 +620,7 @@ function labs(room) {
     if(Game.cpu.bucket > 40) {
         if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && !room.memory.labs.status.boost.lab1.use && (!room.memory.labs.status.boost.lab1.amount || room.memory.labs.status.boost.lab1.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && room.memory.labs.status.boost.lab1.use == 0 && (!room.memory.labs.status.boost.lab1.amount || room.memory.labs.status.boost.lab1.amount == 0)) {
                     outputLab1.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost|| !room.memory.labs.status.boost.lab1) {
@@ -630,7 +630,7 @@ function labs(room) {
         }
         if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && !room.memory.labs.status.boost.lab2.use && (!room.memory.labs.status.boost.lab2.amount || room.memory.labs.status.boost.lab2.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && room.memory.labs.status.boost.lab2.use == 0 && (!room.memory.labs.status.boost.lab2.amount || room.memory.labs.status.boost.lab2.amount == 0)) {
                     outputLab2.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab2) {
@@ -640,7 +640,7 @@ function labs(room) {
         }
         if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab3 && !room.memory.labs.status.boost.lab3.use && (!room.memory.labs.status.boost.lab3.amount || room.memory.labs.status.boost.lab3.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab3 && room.memory.labs.status.boost.lab3.use == 0 && (!room.memory.labs.status.boost.lab3.amount || room.memory.labs.status.boost.lab3.amount == 0)) {
                     outputLab3.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab3) {
@@ -650,7 +650,7 @@ function labs(room) {
         }
         if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab4 && !room.memory.labs.status.boost.lab4.use && (!room.memory.labs.status.boost.lab4.amount || room.memory.labs.status.boost.lab4.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab4 && room.memory.labs.status.boost.lab4.use == 0 && (!room.memory.labs.status.boost.lab4.amount || room.memory.labs.status.boost.lab4.amount == 0)) {
                     outputLab4.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab4) {
@@ -670,7 +670,7 @@ function labs(room) {
         }
         if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab6 && !room.memory.labs.status.boost.lab6.use && (!room.memory.labs.status.boost.lab6.amount || room.memory.labs.status.boost.lab6.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab6 && room.memory.labs.status.boost.lab6.use == 0 && (!room.memory.labs.status.boost.lab6.amount || room.memory.labs.status.boost.lab6.amount == 0)) {
                     outputLab6.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab6) {
@@ -680,7 +680,7 @@ function labs(room) {
         }
         if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab7 && !room.memory.labs.status.boost.lab7.use && (!room.memory.labs.status.boost.lab7.amount || room.memory.labs.status.boost.lab7.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab7 && room.memory.labs.status.boost.lab7.use == 0 && (!room.memory.labs.status.boost.lab7.amount || room.memory.labs.status.boost.lab7.amount == 0)) {
                     outputLab7.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab7) {
@@ -690,7 +690,7 @@ function labs(room) {
         }
         if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity() != 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
-                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab8 && !room.memory.labs.status.boost.lab8.use && (!room.memory.labs.status.boost.lab8.amount || room.memory.labs.status.boost.lab8.amount == 0)) {
+                if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab8 && room.memory.labs.status.boost.lab8.use == 0 && (!room.memory.labs.status.boost.lab8.amount || room.memory.labs.status.boost.lab8.amount == 0)) {
                     outputLab8.runReaction(inputLab1, inputLab2);
                 }
                 else if(!room.memory.labs.status.boost || !room.memory.labs.status.boost.lab8) {

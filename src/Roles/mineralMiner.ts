@@ -115,7 +115,7 @@
                 creep.transfer(terminal, deposit.mineralType);
             }
             else {
-                creep.MoveCostMatrixIgnoreRoads(terminal, 1);
+                creep.MoveCostMatrixRoadPrio(terminal, 1);
             }
             return;
         }
@@ -126,7 +126,7 @@
                 creep.transfer(storage, deposit.mineralType);
             }
             else {
-                creep.MoveCostMatrixIgnoreRoads(storage, 1);
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
             return;
         }

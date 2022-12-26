@@ -7,16 +7,20 @@ import { indexOf } from "lodash";
  const run = function (creep:any) {
     creep.Speak();
 
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
+
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
         if(a) {
             creep.moveTo(new RoomPosition(a.pos.x + 1,a.pos.y,a.room.name));
         }
     }
-    // if(creep.ticksToLive < 1400) {
-    //     creep.moveTo(39,40);
-    //     return;
-    // }
 
 
 

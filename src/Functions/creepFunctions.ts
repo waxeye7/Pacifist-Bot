@@ -40,36 +40,28 @@ Creep.prototype.Boost = function Boost():any {
         if(this.pos.isNearTo(closestLab)) {
             let result = closestLab.boostCreep(this);
             if(result == 0) {
-                // if(closestLab.mineralType == undefined) {
-                if(this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id && this.getActiveBodyparts(WORK) * 30 == closestLab.store[RESOURCE_UTRIUM_OXIDE] ||
-                this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id && (this.getActiveBodyparts(WORK) * 30) * 1.9 >= closestLab.store[RESOURCE_UTRIUM_OXIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_UTRIUM_OXIDE) {
-                    this.room.memory.labs.status.boost.lab1.use = false;
+                if(this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab1.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id && this.getActiveBodyparts(WORK) * 30 == closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] ||
-                this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id && (this.getActiveBodyparts(WORK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ACID) {
-                    this.room.memory.labs.status.boost.lab2.use = false;
+                else if(this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab2.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id && this.getActiveBodyparts(ATTACK) * 30 == closestLab.store[RESOURCE_CATALYZED_UTRIUM_ACID] ||
-                this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id && (this.getActiveBodyparts(ATTACK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_UTRIUM_ACID] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_UTRIUM_ACID) {
-                    this.room.memory.labs.status.boost.lab3.use = false;
+                else if(this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab3.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id && this.getActiveBodyparts(HEAL) * 30 == closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] ||
-                this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id && (this.getActiveBodyparts(HEAL) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) {
-                    this.room.memory.labs.status.boost.lab4.use = false;
+                else if(this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab4.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id && this.getActiveBodyparts(RANGED_ATTACK) * 30 == closestLab.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] ||
-                this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id && (this.getActiveBodyparts(RANGED_ATTACK) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) {
-                    this.room.memory.labs.status.boost.lab5.use = false;
+                else if(this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab5.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id && this.getActiveBodyparts(MOVE) * 30 == closestLab.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] ||
-                this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id && (this.getActiveBodyparts(MOVE) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) {
-                    this.room.memory.labs.status.boost.lab6.use = false;
+                else if(this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab6.use -= 1;
                 }
-                else if(this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id && this.getActiveBodyparts(TOUGH) * 30 == closestLab.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] ||
-                this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id && (this.getActiveBodyparts(TOUGH) * 30) * 1.9 >= closestLab.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] && this.room.memory.labs.status.currentOutput == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) {
-                    this.room.memory.labs.status.boost.lab7.use = false;
+                else if(this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab7.use -= 1;
                 }
-                // }
+
                 let idToRemove = closestLab.id;
                 this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
                 return;
@@ -633,7 +625,7 @@ Creep.prototype.recycle = function recycle() {
         return this.moveToRoom(this.memory.homeRoom);
     }
 
-    if(this.room.memory.Structures.bin) {
+    if(this.room.memory.Structures && this.room.memory.Structures.bin) {
         let bin:any = Game.getObjectById(this.room.memory.Structures.bin)
         if(bin && bin.store[RESOURCE_ENERGY] < 2000) {
             if(this.pos.x == bin.pos.x && this.pos.y == bin.pos.y) {
@@ -680,8 +672,19 @@ Creep.prototype.recycle = function recycle() {
         }
     }
     else {
-        let storage = Game.getObjectById(this.room.memory.Structures.storage) || this.room.findStorage();
-        this.room.findBin(storage);
+        let storage;
+        if(this.room.memory.Structures) {
+            storage = Game.getObjectById(this.room.memory.Structures.storage) || this.room.findStorage();
+        }
+
+        if(storage) {
+            this.room.findBin(storage);
+        }
+
+        else {
+            this.room.memory.Structures = {};
+        }
+
     }
 }
 
@@ -986,7 +989,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
             if(creep.pos.isNearTo(source)) {
-                costs.set(creep.pos.x, creep.pos.y, 5);
+                costs.set(creep.pos.x, creep.pos.y, 7);
             }
         }
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
@@ -1109,7 +1112,7 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
             if(creep.pos.isNearTo(source)) {
-                costs.set(creep.pos.x, creep.pos.y, 5);
+                costs.set(creep.pos.x, creep.pos.y, 7);
             }
         }
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
@@ -1233,7 +1236,7 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
             if(creep.pos.isNearTo(source)) {
-                costs.set(creep.pos.x, creep.pos.y, 5);
+                costs.set(creep.pos.x, creep.pos.y, 7);
             }
         }
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {

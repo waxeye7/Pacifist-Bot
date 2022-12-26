@@ -7,10 +7,10 @@ import randomWords from "random-words";
  const run = function (creep) {
     creep.Speak();
     creep.memory.moving = false;
-    if(creep.ticksToLive == 40) {
+    if(creep.ticksToLive == 60) {
         let newName = 'EnergyManager-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
         if(creep.room.controller && creep.room.controller.level == 8) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
+            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }
         else {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
@@ -140,7 +140,7 @@ import randomWords from "random-words";
             for(let outputLab of outputLabs) {
                 number += 1;
 
-                if(number == 1 && creep.room.memory.labs.outputLab1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1.use) {
+                if(number == 1 && creep.room.memory.labs.outputLab1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab1.amount == 0) {
                         // do nothing
                     }
@@ -177,7 +177,7 @@ import randomWords from "random-words";
                 }
 
 
-                else if(number == 2 && creep.room.memory.labs.outputLab2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2.use) {
+                else if(number == 2 && creep.room.memory.labs.outputLab2 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab2 && creep.room.memory.labs.status.boost.lab2.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab2.amount == 0) {
                         // do nothing
                     }
@@ -214,7 +214,7 @@ import randomWords from "random-words";
                     }
                 }
 
-                else if(number == 3 && creep.room.memory.labs.outputLab3 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab3 && creep.room.memory.labs.status.boost.lab3.use) {
+                else if(number == 3 && creep.room.memory.labs.outputLab3 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab3 && creep.room.memory.labs.status.boost.lab3.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab3.amount == 0) {
                         // do nothing
                     }
@@ -252,7 +252,7 @@ import randomWords from "random-words";
                 }
 
 
-                else if(number == 4 && creep.room.memory.labs.outputLab4 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab4 && creep.room.memory.labs.status.boost.lab4.use) {
+                else if(number == 4 && creep.room.memory.labs.outputLab4 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab4 && creep.room.memory.labs.status.boost.lab4.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab4.amount == 0) {
                         // do nothing
                     }
@@ -290,7 +290,7 @@ import randomWords from "random-words";
                 }
 
 
-                else if(number == 5 && creep.room.memory.labs.outputLab5 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab5 && creep.room.memory.labs.status.boost.lab5.use) {
+                else if(number == 5 && creep.room.memory.labs.outputLab5 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab5 && creep.room.memory.labs.status.boost.lab5.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab5.amount == 0) {
                         // do nothing
                     }
@@ -327,7 +327,7 @@ import randomWords from "random-words";
                     }
                 }
 
-                else if(number == 6 && creep.room.memory.labs.outputLab6 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab6 && creep.room.memory.labs.status.boost.lab6.use) {
+                else if(number == 6 && creep.room.memory.labs.outputLab6 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab6 && creep.room.memory.labs.status.boost.lab6.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab6.amount == 0) {
                         // do nothing
                     }
@@ -364,7 +364,7 @@ import randomWords from "random-words";
                     }
                 }
 
-                else if(number == 7 && creep.room.memory.labs.outputLab7 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab7 && creep.room.memory.labs.status.boost.lab7.use) {
+                else if(number == 7 && creep.room.memory.labs.outputLab7 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab7 && creep.room.memory.labs.status.boost.lab7.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab7.amount == 0) {
                         // do nothing
                     }

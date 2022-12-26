@@ -8,12 +8,12 @@
     //     return false;
     // }
 
-    let towers1 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] <= 250)});
-    if(towers1.length > 0) {
-        let closestTower = creep.pos.findClosestByRange(towers1);
-        creep.memory.locked = closestTower.id;
-        return closestTower;
-    }
+    // let towers1 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] <= 250)});
+    // if(towers1.length > 0) {
+    //     let closestTower = creep.pos.findClosestByRange(towers1);
+    //     creep.memory.locked = closestTower.id;
+    //     return closestTower;
+    // }
 
 
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});

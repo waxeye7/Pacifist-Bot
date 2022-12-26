@@ -10,10 +10,15 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
  const run = function (creep:any) {
     creep.Speak();
 
-    // if(!creep.memory.go && (creep.pos.x !== 38 || creep.pos.y !== 39) && creep.pos.roomName === creep.memory.homeRoom) {
-    //     creep.moveTo(new RoomPosition(38,39,"E45N59"));
-    //     return;
-    // }
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
+
+
 
     let move_location = creep.memory.targetPosition;
 
@@ -271,7 +276,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hitsMax/2 <= target.hitsMax) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits <= target.hitsMax/1.5) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -295,8 +300,11 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                     let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
                     if(nowall.length > 0) {
                         let closestBuilding = z.pos.findClosestByRange(nowall);
-                        creep.memory.targetPosition = closestBuilding.pos;
-                        move_location = creep.memory.targetPosition
+                        if(closestBuilding) {
+                            creep.memory.targetPosition = closestBuilding.pos;
+                            move_location = creep.memory.targetPosition
+                        }
+
                     }
                 }
             }
