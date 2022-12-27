@@ -193,13 +193,17 @@ function market(room):any {
             }
         }
 
-        function sell_resource(resource:ResourceConstant | RESOURCE_BATTERY | RESOURCE_OPS, OrderPrice:number=5):any | void {
-            let OrderAmount = 100;
+        function sell_resource(resource:ResourceConstant | RESOURCE_BATTERY | RESOURCE_OPS, OrderPrice:number=5, OrderAmount=100):any | void {
             let OrderMaxEnergy = OrderAmount * 8;
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
             if(orders.length > 0) {
                 orders.sort((a,b) => b.price - a.price);
+
+                // if(!price_checker(orders[0].price, resource)) {
+                //     return false;
+                // }
+
                 let orderID = orders[0].id;
 
                 console.log(JSON.stringify(orders[0]))
@@ -248,6 +252,68 @@ function market(room):any {
                 console.log("no order found below price of", OrderPrice, "for", RESOURCE_ENERGY)
             }
 
+        }
+
+
+        if(room.terminal.store[RESOURCE_CONDENSATE] >= 10) {
+            let result = sell_resource(RESOURCE_CONDENSATE, 999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CONCENTRATE] >= 10) {
+            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CONCENTRATE] >= 2) {
+            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, 2);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_EXTRACT] >= 5) {
+            let result = sell_resource(RESOURCE_EXTRACT, 80000, 5);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_EXTRACT] >= 1) {
+            let result = sell_resource(RESOURCE_EXTRACT, 80000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_SPIRIT] >= 1) {
+            let result = sell_resource(RESOURCE_SPIRIT, 199999, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_EMANATION] >= 1) {
+            let result = sell_resource(RESOURCE_EMANATION, 800000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_ESSENCE] >= 1) {
+            let result = sell_resource(RESOURCE_ESSENCE, 2000000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CONDENSATE] > 0) {
+            let result = sell_resource(RESOURCE_CONDENSATE, 999, room.terminal.store[RESOURCE_CONDENSATE]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CONCENTRATE] > 0) {
+            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, room.terminal.store[RESOURCE_CONCENTRATE]);
+            if(result == 0) {
+                return;
+            }
         }
 
 
@@ -404,9 +470,30 @@ function market(room):any {
             });
         }
     }
-
-
 }
-
 export default market;
-// module.exports = market;
+
+
+function price_checker(price, resource) {
+    if(resource == RESOURCE_CONDENSATE && price < 999) {
+        return false;
+    }
+    else if(resource == RESOURCE_CONCENTRATE && price < 9999) {
+        return false;
+    }
+    else if(resource == RESOURCE_EXTRACT && price < 80000) {
+        return false;
+    }
+    else if(resource == RESOURCE_SPIRIT && price < 199999) {
+        return false;
+    }
+    else if(resource == RESOURCE_EMANATION && price < 800000) {
+        return false;
+    }
+    else if(resource == RESOURCE_ESSENCE && price < 2000000) {
+        return false;
+    }
+
+
+    return true;
+}

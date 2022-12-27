@@ -90,12 +90,12 @@ function findLocked(creep) {
                         findLocked(creep);
                         let target:any = Game.getObjectById(creep.memory.locked);
                         if(!creep.pos.isNearTo(target)) {
-                            creep.MoveCostMatrixSwampPrio(target, 1);
+                            creep.MoveCostMatrixIgnoreRoads(target, 1);
                         }
                     }
                 }
                 else {
-                    creep.MoveCostMatrixSwampPrio(target, 1);
+                    creep.MoveCostMatrixIgnoreRoads(target, 1);
                 }
             }
         }
@@ -134,12 +134,12 @@ function findLocked(creep) {
                             findLocked(creep);
                             let target = Game.getObjectById(creep.memory.locked);
                             if(!creep.pos.isNearTo(target)) {
-                                creep.MoveCostMatrixSwampPrio(target, 1)
+                                creep.MoveCostMatrixIgnoreRoads(target, 1)
                             }
                         }
                     }
                     else {
-                        creep.MoveCostMatrixSwampPrio(target, 1)
+                        creep.MoveCostMatrixIgnoreRoads(target, 1)
                     }
                 }
             }

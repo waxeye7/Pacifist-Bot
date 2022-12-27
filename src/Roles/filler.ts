@@ -225,9 +225,9 @@
         }
     }
 
-
+    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
         let bin;
         if(creep.room.memory.Structures) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
@@ -259,6 +259,9 @@
                 creep.moveAwayIfNeedTo();
             }
         }
+    }
+    if(!creep.memory.locked && storage) {
+        creep.MoveCostMatrixRoadPrio(storage,1);
     }
 
 }

@@ -539,8 +539,12 @@ import randomWords from "random-words";
             return;
         }
 
-        let listOfResourcesToTerminal:any = [RESOURCE_BATTERY, RESOURCE_OPS];
-        if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10 && (storage.store[RESOURCE_BATTERY] >= MaxStorage || storage.store[RESOURCE_OPS] >= MaxStorage)) {
+        let listOfResourcesToTerminal:any = [RESOURCE_BATTERY, RESOURCE_OPS,
+        RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
+        RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
+        RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
+        RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE];
+        if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
             if(creep.pos.isNearTo(storage)) {
                 for(let resource in storage.store) {
                     if(listOfResourcesToTerminal.includes(resource)) {

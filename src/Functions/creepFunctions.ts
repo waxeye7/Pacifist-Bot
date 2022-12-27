@@ -453,7 +453,7 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
     if(blockFound.length > 0) {
         let closestBlock = 100;
         let currentClosest = null;
-        if(this.room.memory.Structures.storage) {
+        if(this.room.memory.Structures && this.room.memory.Structures.storage) {
             let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
             for(let block of blockFound) {
                 let range = block.getRangeTo(storage);
@@ -840,7 +840,7 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
-        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+        if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
 
@@ -1019,7 +1019,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
 Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
-        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+        if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
 
@@ -1143,7 +1143,7 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
 Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
-        if(this.memory.path && this.memory.path.length > 0 && this.pos.getRangeTo(this.memory.path[0]) > 1) {
+        if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
 
