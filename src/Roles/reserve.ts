@@ -27,7 +27,7 @@
         if(creep.memory.claim) {
             if(creep.room.controller.level == 0) {
                 if(creep.claimController(creep.room.controller) == 0) {
-                    creep.signController(creep.room.controller, "we come in peace")
+                    // creep.signController(creep.room.controller, "we come in peace")
                     creep.suicide();
                     return;
                 }
@@ -38,7 +38,7 @@
             }
         }
         if(creep.pos.isNearTo(creep.room.controller)) {
-            creep.signController(creep.room.controller, "we come in peace")
+            // creep.signController(creep.room.controller, "we come in peace")
             creep.reserveController(creep.room.controller);
         }
         else {

@@ -112,13 +112,6 @@ function rooms() {
                 room.controller.activateSafeMode();
             }
 
-
-            if(room.controller.level >= 6) {
-                if(!room.memory.spawning_squad) {
-                    room.memory.spawning_squad = {};
-                }
-            }
-
             if(!Memory.AvoidRooms) {
                 Memory.AvoidRooms = [];
             }

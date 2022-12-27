@@ -276,7 +276,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits <= target.hitsMax/1.5) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits <= target.hitsMax/1.8) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 

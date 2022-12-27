@@ -1,3 +1,4 @@
+import { Signer } from "crypto";
 import randomWords from "random-words";
 
 function isInRoom(creep, room) {
@@ -558,6 +559,9 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let goblins = 0;
 
+    let Signers = 0;
+    let Priests = 0;
+
     let SpecialRepairers = 0;
     let SpecialCarriers = 0;
 
@@ -726,6 +730,18 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
                 break;
 
+            case "Sign":
+                if(creep.memory.homeRoom == room.name) {
+                    Signers ++;
+                }
+                break;
+
+            case "Priest":
+                if(creep.memory.homeRoom == room.name) {
+                    Priests ++;
+                }
+                break;
+
 
             case "SpecialRepair":
                 if(isInRoom(creep, room)) {
@@ -799,102 +815,25 @@ function add_creeps_to_spawn_list(room, spawn) {
     spawn_reserver(resourceData, room, storage);
 
 
-    // if(!room.memory.spawning_squad.status) {
-    //     room.memory.spawning_squad.status = true;
-    // }
-
-
-
-    if(room.memory.spawning_squad && room.memory.spawning_squad.status && room.memory.spawning_squad.targetRoom && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
-        room.memory.spawning_squad.creepA = true;
-        room.memory.spawning_squad.creepB = true;
-        room.memory.spawning_squad.creepY = true;
-        room.memory.spawning_squad.creepZ = true;
+    if(Signers < 1 && room.controller.level >= 5 && !room.memory.danger && room.memory.danger_timer == 0 && room.controller.sign && room.controller.sign.text !== "We did not inherit the earth from our ancestors; we borrowed it from our children") {
+        let newName = 'Signer' + "-" + room.name;
+        room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'Sign', homeRoom: room.name}});
+        console.log('Adding Signer to Spawn List: ' + newName);
     }
-    if(room.controller.level >= 6 && room.memory.spawning_squad && room.memory.spawning_squad.status && room.memory.spawning_squad.targetRoom && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
-        if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-            console.log('Adding filler to Spawn List: ' + newName);
-        }
-
-        if(fillers < 4) {
-            let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
-            console.log('Adding filler to Spawn List: ' + newName2);
-        }
-
-
-        if(Memory.CanClaimRemote) {
-            let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:room.memory.spawning_squad.targetRoom}});
-            console.log('Adding wall-clearer to Spawn List: ' + newName);
-        }
-
-
-        let bodyLevel6 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
-
-        let bodyLevel7 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                          HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
-
-        let bodyLevel8 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                          HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
-
-
-        let currentBody;
-        if(room.controller.level == 6) {
-            currentBody = bodyLevel6;
-        }
-        else if(room.controller.level == 7) {
-            currentBody = bodyLevel7;
-        }
-        else if(room.controller.level == 8) {
-            currentBody = bodyLevel8;
-        }
-
-        if(room.memory.spawning_squad.creepA) {
-            let newName = 'SquadCreepA-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(currentBody, newName, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,room.memory.spawning_squad.targetRoom)}});
-            console.log('Adding SquadCreepA to Spawn List: ' + newName);
-            room.memory.spawning_squad.creepA = false;
-        }
-        if(room.memory.spawning_squad.creepB) {
-            let newName = 'SquadCreepB-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(currentBody, newName, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
-            console.log('Adding SquadCreepB to Spawn List: ' + newName);
-            room.memory.spawning_squad.creepB = false;
-        }
-        if(room.memory.spawning_squad.creepY) {
-            let newName = 'SquadCreepY-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(currentBody, newName, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
-            console.log('Adding SquadCreepY to Spawn List: ' + newName);
-            room.memory.spawning_squad.creepY = false;
-        }
-        if(room.memory.spawning_squad.creepZ) {
-            let newName = 'SquadCreepZ-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(currentBody, newName, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
-            console.log('Adding SquadCreepZ to Spawn List: ' + newName);
-            room.memory.spawning_squad.creepZ = false;
-        }
-
-        room.memory.spawning_squad.status = false;
+    if(Priests < 1 && room.controller.level >= 7 && !room.memory.danger && room.memory.danger_timer == 0 && Game.time % 25000 < 100) {
+        let newName = 'Priest' + "-" + room.name;
+        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
+        console.log('Adding Priest to Spawn List: ' + newName);
     }
 
 
-
-    if(SpecialRepairers < 1 && room.memory.danger && room.memory.danger_timer >= 50 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
+    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && (room.memory.danger && room.memory.danger_timer >= 50 || storage.store[RESOURCE_ENERGY] >= 650000) && room.controller.level >= 7) {
         let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         console.log('Adding SpecialRepair to Spawn List: ' + newName);
 
         // if room memory danger
-        if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab2) {
+        if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab2 && room.memory.danger && room.memory.danger_timer >= 50) {
             if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                 room.memory.labs.status.boost = {};
             }
@@ -917,7 +856,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
     }
-    if(SpecialCarriers < 1 && room.memory.danger && room.memory.danger_timer >= 50 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 120000) {
+    if(SpecialCarriers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && (room.memory.danger && room.memory.danger_timer >= 50 || storage.store[RESOURCE_ENERGY] >= 650000) && room.controller.level >= 7) {
         let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialCarry'}});
         console.log('Adding SpecialCarry to Spawn List: ' + newName);
@@ -1172,10 +1111,10 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     let richRoom = false;
-    if(richRoom && goblins < 1 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 1 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
+    if(richRoom && goblins < 1 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
     richRoom && goblins < 2 && Game.cpu.bucket > 6000 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
         let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
+        room.memory.spawn_list.push(getBody([CARRY,MOVE], room, 50), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
         console.log('Adding Goblin to Spawn List: ' + newName);
     }
 

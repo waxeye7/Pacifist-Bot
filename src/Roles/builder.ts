@@ -57,6 +57,7 @@
         }
 
 
+
         if(creep.memory.locked) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
             if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {

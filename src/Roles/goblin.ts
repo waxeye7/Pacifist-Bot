@@ -61,7 +61,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 25, ignoreCreeps:true , visualizePathStyle: {stroke: '#ffffff'}});
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
         }
     }
@@ -69,6 +69,24 @@ import roomDefence from "Rooms/rooms.defence";
         if(creep.room.name != creep.memory.targetRoom) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
+
+
+        let ruins = creep.room.find(FIND_RUINS);
+        if(ruins.length > 0) {
+            for(let ruin of ruins) {
+                for(let resource in ruin.store) {
+                    if(creep.pos.isNearTo(ruin)) {
+                        creep.withdraw(ruin, resource)
+                    }
+                    else {
+                        creep.moveTo(ruin);
+                    }
+                    return;
+                }
+            }
+
+        }
+
 
 
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);

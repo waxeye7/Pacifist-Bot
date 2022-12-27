@@ -89,9 +89,9 @@ function market(room):any {
                 if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
                     if(Memory.my_goods[resource].length > 0) {
                         for(let room_with_mineral of Memory.my_goods[resource]) {
-                            if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 20000) {
-                                Game.rooms[room_with_mineral].terminal.send(resource, 200, room.name, "enjoy this " + resource + " other room!");
-                                console.log("sending", room.name, "200", resource)
+                            if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 15000) {
+                                Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
+                                console.log("sending", room.name, "1000", resource)
                                 break;
                             }
                         }
