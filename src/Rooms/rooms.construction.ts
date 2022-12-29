@@ -1,3 +1,4 @@
+import path from "path";
 import randomWords from "random-words";
 
 let checkerboard =
@@ -191,6 +192,17 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 buldingAlreadyHereCount ++;
                 return;
             }
+
+            if(blockSpot.getRangeTo(storage) > 10) {
+                return;
+            }
+
+            if(PathFinder.search(blockSpot, storage.pos).path.length > 11) {
+                return;
+            }
+
+
+
             new RoomVisual(blockSpot.roomName).circle(blockSpot.x, blockSpot.y, {fill: '#000000', radius: 0.25, stroke: '#FABFAB'});
 
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_ROAD) {
@@ -1254,6 +1266,7 @@ function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, ori
 
 
 
+
 const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
     let currentRoom = Game.rooms[roomName];
     if(currentRoom == undefined || currentRoom === undefined || !currentRoom || currentRoom === null || currentRoom == null) {
@@ -1274,6 +1287,47 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
     }
     return costs;
 }
+
+// const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
+//     let currentRoom = Game.rooms[roomName];
+//     if(currentRoom == undefined || currentRoom === undefined || !currentRoom || currentRoom === null || currentRoom == null) {
+//         return false;
+//     }
+//     let costs = new PathFinder.CostMatrix;
+
+//     let storage:any = Game.getObjectById(currentRoom.memory.Structures.storage) || currentRoom.findStorage();
+
+
+//     let illegal_locations_for_roads = [
+//         []
+//     ]
+
+//     let positions_to_loop_through = getNeighbours(storage.pos, illegal_locations_for_roads);
+
+//     for(let almost_position of checkerboard) {
+//         costs.set(almost_position[0],almost_position[1],255);
+//     }
+
+
+//     let existingStructures = currentRoom.find(FIND_STRUCTURES);
+//     if(existingStructures.length > 0) {
+//         existingStructures.forEach(building => {
+//             if(building.structureType != STRUCTURE_RAMPART && building.structureType != STRUCTURE_CONTAINER && building.structureType != STRUCTURE_ROAD) {
+//                 costs.set(building.pos.x, building.pos.y, 255);
+//             }
+//             // else {
+//             //     costs.set(building.pos.x, building.pos.y, 0);
+//             // }
+//         });
+//     }
+
+
+
+//     return costs;
+// }
+
+
+
 
 const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix => {
     let currentRoom:any = Game.rooms[roomName];

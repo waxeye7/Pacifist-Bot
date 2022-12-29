@@ -1,4 +1,3 @@
-import { Signer } from "crypto";
 import randomWords from "random-words";
 
 function isInRoom(creep, room) {
@@ -57,7 +56,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
 
     let threeWorkParts = 7;
-    let fiveWorkParts = 11;
+    let fiveWorkParts = 12;
 
 
     if(carriersInRoom.length == 0 && storage == undefined) {
@@ -1271,6 +1270,11 @@ function add_creeps_to_spawn_list(room, spawn) {
     else if (room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] != 0 && (fillers < 2 && room.energyAvailable < room.energyCapacityAvailable || fillers < 1)) {
         let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+        console.log('Adding filler to Spawn List: ' + newName);
+    }
+    else if (room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] != 0 && fillers < 3 && Memory.targetRampRoom == room.name) {
+        let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         console.log('Adding filler to Spawn List: ' + newName);
     }
 }
