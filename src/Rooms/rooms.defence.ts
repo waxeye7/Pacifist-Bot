@@ -161,7 +161,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger && room.controller.level < 7) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }
@@ -171,7 +171,7 @@ function roomDefence(room) {
                         room.memory.lowestHitsBuildingToRepair = null;
                         return;
                     }
-                    if(tower.repair(repairTarget) != 0) {
+                    if(repairTarget && tower.repair(repairTarget) != 0) {
                         room.memory.lowestHitsBuildingToRepair = null;
                     }
                 }

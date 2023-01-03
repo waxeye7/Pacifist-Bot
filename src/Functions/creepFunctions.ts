@@ -229,13 +229,17 @@ Creep.prototype.findClosestLink = function() {
     }
 }
 
-Creep.prototype.findClosestLinkToStorage = function() {
-    let links = this.room.find(FIND_MY_STRUCTURES, {filter: { structureType : STRUCTURE_LINK}});
+Creep.prototype.findClosestLinkToStorage = function():any {
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    if(links.length && storage) {
-        let closestLink = storage.pos.findClosestByRange(links);
-        this.memory.closestLink = closestLink.id;
-        return closestLink;
+    let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.room.name);
+    let lookForBuildingsOnStorageLinkPosition = storageLinkPosition.lookFor(LOOK_STRUCTURES);
+    if(lookForBuildingsOnStorageLinkPosition.length > 0) {
+        for(let building of lookForBuildingsOnStorageLinkPosition) {
+            if(building.structureType == STRUCTURE_LINK) {
+                this.memory.closestLink = building.id;
+                return building;
+            }
+        }
     }
 }
 
@@ -960,7 +964,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
     });
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
-        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
@@ -1082,7 +1086,7 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
     }
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
-        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
@@ -1204,7 +1208,7 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
     }
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
-        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });

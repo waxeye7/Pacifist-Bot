@@ -78,7 +78,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
     }
 
 
-    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});
+    let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR && building.structureType !== STRUCTURE_EXTRACTOR});
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let enemyCreepInRangeThree = creep.pos.findInRange(enemyCreeps, 3);
     let targetCreep;

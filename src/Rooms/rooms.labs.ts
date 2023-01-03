@@ -314,7 +314,7 @@ function labs(room) {
         }
 
         if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
-            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 20000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
+            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 30000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
                 lab1Input = RESOURCE_OXYGEN;
                 lab2Input = RESOURCE_UTRIUM;
                 currentOutput = RESOURCE_UTRIUM_OXIDE;
@@ -454,7 +454,7 @@ function labs(room) {
                 currentOutput = RESOURCE_UTRIUM_ACID;
             }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 10000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 16000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_UTRIUM_ACID;
                 currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
@@ -478,7 +478,7 @@ function labs(room) {
                 currentOutput = RESOURCE_ZYNTHIUM_ALKALIDE;
             }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 20000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 30000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
                 currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;

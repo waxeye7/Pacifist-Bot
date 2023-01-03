@@ -8,3 +8,5 @@ more carry parts pre storage where the extensions aren't enough to make right bo
 squad sees better route outside room, make the target for 10 ticks be to that way
 
 repair roads in room one big repair creep instead of towers and also need roads built layout before anything else
+
+rotating quads

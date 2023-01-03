@@ -134,11 +134,32 @@ function market(room):any {
             }
 
 
-            let SellResources = [RESOURCE_OPS, RESOURCE_BATTERY, RESOURCE_KEANIUM_BAR];
+            let SellResources = [RESOURCE_OPS, RESOURCE_BATTERY,
+            RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+            RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
+            RESOURCE_POWER, RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
 
             for(let resource of SellResources) {
+                if(room.terminal.store[resource] >= 1000) {
+                    let result = sell_resource(resource, 10, 1000);
+                    if(result == 0) {
+                        return;
+                    }
+                }
                 if(room.terminal.store[resource] >= 100) {
-                    let result = sell_resource(resource, 20);
+                    let result = sell_resource(resource, 10, 100);
+                    if(result == 0) {
+                        return;
+                    }
+                }
+                if(room.terminal.store[resource] >= 10) {
+                    let result = sell_resource(resource, 10, 10);
+                    if(result == 0) {
+                        return;
+                    }
+                }
+                if(room.terminal.store[resource] >= 1) {
+                    let result = sell_resource(resource, 10, 1);
                     if(result == 0) {
                         return;
                     }
@@ -315,6 +336,186 @@ function market(room):any {
                 return;
             }
         }
+        if(room.terminal.store[RESOURCE_WIRE] >= 10) {
+            let result = sell_resource(RESOURCE_WIRE, 999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_SWITCH] >= 10) {
+            let result = sell_resource(RESOURCE_SWITCH, 9999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_SWITCH] >= 2) {
+            let result = sell_resource(RESOURCE_SWITCH, 9999, 2);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TRANSISTOR] >= 5) {
+            let result = sell_resource(RESOURCE_TRANSISTOR, 80000, 5);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TRANSISTOR] >= 1) {
+            let result = sell_resource(RESOURCE_TRANSISTOR, 80000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_MICROCHIP] >= 1) {
+            let result = sell_resource(RESOURCE_MICROCHIP, 199999, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CIRCUIT] >= 1) {
+            let result = sell_resource(RESOURCE_CIRCUIT, 800000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_DEVICE] >= 1) {
+            let result = sell_resource(RESOURCE_DEVICE, 2000000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_WIRE] > 0) {
+            let result = sell_resource(RESOURCE_WIRE, 999, room.terminal.store[RESOURCE_WIRE]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_SWITCH] > 0) {
+            let result = sell_resource(RESOURCE_SWITCH, 9999, room.terminal.store[RESOURCE_SWITCH]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CELL] >= 10) {
+            let result = sell_resource(RESOURCE_CELL, 999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_PHLEGM] >= 10) {
+            let result = sell_resource(RESOURCE_PHLEGM, 9999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_PHLEGM] >= 2) {
+            let result = sell_resource(RESOURCE_PHLEGM, 9999, 2);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TISSUE] >= 5) {
+            let result = sell_resource(RESOURCE_TISSUE, 80000, 5);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TISSUE] >= 1) {
+            let result = sell_resource(RESOURCE_TISSUE, 80000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_MUSCLE] >= 1) {
+            let result = sell_resource(RESOURCE_MUSCLE, 199999, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_ORGANOID] >= 1) {
+            let result = sell_resource(RESOURCE_ORGANOID, 800000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_ORGANISM] >= 1) {
+            let result = sell_resource(RESOURCE_ORGANISM, 2000000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_CELL] > 0) {
+            let result = sell_resource(RESOURCE_CELL, 999, room.terminal.store[RESOURCE_CELL]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_PHLEGM] > 0) {
+            let result = sell_resource(RESOURCE_PHLEGM, 9999, room.terminal.store[RESOURCE_PHLEGM]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_ALLOY] >= 10) {
+            let result = sell_resource(RESOURCE_ALLOY, 999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TUBE] >= 10) {
+            let result = sell_resource(RESOURCE_TUBE, 9999, 10);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TUBE] >= 2) {
+            let result = sell_resource(RESOURCE_TUBE, 9999, 2);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_FIXTURES] >= 5) {
+            let result = sell_resource(RESOURCE_FIXTURES, 80000, 5);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_FIXTURES] >= 1) {
+            let result = sell_resource(RESOURCE_FIXTURES, 80000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_FRAME] >= 1) {
+            let result = sell_resource(RESOURCE_FRAME, 199999, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_HYDRAULICS] >= 1) {
+            let result = sell_resource(RESOURCE_HYDRAULICS, 800000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_MACHINE] >= 1) {
+            let result = sell_resource(RESOURCE_MACHINE, 2000000, 1);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_ALLOY] > 0) {
+            let result = sell_resource(RESOURCE_ALLOY, 999, room.terminal.store[RESOURCE_ALLOY]);
+            if(result == 0) {
+                return;
+            }
+        }
+        if(room.terminal.store[RESOURCE_TUBE] > 0) {
+            let result = sell_resource(RESOURCE_TUBE, 9999, room.terminal.store[RESOURCE_TUBE]);
+            if(result == 0) {
+                return;
+            }
+        }
 
 
         // if(room.factory && room.terminal) {
@@ -345,7 +546,7 @@ function market(room):any {
         // }
 
 
-        if(Game.resources.pixel > 500 && room.terminal && Game.time % 100 == 0) {
+        if(Game.resources.pixel > 0 && room.terminal && Game.time % 100 == 0) {
             let OrderPrice = 20000;
 
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: PIXEL});

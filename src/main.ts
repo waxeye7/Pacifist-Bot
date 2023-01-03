@@ -20,6 +20,7 @@ import roleRemoteRepair from "./Roles/remoteRepair";
 import roleBuilder from "./Roles/builder";
 import roleUpgrader from "./Roles/upgrader";
 import roleRepair from "./Roles/repair";
+import roleMaintainer from "Roles/maintainer";
 import roleFiller from "./Roles/filler";
 import roleDefender from "./Roles/defender";
 import roleAttacker from "./Roles/attacker";
@@ -69,6 +70,8 @@ global.ROLES = {
   upgrader: roleUpgrader,
   repair: roleRepair,
 
+  maintainer: roleMaintainer,
+
   filler: roleFiller,
   defender: roleDefender,
 
@@ -115,6 +118,7 @@ global.ROLES = {
 
 
 import { memHack } from "utils/MemHack";
+
 
 export const loop = ErrorMapper.wrapLoop(() => {
   memHack.run()

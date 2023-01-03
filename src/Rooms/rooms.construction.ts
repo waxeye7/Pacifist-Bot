@@ -919,9 +919,15 @@ function construction(room) {
 
         if(room.controller.level >= 6) {
             if(storage) {
-                let storageLink = storage.pos.findInRange(links, 3)[0];
-                if(storageLink == undefined) {
-                    let storageLinkPosition = new RoomPosition(storage.pos.x-2, storage.pos.y, room.name);
+                let storageLinkPosition = new RoomPosition(storage.pos.x-2, storage.pos.y, room.name);
+                let buildingsHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
+                let found = false;
+                for(let building of buildingsHere) {
+                    if(building.structureType == STRUCTURE_LINK) {
+                        found = true;
+                    }
+                }
+                if(!found) {
                     new RoomVisual(room.name).circle(storageLinkPosition.x, storageLinkPosition.y, {fill: 'transparent', radius: .75, stroke: 'red'});
                     let positionsList = [];
                     positionsList.push(storageLinkPosition);

@@ -39,7 +39,6 @@ import randomWords from "random-words";
 
 
 
-
     if(creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.target = false
     }
@@ -543,7 +542,10 @@ import randomWords from "random-words";
         RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
         RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
         RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
-        RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE];
+        RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
+        RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+        RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
+        RESOURCE_POWER, RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
         if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
             if(creep.pos.isNearTo(storage)) {
                 for(let resource in storage.store) {
@@ -607,8 +609,9 @@ import randomWords from "random-words";
             return;
         }
 
-
-
+        if(!creep.memory.target) {
+            creep.MoveCostMatrixRoadPrio(storage, 5);
+        }
 
     }
 
