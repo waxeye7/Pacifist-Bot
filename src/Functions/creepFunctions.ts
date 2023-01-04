@@ -1020,7 +1020,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
-Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixRoadPrio(target, range) {
+Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
 
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {

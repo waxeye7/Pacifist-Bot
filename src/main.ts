@@ -128,7 +128,16 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
 
   const start = Game.cpu.getUsed()
+
+  let executeCreepScriptsLaterList = [];
+
   for(let name in Memory.creeps) {
+
+    if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ")) {
+      executeCreepScriptsLaterList.push(name);
+    }
+
+    else {
       let creep = Game.creeps[name];
       if(!creep) {
           delete Memory.creeps[name];
@@ -137,11 +146,43 @@ export const loop = ErrorMapper.wrapLoop(() => {
           if(creep.memory.role == undefined) {
               console.log("i am undefined", name)
               creep.suicide();
-              break;
           }
           global.ROLES[creep.memory.role].run(creep);
       }
+    }
   }
+
+  for(let name of executeCreepScriptsLaterList) {
+    let creep = Game.creeps[name];
+    if(!creep) {
+        delete Memory.creeps[name];
+    }
+    else {
+        if(creep.memory.role == undefined) {
+            console.log("i am undefined", name)
+            creep.suicide();
+        }
+        if(creep.memory.role == "SquadCreepA") {
+          global.ROLES[creep.memory.role].run(creep);
+        }
+    }
+  }
+  for(let name of executeCreepScriptsLaterList) {
+    let creep = Game.creeps[name];
+    if(!creep) {
+        delete Memory.creeps[name];
+    }
+    else {
+        if(creep.memory.role == undefined) {
+            console.log("i am undefined", name)
+            creep.suicide();
+        }
+        if(creep.memory.role !== "SquadCreepA") {
+          global.ROLES[creep.memory.role].run(creep);
+        }
+    }
+  }
+
   console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
 
 

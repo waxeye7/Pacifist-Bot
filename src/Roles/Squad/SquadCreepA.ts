@@ -34,9 +34,19 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
             routeCallback(roomName, fromRoomName) {
                 if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
-                    return 5;
+                    return 15;
                 }
-                return 1;
+
+                if(roomName.length == 6) {
+                    if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                        return 1;
+                    }
+                    if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                        return 1;
+                    }
+                }
+
+                return 3;
         }});
 
 
@@ -83,7 +93,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
     let enemyCreepInRangeThree = creep.pos.findInRange(enemyCreeps, 3);
     let targetCreep;
     if(enemyCreepInRangeThree.length > 0) {
-        let attack_able:any = 0;
+        let attack_able = false;
         for(let e_creep of enemyCreepInRangeThree) {
 
 
@@ -95,14 +105,22 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             else {
                 let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
                 if(lookStructuresOnEnemyCreep.length > 0) {
+                    if(lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
+                        lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
+
+                        attack_able = true;
+                        targetCreep = e_creep;
+                    }
                     for(let structure of lookStructuresOnEnemyCreep) {
-                        if(structure.structureType == STRUCTURE_RAMPART && !attack_able) {
+                        if(structure.structureType == STRUCTURE_RAMPART) {
                             attack_able = false;
                         }
                     }
                 }
-                if(lookStructuresOnEnemyCreep.length == 0 || attack_able == 0) {
-                    attack_able = true;
+                else {
+                    attack_able = false;
                     targetCreep = e_creep;
                 }
             }
@@ -123,7 +141,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
     }
     if(structures.length > 0) {
-        let closestStructure = creep.pos.findClosestByPath(structures);
+        let closestStructure = creep.pos.findClosestByRange(structures);
         if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
         }
@@ -276,7 +294,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax || target && target.hits <= target.hitsMax/2.1) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax && target && target.hits < target.hitsMax || target && target.hits <= target.hitsMax/2.1) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -317,7 +335,12 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
         if(move_location.roomName == creep.memory.targetPosition.roomName) {
             // range = 1
-            range = 1;
+            // if(creep.pos.getRangeTo(creep.memory.targetPosition) <= 2) {
+                range = 0
+            // }
+            // else {
+            //     range = 1;
+            // }
         }
         else if(route && route.length == 1) {
             range = 20;
@@ -1048,12 +1071,351 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                         }
 
 
+
                         if(allow) {
                             creep.memory.direction = direction
                             creep.move(direction);
                         }
                         else {
                             creep.memory.direction = false;
+
+
+                            if(aliveCreeps.length == 4) {
+
+                                let leaderMemory = a.memory;
+                                let nonLeaderMemoryB = b.memory;
+                                let nonLeaderMemoryY = y.memory;
+                                let nonLeaderMemoryZ = z.memory;
+
+                                if((direction == 1 || direction == 2 || direction == 8) && a.getActiveBodyparts(HEAL) > 0 && b.getActiveBodyparts(HEAL) > 0) {
+                                    leaderMemory.squad.a = y.id;
+                                    leaderMemory.squad.y = a.id;
+                                    leaderMemory.squad.b = z.id;
+                                    leaderMemory.squad.z = b.id;
+
+                                    nonLeaderMemoryB.squad.a = y.id;
+                                    nonLeaderMemoryB.squad.y = a.id;
+                                    nonLeaderMemoryB.squad.b = z.id;
+                                    nonLeaderMemoryB.squad.z = b.id;
+
+                                    nonLeaderMemoryY.squad.a = y.id;
+                                    nonLeaderMemoryY.squad.y = a.id;
+                                    nonLeaderMemoryY.squad.b = z.id;
+                                    nonLeaderMemoryY.squad.z = b.id;
+
+                                    nonLeaderMemoryZ.squad.a = y.id;
+                                    nonLeaderMemoryZ.squad.y = a.id;
+                                    nonLeaderMemoryZ.squad.b = z.id;
+                                    nonLeaderMemoryZ.squad.z = b.id;
+
+
+                                    a.memory = nonLeaderMemoryY;
+                                    b.memory = nonLeaderMemoryZ;
+                                    y.memory = leaderMemory;
+                                    z.memory = nonLeaderMemoryB;
+
+                                    a.move(BOTTOM);
+                                    y.move(TOP);
+                                    b.move(BOTTOM);
+                                    z.move(TOP);
+                                }
+                                else if(direction == 1 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.b = y.id;
+                                    nonLeaderMemoryB.squad.y = b.id;
+
+                                    nonLeaderMemoryY.squad.b = y.id;
+                                    nonLeaderMemoryY.squad.y = b.id;
+
+                                    nonLeaderMemoryZ.squad.b = y.id;
+                                    nonLeaderMemoryZ.squad.y = b.id;
+
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+                                else if(direction == 1 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.z = a.id;
+                                    leaderMemory.squad.a = z.id;
+
+                                    nonLeaderMemoryB.squad.z = a.id;
+                                    nonLeaderMemoryB.squad.a = z.id;
+
+                                    nonLeaderMemoryY.squad.z = a.id;
+                                    nonLeaderMemoryY.squad.a = z.id;
+
+                                    nonLeaderMemoryZ.squad.z = a.id;
+                                    nonLeaderMemoryZ.squad.a = z.id;
+
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+
+                                else if((direction == 4 || direction == 5 || direction == 6) && a.getActiveBodyparts(RANGED_ATTACK) > 0 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = y.id;
+                                    leaderMemory.squad.y = a.id;
+                                    leaderMemory.squad.b = z.id;
+                                    leaderMemory.squad.z = b.id;
+
+                                    nonLeaderMemoryB.squad.a = y.id;
+                                    nonLeaderMemoryB.squad.y = a.id;
+                                    nonLeaderMemoryB.squad.b = z.id;
+                                    nonLeaderMemoryB.squad.z = b.id;
+
+                                    nonLeaderMemoryY.squad.a = y.id;
+                                    nonLeaderMemoryY.squad.y = a.id;
+                                    nonLeaderMemoryY.squad.b = z.id;
+                                    nonLeaderMemoryY.squad.z = b.id;
+
+                                    nonLeaderMemoryZ.squad.a = y.id;
+                                    nonLeaderMemoryZ.squad.y = a.id;
+                                    nonLeaderMemoryZ.squad.b = z.id;
+                                    nonLeaderMemoryZ.squad.z = b.id;
+
+                                    a.memory = nonLeaderMemoryY;
+                                    b.memory = nonLeaderMemoryZ;
+                                    y.memory = leaderMemory;
+                                    z.memory = nonLeaderMemoryB;
+
+                                    a.move(BOTTOM);
+                                    y.move(TOP);
+                                    b.move(BOTTOM);
+                                    z.move(TOP);
+                                }
+                                else if(direction == 5 && a.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+                                else if(direction == 5 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.b = y.id;
+                                    leaderMemory.squad.y = b.id;
+
+                                    nonLeaderMemoryB.squad.b = y.id;
+                                    nonLeaderMemoryB.squad.y = b.id;
+
+                                    nonLeaderMemoryY.squad.b = y.id;
+                                    nonLeaderMemoryY.squad.y = b.id;
+
+                                    nonLeaderMemoryZ.squad.b = y.id;
+                                    nonLeaderMemoryZ.squad.y = b.id;
+
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    b.move(BOTTOM_LEFT);
+                                    y.move(TOP_RIGHT);
+                                }
+
+
+                                else if(direction == 3 && a.getActiveBodyparts(RANGED_ATTACK) > 0 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = b.id;
+                                    leaderMemory.squad.b = a.id;
+                                    leaderMemory.squad.y = z.id;
+                                    leaderMemory.squad.z = y.id;
+
+                                    nonLeaderMemoryB.squad.a = b.id;
+                                    nonLeaderMemoryB.squad.b = a.id;
+                                    nonLeaderMemoryB.squad.y = z.id;
+                                    nonLeaderMemoryB.squad.z = y.id;
+
+                                    nonLeaderMemoryY.squad.a = b.id;
+                                    nonLeaderMemoryY.squad.b = a.id;
+                                    nonLeaderMemoryY.squad.y = z.id;
+                                    nonLeaderMemoryY.squad.z = y.id;
+
+                                    nonLeaderMemoryZ.squad.a = b.id;
+                                    nonLeaderMemoryZ.squad.b = a.id;
+                                    nonLeaderMemoryZ.squad.y = z.id;
+                                    nonLeaderMemoryZ.squad.z = y.id;
+
+                                    a.memory = nonLeaderMemoryB;
+                                    b.memory = leaderMemory;
+                                    y.memory = nonLeaderMemoryZ;
+                                    z.memory = nonLeaderMemoryY;
+
+                                    a.move(RIGHT);
+                                    y.move(RIGHT);
+                                    b.move(LEFT);
+                                    z.move(LEFT);
+                                }
+
+                                else if(direction == 3 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.y = b.id;
+                                    nonLeaderMemoryB.squad.b = y.id;
+
+                                    nonLeaderMemoryY.squad.y = b.id;
+                                    nonLeaderMemoryY.squad.b = y.id;
+
+                                    nonLeaderMemoryZ.squad.y = b.id;
+                                    nonLeaderMemoryZ.squad.b = y.id;
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+
+                                else if(direction == 3 && a.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+
+                                else if(direction == 7 && b.getActiveBodyparts(RANGED_ATTACK) > 0 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = b.id;
+                                    leaderMemory.squad.b = a.id;
+                                    leaderMemory.squad.y = z.id;
+                                    leaderMemory.squad.z = y.id;
+
+                                    nonLeaderMemoryB.squad.a = b.id;
+                                    nonLeaderMemoryB.squad.b = a.id;
+                                    nonLeaderMemoryB.squad.y = z.id;
+                                    nonLeaderMemoryB.squad.z = y.id;
+
+                                    nonLeaderMemoryY.squad.a = b.id;
+                                    nonLeaderMemoryY.squad.b = a.id;
+                                    nonLeaderMemoryY.squad.y = z.id;
+                                    nonLeaderMemoryY.squad.z = y.id;
+
+                                    nonLeaderMemoryZ.squad.a = b.id;
+                                    nonLeaderMemoryZ.squad.b = a.id;
+                                    nonLeaderMemoryZ.squad.y = z.id;
+                                    nonLeaderMemoryZ.squad.z = y.id;
+
+                                    a.memory = nonLeaderMemoryB;
+                                    b.memory = leaderMemory;
+                                    y.memory = nonLeaderMemoryZ;
+                                    z.memory = nonLeaderMemoryY;
+
+                                    a.move(RIGHT);
+                                    y.move(RIGHT);
+                                    b.move(LEFT);
+                                    z.move(LEFT);
+                                }
+
+                                else if(direction == 7 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.y = b.id;
+                                    nonLeaderMemoryB.squad.b = y.id;
+
+                                    nonLeaderMemoryY.squad.y = b.id;
+                                    nonLeaderMemoryY.squad.b = y.id;
+
+                                    nonLeaderMemoryZ.squad.y = b.id;
+                                    nonLeaderMemoryZ.squad.b = y.id;
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+
+                                else if(direction == 3 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+
+                                // else if(direction == 3 && ) {
+                                //     leaderMemory.squad.a = b.id;
+                                //     leaderMemory.squad.b = a.id;
+                                //     leaderMemory.squad.y = z.id;
+                                //     leaderMemory.squad.z = y.id;
+
+                                //     nonLeaderMemory.squad.a = b.id;
+                                //     nonLeaderMemory.squad.b = a.id;
+                                //     nonLeaderMemory.squad.y = z.id;
+                                //     nonLeaderMemory.squad.z = y.id;
+
+                                //     a.memory = nonLeaderMemory;
+                                //     a.memory.role = "SquadCreepB"
+                                //     b.memory = leaderMemory;
+                                //     b.memory.role = "SquadCreepA"
+                                //     y.memory = nonLeaderMemory;
+                                //     y.memory.role = "SquadCreepZ"
+                                //     z.memory = nonLeaderMemory;
+                                //     z.memory.role = "SquadCreepY"
+                                // }
+                            }
+
+
                         }
                     }
 

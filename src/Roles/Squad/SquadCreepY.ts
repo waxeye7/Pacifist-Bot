@@ -37,6 +37,14 @@
             else {
                 let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
                 if(lookStructuresOnEnemyCreep.length > 0) {
+                    if(lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
+                        lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
+
+                        attack_able = true;
+                        targetCreep = e_creep;
+                    }
                     for(let structure of lookStructuresOnEnemyCreep) {
                         if(structure.structureType == STRUCTURE_RAMPART) {
                             attack_able = false;
@@ -61,7 +69,7 @@
 
     }
     if(structures.length > 0) {
-        let closestStructure = creep.pos.findClosestByPath(structures);
+        let closestStructure = creep.pos.findClosestByRange(structures);
         if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
         }
@@ -207,6 +215,7 @@
 
 
                 else if(a.memory.direction == "join") {
+                    // creep.MoveCostMatrixRoadPrio(new RoomPosition(a.pos.x , a.pos.y + 1, a.room.name), 0);
                     creep.moveTo(new RoomPosition(a.pos.x , a.pos.y + 1, a.room.name));
                 }
             }

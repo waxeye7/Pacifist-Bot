@@ -1,5 +1,3 @@
-import { indexOf } from "lodash";
-
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -13,7 +11,6 @@ import { indexOf } from "lodash";
             return;
         }
     }
-
 
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
@@ -40,6 +37,14 @@ import { indexOf } from "lodash";
             else {
                 let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
                 if(lookStructuresOnEnemyCreep.length > 0) {
+                    if(lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
+                        lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
+                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
+
+                        attack_able = true;
+                        targetCreep = e_creep;
+                    }
                     for(let structure of lookStructuresOnEnemyCreep) {
                         if(structure.structureType == STRUCTURE_RAMPART) {
                             attack_able = false;
@@ -64,7 +69,7 @@ import { indexOf } from "lodash";
 
     }
     if(structures.length > 0) {
-        let closestStructure = creep.pos.findClosestByPath(structures);
+        let closestStructure = creep.pos.findClosestByRange(structures);
         if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
         }
@@ -216,6 +221,7 @@ import { indexOf } from "lodash";
                 }
 
                 else if(a.memory.direction == "join") {
+                    // creep.MoveCostMatrixRoadPrio(new RoomPosition(a.pos.x + 1, a.pos.y, a.room.name), 0);
                     creep.moveTo(new RoomPosition(a.pos.x + 1, a.pos.y, a.room.name));
                 }
             }

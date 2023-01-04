@@ -742,6 +742,14 @@ function construction(room) {
                     DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
                 }
 
+                if(room.controller.level == 8) {
+                    let observers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_OBSERVER});
+                    if(observers.length == 0) {
+                        let listOfObserverPosition = [new RoomPosition(storage.pos.x + 5, storage.pos.y, room.name)]
+                        DestroyAndBuild(room, listOfObserverPosition, STRUCTURE_OBSERVER);
+                    }
+                }
+
 
                 if(room.controller.level < 6) {
                     Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);

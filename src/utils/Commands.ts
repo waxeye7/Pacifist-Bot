@@ -2,13 +2,12 @@ import randomWords from "random-words";
 
 
 global.SD = function(roomName, targetRoomName, boost=false):any {
-    let bodyRam6 = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE]
-    let bodyRam7 = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
-    let bodyRam8 = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
+    let bodyRam6 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK]
+    let bodyRam7 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK];
+    let bodyRam8 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK];
 
     let bodySignifer6 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
     let bodySignifer7 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
@@ -206,70 +205,85 @@ global.SQ = function(roomName, targetRoomName, boost=false):any {
         }
 
 
-        let bodyLevel6 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
+        let bodyLevel6Back = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE];
+        let bodyLevel6Front = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+            RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+            MOVE];
 
-        let bodyLevel7 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                          HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
+        let bodyLevel7Back = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                          HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE];
 
-        let bodyLevel8 = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                          HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,MOVE,HEAL
-        ];
+        let bodyLevel7Front = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+        RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE];
 
-        let bodyLevel8Boosted = [TOUGH,TOUGH,
-                                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                                HEAL,HEAL,HEAL,HEAL,HEAL,
-                                HEAL,HEAL,HEAL,HEAL,HEAL,
-                                HEAL,HEAL,HEAL,HEAL,HEAL,
-                                HEAL,HEAL,HEAL,MOVE,HEAL,
-                                HEAL
-        ];
+
+
+        let bodyLevel8Back = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+            HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+            MOVE];
+
+        let bodyLevel8Front = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+            RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+            RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+            RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+            MOVE]
+
+        let bodyLevel8BoostedBack = [HEAL,HEAL,HEAL,HEAL,HEAL,
+            MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+            HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+            HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+            HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+            MOVE];
+
+        let bodyLevel8BoostedFront = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                                      RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                      MOVE];
 
 
         let RandomWords = randomWords({exactly:3,wordsPerString:1,join: '-'});
 
         if(room.controller.level == 6) {
             let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6, newNameA, {memory: {role: 'SquadCreepA', targetPosition: new RoomPosition(25,25,targetRoomName)}});
+            room.memory.spawn_list.push(bodyLevel6Back, newNameA, {memory: {role: 'SquadCreepA', targetPosition: new RoomPosition(25,25,targetRoomName)}});
             console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
             let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6, newNameB, {memory: {role: 'SquadCreepB'}});
+            room.memory.spawn_list.push(bodyLevel6Back, newNameB, {memory: {role: 'SquadCreepB'}});
             console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
             let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6, newNameY, {memory: {role: 'SquadCreepY'}});
+            room.memory.spawn_list.push(bodyLevel6Front, newNameY, {memory: {role: 'SquadCreepY'}});
             console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
             let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel6, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            room.memory.spawn_list.push(bodyLevel6Front, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
             console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
             return "Success!"
         }
         else if(room.controller.level == 7) {
             let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel7, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
+            room.memory.spawn_list.push(bodyLevel7Back, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
             console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
             let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel7, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+            room.memory.spawn_list.push(bodyLevel7Back, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
             console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
             let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel7, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+            room.memory.spawn_list.push(bodyLevel7Front, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
             console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
             let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-            room.memory.spawn_list.push(bodyLevel7, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+            room.memory.spawn_list.push(bodyLevel7Front, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
             console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
             return "Success!"
@@ -292,22 +306,22 @@ global.SQ = function(roomName, targetRoomName, boost=false):any {
                         // lemer alk
                         if(room.memory.labs.status.boost.lab4) {
                             room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 2400;
-                            room.memory.labs.status.boost.lab4.use += 4;
+                            room.memory.labs.status.boost.lab4.use += 2;
                         }
                         else {
                             room.memory.labs.status.boost.lab4 = {};
                             room.memory.labs.status.boost.lab4.amount = 2400;
-                            room.memory.labs.status.boost.lab4.use = 4;
+                            room.memory.labs.status.boost.lab4.use = 2;
                         }
                         // keanium alk
                         if(room.memory.labs.status.boost.lab5) {
-                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 2160;
-                            room.memory.labs.status.boost.lab5.use += 4;
+                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 2400;
+                            room.memory.labs.status.boost.lab5.use += 2;
                         }
                         else {
                             room.memory.labs.status.boost.lab5 = {};
-                            room.memory.labs.status.boost.lab5.amount = 2160;
-                            room.memory.labs.status.boost.lab5.use = 4;
+                            room.memory.labs.status.boost.lab5.amount = 2400;
+                            room.memory.labs.status.boost.lab5.use = 2;
                         }
                         // zyn alk
                         if(room.memory.labs.status.boost.lab6) {
@@ -319,32 +333,32 @@ global.SQ = function(roomName, targetRoomName, boost=false):any {
                             room.memory.labs.status.boost.lab6.amount = 1200;
                             room.memory.labs.status.boost.lab6.use = 4;
                         }
-                        // gho alk
-                        if(room.memory.labs.status.boost.lab7) {
-                            room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 240;
-                            room.memory.labs.status.boost.lab7.use += 4;
-                        }
-                        else {
-                            room.memory.labs.status.boost.lab7 = {};
-                            room.memory.labs.status.boost.lab7.amount = 240;
-                            room.memory.labs.status.boost.lab7.use = 4;
-                        }
+                        // // gho alk
+                        // if(room.memory.labs.status.boost.lab7) {
+                        //     room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 240;
+                        //     room.memory.labs.status.boost.lab7.use += 4;
+                        // }
+                        // else {
+                        //     room.memory.labs.status.boost.lab7 = {};
+                        //     room.memory.labs.status.boost.lab7.amount = 240;
+                        //     room.memory.labs.status.boost.lab7.use = 4;
+                        // }
                     }
 
                     let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8Boosted, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab6,room.memory.labs.outputLab7], targetPosition: new RoomPosition(25,25,targetRoomName)}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6], targetPosition: new RoomPosition(25,25,targetRoomName)}});
                     console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
                     let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8Boosted, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6]}});
                     console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
                     let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8Boosted, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab6]}});
                     console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
                     let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8Boosted, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab6]}});
                     console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                     return "Success with boost";
@@ -354,19 +368,19 @@ global.SQ = function(roomName, targetRoomName, boost=false):any {
 
             else {
                 let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-                room.memory.spawn_list.push(bodyLevel8, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
+                room.memory.spawn_list.push(bodyLevel8Back, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
                 let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-                room.memory.spawn_list.push(bodyLevel8, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
+                room.memory.spawn_list.push(bodyLevel8Back, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name}});
                 console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
                 let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-                room.memory.spawn_list.push(bodyLevel8, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
+                room.memory.spawn_list.push(bodyLevel8Front, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name}});
                 console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
                 let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-                room.memory.spawn_list.push(bodyLevel8, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
+                room.memory.spawn_list.push(bodyLevel8Front, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name}});
                 console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                 return "Success!"

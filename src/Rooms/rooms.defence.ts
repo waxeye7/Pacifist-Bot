@@ -56,6 +56,11 @@ function findLocked(room) {
 
 function roomDefence(room) {
 
+    if(room.memory.danger && room.memory.danger_timer >= 250) {
+        room.controller.activateSafeMode();
+    }
+
+
     let maxRepairTower;
     if(room.controller.level < 4) {
         maxRepairTower = 5000;
@@ -161,7 +166,7 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger && room.controller.level < 7) {
+            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger && room.controller.level < 6) {
                 if(Game.time % 11 == 0) {
                     findLocked(room);
                 }

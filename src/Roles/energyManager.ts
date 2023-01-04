@@ -7,7 +7,7 @@ import randomWords from "random-words";
  const run = function (creep) {
     creep.Speak();
     creep.memory.moving = false;
-    if(creep.ticksToLive == 60) {
+    if(creep.ticksToLive == 60 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
         let newName = 'EnergyManager-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
         if(creep.room.controller && creep.room.controller.level == 8) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});

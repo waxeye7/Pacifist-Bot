@@ -893,13 +893,20 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     else if(sites.length > 0 && builders < 2 && EnergyMinersInRoom > 1 && room.controller.level >= 4 && (!storage || storage && storage.store[RESOURCE_ENERGY] > 15000)) {
         let allowSpawn = true;
+        let spawnSmall = false;
         if(room.controller.level >= 6) {
             for(let site of sites) {
                 if(site.structureType == STRUCTURE_CONTAINER) {
                     allowSpawn = false;
                 }
+                else if(site.structureType == STRUCTURE_RAMPART) {
+                    allowSpawn = false;
+                    spawnSmall = true;
+                }
                 else {
                     allowSpawn = true;
+                    spawnSmall = false;
+                    break;
                 }
             }
         }
@@ -907,6 +914,11 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(allowSpawn) {
             let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'builder'}});
+            console.log('Adding Builder to Spawn List: ' + newName);
+        }
+        else if(!allowSpawn && spawnSmall && builders < 1) {
+            let newName = 'Builder-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.push([WORK,CARRY,MOVE], newName, {memory: {role: 'builder'}});
             console.log('Adding Builder to Spawn List: ' + newName);
         }
     }
@@ -964,18 +976,24 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.controller.level >= 7 && !room.memory.danger) {
-        let buildings = room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_ROAD || s.structureType == STRUCTURE_CONTAINER});
-        for(let building of buildings) {
-            if(building.hits <= 2000) {
-                if(maintainers < 1) {
-                    let newName = 'Maintainer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+    if(room.controller.level >= 6 && !room.memory.danger && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0) {
+        for(let roadID of room.memory.keepTheseRoads) {
+            let road:any = Game.getObjectById(roadID);
+            if(road && road.hits <= 2000) {
+
+                let newName = 'Maintainer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                console.log('Adding Maintainer to Spawn List: ' + newName);
+
+                if(maintainers < 1 && room.controller.level >= 7) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'maintainer', homeRoom: room.name}});
-                    console.log('Adding Maintainer to Spawn List: ' + newName);
+                }
+                else if(room.controller.level == 6) {
+                    room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName, {memory: {role: 'maintainer', homeRoom: room.name}});
                 }
                 break;
             }
         }
+
     }
 
 
@@ -1301,7 +1319,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding filler to Spawn List: ' + newName);
     }
 
-    else if (room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] != 0 && (fillers < 2 && room.energyAvailable == 0 || fillers < 1)) {
+    else if (room.controller.level >= 6 && storage && storage.store[RESOURCE_ENERGY] != 0 && (fillers < 2 && room.energyAvailable < room.energyCapacityAvailable/2.4 || fillers < 1)) {
         let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         console.log('Adding filler to Spawn List: ' + newName);
