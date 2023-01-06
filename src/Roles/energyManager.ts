@@ -400,6 +400,45 @@ import randomWords from "random-words";
                     }
                 }
 
+                else if(number == 8 && creep.room.memory.labs.outputLab8 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab8 && creep.room.memory.labs.status.boost.lab8.use > 0) {
+                    if(creep.room.memory.labs.status.boost.lab8.amount == 0) {
+                        // do nothing
+                    }
+                    else {
+                        if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != RESOURCE_CATALYZED_ZYNTHIUM_ACID)) {
+                            if(creep.pos.isNearTo(outputLab)) {
+                                creep.withdraw(outputLab, outputLab.mineralType);
+                                creep.memory.target = storage.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(outputLab, 1);
+                            }
+                            return;
+                        }
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] >= creep.room.memory.labs.status.boost.lab8.amount) {
+                            if(creep.pos.isNearTo(storage)) {
+                                if(creep.room.memory.labs.status.boost.lab8.amount >= MaxStorage) {
+                                    creep.room.memory.labs.status.boost.lab8.amount -= MaxStorage;
+
+                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ACID);
+                                }
+                                else {
+                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ACID, creep.room.memory.labs.status.boost.lab8.amount);
+                                    creep.room.memory.labs.status.boost.lab8.amount = 0;
+
+                                }
+                                creep.memory.target = outputLab.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(storage, 1);
+                            }
+                            return;
+                        }
+                    }
+                }
+
+
+
                 else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);

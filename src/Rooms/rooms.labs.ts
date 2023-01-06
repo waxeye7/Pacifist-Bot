@@ -374,6 +374,7 @@ function labs(room) {
             }
 
 
+
             // chain to get catalyzed ghodium alkalide
         else if(storage && storage.store[RESOURCE_ZYNTHIUM_KEANITE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_KEANITE ||
             storage && storage.store[RESOURCE_ZYNTHIUM_KEANITE] < 12500 && currentOutput == RESOURCE_ZYNTHIUM_KEANITE) {
@@ -483,6 +484,32 @@ function labs(room) {
                 lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
                 currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
             }
+
+
+
+        // chain to get catalyzed zyn acid
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_HYDRIDE ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_HYDRIDE] < 14000 && currentOutput == RESOURCE_ZYNTHIUM_HYDRIDE) {
+                lab1Input = RESOURCE_HYDROGEN;
+                lab2Input = RESOURCE_ZYNTHIUM;
+                currentOutput = RESOURCE_ZYNTHIUM_HYDRIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_ACID] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_ACID ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_ACID] < 12500 && currentOutput == RESOURCE_ZYNTHIUM_ACID) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_ZYNTHIUM_HYDRIDE;
+                currentOutput = RESOURCE_ZYNTHIUM_ACID;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 30000) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_ZYNTHIUM_ACID;
+                currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
+            }
+
+
 
 
 

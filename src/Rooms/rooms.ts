@@ -89,9 +89,15 @@ function rooms() {
 
 
             if(Game.time % 1000) {
-                if(Memory.AvoidRooms.includes(room.name)) {
-                    Memory.AvoidRooms = Memory.AvoidRooms.filter(function(roomname) {return roomname !== room.name;});
+                if(Memory.AvoidRooms) {
+                    if(Memory.AvoidRooms.includes(room.name)) {
+                        Memory.AvoidRooms = Memory.AvoidRooms.filter(function(roomname) {return roomname !== room.name;});
+                    }
                 }
+                else {
+                    Memory.AvoidRooms = [];
+                }
+
             }
 
 

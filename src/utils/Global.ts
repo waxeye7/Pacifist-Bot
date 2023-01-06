@@ -107,10 +107,13 @@ declare global {
         interface Global {
             Memory:any;
             ROLES: any;
-            SQ: any;
+            SQR: any;
+            SQM: any;
+            SQD: any;
             SRD:any;
             SC:any;
             SD:any;
+            SG:any;
 
         }
     }

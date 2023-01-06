@@ -59,9 +59,11 @@
 
         if(targetCreep) {
             creep.rangedAttack(targetCreep)
+            creep.attack(targetCreep);
 
             if(creep.pos.isNearTo(targetCreep)) {
                 creep.rangedMassAttack();
+                creep.attack(targetCreep);
             }
         }
 
@@ -71,9 +73,13 @@
         let closestStructure = creep.pos.findClosestByRange(structures);
         if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
+            creep.attack(closestStructure);
+            creep.dismantle(closestStructure);
         }
         if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
             creep.rangedMassAttack();
+            creep.attack(closestStructure);
+            creep.dismantle(closestStructure);
         }
     }
 
@@ -177,10 +183,14 @@
             let targetStructure:any = Game.getObjectById(a.memory.target);
             if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || targetStructure.structureType == STRUCTURE_CONTAINER ||
                 targetStructure.structureType == STRUCTURE_ROAD || creep.pos.getRangeTo(targetStructure) > 1)) {
-                creep.rangedAttack(targetStructure)
+                creep.rangedAttack(targetStructure);
+                creep.attack(targetStructure);
+                creep.dismantle(targetStructure);
             }
             else {
                 creep.rangedMassAttack();
+                creep.attack(targetStructure);
+                creep.dismantle(targetStructure);
             }
         }
 

@@ -7,7 +7,7 @@ import roomDefence from "Rooms/rooms.defence";
  **/
  const run = function (creep:any) {
     creep.Speak();
-
+    creep.memory.moving = false;
 
     if(creep.memory.homeRoom && !creep.memory.dropRoom) {
         creep.memory.dropRoom = creep.memory.homeRoom;
@@ -79,7 +79,7 @@ import roomDefence from "Rooms/rooms.defence";
                         creep.withdraw(ruin, resource)
                     }
                     else {
-                        creep.moveTo(ruin);
+                        creep.MoveCostMatrixRoadPrio(ruin, 1);
                     }
                     return;
                 }
@@ -98,7 +98,7 @@ import roomDefence from "Rooms/rooms.defence";
                 creep.pickup(droppedTarget[0]);
             }
             else {
-                creep.moveTo(droppedTarget[0], {reusePath:25, ignoreRoads:true, swampCost:1});
+                creep.MoveCostMatrixRoadPrio(droppedTarget[0], 1)
             }
 
             return;
@@ -123,7 +123,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(specialTarget);
+                creep.MoveCostMatrixRoadPrio(specialTarget, 1);
             }
         }
 
@@ -134,8 +134,11 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(target);
+                creep.MoveCostMatrixRoadPrio(target, 1);
             }
+        }
+        else {
+            creep.memory.full = true;
         }
     }
 }

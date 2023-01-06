@@ -139,9 +139,6 @@
 		creep.recycle();
 	}
 
-    if(creep.roadCheck()) {
-        creep.moveAwayIfNeedTo();
-    }
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
@@ -180,9 +177,6 @@
         creep.memory.locked = false;
     }
 
-    if(!creep.memory.full && Game.time % 2 == 0 && creep.roadCheck()) {
-        creep.moveAwayIfNeedTo();
-    }
 
     if(creep.memory.full) {
         let target;
@@ -218,9 +212,6 @@
                 creep.MoveCostMatrixRoadPrio(target, 1);
             }
         }
-        else {
-            creep.moveAwayIfNeedTo()
-        }
     }
 
     if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
@@ -235,7 +226,7 @@
                 findLocked(creep);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(bin, 1);
+                creep.MoveCostMatrixSwampPrio(bin, 1);
             }
         }
         else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
@@ -245,20 +236,16 @@
                 creep.MoveCostMatrixRoadPrio(target, 1);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(storage, 1);
+                creep.MoveCostMatrixSwampPrio(storage, 1);
             }
         }
         else if(!creep.room.memory.danger) {
             creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         }
-        else {
-            if(creep.roadCheck()) {
-                creep.moveAwayIfNeedTo();
-            }
-        }
+
     }
     if(!creep.memory.locked && storage) {
-        creep.MoveCostMatrixRoadPrio(storage,5);
+        creep.MoveCostMatrixSwampPrio(storage,5);
     }
 
 }

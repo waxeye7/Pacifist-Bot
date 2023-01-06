@@ -1,4 +1,4 @@
-import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
+import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
 
 // Game.rooms["E45N59"].memory.spawning_squad.status = true;
 
@@ -34,7 +34,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
             routeCallback(roomName, fromRoomName) {
                 if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
-                    return 15;
+                    return 10;
                 }
 
                 if(roomName.length == 6) {
@@ -46,7 +46,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                     }
                 }
 
-                return 3;
+                return 2;
         }});
 
 
@@ -128,9 +128,11 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
         if(targetCreep) {
             creep.rangedAttack(targetCreep)
+            creep.attack(targetCreep);
 
             if(creep.pos.isNearTo(targetCreep)) {
                 creep.rangedMassAttack();
+                creep.attack(targetCreep);
             }
 
             if(creep.memory.targetPosition.roomName == creep.room.name) {
@@ -144,9 +146,14 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
         let closestStructure = creep.pos.findClosestByRange(structures);
         if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
             creep.rangedAttack(closestStructure);
+            creep.attack(closestStructure);
+            creep.dismantle(closestStructure);
+
         }
         if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
             creep.rangedMassAttack();
+            creep.attack(closestStructure);
+            creep.dismantle(closestStructure);
         }
         if(creep.memory.targetPosition.roomName == creep.room.name && !targetCreep && closestStructure) {
             // if(closestStructure.structureType !== STRUCTURE_WALL) {
@@ -273,7 +280,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
             if(creep.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
-                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL;});
+                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_ROAD;});
                     if(nowall.length > 0) {
                         let closestBuilding = creep.pos.findClosestByRange(nowall);
                         creep.memory.targetPosition = closestBuilding.pos;
@@ -364,19 +371,32 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
 
             // }
 
-
-
-
-            let path = PathFinder.search(
-                creep.pos, {pos:move_location, range:range},
-                {
-                    plainCost: 1,
-                    swampCost: 5,
-                    maxOps: 3600,
-                    maxRooms: 40,
-                    roomCallback: (roomName) => roomCallbackSquadA(roomName)
-                }
+            let path;
+            if(creep.pos.x == 49 || creep.pos.y == 49) {
+                path = PathFinder.search(
+                    creep.pos, {pos:move_location, range:range},
+                    {
+                        plainCost: 1,
+                        swampCost: 5,
+                        maxOps: 3600,
+                        maxRooms: 40,
+                        roomCallback: (roomName) => roomCallbackSquadASwampCostSame(roomName)
+                    }
                 );
+            }
+            else {
+                path = PathFinder.search(
+                    creep.pos, {pos:move_location, range:range},
+                    {
+                        plainCost: 1,
+                        swampCost: 5,
+                        maxOps: 3600,
+                        maxRooms: 40,
+                        roomCallback: (roomName) => roomCallbackSquadA(roomName)
+                    }
+                );
+            }
+
 
 
             path.path.forEach(spot => {
@@ -1064,9 +1084,13 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                             if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || targetStructure.structureType == STRUCTURE_CONTAINER ||
                                 targetStructure.structureType == STRUCTURE_ROAD || creep.pos.getRangeTo(targetStructure) > 1)) {
                                 creep.rangedAttack(targetStructure)
+                                creep.attack(targetStructure);
+                                creep.dismantle(targetStructure);
                             }
                             else {
                                 creep.rangedMassAttack();
+                                creep.attack(targetStructure);
+                                creep.dismantle(targetStructure);
                             }
                         }
 
@@ -1119,7 +1143,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     b.move(BOTTOM);
                                     z.move(TOP);
                                 }
-                                else if(direction == 1 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 1 && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1141,7 +1165,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     y.move(TOP_RIGHT);
                                     b.move(BOTTOM_LEFT);
                                 }
-                                else if(direction == 1 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 1 && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.z = a.id;
                                     leaderMemory.squad.a = z.id;
 
@@ -1164,7 +1188,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     z.move(TOP_LEFT);
                                 }
 
-                                else if((direction == 4 || direction == 5 || direction == 6) && a.getActiveBodyparts(RANGED_ATTACK) > 0 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if((direction == 4 || direction == 5 || direction == 6) && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0) && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = y.id;
                                     leaderMemory.squad.y = a.id;
                                     leaderMemory.squad.b = z.id;
@@ -1195,7 +1219,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     b.move(BOTTOM);
                                     z.move(TOP);
                                 }
-                                else if(direction == 5 && a.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 5 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 
@@ -1217,7 +1241,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     a.move(BOTTOM_RIGHT);
                                     z.move(TOP_LEFT);
                                 }
-                                else if(direction == 5 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 5 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.b = y.id;
                                     leaderMemory.squad.y = b.id;
 
@@ -1241,7 +1265,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                 }
 
 
-                                else if(direction == 3 && a.getActiveBodyparts(RANGED_ATTACK) > 0 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 3 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0) && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = b.id;
                                     leaderMemory.squad.b = a.id;
                                     leaderMemory.squad.y = z.id;
@@ -1273,7 +1297,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     z.move(LEFT);
                                 }
 
-                                else if(direction == 3 && y.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 3 && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1295,7 +1319,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     b.move(BOTTOM_LEFT);
                                 }
 
-                                else if(direction == 3 && a.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 3 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 
@@ -1317,7 +1341,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     z.move(TOP_LEFT);
                                 }
 
-                                else if(direction == 7 && b.getActiveBodyparts(RANGED_ATTACK) > 0 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 7 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0) && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = b.id;
                                     leaderMemory.squad.b = a.id;
                                     leaderMemory.squad.y = z.id;
@@ -1349,7 +1373,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     z.move(LEFT);
                                 }
 
-                                else if(direction == 7 && b.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 7 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1371,7 +1395,7 @@ import {roomCallbackSquadA, roomCallbackSquadGetReady} from "./SquadHelperFuncti
                                     b.move(BOTTOM_LEFT);
                                 }
 
-                                else if(direction == 3 && z.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                else if(direction == 7 && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 
@@ -1441,7 +1465,7 @@ function TowerDamageCalculator(creepPosition, closestTowerPosition) {
         return 150;
     }
     else if(distance > 5 && distance < 20) {
-        return 450/distance*7.5 // might be wrong but it'll do for now.
+        return 450/distance*8.8 // might be wrong but it'll do for now.
     }
     else {
         return 600;

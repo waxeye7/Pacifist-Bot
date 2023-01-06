@@ -37,7 +37,7 @@
         }
 
 
-        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
+        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_STORAGE});
         let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.structureType == STRUCTURE_TERMINAL});
         let spawnsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_SPAWN});
 
@@ -116,7 +116,9 @@
                         break;
                     }
                 }
-
+                buildingsAroundMe.sort((a,b) => a.hits - b.hits);
+                // buildingsAroundMe.sort((a,b) => b.pos.x - a.pos.x);
+                // buildingsAroundMe.sort((a,b) => b.pos.y - a.pos.y);
                 creep.attack(buildingsAroundMe[0]);
 
             }

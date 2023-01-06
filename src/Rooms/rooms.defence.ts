@@ -57,7 +57,14 @@ function findLocked(room) {
 function roomDefence(room) {
 
     if(room.memory.danger && room.memory.danger_timer >= 250) {
-        room.controller.activateSafeMode();
+        let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
+        if(enemyCreepsInRoom.length > 0) {
+            for(let eCreep of enemyCreepsInRoom) {
+                if(eCreep.owner.username !== "invader") {
+                    room.controller.activateSafeMode();
+                }
+            }
+        }
     }
 
 

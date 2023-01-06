@@ -976,7 +976,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.controller.level >= 6 && !room.memory.danger && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0) {
+    if(maintainers < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0) {
         for(let roadID of room.memory.keepTheseRoads) {
             let road:any = Game.getObjectById(roadID);
             if(road && road.hits <= 2000) {
@@ -984,7 +984,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let newName = 'Maintainer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 console.log('Adding Maintainer to Spawn List: ' + newName);
 
-                if(maintainers < 1 && room.controller.level >= 7) {
+                if(room.controller.level >= 7) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'maintainer', homeRoom: room.name}});
                 }
                 else if(room.controller.level == 6) {
@@ -1154,14 +1154,6 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Billtong to Spawn List: ' + newName);
     }
 
-
-    let richRoom = false;
-    if(richRoom && goblins < 1 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger ||
-    richRoom && goblins < 2 && Game.cpu.bucket > 6000 && room.controller.level >= 4 && storage && Game.map.getRoomLinearDistance(room.name, richRoom) <= 2 && storage.store[RESOURCE_ENERGY] > 30000 && !room.memory.danger) {
-        let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([CARRY,MOVE], room, 50), newName, {memory: {role: 'goblin', homeRoom:room.name, targetRoom:richRoom}});
-        console.log('Adding Goblin to Spawn List: ' + newName);
-    }
 
     if(DrainTowers < 0 && room.energyCapacityAvailable > 5200 && Game.map.getRoomLinearDistance(room.name, "E15S37") <= 5) {
         let newName = 'rewotreniard-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
