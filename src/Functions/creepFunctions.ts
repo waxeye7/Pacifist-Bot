@@ -1339,13 +1339,31 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
 
     let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
     for(let eCreep of EnemyCreeps) {
-        for(let i=-5; i<5; i++) {
-            for(let o=-5; o<5; o++) {
-                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "  Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                        }
+                    }
                 }
             }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                        }
+                    }
+                }
+            }
+
         }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
+        }
+
     }
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
@@ -1362,7 +1380,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
         }
-        else if(struct.structureType == STRUCTURE_RAMPART) {
+        else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
             return;
         }
         else {

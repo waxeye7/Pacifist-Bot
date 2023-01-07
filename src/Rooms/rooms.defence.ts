@@ -60,7 +60,7 @@ function roomDefence(room) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length > 0) {
             for(let eCreep of enemyCreepsInRoom) {
-                if(eCreep.owner.username !== "invader") {
+                if(eCreep.owner.username !== "Invader") {
                     room.controller.activateSafeMode();
                 }
             }

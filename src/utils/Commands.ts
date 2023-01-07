@@ -175,6 +175,181 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
 
 }
 
+global.SDB = function(roomName, targetRoomName, boost=false):any {
+    let bodyRam6 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK]
+    let bodyRam7 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK];
+    let bodyRam8 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK];
+
+    let bodySignifer6 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
+    let bodySignifer7 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
+    let bodySignifer8 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+        HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
+
+    let bodyRam8Boosted=[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                        TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                        TOUGH,ATTACK,ATTACK,ATTACK,ATTACK,
+                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                        MOVE,MOVE,MOVE,MOVE,MOVE,
+                        MOVE,MOVE,MOVE,MOVE,MOVE];
+
+    let bodySignifer8Boosted=[TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                            TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                            TOUGH,HEAL,HEAL,HEAL,HEAL,
+                            HEAL,HEAL,HEAL,HEAL,HEAL,
+                            HEAL,HEAL,HEAL,HEAL,HEAL,
+                            HEAL,HEAL,HEAL,HEAL,HEAL,
+                            HEAL,HEAL,HEAL,HEAL,HEAL,
+                            HEAL,HEAL,HEAL,HEAL,HEAL,
+                            MOVE,MOVE,MOVE,MOVE,MOVE,
+                            MOVE,MOVE,MOVE,MOVE,MOVE];
+
+    let room = Game.rooms[roomName];
+
+    if(room && room.controller && room.controller.my) {
+        let creepsInRoom = room.find(FIND_MY_CREEPS);
+        let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
+        if(fillers < 2) {
+            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+            console.log('Adding filler to Spawn List: ' + newName);
+        }
+        if(fillers < 3) {
+            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+            console.log('Adding filler to Spawn List: ' + newName);
+        }
+
+
+        if(room.controller.level == 6) {
+            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            room.memory.spawn_list.push(bodySignifer6,
+                newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
+            console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
+
+            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            room.memory.spawn_list.push(bodyRam6,
+                newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
+            console.log('Adding Ram to Spawn List: ' + newNameRam);
+
+
+
+            return "Success";
+        }
+
+        else if(room.controller.level == 7) {
+            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            room.memory.spawn_list.push(bodySignifer7,
+                newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
+            console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
+
+            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            room.memory.spawn_list.push(bodyRam7,
+                newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
+            console.log('Adding Ram to Spawn List: ' + newNameRam);
+
+
+
+            return "Success";
+        }
+
+        else if(room.controller.level == 8) {
+            let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+            if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 870 &&
+                 storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 870 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 660 &&
+                 room.memory.labs && room.memory.labs.outputLab3 && room.memory.labs.outputLab4 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                    if(room.memory.labs.status && !room.memory.labs.status.boost) {
+                        room.memory.labs.status.boost = {};
+                    }
+
+                    if(room.memory.labs.status.boost) {
+                        // utrium acid
+                        if(room.memory.labs.status.boost.lab3) {
+                            room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 870;
+                            room.memory.labs.status.boost.lab3.use += 1;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab3 = {};
+                            room.memory.labs.status.boost.lab3.amount = 870;
+                            room.memory.labs.status.boost.lab3.use = 1;
+                        }
+                        // lemer alk
+                        if(room.memory.labs.status.boost.lab4) {
+                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 870;
+                            room.memory.labs.status.boost.lab4.use += 1;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab4 = {};
+                            room.memory.labs.status.boost.lab4.amount = 870;
+                            room.memory.labs.status.boost.lab4.use = 1;
+                        }
+                        // zyn alk
+                        if(room.memory.labs.status.boost.lab6) {
+                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 600;
+                            room.memory.labs.status.boost.lab6.use += 2;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab6 = {};
+                            room.memory.labs.status.boost.lab6.amount = 600;
+                            room.memory.labs.status.boost.lab6.use = 2;
+                        }
+                        // gho alk
+                        if(room.memory.labs.status.boost.lab7) {
+                            room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 660;
+                            room.memory.labs.status.boost.lab7.use += 2;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab7 = {};
+                            room.memory.labs.status.boost.lab7.amount = 660;
+                            room.memory.labs.status.boost.lab7.use = 2;
+                        }
+                    }
+
+
+                    let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    room.memory.spawn_list.push(bodyRam8Boosted,
+                        newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                    console.log('Adding Ram to Spawn List: ' + newNameRam);
+
+                    let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    room.memory.spawn_list.push(bodySignifer8Boosted,
+                        newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                    console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
+
+
+
+
+                    return "Success with boost";
+            }
+            else {
+                let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                room.memory.spawn_list.push(bodySignifer8,
+                    newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
+                console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
+
+
+                let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                room.memory.spawn_list.push(bodyRam8,
+                    newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
+                console.log('Adding Ram to Spawn List: ' + newNameRam);
+
+                return "Success without boost";
+            }
+
+
+        }
+
+    }
+
+}
+
 global.SQR = function(roomName, targetRoomName, boost=false):any {
 
     let room = Game.rooms[roomName];
@@ -201,7 +376,7 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
 
         if(Memory.CanClaimRemote) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
 
@@ -420,7 +595,7 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
 
         if(Memory.CanClaimRemote) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
 
@@ -637,7 +812,7 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
 
         if(Memory.CanClaimRemote) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
+            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
 
@@ -884,6 +1059,15 @@ global.SG = function(homeRoom, targetRoomName) {
     if(Game.rooms[homeRoom]) {
         if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {
 
+            let creepsInRoom = Game.rooms[homeRoom].find(FIND_MY_CREEPS);
+            let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
+            if(fillers < 3) {
+                let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
+                Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + newName);
+            }
+
+
             let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding Goblin to Spawn List: ' + newName);
 
@@ -916,4 +1100,24 @@ global.SG = function(homeRoom, targetRoomName) {
     }
     return "Failed to spawn";
 
+}
+
+global.SCK = function (homeRoom, targetRoomName) {
+    if(Game.rooms[homeRoom]) {
+        if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {
+
+            let newName = 'CreepKiller-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding CreepKiller to Spawn List: ' + newName);
+
+            Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,MOVE], newName, {memory: {role: 'CreepKiller', targetRoom: targetRoomName, homeRoom: homeRoom}});
+            return "Success!";
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 5). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the CreepKiller from...")
+    }
+    return "Failed to spawn";
 }

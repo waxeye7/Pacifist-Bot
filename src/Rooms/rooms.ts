@@ -4,6 +4,7 @@ import construction, { Build_Remote_Roads } from "./rooms.construction";
 import market from "./rooms.market";
 import labs from "./rooms.labs";
 import factory from "./room.factory";
+import observe from "./rooms.observe";
 
 function rooms() {
     const start = Game.cpu.getUsed()
@@ -101,7 +102,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 84 == 0 && room.controller.level > 1) {
+            if(Game.time % 84 == 0 && room.controller.level > 1 && room.controller.level !== 8) {
                 console.log(room.name, "has", Math.floor((room.controller.progress/room.controller.progressTotal) * 100) + "%", "and is level", room.controller.level);
             }
 
@@ -132,6 +133,10 @@ function rooms() {
             // const defenceTime = Game.cpu.getUsed()
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
+
+            if(room.controller.level == 8) {
+                observe(room);
+            }
 
             if(Game.time % 1 == 0 && room.terminal && room.controller.level >= 6) {
                 const start = Game.cpu.getUsed()
@@ -166,7 +171,14 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 0 && Game.cpu.bucket > 300) {
+            if(Game.time % 1004 == 0 && Game.cpu.bucket > 1000 && room.controller.level !== 8) {
+                const start = Game.cpu.getUsed()
+                construction(room);
+                Build_Remote_Roads(room);
+                console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
+            }
+
+            if(Game.time % 5020 == 0 && Game.cpu.bucket > 1000 && room.controller.level === 8) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 Build_Remote_Roads(room);

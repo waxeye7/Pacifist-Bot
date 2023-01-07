@@ -30,9 +30,12 @@ import roleHealer from "./Roles/healer";
 import roleBuildContainer from "./Roles/buildcontainer";
 import roleClaimer from "./Roles/claimer";
 import roleRemoteDismantler from "./Roles/remoteDismantler";
+import roleDismantleControllerWalls from "Roles/DismantleControllerWalls";
+
 import roleScout from "./Roles/scout";
 import roleSweeper from "Roles/sweeper";
 import roleAnnoy from "Roles/annoy";
+import roleCreepKiller from "Roles/creepKiller";
 import roleReserve from "Roles/reserve";
 import roleRampartDefender from "Roles/RampartDefender";
 import roleRam from "Roles/ram";
@@ -86,11 +89,13 @@ global.ROLES = {
 
 
   RemoteDismantler: roleRemoteDismantler,
+  DismantleControllerWalls: roleDismantleControllerWalls,
   scout: roleScout,
 
   sweeper: roleSweeper,
 
   annoy: roleAnnoy,
+  CreepKiller: roleCreepKiller,
 
   RampartDefender: roleRampartDefender,
 

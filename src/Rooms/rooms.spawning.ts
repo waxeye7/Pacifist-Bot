@@ -1008,15 +1008,15 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     else if((repairers < repairerTargetAmount && room.controller.level > 1 && room.controller.level <= 4 && !storage) ||
-    (storage && storage.store[RESOURCE_ENERGY] > 210000 && repairers < repairerTargetAmount && Game.time % 7000 < 100) ||
-    (room.memory.danger == true && repairers < 1 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
+    (storage && storage.store[RESOURCE_ENERGY] > 20000 && repairers < repairerTargetAmount && Game.time % 4800 < 100) ||
+    (room.memory.danger == true && repairers < 1 && room.controller.level >= 4  && room.controller.level <= 5 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {
             let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            if(storage && storage.store[RESOURCE_ENERGY] > 750000 || room.memory.danger) {
-                room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), newName, {memory: {role: 'repair', homeRoom: room.name}});
+            if(room.controller.level == 6) {
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'repair', homeRoom: room.name}});
             }
-            else if(room.controller.level >= 6 && Game.time % 3000 < 1000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {
-                room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), newName, {memory: {role: 'repair', homeRoom: room.name}});
+            else if(room.controller.level >= 7) {
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'repair', homeRoom: room.name}});
             }
             else if(room.controller.level <= 5) {
                 room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 12), newName, {memory: {role: 'repair', homeRoom: room.name}});

@@ -37,8 +37,8 @@
         }
 
 
-        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_STORAGE});
-        let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER && building.structureType == STRUCTURE_TERMINAL});
+        let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_STORAGE && s.structureType !== STRUCTURE_TERMINAL && s.structureType !== STRUCTURE_FACTORY && s.structureType !== STRUCTURE_LAB});
+        let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER});
         let spawnsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_SPAWN});
 
         if(creep.room.name == creep.memory.targetRoom) {

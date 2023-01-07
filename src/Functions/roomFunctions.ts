@@ -8,7 +8,22 @@ interface Room {
     findMineral:() => object | void;
     findBin:(storage) => object | void;
     findStorageLink:() => object | void;
+    findObserver:() => object | void;
 }
+
+Room.prototype.findObserver = function(): object | void {
+    let observers = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_OBSERVER);}});
+    if(observers.length > 0) {
+        if(this.memory.Structures) {
+            this.memory.Structures.observer = observers[0].id;
+            return observers[0];
+        }
+        else {
+            this.memory.Structures = {};
+        }
+    }
+}
+
 
 Room.prototype.findStorageLink = function(): object | void {
     let links = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});

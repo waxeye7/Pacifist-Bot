@@ -177,6 +177,12 @@
             else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && enemyCreepInRangeThree.length > 0) {
                 creep.heal(creep);
             }
+            else {
+                let lastHealCreep = Game.getObjectById(a.memory.lastHeal)
+                if(lastHealCreep && creep.pos.isNearTo(lastHealCreep)) {
+                    creep.heal(lastHealCreep)
+                }
+            }
         }
 
         if(a && a.memory.target && !targetCreep) {

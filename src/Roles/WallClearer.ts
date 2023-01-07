@@ -1,11 +1,12 @@
-import { open } from "fs";
-
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
 const run = function (creep) {
     creep.Speak();
+    if(creep.memory.suicide) {
+        creep.recycle();
+    }
 
     let controller = creep.room.controller;
     let openControllerPositions;
@@ -13,27 +14,36 @@ const run = function (creep) {
         openControllerPositions = controller.pos.getOpenPositionsIgnoreCreeps();
     }
 
-    let walls = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
+    let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER});
 
-    if(controller && controller.my && controller.level == 1 && controller.ticksToDowngrade > 19997) {
-        if(walls.length > 0) {
-            for(let wall of walls) {
-                wall.destroy();
+    if(controller && controller.my && controller.level == 1 && controller.ticksToDowngrade > 19900) {
+        if(buildings.length > 0) {
+            for(let building of buildings) {
+                building.destroy();
             }
         }
-        else if(walls.length == 0) {
+        else if(buildings.length == 0) {
             controller.unclaim();
+            if(creep.room.name == creep.memory.targetRoom) {
+                if(creep.ticksToLive <= 100) {
+                    creep.suicide();
+                }
+                else {
+                    creep.memory.suicide = true;
+                }
+            }
         }
 
     }
 
 
-    if(creep.room.name !== creep.memory.homeRoom && controller && controller.level == 0 && !controller.reservation && walls.length > 0 && openControllerPositions.length > 0) {
+    if(creep.room.name !== creep.memory.homeRoom && controller && controller.level == 0 && !controller.reservation && buildings.length > 0 && openControllerPositions.length > 0) {
         if(creep.pos.isNearTo(controller)) {
             creep.claimController(controller);
+            creep.signController(creep.room.controller, "We did not inherit the earth from our ancestors; we borrowed it from our children")
         }
         else {
-            creep.moveTo(controller, {reusePath:25})
+            creep.MoveCostMatrixRoadPrio(controller, 1)
         }
         return;
     }
@@ -44,14 +54,24 @@ const run = function (creep) {
     let route:any = Game.map.findRoute(creep.room.name, creep.memory.targetRoom, {
         routeCallback(roomName, fromRoomName) {
             if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetRoom) {
-                return 5;
+                return 25;
             }
-            return 1;
+
+            if(roomName.length == 6) {
+                if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                    return 4;
+                }
+                if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                    return 4;
+                }
+            }
+
+            return 5;
     }});
 
     if(route != 2 && route.length > 0) {
         const exit = creep.pos.findClosestByRange(route[0].exit);
-        creep.moveTo(exit, {reusePath:25});
+        creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(exit, 0);
         return;
     }
 }

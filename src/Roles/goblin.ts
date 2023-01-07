@@ -9,6 +9,16 @@ import roomDefence from "Rooms/rooms.defence";
     creep.Speak();
     creep.memory.moving = false;
 
+    if(creep.memory.suicide) {
+        creep.recycle();
+    }
+
+    if((creep.memory.full && creep.store.getFreeCapacity() !== 0 || creep.ticksToLive <= 250) && (creep.room.name == creep.memory.homeRoom || creep.room.name == creep.memory.dropRoom)) {
+        creep.memory.suicide = true;
+    }
+
+
+
     if(creep.memory.homeRoom && !creep.memory.dropRoom) {
         creep.memory.dropRoom = creep.memory.homeRoom;
     }
@@ -73,15 +83,30 @@ import roomDefence from "Rooms/rooms.defence";
 
         let ruins = creep.room.find(FIND_RUINS);
         if(ruins.length > 0) {
-            for(let ruin of ruins) {
+            let refinedRuins = ruins.filter(ruin => _.keys(ruin.store).length > 0);
+            let refinedRuinsList = [];
+
+            for(let ruin of refinedRuins) {
+                if(_.keys(ruin.store).length == 1 && _.keys(ruin.store)[0] == RESOURCE_ENERGY)  {
+                    // do nothing
+                }
+                else {
+                    refinedRuinsList.push(ruin);
+                }
+            }
+
+
+            for(let ruin of refinedRuinsList) {
                 for(let resource in ruin.store) {
-                    if(creep.pos.isNearTo(ruin)) {
-                        creep.withdraw(ruin, resource)
+                    if(resource !== RESOURCE_ENERGY) {
+                        if(creep.pos.isNearTo(ruin)) {
+                            creep.withdraw(ruin, resource)
+                        }
+                        else {
+                            creep.MoveCostMatrixRoadPrio(ruin, 1);
+                        }
+                        return;
                     }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(ruin, 1);
-                    }
-                    return;
                 }
             }
 
@@ -91,7 +116,7 @@ import roomDefence from "Rooms/rooms.defence";
 
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);
 
-        droppedTarget = droppedTarget.filter(function(resource) {return resource.pos.getRangeTo(creep.pos) < 4 && resource.amount > 250;});
+        droppedTarget = droppedTarget.filter(function(resource) {return resource.resourceType !== RESOURCE_ENERGY && resource.pos.getRangeTo(creep.pos) < 4 && resource.amount > 250;});
         if(droppedTarget.length > 0) {
             droppedTarget.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedTarget[0])) {
@@ -106,20 +131,45 @@ import roomDefence from "Rooms/rooms.defence";
 
 
         let targets:any = creep.room.find(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_POWER_SPAWN) && _.keys(building.store).length > 0});
+        let targetsList = [];
         let specialTargets;
+        let specialTargetsList = [];
 
         if(targets.length > 0) {
             targets = targets.filter(target => _.keys(target.store).length > 0);
+            for(let target of targets) {
+                if(_.keys(target.store).length == 1 && _.keys(target.store)[0] == RESOURCE_ENERGY)  {
+                    // do nothing
+                }
+                else {
+                    targetsList.push(target);
+                }
+            }
             specialTargets = targets.filter(function(building) {return building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_TERMINAL;});
+            for(let target of specialTargets) {
+                if(_.keys(target.store).length == 1 && _.keys(target.store)[0] == RESOURCE_ENERGY)  {
+                    // do nothing
+                }
+                else {
+                    specialTargetsList.push(target);
+                }
+            }
         }
-
-        let specialTarget = creep.pos.findClosestByRange(specialTargets);
-        let target = creep.pos.findClosestByRange(targets);
+        let specialTarget;
+        let target;
+        if(specialTargetsList.length > 0) {
+            specialTarget = creep.pos.findClosestByRange(specialTargetsList);
+        }
+        if(targetsList.length > 0) {
+            creep.pos.findClosestByRange(targetsList);
+        }
 
         if(specialTarget) {
             if(creep.pos.isNearTo(specialTarget)) {
                 for(let resource in specialTarget.store) {
-                    creep.withdraw(specialTarget, resource)
+                    if(resource !== RESOURCE_ENERGY) {
+                        creep.withdraw(specialTarget, resource)
+                    }
                 }
             }
             else {
@@ -130,7 +180,9 @@ import roomDefence from "Rooms/rooms.defence";
         else if(target) {
             if(creep.pos.isNearTo(target)) {
                 for(let resource in target.store) {
-                    creep.withdraw(target, resource)
+                    if(resource !== RESOURCE_ENERGY) {
+                        creep.withdraw(target, resource)
+                    }
                 }
             }
             else {
