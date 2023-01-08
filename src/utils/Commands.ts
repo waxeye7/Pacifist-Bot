@@ -1109,7 +1109,7 @@ global.SCK = function (homeRoom, targetRoomName) {
             let newName = 'CreepKiller-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding CreepKiller to Spawn List: ' + newName);
 
-            Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,MOVE], newName, {memory: {role: 'CreepKiller', targetRoom: targetRoomName, homeRoom: homeRoom}});
+            Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE], newName, {memory: {role: 'CreepKiller', targetRoom: targetRoomName, homeRoom: homeRoom}});
             return "Success!";
         }
         else {

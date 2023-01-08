@@ -4,9 +4,6 @@
  **/
  const run = function (creep) {
     creep.Speak();
-    if(creep.memory.suicide) {
-        creep.recycle();
-    }
 
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
@@ -18,10 +15,10 @@
     }
 
     if(!creep.pos.isNearTo(controller)) {
-        GoToController(creep, controller, 1);
+        GoToController(creep, controller.pos, 1);
     }
     else {
-        creep.memory.suicide = true;
+        creep.suicide();
     }
 
     let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTROLLER});

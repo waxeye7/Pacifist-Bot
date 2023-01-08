@@ -23,13 +23,18 @@ const run = function (creep) {
             let closestHostile = creep.pos.findClosestByRange(hostileCreeps);
             if(creep.pos.isNearTo(closestHostile)) {
                 creep.attack(closestHostile);
+                creep.moveTo(closestHostile);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(closestHostile, 1);
+                creep.moveTo(closestHostile);
             }
         }
         else {
-            return;
+            let spawns = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_SPAWN});
+            let closestSpawn = creep.pos.findClosestByRange(spawns);
+            if(!creep.pos.isNearTo(closestSpawn))  {
+                creep.MoveCostMatrixRoadPrio(closestSpawn, 1);
+            }
         }
     }
 }

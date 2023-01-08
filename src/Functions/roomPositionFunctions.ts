@@ -43,5 +43,9 @@ RoomPosition.prototype.getOpenPositionsIgnoreCreeps = function getOpenPositionsI
     let walkablePositions = _.filter(nearbyPositions, function(pos:any) {
         return terrain.get(pos.x, pos.y) !== TERRAIN_MASK_WALL;});
 
-    return walkablePositions;
+    let freePositions = _.filter(walkablePositions, function(pos) {
+        let lookStructures = pos.lookFor(LOOK_STRUCTURES)
+        return lookStructures.length == 0 || lookStructures.length == 1 && (lookStructures[0].structureType == STRUCTURE_ROAD || lookStructures[0].structureType == STRUCTURE_CONTAINER);});
+
+    return freePositions;
 }
