@@ -1008,7 +1008,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
     else if((repairers < repairerTargetAmount && room.controller.level > 1 && room.controller.level <= 4 && !storage) ||
-    (storage && storage.store[RESOURCE_ENERGY] > 20000 && repairers < repairerTargetAmount && Game.time % 4800 < 100) ||
+    (storage && storage.store[RESOURCE_ENERGY] > 20000 && repairers < repairerTargetAmount && Game.time % 3000 < 100) ||
     (room.memory.danger == true && repairers < 1 && room.controller.level >= 4  && room.controller.level <= 5 && storage && storage.store[RESOURCE_ENERGY] > 50000)) {
         if(EnergyMinersInRoom > 1) {
             let newName = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;

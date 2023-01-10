@@ -56,6 +56,8 @@ import roleSquadCreepZ from "Roles/Squad/SquadCreepZ";
 import roleSign from "Roles/Sign";
 import rolePriest from "Roles/Priest";
 
+import roleGuard from "Roles/Guard";
+
 global.ROLES = {
   MineralMiner: roleMineralMiner,
 
@@ -118,6 +120,8 @@ global.ROLES = {
 
   Sign: roleSign,
   Priest: rolePriest,
+
+  Guard: roleGuard,
 }
 
 

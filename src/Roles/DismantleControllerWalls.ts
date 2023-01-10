@@ -112,7 +112,22 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
             return;
         }
         else {
-            costs.set(struct.pos.x, struct.pos.y, 50);
+            if(struct.hits >= 5000000) {
+                costs.set(struct.pos.x, struct.pos.y, 200);
+            }
+            else if(struct.hits >= 2500000) {
+                costs.set(struct.pos.x, struct.pos.y, 150);
+            }
+            else if(struct.hits >= 1000000) {
+                costs.set(struct.pos.x, struct.pos.y, 100);
+            }
+            else if(struct.hits >= 500000) {
+                costs.set(struct.pos.x, struct.pos.y, 75);
+            }
+            else {
+                costs.set(struct.pos.x, struct.pos.y, 50);
+            }
+
         }
     });
     return costs;

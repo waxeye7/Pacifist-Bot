@@ -359,6 +359,7 @@ function findLocked(creep) {
 	}
 	if(creep.memory.suicide == true) {
 		creep.recycle();
+        return;
 	}
     // console.log('Repair Ran in', Game.cpu.getUsed() - start, 'ms')
 }

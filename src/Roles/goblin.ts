@@ -1,6 +1,3 @@
-import { drop } from "lodash";
-import roomDefence from "Rooms/rooms.defence";
-
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -11,6 +8,7 @@ import roomDefence from "Rooms/rooms.defence";
 
     if(creep.memory.suicide) {
         creep.recycle();
+        return;
     }
 
     if((creep.memory.full && creep.store.getFreeCapacity() !== 0 || creep.ticksToLive <= 250) && (creep.room.name == creep.memory.homeRoom || creep.room.name == creep.memory.dropRoom)) {

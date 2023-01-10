@@ -223,6 +223,7 @@ const run = function (creep) {
 	}
 	if(creep.memory.suicide == true) {
 		creep.recycle();
+        return;
 	}
 }
 

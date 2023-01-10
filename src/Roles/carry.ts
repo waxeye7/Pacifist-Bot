@@ -257,6 +257,7 @@ function findLocked(creep) {
     else if(creep.ticksToLive <= 75 && !creep.memory.full && creep.memory.targetRoom !== creep.room.name)
 	if(creep.memory.suicide == true) {
 		creep.recycle();
+        return;
 	}
 
 

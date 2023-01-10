@@ -39,6 +39,7 @@ const run = function (creep) {
                     }
                     if(creep.memory.suicide) {
                         creep.recycle();
+                        return;
                     }
                 }
                 return;
@@ -81,6 +82,7 @@ const run = function (creep) {
     else {
         if(creep.memory.suicide == true) {
             creep.recycle();
+            return;
         }
         if(Game.time % 100 == 0) {
             creep.memory.suicide = true;

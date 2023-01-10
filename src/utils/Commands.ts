@@ -1121,3 +1121,24 @@ global.SCK = function (homeRoom, targetRoomName) {
     }
     return "Failed to spawn";
 }
+
+
+global.SGD = function (homeRoom, targetRoomName, body) {
+    if(Game.rooms[homeRoom]) {
+        if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && targetRoomName !== homeRoom) {
+
+            let newName = 'Guard-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding Guard to Spawn List: ' + newName);
+
+            Game.rooms[homeRoom].memory.spawn_list.push(body, newName, {memory: {role: 'Guard', targetRoom: targetRoomName, homeRoom: homeRoom, coma:true}});
+            return "Success!";
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 5). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the Guard from...")
+    }
+    return "Failed to spawn";
+}

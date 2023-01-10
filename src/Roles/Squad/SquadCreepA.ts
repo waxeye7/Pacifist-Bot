@@ -33,6 +33,9 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         }
         route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
             routeCallback(roomName, fromRoomName) {
+                if(Game.map.getRoomStatus(roomName).status !== "normal") {
+                    return Infinity;
+                }
                 if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
                     return 25;
                 }

@@ -137,6 +137,7 @@
 	}
 	if(creep.memory.suicide == true) {
 		creep.recycle();
+        return;
 	}
 
 }

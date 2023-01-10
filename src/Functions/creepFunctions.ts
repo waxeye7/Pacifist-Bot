@@ -1,4 +1,3 @@
-// import {Creep} from "../utils/Types";
 interface Creep {
     Boost: () => boolean | "done";
     Speak: () => void;
@@ -249,15 +248,18 @@ Creep.prototype.findClosestLinkToStorage = function():any {
 
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
     if(storage) {
-        if(storage.store[RESOURCE_ENERGY] < 2000 && this.memory.role != "filler" && storage.structureType == STRUCTURE_STORAGE) {
-            if(Game.time % 10 == 1) {
+        let StructureType = storage.structureType;
+        let StorageEnergyStore = storage.store[RESOURCE_ENERGY];
+        let Role = this.memory.role;
+        if(StorageEnergyStore < 2000 && Role != "filler" && StructureType == STRUCTURE_STORAGE) {
+            if(Game.time % 50 == 1) {
                 console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
             }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
         }
-        else if(storage.store[RESOURCE_ENERGY] < 300 && this.memory.role != "filler" && storage.structureType == STRUCTURE_CONTAINER) {
-            if(Game.time % 10 == 0) {
+        else if(StorageEnergyStore < 300 && Role != "filler" && StructureType == STRUCTURE_CONTAINER) {
+            if(Game.time % 50 == 0) {
                 console.log("Container Storage requires 300 energy to withdraw. Try again later.", this.room.name)
             }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
@@ -269,7 +271,13 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
                 return result;
             }
             else {
-                this.MoveCostMatrixIgnoreRoads(storage, 1);
+                if(Role) {
+                    this.MoveCostMatrixRoadPrio(storage, 1);
+                }
+                else {
+                    this.MoveCostMatrixIgnoreRoads(storage, 1);
+                }
+
             }
         }
     }
@@ -293,9 +301,13 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             routeCallback(roomName, fromRoomName) {
                 // !_.includes(Memory.AvoidRooms, targetRoom, 0)
+                if(Game.map.getRoomStatus(roomName).status !== "normal") {
+                    return Infinity;
+                }
                 if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== targetRoom) {
                     return 24;
                 }
+
 
                 if(roomName.length == 6) {
                     if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
@@ -642,70 +654,45 @@ Creep.prototype.Sweep = function Sweep() {
 
 
 Creep.prototype.recycle = function recycle() {
-    if(this.memory.homeRoom && this.room.name != this.memory.homeRoom) {
+    if(this.memory.homeRoom && this.memory.homeRoom != this.room.name) {
         return this.moveToRoom(this.memory.homeRoom);
     }
 
-    if(this.room.memory.Structures && this.room.memory.Structures.bin) {
-        let bin:any = Game.getObjectById(this.room.memory.Structures.bin)
-        if(bin && bin.store[RESOURCE_ENERGY] < 2000) {
-            if(this.pos.x == bin.pos.x && this.pos.y == bin.pos.y) {
-                let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
-                // creepBlock.lookFor(LOOK_STRUCTURES, {filter: building => building.structureType == STRUCTURE_ROAD})
-                let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
-                if(StructuresOnSpawnLocation.length > 0) {
-                    for(let building of StructuresOnSpawnLocation) {
-                        if(building.structureType == STRUCTURE_SPAWN) {
-                            let spawn:any = building;
-                            spawn.recycleCreep(this)
+    let StructuresObject = this.room.memory.Structures;
+    let Bin;
+
+    if(StructuresObject) {
+        if(StructuresObject.bin) {
+            Bin = this.room.find(FIND_STRUCTURES, {
+                filter: (structure) => structure.id == StructuresObject.bin
+            });
+            if(Bin) {
+                if(this.pos.isEqualTo(Bin)) {
+                    let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
+                    let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
+                    if(StructuresOnSpawnLocation.length > 0) {
+                        for(let building of StructuresOnSpawnLocation) {
+                            if(building.structureType == STRUCTURE_SPAWN) {
+                                let spawn:any = building;
+                                spawn.recycleCreep(this)
+                            }
                         }
+                    }
+                    else {
+                        this.suicide();
                     }
                 }
                 else {
-                    this.suicide();
+                    this.MoveCostMatrixRoadPrio(Bin, 0);
                 }
             }
             else {
-                this.MoveCostMatrixRoadPrio(bin, 0);
-            }
-        }
-        else if(this.room.memory.Structures.storage) {
-            let storage:any = Game.getObjectById(this.room.memory.Structures.storage);
-            if(storage) {
-                if(this.pos.isNearTo(storage)) {
-                    this.suicide();
-                }
-                else {
-                    this.MoveCostMatrixRoadPrio(storage, 0);
-                }
-            }
-        }
-        else if(this.room.memory.Structures.spawn) {
-            let spawn:any = Game.getObjectById(this.room.memory.Structures.spawn);
-            if(spawn) {
-                if(this.pos.isNearTo(spawn)) {
-                    this.suicide();
-                }
-                else {
-                    this.MoveCostMatrixRoadPrio(spawn, 0);
-                }
+                this.suicide();
             }
         }
     }
     else {
-        let storage;
-        if(this.room.memory.Structures) {
-            storage = Game.getObjectById(this.room.memory.Structures.storage) || this.room.findStorage();
-        }
-
-        if(storage) {
-            this.room.findBin(storage);
-        }
-
-        else {
-            this.room.memory.Structures = {};
-        }
-
+        this.room.memory.Structures = {};
     }
 }
 
@@ -994,7 +981,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
         }
-        else if(struct.structureType == STRUCTURE_RAMPART) {
+        else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
             return;
         }
         else {
@@ -1357,7 +1344,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
     let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
     for(let eCreep of EnemyCreeps) {
         if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "  Source Keeper") {
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {

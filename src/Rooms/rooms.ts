@@ -163,7 +163,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000) {
+            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 && room.controller.level !== 8) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
@@ -176,6 +176,17 @@ function rooms() {
                 construction(room);
                 Build_Remote_Roads(room);
                 console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
+            }
+
+
+
+
+            if(Game.time % 5020 == 5019 && Game.cpu.bucket > 1000 && room.controller.level === 8) {
+                _.forEach(Game.rooms, function(everyRoom) {
+                    if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
+                        everyRoom.memory.keepTheseRoads = [];
+                    }
+                });
             }
 
             if(Game.time % 5020 == 0 && Game.cpu.bucket > 1000 && room.controller.level === 8) {

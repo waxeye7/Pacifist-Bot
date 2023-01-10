@@ -52,6 +52,12 @@ function findLocked(creep) {
     }
     let MaxStorage = creep.memory.MaxStorage;
 
+
+    if(creep.memory.suicide == true) {
+        creep.recycle();
+        return;
+    }
+
     if(creep.memory.full && creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.full = false;
         creep.memory.lockedDropped = false;
@@ -70,7 +76,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 25, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
         }
         else {
@@ -155,9 +161,6 @@ function findLocked(creep) {
             creep.memory.full = false;
         }
 
-        if(creep.memory.suicide == true) {
-            creep.recycle();
-        }
     }
 
 

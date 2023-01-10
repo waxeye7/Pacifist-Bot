@@ -6,8 +6,3 @@ improve level7/8 link energy to controller properties
 more carry parts pre storage where the extensions aren't enough to make right body.
 
 squad sees better route outside room, make the target for 10 ticks be to that way
-
-Make automatic scouting with observer in rooms two in every way (including diagonal) and check if someone is trying to settle
-if they are trying to settle, send an attacker to wipe them out.
-if the room's controller is walled, send a dismantler to destroy so my wall breaker and controller signer creep can destroy it allow
-this way my land will be clean and there will be no problems :)
