@@ -196,12 +196,18 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
 
   if(Game.time % 100 == 0) {
-    let difference = Game.cpu.bucket - Memory.CPU
+    if(!Memory.CPU) {
+      Memory.CPU = {};
+    }
+    if(!Memory.CPU.reduce) {
+      Memory.CPU.reduce = false;
+    }
+    let difference = Game.cpu.bucket - Memory.CPU.bucket
     console.log(" ");
     console.log("-------------------", difference + "ms of CPU difference in the last 100 ticks");
     console.log(" ");
     console.log("-------------------", "Averaging", (2000-difference)/100, "CPU per tick")
-    Memory.CPU = Game.cpu.bucket;
+    Memory.CPU.bucket = Game.cpu.bucket;
   }
 
   if(Game.time % 100 == 0 && Game.shard.name == "shard0" ||

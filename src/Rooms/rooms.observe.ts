@@ -1,7 +1,7 @@
 function observe(room) {
 // if(Game.time % 10 == 0) {
 
-    let interval = 1200;
+    let interval = 400;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
     if(observer && Game.time % interval <= 1) {
 
@@ -101,7 +101,7 @@ function observe(room) {
 
                         }
                     }
-                    else if(Game.rooms[adj].controller.level == 1 || Game.rooms[adj].controller.level == 2) {
+                    else if((Game.rooms[adj].controller.level == 1 || Game.rooms[adj].controller.level == 2) && Game.rooms[adj].controller.safeMode == 0) {
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         if(hostileSpawns.length > 0 && hostileCreeps.length > 0) {
@@ -136,7 +136,7 @@ function observe(room) {
                         }
                     }
 
-                    else if(Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) {
+                    else if((Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) && Game.rooms[adj].controller.safeMode == 0) {
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});

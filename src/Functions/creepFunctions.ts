@@ -659,15 +659,15 @@ Creep.prototype.recycle = function recycle() {
     }
 
     let StructuresObject = this.room.memory.Structures;
-    let Bin;
+    let bin;
 
     if(StructuresObject) {
         if(StructuresObject.bin) {
-            Bin = this.room.find(FIND_STRUCTURES, {
+            bin = this.room.find(FIND_STRUCTURES, {
                 filter: (structure) => structure.id == StructuresObject.bin
-            });
-            if(Bin) {
-                if(this.pos.isEqualTo(Bin)) {
+            })[0];
+            if(bin) {
+                if(this.pos.isEqualTo(bin)) {
                     let spawnPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name);
                     let StructuresOnSpawnLocation = spawnPosition.lookFor(LOOK_STRUCTURES);
                     if(StructuresOnSpawnLocation.length > 0) {
@@ -683,7 +683,7 @@ Creep.prototype.recycle = function recycle() {
                     }
                 }
                 else {
-                    this.MoveCostMatrixRoadPrio(Bin, 0);
+                    this.MoveCostMatrixRoadPrio(bin, 0);
                 }
             }
             else {

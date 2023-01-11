@@ -53,10 +53,7 @@ function findLocked(creep) {
     let MaxStorage = creep.memory.MaxStorage;
 
 
-    if(creep.memory.suicide == true) {
-        creep.recycle();
-        return;
-    }
+
 
     if(creep.memory.full && creep.store.getFreeCapacity() == MaxStorage) {
         creep.memory.full = false;
@@ -163,7 +160,10 @@ function findLocked(creep) {
 
     }
 
-
+    if(creep.memory.suicide == true) {
+        creep.recycle();
+        return;
+    }
 
 }
 
