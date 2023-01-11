@@ -570,6 +570,17 @@ import randomWords from "random-words";
         }
 
 
+        if (terminal && terminal.store[RESOURCE_ENERGY] < 100000 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_ENERGY);
+                creep.memory.target = terminal.id;
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+
 
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
@@ -656,9 +667,9 @@ import randomWords from "random-words";
             return;
         }
 
-        if(!creep.memory.target) {
-            creep.MoveCostMatrixRoadPrio(storage, 5);
-        }
+        // if(!creep.memory.target) {
+        //     creep.MoveCostMatrixRoadPrio(storage, 5);
+        // }
 
     }
 

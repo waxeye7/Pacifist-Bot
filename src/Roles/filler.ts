@@ -87,13 +87,6 @@ import randomWords from "random-words";
         }
     }
 
-    let terminal = creep.room.terminal;
-    let storage = Game.getObjectById(creep.memory.storage) || creep.room.findStorage();
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 100000 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
-        creep.memory.locked.push(terminal.id);
-    }
-
-
 
 
     if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
@@ -168,10 +161,10 @@ import randomWords from "random-words";
     // const start = Game.cpu.getUsed()
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
+        creep.memory.locked = false;
     }
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] < 50) {
         creep.memory.full = false;
-        // creep.memory.locked = false;
     }
 
 

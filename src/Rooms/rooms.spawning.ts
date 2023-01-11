@@ -686,7 +686,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[2].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[2].repair_creep.amount && sites.length > 0 && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger) {
+            if(repairers < spawnrules[2].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -714,7 +714,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[3].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[3].repair_creep.amount && sites.length > 0 && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger) {
+            if(repairers < spawnrules[3].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -742,7 +742,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[4].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[4].repair_creep.amount && sites.length > 0 && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 100000 && Game.time % 3000 < 100) {
+            if(repairers < spawnrules[4].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 100000 && Game.time % 3000 < 100) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -765,7 +765,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[5].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[5].repair_creep.amount && sites.length > 0 && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
+            if(repairers < spawnrules[5].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -799,7 +799,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[6].repair_creep.amount && sites.length > 0 && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
+            if(repairers < spawnrules[6].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -868,7 +868,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[7].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[7].repair_creep.amount && sites.length > 0 && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
+            if(repairers < spawnrules[7].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -942,7 +942,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[8].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
-            if(repairers < spawnrules[8].repair_creep.amount && sites.length > 0 && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
+            if(repairers < spawnrules[8].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);

@@ -128,7 +128,10 @@ const run = function (creep) {
             let container:any = Game.getObjectById(creep.memory.container_target);
 
             if(target && container && creep.pos.isNearTo(container) && container.store.getFreeCapacity() !== 0) {
-                creep.transfer(container, RESOURCE_ENERGY);
+
+                if(creep.transfer(container, RESOURCE_ENERGY) == 0) {
+                    creep.memory.full = false;
+                }
             }
             else if(target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 50) {
                 creep.transfer(target, RESOURCE_ENERGY);
