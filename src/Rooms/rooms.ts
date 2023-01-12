@@ -5,6 +5,7 @@ import market from "./rooms.market";
 import labs from "./rooms.labs";
 import factory from "./room.factory";
 import observe from "./rooms.observe";
+import data from "./rooms.data";
 
 function rooms() {
     const start = Game.cpu.getUsed()
@@ -137,6 +138,8 @@ function rooms() {
             if(room.controller.level == 8) {
                 observe(room);
             }
+            data(room);
+
 
             if(Game.time % 1 == 0 && room.terminal && room.controller.level >= 6) {
                 const start = Game.cpu.getUsed()
