@@ -178,9 +178,11 @@
                 creep.heal(creep);
             }
             else {
-                let lastHealCreep = Game.getObjectById(a.memory.lastHeal)
-                if(lastHealCreep && creep.pos.isNearTo(lastHealCreep)) {
-                    creep.heal(lastHealCreep)
+                if(a) {
+                    let lastHealCreep = Game.getObjectById(a.memory.lastHeal)
+                    if(lastHealCreep && creep.pos.isNearTo(lastHealCreep)) {
+                        creep.heal(lastHealCreep)
+                    }
                 }
             }
         }

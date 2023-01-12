@@ -170,7 +170,27 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                 costs.set(struct.pos.x, struct.pos.y, 255);
             }
             else if(!struct.my && struct.structureType !== STRUCTURE_CONTROLLER) {
+                if(struct.structureType == STRUCTURE_WALL || struct.structureType == STRUCTURE_RAMPART) {
+                    if(struct.hits < 1000000) {
+                        costs.set(struct.pos.x, struct.pos.y, 60);
+                    }
+                    else if(struct.hits < 1500000) {
+                        costs.set(struct.pos.x, struct.pos.y, 70);
+                    }
+                    else if(struct.hits < 2000000) {
+                        costs.set(struct.pos.x, struct.pos.y, 80);
+                    }
+                    else if(struct.hits < 3000000) {
+                        costs.set(struct.pos.x, struct.pos.y, 100);
+                    }
+                    else {
+                        costs.set(struct.pos.x, struct.pos.y, 120);
+                    }
+                }
+                else {
                     costs.set(struct.pos.x, struct.pos.y, 120);
+                }
+
             }
             else {
                 costs.set(struct.pos.x, struct.pos.y, 255);

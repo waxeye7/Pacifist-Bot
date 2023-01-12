@@ -1,7 +1,7 @@
 function observe(room) {
 // if(Game.time % 10 == 0) {
 
-    let interval = 400;
+    let interval = 64;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
     if(observer && Game.time % interval <= 1) {
         if(!room.memory.observe) {
@@ -61,7 +61,6 @@ function observe(room) {
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my) {
-                console.log(Game.rooms[adj].controller.safeMode)
                 let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
                 let openControllerPositions;
 
@@ -153,6 +152,47 @@ function observe(room) {
                     if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
 
                         global.SQR(room.name, adj)
+
+                    }
+                    else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
+
+                        global.SGD(room.name, adj,
+                            [
+                                MOVE,MOVE,MOVE,MOVE,MOVE,
+                                MOVE,MOVE,MOVE,MOVE,MOVE,
+                                MOVE,MOVE,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                MOVE,MOVE,MOVE,MOVE,MOVE,
+                                MOVE,MOVE,MOVE,MOVE,MOVE,
+                                MOVE,MOVE,MOVE
+                            ]
+                            );
+
+                    }
+                    else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+
+                        global.SGD(room.name, adj,
+                            [
+                                MOVE,MOVE,
+                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                MOVE,MOVE,MOVE
+                            ]
+                            );
+
+                    }
+
+                }
+                else if((Game.rooms[adj].controller.level == 5 || Game.rooms[adj].controller.level == 6) && !Game.rooms[adj].controller.safeMode) {
+                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
+                    if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
+
+                        global.SD(room.name, adj, true)
 
                     }
                     else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {

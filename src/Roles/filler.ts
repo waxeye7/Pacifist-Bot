@@ -169,7 +169,7 @@ import randomWords from "random-words";
 
 
     if(creep.memory.full) {
-        if(Game.time % 10 == 0 && (!creep.memory.locked || creep.memory.locked.length == 0)) {
+        if(Game.time % 4 == 0 && (!creep.memory.locked || creep.memory.locked.length == 0)) {
             findLocked(creep);
         }
         if(creep.memory.locked && creep.memory.locked.length > 0) {

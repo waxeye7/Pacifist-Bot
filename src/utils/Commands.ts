@@ -153,7 +153,7 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
 
                     return "Success with boost";
             }
-            else {
+            else if(room.controller.level == 8 && !boost) {
                 let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
                 room.memory.spawn_list.push(bodySignifer8,
                     newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
@@ -541,7 +541,7 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
 
                  }
 
-            else {
+            else if(room.controller.level == 8 && !boost) {
                 let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
                 room.memory.spawn_list.push(bodyLevel8Back, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
@@ -758,7 +758,7 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
 
                  }
 
-            else {
+            else if(room.controller.level == 8 && !boost) {
                 let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
                 room.memory.spawn_list.push(bodyLevel8Back, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
@@ -977,7 +977,7 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
 
                  }
 
-            else {
+            else if(room.controller.level == 8 && !boost) {
                 let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
                 room.memory.spawn_list.push(bodyLevel8Back, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25,25,targetRoomName)}});
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);

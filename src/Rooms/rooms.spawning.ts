@@ -832,7 +832,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Builder to Spawn List: ' + name);
                 }
             }
-            if(upgraders < spawnrules[6].upgrade_creep.amount && (storage && storage.store[RESOURCE_ENERGY] > 500000 || room.controller.ticksToDowngrade < 10000) && !room.memory.danger) {
+            if(upgraders < spawnrules[6].upgrade_creep.amount && (storage && storage.store[RESOURCE_ENERGY] > 400000 || room.controller.ticksToDowngrade < 10000) && !room.memory.danger) {
                 let name = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -901,7 +901,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Builder to Spawn List: ' + name);
                 }
             }
-            if(upgraders < spawnrules[7].upgrade_creep_spend.amount && storage && storage.store[RESOURCE_ENERGY] > 500000 && !room.memory.danger) {
+            if(upgraders < spawnrules[7].upgrade_creep_spend.amount && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
