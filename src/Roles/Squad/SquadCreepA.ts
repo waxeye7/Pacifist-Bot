@@ -397,6 +397,10 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                 );
             }
             else {
+                if(creep.memory.move_here_for_now && creep.memory.move_here_for_now.timer > 0) {
+                    move_location = creep.memory.move_here_for_now.pos
+                    creep.memory.move_here_for_now.timer -= 1
+                }
                 path = PathFinder.search(
                     creep.pos, {pos:move_location, range:range},
                     {

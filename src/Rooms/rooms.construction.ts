@@ -422,22 +422,21 @@ function construction(room) {
     if(room.controller.level >= 5 && storage) {
         let ramparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) == 10});
         if(ramparts.length > 0) {
-            let topLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x && rampart.pos.y < storage.pos.y;});
+            let topLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y < storage.pos.y-4;});
             if(topLeftRamparts.length > 0) {
                 // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                 let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
                 let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
                 pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
             }
-            let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x && rampart.pos.y < storage.pos.y;});
-
+            let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y < storage.pos.y-4;});
             if(topRightRamparts.length > 0) {
                 // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                 let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
                 let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
                 pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
             }
-            let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x && rampart.pos.y > storage.pos.y;});
+            let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y > storage.pos.y+4;});
             if(bottomRightRamparts.length > 0) {
                 // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                 let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
@@ -445,7 +444,7 @@ function construction(room) {
                 pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
             }
 
-            let bottomLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x && rampart.pos.y > storage.pos.y;});
+            let bottomLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y > storage.pos.y+4;});
             if(bottomLeftRamparts.length > 0) {
                 // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                 let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
@@ -749,7 +748,14 @@ function construction(room) {
                         let listOfObserverPosition = [new RoomPosition(storage.pos.x + 5, storage.pos.y, room.name)]
                         DestroyAndBuild(room, listOfObserverPosition, STRUCTURE_OBSERVER);
                     }
+
+                    let nukers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_NUKER});
+                    if(nukers.length == 0) {
+                        let listOfNukerPositions = [new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name)]
+                        DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_OBSERVER);
+                    }
                 }
+
 
 
                 if(room.controller.level < 6) {

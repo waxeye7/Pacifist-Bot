@@ -517,7 +517,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 1,
-                body:   [CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE],
+                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE],
 
             },
 
@@ -563,7 +563,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             upgrade_creep_spend: {
 
-                amount: 2,
+                amount: 1,
                 body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE],
 
             },
@@ -808,7 +808,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let allowSpawn = true;
                 let spawnSmall = false;
                 for(let site of sites) {
-                    if(site.structureType == STRUCTURE_CONTAINER) {
+                    if(site.structureType == STRUCTURE_CONTAINER && site.pos.getRangeTo(spawn) > 4) {
                         allowSpawn = false;
                     }
                     else if(site.structureType == STRUCTURE_RAMPART) {
@@ -901,7 +901,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Builder to Spawn List: ' + name);
                 }
             }
-            if(upgraders < spawnrules[7].upgrade_creep_spend.amount && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
+            if((upgraders < spawnrules[7].upgrade_creep_spend.amount && room.name !== Memory.targetRampRoom || upgraders < spawnrules[7].upgrade_creep_spend.amount + 1 && room.name == Memory.targetRampRoom) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1321,6 +1321,11 @@ function spawnFirstInLine(room, spawn) {
 
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
                 || room.memory.spawn_list[1].startsWith("Defender")) {
+
+                    if(room.memory.spawn_list[1].startsWith("SpecialRe") && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && room.memory.labs.status.boost.lab2.amount && room.memory.labs.status.boost.lab2.use > 0) {
+                        room.memory.labs.status.boost.lab2.use = 0;
+                        room.memory.labs.status.boost.lab2. amount = 0;
+                    }
 
                     room.memory.spawn_list.shift();
                     room.memory.spawn_list.shift();

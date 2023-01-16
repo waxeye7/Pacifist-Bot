@@ -3,7 +3,7 @@ import spawning from "./rooms.spawning";
 import construction, { Build_Remote_Roads } from "./rooms.construction";
 import market from "./rooms.market";
 import labs from "./rooms.labs";
-import factory from "./room.factory";
+import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
 

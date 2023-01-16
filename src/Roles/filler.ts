@@ -110,6 +110,13 @@ import randomWords from "random-words";
         }
     }
 
+    // if(creep.room.memory.Structures.nuker) {
+    //     let nuker:any = Game.getObjectById(creep.room.memory.Structures.nuker);
+    //     if(nuker && nuker.store[RESOURCE_ENERGY] < 300000) {
+    //         creep.memory.locked.push(nuker.id);
+    //     }
+    // }
+
 }
 
 

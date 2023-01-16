@@ -9,6 +9,21 @@ interface Room {
     findBin:(storage) => object | void;
     findStorageLink:() => object | void;
     findObserver:() => object | void;
+    findNuker:() => object | void;
+}
+
+
+Room.prototype.findNuker = function(): object | void {
+    let nukers = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_NUKER);}});
+    if(nukers.length > 0) {
+        if(this.memory.Structures) {
+            this.memory.Structures.nuker = nukers[0].id;
+            return nukers[0];
+        }
+        else {
+            this.memory.Structures = {};
+        }
+    }
 }
 
 Room.prototype.findObserver = function(): object | void {

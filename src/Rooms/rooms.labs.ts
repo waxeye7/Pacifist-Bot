@@ -390,8 +390,8 @@ function labs(room) {
                 currentOutput = RESOURCE_UTRIUM_LEMERGITE;
             }
 
-        else if(storage && storage.store[RESOURCE_GHODIUM] < 1000 && currentOutput != RESOURCE_GHODIUM ||
-            storage && storage.store[RESOURCE_GHODIUM] < 3000 && currentOutput == RESOURCE_GHODIUM) {
+        else if(storage && storage.store[RESOURCE_GHODIUM] < 10000 && currentOutput != RESOURCE_GHODIUM ||
+            storage && storage.store[RESOURCE_GHODIUM] < 20000 && currentOutput == RESOURCE_GHODIUM) {
                 lab1Input = RESOURCE_ZYNTHIUM_KEANITE
                 lab2Input = RESOURCE_UTRIUM_LEMERGITE;
                 currentOutput = RESOURCE_GHODIUM;

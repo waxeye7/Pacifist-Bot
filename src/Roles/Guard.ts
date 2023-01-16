@@ -41,7 +41,7 @@ const run = function (creep) {
         killCreepsInroom(creep, enemyCreeps);
     }
     else {
-        let HostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES);
+        let HostileStructures = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTROLLER});
         if(HostileStructures.length > 0) {
             let closestHostileStructure = creep.pos.findClosestByRange(HostileStructures);
             if(creep.pos.isNearTo(closestHostileStructure)) {

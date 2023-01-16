@@ -667,6 +667,31 @@ import randomWords from "random-words";
             return;
         }
 
+
+        let nuker = Game.getObjectById(creep.room.memory.Structures.nuker) || creep.room.findNuker();
+        if(storage && nuker && storage.store[RESOURCE_GHODIUM] >= 12000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_GHODIUM);
+                creep.memory.target = nuker.id;
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+
+
+        if(storage && nuker && storage.store[RESOURCE_ENERGY] >= 300000 && nuker.store[RESOURCE_ENERGY] < 300000) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_ENERGY);
+                creep.memory.target = nuker.id;
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+
         // if(!creep.memory.target) {
         //     creep.MoveCostMatrixRoadPrio(storage, 5);
         // }
