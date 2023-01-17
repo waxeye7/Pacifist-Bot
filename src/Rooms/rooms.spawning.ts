@@ -550,7 +550,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         7: {
             build_creep: {
 
-                amount: 3,
+                amount: 2,
                 body:   getBody([WORK,WORK,CARRY,CARRY,MOVE], room, 50),
 
             },
@@ -606,7 +606,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         8: {
             build_creep: {
 
-                amount: 3,
+                amount: 2,
                 body:   getBody([WORK,WORK,CARRY,CARRY,MOVE], room, 50),
 
             },
@@ -799,6 +799,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
+            else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
+                let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + name);
+            }
             if(repairers < spawnrules[6].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
@@ -866,6 +871,11 @@ function add_creeps_to_spawn_list(room, spawn) {
             else if(fillers < spawnrules[7].filler_creep.amount + 1 && storage && Memory.targetRampRoom == room.name) {
                 let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[7].filler_creep.body, name, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + name);
+            }
+            else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
+                let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             if(repairers < spawnrules[7].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {
@@ -940,6 +950,11 @@ function add_creeps_to_spawn_list(room, spawn) {
             else if(fillers < spawnrules[8].filler_creep.amount + 1 && storage && Memory.targetRampRoom == room.name) {
                 let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[8].filler_creep.body, name, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + name);
+            }
+            else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
+                let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+                room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
             }
             if(repairers < spawnrules[8].repair_creep.amount && !room.memory.danger && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 100000)) {

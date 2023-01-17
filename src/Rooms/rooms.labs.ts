@@ -350,6 +350,49 @@ function labs(room) {
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
             }
 
+        // chain to get catalyzed utrium acid
+
+        else if(storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_HYDRIDE ||
+            storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 3000 && currentOutput == RESOURCE_UTRIUM_HYDRIDE) {
+                lab1Input = RESOURCE_UTRIUM;
+                lab2Input = RESOURCE_HYDROGEN;
+                currentOutput = RESOURCE_UTRIUM_HYDRIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_UTRIUM_ACID] < 1000 && currentOutput != RESOURCE_UTRIUM_ACID ||
+            storage && storage.store[RESOURCE_UTRIUM_ACID] < 3000 && currentOutput == RESOURCE_UTRIUM_ACID) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_UTRIUM_HYDRIDE;
+                currentOutput = RESOURCE_UTRIUM_ACID;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 50000) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_UTRIUM_ACID;
+                currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
+            }
+
+        // chain to get catalyzed zyn alk
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_OXIDE ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 3000 && currentOutput == RESOURCE_ZYNTHIUM_OXIDE) {
+                lab1Input = RESOURCE_OXYGEN;
+                lab2Input = RESOURCE_ZYNTHIUM;
+                currentOutput = RESOURCE_ZYNTHIUM_OXIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_ALKALIDE ||
+            storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 3000 && currentOutput == RESOURCE_ZYNTHIUM_ALKALIDE) {
+                lab1Input = RESOURCE_HYDROXIDE
+                lab2Input = RESOURCE_ZYNTHIUM_OXIDE;
+                currentOutput = RESOURCE_ZYNTHIUM_ALKALIDE;
+            }
+
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 50000) {
+                lab1Input = RESOURCE_CATALYST;
+                lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
+                currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
+            }
 
         // chain to get catalyzed lemergium alkalide
 
@@ -439,51 +482,7 @@ function labs(room) {
                 currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
             }
 
-        // chain to get catalyzed utrium acid
 
-        else if(storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_HYDRIDE ||
-            storage && storage.store[RESOURCE_UTRIUM_HYDRIDE] < 3000 && currentOutput == RESOURCE_UTRIUM_HYDRIDE) {
-                lab1Input = RESOURCE_UTRIUM;
-                lab2Input = RESOURCE_HYDROGEN;
-                currentOutput = RESOURCE_UTRIUM_HYDRIDE;
-            }
-
-        else if(storage && storage.store[RESOURCE_UTRIUM_ACID] < 1000 && currentOutput != RESOURCE_UTRIUM_ACID ||
-            storage && storage.store[RESOURCE_UTRIUM_ACID] < 3000 && currentOutput == RESOURCE_UTRIUM_ACID) {
-                lab1Input = RESOURCE_HYDROXIDE
-                lab2Input = RESOURCE_UTRIUM_HYDRIDE;
-                currentOutput = RESOURCE_UTRIUM_ACID;
-            }
-
-        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 50000) {
-                lab1Input = RESOURCE_CATALYST;
-                lab2Input = RESOURCE_UTRIUM_ACID;
-                currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
-            }
-
-
-
-        // chain to get catalyzed zyn alk
-
-        else if(storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_OXIDE ||
-            storage && storage.store[RESOURCE_ZYNTHIUM_OXIDE] < 3000 && currentOutput == RESOURCE_ZYNTHIUM_OXIDE) {
-                lab1Input = RESOURCE_OXYGEN;
-                lab2Input = RESOURCE_ZYNTHIUM;
-                currentOutput = RESOURCE_ZYNTHIUM_OXIDE;
-            }
-
-        else if(storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 1000 && currentOutput != RESOURCE_ZYNTHIUM_ALKALIDE ||
-            storage && storage.store[RESOURCE_ZYNTHIUM_ALKALIDE] < 3000 && currentOutput == RESOURCE_ZYNTHIUM_ALKALIDE) {
-                lab1Input = RESOURCE_HYDROXIDE
-                lab2Input = RESOURCE_ZYNTHIUM_OXIDE;
-                currentOutput = RESOURCE_ZYNTHIUM_ALKALIDE;
-            }
-
-        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 50000) {
-                lab1Input = RESOURCE_CATALYST;
-                lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
-                currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
-            }
 
 
 

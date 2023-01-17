@@ -570,7 +570,7 @@ import randomWords from "random-words";
         }
 
 
-        if (terminal && terminal.store[RESOURCE_ENERGY] < 100000 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
+        if(terminal && terminal.store[RESOURCE_ENERGY] < 100000 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_ENERGY);
                 creep.memory.target = terminal.id;
@@ -580,7 +580,6 @@ import randomWords from "random-words";
             }
             return;
         }
-
 
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
@@ -596,80 +595,90 @@ import randomWords from "random-words";
             return;
         }
 
-        let listOfResourcesToTerminal:any = [RESOURCE_BATTERY, RESOURCE_OPS,
-        RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
-        RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
-        RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
-        RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
-        RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
-        RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
-        RESOURCE_POWER, RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
-        if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
-            if(creep.pos.isNearTo(storage)) {
-                for(let resource in storage.store) {
-                    if(listOfResourcesToTerminal.includes(resource)) {
-                        creep.withdraw(storage, resource);
-                    }
-                }
-                creep.memory.target = terminal.id;
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1);
-            }
-            return;
-        }
 
-        let listOfResourcesToFactory:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
-        if(storage && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (storage.store[RESOURCE_MIST] >= MaxStorage || storage.store[RESOURCE_BIOMASS] >= MaxStorage || storage.store[RESOURCE_METAL] >= MaxStorage || storage.store[RESOURCE_SILICON] >= MaxStorage)) {
-            if(creep.pos.isNearTo(storage)) {
-                for(let resource in storage.store) {
-                    if(listOfResourcesToFactory.includes(resource)) {
-                        creep.withdraw(storage, resource);
+        if(creep.ticksToLive % 40 == 0) {
+            let listOfResourcesToTerminal:any = [RESOURCE_BATTERY, RESOURCE_OPS,
+                RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
+                RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
+                RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
+                RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
+                RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+                RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
+                RESOURCE_POWER, RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
+                if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
+                    for(let resource in storage.store) {
+                        if(listOfResourcesToTerminal.includes(resource)) {
+                            if(creep.pos.isNearTo(storage)) {
+                                creep.withdraw(storage, resource);
+                                creep.memory.target = terminal.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(storage, 1);
+                            }
+                            return;
+                        }
                     }
                 }
-                creep.memory.target = factory.id;
             }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1);
-            }
-            return;
-        }
 
-        let listOfResourcesToFactoryFromTerminal:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
-        if(terminal && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (terminal.store[RESOURCE_MIST] >= MaxStorage || terminal.store[RESOURCE_BIOMASS] >= MaxStorage || terminal.store[RESOURCE_METAL] >= MaxStorage || terminal.store[RESOURCE_SILICON] >= MaxStorage)) {
-            if(creep.pos.isNearTo(terminal)) {
-                for(let resource in terminal.store) {
-                    if(listOfResourcesToFactoryFromTerminal.includes(resource)) {
-                        creep.withdraw(terminal, resource);
+            if(creep.ticksToLive % 40 == 10) {
+                let listOfResourcesToFactory:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
+                if(storage && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (storage.store[RESOURCE_MIST] >= MaxStorage || storage.store[RESOURCE_BIOMASS] >= MaxStorage || storage.store[RESOURCE_METAL] >= MaxStorage || storage.store[RESOURCE_SILICON] >= MaxStorage)) {
+                    for(let resource in storage.store) {
+                        if(listOfResourcesToFactory.includes(resource)) {
+                            if(creep.pos.isNearTo(storage)) {
+                                creep.withdraw(storage, resource);
+                                creep.memory.target = factory.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(storage, 1);
+                            }
+                            return;
+                        }
                     }
                 }
-                creep.memory.target = factory.id;
             }
-            else {
-                creep.MoveCostMatrixRoadPrio(terminal, 1);
-            }
-            return;
-        }
 
-        let listOfResourcesToTerminalFromFactory:any = [RESOURCE_KEANIUM_BAR];
-        if(terminal && factory && terminal.store.getFreeCapacity() > MaxStorage * 10 && (factory.store[RESOURCE_KEANIUM_BAR] >= 5000)) {
-            if(creep.pos.isNearTo(factory)) {
-                for(let resource in factory.store) {
-                    if(listOfResourcesToTerminalFromFactory.includes(resource)) {
-                        creep.withdraw(factory, resource);
+
+            if(creep.ticksToLive % 40 == 20) {
+                let listOfResourcesToFactoryFromTerminal:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
+                if(terminal && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (terminal.store[RESOURCE_MIST] >= MaxStorage || terminal.store[RESOURCE_BIOMASS] >= MaxStorage || terminal.store[RESOURCE_METAL] >= MaxStorage || terminal.store[RESOURCE_SILICON] >= MaxStorage)) {
+                    for(let resource in terminal.store) {
+                        if(listOfResourcesToFactoryFromTerminal.includes(resource)) {
+                            if(creep.pos.isNearTo(terminal)) {
+                                creep.withdraw(terminal, resource);
+                                creep.memory.target = factory.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(terminal, 1);
+                            }
+                            return;
+                        }
                     }
                 }
-                creep.memory.target = terminal.id;
             }
-            else {
-                creep.MoveCostMatrixRoadPrio(factory, 1);
+
+            if(creep.ticksToLive % 40 == 30) {
+                let listOfResourcesToTerminalFromFactory:any = [RESOURCE_KEANIUM_BAR];
+                if(terminal && factory && terminal.store.getFreeCapacity() > MaxStorage * 10 && (factory.store[RESOURCE_KEANIUM_BAR] >= 5000)) {
+                    for(let resource in factory.store) {
+                        if(listOfResourcesToTerminalFromFactory.includes(resource)) {
+                            if(creep.pos.isNearTo(factory)) {
+                                creep.withdraw(factory, resource);
+                                creep.memory.target = terminal.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(factory, 1);
+                            }
+                            return;
+                        }
+                    }
+                }
             }
-            return;
-        }
 
 
         let nuker = Game.getObjectById(creep.room.memory.Structures.nuker) || creep.room.findNuker();
-        if(storage && nuker && storage.store[RESOURCE_GHODIUM] >= 12000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
+        if(storage && nuker && storage.store[RESOURCE_GHODIUM] >= 3000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_GHODIUM);
                 creep.memory.target = nuker.id;

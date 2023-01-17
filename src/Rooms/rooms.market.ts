@@ -4,65 +4,137 @@ function market(room):any {
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
 
 
-        let resourceToSell;
-        if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_HYDROGEN] >= 10000) {
-            resourceToSell = RESOURCE_HYDROGEN;
+        let resourceToSell = Mineral.mineralType;
+        // if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_HYDROGEN] >= 20000) {
+        //     resourceToSell = RESOURCE_HYDROGEN;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_OXYGEN] >= 20000) {
+        //     resourceToSell = RESOURCE_OXYGEN;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_UTRIUM] >= 20000) {
+        //     resourceToSell = RESOURCE_UTRIUM;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_KEANIUM] >= 20000) {
+        //     resourceToSell = RESOURCE_KEANIUM;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_LEMERGIUM] >= 20000) {
+        //     resourceToSell = RESOURCE_LEMERGIUM;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 20000) {
+        //     resourceToSell = RESOURCE_ZYNTHIUM;
+        // }
+        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_CATALYST] >= 20000) {
+        //     resourceToSell = RESOURCE_CATALYST;
+        // }
+        // else {
+        //     resourceToSell = false;
+        // }
+
+        // if(resourceToSell && resourceToSell !== Mineral.mineralType) {
+        //     let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
+        //         order.type == ORDER_BUY &&
+        //         Game.market.calcTransactionCost(200, room.name, order.roomName) < 400);
+
+        //     console.log(resourceToSell, "buy orders found:", orders.length);
+        //     orders.sort(function(a,b){return b.price - a.price;});
+        //     if(orders[0] != undefined) {
+        //         if(orders[0].price > 1) {
+        //             let orderQuantity = 200;
+        //             let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
+        //             if(result == 0) {
+        //                 console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
+        //             }
+        //         }
+        //     }
+        // }
+
+        if(!room.memory.market) {
+            room.memory.market = {};
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_OXYGEN] >= 10000) {
-            resourceToSell = RESOURCE_OXYGEN;
+        if(!room.memory.market.sellOrders) {
+            room.memory.market.sellOrders = {};
         }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_UTRIUM] >= 10000) {
-            resourceToSell = RESOURCE_UTRIUM;
-        }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_KEANIUM] >= 10000) {
-            resourceToSell = RESOURCE_KEANIUM;
-        }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_LEMERGIUM] >= 10000) {
-            resourceToSell = RESOURCE_LEMERGIUM;
-        }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 10000) {
-            resourceToSell = RESOURCE_ZYNTHIUM;
-        }
-        else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_CATALYST] >= 10000) {
-            resourceToSell = RESOURCE_CATALYST;
-        }
-        else {
-            resourceToSell = false;
+        if(!room.memory.market.sellOrders.roomMineral) {
+            room.memory.market.sellOrders.roomMineral = {};
         }
 
-        if(resourceToSell && resourceToSell !== Mineral.mineralType) {
-            let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
-                order.type == ORDER_BUY &&
-                Game.market.calcTransactionCost(200, room.name, order.roomName) < 400);
-
-            console.log(resourceToSell, "buy orders found:", orders.length);
-            orders.sort(function(a,b){return b.price - a.price;});
-            if(orders[0] != undefined) {
-                if(orders[0].price > 1) {
-                    let orderQuantity = 200;
-                    let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
-                    if(result == 0) {
-                        console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
+        if(room.terminal.store[resourceToSell] >= 30000) {
+            if(room.memory.market.sellOrders.roomMineral.ID && Game.market.orders[room.memory.market.sellOrders.roomMineral.ID]) {
+                let order = Game.market.orders[room.memory.market.sellOrders.roomMineral.ID];
+                if(order.remainingAmount <= 1000)  {
+                    Game.market.extendOrder(room.memory.market.sellOrders.roomMineral.ID, 4000)
+                }
+                else if(Game.time % 400 == 0) {
+                    let recPrice = CalcPriceForOrder(resourceToSell, room.terminal.store[resourceToSell])
+                    function inRange(x, min, max) {
+                        return ((x-min)*(x-max) <= 0);
+                    }
+                    if(!inRange(order.price, recPrice-2, recPrice+2)) {
+                        Game.market.changeOrderPrice(order.id, recPrice);
                     }
                 }
             }
-        }
-        else if(resourceToSell && resourceToSell == Mineral.mineralType && room.terminal.store[Mineral.mineralType] > 30000) {
-            let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
-                order.type == ORDER_BUY &&
-                Game.market.calcTransactionCost(200, room.name, order.roomName) < 400);
+            else {
+                let foundOrder = false;
 
-            console.log(resourceToSell, "buy orders found:", orders.length);
-            orders.sort(function(a,b){return b.price - a.price;});
-            if(orders[0] != undefined) {
-                if(orders[0].price > 1) {
-                    let orderQuantity = 200;
-                    let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
-                    if(result == 0) {
-                        console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
+                let Orders = Game.market.orders;
+
+                // for(let orderID in Orders) {
+                //     let myOrder = Game.market.orders[orderID];
+                //     if(myOrder.price == 99) {
+                //         Game.market.cancelOrder(orderID)
+                //     }
+                // }
+
+                for(let orderID in Orders) {
+                    let myOrder = Game.market.orders[orderID];
+                    if(myOrder.resourceType == resourceToSell && myOrder.type == ORDER_SELL && myOrder.roomName == room.name) {
+                        foundOrder = true;
+                        room.memory.market.sellOrders.roomMineral.ID = orderID;
+                        break;
                     }
                 }
+
+
+                if(!foundOrder) {
+
+                    let recPrice = CalcPriceForOrder(resourceToSell, room.terminal.store[resourceToSell])
+
+                    Game.market.createOrder({
+                        type: ORDER_SELL,
+                        resourceType: resourceToSell,
+                        price: recPrice,
+                        totalAmount: 5000,
+                        roomName: room.name
+                    });
+                }
+
             }
+        }
+
+        function CalcPriceForOrder(resourceToSell, resourceStored) {
+            let resourceData = Game.market.getHistory(resourceToSell);
+            let myTotalAverage = 0;
+            let myTotalStDevAverage = 0;
+            let dayNumber = 1;
+            for(let day of resourceData) {
+
+                myTotalAverage += day.avgPrice;
+                myTotalStDevAverage += day.stddevPrice;
+                dayNumber ++;
+            }
+            let Average = myTotalAverage / 14;
+            let AverageStDev = myTotalStDevAverage / 14;
+            console.log(Average, "averageprice", AverageStDev, "average St Dev")
+
+            if(resourceStored >= 100000) {
+                return Average
+            }
+            else {
+                return Average + AverageStDev;
+            }
+
+
         }
 
 //------------------------------------------------------------------------------------------------------------------------------------------------
@@ -133,14 +205,14 @@ function market(room):any {
                 }
             }
 
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 1000 && resource != Mineral.mineralType || room.terminal.store[resource] < 800 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 60);
-                    if(result == 0) {
-                        return;
-                    }
-                }
-            }
+            // for(let resource of BaseResources) {
+            //     if(room.terminal.store[resource] < 1000 && resource != Mineral.mineralType || room.terminal.store[resource] < 800 && resource == Mineral.mineralType) {
+            //         let result = buy_resource(resource, 60);
+            //         if(result == 0) {
+            //             return;
+            //         }
+            //     }
+            // }
 
 
             let SellResources = [RESOURCE_OPS, RESOURCE_BATTERY,
@@ -653,7 +725,7 @@ function market(room):any {
             }
     }
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
-    if(Game.time % 10 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 1000000) {
+    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 1000000) {
         let foundInRoomEnergyOrder = false;
 
         let Orders = Game.market.orders;

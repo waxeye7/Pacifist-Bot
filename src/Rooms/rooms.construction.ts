@@ -208,17 +208,21 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
                     constructionSitesPlaced ++;
                     let result = blockSpot.createConstructionSite(structure);
-                    if(result == 0) {
+                    // if(result == 0) {
                     // if(result !== -8 && result !== -14) {
-                        lookForExistingStructures[0].destroy();
-                    }
+                        // lookForExistingStructures[0].destroy();
+                    // }
                 }
             }
+
+
 
             if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
                 buldingAlreadyHereCount ++;
                 return;
             }
+
+
             if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
                 constructionSitesPlaced ++;
                 blockSpot.createConstructionSite(structure);
@@ -266,12 +270,15 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 return;
             }
 
+
+
             if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
                 buldingAlreadyHereCount ++;
                 return;
             }
 
-            if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
+
+            if(lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
@@ -374,6 +381,8 @@ function construction(room) {
         return;
     }
 
+    let myConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length
+
 
 
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
@@ -418,42 +427,6 @@ function construction(room) {
             }
         }
     }
-
-    if(room.controller.level >= 5 && storage) {
-        let ramparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) == 10});
-        if(ramparts.length > 0) {
-            let topLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y < storage.pos.y-4;});
-            if(topLeftRamparts.length > 0) {
-                // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
-                let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
-                let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
-            }
-            let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y < storage.pos.y-4;});
-            if(topRightRamparts.length > 0) {
-                // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
-                let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
-                let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
-            }
-            let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y > storage.pos.y+4;});
-            if(bottomRightRamparts.length > 0) {
-                // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
-                let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
-                let pathFromStorageToFurthestBottomRightRampart = PathFinder.search(storage.pos, {pos:closestBottomRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
-            }
-
-            let bottomLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y > storage.pos.y+4;});
-            if(bottomLeftRamparts.length > 0) {
-                // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
-                let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
-                let pathFromStorageToFurthestBottomLeftRampart = PathFinder.search(storage.pos, {pos:closestBottomLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                pathBuilder(pathFromStorageToFurthestBottomLeftRampart, STRUCTURE_ROAD, room);
-            }
-        }
-    }
-
 
     if(room.controller.level >= 1 && room.memory.Structures.spawn) {
         let spawn = Game.getObjectById(room.memory.Structures.spawn) || room.findSpawn();
@@ -562,7 +535,7 @@ function construction(room) {
                     checkerboard = [
                         [-2,-2], [2,-2], [2,0],
                         [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3],[-3,-2],[-3,2],[3,-2],
-                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[4,0],[-4,4],[-2,4],[0,4],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[-4,4],[-2,4],[0,4],
                         [-5,-5],[-5,3],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,1],[-5,-1],[-5,5],[-3,5],[-1,5],[1,5],[0,5],[0,-5],[-5,0],
                         [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[-6,0],[-6,2],[6,-2],[6,0],[6,2],[-6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
                         [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,1],[-7,3],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5],
@@ -575,7 +548,7 @@ function construction(room) {
                     checkerboard = [
                         [-2,-2], [2,-2], [2,0],
                         [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1], [1,3], [3,3],[-3,-2],[3,2],[3,-2],
-                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[4,0],[-4,4],[-2,4],[0,4],[2,4],[4,4],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,4],[-2,4],[0,4],[2,4],[4,4],
                         [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],[0,5],[0,-5],
                         [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
                         [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5],
@@ -699,7 +672,7 @@ function construction(room) {
                     }
                     let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
                     // room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3
-                    if(lookStructs.length == 0 && links.length == 3) {
+                    if(links.length == 3) {
                         room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
                     }
 
@@ -742,7 +715,7 @@ function construction(room) {
                     DestroyAndBuild(room, listOfSpawnPositions, STRUCTURE_SPAWN);
                 }
 
-                if(room.controller.level == 8) {
+                if(room.controller.level == 8 && myConstructionSites == 0) {
                     let observers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_OBSERVER});
                     if(observers.length == 0) {
                         let listOfObserverPosition = [new RoomPosition(storage.pos.x + 5, storage.pos.y, room.name)]
@@ -752,7 +725,14 @@ function construction(room) {
                     let nukers = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_NUKER});
                     if(nukers.length == 0) {
                         let listOfNukerPositions = [new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name)]
-                        DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_OBSERVER);
+                        DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_NUKER);
+                    }
+                    else if(nukers.length == 1) {
+                        let NukerPosition = new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name);
+                        let lookForS = NukerPosition.lookFor(LOOK_STRUCTURES);
+                        if(lookForS.length == 1) {
+                            NukerPosition.createConstructionSite(STRUCTURE_RAMPART);
+                        }
                     }
                 }
 
@@ -820,7 +800,7 @@ function construction(room) {
                     }
 
                     let pathFromStorageToMineral = PathFinder.search(storage.pos, {pos:mineral.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
-                    let RampartLocationMineral = pathFromStorageToMineral.path.pop();
+                    let RampartLocationMineral = pathFromStorageToMineral.path[pathFromStorageToMineral.path.length - 1]
                     if(storage.pos.getRangeTo(RampartLocationMineral) >= 8) {
                         RampartLocationMineral.createConstructionSite(STRUCTURE_RAMPART);
                     }
@@ -1135,6 +1115,41 @@ function construction(room) {
         let filteredStorageRampartNeighbors = storageRampartNeighbors.filter(position => position.x > 0 && position.x < 49 && position.y > 0 && position.y < 49);
         pathBuilder(filteredStorageRampartNeighbors, STRUCTURE_RAMPART, room, false);
 
+    }
+
+    if(room.controller.level >= 5 && storage && myConstructionSites == 0) {
+        let ramparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) == 10});
+        if(ramparts.length > 0) {
+            let topLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y < storage.pos.y-4;});
+            if(topLeftRamparts.length > 0) {
+                // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
+                let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
+                pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
+            }
+            let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y < storage.pos.y-4;});
+            if(topRightRamparts.length > 0) {
+                // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
+                let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
+                pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
+            }
+            let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+4 && rampart.pos.y > storage.pos.y+4;});
+            if(bottomRightRamparts.length > 0) {
+                // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
+                let pathFromStorageToFurthestBottomRightRampart = PathFinder.search(storage.pos, {pos:closestBottomRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
+                pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
+            }
+
+            let bottomLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-4 && rampart.pos.y > storage.pos.y+4;});
+            if(bottomLeftRamparts.length > 0) {
+                // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
+                let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
+                let pathFromStorageToFurthestBottomLeftRampart = PathFinder.search(storage.pos, {pos:closestBottomLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
+                pathBuilder(pathFromStorageToFurthestBottomLeftRampart, STRUCTURE_ROAD, room);
+            }
+        }
     }
 
 

@@ -16,8 +16,8 @@ function observe(room) {
             if(room.name.length == 6) {
                 let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
                 let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
-                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
-                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
+                for(let i = homeRoomNameX-5; i<=homeRoomNameX+5; i++) {
+                    for(let o = homeRoomNameY-5; o<=homeRoomNameY+5; o++) {
                         if(i % 10 !== 0 && o % 10 !== 0) {
                             if(i % 10 >= 4 && i % 10 <= 6 && o % 10 >= 4 && o % 10 <= 6) {
                                 // do nothing
