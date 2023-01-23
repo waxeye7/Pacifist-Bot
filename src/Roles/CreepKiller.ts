@@ -22,10 +22,10 @@ const run = function (creep) {
         let closestHostile = creep.pos.findClosestByRange(hostileCreeps);
         if(creep.pos.isNearTo(closestHostile)) {
             creep.attack(closestHostile);
-            creep.moveTo(closestHostile);
+            creep.moveTo(closestHostile, {reusePath:120});
         }
         else {
-            creep.moveTo(closestHostile);
+            creep.moveTo(closestHostile, {reusePath:120});
         }
         return;
     }

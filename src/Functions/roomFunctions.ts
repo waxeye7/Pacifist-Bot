@@ -105,25 +105,24 @@ Room.prototype.findStorageContainer = function(): object | void {
 
 
 Room.prototype.findContainers = function(capacity) {
-    let spawn:any = Game.getObjectById(this.memory.Structures.spawn)
+    if(!this.memory.Structures) {
+        this.memory.Structures = {};
+    }
     let containers;
-    if(this.controller && this.controller.my && this.controller.level != 0) {
-        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && spawn && spawn.pos.getRangeTo(i) > 4});
+    if(this.controller && this.controller.my && this.controller.level !== 0) {
+        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && i.id !== this.memory.Structures.bin});
     }
     else {
         containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});
     }
     if(containers.length > 0) {
-        if(this.memory.Structures && this.memory.Structures.container) {
-            let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
-            if(CurrentContainer && CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
-                this.memory.Structures.container = CurrentContainer.id;
-                return CurrentContainer;
-            }
+        let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
+        if(CurrentContainer && CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
+            this.memory.Structures.container = CurrentContainer.id;
+            return CurrentContainer;
         }
         else {
             containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-
             this.memory.Structures.container = containers[0].id;
             return containers[0];
         }

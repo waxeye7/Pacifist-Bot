@@ -8,7 +8,7 @@
 
 const run = function (creep) {
     creep.Speak();
-
+    creep.memory.moving = false;
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures;
 
@@ -32,14 +32,14 @@ const run = function (creep) {
             }
 
             if(creep.rangedAttack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestEnemyCreep);
+                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
                 return;
             }
             if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee) {
                 creep.RangedAttackFleeFromMelee(closestEnemyCreep);
             }
             else {
-                creep.moveTo(closestEnemyCreep);
+                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
             }
         }
 
@@ -71,21 +71,21 @@ const run = function (creep) {
                     creep.RangedAttackFleeFromMelee(closestEnemyCreep);
                 }
                 else {
-                    creep.moveTo(creep);
+                    creep.MoveCostMatrixRoadPrio(creep, 0);
                 }
             }
             else if(isMelee && creep.pos.getRangeTo(closestEnemyCreep) == 3) {
 
             }
             else if(!isMelee) {
-                creep.moveTo(closestEnemyCreep);
+                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
             }
             else {
-                creep.moveTo(closestEnemyCreep);
+                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
             }
 
             if((creep.pos.x == 1 || creep.pos.x == 48 || creep.pos.y == 1 || creep.pos.y == 48) && !isMelee) {
-                creep.moveTo(creep);
+                creep.MoveCostMatrixRoadPrio(creep, 0);
             }
 
             return;
@@ -109,21 +109,13 @@ const run = function (creep) {
 
             }
             else{
-                creep.moveTo(closestStructure);
+                creep.MoveCostMatrixRoadPrio(closestStructure, 1);
             }
         }
 
         if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && creep.memory.sticky == false) {
             creep.memory.targetRoom = false;
         }
-    }
-
-
-
-
-    if(Game.time % 17 == 0 && creep.roadCheck()) {
-        let roadlessLocation = creep.roadlessLocation(creep.pos);
-        creep.moveTo(roadlessLocation);
     }
 
 

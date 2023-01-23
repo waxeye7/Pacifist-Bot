@@ -90,7 +90,7 @@ function roomDefence(room) {
 
     if(room.memory.Structures.towers && room.memory.Structures.towers.length > 0) {
         let towerCount = -1;
-        let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
+        // let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
 
         let canWeShoot = 0;
         room.memory.Structures.towers.forEach(towerID => {
@@ -173,21 +173,21 @@ function roomDefence(room) {
             }
 
 
-            if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger && room.controller.level < 6) {
-                if(Game.time % 11 == 0) {
-                    findLocked(room);
-                }
-                if(room.memory.lowestHitsBuildingToRepair && room.memory.lowestHitsBuildingToRepair != null) {
-                    let repairTarget:any = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
-                    if(repairTarget && repairTarget.hits + 1200 > repairTarget.hitsMax || repairTarget && repairTarget.hits > maxRepairTower) {
-                        room.memory.lowestHitsBuildingToRepair = null;
-                        return;
-                    }
-                    if(repairTarget && tower.repair(repairTarget) != 0) {
-                        room.memory.lowestHitsBuildingToRepair = null;
-                    }
-                }
-            }
+            // if(currentTickModTowers == towerCount && tower && tower.store[RESOURCE_ENERGY] > 250 && !room.memory.danger && room.controller.level < 6) {
+            //     if(Game.time % 11 == 0) {
+            //         findLocked(room);
+            //     }
+            //     if(room.memory.lowestHitsBuildingToRepair && room.memory.lowestHitsBuildingToRepair != null) {
+            //         let repairTarget:any = Game.getObjectById(room.memory.lowestHitsBuildingToRepair);
+            //         if(repairTarget && repairTarget.hits + 1200 > repairTarget.hitsMax || repairTarget && repairTarget.hits > maxRepairTower) {
+            //             room.memory.lowestHitsBuildingToRepair = null;
+            //             return;
+            //         }
+            //         if(repairTarget && tower.repair(repairTarget) !== 0) {
+            //             room.memory.lowestHitsBuildingToRepair = null;
+            //         }
+            //     }
+            // }
 
 
             if(Game.time % 12 == 0) {

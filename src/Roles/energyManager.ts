@@ -508,7 +508,6 @@ import randomWords from "random-words";
                 return;
             }
         }
-
         if(closestLink && closestLink.store[RESOURCE_ENERGY] > 0 && creep.store.getFreeCapacity() == MaxStorage) {
             if(creep.pos.isNearTo(closestLink)) {
                 creep.withdraw(closestLink, RESOURCE_ENERGY);
@@ -519,7 +518,6 @@ import randomWords from "random-words";
             }
             return;
         }
-
 
         if(bin && bin.store.getFreeCapacity() < 2000 && creep.store.getFreeCapacity() == MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
@@ -533,7 +531,6 @@ import randomWords from "random-words";
             }
             return;
         }
-
 		// if(!creep.memory.controllerLink && creep.room.controller && creep.room.controller.level >= 7) {
 		// 	let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
 		// 	if(links.length > 3) {
@@ -583,7 +580,6 @@ import randomWords from "random-words";
 
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
-
         if(storage && storage.store[MineralType] > 20000 && terminal && terminal.store.getFreeCapacity() > MaxStorage) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, MineralType);

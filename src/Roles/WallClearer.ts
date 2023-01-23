@@ -75,6 +75,9 @@ const run = function (creep) {
             return 5;
     }});
 
+    if(route == 2) {
+        creep.suicide();
+    }
     if(route != 2 && route.length > 0) {
         const exit = creep.pos.findClosestByRange(route[0].exit);
         creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(exit, 0);

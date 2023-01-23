@@ -6,10 +6,10 @@ import labs from "./rooms.labs";
 import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
+import remotes from "./rooms.remotes";
 
 function rooms() {
     const start = Game.cpu.getUsed()
-
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
     // });
@@ -360,6 +360,7 @@ function identifySources(room) {
                 _.set(room.memory, ['resources', room.name, 'energy', source.id], {})
             }});
     }
+    remotes(room);
 }
 
 

@@ -116,23 +116,32 @@ function market(room):any {
             let resourceData = Game.market.getHistory(resourceToSell);
             let myTotalAverage = 0;
             let myTotalStDevAverage = 0;
-            let dayNumber = 1;
-            for(let day of resourceData) {
+            let weightNumber = 1;
+            if(resourceData && resourceData.length > 0) {
+                for(let day of resourceData) {
 
-                myTotalAverage += day.avgPrice;
-                myTotalStDevAverage += day.stddevPrice;
-                dayNumber ++;
-            }
-            let Average = myTotalAverage / 14;
-            let AverageStDev = myTotalStDevAverage / 14;
-            console.log(Average, "averageprice", AverageStDev, "average St Dev")
+                    myTotalAverage += day.avgPrice * weightNumber;
+                    myTotalStDevAverage += day.stddevPrice * weightNumber;
+                    weightNumber ++;
+                }
+                let Average = myTotalAverage / 105;
+                let AverageStDev = myTotalStDevAverage / 105;
+                console.log(Average, "averageprice", AverageStDev, "average St Dev")
 
-            if(resourceStored >= 100000) {
-                return Average
+                if(resourceStored >= 120000) {
+                    return Average - 2.1
+                }
+                else if(resourceStored >= 100000) {
+                    return Average
+                }
+                else {
+                    return Average + AverageStDev;
+                }
             }
             else {
-                return Average + AverageStDev;
+                return 2.99
             }
+
 
 
         }
@@ -628,7 +637,7 @@ function market(room):any {
 
 
         if(Game.resources.pixel > 0 && room.terminal && Game.time % 100 == 0) {
-            let OrderPrice = 20000;
+            let OrderPrice = 50000;
 
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: PIXEL});
             orders = _.filter(orders, (order) => order.amount >= 1 && order.price >= OrderPrice);

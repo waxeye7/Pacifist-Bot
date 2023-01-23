@@ -73,6 +73,7 @@ declare global {
         factory:any;
         NukeRepair:boolean;
         Structures:any;
+        resources:any;
     }
     interface CreepMemory {
         name: string;

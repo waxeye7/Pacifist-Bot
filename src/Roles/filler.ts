@@ -124,12 +124,18 @@ import randomWords from "random-words";
     creep.Speak();
     creep.memory.moving = false;
 
-    if(creep.ticksToLive == 22 && creep.room.controller.level >= 6 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
+    if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
         let newName = 'filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
-        if(creep.room.controller.level == 6) {
+        if(creep.room.controller.level <= 3) {
+            creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
+        }
+        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else {
+        else if(creep.room.controller.level == 7) {
+            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+        }
+        else if(creep.room.controller.level == 8) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
         console.log("added filler to spawn queue", creep.room.name)

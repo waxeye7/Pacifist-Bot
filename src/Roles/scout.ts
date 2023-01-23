@@ -5,13 +5,26 @@
 
  const run = function (creep) {
     creep.Speak();
+    if(creep.memory.suicide) {
+        creep.recycle();
+        return;
+    }
+    if(creep.room.name !== creep.memory.targetRoom) {
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+    }
 
-    if(creep.room.name == 'W7N8') {
-        creep.moveTo(24,32);
+    if(!Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy) {
+        Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
     }
-    else {
-        creep.moveTo(25,0);
+    let sources = creep.room.find(FIND_SOURCES);
+    if(sources.length <= 2) {
+        for(let source of sources) {
+            Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy[source.id] = {};
+        }
     }
+
+    creep.memory.suicide = true;
+
 }
 
 const roleScout = {

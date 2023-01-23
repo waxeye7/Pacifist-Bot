@@ -7,12 +7,32 @@
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
 	if(buildingsToBuild.length > 0) {
-		let storageAndLinks = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_CONTAINER;});
-		if(storageAndLinks.length > 0) {
+		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE;});
+		if(buildings.length > 0) {
 			creep.memory.suicide = false;
 			creep.say("🎯", true);
-			storageAndLinks.sort((a,b) => b.progressTotal - a.progressTotal);
-			return storageAndLinks[0].id;
+			buildings.sort((a,b) => b.progressTotal - a.progressTotal);
+			return buildings[0].id;
+		}
+	}
+
+	if(buildingsToBuild.length > 0) {
+		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_EXTENSION;});
+		if(buildings.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🎯", true);
+			buildings.sort((a,b) => b.progressTotal - a.progressTotal);
+			return buildings[0].id;
+		}
+	}
+
+	if(buildingsToBuild.length > 0) {
+		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_CONTAINER;});
+		if(buildings.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🎯", true);
+			buildings.sort((a,b) => b.progressTotal - a.progressTotal);
+			return buildings[0].id;
 		}
 	}
 
@@ -94,9 +114,9 @@
 	if(creep.memory.suicide && creep.store[RESOURCE_ENERGY] == 0 && storage && storage.store[RESOURCE_ENERGY] >= 300) {
 		creep.memory.suicide = false;
 	}
-	if(creep.ticksToLive <= 30 && !creep.memory.building || storage && storage.store[RESOURCE_ENERGY] < 300 && Game.time % 21 == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-		creep.memory.suicide = true;
-	}
+	// if(creep.ticksToLive <= 30 && !creep.memory.building || storage && storage.store[RESOURCE_ENERGY] < 300 && Game.time % 21 == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+	// 	creep.memory.suicide = true;
+	// }
 	if(creep.memory.suicide == true) {
 		creep.recycle();
 		return;

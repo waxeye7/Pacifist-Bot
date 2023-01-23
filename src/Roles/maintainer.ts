@@ -38,6 +38,25 @@ const run = function (creep) {
             }
         }
 
+        if(!creep.memory.rampartsToRepair) {
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits <= 25000});
+            let idsOfRamparts = [];
+            for(let rampart of rampartsInRoom) {
+                idsOfRamparts.push(rampart.id);
+            }
+            creep.memory.rampartsToRepair = idsOfRamparts;
+        }
+
+        let rampartsIDS = creep.memory.rampartsToRepair;
+        if(rampartsIDS.length > 0) {
+            for(let rampart of rampartsIDS) {
+                let rampObj:any = Game.getObjectById(rampart);
+                if(rampObj.hits <= 25000) {
+                    buildingsToRepair.push(rampObj);
+                }
+            }
+        }
+
         if(buildingsToRepair.length > 0) {
             let closeByBuildings = creep.pos.findInRange(buildingsToRepair, 3);
             if(closeByBuildings.length > 0) {

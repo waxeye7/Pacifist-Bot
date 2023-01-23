@@ -23,17 +23,27 @@ const run = function (creep) {
         // }
         let result = creep.harvestEnergy();
         if(result == 0) {
-            let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 1 });
-            if(containerNearby.length && containerNearby[0].pos != creep.pos) {
-                creep.moveTo(containerNearby[0])
+            creep.memory.harvested = true;
+        }
+        if(creep.memory.harvested) {
+            let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
+            if(containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep)) {
+                creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
             }
         }
+
+        // if(result == 0) {
+        //     let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 1 });
+        //     if(containerNearby.length > 0 && !creep.pos.isEqualTo(containerNearby[0])) {
+        //         creep.MoveCostMatrixRoadPrio(containerNearby[0], 0);
+        //     }
+        // }
 
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();
         // }
         // could add if not on container, move to container nearby but cbf rn
-        return;
+
     }
     else {
         if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
