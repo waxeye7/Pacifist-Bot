@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep:Creep) {
-    creep.Speak();
+    ;
 
     if(creep.room.controller && !creep.room.controller.my && creep.room.controller.safeMode > 0) {
         return creep.moveToRoom(creep.memory.targetRoom);

@@ -5,7 +5,7 @@ import roomDefence from "Rooms/rooms.defence";
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    creep.Speak();
+    ;
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0

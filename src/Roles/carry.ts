@@ -38,12 +38,15 @@ function findLocked(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
 
     if(creep.memory.suicide == true) {
         creep.recycle();
+        return;
+    }
+    if(creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }
 
@@ -100,7 +103,7 @@ function findLocked(creep) {
                 }
             }
             else {
-                creep.MoveCostMatrixRoadPrio(storage, 1)
+                creep.MoveCostMatrixRoadPrio(bin, 1)
             }
         }
         else {

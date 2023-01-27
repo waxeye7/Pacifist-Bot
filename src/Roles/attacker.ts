@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    creep.Speak();
+    ;
 
     if(creep.notifyWhenAttacked(true)) {
         creep.notifyWhenAttacked(false);

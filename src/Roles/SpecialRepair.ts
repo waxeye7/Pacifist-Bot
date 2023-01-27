@@ -4,7 +4,7 @@
  **/
 
 const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
 

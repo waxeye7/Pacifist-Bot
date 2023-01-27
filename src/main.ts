@@ -22,6 +22,7 @@ import roleUpgrader from "./Roles/upgrader";
 import roleRepair from "./Roles/repair";
 import roleMaintainer from "Roles/maintainer";
 import roleFiller from "./Roles/filler";
+import roleControllerLinkFiller from "Roles/ControllerLinkFiller";
 import roleDefender from "./Roles/defender";
 import roleAttacker from "./Roles/attacker";
 import roleRangedAttacker from "./Roles/RangedAttacker";
@@ -38,6 +39,7 @@ import roleAnnoy from "Roles/annoy";
 import roleCreepKiller from "Roles/creepKiller";
 import roleReserve from "Roles/reserve";
 import roleRampartDefender from "Roles/RampartDefender";
+import roleRampartErector from "Roles/RampartErector";
 import roleRam from "Roles/ram";
 import roleSignifer from "Roles/signifer";
 import roleBilltong from "./Roles/billtong"
@@ -78,6 +80,7 @@ global.ROLES = {
   maintainer: roleMaintainer,
 
   filler: roleFiller,
+  ControllerLinkFiller: roleControllerLinkFiller,
   defender: roleDefender,
 
   attacker: roleAttacker,
@@ -100,6 +103,7 @@ global.ROLES = {
   CreepKiller: roleCreepKiller,
 
   RampartDefender: roleRampartDefender,
+  RampartErector: roleRampartErector,
 
   signifer: roleSignifer,
   ram: roleRam,
@@ -127,6 +131,7 @@ global.ROLES = {
 
 
 import { memHack } from "utils/MemHack";
+
 
 
 export const loop = ErrorMapper.wrapLoop(() => {

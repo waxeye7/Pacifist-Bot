@@ -4,9 +4,46 @@ import randomWords from "random-words";
  * @param {Creep} creep
  **/
 
- function findLocked(creep) {
+function findLocked(creep) {
 
     creep.memory.locked = [];
+
+    if(!creep.room.memory.Structures.controllerLink && creep.room.controller && creep.room.controller.level >= 2) {
+        if(creep.room.controller.level < 7) {
+            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
+            if(containers.length > 0) {
+                let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                    creep.room.memory.Structures.controllerLink = controllerLink.id;
+                }
+            }
+        }
+        else {
+            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+            if(links.length > 0) {
+                let controllerLink = creep.room.controller.pos.findClosestByRange(links);
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                    creep.room.memory.Structures.controllerLink = controllerLink.id;
+                }
+            }
+        }
+    }
+
+    if(creep.room.controller && creep.room.memory.Structures.controllerLink) {
+        let controllerLink:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
+        if(controllerLink) {
+            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200 && creep.memory.locked.length < 2) {
+                creep.memory.locked.push(controllerLink.id);
+            }
+            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600 && creep.memory.locked.length < 2) {
+                creep.memory.locked.push(controllerLink.id);
+            }
+        }
+        else {
+            creep.room.memory.Structures.controllerLink = false;
+        }
+    }
+
 
     if(creep.room.memory.labs && Object.keys(creep.room.memory.labs).length >= 4) {
         let outputLab1;
@@ -96,42 +133,6 @@ import randomWords from "random-words";
 
 
 
-    if(!creep.room.memory.Structures.controllerLink && creep.room.controller && creep.room.controller.level >= 2) {
-        if(creep.room.controller.level < 7) {
-            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
-            if(containers.length > 0) {
-                let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
-                    creep.room.memory.Structures.controllerLink = controllerLink.id;
-                }
-            }
-        }
-        else {
-            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
-            if(links.length > 0) {
-                let controllerLink = creep.room.controller.pos.findClosestByRange(links);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
-                    creep.room.memory.Structures.controllerLink = controllerLink.id;
-                }
-            }
-        }
-    }
-
-    if(creep.room.controller && creep.room.memory.Structures.controllerLink) {
-        let controllerLink:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
-        if(controllerLink) {
-            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200 && creep.memory.locked.length < 2) {
-                creep.memory.locked.push(controllerLink.id);
-            }
-            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600 && creep.memory.locked.length < 2) {
-                creep.memory.locked.push(controllerLink.id);
-            }
-        }
-        else {
-            creep.room.memory.Structures.controllerLink = false;
-        }
-    }
-
     if(creep.room.memory.Structures.factory) {
         let factory:any = Game.getObjectById(creep.room.memory.Structures.factory);
         if(factory && factory.store[RESOURCE_ENERGY] < 8000) {
@@ -149,6 +150,7 @@ import randomWords from "random-words";
     // }
 
 }
+
 
 
  const run = function (creep) {
@@ -276,10 +278,10 @@ import randomWords from "random-words";
     }
 }
 
-const roleFiller = {
+const roleControllerLinkFiller = {
     run,
     //run: run,
     //function2,
     //function3
 };
-export default roleFiller;
+export default roleControllerLinkFiller;

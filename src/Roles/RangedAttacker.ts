@@ -7,7 +7,7 @@
 // }
 
 const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures;

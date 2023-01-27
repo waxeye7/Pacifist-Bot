@@ -22,6 +22,7 @@ interface Creep {
     MoveCostMatrixRoadPrio:any;
     MoveCostMatrixSwampPrio:any;
     MoveCostMatrixIgnoreRoads:any;
+    roomCallbackRoadPrioUpgraderInPosition:any;
     MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch:any;
 }
 // CREEP PROTOTYPES
@@ -337,9 +338,11 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
     // console.log(this, this.memory.targetRoom);
+
+
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
         let travelTarget:any = Game.getObjectById(this.memory.sourceId);
-        if(travelTarget == null) {
+        if(!travelTarget) {
             return this.moveToRoom(this.memory.targetRoom, 25, 25);
         }
         return this.moveToRoom(this.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, false, 5, 3);
@@ -540,24 +543,21 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
 
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
-    if(Memory.tasks.wipeRooms.killCreeps.includes(this.room.name) && this.memory.targetRoom != this.memory.homeRoom) {
-        this.moveToRoom(this.memory.homeRoom);
-        return true;
-    }
-    if(Memory.tasks.wipeRooms.killCreeps.includes(this.memory.targetRoom) && this.memory.targetRoom != this.memory.homeRoom) {
-        if(this.pos.x > 0 && this.pos.y > 0 && this.pos.y < 49 && this.pos.x < 49) {
-            if(this.roadCheck()) {
-                let roadlessLocation = this.roadlessLocation(this.pos);
-                this.moveTo(roadlessLocation);
-            }
-            return "in position";
+    if(this.memory.targetRoom && this.memory.homeRoom && Game.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps && (!this.memory.timeOut || this.memory.timeOut == 0)) {
+        if(this.room.name == this.memory.targetRoom) {
+            this.memory.timeOut = 25;
+            return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom)
         }
-        else {
-            this.moveTo(25, 25, {range:20});
-            return "in position";
+        else if(this.room.name == this.memory.homeRoom) {
+            const exitDir = this.room.findExitTo(this.memory.targetRoom);
+            const exit = this.pos.findClosestByRange(exitDir);
+            return this.moveTo(exit, {range:1});
         }
     }
-    return false;
+    else if(this.room.name == this.memory.homeRoom && this.memory.timeOut > 0) {
+        this.memory.timeOut -= 1;
+        return "timeOut";
+    }
 }
 
 Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
@@ -933,11 +933,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
-    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
-        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
-            costs.set(site.pos.x, site.pos.y, 255);
-        }
-    });
+
 
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
@@ -952,6 +948,12 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         }
         else {
             costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
+            costs.set(site.pos.x, site.pos.y, 255);
         }
     });
 
@@ -995,6 +997,162 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
 
     return costs;
 }
+
+
+
+
+
+Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function roomCallbackRoadPrioUpgraderInPosition(target, range) {
+    if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
+        if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
+            this.memory.path = false;
+        }
+
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+            let costMatrix:any = roomCallbackRoadPrioUpgraderInPosition;
+
+            let path = PathFinder.search(
+                this.pos, {pos:target.pos, range:range},
+                {
+                    maxOps: 1000,
+                    maxRooms: 3,
+                    roomCallback: (roomName) => costMatrix(roomName)
+                }
+                );
+
+            let pos = path.path[0];
+            let direction = this.pos.getDirectionTo(pos);
+
+            this.SwapPositionWithCreep(direction);
+            this.memory.path = path.path;
+            this.memory.MoveTargetId = target.id;
+        }
+
+
+
+        let pos = this.memory.path[0];
+        let direction = this.pos.getDirectionTo(pos);
+
+        this.move(direction);
+        this.memory.moving = true;
+        this.memory.path.shift();
+        // this.moveByPath(this.memory.path);
+     }
+
+}
+
+
+const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 1; y < 49; y++) {
+        for(let x = 1; x < 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 50;
+            }
+            else if(tile == 0){
+                weight = 10;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+        costs.set(creep.pos.x, creep.pos.y, 255);
+    });
+
+
+
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 5);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+
+
+    _.forEach(room.find(FIND_STRUCTURES, {filter: s => s.id == room.memory.Structures.controllerLink}), function(struct:any) {
+        for(let i = -1; i<=1; i++) {
+            for(let o = -1; o<=1; o++) {
+                if(costs.get(struct.pos.i, struct.pos.o) !== 255) {
+                    costs.set(struct.pos.i, struct.pos.o, 1);
+                }
+            }
+        }
+    });
+
+
+
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 11);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 20);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 10);
+            }
+        }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+        else if(creep.memory.role == "ram") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
+        else if(creep.memory.role == "signifer") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
+    });
+
+
+    for(let y = 0; y < 50; y++) {
+        for(let x = 0; x < 50; x++) {
+            if(x == 0 || x == 49 || y == 0 || y == 49) {
+                costs.set(x, y, 255);
+            }
+        }
+    }
+
+
+    return costs;
+}
+
+
+
+
 
 Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {

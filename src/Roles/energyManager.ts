@@ -5,7 +5,7 @@ import randomWords from "random-words";
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
     if(creep.ticksToLive == 60 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
         let newName = 'EnergyManager-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
@@ -55,7 +55,9 @@ import randomWords from "random-words";
         let target = Game.getObjectById(creep.memory.target);
         if(creep.pos.isNearTo(target)) {
             for(let resource in creep.store) {
-                creep.transfer(target, resource);
+                if(creep.transfer(target, resource) !== 0) {
+                    creep.memory.target = false;
+                }
             }
         }
         else {
@@ -447,7 +449,7 @@ import randomWords from "random-words";
 
 
 
-                else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput) || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage) {
+                else if(outputLab && (outputLab.mineralType != undefined && outputLab.mineralType != currentOutput || outputLab.mineralType == currentOutput && outputLab.store[outputLab.mineralType] > MaxStorage)) {
                     if(creep.pos.isNearTo(outputLab)) {
                         creep.withdraw(outputLab, outputLab.mineralType);
                         creep.memory.target = storage.id;

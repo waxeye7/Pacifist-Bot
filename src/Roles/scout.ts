@@ -4,7 +4,7 @@
  **/
 
  const run = function (creep) {
-    creep.Speak();
+    ;
     if(creep.memory.suicide) {
         creep.recycle();
         return;
@@ -17,7 +17,7 @@
         Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
     }
     let sources = creep.room.find(FIND_SOURCES);
-    if(sources.length <= 2) {
+    if(sources.length <= 2 && creep.room.controller && creep.room.controller.level == 0) {
         for(let source of sources) {
             Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy[source.id] = {};
         }

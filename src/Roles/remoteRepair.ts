@@ -58,7 +58,7 @@ function findLockedBuild(creep) {
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
     if(creep.memory.suicide == true) {
@@ -70,6 +70,9 @@ function findLockedBuild(creep) {
         }
 
         creep.recycle();
+        return;
+    }
+    if(creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }
 

@@ -47,6 +47,7 @@ declare global {
 
     interface RoomMemory {
         spawn_list: Array<Array<string> | string | object>;
+        roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;
         has_safe_creeps: boolean;
@@ -74,6 +75,7 @@ declare global {
         NukeRepair:boolean;
         Structures:any;
         resources:any;
+        controllerLink:any;
     }
     interface CreepMemory {
         name: string;

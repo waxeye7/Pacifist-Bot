@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
     if(creep.room.name != creep.memory.targetRoom) {

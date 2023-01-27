@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
     if(creep.memory.suicide) {

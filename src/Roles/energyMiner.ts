@@ -3,9 +3,11 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    creep.Speak();
     creep.memory.moving = false;
 
+    if(creep.fleeHomeIfInDanger() == "timeOut") {
+        return;
+    }
     // if(creep.fleeHomeIfInDanger() == true) {
     //     return;
     // }
@@ -27,7 +29,7 @@ const run = function (creep) {
         }
         if(creep.memory.harvested) {
             let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
-            if(containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep)) {
+            if(containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0) {
                 creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
             }
         }

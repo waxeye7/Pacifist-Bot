@@ -3,9 +3,11 @@
  * @param {Creep} creep
  **/
  const run = function (creep:Creep) {
-    creep.Speak();
     creep.memory.moving = false;
 
+    if(creep.fleeHomeIfInDanger() == "timeOut") {
+        return;
+    }
 
     // if(creep.room.name == creep.memory.homeRoom) {
     //     if(creep.room.controller && creep.room.controller.my && creep.room.controller.sign.text !== "we come in peace") {

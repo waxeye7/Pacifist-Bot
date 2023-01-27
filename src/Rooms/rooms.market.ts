@@ -129,9 +129,21 @@ function market(room):any {
                 console.log(Average, "averageprice", AverageStDev, "average St Dev")
 
                 if(resourceStored >= 120000) {
-                    return Average - 2.1
+                    if(Average > 6) {
+                        return Average - 6
+                    }
+                    return Average
                 }
                 else if(resourceStored >= 100000) {
+                    if(Average > 4) {
+                        return Average - 4
+                    }
+                    return Average
+                }
+                else if(resourceStored >= 80000) {
+                    if(Average > 2) {
+                        return Average - 2
+                    }
                     return Average
                 }
                 else {
@@ -139,7 +151,7 @@ function market(room):any {
                 }
             }
             else {
-                return 2.99
+                return 0.009;
             }
 
 
@@ -170,6 +182,10 @@ function market(room):any {
                 if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
                     if(Memory.my_goods[resource].length > 0) {
                         for(let room_with_mineral of Memory.my_goods[resource]) {
+                            if(!Game.rooms[room_with_mineral]) {
+                                Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
+                                break;
+                            }
                             if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 1000) {
                                 Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
                                 console.log("sending", room.name, "1000", resource)
@@ -194,25 +210,27 @@ function market(room):any {
             // }
 
 
+            if(room.terminal.store.getFreeCapacity() > 1000) {
+                for(let resource of BaseResources) {
+                    if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                        let result = buy_resource(resource, 12.5);
+                        if(result == 0) {
+                            return;
+                        }
+                    }
+                }
 
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 12.5);
-                    if(result == 0) {
-                        return;
+
+                for(let resource of BaseResources) {
+                    if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                        let result = buy_resource(resource, 40);
+                        if(result == 0) {
+                            return;
+                        }
                     }
                 }
             }
 
-
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                    let result = buy_resource(resource, 40);
-                    if(result == 0) {
-                        return;
-                    }
-                }
-            }
 
             // for(let resource of BaseResources) {
             //     if(room.terminal.store[resource] < 1000 && resource != Mineral.mineralType || room.terminal.store[resource] < 800 && resource == Mineral.mineralType) {

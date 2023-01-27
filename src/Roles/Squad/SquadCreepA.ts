@@ -8,7 +8,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    creep.Speak();
+    ;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();

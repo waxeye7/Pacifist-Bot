@@ -7,7 +7,15 @@
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
 	if(buildingsToBuild.length > 0) {
-		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE;});
+		let buildings;
+		if(creep.room.controller.level == 2 ) {
+			let spawn = creep.room.find(FIND_MY_SPAWNS);
+			buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE || building.pos.x == spawn[0].pos.x && building.pos.y == spawn[0].pos.y -2;});
+		}
+		else {
+			buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE;});
+		}
+
 		if(buildings.length > 0) {
 			creep.memory.suicide = false;
 			creep.say("🎯", true);
@@ -49,13 +57,17 @@
 }
 
  const run = function (creep) {
-	creep.Speak();
+	;
 	creep.memory.moving = false;
 
 
 	// const start = Game.cpu.getUsed()
 
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+
+	if(storage && creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) * 5 >= creep.store[RESOURCE_ENERGY]) {
+		creep.withdraw(storage, RESOURCE_ENERGY);
+	}
 
     if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.building = false;

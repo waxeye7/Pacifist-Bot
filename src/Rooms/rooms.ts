@@ -75,7 +75,6 @@ function rooms() {
 
 
         if(room && room.controller && room.controller.my) {
-
             // if(room.controller.level >= 7 && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost) {
             //     console.log(JSON.stringify(room.memory.labs.status.boost.lab1), room.name)
             //     // room.memory.labs.status.boost.lab1.amount = 1000;
@@ -166,7 +165,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 && room.controller.level !== 8) {
+            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
@@ -174,30 +173,19 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 0 && Game.cpu.bucket > 1000 && room.controller.level !== 8) {
+            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 || room.memory.DOB == 2) {
                 const start = Game.cpu.getUsed()
                 construction(room);
-                Build_Remote_Roads(room);
-                console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
+                console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
 
-
-
-
-            if(Game.time % 5020 == 5019 && Game.cpu.bucket > 1000 && room.controller.level === 8) {
-                _.forEach(Game.rooms, function(everyRoom) {
-                    if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
-                        everyRoom.memory.keepTheseRoads = [];
-                    }
-                });
-            }
-
-            if(Game.time % 5020 == 0 && Game.cpu.bucket > 1000 && room.controller.level === 8) {
+            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000) {
                 const start = Game.cpu.getUsed()
-                construction(room);
                 Build_Remote_Roads(room);
-                console.log('Construction Ran in', Game.cpu.getUsed() - start, 'ms')
+                console.log('REMOTE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
+
+
         }
 
 
@@ -290,30 +278,34 @@ function establishMemory(room) {
 
 
         if(room.controller && !room.controller.my) {
+            if(!room.memory.roomData) {
+                room.memory.roomData = {};
+            }
+
             if (HostileStructures.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
                 if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
                     Memory.tasks.wipeRooms.destroyStructures.push(room.name)
                 }
-                room.memory.has_hostile_structures = true;
+                room.memory.roomData.has_hostile_structures = true;
             }
             else {
                 Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
-                room.memory.has_hostile_structures = false;
+                room.memory.roomData.has_hostile_structures = false;
             }
 
             if(HostileCreeps.length > 0 && isArmed && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
                 if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                     Memory.tasks.wipeRooms.killCreeps.push(room.name)
                 }
-                room.memory.has_hostile_creeps = true;
+                room.memory.roomData.has_hostile_creeps = true;
             }
             else if(HostileCreeps.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
-                room.memory.has_safe_creeps = true;
+                room.memory.roomData.has_safe_creeps = true;
             }
             else {
                 Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
-                room.memory.has_hostile_creeps = false;
-                room.memory.has_safe_creeps = false;
+                room.memory.roomData.has_hostile_creeps = false;
+                room.memory.roomData.has_safe_creeps = false;
             }
 
 
@@ -326,17 +318,17 @@ function establishMemory(room) {
                 }
             });
             if(attackersInRoom == 0) {
-                room.memory.has_attacker = false;
+                room.memory.roomData.has_attacker = false;
             }
             else {
-                room.memory.has_attacker = true;
+                room.memory.roomData.has_attacker = true;
             }
         }
 
 
         if(Game.rooms[room.name] == undefined) {
             Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
-            room.memory.has_hostile_creeps = false;
+            room.memory.roomData.has_hostile_creeps = false;
 
             Memory.tasks.wipeRooms.destroyStructures = Memory.tasks.wipeRooms.destroyStructures.filter(element => element != room.name)
             room.memory.has_hostile_structures = false;

@@ -1,5 +1,5 @@
 const run = function (creep:Creep) {
-    creep.Speak();
+    ;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();

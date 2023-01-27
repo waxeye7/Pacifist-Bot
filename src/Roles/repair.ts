@@ -112,7 +112,7 @@ function findLocked(creep) {
 }
 
  const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
     // console.log(_.keys(creep.store).length)
     if(creep.memory.homeRoom && creep.memory.homeRoom != creep.room.name) {

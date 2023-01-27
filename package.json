@@ -14,7 +14,6 @@
     "push-gohorse": "rollup -c --environment DEST:gohorse",
     "push-screepsplus": "rollup -c --environment DEST:screepsplus",
     "push-myserver": "rollup -c --environment DEST:myserver",
-
     "test": "npm run test-unit",
     "test-unit": "mocha test/unit/**/*.ts",
     "test-integration": "echo 'See docs/in-depth/testing.md for instructions on enabling integration tests'",

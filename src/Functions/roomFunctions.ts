@@ -110,7 +110,7 @@ Room.prototype.findContainers = function(capacity) {
     }
     let containers;
     if(this.controller && this.controller.my && this.controller.level !== 0) {
-        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && i.id !== this.memory.Structures.bin});
+        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && i.id !== this.memory.Structures.bin && i.id !== this.memory.Structures.storage && i.id !== this.memory.Structures.controllerLink});
     }
     else {
         containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});

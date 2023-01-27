@@ -11,7 +11,7 @@ function labs(room) {
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
 
 
-            let inputLab1Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
+            let inputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name);
             let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
             if(lookForInputLab1Position.length > 0) {
                 for(let building of lookForInputLab1Position) {
@@ -33,7 +33,7 @@ function labs(room) {
             }
 
 
-            let inputLab2Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name);
+            let inputLab2Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name);
             let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
             if(lookForInputLab2Position.length) {
                 for(let building of lookForInputLab2Position) {
@@ -55,7 +55,7 @@ function labs(room) {
             }
 
 
-            let outputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name);
+            let outputLab1Position = new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name);
             let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab1Position.length) {
                 for(let building of lookForOutputLab1Position) {
@@ -92,7 +92,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab2 == undefined) {
-                let outputLab2Position = new RoomPosition(storage.pos.x + 2, storage.pos.y + 4, room.name);
+                let outputLab2Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 4, room.name);
                 let lookForOutputLab2Position = outputLab2Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab2Position.length) {
                     for(let building of lookForOutputLab2Position) {
@@ -115,7 +115,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab3 == undefined) {
-                let outputLab3Position = new RoomPosition(storage.pos.x + 2, storage.pos.y + 5, room.name);
+                let outputLab3Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 5, room.name);
                 let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab3Position.length) {
                     for(let building of lookForOutputLab3Position) {
@@ -128,7 +128,7 @@ function labs(room) {
 
 
 
-            let outputLab4Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name);
+            let outputLab4Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 3, room.name);
             let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab4Position.length) {
                 for(let building of lookForOutputLab4Position) {
@@ -154,7 +154,7 @@ function labs(room) {
 
         if(room.controller.level == 8 && LabsInRoom.length == 10) {
 
-            let outputLab5Position = new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name);
+            let outputLab5Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name);
             let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab5Position.length) {
                 for(let building of lookForOutputLab5Position) {
@@ -164,7 +164,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab5 == undefined) {
-                let outputLab5Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name);
+                let outputLab5Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name);
                 let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab5Position.length) {
                     for(let building of lookForOutputLab5Position) {
@@ -176,7 +176,7 @@ function labs(room) {
             }
 
 
-            let outputLab6Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name);
+            let outputLab6Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name);
             let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab6Position.length) {
                 for(let building of lookForOutputLab6Position) {
@@ -186,7 +186,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab6 == undefined) {
-                let outputLab6Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name);
+                let outputLab6Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 4, room.name);
                 let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab6Position.length) {
                     for(let building of lookForOutputLab6Position) {
@@ -199,7 +199,7 @@ function labs(room) {
 
 
 
-            let outputLab7Position = new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name);
+            let outputLab7Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
             let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab7Position.length) {
                 for(let building of lookForOutputLab7Position) {
@@ -209,7 +209,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab7 == undefined) {
-                let outputLab7Position = new RoomPosition(storage.pos.x + 6, storage.pos.y + 4, room.name);
+                let outputLab7Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 5, room.name);
                 let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab7Position.length) {
                     for(let building of lookForOutputLab7Position) {
@@ -221,7 +221,7 @@ function labs(room) {
             }
 
 
-            let outputLab8Position = new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name);
+            let outputLab8Position = new RoomPosition(storage.pos.x - 5, storage.pos.y, room.name);
             let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
             if(lookForOutputLab8Position.length) {
                 for(let building of lookForOutputLab8Position) {
@@ -231,7 +231,7 @@ function labs(room) {
                 }
             }
             if(room.memory.labs.outputLab8 == undefined) {
-                let outputLab8Position = new RoomPosition(storage.pos.x + 6, storage.pos.y + 5, room.name);
+                let outputLab8Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name);
                 let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
                 if(lookForOutputLab8Position.length) {
                     for(let building of lookForOutputLab8Position) {

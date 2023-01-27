@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    creep.Speak();
+    ;
     creep.memory.moving = false;
 
     if(creep.memory.suicide) {
@@ -29,7 +29,7 @@ const run = function (creep) {
                 buildingsToRepair.push(road);
             }
         }
-        let containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(storage) <= 2});
+        let containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER && (s.id == creep.room.memory.Structures.bin || (s.id == creep.room.memory.Structures.controllerLink && creep.room.controller <= 6))});
         if(containers.length > 0) {
             for(let container of containers) {
                 if(container.hits <= container.hitsMax - 500) {
@@ -51,7 +51,7 @@ const run = function (creep) {
         if(rampartsIDS.length > 0) {
             for(let rampart of rampartsIDS) {
                 let rampObj:any = Game.getObjectById(rampart);
-                if(rampObj.hits <= 25000) {
+                if(rampObj && rampObj.hits <= 25000) {
                     buildingsToRepair.push(rampObj);
                 }
             }
