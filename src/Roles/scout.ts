@@ -20,6 +20,7 @@
     if(sources.length <= 2 && creep.room.controller && creep.room.controller.level == 0) {
         for(let source of sources) {
             Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy[source.id] = {};
+            Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].active = true;
         }
     }
 

@@ -7,12 +7,18 @@ import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
 import remotes from "./rooms.remotes";
+import powerSpawning from "./rooms.powerSpawning";
 
 function rooms() {
     const start = Game.cpu.getUsed()
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
     // });
+
+
+    let myRooms = [];
+
+
 
 
     let roomsIController = 0;
@@ -33,6 +39,7 @@ function rooms() {
             }
 
             roomsIController += 1;
+            myRooms.push(room.name);
         }
 
         if(Game.time % 500 == 0) {
@@ -127,6 +134,8 @@ function rooms() {
                 Memory.billtong_rooms = [];
             }
 
+
+            powerSpawning(room);
             spawning(room);
 
 
@@ -158,7 +167,7 @@ function rooms() {
 
             // }
 
-            if(Game.time % 10 == 1 || Game.time < 10) {
+            if(Game.time % 10 == 0 || Game.time < 10) {
                 // const start = Game.cpu.getUsed()
                 identifySources(room);
                 // console.log('Identify Sources Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -173,7 +182,7 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 || room.memory.DOB == 2) {
+            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -233,6 +242,39 @@ function rooms() {
         // if(!visibleRoom.controller || (visibleRoom.controller && visibleRoom.controller.level == 0)) {
         //     delete Memory.rooms[visibleRoom.name];
         // }
+
+
+    if(Game.time % 500 == 0) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < 14) {
+            let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
+
+            if(room.controller.level >= 2) {
+                for(let remoteRoom of Object.keys(room.memory.resources)) {
+                    if(remoteRoom !== room.name) {
+                        if(Object.keys(room.memory.resources[remoteRoom]).length == 0) {
+                            let newName = 'Scout-'+ "-" + room.name;
+                            room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout', homeRoom: room.name, targetRoom: remoteRoom}});
+                            console.log('Adding Scout to Spawn List: ' + newName);
+                            break;
+                        }
+                    }
+                }
+            }
+
+        }
+        else if(Memory.CPU.fiveHundredTickAvg.avg > 18) {
+            for(let roomName of myRooms) {
+                let room = Game.rooms[roomName];
+                let remoteRooms = Object.keys(room.memory.resources);
+                if(remoteRooms.length > 1) {
+                    remoteRooms = remoteRooms.filter(function(remoteRoom) {return remoteRoom !== roomName;});
+                    delete room.memory.resources[remoteRooms[remoteRooms.length - 1]];
+                    break;
+                }
+            }
+        }
+    }
+
 
     console.log('Rooms Ran in', Game.cpu.getUsed() - start, 'ms');
 }

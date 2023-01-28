@@ -569,7 +569,7 @@ function construction(room) {
 
                     checkerboard = [
                         [-2,-2], [2,-2], [2,0],
-                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [1,3], [3,3],[-3,-2],[3,2],[3,-2],
+                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [1,3], [3,3],[-3,-2],[3,-2],
                         [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,4],[-2,4],[0,4],[2,4],[4,4],
                         [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],[0,5],[0,-5],
                         [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
@@ -786,6 +786,18 @@ function construction(room) {
                             NukerPosition.createConstructionSite(STRUCTURE_RAMPART);
                         }
                     }
+                    let powerSpawns = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_POWER_SPAWN});
+                    if(powerSpawns.length == 0) {
+                        let listOfPowerSpawnPositions = [new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name)]
+                        DestroyAndBuild(room, listOfPowerSpawnPositions, STRUCTURE_POWER_SPAWN);
+                    }
+                    else if(powerSpawns.length == 1) {
+                        let PowerSpawnPosition = new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name);
+                        let lookForS = PowerSpawnPosition.lookFor(LOOK_STRUCTURES);
+                        if(lookForS.length == 1) {
+                            PowerSpawnPosition.createConstructionSite(STRUCTURE_RAMPART);
+                        }
+                    }
                 }
 
 
@@ -805,7 +817,7 @@ function construction(room) {
                 if(room.controller.level >= 6) {
 
                     if(storage) {
-                        let first_road_position = new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name)
+                        let first_road_position = new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name)
                         first_road_position.createConstructionSite(STRUCTURE_ROAD);
                         let lookForFirstRoad = first_road_position.lookFor(LOOK_STRUCTURES);
                         let road1;
@@ -1194,7 +1206,7 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
         let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
         if(lookForExistingStructures.length > 0) {
             for(let existingstructure of lookForExistingStructures) {
-                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART) {
+                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART && existingstructure.structureType !== STRUCTURE_ROAD) {
                     existingstructure.destroy();
                 }
             }

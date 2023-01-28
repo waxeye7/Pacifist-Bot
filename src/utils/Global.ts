@@ -120,7 +120,7 @@ declare global {
             SG:any;
             SCK:any;
             SGD:any;
-
+            SPK:any;
         }
     }
 }

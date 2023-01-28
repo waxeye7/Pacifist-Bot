@@ -60,7 +60,13 @@ import rolePriest from "Roles/Priest";
 
 import roleGuard from "Roles/Guard";
 
+import rolePowerMelee from "Roles/PowerHeal";
+import rolePowerHeal from "Roles/PowerHeal";
+
 global.ROLES = {
+  PowerMelee: rolePowerMelee,
+  PowerHeal: rolePowerHeal,
+
   MineralMiner: roleMineralMiner,
 
   EnergyMiner : roleEnergyMiner,
@@ -135,6 +141,9 @@ import { memHack } from "utils/MemHack";
 
 
 export const loop = ErrorMapper.wrapLoop(() => {
+  const startTotal = Game.cpu.getUsed();
+
+
   memHack.run()
 //   console.log(Game.time % 100 + "/100");
 
@@ -199,7 +208,6 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
 
-
   if(Game.time % 100 == 0) {
     if(!Memory.CPU) {
       Memory.CPU = {};
@@ -215,21 +223,66 @@ export const loop = ErrorMapper.wrapLoop(() => {
     Memory.CPU.bucket = Game.cpu.bucket;
   }
 
-  if(Game.time % 100 == 0 && Game.shard.name == "shard0" ||
-     Game.time % 100 == 0 && Game.shard.name == "shard1" ||
-     Game.time % 100 == 0 && Game.shard.name == "shard2" ||
-     Game.time % 100 == 0 && Game.shard.name == "shard3") {
+  if(Game.time % 100 == 0) {
       console.log(" ");
       console.log("-------------------",Game.cpu.bucket, 'unused cpu in my bucket');
       console.log(" ");
-      if(Game.cpu.bucket == 10000) {
-          if(Game.cpu.generatePixel() == 0) {
-              console.log('- generating pixel -');
-              console.log('- generating pixel -');
-              console.log('- generating pixel -');
-              console.log('- generating pixel -');
-              console.log('- generating pixel -');
-          }
-      }
+      // if(Game.cpu.bucket == 10000) {
+      //     if(Game.cpu.generatePixel() == 0) {
+      //         console.log('- generating pixel -');
+      //         console.log('- generating pixel -');
+      //         console.log('- generating pixel -');
+      //         console.log('- generating pixel -');
+      //         console.log('- generating pixel -');
+      //     }
+      // }
   }
+
+  let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
+  console.log(tickTotal);
+
+  if(!Memory.CPU) {
+    Memory.CPU = {};
+  }
+  if(!Memory.CPU.hundredTickAvg) {
+    Memory.CPU.hundredTickAvg = {};
+    Memory.CPU.hundredTickAvg.data = [];
+    Memory.CPU.hundredTickAvg.avg = 0;
+  }
+  if(!Memory.CPU.fiveHundredTickAvg) {
+    Memory.CPU.fiveHundredTickAvg = {};
+    Memory.CPU.fiveHundredTickAvg.data = [];
+    Memory.CPU.fiveHundredTickAvg.avg = 0;
+  }
+
+  Memory.CPU.hundredTickAvg.data.push(tickTotal)
+
+  if(Game.time % 100 == 0) {
+    let total = 0;
+    for(let num of Memory.CPU.hundredTickAvg.data) {
+      total += Number(num);
+    }
+    let average = (total / 100).toFixed(2);
+
+    Memory.CPU.hundredTickAvg.avg = average;
+    console.log("hundred tick average is " + average)
+    Memory.CPU.hundredTickAvg.data = [];
+
+
+    Memory.CPU.fiveHundredTickAvg.data.push(average)
+    if(Game.time % 500 == 0) {
+
+      let total = 0;
+      for(let num of Memory.CPU.fiveHundredTickAvg.data) {
+        total += Number(num);
+      }
+      let average = (total / 5).toFixed(2);
+
+      Memory.CPU.fiveHundredTickAvg.avg = average;
+      console.log("five hundred tick average is " + average)
+      Memory.CPU.fiveHundredTickAvg.data = [];
+
+    }
+  }
+
 });

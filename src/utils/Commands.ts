@@ -1122,7 +1122,6 @@ global.SCK = function (homeRoom, targetRoomName) {
     return "Failed to spawn";
 }
 
-
 global.SGD = function (homeRoom, targetRoomName, body) {
     if(Game.rooms[homeRoom]) {
         if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && targetRoomName !== homeRoom) {
@@ -1141,4 +1140,24 @@ global.SGD = function (homeRoom, targetRoomName, body) {
         console.log("Perhaps own the room you want to spawn the Guard from...")
     }
     return "Failed to spawn";
+}
+
+
+global.SPK = function (homeRoom, targetRoomName) {
+
+    if(Game.rooms[homeRoom]) {
+        let newName = 'PowerMelee-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+        console.log('Adding PowerMelee to Spawn List: ' + newName);
+        Game.rooms[homeRoom].memory.spawn_list.push([ATTACK,MOVE], newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
+
+        let newName2 = 'PowerHeal-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+        console.log('Adding PowerHeal to Spawn List: ' + newName2);
+        Game.rooms[homeRoom].memory.spawn_list.push([HEAL,MOVE], newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
+
+
+        return "Success!";
+    }
+
+    return "Failed."
+
 }

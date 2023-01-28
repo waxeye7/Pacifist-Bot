@@ -298,7 +298,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
         }
     }
 
-    if(!this.memory.route || this.memory.route == 2 || this.memory.route && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route[this.memory.route.length - 1].room !== targetRoom || this.memory.route && this.memory.route.length == 1) {
+    if(!this.memory.route || this.memory.route == 2 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             routeCallback(roomName, fromRoomName) {
                 // !_.includes(Memory.AvoidRooms, targetRoom, 0)
@@ -343,9 +343,11 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
         let travelTarget:any = Game.getObjectById(this.memory.sourceId);
         if(!travelTarget) {
-            return this.moveToRoom(this.memory.targetRoom, 25, 25);
+            // return this.moveToRoom(this.memory.targetRoom, 25, 25);
+            return this.moveToRoomAvoidEnemyRooms(this.memory.targetRoom)
         }
-        return this.moveToRoom(this.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, false, 5, 3);
+        // return this.moveToRoom(this.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, false, 5, 3);
+        return this.moveToRoomAvoidEnemyRooms(this.memory.targetRoom)
     }
 
     let storedSource:any = Game.getObjectById(this.memory.source);

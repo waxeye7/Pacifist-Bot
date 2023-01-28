@@ -593,8 +593,25 @@ import randomWords from "random-words";
             return;
         }
 
+        if(creep.ticksToLive % 50 == 0) {
+            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_KEANIUM_ACID];
+                if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
+                    for(let resource in terminal.store) {
+                        if(listOfResourcesToStorage.includes(resource)) {
+                            if(creep.pos.isNearTo(terminal)) {
+                                creep.withdraw(terminal, resource);
+                                creep.memory.target = storage.id;
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(terminal, 1);
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
 
-        if(creep.ticksToLive % 40 == 0) {
+        if(creep.ticksToLive % 50 == 10) {
             let listOfResourcesToTerminal:any = [RESOURCE_BATTERY, RESOURCE_OPS,
                 RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
                 RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
@@ -619,7 +636,7 @@ import randomWords from "random-words";
                 }
             }
 
-            if(creep.ticksToLive % 40 == 10) {
+            if(creep.ticksToLive % 50 == 20) {
                 let listOfResourcesToFactory:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
                 if(storage && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (storage.store[RESOURCE_MIST] >= MaxStorage || storage.store[RESOURCE_BIOMASS] >= MaxStorage || storage.store[RESOURCE_METAL] >= MaxStorage || storage.store[RESOURCE_SILICON] >= MaxStorage)) {
                     for(let resource in storage.store) {
@@ -638,7 +655,7 @@ import randomWords from "random-words";
             }
 
 
-            if(creep.ticksToLive % 40 == 20) {
+            if(creep.ticksToLive % 50 == 30) {
                 let listOfResourcesToFactoryFromTerminal:any = [RESOURCE_MIST, RESOURCE_BIOMASS, RESOURCE_METAL, RESOURCE_SILICON];
                 if(terminal && factory && factory.store.getFreeCapacity() > MaxStorage * 2 && (terminal.store[RESOURCE_MIST] >= MaxStorage || terminal.store[RESOURCE_BIOMASS] >= MaxStorage || terminal.store[RESOURCE_METAL] >= MaxStorage || terminal.store[RESOURCE_SILICON] >= MaxStorage)) {
                     for(let resource in terminal.store) {
@@ -656,7 +673,7 @@ import randomWords from "random-words";
                 }
             }
 
-            if(creep.ticksToLive % 40 == 30) {
+            if(creep.ticksToLive % 50 == 40) {
                 let listOfResourcesToTerminalFromFactory:any = [RESOURCE_KEANIUM_BAR];
                 if(terminal && factory && terminal.store.getFreeCapacity() > MaxStorage * 10 && (factory.store[RESOURCE_KEANIUM_BAR] >= 5000)) {
                     for(let resource in factory.store) {

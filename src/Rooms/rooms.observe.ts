@@ -1,5 +1,4 @@
 function observe(room) {
-// if(Game.time % 10 == 0) {
 
     let interval = 64;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
@@ -232,8 +231,86 @@ function observe(room) {
 
     }
 
+    // find power banks
+    if(observer && (Game.time % interval == 31 || Game.time % interval == 32)) {
 
-// }
+        if(!room.memory.observe.listOfRoomsForPower) {
+
+            if(!room.memory.observe.lastRoomObservedForPowerIndex) {
+                room.memory.observe.lastRoomObservedForPowerIndex = 0;
+            }
+
+            let highWayRoomsToObserve = [];
+
+            let EastOrWest = room.name[0];
+            let NorthOrSouth = room.name[3];
+
+            if(room.name.length == 6) {
+                let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
+                let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
+                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                        if(i % 10 == 0 || o % 10 == 0) {
+                            let firstString = i.toString();
+                            let secondString = o.toString();
+                            highWayRoomsToObserve.push(EastOrWest + firstString + NorthOrSouth + secondString);
+                        }
+                    }
+                }
+                room.memory.observe.listOfRoomsForPower = highWayRoomsToObserve;
+            }
+        }
+
+        if(room.memory.observe.listOfRoomsForPower) {
+
+            let RoomsToSee = room.memory.observe.listOfRoomsForPower
+
+            if(RoomsToSee.length > 0 && Game.time % interval == 31) {
+                if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
+                    room.memory.observe.lastRoomObservedForPowerIndex = 0
+                }
+
+
+                let chosenRoom = RoomsToSee[room.memory.observe.lastRoomObservedForPowerIndex]
+                observer.observeRoom(chosenRoom);
+
+
+                console.log("seeing FOR POWER", chosenRoom)
+
+
+                room.memory.observe.lastRoomObservedForPowerIndex += 1;
+                room.memory.observe.lastRoomObservedForPower = chosenRoom;
+
+            }
+
+            if(Game.time % interval == 32) {
+                let adj = room.memory.observe.lastRoomObservedForPower;
+                let seenRoom = Game.rooms[adj];
+
+                if(seenRoom && Game.cpu.bucket >= 9500) {
+
+                    let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && s.ticksToDecay > 1700});
+
+                    if(powerBanks.length > 0) {
+
+                        let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
+                        if(walls.length < 2) {
+                            global.SPK(room.name, adj);
+                        }
+
+                    }
+
+
+
+                }
+
+            }
+
+
+        }
+
+    }
+
 }
 
 export default observe;

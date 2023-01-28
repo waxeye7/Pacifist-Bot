@@ -44,7 +44,17 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             }
         }
         else {
-
+            let ruins = creep.room.find(FIND_RUINS, {filter: r => r.store[RESOURCE_ENERGY] > 0});
+            if(ruins.length > 0) {
+                let closestRuin = creep.pos.findClosestByRange(ruins);
+                if(creep.pos.isNearTo(closestRuin)) {
+                    creep.withdraw(closestRuin,RESOURCE_ENERGY);
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(closestRuin, 1);
+                }
+                return;
+            }
 
             let source:any = Game.getObjectById(creep.memory.source);
             if(source && source.energy == 0) {
