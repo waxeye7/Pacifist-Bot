@@ -7,6 +7,7 @@ import global from "./utils/Global";
 
 import rooms from "./Rooms/rooms";
 
+import "./Functions/powerCreepFunctions"
 import "./Functions/creepFunctions";
 import "./Functions/roomFunctions";
 import "./Functions/roomPositionFunctions";
@@ -62,6 +63,8 @@ import roleGuard from "Roles/Guard";
 
 import rolePowerMelee from "Roles/PowerMelee";
 import rolePowerHeal from "Roles/PowerHeal";
+
+import roleEfficient from "Roles/PowerCreeps/efficient";
 
 global.ROLES = {
   PowerMelee: rolePowerMelee,
@@ -132,6 +135,8 @@ global.ROLES = {
   Priest: rolePriest,
 
   Guard: roleGuard,
+
+  efficient: roleEfficient,
 }
 
 
@@ -151,6 +156,17 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
 
   const start = Game.cpu.getUsed()
+
+  for(let name in Game.powerCreeps) {
+    if(name.startsWith("efficient")) {
+      let creep = Game.powerCreeps[name];
+      if(creep && creep.ticksToLive) {
+        global.ROLES["efficient"].run(creep);
+      }
+
+    }
+  }
+
 
   let executeCreepScriptsLaterList = [];
 

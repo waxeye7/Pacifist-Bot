@@ -1518,7 +1518,7 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
 
         for(let position of listOfPositionsInFutureToBeBuilt) {
             if(position[0] <= 47 && position[0] >= 2 && position[1] <= 47 && position[1] >= 2) {
-                costs.set(position[0], position[1], 255);
+                costs.set(position[0], position[1], 100);
                 console.log('cost set here')
             }
         }
@@ -1577,6 +1577,152 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
             // }
         });
     }
+
+    let storages = currentRoom.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_STORAGE});
+    let storage;
+    if(storages.length > 0) {
+        storage = storages[0];
+    }
+    if(storage) {
+        let storageX = storage.pos.x;
+        let storageY = storage.pos.y;
+
+        let listOfPositionsInFutureToBeBuilt = [
+            [storageX + -2,storageY + -2],
+            [storageX + 2,storageY + -2],
+            [storageX + 2,storageY],
+            [storageX + -3,storageY + -3],
+            [storageX + -1,storageY + -3],
+            [storageX + -1,storageY + 3],
+            [storageX + 1,storageY + -3],
+            [storageX + 3,storageY + -3],
+            [storageX + 1,storageY + 3],
+            [storageX + 3,storageY + 3],
+            [storageX + -3,storageY + -2],
+            [storageX + 3,storageY + -2],
+            [storageX + -4,storageY + -4],
+            [storageX + -2,storageY + -4],
+            [storageX,storageY + -4],
+            [storageX + 2,storageY + -4],
+            [storageX + 4,storageY + -4],
+            [storageX + -4,storageY + -2],
+            [storageX + -4,storageY + 4],
+            [storageX + -2,storageY + 4],
+            [storageX + 0,storageY + 4],
+            [storageX + 2,storageY + 4],
+            [storageX + 4,storageY + 4],
+            [storageX + -5,storageY + -5],
+            [storageX + -3,storageY + -5],
+            [storageX + -1,storageY + -5],
+            [storageX + 1,storageY + -5],
+            [storageX + 3,storageY + -5],
+            [storageX + 5,storageY + -5],
+            [storageX + -5,storageY + -3],
+            [storageX + 5,storageY + -3],
+            [storageX + -5,storageY + -1],
+            [storageX + 5,storageY + 3],
+            [storageX + -5,storageY + 5],
+            [storageX + -3,storageY + 5],
+            [storageX + -1,storageY + 5],
+            [storageX + 1,storageY + 5],
+            [storageX + 3,storageY + 5],
+            [storageX + 0,storageY + 5],
+            [storageX + 0,storageY - 5],
+            [storageX + -6,storageY + -6],
+            [storageX + -4,storageY + -6],
+            [storageX + -2,storageY + -6],
+            [storageX + 0,storageY + -6],
+            [storageX + 2,storageY + -6],
+            [storageX + 4,storageY + -6],
+            [storageX + 6,storageY + -6],
+            [storageX + -6,storageY + -4],
+            [storageX + 6,storageY + -4],
+            [storageX + -6,storageY + -2],
+            [storageX + 6,storageY + -2],
+            [storageX + 6,storageY + 0],
+            [storageX + 6,storageY + 2],
+            [storageX + -6,storageY + 4],
+            [storageX + 6,storageY + 4],
+            [storageX + -6,storageY + 6],
+            [storageX + -4,storageY + 6],
+            [storageX + -2,storageY + 6],
+            [storageX + 0,storageY + 6],
+            [storageX + 2,storageY + 6],
+            [storageX + 4,storageY + 6],
+            [storageX + 6,storageY + 6],
+            [storageX + -5,storageY + -7],
+            [storageX + -3,storageY + -7],
+            [storageX + -1,storageY + -7],
+            [storageX + 1,storageY + -7],
+            [storageX + 3,storageY + -7],
+            [storageX + 5,storageY + -7],
+            [storageX + -7,storageY + -5],
+            [storageX + -7,storageY + -3],
+            [storageX + -7,storageY + -1],
+            [storageX + -7,storageY + 5],
+            [storageX + -5,storageY + 7],
+            [storageX + -3,storageY + 7],
+            [storageX + -1,storageY + 7],
+            [storageX + 1,storageY + 7],
+            [storageX + 3,storageY + 7],
+            [storageX + 5,storageY + 7],
+            [storageX + 7,storageY + 5],
+            [storageX + 7,storageY + 3],
+            [storageX + 7,storageY + 1],
+            [storageX + 7,storageY + -1],
+            [storageX + 7,storageY + -3],
+            [storageX + 7,storageY + -5],
+            [storageX + 0,storageY + 7],
+            [storageX + 7,storageY + 0],
+            [storageX + 0,storageY + -7],
+            [storageX + 4,storageY + 7],
+            [storageX + -4,storageY + 7],
+            [storageX + 7,storageY + 4],
+            [storageX + 7,storageY + -4],
+            [storageX + 4,storageY + -7],
+            [storageX + -4,storageY + -7],
+            [storageX + -7,storageY + 4],
+            [storageX + -7,storageY + -4],
+
+            // non extension buildings
+            [storageX + -1,storageY + 2],
+            [storageX + 0,storageY + -2],
+            [storageX + 2,storageY + 0],
+            [storageX + 4,storageY + 0],
+            [storageX + 5,storageY + 0],
+            [storageX + 2,storageY + 2],
+            [storageX + 3,storageY + 2],
+            [storageX + -2,storageY + 0],
+            // towers
+            [storageX + 4,storageY + -2],
+            [storageX + 3,storageY + -1],
+            [storageX + 5,storageY + -1],
+            [storageX + 3,storageY + 1],
+            [storageX + 5,storageY + 1],
+            [storageX + 4,storageY + 2],
+            // labs
+            [storageX + -3,storageY + 0],
+            [storageX + -3,storageY + 1],
+            [storageX + -3,storageY + 2],
+            [storageX + -3,storageY + 3],
+            [storageX + -4,storageY + 1],
+            [storageX + -4,storageY + 2],
+            [storageX + -5,storageY + 0],
+            [storageX + -5,storageY + 1],
+            [storageX + -5,storageY + 2],
+            [storageX + -5,storageY + 3],
+        ]
+
+        for(let position of listOfPositionsInFutureToBeBuilt) {
+            if(position[0] <= 47 && position[0] >= 2 && position[1] <= 47 && position[1] >= 2) {
+                costs.set(position[0], position[1], 100);
+                console.log('cost set here')
+            }
+        }
+    }
+
+
+
     return costs;
 }
 // const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {

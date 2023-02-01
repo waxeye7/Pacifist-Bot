@@ -332,7 +332,49 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 
     if(this.memory.route != 2 && this.memory.route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
-        const exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+        let exit;
+
+        if(this.memory.role == "carry") {
+            if(this.memory.route[0].exit == FIND_EXIT_RIGHT) {
+                let roadsAtX48 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.x == 48});
+                if(roadsAtX48.length > 0) {
+                    exit = roadsAtX48[0].pos.findClosestByRange(this.memory.route[0].exit);
+                }
+                else {
+                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+                }
+            }
+            else if(this.memory.route[0].exit == FIND_EXIT_BOTTOM) {
+                let roadsAtY48 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.y == 48});
+                if(roadsAtY48.length > 0) {
+                    exit = roadsAtY48[0].pos.findClosestByRange(this.memory.route[0].exit);
+                }
+                else {
+                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+                }
+            }
+            else if(this.memory.route[0].exit == FIND_EXIT_LEFT) {
+                let roadsAtX1 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.x == 1});
+                if(roadsAtX1.length > 0) {
+                    exit = roadsAtX1[0].pos.findClosestByRange(this.memory.route[0].exit);
+                }
+                else {
+                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+                }
+            }
+            else if(this.memory.route[0].exit == FIND_EXIT_TOP) {
+                let roadsAtY1 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.y == 1});
+                if(roadsAtY1.length > 0) {
+                    exit = roadsAtY1[0].pos.findClosestByRange(this.memory.route[0].exit);
+                }
+                else {
+                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+                }
+            }
+        }
+        else {
+            exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+        }
 
         this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(exit, 0)
         // this.moveTo(exit, {reusePath:200});
@@ -746,6 +788,12 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.y != 0) {
             let targetRoomPosition = new RoomPosition(this.pos.x, this.pos.y - 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(5);
@@ -763,6 +811,12 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.x != 49 && this.pos.y != 0) {
             let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y - 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(6);
@@ -780,6 +834,13 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.x != 49) {
             let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
+
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(7);
@@ -797,6 +858,13 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.x != 49 && this.pos.y != 49) {
             let targetRoomPosition = new RoomPosition(this.pos.x + 1, this.pos.y + 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
+
             if(lookCreep.length > 0 && lookCreep[0].my && lookCreep[0] && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(8);
@@ -814,6 +882,12 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.y != 49) {
             let targetRoomPosition = new RoomPosition(this.pos.x, this.pos.y + 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(1);
@@ -831,6 +905,12 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.y != 49 && this.pos.x != 0) {
             let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y + 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(2);
@@ -848,6 +928,13 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.x != 0) {
             let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
+
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(3);
@@ -865,6 +952,13 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
         if(this.pos.x != 0 && this.pos.y != 0) {
             let targetRoomPosition = new RoomPosition(this.pos.x - 1, this.pos.y - 1, this.room.name)
             let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
+            if(lookCreep.length == 0) {
+                let powerCreeps:any = targetRoomPosition.lookFor(LOOK_POWER_CREEPS);
+                if(powerCreeps.length > 0) {
+                    lookCreep.push(powerCreeps[0]);
+                }
+            }
+
             if(lookCreep.length > 0 && lookCreep[0].my && !lookCreep[0].memory.moving) {
                 if(lookCreep[0].ticksToLive % 2 < 1) {
                     lookCreep[0].move(4);
@@ -1437,7 +1531,17 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
             this.memory.path = false;
         }
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id || target.roomName !== this.room.name) {
-            let costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuch;
+            let costMatrix;
+            if(this.memory.role == "carry" && this.memory.full == true || this.memory.suicide == true) {
+                costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull;
+            }
+            else if(this.memory.role == "carry" && this.memory.full == false) {
+                costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty;
+            }
+            else {
+                costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuch;
+            }
+
 
             let path = PathFinder.search(
                 this.pos, {pos:target, range:range},
@@ -1540,20 +1644,207 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
 
 
 
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 7);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 3);
+            }
+        }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+    });
+
+
+    return costs;
+}
+
+
+const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 0; y <= 49; y++) {
+        for(let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 30;
+            }
+            else if(tile == 0){
+                weight = 10;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 1);
         }
-        else if(struct.structureType == STRUCTURE_CONTAINER) {
-            return;
-        }
-        else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
+        else if(struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_RAMPART) {
             return;
         }
         else {
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+        }
+
+    }
+
+
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+        if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
+        }
+        else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
+            let source:any = Game.getObjectById(creep.memory.source)
+            if(creep.pos.isNearTo(source)) {
+                costs.set(creep.pos.x, creep.pos.y, 7);
+            }
+        }
+        else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
+            let locked:any = Game.getObjectById(creep.memory.locked);
+            if(creep.pos.getRangeTo(locked) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 3);
+            }
+        }
+        else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
+            costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+    });
+
+
+    return costs;
+}
+
+const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 0; y <= 49; y++) {
+        for(let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 2;
+            }
+            else if(tile == 0){
+                weight = 2;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 3);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_RAMPART) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+        }
+
+    }
+
 
 
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {

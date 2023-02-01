@@ -46,7 +46,7 @@ const run = function (creep) {
 				creep.MoveCostMatrixRoadPrio(controllerLink, 1);
 			}
 		}
-		else {
+		else if(creep.room.controller.level < 7) {
 
 			if(storage == undefined) {
 				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();

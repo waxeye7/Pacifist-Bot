@@ -1565,7 +1565,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
 
     let threeWorkParts = 6;
-    let fiveWorkParts = 10;
+    let sixWorkParts = 12;
 
 
     if(carriersInRoom.length == 0 && !storage) {
@@ -1579,7 +1579,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
     if(targetSource.room.name == room.name) {
         let ticksPerRoundTrip = (values.pathLength * 2) + 2;
-        let energyProducedPerRoundTrip = fiveWorkParts * ticksPerRoundTrip
+        let energyProducedPerRoundTrip = sixWorkParts * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
         while (energyProducedPerRoundTrip > 0) {
@@ -1609,7 +1609,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
     else {
         if(room.controller.level >= 5) {
-            threeWorkParts = fiveWorkParts;
+            threeWorkParts = sixWorkParts;
         }
         let ticksPerRoundTrip = (values.pathLength * 2) + 2;
         let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip

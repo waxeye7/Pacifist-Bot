@@ -172,7 +172,7 @@ function observe(room) {
                             );
 
                     }
-                    else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+                    else if(hostileSpawns.length > 0 && hostileCreeps.length == 0 && hostileTowers.length == 0) {
 
                         global.SGD(room.name, adj,
                             [

@@ -160,7 +160,7 @@ function rooms() {
                 }
             }
 
-            // factory(room);
+            factory(room);
 
 
             // if(room.factory && room.controller.level >= 7) {
@@ -266,7 +266,7 @@ function rooms() {
             }
 
         }
-        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 2) {
+        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 3) {
             for(let roomName of myRooms) {
                 let room = Game.rooms[roomName];
                 let remoteRooms = Object.keys(room.memory.resources);
