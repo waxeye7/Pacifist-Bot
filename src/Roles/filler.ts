@@ -96,12 +96,12 @@ import randomWords from "random-words";
 
 
 
-    if(!creep.room.memory.Structures.controllerLink && creep.room.controller && creep.room.controller.level >= 2) {
+    if((!creep.room.memory.Structures.controllerLink || Game.time % 100000 == 0) && creep.room.controller.level >= 2) {
         if(creep.room.controller.level < 7) {
             let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
             if(containers.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
                     creep.room.memory.Structures.controllerLink = controllerLink.id;
                 }
             }
@@ -110,7 +110,7 @@ import randomWords from "random-words";
             let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
             if(links.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(links);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
                     creep.room.memory.Structures.controllerLink = controllerLink.id;
                 }
             }
@@ -141,6 +141,15 @@ import randomWords from "random-words";
         }
     }
 
+    if(creep.room.memory.Structures.powerSpawn) {
+        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 5000) {
+            if(creep.memory.locked.length < 2) {
+                creep.memory.locked.push(powerSpawn.id);
+            }
+        }
+    }
+
     // if(creep.room.memory.Structures.nuker) {
     //     let nuker:any = Game.getObjectById(creep.room.memory.Structures.nuker);
     //     if(nuker && nuker.store[RESOURCE_ENERGY] < 300000) {
@@ -152,21 +161,20 @@ import randomWords from "random-words";
 
 
  const run = function (creep) {
-    ;
     creep.memory.moving = false;
 
     if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
         let newName = 'filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
-        if(creep.room.controller.level <= 3) {
+        if(creep.room.controller.level <= 3 && creep.room.memory.spawn_list) {
             creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6) {
+        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6 && creep.room.memory.spawn_list) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level == 7) {
+        else if(creep.room.controller.level == 7 && creep.room.memory.spawn_list) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level == 8) {
+        else if(creep.room.controller.level == 8 && creep.room.memory.spawn_list) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
         console.log("added filler to spawn queue", creep.room.name)

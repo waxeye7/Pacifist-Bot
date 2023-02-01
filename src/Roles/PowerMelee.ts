@@ -27,11 +27,17 @@ const run = function (creep) {
     }
 
     if(creep.memory.target) {
-        let target = Game.getObjectById(creep.memory.target);
+        let target:any = Game.getObjectById(creep.memory.target);
         if(target) {
+
+            if(target.hits <= 100000 && !creep.memory.spawnedGoblin) {
+                global.SG(creep.memory.homeRoom, creep.memory.targetRoom);
+                creep.memory.spawnedGoblin = true;
+            }
 
             if(creep.pos.isNearTo(target)) {
                 creep.attack(target)
+
             }
             else {
                 creep.MoveCostMatrixRoadPrio(target, 1);

@@ -1,11 +1,14 @@
-import roomDefence from "Rooms/rooms.defence";
-
 /**
  * A little description of this function
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    ;
+    creep.memory.moving = false;
+
+    if(creep.memory.suicide) {
+        creep.recycle();
+        return;
+    }
 
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
@@ -87,7 +90,7 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(terminal, {reusePath: 30, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.MoveCostMatrixRoadPrio(terminal, 1);
             }
         }
         else if(storage && creep.store.getFreeCapacity() < MaxStorage) {
@@ -97,12 +100,16 @@ import roomDefence from "Rooms/rooms.defence";
                 }
             }
             else {
-                creep.moveTo(storage, {reusePath: 30, visualizePathStyle: {stroke: '#ffffff'}});
+                creep.MoveCostMatrixRoadPrio(storage, 1);
             }
         }
     }
 
     if(!creep.memory.full) {
+        if(creep.memory.targetRoom && creep.room.name !== creep.memory.targetRoom) {
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+        }
+
         if(!creep.memory.deposit) {
             let deposits:any = creep.room.find(FIND_DEPOSITS);
             if(deposits.length > 0) {
@@ -136,22 +143,43 @@ import roomDefence from "Rooms/rooms.defence";
                 creep.memory.deposit = null;
                 return;
             }
+
+
             if(deposit && deposit.room.name == creep.room.name) {
-                if(creep.room.name != creep.memory.targetRoom) {
+                if(creep.room.name !== creep.memory.targetRoom) {
                     creep.memory.targetRoom = creep.room.name;
                 }
                 if(creep.pos.isNearTo(deposit)) {
+                    if(!creep.memory.timeToGetHome) {
+                        creep.memory.timeToGetHome = 1500 - creep.ticksToLive + 10;
+                    }
                     creep.harvest(deposit)
+
+                    if(Game.time % 10 == 0) {
+                        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.pos.getRangeTo(creep) <= 3 && (r.resourceType == RESOURCE_METAL || r.resourceType == RESOURCE_BIOMASS || r.resourceType == RESOURCE_SILICON || r.resourceType == RESOURCE_MIST)});
+                        if(droppedResources.length > 0) {
+                            let closestDroppedResource = creep.pos.findClosestByRange(droppedResources);
+                            if(creep.pos.isNearTo(closestDroppedResource)) {
+                                creep.pickup(closestDroppedResource);
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(closestDroppedResource, 1);
+                            }
+                            return;
+                        }
+                    }
                 }
                 else {
-                    creep.moveTo(deposit);
+                    creep.MoveCostMatrixRoadPrio(deposit, 1);
                 }
-                creep.moveTo(deposit);
+                creep.MoveCostMatrixRoadPrio(deposit, 1);
+            }
+
+            if(creep.ticksToLive == creep.memory.timeToGetHome || creep.ticksToLive == creep.memory.timeToGetHome - 1) {
+                creep.memory.suicide = true;
             }
         }
-        if(creep.memory.targetRoom && creep.room.name != creep.memory.targetRoom) {
-            creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
-        }
+
     }
 }
 

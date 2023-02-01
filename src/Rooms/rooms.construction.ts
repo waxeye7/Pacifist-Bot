@@ -1,3 +1,4 @@
+import { off } from "process";
 import randomWords from "random-words";
 
 let checkerboard =
@@ -44,6 +45,9 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
     if(structure == STRUCTURE_RAMPART && !usingPathfinder) {
+
+        let listOfRampartPositions = []
+
         let positionArray = [];
         _.forEach(neighbors, function(block) {
             positionArray.push(new RoomPosition(block.x, block.y, room.name))
@@ -147,19 +151,26 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 return;
             }
 
+
+
+
             if(lookForExistingStructures.length == 0) {
-                blockSpot.createConstructionSite(structure);
+                listOfRampartPositions.push([blockSpot.x, blockSpot.y])
+                // blockSpot.createConstructionSite(structure);
                 return;
             }
             if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType != STRUCTURE_RAMPART && blockSpot.findPathTo(storage, {ignoreCreeps:true}).length <= 14) {
-                blockSpot.createConstructionSite(structure);
+                // blockSpot.createConstructionSite(structure);
+                listOfRampartPositions.push([blockSpot.x, blockSpot.y])
                 return;
             }
             if(lookForExistingStructures.length == 2 && lookForExistingStructures[0].structureType != STRUCTURE_RAMPART && lookForExistingStructures[1].structureType != STRUCTURE_RAMPART) {
-                blockSpot.createConstructionSite(structure);
+                // blockSpot.createConstructionSite(structure);
+                listOfRampartPositions.push([blockSpot.x, blockSpot.y])
                 return;
             }
         });
+        room.memory.construction.rampartLocations = listOfRampartPositions;
     }
 
 
@@ -370,6 +381,11 @@ function rampartPerimeter(tile) {
 
 
 function construction(room) {
+    if(!room.memory.construction) {
+        room.memory.construction = {};
+    }
+
+
     if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
         let position = Memory.target_colonise.spawn_pos
         Game.rooms[Memory.target_colonise.room].createConstructionSite(position.x, position.y, STRUCTURE_SPAWN, randomWords({exactly:2,wordsPerString:1,join: '-'}));
@@ -446,7 +462,6 @@ function construction(room) {
         let storageRampartNeighbors = getNeighbours(storage.pos, rampartLocations);
         let filteredStorageRampartNeighbors = storageRampartNeighbors.filter(position => position.x > 0 && position.x < 49 && position.y > 0 && position.y < 49);
         pathBuilder(filteredStorageRampartNeighbors, STRUCTURE_RAMPART, room, false);
-
     }
 
 
@@ -638,18 +653,21 @@ function construction(room) {
         let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
         if(room.controller.level >= 4 && !storage || room.controller.level == 4 && storage.structureType == STRUCTURE_CONTAINER) {
             if(lookForExistingStructures.length > 0) {
-                for(let building of lookForExistingStructures) {
-                    if(building.structureType == STRUCTURE_CONTAINER) {
-                        building.destroy();
-                    }
+                if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
+                    room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
                 }
-                // for(let building of lookForExistingStructures) {
-                //     if(building.)
-                // }
-                lookForExistingStructures[0].destroy();
-            }
-            else if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
-                room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
+                else {
+                    for(let building of lookForExistingStructures) {
+                        if(building.structureType == STRUCTURE_CONTAINER) {
+                            building.destroy();
+                        }
+                    }
+                    // for(let building of lookForExistingStructures) {
+                    //     if(building.)
+                    // }
+                    lookForExistingStructures[0].destroy();
+                }
+
             }
             else {
                 room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
@@ -683,14 +701,18 @@ function construction(room) {
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource1.path.pop();
                 // }
-                container1.createConstructionSite(STRUCTURE_RAMPART);
+                if(pathFromStorageToSource1.path.length > 7) {
+                    container1.createConstructionSite(STRUCTURE_RAMPART);
+                }
 
                 let pathFromStorageToSource2 = PathFinder.search(storage.pos, {pos:sources[1].pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
                 let container2 = pathFromStorageToSource2.path[pathFromStorageToSource2.path.length - 1];
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource2.path.pop();
                 // }
-                container1.createConstructionSite(STRUCTURE_RAMPART);
+                if(pathFromStorageToSource2.path.length > 7) {
+                    container2.createConstructionSite(STRUCTURE_RAMPART);
+                }
 
                 let pathFromStorageToController = PathFinder.search(storage.pos, {pos:room.controller.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
 
@@ -719,7 +741,7 @@ function construction(room) {
                 }
                 if(room.controller.level >= 7) {
                     let lookStructs = linkLocation.lookFor(LOOK_STRUCTURES);
-                    if(lookStructs.length == 1 && lookStructs[0].structureType != STRUCTURE_LINK && lookStructs[0].structureType != STRUCTURE_RAMPART) {
+                    if(lookStructs.length == 1 && lookStructs[0].structureType !== STRUCTURE_LINK && lookStructs[0].structureType !== STRUCTURE_RAMPART && lookStructs[0].structureType !== STRUCTURE_ROAD) {
                         lookStructs[0].destroy();
                     }
                     let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
@@ -930,7 +952,7 @@ function construction(room) {
         }
 
 
-        if(room.controller.level >= 3 && storage && myConstructionSites == 0) {
+        if(room.controller.level >= 5 && storage && myConstructionSites == 0) {
             let ramparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) == 10});
             if(ramparts.length > 0) {
                 let topLeftRamparts = ramparts.filter(function(rampart) {return rampart.pos.x < storage.pos.x-1 && rampart.pos.y < storage.pos.y-1;});
@@ -938,6 +960,7 @@ function construction(room) {
                     // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
                     let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
+                    pathFromStorageToFurthestTopLeftRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
                 }
                 let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+1 && rampart.pos.y < storage.pos.y-1;});
@@ -945,6 +968,7 @@ function construction(room) {
                     // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
                     let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
+                    pathFromStorageToFurthestTopRightRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
                 }
                 let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+1 && rampart.pos.y > storage.pos.y+1;});
@@ -952,6 +976,7 @@ function construction(room) {
                     // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
                     let pathFromStorageToFurthestBottomRightRampart = PathFinder.search(storage.pos, {pos:closestBottomRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
+                    pathFromStorageToFurthestBottomRightRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
                 }
 
@@ -960,6 +985,7 @@ function construction(room) {
                     // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
                     let pathFromStorageToFurthestBottomLeftRampart = PathFinder.search(storage.pos, {pos:closestBottomLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
+                    pathFromStorageToFurthestBottomLeftRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestBottomLeftRampart, STRUCTURE_ROAD, room);
                 }
             }
@@ -1206,7 +1232,7 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
         let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
         if(lookForExistingStructures.length > 0) {
             for(let existingstructure of lookForExistingStructures) {
-                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART && existingstructure.structureType !== STRUCTURE_ROAD) {
+                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART) {
                     existingstructure.destroy();
                 }
             }
@@ -1354,6 +1380,151 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
             // }
         });
     }
+
+    let storages = currentRoom.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_STORAGE});
+    let storage;
+    if(storages.length > 0) {
+        storage = storages[0];
+    }
+    if(storage) {
+        let storageX = storage.pos.x;
+        let storageY = storage.pos.y;
+
+        let listOfPositionsInFutureToBeBuilt = [
+            [storageX + -2,storageY + -2],
+            [storageX + 2,storageY + -2],
+            [storageX + 2,storageY],
+            [storageX + -3,storageY + -3],
+            [storageX + -1,storageY + -3],
+            [storageX + -1,storageY + 3],
+            [storageX + 1,storageY + -3],
+            [storageX + 3,storageY + -3],
+            [storageX + 1,storageY + 3],
+            [storageX + 3,storageY + 3],
+            [storageX + -3,storageY + -2],
+            [storageX + 3,storageY + -2],
+            [storageX + -4,storageY + -4],
+            [storageX + -2,storageY + -4],
+            [storageX,storageY + -4],
+            [storageX + 2,storageY + -4],
+            [storageX + 4,storageY + -4],
+            [storageX + -4,storageY + -2],
+            [storageX + -4,storageY + 4],
+            [storageX + -2,storageY + 4],
+            [storageX + 0,storageY + 4],
+            [storageX + 2,storageY + 4],
+            [storageX + 4,storageY + 4],
+            [storageX + -5,storageY + -5],
+            [storageX + -3,storageY + -5],
+            [storageX + -1,storageY + -5],
+            [storageX + 1,storageY + -5],
+            [storageX + 3,storageY + -5],
+            [storageX + 5,storageY + -5],
+            [storageX + -5,storageY + -3],
+            [storageX + 5,storageY + -3],
+            [storageX + -5,storageY + -1],
+            [storageX + 5,storageY + 3],
+            [storageX + -5,storageY + 5],
+            [storageX + -3,storageY + 5],
+            [storageX + -1,storageY + 5],
+            [storageX + 1,storageY + 5],
+            [storageX + 3,storageY + 5],
+            [storageX + 0,storageY + 5],
+            [storageX + 0,storageY - 5],
+            [storageX + -6,storageY + -6],
+            [storageX + -4,storageY + -6],
+            [storageX + -2,storageY + -6],
+            [storageX + 0,storageY + -6],
+            [storageX + 2,storageY + -6],
+            [storageX + 4,storageY + -6],
+            [storageX + 6,storageY + -6],
+            [storageX + -6,storageY + -4],
+            [storageX + 6,storageY + -4],
+            [storageX + -6,storageY + -2],
+            [storageX + 6,storageY + -2],
+            [storageX + 6,storageY + 0],
+            [storageX + 6,storageY + 2],
+            [storageX + -6,storageY + 4],
+            [storageX + 6,storageY + 4],
+            [storageX + -6,storageY + 6],
+            [storageX + -4,storageY + 6],
+            [storageX + -2,storageY + 6],
+            [storageX + 0,storageY + 6],
+            [storageX + 2,storageY + 6],
+            [storageX + 4,storageY + 6],
+            [storageX + 6,storageY + 6],
+            [storageX + -5,storageY + -7],
+            [storageX + -3,storageY + -7],
+            [storageX + -1,storageY + -7],
+            [storageX + 1,storageY + -7],
+            [storageX + 3,storageY + -7],
+            [storageX + 5,storageY + -7],
+            [storageX + -7,storageY + -5],
+            [storageX + -7,storageY + -3],
+            [storageX + -7,storageY + -1],
+            [storageX + -7,storageY + 5],
+            [storageX + -5,storageY + 7],
+            [storageX + -3,storageY + 7],
+            [storageX + -1,storageY + 7],
+            [storageX + 1,storageY + 7],
+            [storageX + 3,storageY + 7],
+            [storageX + 5,storageY + 7],
+            [storageX + 7,storageY + 5],
+            [storageX + 7,storageY + 3],
+            [storageX + 7,storageY + 1],
+            [storageX + 7,storageY + -1],
+            [storageX + 7,storageY + -3],
+            [storageX + 7,storageY + -5],
+            [storageX + 0,storageY + 7],
+            [storageX + 7,storageY + 0],
+            [storageX + 0,storageY + -7],
+            [storageX + 4,storageY + 7],
+            [storageX + -4,storageY + 7],
+            [storageX + 7,storageY + 4],
+            [storageX + 7,storageY + -4],
+            [storageX + 4,storageY + -7],
+            [storageX + -4,storageY + -7],
+            [storageX + -7,storageY + 4],
+            [storageX + -7,storageY + -4],
+
+            // non extension buildings
+            [storageX + -1,storageY + 2],
+            [storageX + 0,storageY + -2],
+            [storageX + 2,storageY + 0],
+            [storageX + 4,storageY + 0],
+            [storageX + 5,storageY + 0],
+            [storageX + 2,storageY + 2],
+            [storageX + 3,storageY + 2],
+            [storageX + -2,storageY + 0],
+            // towers
+            [storageX + 4,storageY + -2],
+            [storageX + 3,storageY + -1],
+            [storageX + 5,storageY + -1],
+            [storageX + 3,storageY + 1],
+            [storageX + 5,storageY + 1],
+            [storageX + 4,storageY + 2],
+            // labs
+            [storageX + -3,storageY + 0],
+            [storageX + -3,storageY + 1],
+            [storageX + -3,storageY + 2],
+            [storageX + -3,storageY + 3],
+            [storageX + -4,storageY + 1],
+            [storageX + -4,storageY + 2],
+            [storageX + -5,storageY + 0],
+            [storageX + -5,storageY + 1],
+            [storageX + -5,storageY + 2],
+            [storageX + -5,storageY + 3],
+        ]
+
+        for(let position of listOfPositionsInFutureToBeBuilt) {
+            if(position[0] <= 47 && position[0] >= 2 && position[1] <= 47 && position[1] >= 2) {
+                costs.set(position[0], position[1], 255);
+                console.log('cost set here')
+            }
+        }
+    }
+
+
     return costs;
 }
 
@@ -1399,7 +1570,7 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
                 costs.set(building.pos.x, building.pos.y, 1)
             }
             else {
-                costs.set(building.pos.x, building.pos.y, 5)
+                costs.set(building.pos.x, building.pos.y, 2)
             }
             // else {
             //     costs.set(building.pos.x, building.pos.y, 0);
@@ -1521,7 +1692,37 @@ function Build_Remote_Roads(room) {
 
 }
 
-export { Build_Remote_Roads };
+function Situational_Building(room) {
+    if(room.controller.level == 4 && room.memory.data && room.memory.data.DOBug && (room.memory.data.DOGug == 3 || room.memory.data.DOBug == 4)) {
+        if(room.memory.data.DOBug == 3) {
+            let spawns = room.find(FIND_MY_SPAWNS);
+            let spawn;
+            if(spawns.length > 0) {
+                spawn = spawns[0];
+            }
+            let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, room.name);
+            let lookForStoragePositionBuildings = storagePosition.lookFor(LOOK_STRUCTURES);
+            for(let building of lookForStoragePositionBuildings) {
+                if(building.structureType == STRUCTURE_CONTAINER) {
+                    building.destroy();
+                }
+            }
+        }
+        if(room.memory.data.DOBug == 4) {
+            let spawns = room.find(FIND_MY_SPAWNS);
+            let spawn;
+            if(spawns.length > 0) {
+                spawn = spawns[0];
+            }
+            let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, room.name);
+            storagePosition.createConstructionSite(STRUCTURE_STORAGE);
+        }
+    }
+
+
+}
+
+export { Build_Remote_Roads, Situational_Building };
 
 export default construction;
 

@@ -1,6 +1,6 @@
 import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
-import construction, { Build_Remote_Roads } from "./rooms.construction";
+import construction, { Build_Remote_Roads, Situational_Building } from "./rooms.construction";
 import market from "./rooms.market";
 import labs from "./rooms.labs";
 import factory from "./rooms.factory";
@@ -72,10 +72,10 @@ function rooms() {
 
         if(Game.time % 300 == 0) {
             if(Game.gcl.level > roomsIController) {
-                Memory.CanClaimRemote = true;
+                Memory.CanClaimRemote = Game.gcl.level - roomsIController;
             }
             else {
-                Memory.CanClaimRemote = false;
+                Memory.CanClaimRemote = 0;
             }
         }
 
@@ -182,7 +182,7 @@ function rooms() {
                 });
             }
 
-            if(Game.time % 1004 == 1003 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2) {
+            if(Game.time % 1506 == 1505 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2 ) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -193,6 +193,7 @@ function rooms() {
                 Build_Remote_Roads(room);
                 console.log('REMOTE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
+            Situational_Building(room)
 
 
         }
@@ -245,7 +246,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 0) {
-        if(Memory.CPU.fiveHundredTickAvg.avg < 14) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 6) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {
@@ -257,19 +258,31 @@ function rooms() {
                             console.log('Adding Scout to Spawn List: ' + newName);
                             break;
                         }
+                        else if(!room.memory.resources[remoteRoom].active) {
+                            room.memory.resources[remoteRoom].active = true;
+                        }
                     }
                 }
             }
 
         }
-        else if(Memory.CPU.fiveHundredTickAvg.avg > 18) {
+        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 2) {
             for(let roomName of myRooms) {
                 let room = Game.rooms[roomName];
                 let remoteRooms = Object.keys(room.memory.resources);
                 if(remoteRooms.length > 1) {
                     remoteRooms = remoteRooms.filter(function(remoteRoom) {return remoteRoom !== roomName;});
-                    delete room.memory.resources[remoteRooms[remoteRooms.length - 1]];
-                    break;
+                    if(remoteRooms.length > 1) {
+                        let found = false;
+                        for(let remoteRoom of remoteRooms) {
+                            room.memory.resources[remoteRoom].active = false;
+                            found = true;
+                            break;
+                        }
+                        if(found) {
+                            break;
+                        }
+                    }
                 }
             }
         }

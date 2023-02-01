@@ -24,7 +24,7 @@ const run = function (creep) {
             }
         }
 
-        return creep.moveToRoom(creep.memory.targetRoom);
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
     else {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
@@ -103,12 +103,6 @@ const run = function (creep) {
         // }
         }
     }
-
-    if(Game.time % 17 == 0 && creep.roadCheck()) {
-        let roadlessLocation = creep.roadlessLocation(creep.pos);
-        creep.moveTo(roadlessLocation);
-    }
-
 
     // if you are afraid of death, look away.
     if(Game.time % 55 == 0 && !creep.memory.targetRoom) {

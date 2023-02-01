@@ -1,8 +1,1 @@
-power
 4 corner room mineral miner
-
-improve level7/8 link energy to controller properties
-
-more carry parts pre storage where the extensions aren't enough to make right body.
-
-squad sees better route outside room, make the target for 10 ticks be to that way

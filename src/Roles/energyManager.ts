@@ -582,7 +582,7 @@ import randomWords from "random-words";
 
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
-        if(storage && storage.store[MineralType] > 20000 && terminal && terminal.store.getFreeCapacity() > MaxStorage) {
+        if(storage && storage.store[MineralType] > 20000 && terminal && terminal.store.getFreeCapacity() > 10000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, MineralType);
                 creep.memory.target = terminal.id;
@@ -709,6 +709,19 @@ import randomWords from "random-words";
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_ENERGY);
                 creep.memory.target = nuker.id;
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+
+
+        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
+        if(storage && powerSpawn && storage.store[RESOURCE_POWER] >= 100 && powerSpawn.store[RESOURCE_POWER] < 100) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_POWER);
+                creep.memory.target = powerSpawn.id;
             }
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);

@@ -232,16 +232,19 @@ Creep.prototype.findClosestLink = function() {
 
 Creep.prototype.findClosestLinkToStorage = function():any {
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.room.name);
-    let lookForBuildingsOnStorageLinkPosition = storageLinkPosition.lookFor(LOOK_STRUCTURES);
-    if(lookForBuildingsOnStorageLinkPosition.length > 0) {
-        for(let building of lookForBuildingsOnStorageLinkPosition) {
-            if(building.structureType == STRUCTURE_LINK) {
-                this.memory.closestLink = building.id;
-                return building;
+    if(storage) {
+        let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.room.name);
+        let lookForBuildingsOnStorageLinkPosition = storageLinkPosition.lookFor(LOOK_STRUCTURES);
+        if(lookForBuildingsOnStorageLinkPosition.length > 0) {
+            for(let building of lookForBuildingsOnStorageLinkPosition) {
+                if(building.structureType == STRUCTURE_LINK) {
+                    this.memory.closestLink = building.id;
+                    return building;
+                }
             }
         }
     }
+
 }
 
 
@@ -298,7 +301,11 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
         }
     }
 
-    if(!this.memory.route || this.memory.route == 2 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
+    if(this.memory.route && this.memory.route.length > 0 && this.memory.route[0].room == this.room.name) {
+        this.memory.route.shift();
+    }
+
+    if(!this.memory.route || this.memory.route == 2 || this.memory.route && this.memory.route.length == 0 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             routeCallback(roomName, fromRoomName) {
                 // !_.includes(Memory.AvoidRooms, targetRoom, 0)
@@ -405,7 +412,6 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
 
     if(container && this.pos.isNearTo(container)) {
         this.withdraw(container, RESOURCE_ENERGY);
-        return;
     }
     else if(!container) {
         container = room.findContainers(this.store.getFreeCapacity());
@@ -545,7 +551,7 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
 
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
-    if(this.memory.targetRoom && this.memory.homeRoom && Game.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps && (!this.memory.timeOut || this.memory.timeOut == 0)) {
+    if(this.memory.targetRoom && this.memory.homeRoom && Game.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
         if(this.room.name == this.memory.targetRoom) {
             this.memory.timeOut = 25;
             return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom)
@@ -556,7 +562,19 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
             return this.moveTo(exit, {range:1});
         }
     }
-    else if(this.room.name == this.memory.homeRoom && this.memory.timeOut > 0) {
+    else if(this.room.name == this.memory.homeRoom && this.memory.timeOut && this.memory.timeOut > 0) {
+        if(this.pos.x == 49) {
+            this.move(LEFT);
+        }
+        else if(this.pos.x == 0) {
+            this.move(RIGHT);
+        }
+        else if(this.pos.y == 49) {
+            this.move(TOP);
+        }
+        else if(this.pos.y == 0) {
+            this.move(BOTTOM)
+        }
         this.memory.timeOut -= 1;
         return "timeOut";
     }
@@ -673,7 +691,7 @@ Creep.prototype.Sweep = function Sweep() {
 
 Creep.prototype.recycle = function recycle() {
     if(this.memory.homeRoom && this.memory.homeRoom != this.room.name) {
-        return this.moveToRoom(this.memory.homeRoom);
+        return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
     }
 
     let StructuresObject = this.room.memory.Structures;
@@ -984,6 +1002,12 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         }
         else if(creep.memory.role == "signifer") {
             costs.set(creep.pos.x, creep.pos.y, 255);
+        }
+        else if(creep.memory.role == "PowerMelee") {
+            costs.set(creep.pos.x, creep.pos.y, 20);
+        }
+        else if(creep.memory.role == "PowerHeal") {
+            costs.set(creep.pos.x, creep.pos.y, 14);
         }
     });
 
@@ -1469,6 +1493,21 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             costs.set(x, y, weight);
         }
     }
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+        if(struct.structureType == STRUCTURE_ROAD) {
+            costs.set(struct.pos.x, struct.pos.y, 1);
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else {
+            if(struct.structureType !== STRUCTURE_RAMPART) {
+                costs.set(struct.pos.x, struct.pos.y, 255);
+            }
+        }
+    });
+
 
     let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
     for(let eCreep of EnemyCreeps) {

@@ -59,7 +59,7 @@ function observe(room) {
 
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
-            if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my) {
+            if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
                 let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
                 let openControllerPositions;
 
@@ -69,7 +69,7 @@ function observe(room) {
                     if(openControllerPositions && openControllerPositions.length > 0 && buildings.length > 0 && !Game.rooms[adj].controller.reservation) {
 
 
-                        if(Memory.CanClaimRemote) {
+                        if(Memory.CanClaimRemote >= 1) {
                             let found = false;
 
                             for(let creepName in Game.creeps) {
@@ -232,7 +232,7 @@ function observe(room) {
     }
 
     // find power banks
-    if(observer && (Game.time % interval == 31 || Game.time % interval == 32)) {
+    if(observer && (Game.time % interval == 31 || Game.time % interval == 32) && Game.cpu.bucket >= 9000) {
 
         if(!room.memory.observe.listOfRoomsForPower) {
 
@@ -287,18 +287,32 @@ function observe(room) {
                 let adj = room.memory.observe.lastRoomObservedForPower;
                 let seenRoom = Game.rooms[adj];
 
-                if(seenRoom && Game.cpu.bucket >= 9500) {
+                let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
-                    let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && s.ticksToDecay > 1700});
+                if(seenRoom && storage && storage.store[RESOURCE_ENERGY] > 310000) {
 
-                    if(powerBanks.length > 0) {
+                    let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
+                    if(walls.length == 0) {
 
-                        let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
-                        if(walls.length < 2) {
+                        let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
+
+                        let deposits = room.find(FIND_DEPOSITS);
+
+                        if(powerBanks.length > 0) {
+
                             global.SPK(room.name, adj);
+
+                        }
+
+                        if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 320000) {
+
+                            global.SDM(room.name, adj);
+
                         }
 
                     }
+
+
 
 
 

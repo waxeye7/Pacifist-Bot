@@ -1,3 +1,4 @@
+import { globalAgent } from "http";
 import randomWords from "random-words";
 
 global.SD = function(roomName, targetRoomName, boost=false):any {
@@ -374,7 +375,7 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
         }
 
 
-        if(Memory.CanClaimRemote) {
+        if(Memory.CanClaimRemote >= 1) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
@@ -593,7 +594,7 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
         }
 
 
-        if(Memory.CanClaimRemote) {
+        if(Memory.CanClaimRemote >= 1) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
@@ -810,7 +811,7 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
         }
 
 
-        if(Memory.CanClaimRemote) {
+        if(Memory.CanClaimRemote >= 1) {
             let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
@@ -1145,14 +1146,39 @@ global.SGD = function (homeRoom, targetRoomName, body) {
 
 global.SPK = function (homeRoom, targetRoomName) {
 
-    if(Game.rooms[homeRoom]) {
+    if(Game.rooms[homeRoom] && !Game.rooms[homeRoom].memory.danger) {
+        let meleeBody = [ATTACK,
+                         ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                         ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                         ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                         ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
+        let healBody = [HEAL,HEAL,HEAL,HEAL,HEAL,
+                        HEAL,HEAL,HEAL,HEAL,HEAL,
+                        HEAL,HEAL,HEAL,HEAL,HEAL,
+                        HEAL,HEAL,HEAL,HEAL,HEAL,
+                        HEAL,HEAL,HEAL,HEAL,HEAL,
+                        MOVE,MOVE,MOVE,MOVE,MOVE,
+                        MOVE,MOVE,MOVE,MOVE,MOVE,
+                        MOVE,MOVE,MOVE,MOVE,MOVE,
+                        MOVE,MOVE,MOVE,MOVE,MOVE,
+                        MOVE,MOVE,MOVE,MOVE,MOVE];
+
+        if(Game.rooms[homeRoom].energyAvailable < 10750) {
+            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
+            Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+            console.log('Adding filler to Spawn List: ' + newName);
+        }
+
         let newName = 'PowerMelee-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
         console.log('Adding PowerMelee to Spawn List: ' + newName);
-        Game.rooms[homeRoom].memory.spawn_list.push([ATTACK,MOVE], newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
+        Game.rooms[homeRoom].memory.spawn_list.push(meleeBody, newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
 
         let newName2 = 'PowerHeal-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
         console.log('Adding PowerHeal to Spawn List: ' + newName2);
-        Game.rooms[homeRoom].memory.spawn_list.push([HEAL,MOVE], newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
+        Game.rooms[homeRoom].memory.spawn_list.push(healBody, newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
 
 
         return "Success!";
@@ -1160,4 +1186,30 @@ global.SPK = function (homeRoom, targetRoomName) {
 
     return "Failed."
 
+}
+
+global.SDM = function (homeRoom, targetRoomName) {
+let room = Game.rooms[homeRoom];
+if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 4 && Game.cpu.bucket > 9500) {
+
+    let billtongs = 0;
+    _.forEach(Game.creeps, function(creep) {
+        switch(creep.memory.role) {
+            case "billtong":
+                if(creep.memory.homeRoom == room.name) {
+                    billtongs ++;
+                }
+                break;
+        }
+    });
+
+    if(billtongs == 0) {
+
+        let newName = 'Billtong-' + randomWords({exactly:1,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE], newName, {memory: {role: 'billtong', homeRoom:room.name, targetRoom:targetRoomName}});
+        console.log('Adding Billtong to Spawn List: ' + newName);
+
+    }
+
+}
 }

@@ -16,7 +16,7 @@ declare global {
         CPU:any;
         AvoidRooms: any;
         billtong_rooms: any;
-        CanClaimRemote:boolean;
+        CanClaimRemote:number;
         DistressSignals:any;
         tasks: any;
         uuid: number;
@@ -58,11 +58,11 @@ declare global {
         spawn: string;
         container: string;
         storage: string;
-        keepTheseRoads: Array<Id<_HasId>>;
-        rampartToMan: Id<_HasId>;
+        keepTheseRoads: any;
+        rampartToMan: any;
         danger_timer: number;
         first_offence: number;
-        bin: Id<_HasId>;
+        bin: any;
         in_position: boolean;
         labs: any;
         attack_target: any;
@@ -91,10 +91,11 @@ declare global {
         homeRoom: string;
         targetRoom: string;
         suicide: boolean;
-        storage: Id<_HasId>;
-        source: Id<_HasId>;
-        myLink: Id<_HasId>;
-        deposit: Id<_HasId>;
+        storage: any;
+        source: any;
+        sourceId:any;
+        myLink: any;
+        deposit: any;
         MaxStorage: number;
         searchedRooms: Array<string>;
         controllerLink:any;
@@ -121,6 +122,7 @@ declare global {
             SCK:any;
             SGD:any;
             SPK:any;
+            SDM:any;
         }
     }
 }

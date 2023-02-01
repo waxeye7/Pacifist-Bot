@@ -314,7 +314,7 @@ function labs(room) {
         }
 
         if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
-            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 50000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
+            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 40000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
                 lab1Input = RESOURCE_OXYGEN;
                 lab2Input = RESOURCE_UTRIUM;
                 currentOutput = RESOURCE_UTRIUM_OXIDE;
@@ -516,32 +516,32 @@ function labs(room) {
 
 
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 40000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_LEMERGIUM_ACID;
                 currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ACID;
             }
-        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] < 40000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_UTRIUM_ACID;
             currentOutput = RESOURCE_CATALYZED_UTRIUM_ACID;
         }
-        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] < 40000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_ZYNTHIUM_ALKALIDE;
             currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE;
         }
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] < 40000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_LEMERGIUM_ALKALIDE;
             currentOutput = RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE;
         }
-        else if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] < 40000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_KEANIUM_ALKALIDE;
             currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
         }
-        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 40000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_ZYNTHIUM_ACID;
             currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
@@ -549,7 +549,7 @@ function labs(room) {
 
         // chain to get Ghodium
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 50000) {
+        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 40000) {
                 lab1Input = RESOURCE_GHODIUM_ALKALIDE;
                 lab2Input = RESOURCE_CATALYST;
                 currentOutput = RESOURCE_CATALYZED_GHODIUM_ALKALIDE;

@@ -114,7 +114,7 @@
 
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);
 
-        droppedTarget = droppedTarget.filter(function(resource) {return resource.resourceType !== RESOURCE_ENERGY && resource.pos.getRangeTo(creep.pos) < 4 && resource.amount > 250;});
+        droppedTarget = droppedTarget.filter(function(resource) {return resource.resourceType !== RESOURCE_ENERGY;});
         if(droppedTarget.length > 0) {
             droppedTarget.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedTarget[0])) {
@@ -143,7 +143,7 @@
                     targetsList.push(target);
                 }
             }
-            specialTargets = targets.filter(function(building) {return building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_TERMINAL;});
+            specialTargets = targets.filter(function(building) {return building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_POWER_BANK;});
             for(let target of specialTargets) {
                 if(_.keys(target.store).length == 1 && _.keys(target.store)[0] == RESOURCE_ENERGY)  {
                     // do nothing

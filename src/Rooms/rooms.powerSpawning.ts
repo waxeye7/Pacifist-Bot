@@ -10,11 +10,21 @@ if(room.controller.level == 8) {
 
     if(room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(room.memory.Structures.powerSpawn);
+        if(powerSpawn) {
+            if(powerSpawn.store[RESOURCE_POWER] == 100 && powerSpawn.store[RESOURCE_ENERGY] == 5000) {
+                powerSpawn.processPower();
+            }
+        }
 
 
 
 
 
+
+
+        else {
+            room.memory.Structures.powerSpawn = false;
+        }
     }
 
 }

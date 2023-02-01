@@ -8,12 +8,12 @@ function findLocked(creep) {
 
     creep.memory.locked = [];
 
-    if(!creep.room.memory.Structures.controllerLink && creep.room.controller && creep.room.controller.level >= 2) {
+    if((!creep.room.memory.Structures.controllerLink || Game.time % 100000 == 0) && creep.room.controller && creep.room.controller.level >= 2) {
         if(creep.room.controller.level < 7) {
             let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
             if(containers.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
                     creep.room.memory.Structures.controllerLink = controllerLink.id;
                 }
             }
@@ -22,7 +22,7 @@ function findLocked(creep) {
             let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
             if(links.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(links);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 2)  {
+                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
                     creep.room.memory.Structures.controllerLink = controllerLink.id;
                 }
             }
@@ -138,6 +138,15 @@ function findLocked(creep) {
         if(factory && factory.store[RESOURCE_ENERGY] < 8000) {
             if(creep.memory.locked.length < 2) {
                 creep.memory.locked.push(factory.id);
+            }
+        }
+    }
+
+    if(creep.room.memory.Structures.powerSpawn) {
+        let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 5000) {
+            if(creep.memory.locked.length < 2) {
+                creep.memory.locked.push(powerSpawn.id);
             }
         }
     }

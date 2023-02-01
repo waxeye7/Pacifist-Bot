@@ -60,7 +60,7 @@ import rolePriest from "Roles/Priest";
 
 import roleGuard from "Roles/Guard";
 
-import rolePowerMelee from "Roles/PowerHeal";
+import rolePowerMelee from "Roles/PowerMelee";
 import rolePowerHeal from "Roles/PowerHeal";
 
 global.ROLES = {

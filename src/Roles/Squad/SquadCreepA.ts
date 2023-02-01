@@ -31,42 +31,47 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                 Memory.AvoidRooms.push(creep.room.name);
             }
         }
-        route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
-            routeCallback(roomName, fromRoomName) {
-                if(Game.map.getRoomStatus(roomName).status !== "normal") {
-                    return Infinity;
-                }
-                if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
-                    return 25;
-                }
 
-                if(roomName.length == 6) {
-                    if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                        return 4;
+        if(creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[0].room == creep.room.name) {
+            creep.memory.route.shift();
+        }
+        if(!creep.memory.route || creep.memory.route == 2 || creep.memory.route && creep.memory.route.length == 0 || creep.memory.route.length == 1 && creep.memory.route[0].room == creep.room.name || creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetPosition.roomName) {
+            creep.memory.route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
+                routeCallback(roomName, fromRoomName) {
+                    if(Game.map.getRoomStatus(roomName).status !== "normal") {
+                        return Infinity;
                     }
-                    if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                        return 4;
+                    if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
+                        return 25;
                     }
-                }
 
-                return 5;
-        }});
+                    if(roomName.length == 6) {
+                        if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                            return 4;
+                        }
+                        if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                            return 4;
+                        }
+                    }
 
-
-
-        if(route && route !== 2 && route.length > 1) {
-            move_location = new RoomPosition(25, 25, route[0].room);
+                    return 5;
+            }});
         }
 
-        if(!creep.memory.go && route && route !== 2 && route.length > 0) {
+
+        if(creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 1) {
+            move_location = new RoomPosition(25, 25, creep.memory.route[0].room);
+        }
+
+        if(!creep.memory.go && creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 0) {
 
             if(creep.pos.x >= 3 && creep.pos.x <= 45 && creep.pos.y >= 3 && creep.pos.y <= 45) {
-                creep.moveTo(new RoomPosition(25, 25, route[0].room),{range:23});
+                creep.moveTo(new RoomPosition(25, 25, creep.memory.route[0].room),{range:23});
             }
 
             else if(creep.pos.x > 1 && creep.pos.x < 47 && creep.pos.y > 1 && creep.pos.y < 47) {
 
-                let nearExit = route[0].room;
+                let nearExit = creep.memory.route[0].room;
 
                 let path = PathFinder.search(
                     creep.pos, {pos:new RoomPosition(25,25,nearExit), range:23},
@@ -361,7 +366,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             //     range = 1;
             // }
         }
-        else if(route && route.length == 1) {
+        else if(creep.memory.route && creep.memory.route.length == 1) {
             range = 20;
         }
         else {
