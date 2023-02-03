@@ -45,10 +45,10 @@
 
         let listOfPossibleRooms = [];
 
-        let EastOrWest = creep.memory.homeRoom[0];
-        let NorthOrSouth = creep.memory.homeRoom[3];
 
         if(creep.memory.homeRoom.length == 6) {
+            let EastOrWest = creep.memory.homeRoom[0];
+            let NorthOrSouth = creep.memory.homeRoom[3];
             let homeRoomNameX = parseInt(creep.memory.homeRoom[1] + creep.memory.homeRoom[2]);
             let homeRoomNameY = parseInt(creep.memory.homeRoom[4] + creep.memory.homeRoom[5]);
             for(let i = homeRoomNameX-3; i<homeRoomNameX+4; i++) {
@@ -56,11 +56,91 @@
                     if(i % 10 == 0 || o % 10 == 0) {
                         let firstString = i.toString();
                         let secondString = o.toString();
-                        listOfPossibleRooms.push(EastOrWest + firstString + NorthOrSouth + secondString);
+                        let roomName = EastOrWest + firstString + NorthOrSouth + secondString
+                        if(Game.map.getRoomStatus(roomName).status == "normal" && creep.memory.homeRoom !== roomName) {
+                            listOfPossibleRooms.push(roomName);
+                        }
                     }
                 }
             }
         }
+        else if(creep.memory.homeRoom.length !== 6) {
+            let EastOrWest = creep.memory.homeRoom[0];
+            let NorthOrSouth;
+            let homeRoomNameX;
+            let homeRoomNameY;
+            if(!isNaN(creep.memory.homeRoom[2])) {
+                NorthOrSouth = creep.memory.homeRoom[3];
+                homeRoomNameX = parseInt(creep.memory.homeRoom[1] + creep.memory.homeRoom[2]);
+                homeRoomNameY = parseInt(creep.memory.homeRoom[4]);
+            }
+            else {
+                NorthOrSouth = creep.memory.homeRoom[2];
+                homeRoomNameX = parseInt(creep.memory.homeRoom[1]);
+                if(creep.memory.homeRoom.length == 4) {
+                    homeRoomNameY = parseInt(creep.memory.homeRoom[3]);
+                }
+                else if(creep.memory.homeRoom.length == 5) {
+                    homeRoomNameY = parseInt(creep.memory.homeRoom[3] + creep.memory.homeRoom[4]);
+                }
+            }
+            for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                let EorW;
+                let x;
+                let switchX = false;
+                if(i < 0) {
+                    switchX = true;
+                }
+                if(switchX) {
+                    x = Math.abs(i);
+                    x -= 1;
+                    if(EastOrWest == "E") {
+                        EorW = "W"
+                    }
+                    else {
+                        EorW = "E";
+                    }
+                }
+                else {
+                    x = i;
+                    EorW = EastOrWest;
+                }
+                for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                    let NorS;
+                    let y;
+                    let switchY = false;
+                    if(o < 0) {
+                        switchY = true;
+                    }
+
+                    if(switchY) {
+                        y = Math.abs(o);
+                        y -= 1;
+                        if(NorthOrSouth == "N") {
+                            NorS = "S"
+                        }
+                        else {
+                            NorS = "N";
+                        }
+                    }
+                    else {
+                        y = o;
+                        NorS = NorthOrSouth;
+                    }
+                    if(x % 10 == 0 || y % 10 == 0) {
+
+                        let firstString = x.toString();
+                        let secondString = y.toString();
+                        let roomName = EorW + firstString + NorS + secondString;
+                        if(Game.map.getRoomStatus(roomName).status == "normal" && creep.memory.homeRoom !== roomName) {
+                            listOfPossibleRooms.push(roomName);
+                        }
+                    }
+                }
+            }
+        }
+
+
         let lowest = [100, 100];
         for(let i=0; i<listOfPossibleRooms.length; i++) {
             if(creep.memory.searchedRooms && _.includes(creep.memory.searchedRooms, listOfPossibleRooms[i], 0)) {

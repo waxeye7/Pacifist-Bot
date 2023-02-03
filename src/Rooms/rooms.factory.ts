@@ -11,7 +11,9 @@ function factory(room) {
 
         if(room.memory.Structures.factory) {
             let factory:any = Game.getObjectById(room.memory.Structures.factory);
-
+            if(factory && factory.cooldown == 0 && factory.store[RESOURCE_ENERGY] >= 600) {
+                factory.produce(RESOURCE_BATTERY);
+            }
             // if(factory.cooldown == 0) {
             //     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             //     if(factory.store[RESOURCE_KEANIUM_BAR] < 10000 &&
@@ -26,9 +28,6 @@ function factory(room) {
             //             factory.produce(RESOURCE_CONDENSATE);
             //         }
             // }
-
-
-
         }
 
 

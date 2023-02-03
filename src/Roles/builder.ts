@@ -77,9 +77,9 @@
     }
 
     if(creep.memory.building) {
-        if(creep.memory.locked && creep.memory.locked != false) {
+        if(creep.memory.locked) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
-            if(buildTarget == undefined) {
+            if(!buildTarget) {
                 creep.memory.locked = false;
             }
         }
@@ -92,7 +92,7 @@
 
         if(creep.memory.locked) {
             let buildTarget = Game.getObjectById(creep.memory.locked);
-            if(creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
+            if(buildTarget && creep.build(buildTarget) == ERR_NOT_IN_RANGE) {
 				creep.MoveCostMatrixRoadPrio(buildTarget, 3);
             }
         }

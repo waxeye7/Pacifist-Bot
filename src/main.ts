@@ -7,6 +7,8 @@ import global from "./utils/Global";
 
 import rooms from "./Rooms/rooms";
 
+import PowerCreepManager from "Managers/PowerCreepManager";
+
 import "./Functions/powerCreepFunctions"
 import "./Functions/creepFunctions";
 import "./Functions/roomFunctions";
@@ -145,6 +147,7 @@ import { memHack } from "utils/MemHack";
 
 
 
+
 export const loop = ErrorMapper.wrapLoop(() => {
   const startTotal = Game.cpu.getUsed();
 
@@ -153,7 +156,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 //   console.log(Game.time % 100 + "/100");
 
   rooms();
-
+  PowerCreepManager();
 
   const start = Game.cpu.getUsed()
 
@@ -186,7 +189,9 @@ export const loop = ErrorMapper.wrapLoop(() => {
               console.log("i am undefined", name)
               creep.suicide();
           }
-          global.ROLES[creep.memory.role].run(creep);
+          else {
+            global.ROLES[creep.memory.role].run(creep);
+          }
       }
     }
   }

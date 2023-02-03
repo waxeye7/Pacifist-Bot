@@ -1147,14 +1147,15 @@ global.SGD = function (homeRoom, targetRoomName, body) {
 global.SPK = function (homeRoom, targetRoomName) {
 
     if(Game.rooms[homeRoom] && !Game.rooms[homeRoom].memory.danger) {
-        let meleeBody = [ATTACK,
+        let meleeBody = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
                          ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
                          ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
                          ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
                          ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
                          MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE
+                         ,MOVE,MOVE,MOVE,MOVE];
         let healBody = [HEAL,HEAL,HEAL,HEAL,HEAL,
                         HEAL,HEAL,HEAL,HEAL,HEAL,
                         HEAL,HEAL,HEAL,HEAL,HEAL,
@@ -1166,22 +1167,27 @@ global.SPK = function (homeRoom, targetRoomName) {
                         MOVE,MOVE,MOVE,MOVE,MOVE,
                         MOVE,MOVE,MOVE,MOVE,MOVE];
 
-        if(Game.rooms[homeRoom].energyAvailable < 10750) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
-            Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-            console.log('Adding filler to Spawn List: ' + newName);
+
+        let creepsInRoom = Game.rooms[targetRoomName].find(FIND_MY_CREEPS);
+        let PowerMelees = creepsInRoom.filter(function(creep) {return creep.memory.role == "PowerMelee";}).length;
+        if(PowerMelees <= 1) {
+            if(Game.rooms[homeRoom].energyAvailable < 9750) {
+                let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
+                Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + newName);
+            }
+
+            let newName = 'PowerMelee-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding PowerMelee to Spawn List: ' + newName);
+            Game.rooms[homeRoom].memory.spawn_list.push(meleeBody, newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
+
+            let newName2 = 'PowerHeal-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding PowerHeal to Spawn List: ' + newName2);
+            Game.rooms[homeRoom].memory.spawn_list.push(healBody, newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
+
+
+            return "Success!";
         }
-
-        let newName = 'PowerMelee-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
-        console.log('Adding PowerMelee to Spawn List: ' + newName);
-        Game.rooms[homeRoom].memory.spawn_list.push(meleeBody, newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
-
-        let newName2 = 'PowerHeal-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
-        console.log('Adding PowerHeal to Spawn List: ' + newName2);
-        Game.rooms[homeRoom].memory.spawn_list.push(healBody, newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
-
-
-        return "Success!";
     }
 
     return "Failed."
@@ -1190,7 +1196,7 @@ global.SPK = function (homeRoom, targetRoomName) {
 
 global.SDM = function (homeRoom, targetRoomName) {
 let room = Game.rooms[homeRoom];
-if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 4 && Game.cpu.bucket > 9500) {
+if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 3 && Game.cpu.bucket > 9500) {
 
     let billtongs = 0;
     _.forEach(Game.creeps, function(creep) {

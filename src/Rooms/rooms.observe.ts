@@ -2,7 +2,7 @@ function observe(room) {
 
     let interval = 64;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
-    if(observer && Game.time % interval <= 1) {
+    if(observer && Game.time % interval*2 <= 1) {
         if(!room.memory.observe) {
             room.memory.observe = {};
         }
@@ -10,9 +10,11 @@ function observe(room) {
         if(!room.memory.observe.RoomsToSee) {
             let RoomsToSee = [];
 
-            let EastOrWest = room.name[0];
-            let NorthOrSouth = room.name[3];
+
             if(room.name.length == 6) {
+                let EastOrWest = room.name[0];
+                let NorthOrSouth = room.name[3];
+
                 let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
                 let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
                 for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
@@ -33,13 +35,94 @@ function observe(room) {
                     }
                 }
             }
+            else if(room.name.length !== 6) {
+                let EastOrWest = room.name[0];
+                let NorthOrSouth;
+                let homeRoomNameX;
+                let homeRoomNameY;
+                if(!isNaN(room.name[2])) {
+                    NorthOrSouth = room.name[3];
+                    homeRoomNameX = parseInt(room.name[1] + room.name[2]);
+                    homeRoomNameY = parseInt(room.name[4]);
+                }
+                else {
+                    NorthOrSouth = room.name[2];
+                    homeRoomNameX = parseInt(room.name[1]);
+                    if(room.name.length == 4) {
+                        homeRoomNameY = parseInt(room.name[3]);
+                    }
+                    else if(room.name.length == 5) {
+                        homeRoomNameY = parseInt(room.name[3] + room.name[4]);
+                    }
+                }
+                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                    let EorW;
+                    let x;
+                    let switchX = false;
+                    if(i < 0) {
+                        switchX = true;
+                    }
+
+                    if(switchX) {
+                        x = Math.abs(i);
+                        x -= 1;
+                        if(EastOrWest == "E") {
+                            EorW = "W"
+                        }
+                        else {
+                            EorW = "E";
+                        }
+                    }
+                    else {
+                        x = i;
+                        EorW = EastOrWest;
+                    }
+                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                        let NorS;
+                        let y;
+                        let switchY = false;
+                        if(o < 0) {
+                            switchY = true;
+                        }
+
+                        if(switchY) {
+                            y = Math.abs(o);
+                            y -= 1;
+                            if(NorthOrSouth == "N") {
+                                NorS = "S"
+                            }
+                            else {
+                                NorS = "N";
+                            }
+                        }
+                        else {
+                            y = o;
+                            NorS = NorthOrSouth;
+                        }
+                        if(x % 10 !== 0 && y % 10 !== 0) {
+                            if(x % 10 >= 4 && x % 10 <= 6 && y % 10 >= 4 && y % 10 <= 6) {
+                                // do nothing
+                            }
+                            else {
+
+                                let firstString = x.toString();
+                                let secondString = y.toString();
+                                let roomName = EorW + firstString + NorS + secondString;
+                                if(Game.map.getRoomStatus(roomName).status == "normal" && room.name !== roomName) {
+                                    RoomsToSee.push(roomName);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
 
             room.memory.observe.RoomsToSee = RoomsToSee;
         }
 
         let RoomsToSee = room.memory.observe.RoomsToSee
 
-        if(RoomsToSee.length > 0 && Game.time % interval == 0) {
+        if(RoomsToSee.length > 0 && Game.time % interval*2 == 0) {
             if(!room.memory.observe.lastObserved || room.memory.observe.lastObserved >= RoomsToSee.length) {
                 room.memory.observe.lastObserved = 0
             }
@@ -57,7 +140,7 @@ function observe(room) {
 
         }
 
-        if(Game.time % interval == 1) {
+        if(Game.time % interval*2 == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
                 let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
@@ -232,7 +315,7 @@ function observe(room) {
     }
 
     // find power banks
-    if(observer && (Game.time % interval == 31 || Game.time % interval == 32) && Game.cpu.bucket >= 9000) {
+    if(observer && (Game.time % interval == 2 || Game.time % interval == 3)) {
 
         if(!room.memory.observe.listOfRoomsForPower) {
 
@@ -242,10 +325,9 @@ function observe(room) {
 
             let highWayRoomsToObserve = [];
 
-            let EastOrWest = room.name[0];
-            let NorthOrSouth = room.name[3];
-
             if(room.name.length == 6) {
+                let EastOrWest = room.name[0];
+                let NorthOrSouth = room.name[3];
                 let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
                 let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
                 for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
@@ -259,13 +341,89 @@ function observe(room) {
                 }
                 room.memory.observe.listOfRoomsForPower = highWayRoomsToObserve;
             }
+            else if(room.name.length !== 6) {
+                let EastOrWest = room.name[0];
+                let NorthOrSouth;
+                let homeRoomNameX;
+                let homeRoomNameY;
+                if(!isNaN(room.name[2])) {
+                    NorthOrSouth = room.name[3];
+                    homeRoomNameX = parseInt(room.name[1] + room.name[2]);
+                    homeRoomNameY = parseInt(room.name[4]);
+                }
+                else {
+                    NorthOrSouth = room.name[2];
+                    homeRoomNameX = parseInt(room.name[1]);
+                    if(room.name.length == 4) {
+                        homeRoomNameY = parseInt(room.name[3]);
+                    }
+                    else if(room.name.length == 5) {
+                        homeRoomNameY = parseInt(room.name[3] + room.name[4]);
+                    }
+                }
+                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                    let EorW;
+                    let x;
+                    let switchX = false;
+                    if(i < 0) {
+                        switchX = true;
+                    }
+                    if(switchX) {
+                        x = Math.abs(i);
+                        x -= 1;
+                        if(EastOrWest == "E") {
+                            EorW = "W"
+                        }
+                        else {
+                            EorW = "E";
+                        }
+                    }
+                    else {
+                        x = i;
+                        EorW = EastOrWest;
+                    }
+                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                        let NorS;
+                        let y;
+                        let switchY = false;
+                        if(o < 0) {
+                            switchY = true;
+                        }
+
+                        if(switchY) {
+                            y = Math.abs(o);
+                            y -= 1;
+                            if(NorthOrSouth == "N") {
+                                NorS = "S"
+                            }
+                            else {
+                                NorS = "N";
+                            }
+                        }
+                        else {
+                            y = o;
+                            NorS = NorthOrSouth;
+                        }
+                        if(x % 10 == 0 || y % 10 == 0) {
+
+                            let firstString = x.toString();
+                            let secondString = y.toString();
+                            let roomName = EorW + firstString + NorS + secondString;
+                            if(Game.map.getRoomStatus(roomName).status == "normal" && room.name !== roomName) {
+                                highWayRoomsToObserve.push(roomName);
+                            }
+                        }
+                    }
+                }
+                room.memory.observe.listOfRoomsForPower = highWayRoomsToObserve;
+            }
         }
 
         if(room.memory.observe.listOfRoomsForPower) {
 
             let RoomsToSee = room.memory.observe.listOfRoomsForPower
 
-            if(RoomsToSee.length > 0 && Game.time % interval == 31) {
+            if(RoomsToSee.length > 0 && Game.time % interval == 2) {
                 if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
                     room.memory.observe.lastRoomObservedForPowerIndex = 0
                 }
@@ -283,7 +441,7 @@ function observe(room) {
 
             }
 
-            if(Game.time % interval == 32) {
+            if(Game.time % interval == 3) {
                 let adj = room.memory.observe.lastRoomObservedForPower;
                 let seenRoom = Game.rooms[adj];
 
@@ -296,15 +454,15 @@ function observe(room) {
 
                         let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
 
-                        let deposits = room.find(FIND_DEPOSITS);
+                        let deposits = seenRoom.find(FIND_DEPOSITS);
 
-                        if(powerBanks.length > 0) {
+                        if(powerBanks.length > 0 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) && powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1) {
 
                             global.SPK(room.name, adj);
 
                         }
 
-                        if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 320000) {
+                        if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 320000 && Game.cpu.bucket >= 9500) {
 
                             global.SDM(room.name, adj);
 

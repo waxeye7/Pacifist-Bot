@@ -43,10 +43,15 @@
         if(!creep.memory.locked) {
             if(creep.memory.rampartLocations.length > 0) {
                 let nextTarget = creep.room.memory.construction.rampartLocations.pop();
-                let position = new RoomPosition(nextTarget[0], nextTarget[1], creep.room.name)
-                position.createConstructionSite(STRUCTURE_RAMPART);
-                creep.memory.locked = position;
-                return;
+                if(nextTarget && nextTarget.length > 0) {
+                    let position = new RoomPosition(nextTarget[0], nextTarget[1], creep.room.name)
+                    position.createConstructionSite(STRUCTURE_RAMPART);
+                    creep.memory.locked = position;
+                    return;
+                }
+                else {
+                    creep.memory.suicide = true;
+                }
             }
             else {
                 creep.memory.suicide = true;
@@ -54,24 +59,29 @@
         }
         if(creep.memory.locked) {
             let position = creep.memory.locked
-            let lookForConstructionSites = position.lookFor(LOOK_CONSTRUCTION_SITES);
-            if(lookForConstructionSites.length > 0) {
-                let target = lookForConstructionSites[0];
-                if(creep.pos.getRangeTo(target) <= 3) {
-                    creep.build(target)
+            if(position.x <= 47 && position.y <= 47 && position.x >= 2 && position.y >= 2) {
+                let lookForConstructionSites = position.lookFor(LOOK_CONSTRUCTION_SITES);
+                if(lookForConstructionSites.length > 0) {
+                    let target = lookForConstructionSites[0];
+                    if(creep.pos.getRangeTo(target) <= 3) {
+                        creep.build(target)
+                    }
+                    else {
+                        creep.MoveCostMatrixRoadPrio(target, 3)
+                    }
                 }
-                else {
-                    creep.MoveCostMatrixRoadPrio(target, 3)
-                }
-            }
-            else if(lookForConstructionSites.length == 0) {
-                let lookForBuildings = position.lookFor(LOOK_STRUCTURES);
-                if(lookForBuildings.length > 0) {
-                    for(let building of lookForBuildings) {
-                        if(building.structureType == STRUCTURE_RAMPART) {
-                            creep.memory.locked_repair = building.id;
-                            creep.repair(building);
+                else if(lookForConstructionSites.length == 0) {
+                    let lookForBuildings = position.lookFor(LOOK_STRUCTURES);
+                    if(lookForBuildings.length > 0) {
+                        for(let building of lookForBuildings) {
+                            if(building.structureType == STRUCTURE_RAMPART) {
+                                creep.memory.locked_repair = building.id;
+                                creep.repair(building);
+                            }
                         }
+                    }
+                    else {
+                        creep.memory.locked = false;
                     }
                 }
                 else {

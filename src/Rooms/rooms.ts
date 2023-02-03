@@ -246,7 +246,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 0) {
-        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 6) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 6.5) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {

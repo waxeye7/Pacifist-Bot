@@ -191,7 +191,7 @@ function roomDefence(room) {
 
 
             if(Game.time % 12 == 0) {
-                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name);
+                let damagedCreeps = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == room.name && !damagedCreep.memory.suicide);
                 if(damagedCreeps.length > 0) {
                     tower.heal(damagedCreeps[0]);
                     return;

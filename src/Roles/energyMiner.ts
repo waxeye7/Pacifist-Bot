@@ -93,6 +93,29 @@ const run = function (creep) {
                 }
             }
 
+            if(!creep.memory.myRampart && creep.ticksToLive > 1300 && Game.time % 10 == 0) {
+                let lookStructs = creep.pos.lookFor(LOOK_STRUCTURES);
+                for(let building of lookStructs) {
+                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 11000000) {
+                        creep.memory.myRampart = building.id;
+                    }
+                }
+            }
+
+
+            if(creep.ticksToLive > 275 && creep.memory.myRampart && source && source.ticksToRegeneration * 10.5 > source.energy) {
+                let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
+                    let rampart:any = Game.getObjectById(creep.memory.myRampart);
+                    if(rampart && rampart.hits < 11000000) {
+                        creep.repair(rampart);
+                        return;
+                    }
+                    else {
+                        creep.memory.myRampart = false;
+                    }
+                }
+            }
 
             let closestLink = Game.getObjectById(creep.memory.sourceLink) || source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK}));
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {

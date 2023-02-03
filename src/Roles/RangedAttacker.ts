@@ -111,7 +111,19 @@ const run = function (creep) {
             else{
                 creep.MoveCostMatrixRoadPrio(closestStructure, 1);
             }
+            return;
         }
+
+        let myConstructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+        if(myConstructionSites.length > 0) {
+            if(myConstructionSites[0].structureType == STRUCTURE_CONTAINER || myConstructionSites[0].structureType == STRUCTURE_ROAD) {
+                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 0);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 1);
+            }
+        }
+
 
         if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && creep.memory.sticky == false) {
             creep.memory.targetRoom = false;

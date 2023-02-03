@@ -30,23 +30,23 @@ function market(room):any {
         //     resourceToSell = false;
         // }
 
-        // if(resourceToSell && resourceToSell !== Mineral.mineralType) {
-        //     let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
-        //         order.type == ORDER_BUY &&
-        //         Game.market.calcTransactionCost(200, room.name, order.roomName) < 400);
+        if(room.terminal.store.getUsedCapacity() > 280000 && room.terminal.store[resourceToSell] > 100000) {
+            let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
+                order.type == ORDER_BUY &&
+                Game.market.calcTransactionCost(500, room.name, order.roomName) < 500);
 
-        //     console.log(resourceToSell, "buy orders found:", orders.length);
-        //     orders.sort(function(a,b){return b.price - a.price;});
-        //     if(orders[0] != undefined) {
-        //         if(orders[0].price > 1) {
-        //             let orderQuantity = 200;
-        //             let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
-        //             if(result == 0) {
-        //                 console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
-        //             }
-        //         }
-        //     }
-        // }
+            console.log(resourceToSell, "buy orders found:", orders.length);
+            orders.sort(function(a,b){return b.price - a.price;});
+            if(orders[0] != undefined) {
+                let orderQuantity = 500;
+                let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
+                if(result == 0) {
+                    console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
+                    return;
+
+                }
+            }
+        }
 
         if(!room.memory.market) {
             room.memory.market = {};
@@ -242,7 +242,7 @@ function market(room):any {
             // }
 
 
-            let SellResources = [RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+            let SellResources = [RESOURCE_OPS, RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
             RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
             RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
 

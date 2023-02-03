@@ -5,7 +5,6 @@
 const run = function (creep) {
     creep.memory.moving = false;
 
-
     if(creep.room.controller && !creep.room.controller.isPowerEnabled) {
         if(creep.pos.isNearTo(creep.room.controller)) {
             creep.enableRoom(creep.room.controller);
@@ -15,7 +14,6 @@ const run = function (creep) {
         }
         return;
     }
-
     if(creep.ticksToLive < 120) {
         let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
         if(powerSpawn) {
@@ -29,16 +27,85 @@ const run = function (creep) {
         }
     }
 
-    for(let power in creep.powers) {
-        // if(creep.powers[power].cooldown == 0) {
-            // if(creep.powers[power] == PWR_GENERATE_OPS) {
+    let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
 
-            // }
-            creep.usePower(power)
-        // }
+    if(creep.store.getFreeCapacity() == 0) {
+        creep.memory.full = true;
+    }
+    if(creep.store.getUsedCapacity() == 0) {
+        creep.memory.full = false;
+    }
+
+    if(creep.memory.full ) {
+        if(storage) {
+            if(creep.pos.isNearTo(storage)) {
+                for(let resource in creep.store) {
+                    creep.transfer(storage, resource);
+                }
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+    }
+
+
+    if(!creep.memory.locked_dropped && Game.time % 20 == 0) {
+        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES);
+        if(droppedResources.length > 0) {
+            let closestDroppedResource = creep.pos.findClosestByRange(droppedResources);
+            creep.memory.locked_dropped = closestDroppedResource.id;
+        }
+    }
+    if(creep.memory.locked_dropped) {
+        let droppedResource:any = Game.getObjectById(creep.memory.locked_dropped);
+        if(droppedResource) {
+            if(creep.pos.isNearTo(droppedResource)) {
+                creep.pickup(droppedResource);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(droppedResource, 1);
+            }
+        }
+        else {
+            creep.memory.locked_dropped = false;
+        }
+    }
+
+    for(let power in creep.powers) {
+        if(parseInt(power) == PWR_GENERATE_OPS) {
+            if(creep.powers[power].cooldown == 0) {
+                creep.usePower(power)
+            }
+        }
+        else if(parseInt(power) == PWR_OPERATE_EXTENSION) {
+            if(creep.powers[power].cooldown == 0 && storage && storage.store[RESOURCE_ENERGY] > 15000 && creep.store[RESOURCE_OPS] >= 2) {
+                let energyAvailable = creep.room.energyAvailable;
+                let totalEnergyStorage = creep.room.energyCapacityAvailable;
+                if(creep.powers[power].level == 1 && totalEnergyStorage*0.75 > energyAvailable ||
+                   creep.powers[power].level == 2 && totalEnergyStorage*0.55 > energyAvailable ||
+                   creep.powers[power].level >= 3 && totalEnergyStorage*0.5 > energyAvailable)
+                {
+                    usePowerInRange(creep, power, 3, storage)
+                }
+            }
+        }
+
+
     }
 
 }
+
+function usePowerInRange(creep, power, range, target=false) {
+    if(creep.pos.getRangeTo(target) <= range) {
+        creep.usePower(power, target);
+    }
+    else {
+        creep.MoveCostMatrixRoadPrio(target, range);
+    }
+}
+
 
 
 const roleEfficient = {
@@ -48,6 +115,7 @@ const roleEfficient = {
     //function3
 };
 export default roleEfficient;
+
 
 
 // let thisroom = Game.rooms["E33N59"];

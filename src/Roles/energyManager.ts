@@ -611,7 +611,7 @@ import randomWords from "random-words";
                 }
             }
 
-        if(creep.ticksToLive % 50 == 10) {
+        if(creep.ticksToLive % 50 == 10 || creep.ticksToLive % 50 == 11 || creep.ticksToLive % 50 == 11 || creep.ticksToLive % 50 == 12 || creep.ticksToLive % 50 == 13 || creep.ticksToLive % 50 == 14 || creep.ticksToLive % 50 == 15 || creep.ticksToLive % 50 == 16 || creep.ticksToLive % 50 == 17 || creep.ticksToLive % 50 == 18 || creep.ticksToLive % 50 == 19) {
             let listOfResourcesToTerminal:any = [
                 RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
                 RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
@@ -636,7 +636,7 @@ import randomWords from "random-words";
                 }
             }
 
-            if(creep.ticksToLive % 50 == 20) {
+            if(creep.ticksToLive % 50 == 20 || creep.ticksToLive % 50 == 21 || creep.ticksToLive % 50 == 22 || creep.ticksToLive % 50 == 23 || creep.ticksToLive % 50 == 24 || creep.ticksToLive % 50 == 25 || creep.ticksToLive % 50 == 26 || creep.ticksToLive % 50 == 27 || creep.ticksToLive % 50 == 28 || creep.ticksToLive % 50 == 29) {
                 if(storage && factory && factory.store[RESOURCE_ENERGY] < 10000 && storage.store[RESOURCE_ENERGY] > 360000) {
                     if(creep.pos.isNearTo(storage)) {
                         creep.withdraw(storage, RESOURCE_ENERGY);
@@ -668,7 +668,7 @@ import randomWords from "random-words";
             //     }
             // }
 
-            if(creep.ticksToLive % 50 == 40) {
+            if(creep.ticksToLive % 50 == 40 || creep.ticksToLive % 50 == 41 || creep.ticksToLive % 50 == 42 || creep.ticksToLive % 50 == 43 || creep.ticksToLive % 50 == 44 || creep.ticksToLive % 50 == 45 || creep.ticksToLive % 50 == 46 || creep.ticksToLive % 50 == 47 || creep.ticksToLive % 50 == 48 || creep.ticksToLive % 50 == 49) {
                 let listOfResourcesToTerminalFromFactory:any = [RESOURCE_KEANIUM, RESOURCE_MIST, RESOURCE_CONDENSATE, RESOURCE_KEANIUM_BAR];
                 if(terminal && factory && terminal.store.getUsedCapacity() < 295000) {
                     for(let resource in factory.store) {
@@ -713,10 +713,26 @@ import randomWords from "random-words";
 
 
         let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
-        if(storage && powerSpawn && storage.store[RESOURCE_POWER] >= 100 && powerSpawn.store[RESOURCE_POWER] == 0) {
+        if(storage && powerSpawn && storage.store[RESOURCE_POWER] >= 1 && powerSpawn.store[RESOURCE_POWER] == 0) {
             if(creep.pos.isNearTo(storage)) {
-                creep.withdraw(storage, RESOURCE_POWER, 100);
+                if(storage.store[RESOURCE_POWER] >= 100) {
+                    creep.withdraw(storage, RESOURCE_POWER, 100);
+                }
+                else {
+                    creep.withdraw(storage, RESOURCE_POWER);
+                }
                 creep.memory.target = powerSpawn.id;
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1);
+            }
+            return;
+        }
+
+        if(storage && terminal && storage.store[RESOURCE_OPS] > 10000 && terminal.store.getUsedCapacity() < 290000) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_OPS);
+                creep.memory.target = terminal.id;
             }
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);

@@ -19,7 +19,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         creep.memory.building = true;
     }
     if(creep.memory.building) {
-        if(creep.room.controller && creep.room.controller.level == 1) {
+        if(creep.room.controller && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 8000)) {
             if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
                 creep.upgradeController(creep.room.controller);
             }
@@ -43,6 +43,20 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(closestTarget, 3);
                 }
+            }
+        }
+        let mySpawns = creep.room.find(FIND_MY_SPAWNS)
+        if(Game.time % 25 == 0 && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0) {
+            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
+            location.createConstructionSite(STRUCTURE_SPAWN);
+        }
+
+        if(mySpawns.length == 1) {
+            if(creep.pos.isNearTo(mySpawns[0])) {
+                creep.transfer(mySpawns[0], RESOURCE_ENERGY);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(mySpawns[0], 1);
             }
         }
     }

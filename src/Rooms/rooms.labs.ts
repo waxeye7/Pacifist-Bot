@@ -313,8 +313,9 @@ function labs(room) {
             currentOutput = false;
         }
 
-        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE ||
-            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 40000 && currentOutput == RESOURCE_UTRIUM_OXIDE) {
+
+        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3" ||
+            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 40000 && currentOutput == RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3") {
                 lab1Input = RESOURCE_OXYGEN;
                 lab2Input = RESOURCE_UTRIUM;
                 currentOutput = RESOURCE_UTRIUM_OXIDE;

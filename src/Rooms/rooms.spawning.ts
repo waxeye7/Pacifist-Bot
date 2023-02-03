@@ -746,7 +746,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[2].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger) {
+            if(repairers < spawnrules[2].repair_creep.amount && carriers > 1 && EnergyMinersInRoom > 1 && !room.memory.danger && room.controller.progress > 4500) {
                 let name = 'Repair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -1160,7 +1160,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && (room.memory.danger && room.memory.danger_timer >= 50 || storage.store[RESOURCE_ENERGY] >= 650000) && room.controller.level >= 7) {
+    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && room.memory.danger && room.memory.danger_timer >= 75 && room.controller.level >= 7) {
         let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         console.log('Adding SpecialRepair to Spawn List: ' + newName);
 
@@ -1188,7 +1188,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
     }
-    if(SpecialCarriers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && (room.memory.danger && room.memory.danger_timer >= 50 || storage.store[RESOURCE_ENERGY] >= 650000) && room.controller.level >= 7) {
+    if(SpecialCarriers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && room.memory.danger && room.memory.danger_timer >= 75 && room.controller.level >= 7) {
         let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialCarry'}});
         console.log('Adding SpecialCarry to Spawn List: ' + newName);
@@ -1199,7 +1199,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         for(let remoteRoom of roomsToRemote) {
             if(remoteRoom !== room.name) {
                 if(Object.keys(room.memory.resources[remoteRoom]).length == 0 && Game.map.getRoomStatus(remoteRoom).status == "normal") {
-                    if(scouts < 1) {
+                    if(scouts < 1 && EnergyMinersInRoom > 1) {
                         let newName = 'Scout-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout', homeRoom: room.name, targetRoom: remoteRoom}});
                         console.log('Adding Scout to Spawn List: ' + newName);
@@ -1212,7 +1212,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 200000 && Game.cpu.bucket > 7500) {
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 200000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
         let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(mineral.mineralAmount > 0) {
             let newName = 'MineralMiner-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -1489,6 +1489,8 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("Signifer")
 
                 && !room.memory.spawn_list[1].startsWith("PowerHeal")
+                && !room.memory.spawn_list[1].startsWith("Goblin")
+
                 && !room.memory.spawn_list[1].startsWith("PowerMelee"))
 
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
@@ -1805,7 +1807,13 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                         values.lastSpawnCarrier = 5000000000;
                     }
                     else if(bodyForCarrier && bodyForCarrier.length > 0) {
-                        values.lastSpawnCarrier = Game.time;
+                        if(bodyForCarrier.length <= 5) {
+                            values.lastSpawnCarrier = Game.time-750;
+                        }
+                        else {
+                            values.lastSpawnCarrier = Game.time;
+                        }
+
                     }
                 }
 

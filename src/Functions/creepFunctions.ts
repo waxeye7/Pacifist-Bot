@@ -13,7 +13,7 @@ interface Creep {
     acquireEnergyWithContainersAndOrDroppedEnergy:any;
     roadCheck:() => boolean;
     roadlessLocation:(RoomPosition:object) => RoomPosition | null;
-    fleeHomeIfInDanger: () => boolean | string;
+    fleeHomeIfInDanger: () => void | string;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
     recycle: () => void;
@@ -592,33 +592,37 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
 }
 
 
-Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger() {
-    if(this.memory.targetRoom && this.memory.homeRoom && Game.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
+Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | string {
+    if(this.memory.targetRoom && this.memory.homeRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
         if(this.room.name == this.memory.targetRoom) {
             this.memory.timeOut = 25;
-            return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom)
+            this.moveToRoom(this.memory.homeRoom);
+            return "timeOut";
         }
-        else if(this.room.name == this.memory.homeRoom) {
-            const exitDir = this.room.findExitTo(this.memory.targetRoom);
-            const exit = this.pos.findClosestByRange(exitDir);
-            return this.moveTo(exit, {range:1});
+        else if(this.room.name == this.memory.homeRoom && this.memory.timeOut > 0) {
+            this.memory.timeOut -= 1;
+            if(this.pos.x == 49) {
+                this.move(LEFT);
+                this.move(TOP_LEFT);
+                this.move(BOTTOM_LEFT);
+            }
+            else if(this.pos.x == 0) {
+                this.move(RIGHT);
+                this.move(TOP_RIGHT);
+                this.move(BOTTOM_RIGHT);
+            }
+            else if(this.pos.y == 49) {
+                this.move(TOP);
+                this.move(TOP_LEFT);
+                this.move(TOP_RIGHT);
+            }
+            else if(this.pos.y == 0) {
+                this.move(BOTTOM);
+                this.move(BOTTOM_LEFT);
+                this.move(BOTTOM_RIGHT);
+            }
+            return "timeOut";
         }
-    }
-    else if(this.room.name == this.memory.homeRoom && this.memory.timeOut && this.memory.timeOut > 0) {
-        if(this.pos.x == 49) {
-            this.move(LEFT);
-        }
-        else if(this.pos.x == 0) {
-            this.move(RIGHT);
-        }
-        else if(this.pos.y == 49) {
-            this.move(TOP);
-        }
-        else if(this.pos.y == 0) {
-            this.move(BOTTOM)
-        }
-        this.memory.timeOut -= 1;
-        return "timeOut";
     }
 }
 
@@ -1079,7 +1083,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
             if(creep.pos.isNearTo(source)) {
-                costs.set(creep.pos.x, creep.pos.y, 11);
+                costs.set(creep.pos.x, creep.pos.y, 21);
             }
         }
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {

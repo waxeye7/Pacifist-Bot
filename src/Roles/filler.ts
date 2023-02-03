@@ -63,13 +63,16 @@ import randomWords from "random-words";
 
     let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
     if(spawnAndExtensions.length > 0) {
-        spawnAndExtensions.sort((a,b) => a.pos.getRangeTo(creep) - b.pos.getRangeTo(creep));
-        for(let SandE of spawnAndExtensions) {
-            if(creep.memory.locked.length < 2) {
-                creep.memory.locked.push(SandE.id);
 
-            }
+        if(creep.memory.locked.length == 0) {
+            creep.memory.locked.push(creep.pos.findClosestByRange(spawnAndExtensions).id);
+            spawnAndExtensions.filter(function(building) {return building.id !== creep.memory.locked[0]});
         }
+        else if(creep.memory.locked.length == 1 && spawnAndExtensions.length > 0) {
+            let currentInLocked:any = Game.getObjectById(creep.memory.locked[0]);
+            creep.memory.locked.push(currentInLocked.pos.findClosestByRange(spawnAndExtensions).id);
+        }
+
     }
 
     let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100)});
@@ -121,7 +124,12 @@ import randomWords from "random-words";
         let controllerLink:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
         if(controllerLink) {
             if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200 && creep.memory.locked.length < 2) {
-                creep.memory.locked.push(controllerLink.id);
+                if(creep.room.controller.level >= 7) {
+                    creep.room.memory.Structures.controllerLink = false;
+                }
+                else {
+                    creep.memory.locked.push(controllerLink.id);
+                }
             }
             else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600 && creep.memory.locked.length < 2) {
                 creep.memory.locked.push(controllerLink.id);
@@ -131,19 +139,20 @@ import randomWords from "random-words";
             creep.room.memory.Structures.controllerLink = false;
         }
     }
-
+    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
     if(creep.room.memory.Structures.factory) {
         let factory:any = Game.getObjectById(creep.room.memory.Structures.factory);
-        if(factory && factory.store[RESOURCE_ENERGY] < 8000) {
+        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 460000) {
             if(creep.memory.locked.length < 2) {
                 creep.memory.locked.push(factory.id);
             }
         }
     }
 
+
     if(creep.room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(creep.room.memory.Structures.powerSpawn);
-        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 5000) {
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 5000 && storage && storage.store[RESOURCE_ENERGY] > 200000) {
             if(creep.memory.locked.length < 2) {
                 creep.memory.locked.push(powerSpawn.id);
             }

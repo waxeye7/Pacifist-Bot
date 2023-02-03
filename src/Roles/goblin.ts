@@ -190,6 +190,13 @@
         else {
             creep.memory.full = true;
         }
+
+        if(targets && targets.length == 0 && !creep.memory.full) {
+            creep.memory.suicide = true;
+        }
+        else if(!targets && !creep.memory.full) {
+            creep.memory.suicide = true;
+        }
     }
 }
 
