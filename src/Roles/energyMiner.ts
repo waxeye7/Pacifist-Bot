@@ -68,7 +68,7 @@ const run = function (creep) {
         }
 
 
-        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 2 || creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 6) {
+        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 4 || creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 12) {
             let source:any = Game.getObjectById(creep.memory.sourceId);
             if(creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
@@ -93,7 +93,7 @@ const run = function (creep) {
                 }
             }
 
-            if(!creep.memory.myRampart && creep.ticksToLive > 1300 && Game.time % 10 == 0) {
+            if(creep.room.controller.level >= 7 && !creep.memory.myRampart && creep.ticksToLive > 1300 && Game.time % 10 == 0) {
                 let lookStructs = creep.pos.lookFor(LOOK_STRUCTURES);
                 for(let building of lookStructs) {
                     if(building.structureType == STRUCTURE_RAMPART && building.hits < 11000000) {

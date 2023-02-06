@@ -128,19 +128,19 @@ function market(room):any {
                 let AverageStDev = myTotalStDevAverage / 105;
                 console.log(Average, "averageprice", AverageStDev, "average St Dev")
 
-                if(resourceStored >= 120000) {
+                if(resourceStored >= 100000) {
                     if(Average > 6) {
                         return Average - 6
                     }
                     return Average
                 }
-                else if(resourceStored >= 100000) {
+                else if(resourceStored >= 80000) {
                     if(Average > 4) {
                         return Average - 4
                     }
                     return Average
                 }
-                else if(resourceStored >= 80000) {
+                else if(resourceStored >= 60000) {
                     if(Average > 2) {
                         return Average - 2
                     }
@@ -381,6 +381,65 @@ function market(room):any {
             }
 
         }
+
+
+
+        if(!Memory.resource_requests) {
+            Memory.resource_requests = {
+                "XLHO2":[],
+                "XKHO2":[],
+                "XUH2O":[],
+                "XLH2O":[],
+                "XGHO2":[],
+                "XZHO2":[],
+                "XZH2O":[]
+            };
+        }
+        let boostsToNeed = [RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+                            RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+                            RESOURCE_CATALYZED_UTRIUM_ACID,
+                            RESOURCE_CATALYZED_LEMERGIUM_ACID,
+                            RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+                            RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+                            RESOURCE_CATALYZED_ZYNTHIUM_ACID];
+
+        for(let boost of boostsToNeed) {
+            if(storage && storage.store[boost] < 10000 && room.terminal.store[boost] < 3000) {
+                if(!Memory.resource_requests[boost].includes(room.name)) {
+                    Memory.resource_requests[boost].push(room.name);
+                }
+            }
+            else if(Memory.resource_requests[boost].length > 0) {
+                Memory.resource_requests[boost] = Memory.resource_requests[boost].filter(function (roomName) {return roomName !== room.name;});
+            }
+        }
+
+
+        for(let boost of boostsToNeed) {
+            if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 25000) {
+                if(Memory.resource_requests[boost].length > 0) {
+                    for(let roomName of Memory.resource_requests[boost]) {
+                        if(roomName !== room.name) {
+                            let roomObj = Game.rooms[roomName];
+                            if(roomObj && roomObj.controller && roomObj.controller.level >= 6) {
+                                let theirTerminal = roomObj.terminal;
+                                let theirStorage:any = Game.getObjectById(roomObj.memory.Structures.storage);
+                                if(theirTerminal && theirStorage && theirTerminal.store.getFreeCapacity() > 10000 && theirStorage.store.getFreeCapacity() > 10000) {
+                                    room.terminal.send(boost, 500, roomName, "enjoy this " + boost + " other room!");
+                                    console.log("sending", roomName, "500", boost)
+                                    return;
+                                }
+                            }
+                            else {
+                                Memory.resource_requests[boost] = Memory.resource_requests[boost].filter(function (name) {return name !== roomName;});
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+
 
 
         if(room.terminal.store[RESOURCE_CONDENSATE] >= 10) {
@@ -742,16 +801,16 @@ function market(room):any {
 
     let targetRampRoom = Memory.targetRampRoom;
     if(targetRampRoom && Game.time % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
-        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 150000) {
+        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
-            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 640000 && room.terminal.store[RESOURCE_ENERGY] > 75000 && storage && storage.store[RESOURCE_ENERGY] > 400000) {
+            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && storage.store[RESOURCE_ENERGY] > 275000) {
                 room.terminal.send(RESOURCE_ENERGY, 10000, targetRampRoom, "enjoy this energy, other room!");
                 console.log("sending room", targetRampRoom, "10000 energy")
             }
     }
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
-    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 1000000) {
+    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
         let foundInRoomEnergyOrder = false;
 
         let Orders = Game.market.orders;

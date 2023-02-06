@@ -196,6 +196,13 @@ function roomDefence(room) {
                     tower.heal(damagedCreeps[0]);
                     return;
                 }
+                if(room.controller.level == 8) {
+                    let damagedPowerCreeps = _.filter(Game.powerCreeps, (damagedPowerCreep) => damagedPowerCreep.hits < damagedPowerCreep.hitsMax && damagedPowerCreep.room.name == room.name);
+                    if(damagedPowerCreeps.length > 0) {
+                        tower.heal(damagedPowerCreeps[0]);
+                        return;
+                    }
+                }
             }
 
        });

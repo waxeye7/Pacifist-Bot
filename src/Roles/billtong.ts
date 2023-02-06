@@ -233,7 +233,14 @@
                     if(!creep.memory.timeToGetHome) {
                         creep.memory.timeToGetHome = 1500 - creep.ticksToLive + 10;
                     }
-                    creep.harvest(deposit)
+                    if(deposit.cooldown == 0) {
+                        creep.harvest(deposit);
+                    }
+
+                    if(creep.room.memory.roomData && creep.room.memory.roomData.has_hostile_creeps) {
+                        creep.memory.full = true;
+                    }
+
 
                     if(Game.time % 10 == 0) {
                         let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.pos.getRangeTo(creep) <= 3 && (r.resourceType == RESOURCE_METAL || r.resourceType == RESOURCE_BIOMASS || r.resourceType == RESOURCE_SILICON || r.resourceType == RESOURCE_MIST)});

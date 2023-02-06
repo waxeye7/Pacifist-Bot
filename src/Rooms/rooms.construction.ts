@@ -187,7 +187,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
             if(blockSpot.x <= 4 || blockSpot.x >= 45 || blockSpot.y <= 4 || blockSpot.y >= 45) {
                 let closestRampart = blockSpot.findClosestByRange(rampartsInRoomRange10FromStorage)
-                if(block.getRangeTo(closestRampart) < 3) {
+                if(blockSpot.getRangeTo(closestRampart) < 3) {
                     return;
                 }
             }
@@ -458,7 +458,6 @@ function construction(room) {
             for(let o = -10; o <11; o++) {
                 if((i==10 || i==-10)) {
                     let combinedX = storage.pos.x + i;
-                    console.log(combinedX)
                     if(combinedX >= 2 && combinedX <= 47) {
                         rampartLocations.push([i,o]);
                     }

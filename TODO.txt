@@ -1,2 +1,4 @@
 4 corner room mineral miner
 make spawn more carry based on if the carry function made the full amount of parts
+
+add length < 6 rooms to squad quad a

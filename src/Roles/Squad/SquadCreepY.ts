@@ -58,7 +58,7 @@
             }
         }
 
-        if(targetCreep) {
+        if(targetCreep && (creep.getActiveBodyparts(RANGED_ATTACK) > 0 || creep.getActiveBodyparts(ATTACK) > 0)) {
             creep.rangedAttack(targetCreep)
             creep.attack(targetCreep);
 
@@ -174,7 +174,7 @@
             if(target) {
                 creep.heal(target);
             }
-            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && enemyCreepInRangeThree.length > 0) {
+            else if(creep.hits < creep.hitsMax) {
                 creep.heal(creep);
             }
             else {

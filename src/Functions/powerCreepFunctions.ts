@@ -290,8 +290,8 @@ const roomCallbackRoadPrioPower = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 6);
         }

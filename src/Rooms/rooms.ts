@@ -188,7 +188,8 @@ function rooms() {
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
 
-            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000) {
+            if(Game.time % 3012 == 0 &&
+                 Game.cpu.bucket > 1000) {
                 const start = Game.cpu.getUsed()
                 Build_Remote_Roads(room);
                 console.log('REMOTE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -332,12 +333,12 @@ function establishMemory(room) {
         }
 
 
-        if(room.controller && !room.controller.my) {
+        if(room.controller && !room.controller.my || !room.controller) {
             if(!room.memory.roomData) {
                 room.memory.roomData = {};
             }
 
-            if (HostileStructures.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+            if (HostileStructures.length > 0) {
                 if(!Memory.tasks.wipeRooms.destroyStructures.includes(room.name)) {
                     Memory.tasks.wipeRooms.destroyStructures.push(room.name)
                 }
@@ -348,13 +349,13 @@ function establishMemory(room) {
                 room.memory.roomData.has_hostile_structures = false;
             }
 
-            if(HostileCreeps.length > 0 && isArmed && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+            if(HostileCreeps.length > 0 && isArmed) {
                 if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                     Memory.tasks.wipeRooms.killCreeps.push(room.name)
                 }
                 room.memory.roomData.has_hostile_creeps = true;
             }
-            else if(HostileCreeps.length > 0 && room.controller && (room.controller.level == 0 || room.controller.level == 1 && room.controller.my)) {
+            else if(HostileCreeps.length > 0) {
                 room.memory.roomData.has_safe_creeps = true;
             }
             else {

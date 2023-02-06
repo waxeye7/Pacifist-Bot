@@ -58,6 +58,35 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
         }
     }
 
+    room.find(FIND_CREEPS).forEach(function(creep) {
+        if(!creep.my || creep.memory.role == "carry" || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
+
+            let weight:any = 10;
+            if(costs.get(creep.pos.x, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y - 1) <= 5 && costs.get(creep.pos.x, creep.pos.y - 1) <= 5) {
+                costs.set(creep.pos.x, creep.pos.y, weight);
+                costs.set(creep.pos.x - 1, creep.pos.y, weight);
+                costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
+                costs.set(creep.pos.x, creep.pos.y - 1, weight);
+            }
+            else {
+                costs.set(creep.pos.x, creep.pos.y, 255);
+                costs.set(creep.pos.x - 1, creep.pos.y, 255);
+                costs.set(creep.pos.x - 1, creep.pos.y - 1, 255);
+                costs.set(creep.pos.x, creep.pos.y - 1, 255);
+            }
+
+
+            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
+            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y, {color: 'green', font: 0.8});
+            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y-1, {color: 'green', font: 0.8});
+            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y-1, {color: 'green', font: 0.8});
+
+        }
+        // else if(creep.memory.role === "SquadCreepA") {
+        //     costs.set(creep.pos.x, creep.pos.y, 0);
+        // }
+    });
+
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD || struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -124,34 +153,7 @@ const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
     });
 
 
-    room.find(FIND_CREEPS).forEach(function(creep) {
-        if(!creep.my || creep.memory.role == "carry" || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
 
-            let weight:any = 10;
-            if(costs.get(creep.pos.x, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y - 1) <= 5 && costs.get(creep.pos.x, creep.pos.y - 1) <= 5) {
-                costs.set(creep.pos.x, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
-                costs.set(creep.pos.x, creep.pos.y - 1, weight);
-            }
-            else {
-                costs.set(creep.pos.x, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, 255);
-                costs.set(creep.pos.x, creep.pos.y - 1, 255);
-            }
-
-
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-        // else if(creep.memory.role === "SquadCreepA") {
-        //     costs.set(creep.pos.x, creep.pos.y, 0);
-        // }
-    });
 
 
 

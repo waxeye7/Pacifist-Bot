@@ -602,24 +602,49 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | strin
         else if(this.room.name == this.memory.homeRoom && this.memory.timeOut > 0) {
             this.memory.timeOut -= 1;
             if(this.pos.x == 49) {
-                this.move(LEFT);
-                this.move(TOP_LEFT);
-                this.move(BOTTOM_LEFT);
+                if(this.move(LEFT) !== 0) {
+                    if(this.move(TOP_LEFT) !== 0) {
+                        if(this.move(BOTTOM_LEFT) !== 0) {
+                            if(this.move(TOP) !== 0) {
+                                this.move(BOTTOM);
+                            }
+                        }
+                    }
+                }
+
             }
             else if(this.pos.x == 0) {
-                this.move(RIGHT);
-                this.move(TOP_RIGHT);
-                this.move(BOTTOM_RIGHT);
+                if(this.move(RIGHT) !== 0) {
+                    if(this.move(TOP_RIGHT) !== 0) {
+                        if(this.move(BOTTOM_RIGHT) !== 0) {
+                            if(this.move(TOP) !== 0) {
+                                this.move(BOTTOM);
+                            }
+                        }
+                    }
+                }
             }
             else if(this.pos.y == 49) {
-                this.move(TOP);
-                this.move(TOP_LEFT);
-                this.move(TOP_RIGHT);
+                if(this.move(TOP) !== 0) {
+                    if(this.move(TOP_LEFT) !== 0) {
+                        if(this.move(TOP_RIGHT) !== 0) {
+                            if(this.move(LEFT) !== 0) {
+                                this.move(RIGHT);
+                            }
+                        }
+                    }
+                }
             }
             else if(this.pos.y == 0) {
-                this.move(BOTTOM);
-                this.move(BOTTOM_LEFT);
-                this.move(BOTTOM_RIGHT);
+                if(this.move(BOTTOM) !== 0) {
+                    if(this.move(BOTTOM_LEFT) !== 0) {
+                        if(this.move(BOTTOM_RIGHT) !== 0) {
+                            if(this.move(LEFT) !== 0) {
+                                this.move(RIGHT);
+                            }
+                        }
+                    }
+                }
             }
             return "timeOut";
         }
@@ -1075,8 +1100,8 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 6);
         }
@@ -1094,6 +1119,9 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+        else if(creep.memory.role == "repair" && creep.memory.repairing) {
+            costs.set(creep.pos.x, creep.pos.y, 5);
         }
         else if(creep.memory.role == "ram") {
             costs.set(creep.pos.x, creep.pos.y, 255);
@@ -1202,7 +1230,7 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
-            costs.set(struct.pos.x, struct.pos.y, 5);
+            costs.set(struct.pos.x, struct.pos.y, 25);
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -1233,8 +1261,8 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
     });
 
 
-
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 11);
         }
@@ -1368,8 +1396,8 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
-
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 6);
         }
@@ -1490,8 +1518,8 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
         }
     });
 
-
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 6);
         }
@@ -1653,7 +1681,9 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 5);
         }
@@ -1755,7 +1785,9 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 5);
         }
@@ -1856,7 +1888,8 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
-    room.find(FIND_MY_CREEPS).forEach(function(creep) {
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
             costs.set(creep.pos.x, creep.pos.y, 5);
         }

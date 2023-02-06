@@ -60,7 +60,40 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
 
         if(creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 1) {
-            move_location = new RoomPosition(25, 25, creep.memory.route[0].room);
+            if(creep.memory.route.length == 2) {
+                move_location = new RoomPosition(25, 25, creep.memory.route[0].room);
+            }
+            else if(creep.memory.route.length > 2) {
+                if(creep.memory.route[0].exit == FIND_EXIT_LEFT && creep.memory.route[1].exit == FIND_EXIT_BOTTOM) {
+                    move_location = new RoomPosition(25, 48, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_LEFT && creep.memory.route[1].exit == FIND_EXIT_TOP) {
+                    move_location = new RoomPosition(25, 1, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_RIGHT && creep.memory.route[1].exit == FIND_EXIT_BOTTOM) {
+                    move_location = new RoomPosition(25, 48, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_RIGHT && creep.memory.route[1].exit == FIND_EXIT_TOP) {
+                    move_location = new RoomPosition(25, 1, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_TOP && creep.memory.route[1].exit == FIND_EXIT_LEFT) {
+                    move_location = new RoomPosition(1, 25, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_TOP && creep.memory.route[1].exit == FIND_EXIT_RIGHT) {
+                    move_location = new RoomPosition(48, 25, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_BOTTOM && creep.memory.route[1].exit == FIND_EXIT_LEFT) {
+                    move_location = new RoomPosition(1, 25, creep.memory.route[0].room);
+                }
+                else if(creep.memory.route[0].exit == FIND_EXIT_BOTTOM && creep.memory.route[1].exit == FIND_EXIT_RIGHT) {
+                    move_location = new RoomPosition(48, 25, creep.memory.route[0].room);
+                }
+                else {
+                    move_location = new RoomPosition(25, 25, creep.memory.route[0].room);
+                }
+
+            }
+
         }
 
         if(!creep.memory.go && creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 0) {
@@ -89,9 +122,9 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     creep.move(direction);
             }
 
-            else if((Game.time % 30 == 0 || Game.time % 30 == 1) && (creep.pos.x == 1 || creep.pos.x == 47 || creep.pos.y == 1 || creep.pos.y == 47)) {
-                creep.moveTo(new RoomPosition(25,25,creep.room.name), {range:14});
-            }
+            // else if((Game.time % 30 == 0 || Game.time % 30 == 1) && (creep.pos.x == 1 || creep.pos.x == 47 || creep.pos.y == 1 || creep.pos.y == 47)) {
+            //     creep.moveTo(new RoomPosition(25,25,creep.room.name), {range:14});
+            // }
         }
     }
 
@@ -134,7 +167,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             }
         }
 
-        if(targetCreep) {
+        if(targetCreep && (creep.getActiveBodyparts(RANGED_ATTACK) > 0 || creep.getActiveBodyparts(ATTACK) > 0)) {
             creep.rangedAttack(targetCreep)
             creep.attack(targetCreep);
 
@@ -282,7 +315,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     creep.memory.lastHeal = target.id;
                 }
             }
-            else if(creep.hits < creep.hitsMax || enemyCreeps.length > 0 && enemyCreepInRangeThree.length > 0) {
+            else if(creep.hits < creep.hitsMax) {
                 creep.heal(creep);
             }
             else {
@@ -297,7 +330,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             if(creep.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
-                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_ROAD;});
+                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_ROAD && building.structureType!=STRUCTURE_RAMPART;});
                     if(nowall.length > 0) {
                         let closestBuilding = creep.pos.findClosestByRange(nowall);
                         creep.memory.targetPosition = closestBuilding.pos;

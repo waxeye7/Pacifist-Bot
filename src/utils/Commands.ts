@@ -1,4 +1,3 @@
-import { globalAgent } from "http";
 import randomWords from "random-words";
 
 global.SD = function(roomName, targetRoomName, boost=false):any {
@@ -1212,7 +1211,9 @@ if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.l
     if(billtongs == 0) {
 
         let newName = 'Billtong-' + randomWords({exactly:1,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE], newName, {memory: {role: 'billtong', homeRoom:room.name, targetRoom:targetRoomName}});
+        room.memory.spawn_list.push([MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,
+            MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE]
+            , newName, {memory: {role: 'billtong', homeRoom:room.name, targetRoom:targetRoomName}});
         console.log('Adding Billtong to Spawn List: ' + newName);
 
     }

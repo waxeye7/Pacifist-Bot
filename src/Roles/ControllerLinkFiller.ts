@@ -8,14 +8,22 @@ function findLocked(creep) {
 
     creep.memory.locked = [];
 
-    if((!creep.room.memory.Structures.controllerLink || Game.time % 100000 == 0) && creep.room.controller && creep.room.controller.level >= 2) {
+    if((!creep.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && creep.room.controller.level >= 2) {
         if(creep.room.controller.level < 7) {
-            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER});
-            if(containers.length > 0) {
+            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== creep.room.memory.Structures.bin && building.id !== creep.room.memory.Structures.storage && building.pos.getRangeTo(creep.room.controller) == 2});            if(containers.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
-                if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
+                if(containers.length > 1) {
+                    let sources = creep.room.find(FIND_SOURCES);
+                    if(controllerLink.pos.findInRange(sources, 1).length > 0) {
+                        containers = containers.filter(function(con) {return con.id !== controllerLink.id;});
+                        let newControllerLink = creep.room.controller.pos.findClosestByRange(containers);
+                        creep.room.memory.Structures.controllerLink = newControllerLink.id;
+                    }
+                }
+                else {
                     creep.room.memory.Structures.controllerLink = controllerLink.id;
                 }
+
             }
         }
         else {

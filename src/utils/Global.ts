@@ -25,6 +25,7 @@ declare global {
         // my_goods:Array<Array<string & string>>;
         my_goods:any;
         target_colonise:any;
+        resource_requests:any;
     }
 
     interface billtong_rooms {
@@ -78,6 +79,7 @@ declare global {
         controllerLink:any;
     }
     interface CreepMemory {
+        repairing: boolean;
         name: string;
         role: string;
         room: object;
