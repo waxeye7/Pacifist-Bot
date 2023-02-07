@@ -8,7 +8,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    ;
+    creep.memory.moving = false;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
@@ -17,7 +17,17 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         }
     }
 
+    const creepBody = creep.body.filter(function(part) {return part.type !== "move";});
+    function getMostFrequent(arr) {
+        const hashmap = arr.reduce( (acc, val) => {
+         acc[val.type] = (acc[val.type] || 0 ) + 1
+         return acc
+      },{})
+     return Object.keys(hashmap).reduce((a, b) => hashmap[a] > hashmap[b] ? a : b)
+     }
 
+    let creepBodyType = getMostFrequent(creepBody);
+     creep.memory.bodyType = creepBodyType;
 
 
     let move_location = creep.memory.targetPosition;
@@ -35,9 +45,9 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         if(creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[0].room == creep.room.name) {
             creep.memory.route.shift();
         }
-        if(!creep.memory.route || creep.memory.route == 2 || creep.memory.route && creep.memory.route.length == 0 || creep.memory.route.length == 1 && creep.memory.route[0].room == creep.room.name || creep.memory.route && creep.memory.route.length > 0 && creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetPosition.roomName) {
+        if(!creep.memory.route || creep.memory.route == -2 || creep.memory.route.length == 0 || creep.memory.route.length == 1 && creep.memory.route[0].room == creep.room.name || creep.memory.route.length > 0 && creep.memory.route[creep.memory.route.length - 1].room !== creep.memory.targetPosition.roomName) {
             creep.memory.route = Game.map.findRoute(creep.room.name, creep.memory.targetPosition.roomName, {
-                routeCallback(roomName, fromRoomName) {
+                routeCallback(roomName:any, fromRoomName) {
                     if(Game.map.getRoomStatus(roomName).status !== "normal") {
                         return Infinity;
                     }
@@ -47,14 +57,38 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
                     if(roomName.length == 6) {
                         if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                            return 4;
+                            return 2;
                         }
                         if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                            return 4;
+                            return 2;
+                        }
+                    }
+                    else if(roomName.length !== 6) {
+                        let homeRoomNameX;
+                        let homeRoomNameY;
+                        if(!isNaN(roomName[2])) {
+                            homeRoomNameX = parseInt(roomName[1] + roomName[2]);
+                            homeRoomNameY = parseInt(roomName[4]);
+                        }
+                        else {
+                            homeRoomNameX = parseInt(roomName[1]);
+                            if(roomName.length == 4) {
+                                homeRoomNameY = parseInt(roomName[3]);
+                            }
+                            else if(roomName.length == 5) {
+                                homeRoomNameY = parseInt(roomName[3] + roomName[4]);
+                            }
+                        }
+
+                        if(parseInt(homeRoomNameX) % 10 == 0) {
+                            return 2;
+                        }
+                        if(parseInt(homeRoomNameY) % 10 == 0) {
+                            return 2;
                         }
                     }
 
-                    return 5;
+                    return 3;
             }});
         }
 
@@ -167,7 +201,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             }
         }
 
-        if(targetCreep && (creep.getActiveBodyparts(RANGED_ATTACK) > 0 || creep.getActiveBodyparts(ATTACK) > 0)) {
+        if(targetCreep && (creepBodyType == "ranged_attack" || creepBodyType == "attack")) {
             creep.rangedAttack(targetCreep)
             creep.attack(targetCreep);
 
@@ -407,7 +441,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         }
 
 
-        if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0 && a.getActiveBodyparts(MOVE) > 0 && b.getActiveBodyparts(MOVE) > 0 && y.getActiveBodyparts(MOVE) > 0 && z.getActiveBodyparts(MOVE) > 0) {
+        if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
 
 
             // if(a.pos.findInRange(enemyCreeps, 2).length > 0 || b.pos.findInRange(enemyCreeps, 2).length > 0 || y.pos.findInRange(enemyCreeps, 2).length > 0 || z.pos.findInRange(enemyCreeps, 2).length > 0) {
@@ -1189,6 +1223,254 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                             }
 
                         }
+                        else if(!allow && (creep.pos.x == 48 || creep.pos.x == 47) && creep.pos.y >= 2 && creep.pos.y <= 46) {
+                            if(direction == 6) {
+                                let Position = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+                            }
+                            else if(direction == 7) {
+
+                                let Position = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x- 1, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                            }
+                            else if(direction == 8) {
+                                let Position = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+                            }
+                        }
+                        else if(!allow && (creep.pos.x == 0 || creep.pos.x == 1) && creep.pos.y >= 2 && creep.pos.y <= 46) {
+                            if(direction == 2) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 3) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 4) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+                        }
+                        else if(!allow && (creep.pos.y == 47 || creep.pos.y == 48) && creep.pos.x >= 2 && creep.pos.x <= 46) {
+                            if(direction == 8) {
+
+                                let Position = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+                            else if(direction == 1) {
+
+                                let Position = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 2) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+                        }
+                        else if(!allow && (creep.pos.y == 0 || creep.pos.y == 1) && creep.pos.x >= 2 && creep.pos.x <= 46) {
+                            if(direction == 4) {
+
+                                let Position = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 5) {
+
+                                let Position = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+
+                            }
+
+                            else if(direction == 6) {
+
+                                let Position = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere = Position.lookFor(LOOK_STRUCTURES);
+
+                                let Position2 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name);
+                                let lookForStructuresHere2 = Position2.lookFor(LOOK_STRUCTURES);
+
+                                let Position3 = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name);
+                                let lookForStructuresHere3 = Position3.lookFor(LOOK_STRUCTURES);
+
+                                if(lookForStructuresHere.length > 0 && lookForStructuresHere[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere[0].id;
+                                }
+                                else if(lookForStructuresHere2.length > 0 && lookForStructuresHere2[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere2[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere2[0].id;
+                                }
+                                else if(lookForStructuresHere3.length > 0 && lookForStructuresHere3[0].structureType !== STRUCTURE_CONTAINER && lookForStructuresHere3[0].structureType !== STRUCTURE_ROAD) {
+                                    creep.memory.target = lookForStructuresHere3[0].id;
+                                }
+
+                            }
+                        }
                         else {
                             creep.memory.target = false;
                         }
@@ -1224,7 +1506,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                 let nonLeaderMemoryY = y.memory;
                                 let nonLeaderMemoryZ = z.memory;
 
-                                if((direction == 1 || direction == 2 || direction == 8) && a.getActiveBodyparts(HEAL) > 0 && b.getActiveBodyparts(HEAL) > 0) {
+                                if((direction == 1 || direction == 2 || direction == 8) && creepBodyType == "heal" && b.memory.bodyType == "heal") {
                                     leaderMemory.squad.a = y.id;
                                     leaderMemory.squad.y = a.id;
                                     leaderMemory.squad.b = z.id;
@@ -1256,7 +1538,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     b.move(BOTTOM);
                                     z.move(TOP);
                                 }
-                                else if(direction == 1 && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 1 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1278,7 +1560,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     y.move(TOP_RIGHT);
                                     b.move(BOTTOM_LEFT);
                                 }
-                                else if(direction == 1 && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 1 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
                                     leaderMemory.squad.z = a.id;
                                     leaderMemory.squad.a = z.id;
 
@@ -1301,7 +1583,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     z.move(TOP_LEFT);
                                 }
 
-                                else if((direction == 4 || direction == 5 || direction == 6) && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0) && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
+                                else if((direction == 4 || direction == 5 || direction == 6) && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
                                     leaderMemory.squad.a = y.id;
                                     leaderMemory.squad.y = a.id;
                                     leaderMemory.squad.b = z.id;
@@ -1332,7 +1614,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     b.move(BOTTOM);
                                     z.move(TOP);
                                 }
-                                else if(direction == 5 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 5 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 
@@ -1354,7 +1636,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     a.move(BOTTOM_RIGHT);
                                     z.move(TOP_LEFT);
                                 }
-                                else if(direction == 5 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 5 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
                                     leaderMemory.squad.b = y.id;
                                     leaderMemory.squad.y = b.id;
 
@@ -1378,7 +1660,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                 }
 
 
-                                else if(direction == 3 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0) && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
                                     leaderMemory.squad.a = b.id;
                                     leaderMemory.squad.b = a.id;
                                     leaderMemory.squad.y = z.id;
@@ -1410,7 +1692,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     z.move(LEFT);
                                 }
 
-                                else if(direction == 3 && (y.getActiveBodyparts(RANGED_ATTACK) > 0 || y.getActiveBodyparts(WORK) > 0 || y.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 3 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1432,7 +1714,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     b.move(BOTTOM_LEFT);
                                 }
 
-                                else if(direction == 3 && (a.getActiveBodyparts(RANGED_ATTACK) > 0 || a.getActiveBodyparts(WORK) > 0 || a.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 
@@ -1454,7 +1736,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     z.move(TOP_LEFT);
                                 }
 
-                                else if(direction == 7 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0) && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack") && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
                                     leaderMemory.squad.a = b.id;
                                     leaderMemory.squad.b = a.id;
                                     leaderMemory.squad.y = z.id;
@@ -1486,7 +1768,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     z.move(LEFT);
                                 }
 
-                                else if(direction == 7 && (b.getActiveBodyparts(RANGED_ATTACK) > 0 || b.getActiveBodyparts(WORK) > 0 || b.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
                                     leaderMemory.squad.y = b.id;
                                     leaderMemory.squad.b = y.id;
 
@@ -1508,7 +1790,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                                     b.move(BOTTOM_LEFT);
                                 }
 
-                                else if(direction == 7 && (z.getActiveBodyparts(RANGED_ATTACK) > 0 || z.getActiveBodyparts(WORK) > 0 || z.getActiveBodyparts(ATTACK) > 0)) {
+                                else if(direction == 7 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
                                     leaderMemory.squad.a = z.id;
                                     leaderMemory.squad.z = a.id;
 

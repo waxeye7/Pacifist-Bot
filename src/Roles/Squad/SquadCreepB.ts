@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    ;
+    creep.memory.moving = false;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
@@ -12,6 +12,7 @@
         }
     }
 
+
     if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
         let a:any = Game.getObjectById(creep.memory.squad.a);
         if(a) {
@@ -19,7 +20,17 @@
         }
     }
 
+    const creepBody = creep.body.filter(function(part) {return part.type !== "move";});
+    function getMostFrequent(arr) {
+        const hashmap = arr.reduce( (acc, val) => {
+         acc[val.type] = (acc[val.type] || 0 ) + 1
+         return acc
+      },{})
+     return Object.keys(hashmap).reduce((a, b) => hashmap[a] > hashmap[b] ? a : b)
+     }
 
+    let creepBodyType = getMostFrequent(creepBody);
+     creep.memory.bodyType = creepBodyType;
 
 
     let structures = creep.room.find(FIND_STRUCTURES, {filter: building => !building.my && building.structureType !== STRUCTURE_CONTAINER && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_KEEPER_LAIR});
@@ -58,7 +69,7 @@
             }
         }
 
-        if(targetCreep && (creep.getActiveBodyparts(RANGED_ATTACK) > 0 || creep.getActiveBodyparts(ATTACK) > 0)) {
+        if(targetCreep && (creepBodyType == "ranged_attack" || creepBodyType == "attack")) {
             creep.rangedAttack(targetCreep)
             creep.attack(targetCreep);
 

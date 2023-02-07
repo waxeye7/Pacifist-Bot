@@ -1504,6 +1504,9 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("PowerHeal")
                 && !room.memory.spawn_list[1].startsWith("Goblin")
 
+                && !room.memory.spawn_list[1].startsWith("SpecialRepair")
+                && !room.memory.spawn_list[1].startsWith("SpecialCarry")
+
                 && !room.memory.spawn_list[1].startsWith("PowerMelee"))
 
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable

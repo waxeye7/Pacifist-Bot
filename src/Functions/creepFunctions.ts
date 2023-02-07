@@ -29,7 +29,7 @@ interface Creep {
 
 Creep.prototype.Boost = function Boost():any {
 
-    if(this.memory.boostlabs.length == 0 || this.ticksToLive < 800) {
+    if(this.memory.boostlabs.length == 0 || this.ticksToLive < 1000) {
         return;
     }
     else {
@@ -1135,6 +1135,9 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "PowerHeal") {
             costs.set(creep.pos.x, creep.pos.y, 14);
         }
+        else if(creep.name.startsWith("SquadCreep")) {
+            costs.set(creep.pos.x, creep.pos.y, 100);
+        }
     });
 
 
@@ -1230,7 +1233,7 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
-            costs.set(struct.pos.x, struct.pos.y, 25);
+            costs.set(struct.pos.x, struct.pos.y, 60);
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -1564,7 +1567,7 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
         }
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id || target.roomName !== this.room.name) {
             let costMatrix;
-            if(this.memory.role == "carry" && this.memory.full == true || this.memory.suicide == true) {
+            if(this.memory.role == "carry" && this.memory.full == true || this.memory.suicide == true || this.memory.role == "EnergyMiner") {
                 costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull;
             }
             else if(this.memory.role == "carry" && this.memory.full == false) {

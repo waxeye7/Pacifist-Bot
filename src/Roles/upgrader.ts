@@ -41,6 +41,17 @@ const run = function (creep) {
 		if(controllerLink && controllerLink.store[RESOURCE_ENERGY] > 0) {
 			if(creep.pos.isNearTo(controllerLink)) {
 				creep.withdraw(controllerLink, RESOURCE_ENERGY);
+				if(creep.ticksToLive % 23 == 0) {
+					let lookForRoadsOnCreepPos = creep.pos.lookFor(LOOK_STRUCTURES);
+					if(lookForRoadsOnCreepPos.length > 0) {
+						for(let building of lookForRoadsOnCreepPos) {
+							if(building.structureType == STRUCTURE_ROAD) {
+								creep.MoveCostMatrixRoadPrio(creep.room.controller, 2);
+							}
+						}
+					}
+				}
+
 			}
 			else {
 				creep.MoveCostMatrixRoadPrio(controllerLink, 1);
