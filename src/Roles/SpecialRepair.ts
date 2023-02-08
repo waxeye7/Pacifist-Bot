@@ -113,7 +113,7 @@ const run = function (creep) {
                             }
                         }
                         else {
-                            target.pos.createConstructionSite(STRUCTURE_CONTAINER);
+                            creep.pos.createConstructionSite(STRUCTURE_CONTAINER);
                         }
                     }
                 }

@@ -1989,8 +1989,8 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
 
     let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
     for(let eCreep of EnemyCreeps) {
-        for(let i=-5; i<5; i++) {
-            for(let o=-5; o<5; o++) {
+        for(let i=-3; i<3; i++) {
+            for(let o=-3; o<3; o++) {
                 if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
                     costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
                 }

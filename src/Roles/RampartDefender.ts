@@ -14,7 +14,11 @@ const run = function (creep:Creep) {
 
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
-            let rampartToMan = creep.room.memory.rampartToMan;
+
+            if(!creep.memory.myRampartToMan || creep.ticksToLive % 150 == 0) {
+                creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
+            }
+            let rampartToMan = creep.memory.myRampartToMan;
 
             let rampart:any = Game.getObjectById(rampartToMan);
 

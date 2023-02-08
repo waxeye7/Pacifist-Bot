@@ -98,7 +98,7 @@ const run = function (creep) {
             if(creep.memory.NearbyExtensions && creep.memory.NearbyExtensions.length > 0) {
                 for(let extensionID of creep.memory.NearbyExtensions) {
                     let extension:any = Game.getObjectById(extensionID);
-                    if(extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                    if(extension && extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                         creep.transfer(extension, RESOURCE_ENERGY);
                         return;
                     }

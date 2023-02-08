@@ -110,7 +110,7 @@ function roomDefence(room) {
             if(isDanger) {
                 let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
                 let rampartDefendersLength = rampartDefenders.length;
-                if(rampartDefendersLength == 1) {
+                if(rampartDefendersLength <= 2) {
                     let rampartToMan = room.memory.rampartToMan;
                     let rampart:any = Game.getObjectById(rampartToMan);
                     if(rampart) {
@@ -130,7 +130,7 @@ function roomDefence(room) {
                 }
             }
 
-            if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.Structures.towers.length) {
+            if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.Structures.towers.length && Game.cpu.bucket > 250) {
                 let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
                 // HostileCreeps.sort((a,b) => a.pos.getRangeTo(tower) - b.pos.getRangeTo(tower));
                 let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
@@ -264,7 +264,18 @@ function roomDefence(room) {
                 if(currentLowestRange > rangeToEnemy) {
                     currentLowestRange = rangeToEnemy;
                     currentRampart = rampart;
-                    room.memory.rampartToMan = currentRampart.id;
+                    if(room.memory.rampartToMan) {
+                        let rampartBefore:any = Game.getObjectById(room.memory.rampartToMan);
+                        if(rampartBefore && rampartBefore.pos.findInRange(HostileCreeps, 1).length > 0) {
+                            // do nothing
+                        }
+                        else {
+                            room.memory.rampartToMan = currentRampart.id;
+                        }
+                    }
+                    else {
+                        room.memory.rampartToMan = currentRampart.id;
+                    }
                 }
             });
             if(found_creep == false) {

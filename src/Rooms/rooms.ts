@@ -65,7 +65,7 @@ function rooms() {
             Memory.targetRampRoom = current;
 
 
-            if(room.controller && room.controller.level == 6 && room.controller.progress < 100000) {
+            if(room.controller && room.controller.level == 6 && room.controller.progress < 10000) {
                 Memory.targetRampRoom = room.name
             }
         }
@@ -121,6 +121,16 @@ function rooms() {
             }
 
 
+            if(room.memory.danger && room.memory.danger_timer > 100) {
+                Memory.CPU.reduce = true;
+                let storage:any = Game.getObjectById(room.memory.Structures.storage);
+                if(storage && storage.store[RESOURCE_ENERGY] < 175000) {
+                    Memory.targetRampRoom = room.name;
+                }
+            }
+            else if(Game.time % 1000 == 0) {
+                Memory.CPU.reduce = false;
+            }
 
             if(room.memory.danger && (room.controller.level == 2 || room.controller.level == 3) && room.memory.Structures.towers.length == 0 ) {
                 room.controller.activateSafeMode();
@@ -247,7 +257,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 0) {
-        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 6.5) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 7 && Game.cpu.bucket > 9500) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {

@@ -11,6 +11,11 @@ const run = function (creep) {
         return;
     }
 
+
+    if(creep.room.memory.danger && creep.room.memory.danger_timer > 50) {
+        creep.memory.suicide = true;
+    }
+
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
     }

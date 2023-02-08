@@ -1126,6 +1126,15 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     }
 
+
+
+    if(room.memory.danger && room.memory.danger_timer > 35 && fillers < 3) {
+        let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.unshift(getBody([CARRY,CARRY,MOVE], room, 12), name, {memory: {role: 'filler'}});
+        console.log('Adding filler to Spawn List: ' + name);
+    }
+
+
     if(room.controller.level > 2) {
         spawn_remote_repairer(resourceData, room, activeRemotes);
     }
@@ -1173,7 +1182,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && room.memory.danger && room.memory.danger_timer >= 75 && room.controller.level >= 7) {
+    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 60000 && room.memory.danger_timer >= 75 && room.controller.level >= 7) {
         let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         console.log('Adding SpecialRepair to Spawn List: ' + newName);
 
@@ -1200,12 +1209,12 @@ function add_creeps_to_spawn_list(room, spawn) {
             room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
         }
 
-    }
-    if(SpecialCarriers < 1 && storage && storage.store[RESOURCE_ENERGY] > 120000 && room.memory.danger && room.memory.danger_timer >= 75 && room.controller.level >= 7) {
-        let newName = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-        room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialCarry'}});
+        let newName2 = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+        room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName2, {memory: {role: 'SpecialCarry'}});
         console.log('Adding SpecialCarry to Spawn List: ' + newName);
+
     }
+
 
 
     if(room.controller.level >= 2 && Game.shard.name !== "shard3") {
@@ -1235,13 +1244,13 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(room.memory.danger == true && room.memory.danger_timer >= 25 && RampartDefenders < 6 && fillers >= 1 && repairers > 2 && room.find(FIND_HOSTILE_CREEPS).length > 1 || room.memory.danger == true && room.memory.danger_timer >= 25 && RampartDefenders < 1 && fillers >= 2 && repairers > 2) {
+    if(room.memory.danger == true && room.memory.danger_timer >= 35 && RampartDefenders < 2 && fillers >= 2) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         let found = false;
         for(let enemyCreep of HostileCreeps) {
             for(let part of enemyCreep.body) {
-                if(part.type == ATTACK || part.tyle == WORK) {
+                if(part.type == ATTACK || part.type == WORK) {
                     found = true;
                 }
             }
@@ -1290,27 +1299,27 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
     }
 
-    if(room.memory.danger == true && defenders < 4 && RampartDefenders >= 4 || RampartDefenders == 1 && room.memory.danger == true && defenders < 6) {
-        let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        let found = false;
-        for(let enemyCreep of HostileCreeps) {
-            for(let part of enemyCreep.body) {
-                if(part.type == ATTACK) {
-                    found = true;
-                }
-            }
-        }
-        if(found == false && defenders < 6) {
-            let newName = 'Defender-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(getBody([RANGED_ATTACK,RANGED_ATTACK,MOVE], room, 50), newName, {memory: {role: 'defender', homeRoom: room.name}});
-            console.log('Adding Defender to Spawn List: ' + newName);
-        }
-        else if (found == true && RampartDefenders >= 4) {
-            let newName = 'Defender-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push(getBody([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE], room, 50), newName, {memory: {role: 'defender', homeRoom: room.name}});
-            console.log('Adding Defender to Spawn List: ' + newName);
-        }
-    }
+    // if(room.memory.danger == true && defenders < 4 && RampartDefenders >= 4 || RampartDefenders == 1 && room.memory.danger == true && defenders < 6) {
+    //     let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+    //     let found = false;
+    //     for(let enemyCreep of HostileCreeps) {
+    //         for(let part of enemyCreep.body) {
+    //             if(part.type == ATTACK) {
+    //                 found = true;
+    //             }
+    //         }
+    //     }
+    //     if(found == false && defenders < 6) {
+    //         let newName = 'Defender-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+    //         room.memory.spawn_list.push(getBody([RANGED_ATTACK,RANGED_ATTACK,MOVE], room, 50), newName, {memory: {role: 'defender', homeRoom: room.name}});
+    //         console.log('Adding Defender to Spawn List: ' + newName);
+    //     }
+    //     else if (found == true && RampartDefenders >= 4) {
+    //         let newName = 'Defender-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+    //         room.memory.spawn_list.push(getBody([RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,MOVE], room, 50), newName, {memory: {role: 'defender', homeRoom: room.name}});
+    //         console.log('Adding Defender to Spawn List: ' + newName);
+    //     }
+    // }
 
 
 
@@ -1410,7 +1419,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     // next to add
     let droppedPLUStombs = (room.find(FIND_DROPPED_RESOURCES).length + room.find(FIND_TOMBSTONES, {filter: tombstone => tombstone.store[RESOURCE_ENERGY] > 0}).length + 1);
-    if(room.controller.level >= 4 && storage && room.memory.danger == false && sweepers < Math.floor(droppedPLUStombs/3)) {
+    if(room.controller.level >= 4 && storage && !room.memory.danger && room.memory.danger_timer > 0 && sweepers < Math.floor(droppedPLUStombs/3)) {
         let newName = 'Sweeper-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'sweeper'}});
         console.log('Adding Sweeper to Spawn List: ' + newName);
@@ -1677,7 +1686,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                 if (Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME) {
                     let newName = 'EnergyMiner-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                     if(targetRoomName == room.name) {
-                        if(room.memory.danger && values.pathLength && values.pathLength >= 12) {
+                        if((room.memory.danger || room.memory.danger_timer > 0) && values.pathLength && values.pathLength >= 12) {
                             return;
                         }
                         if(room.energyCapacityAvailable >= 750) {

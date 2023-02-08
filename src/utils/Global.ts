@@ -79,6 +79,7 @@ declare global {
         controllerLink:any;
     }
     interface CreepMemory {
+        myRampartToMan:any;
         repairing: boolean;
         name: string;
         role: string;
