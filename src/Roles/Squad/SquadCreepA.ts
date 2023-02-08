@@ -99,28 +99,28 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             }
             else if(creep.memory.route.length > 2) {
                 if(creep.memory.route[0].exit == FIND_EXIT_LEFT && creep.memory.route[1].exit == FIND_EXIT_BOTTOM) {
-                    move_location = new RoomPosition(25, 48, creep.memory.route[0].room);
+                    move_location = new RoomPosition(25, 39, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_LEFT && creep.memory.route[1].exit == FIND_EXIT_TOP) {
-                    move_location = new RoomPosition(25, 1, creep.memory.route[0].room);
+                    move_location = new RoomPosition(25, 10, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_RIGHT && creep.memory.route[1].exit == FIND_EXIT_BOTTOM) {
-                    move_location = new RoomPosition(25, 48, creep.memory.route[0].room);
+                    move_location = new RoomPosition(25, 39, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_RIGHT && creep.memory.route[1].exit == FIND_EXIT_TOP) {
-                    move_location = new RoomPosition(25, 1, creep.memory.route[0].room);
+                    move_location = new RoomPosition(25, 10, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_TOP && creep.memory.route[1].exit == FIND_EXIT_LEFT) {
-                    move_location = new RoomPosition(1, 25, creep.memory.route[0].room);
+                    move_location = new RoomPosition(10, 25, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_TOP && creep.memory.route[1].exit == FIND_EXIT_RIGHT) {
-                    move_location = new RoomPosition(48, 25, creep.memory.route[0].room);
+                    move_location = new RoomPosition(39, 25, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_BOTTOM && creep.memory.route[1].exit == FIND_EXIT_LEFT) {
-                    move_location = new RoomPosition(1, 25, creep.memory.route[0].room);
+                    move_location = new RoomPosition(10, 25, creep.memory.route[0].room);
                 }
                 else if(creep.memory.route[0].exit == FIND_EXIT_BOTTOM && creep.memory.route[1].exit == FIND_EXIT_RIGHT) {
-                    move_location = new RoomPosition(48, 25, creep.memory.route[0].room);
+                    move_location = new RoomPosition(39, 25, creep.memory.route[0].room);
                 }
                 else {
                     move_location = new RoomPosition(25, 25, creep.memory.route[0].room);

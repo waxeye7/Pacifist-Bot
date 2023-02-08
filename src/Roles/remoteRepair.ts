@@ -82,15 +82,6 @@ function findLockedBuild(creep) {
     }
 
 
-    // let fleeStatus = creep.fleeHomeIfInDanger();
-    // if(fleeStatus == true) {
-    //     return;
-    // }
-    // else if(fleeStatus == "in position") {
-    //     creep.memory.suicide = true;
-    //     return;
-    // }
-
     if(!creep.memory.working && creep.store.getFreeCapacity() == 0) {
         creep.memory.working = true;
     }
@@ -99,6 +90,11 @@ function findLockedBuild(creep) {
     }
 
     if(creep.memory.working) {
+
+        if(!creep.memory.myTargetRoomServiced && creep.room.name !== creep.memory.targetRoom) {
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+        }
+
         if(creep.memory.locked_build) {
             let buildTarget:any = Game.getObjectById(creep.memory.locked_build);
             if(!buildTarget) {

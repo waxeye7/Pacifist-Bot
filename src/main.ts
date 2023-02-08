@@ -155,6 +155,10 @@ export const loop = ErrorMapper.wrapLoop(() => {
   memHack.run()
 //   console.log(Game.time % 100 + "/100");
 
+  if(Game.time % 5 == 0) {
+    console.log("my bucket:", Game.cpu.bucket)
+  }
+
   rooms();
   PowerCreepManager();
 

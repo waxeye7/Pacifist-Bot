@@ -8,7 +8,7 @@ function remotes(room) {
 
     let neighbors = Object.values(Game.map.describeExits(room.name))
     for(let roomName of neighbors) {
-        if(!room.memory.resources[roomName] && (!Game.rooms[roomName] || !Game.rooms[roomName].controller.my) || Game.map.getRoomStatus(roomName).status !== "normal") {
+        if(!room.memory.resources[roomName] && (!Game.rooms[roomName] || Game.rooms[roomName].controller && !Game.rooms[roomName].controller.my) || Game.map.getRoomStatus(roomName).status !== "normal") {
             room.memory.resources[roomName] = {};
         }
     }

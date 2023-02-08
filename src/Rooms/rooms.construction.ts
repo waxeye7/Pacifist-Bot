@@ -217,6 +217,32 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
                 return;
             }
 
+            if(storage && storage.pos.getRangeTo(blockSpot) == 7) {
+                if(blockSpot.x > storage.pos.x) {
+                    let lookForTerrainToLeft = new RoomPosition(blockSpot.x - 1,blockSpot.y, room.name).lookFor(LOOK_TERRAIN);
+                    if(lookForTerrainToLeft[0] == "wall") {
+                        return;
+                    }
+                }
+                if(blockSpot.x < storage.pos.x) {
+                    let lookForTerrainToRight = new RoomPosition(blockSpot.x + 1,blockSpot.y, room.name).lookFor(LOOK_TERRAIN);
+                    if(lookForTerrainToRight[0] == "wall") {
+                        return;
+                    }
+                }
+                if(blockSpot.y > storage.pos.y) {
+                    let lookForTerrainToTop = new RoomPosition(blockSpot.x,blockSpot.y - 1, room.name).lookFor(LOOK_TERRAIN);
+                    if(lookForTerrainToTop[0] == "wall") {
+                        return;
+                    }
+                }
+                if(blockSpot.y < storage.pos.y) {
+                    let lookForTerrainToBottom = new RoomPosition(blockSpot.x,blockSpot.y + 1, room.name).lookFor(LOOK_TERRAIN);
+                    if(lookForTerrainToBottom[0] == "wall") {
+                        return;
+                    }
+                }
+            }
 
 
             new RoomVisual(blockSpot.roomName).circle(blockSpot.x, blockSpot.y, {fill: '#000000', radius: 0.25, stroke: '#FABFAB'});

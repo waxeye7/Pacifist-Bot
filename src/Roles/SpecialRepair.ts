@@ -4,7 +4,6 @@
  **/
 
 const run = function (creep) {
-    ;
     creep.memory.moving = false;
 
 
@@ -20,10 +19,10 @@ const run = function (creep) {
         let rampartLocations = [];
         for(let i = -10; i<11; i++) {
             for(let o = -10; o <11; o++) {
-                if((i==10 || i==-10)) {
+                if((i>=8 || i<=-8)) {
                     rampartLocations.push([i,o]);
                 }
-                else if((o==10 || o==-10)) {
+                else if((o>=8 || o<=-8)) {
                     rampartLocations.push([i,o]);
                 }
             }
@@ -35,23 +34,25 @@ const run = function (creep) {
         let Ramparts = [];
 
         for(let rampartposition of RampartPositions) {
-            let position = new RoomPosition(rampartposition.x, rampartposition.y, creep.room.name);
-            let lookForStructuresHere = position.lookFor(LOOK_STRUCTURES);
+            if(rampartposition.x <= 47 && rampartposition.x >= 2 && rampartposition.y <= 47 && rampartposition.y >= 2) {
+                let position = new RoomPosition(rampartposition.x, rampartposition.y, creep.room.name);
+                let lookForStructuresHere = position.lookFor(LOOK_STRUCTURES);
 
-            if(lookForStructuresHere.length > 0) {
-                for(let building of lookForStructuresHere) {
-                    if(building.structureType == STRUCTURE_RAMPART) {
-                        Ramparts.push(building);
-                    }
-                    else if(building.structureType == STRUCTURE_CONTAINER) {
-                        let buildingsHere = building.pos.lookFor(LOOK_STRUCTURES)
-                        for(let house of buildingsHere) {
-                            if(house.structureType == STRUCTURE_RAMPART) {
-                                creep.memory.rampart_to_repair = house.id;
-                            }
+                if(lookForStructuresHere.length > 0) {
+                    for(let building of lookForStructuresHere) {
+                        if(building.structureType == STRUCTURE_RAMPART) {
+                            Ramparts.push(building);
                         }
-                        if(creep.memory.rampart_to_repair) {
-                            break;
+                        else if(building.structureType == STRUCTURE_CONTAINER) {
+                            let buildingsHere = building.pos.lookFor(LOOK_STRUCTURES)
+                            for(let house of buildingsHere) {
+                                if(house.structureType == STRUCTURE_RAMPART) {
+                                    creep.memory.rampart_to_repair = house.id;
+                                }
+                            }
+                            if(creep.memory.rampart_to_repair) {
+                                break;
+                            }
                         }
                     }
                 }
@@ -69,99 +70,55 @@ const run = function (creep) {
 
     if(creep.memory.rampart_to_repair) {
         let target:any = Game.getObjectById(creep.memory.rampart_to_repair);
-
+        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
 
         if(target) {
 
-
-            if(target.pos.x !== creep.pos.x || target.pos.y !== creep.pos.y) {
-                let path = PathFinder.search(
-                    creep.pos, {pos:target.pos, range:0},
-                    {
-                        plainCost: 1,
-                        swampCost: 5,
-                        maxOps: 2000,
-                        maxRooms: 5,
-                        roomCallback: (roomName) => roomCallbackSpecialRepair(roomName)
-                    }
-                    );
-
-                let pos = path.path[0];
-                let direction = creep.pos.getDirectionTo(pos);
-
-                if(direction == 1) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(5);
-                    }
-                }
-                else if(direction == 2) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(6);
-                    }
-                }
-                else if(direction == 3) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x + 1, creep.pos.y, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(7);
-                    }
-                }
-                else if(direction == 4) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x + 1, creep.pos.y + 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(8);
-                    }
-                }
-                else if(direction == 5) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x, creep.pos.y + 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(1);
-                    }
-                }
-                else if(direction == 6) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(2);
-                    }
-                }
-                else if(direction == 7) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(3);
-                    }
-                }
-                else if(direction == 8) {
-                    let targetRoomPosition = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name)
-                    let lookCreep = targetRoomPosition.lookFor(LOOK_CREEPS);
-                    if(lookCreep.length > 0) {
-                        lookCreep[0].move(4);
-                    }
-                }
-
-                creep.move(direction);
+            if(creep.pos.getRangeTo(target) > 3) {
+                creep.moveToSafePositionToRepairRampart(target, 3);
             }
+            else if(creep.pos.getRangeTo(target) < 3 && storage && storage.pos.getRangeTo(target) > 7) {
 
+                if(creep.memory.MyContainer) {
+                    let MyContainer:any = Game.getObjectById(creep.memory.MyContainer);
+                    if(MyContainer) {
+                        creep.moveToSafePositionToRepairRampart(MyContainer, 0);
+                    }
+                    else {
+                        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                        if(storage) {
+                            creep.moveToSafePositionToRepairRampart(storage, 1);
+                        }
+                    }
+                }
 
-            // creep.moveTo(target);
-
-            if(!creep.memory.MyContainer) {
-                let structuresHere = target.pos.lookFor(LOOK_STRUCTURES);
-                if(structuresHere.length > 0) {
-                    for(let structure of structuresHere) {
-                        if(structure.structureType == STRUCTURE_CONTAINER) {
-                            creep.memory.MyContainer = structure.id;
+            }
+            else {
+                if(!creep.memory.MyContainer) {
+                    let structuresHere = creep.pos.lookFor(LOOK_STRUCTURES);
+                    if(structuresHere.length > 0) {
+                        for(let structure of structuresHere) {
+                            if(structure.structureType == STRUCTURE_CONTAINER) {
+                                creep.memory.MyContainer = structure.id;
+                            }
+                        }
+                    }
+                    if(!creep.memory.MyContainer) {
+                        let lookConstructionSitesHere = creep.pos.lookFor(LOOK_CONSTRUCTION_SITES);
+                        if(lookConstructionSitesHere.length > 0) {
+                            for(let site of lookConstructionSitesHere) {
+                                if(site.structureType == STRUCTURE_CONTAINER) {
+                                    creep.build(lookConstructionSitesHere[0]);
+                                }
+                            }
+                        }
+                        else {
+                            target.pos.createConstructionSite(STRUCTURE_CONTAINER);
                         }
                     }
                 }
             }
+
 
             if(creep.memory.MyContainer) {
 
@@ -198,15 +155,7 @@ const run = function (creep) {
                     creep.withdraw(MyContainer, RESOURCE_ENERGY);
                 }
             }
-            else {
-                let lookConstructionSitesHere = target.pos.lookFor(LOOK_CONSTRUCTION_SITES);
-                if(lookConstructionSitesHere.length > 0) {
-                    creep.build(lookConstructionSitesHere[0]);
-                }
-                else {
-                    target.pos.createConstructionSite(STRUCTURE_CONTAINER);
-                }
-            }
+
         }
 
 

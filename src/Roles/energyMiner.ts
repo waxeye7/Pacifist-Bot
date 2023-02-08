@@ -29,8 +29,19 @@ const run = function (creep) {
         }
         if(creep.memory.harvested) {
             let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
-            let source:any = Game.getObjectById(creep.memory.source)
-            if(containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0 && source && creep.pos.getRangeTo(source) <= 2) {
+            let source:any = Game.getObjectById(creep.memory.source);
+            if(!creep.memory.allGood) {
+                let lookForStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+                if(lookForStructures.length > 0) {
+                    for(let building of lookForStructures) {
+                        if(building.structureType == STRUCTURE_CONTAINER) {
+                            creep.memory.allGood = true;
+                        }
+                    }
+                }
+            }
+
+            if(!creep.memory.allGood && containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0 && source && creep.pos.getRangeTo(source) <= 2) {
                 creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
             }
         }
