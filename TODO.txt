@@ -1,2 +1,6 @@
 4 corner room mineral miner
 make spawn more carry based on if the carry function made the full amount of parts
+
+
+add rampart to links next to sources
+cache quad squad movement inside target room if position is unchanged or after x ticks

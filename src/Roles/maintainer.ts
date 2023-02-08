@@ -11,11 +11,6 @@ const run = function (creep) {
         return;
     }
 
-
-    if(creep.room.memory.danger && creep.room.memory.danger_timer > 50) {
-        creep.memory.suicide = true;
-    }
-
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
     }
@@ -60,6 +55,10 @@ const run = function (creep) {
                     buildingsToRepair.push(rampObj);
                 }
             }
+        }
+
+        if(creep.room.memory.danger_timer > 0 && storage) {
+            buildingsToRepair = buildingsToRepair.filter(function(b) {return storage.pos.getRangeTo(b) <= 10;});
         }
 
         if(buildingsToRepair.length > 0) {

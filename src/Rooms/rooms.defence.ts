@@ -55,6 +55,14 @@ function findLocked(room) {
 
 
 function roomDefence(room) {
+    if(!room.memory.defence) {
+        room.memory.defence = {
+            towerShotsInRow:0
+        }
+    }
+    if(room.memory.danger_timer == 0) {
+        room.memory.defence.towerShotsInRow = 0;
+    }
 
     if(room.memory.danger && room.memory.danger_timer >= 250) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
@@ -114,7 +122,7 @@ function roomDefence(room) {
                     let rampartToMan = room.memory.rampartToMan;
                     let rampart:any = Game.getObjectById(rampartToMan);
                     if(rampart) {
-                        if((rampartDefenders[0].pos.getRangeTo(rampart) == 2 || rampartDefenders[0].pos.getRangeTo(rampart) == 3 || rampartDefenders[0].pos.getRangeTo(rampart) == 4) && (rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES).length == 0) || rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES).length == 1 && rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES)[0].structureType== STRUCTURE_ROAD) {
+                        if(rampart && rampartDefenders[0] && ((rampartDefenders[0].pos.getRangeTo(rampart) == 2 || rampartDefenders[0].pos.getRangeTo(rampart) == 3 || rampartDefenders[0].pos.getRangeTo(rampart) == 4) && (rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES).length == 0) || rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES).length == 1 && rampartDefenders[0].pos.lookFor(LOOK_STRUCTURES)[0].structureType== STRUCTURE_ROAD)) {
                             if(rampartDefenders[0].pos.getRangeTo(rampart) < 6) {
                                 tower.heal(rampartDefenders[0]);
                                 return;
@@ -138,6 +146,7 @@ function roomDefence(room) {
                 let rampartID = room.memory.rampartToMan
                 let rampart:any = Game.getObjectById(rampartID);
                 let closestHostile = tower.pos.findClosestByRange(HostileCreeps);
+                //  && closestHostile.owner.username == "Invader"
                 if(closestHostile && HostileCreeps.length > 1 && rampartDefendersLength >= 1 && room.memory.in_position || closestHostile && HostileCreeps.length == 1 || rampartDefendersLength == 0 && closestHostile) {
                     // if(tower.id == "6334aeac2b2c07bdd3fe6cfe" && Game.time % 2) {
                     //     tower.attack(HostileCreeps[0]);
@@ -148,6 +157,7 @@ function roomDefence(room) {
                     //     return;
                     // }
                     // else {
+                        room.memory.defence.towerShotsInRow += 1;
                     let attackTarget = room.memory.attack_target;
                     let target = Game.getObjectById(attackTarget);
                     if(rampart && rampart.pos.getRangeTo(target) < 2 && (target && Game.time % 17 == 0 || target && Game.time % 17 == 1 || target && Game.time % 17 == 2 || target && Game.time % 17 == 3 || target && Game.time % 17 == 4
@@ -156,17 +166,29 @@ function roomDefence(room) {
                         return;
                     }
                     else if(Game.time % 150 >= 0 && Game.time % 150 < 30) {
-                        tower.attack(closestHostile);
+                        if(room.memory.defence.towerShotsInRow % 450 >= 0 && room.memory.defence.towerShotsInRow % 450 < 70) {
+                            tower.attack(closestHostile);
+                        }
+
                     }
                     else if(HostileCreeps.length > 1 && target && rampart && rampart.pos.getRangeTo(target) < 2 ){
-                        tower.attack(closestHostile);
+                        if(room.memory.defence.towerShotsInRow % 450 >= 0 && room.memory.defence.towerShotsInRow % 450 < 70) {
+                            tower.attack(closestHostile);
+                        }
+
                         return;
                     }
                     else if(HostileCreeps.length == 1){
-                        tower.attack(closestHostile);
+                        if(room.memory.defence.towerShotsInRow % 450 >= 0 && room.memory.defence.towerShotsInRow % 450 < 70) {
+                            tower.attack(closestHostile);
+                        }
+
                     }
                     else {
-                        tower.attack(closestHostile);
+                        if(room.memory.defence.towerShotsInRow % 450 >= 0 && room.memory.defence.towerShotsInRow % 450 < 70) {
+                            tower.attack(closestHostile);
+                        }
+
                     }
                     // }
                 }

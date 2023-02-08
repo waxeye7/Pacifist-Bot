@@ -416,7 +416,7 @@ function market(room):any {
 
 
         for(let boost of boostsToNeed) {
-            if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 25000) {
+            if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 20000) {
                 if(Memory.resource_requests[boost].length > 0) {
                     for(let roomName of Memory.resource_requests[boost]) {
                         if(roomName !== room.name) {

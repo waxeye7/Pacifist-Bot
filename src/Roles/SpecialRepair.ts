@@ -128,6 +128,10 @@ const run = function (creep) {
                 if(!creep.memory.targets && MyContainer) {
                     let rampartIDS = [];
                     let rampartsInRange = MyContainer.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}), 3);
+                    if(storage) {
+                        rampartsInRange = rampartsInRange.filter(function(building) {return building.pos.getRangeTo(storage) > 4;});
+                    }
+
                     for(let rampart of rampartsInRange) {
                         rampartIDS.push(rampart.id);
                     }
@@ -142,8 +146,16 @@ const run = function (creep) {
 
                     if(targets.length > 0) {
                         targets.sort((a,b) => a.hits - b.hits);
-                        creep.repair(targets[0]);
+
+                        if(targets[0].hits > 10000000 && MyContainer.hits < 225000) {
+                            creep.repair(MyContainer);
+                        }
+                        else {
+                            creep.repair(targets[0]);
+                        }
+
                     }
+
                 }
                 else if(!MyContainer) {
                     creep.memory.MyContainer = false;

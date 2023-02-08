@@ -1105,7 +1105,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Builder to Spawn List: ' + name);
                 }
             }
-            if(upgraders < spawnrules[8].upgrade_creep.amount && room.controller.ticksToDowngrade < 125000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && !room.memory.danger) {
+            if(upgraders < spawnrules[8].upgrade_creep.amount && room.controller.ticksToDowngrade < 125000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 110000)) {
                 let name = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[8].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1128,7 +1128,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.memory.danger && room.memory.danger_timer > 35 && fillers < 3) {
+    if(room.memory.danger && room.memory.danger_timer > 35 && fillers < 2) {
         let name = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.unshift(getBody([CARRY,CARRY,MOVE], room, 12), name, {memory: {role: 'filler'}});
         console.log('Adding filler to Spawn List: ' + name);
@@ -1234,7 +1234,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 200000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 200000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
         let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(mineral.mineralAmount > 0) {
             let newName = 'MineralMiner-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
@@ -1419,7 +1419,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     // next to add
     let droppedPLUStombs = (room.find(FIND_DROPPED_RESOURCES).length + room.find(FIND_TOMBSTONES, {filter: tombstone => tombstone.store[RESOURCE_ENERGY] > 0}).length + 1);
-    if(room.controller.level >= 4 && storage && !room.memory.danger && room.memory.danger_timer > 0 && sweepers < Math.floor(droppedPLUStombs/3)) {
+    if(room.controller.level >= 4 && storage && !room.memory.danger && room.memory.danger_timer == 0 && sweepers < Math.floor(droppedPLUStombs/3)) {
         let newName = 'Sweeper-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
         room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'sweeper'}});
         console.log('Adding Sweeper to Spawn List: ' + newName);

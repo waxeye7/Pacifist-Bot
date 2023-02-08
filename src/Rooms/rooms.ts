@@ -153,7 +153,7 @@ function rooms() {
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-            if(room.controller.level == 8) {
+            if(room.controller.level == 8 && !Memory.CPU.reduce) {
                 observe(room);
             }
             data(room);

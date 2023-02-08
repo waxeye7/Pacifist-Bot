@@ -1140,7 +1140,10 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(creep.pos.x, creep.pos.y, 100);
         }
         else if(creep.memory.role == "SpecialRepair") {
-            costs.set(creep.pos.x, creep.pos.y, 100);
+            costs.set(creep.pos.x, creep.pos.y, 10);
+        }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
         }
     });
 
@@ -1294,6 +1297,12 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
         else if(creep.memory.role == "signifer") {
             costs.set(creep.pos.x, creep.pos.y, 255);
         }
+        else if(creep.memory.role == "SpecialRepair") {
+            costs.set(creep.pos.x, creep.pos.y, 10);
+        }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
     });
 
 
@@ -1423,6 +1432,12 @@ const roomCallbackSwampPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
         }
+        else if(creep.memory.role == "SpecialRepair") {
+            costs.set(creep.pos.x, creep.pos.y, 10);
+        }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
     });
 
 
@@ -1544,6 +1559,12 @@ const roomCallbackIgnoreRoads = (roomName: string): boolean | CostMatrix => {
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+        else if(creep.memory.role == "SpecialRepair") {
+            costs.set(creep.pos.x, creep.pos.y, 11);
+        }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
         }
     });
 
@@ -1709,6 +1730,9 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
         }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
     });
 
 
@@ -1813,6 +1837,9 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
         }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
     });
 
 
@@ -1914,6 +1941,9 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
             costs.set(creep.pos.x, creep.pos.y, 3);
+        }
+        else if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
         }
     });
 
