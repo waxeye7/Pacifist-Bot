@@ -1987,9 +1987,23 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
         }
     }
 
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        for(let i=-5; i<5; i++) {
+            for(let o=-5; o<5; o++) {
+                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                }
+            }
+        }
+    }
+
+
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
-            costs.set(struct.pos.x, struct.pos.y, 2);
+            if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
+                costs.set(struct.pos.x, struct.pos.y, 2);
+            }
         }
         else if(struct.structureType == STRUCTURE_RAMPART) {
             let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
@@ -2012,18 +2026,6 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
-
-
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        for(let i=-5; i<5; i++) {
-            for(let o=-5; o<5; o++) {
-                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
-                }
-            }
-        }
-    }
 
 
 
