@@ -29,7 +29,14 @@ const run = function (creep) {
                 buildingsToRepair.push(road);
             }
         });
-        let containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER && (s.id == creep.room.memory.Structures.bin || (s.id == creep.room.memory.Structures.controllerLink && creep.room.controller <= 6))});
+        let containers;
+        if(creep.room.controller.level <= 6) {
+            containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER});
+        }
+        else {
+            containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER && s.id == creep.room.memory.Structures.bin});
+        }
+
         if(containers.length > 0) {
             for(let container of containers) {
                 if(container.hits <= container.hitsMax - 500) {

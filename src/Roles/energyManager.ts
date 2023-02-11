@@ -557,7 +557,7 @@ import randomWords from "random-words";
 
 
 
-        if(terminal && terminal.store[RESOURCE_ENERGY] > 47500 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 10000 && terminal && terminal.store[RESOURCE_ENERGY] > MaxStorage) {
+        if(terminal && terminal.store[RESOURCE_ENERGY] > 45000 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.withdraw(terminal, RESOURCE_ENERGY);
                 creep.memory.target = storage.id;
@@ -569,7 +569,7 @@ import randomWords from "random-words";
         }
 
 
-        if(terminal && terminal.store[RESOURCE_ENERGY] < 40000 && storage && storage.store[RESOURCE_ENERGY] > 10000) {
+        if(terminal && terminal.store[RESOURCE_ENERGY] < 40000 && storage && storage.store[RESOURCE_ENERGY] > 100000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_ENERGY);
                 creep.memory.target = terminal.id;
@@ -647,10 +647,16 @@ import randomWords from "random-words";
                     }
                     return;
                 }
-                else if(storage && factory && storage.store[RESOURCE_ENERGY] < 55000 && factory.store[RESOURCE_ENERGY] > 0) {
+                else if(storage && factory && (storage.store[RESOURCE_ENERGY] < 95000 || Memory.targetRampRoom.urgent) && factory.store[RESOURCE_ENERGY] > 0) {
+
                     if(creep.pos.isNearTo(factory)) {
                         creep.withdraw(factory, RESOURCE_ENERGY);
-                        creep.memory.target = storage.id;
+                        if(storage.store[RESOURCE_ENERGY] > 95000 && Memory.targetRampRoom.urgent && terminal) {
+                            creep.memory.target = terminal.id;
+                        }
+                        else {
+                            creep.memory.target = storage.id;
+                        }
                     }
                     else {
                         creep.MoveCostMatrixRoadPrio(factory, 1);
@@ -742,27 +748,31 @@ import randomWords from "random-words";
 
 
         let nuker = Game.getObjectById(creep.room.memory.Structures.nuker) || creep.room.findNuker();
-        if(storage && nuker && storage.store[RESOURCE_GHODIUM] >= 3000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
-            if(creep.pos.isNearTo(storage)) {
-                creep.withdraw(storage, RESOURCE_GHODIUM);
-                creep.memory.target = nuker.id;
+        if(storage && nuker) {
+            if(storage.store[RESOURCE_GHODIUM] >= 3000 && nuker.store[RESOURCE_GHODIUM] < 5000) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_GHODIUM);
+                    creep.memory.target = nuker.id;
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+                return;
             }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1);
-            }
-            return;
         }
 
 
-        if(storage && nuker && storage.store[RESOURCE_ENERGY] >= 300000 && nuker.store[RESOURCE_ENERGY] < 300000) {
-            if(creep.pos.isNearTo(storage)) {
-                creep.withdraw(storage, RESOURCE_ENERGY);
-                creep.memory.target = nuker.id;
+        if(storage && nuker) {
+            if(storage.store[RESOURCE_ENERGY] >= 300000 && nuker.store[RESOURCE_ENERGY] < 300000) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_ENERGY);
+                    creep.memory.target = nuker.id;
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+                return;
             }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1);
-            }
-            return;
         }
 
 

@@ -15,7 +15,7 @@ function factory(room) {
             if(factory && factory.cooldown == 0 && factory.store[RESOURCE_ENERGY] >= 600 && storage && storage.store[RESOURCE_ENERGY] > 250000) {
                 factory.produce(RESOURCE_BATTERY);
             }
-            else if(factory && factory.cooldown == 0 && factory.store[RESOURCE_BATTERY] > 50 && factory.store.getFreeCapacity() >= 450 && storage && storage.store[RESOURCE_ENERGY] <= 50000) {
+            else if(factory && factory.cooldown == 0 && factory.store[RESOURCE_BATTERY] >= 50 && factory.store.getFreeCapacity() >= 450 && storage && (storage.store[RESOURCE_ENERGY] <= 100000 || Memory.targetRampRoom.urgent)) {
                 factory.produce(RESOURCE_ENERGY);
             }
             // if(factory.cooldown == 0) {

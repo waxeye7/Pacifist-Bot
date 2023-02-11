@@ -101,7 +101,8 @@ import randomWords from "random-words";
 
     if((!creep.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && creep.room.controller.level >= 2) {
         if(creep.room.controller.level < 7) {
-            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== creep.room.memory.Structures.bin && building.id !== creep.room.memory.Structures.storage && building.pos.getRangeTo(creep.room.controller) == 2});            if(containers.length > 0) {
+            let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== creep.room.memory.Structures.bin && building.id !== creep.room.memory.Structures.storage && building.pos.getRangeTo(creep.room.controller) == 2});
+            if(containers.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(containers);
                 if(containers.length > 1) {
                     let sources = creep.room.find(FIND_SOURCES);
@@ -118,7 +119,7 @@ import randomWords from "random-words";
             }
         }
         else {
-            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK && building.pos.getRangeTo(creep.room.controller) <= 3});
             if(links.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(links);
                 if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {
@@ -177,7 +178,7 @@ import randomWords from "random-words";
 }
 
 
- const run = function (creep) {
+const run = function (creep) {
     creep.memory.moving = false;
 
     if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {

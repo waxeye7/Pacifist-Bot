@@ -27,7 +27,7 @@ function findLocked(creep) {
             }
         }
         else {
-            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK});
+            let links = creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK && building.pos.getRangeTo(creep.room.controller) <= 3});
             if(links.length > 0) {
                 let controllerLink = creep.room.controller.pos.findClosestByRange(links);
                 if(controllerLink.pos.getRangeTo(creep.room.controller) <= 4)  {

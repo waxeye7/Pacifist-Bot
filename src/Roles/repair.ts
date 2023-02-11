@@ -2,20 +2,20 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-function findLocked(creep) {
+function findLocked(creep, storage) {
 
-    if(creep.room.memory.danger) {
-        let target:any = Game.getObjectById(creep.memory.locked);
-        if(creep.room.memory.rampartToMan && !target || creep.room.memory.rampartToMan && target && target.hits < 1000000) {
-            let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);
-            let RampartsNearRampartToMan = rampart.pos.findInRange(FIND_MY_STRUCTURES, {filter: (building) => {return (building.structureType == STRUCTURE_RAMPART);}}, 5);
-            if(RampartsNearRampartToMan.length > 0) {
-                RampartsNearRampartToMan.sort((a,b) => a.hits - b.hits);
-                creep.memory.locked = RampartsNearRampartToMan[0].id;
-                return RampartsNearRampartToMan[0].id;
-            }
-        }
-    }
+    // if(creep.room.memory.danger) {
+    //     let target:any = Game.getObjectById(creep.memory.locked);
+    //     if(creep.room.memory.rampartToMan && !target || creep.room.memory.rampartToMan && target && target.hits < 1000000) {
+    //         let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);
+    //         let RampartsNearRampartToMan = rampart.pos.findInRange(FIND_MY_STRUCTURES, {filter: (building) => {return (building.structureType == STRUCTURE_RAMPART);}}, 5);
+    //         if(RampartsNearRampartToMan.length > 0) {
+    //             RampartsNearRampartToMan.sort((a,b) => a.hits - b.hits);
+    //             creep.memory.locked = RampartsNearRampartToMan[0].id;
+    //             return RampartsNearRampartToMan[0].id;
+    //         }
+    //     }
+    // }
 
     let nukes = creep.room.find(FIND_NUKES);
     let nukeBOOL = false;
@@ -26,7 +26,12 @@ function findLocked(creep) {
     let buildingsToRepair300mil;
 
     if(creep.room.controller.level >= 6) {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
+        if(creep.room.memory.danger) {
+            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10});
+        }
+        else {
+            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
+        }
     }
     else if(creep.room.controller.level > 2) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
@@ -170,113 +175,26 @@ function findLocked(creep) {
     if(creep.memory.repairing) {
         let repairTarget:any = Game.getObjectById(creep.memory.locked);
 //  && creep.pos.getRangeTo(creep.pos.findClosestByRange(creep.room.find(FIND_HOSTILE_CREEPS))) <= 5
-        if(repairTarget && creep.room.memory.danger && creep.pos.getRangeTo(repairTarget) < 3) {
-            let fleeOutOfFire = PathFinder.search(
-                creep.pos, {pos:repairTarget.pos, range:3}, {flee: true})
-
-                let pos = fleeOutOfFire.path[0];
-                creep.move(creep.pos.getDirectionTo(pos));
-                creep.repair(repairTarget)
-                return;
-            }
-
-        if(repairTarget && creep.room.memory.danger && creep.pos.getRangeTo(repairTarget) <= 5) {
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_RAMPART);}});
-            let rampartsInTwoOrLessRange = creep.pos.findInRange(rampartsInRoom, 2);
-
-            if(rampartsInTwoOrLessRange.length) {
-                let fleeOutOfFire = PathFinder.search(
-                    creep.pos, {pos:rampartsInTwoOrLessRange[0].pos, range:3}, {flee: true, roomCallback: function(roomName){
-
-                        let costs = new PathFinder.CostMatrix;
-                        repairTarget.pos.x
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x+1, rampartsInTwoOrLessRange[0].pos.y, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y-1, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x, rampartsInTwoOrLessRange[0].pos.y+1, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y-1, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x-1, rampartsInTwoOrLessRange[0].pos.y+1, 3);
-                        costs.set(rampartsInTwoOrLessRange[0].pos.x+1, rampartsInTwoOrLessRange[0].pos.y-1, 3);
-
-                        costs.set(repairTarget.pos.x, repairTarget.pos.y, 3);
-                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y, 3);
-                        costs.set(repairTarget.pos.x+1, repairTarget.pos.y, 3);
-                        costs.set(repairTarget.pos.x, repairTarget.pos.y-1, 3);
-                        costs.set(repairTarget.pos.x, repairTarget.pos.y+1, 3);
-                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y-1, 3);
-                        costs.set(repairTarget.pos.x-1, repairTarget.pos.y+1, 3);
-                        costs.set(repairTarget.pos.x+1, repairTarget.pos.y-1, 3);
-
-
-                        if(storage) {
-                            if(storage.pos.x > creep.pos.x) {
-                                costs.set(creep.pos.x+1, creep.pos.y, 3);
-                                costs.set(creep.pos.x+1, creep.pos.y+1, 2);
-                                costs.set(creep.pos.x+1, creep.pos.y-1, 2);
-                            }
-                            else if(storage.pos.x < creep.pos.x) {
-                                costs.set(creep.pos.x-1, creep.pos.y, 3);
-                                costs.set(creep.pos.x-1, creep.pos.y+1, 2);
-                                costs.set(creep.pos.x-1, creep.pos.y-1, 2);
-                            }
-
-                            if(storage.pos.y > creep.pos.y) {
-                                costs.set(creep.pos.x, creep.pos.y+1, 3);
-                                costs.set(creep.pos.x-1, creep.pos.y+1, 2);
-                                costs.set(creep.pos.x+1, creep.pos.y+1, 2);
-                            }
-                            else if(storage.pos.y < creep.pos.y) {
-                                costs.set(creep.pos.x, creep.pos.y-1, 3);
-                                costs.set(creep.pos.x-1, creep.pos.y-1, 2);
-                                costs.set(creep.pos.x+1, creep.pos.y-1, 2);
-                            }
-
-                            if(storage.pos.x > creep.pos.x && storage.pos.y > creep.pos.y) {
-                                costs.set(creep.pos.x+1, creep.pos.y+1, 3);
-                            }
-                            else if(storage.pos.x < creep.pos.x && storage.pos.y > creep.pos.y) {
-                                costs.set(creep.pos.x-1, creep.pos.y+1, 3);
-                            }
-                            else if(storage.pos.x > creep.pos.x && storage.pos.y < creep.pos.y) {
-                                costs.set(creep.pos.x+1, creep.pos.y-1, 3);
-                            }
-                            else if(storage.pos.x < creep.pos.x && storage.pos.y < creep.pos.y) {
-                                costs.set(creep.pos.x-1, creep.pos.y-1, 3);
-                            }
-                        }
-                        return costs;
-                    }});
-
-                    let pos = fleeOutOfFire.path[0];
-                    creep.move(creep.pos.getDirectionTo(pos));
-                    creep.repair(repairTarget)
-                    return;
-            }
-        }
 
         // flee to away to realign repair range 3 away so cant be hit by ranged attackers
 
         if(!repairTarget) {
-            creep.memory.locked = findLocked(creep);
+            creep.memory.locked = findLocked(creep, storage);
         }
         else if(repairTarget && repairTarget.hits == repairTarget.hitsMax) {
-            creep.memory.locked = findLocked(creep);
+            creep.memory.locked = findLocked(creep, storage);
         }
 
-        if(!creep.memory.locked || creep.room.memory.danger && creep.memory.locked && creep.ticksToLive % 100 == 0) {
+        if(!creep.memory.locked) {
             let rampart = creep.room.memory.rampart;
             let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
             if(rampart && HostileCreeps.length > 0 && rampart.pos.getRangeTo(rampart.pos.findClosestByRange(HostileCreeps)) <= 2) {
-                creep.memory.locked = findLocked(creep);
+                creep.memory.locked = findLocked(creep, storage);
             }
         }
 
 
         if(creep.memory.locked) {
-            if(Game.time % 75 == 0 && creep.room.memory.danger) {
-                creep.memory.locked = findLocked(creep);
-            }
             let repairTarget = Game.getObjectById(creep.memory.locked);
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
@@ -307,7 +225,7 @@ function findLocked(creep) {
         let result = creep.withdrawStorage(storage);
 		if(result == 0) {
 			if(!creep.memory.locked) {
-				creep.memory.locked = findLocked(creep);
+				creep.memory.locked = findLocked(creep, storage);
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);
@@ -320,7 +238,7 @@ function findLocked(creep) {
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 		if(result == 0) {
 			if(!creep.memory.locked) {
-				creep.memory.locked = findLocked(creep);
+				creep.memory.locked = findLocked(creep, storage);
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);

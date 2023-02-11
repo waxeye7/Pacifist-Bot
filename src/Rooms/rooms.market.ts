@@ -799,12 +799,12 @@ function market(room):any {
         }
     }
 
-    let targetRampRoom = Memory.targetRampRoom;
+    let targetRampRoom = Memory.targetRampRoom.room;
     if(targetRampRoom && Game.time % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
-            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && storage.store[RESOURCE_ENERGY] > 275000) {
+            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && storage.store[RESOURCE_ENERGY] > 200000) {
                 room.terminal.send(RESOURCE_ENERGY, 10000, targetRampRoom, "enjoy this energy, other room!");
                 console.log("sending room", targetRampRoom, "10000 energy")
             }

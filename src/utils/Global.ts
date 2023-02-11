@@ -21,7 +21,7 @@ declare global {
         tasks: any;
         uuid: number;
         log: any;
-        targetRampRoom:string | false;
+        targetRampRoom:any;
         // my_goods:Array<Array<string & string>>;
         my_goods:any;
         target_colonise:any;

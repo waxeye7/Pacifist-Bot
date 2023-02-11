@@ -37,7 +37,6 @@ function findLocked(creep) {
  **/
 
  const run = function (creep) {
-    ;
     creep.memory.moving = false;
 
 
