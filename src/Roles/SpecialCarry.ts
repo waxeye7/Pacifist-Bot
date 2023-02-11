@@ -6,7 +6,7 @@
 const run = function (creep) {
     creep.memory.moving = false;
 
-    if(creep.memory.suicide == true) {
+    if(creep.memory.suicide) {
 		creep.recycle();
         return;
 	}
@@ -19,7 +19,7 @@ const run = function (creep) {
     }
 
 
-    if(creep.ticksToLive <= 20 && !creep.memory.full) {
+    if(creep.ticksToLive <= 22 && !creep.memory.full || creep.memory.full && creep.ticksToLive <= 12) {
 		creep.memory.suicide = true;
 	}
 
@@ -50,29 +50,14 @@ const run = function (creep) {
             }
 
 
-            if(!creep.memory.container_target) {
-                if(storage && target.pos.getRangeTo(storage) > 4) {
-                    let structuresHere = target.pos.lookFor(LOOK_STRUCTURES)
-                    if(structuresHere.length > 0) {
-                        for(let structure of structuresHere) {
-                            if(structure.structureType == STRUCTURE_CONTAINER) {
-                                creep.memory.container_target = structure.id;
-                            }
-                        }
-                    }
+
+            // let container:any = Game.getObjectById(creep.memory.container_target);
+
+
+            if(target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 175) {
+                if(creep.transfer(target, RESOURCE_ENERGY) == 0 && storage && creep.store[RESOURCE_ENERGY] <= ((creep.pos.getRangeTo(storage) + 2) * 35 * 2)) {
+                    creep.drop(RESOURCE_ENERGY, creep.store[RESOURCE_ENERGY] - target.store.getFreeCapacity());
                 }
-            }
-
-            let container:any = Game.getObjectById(creep.memory.container_target);
-
-            if(target && container && creep.pos.isNearTo(container) && container.store.getFreeCapacity() !== 0) {
-
-                if(creep.transfer(container, RESOURCE_ENERGY) == 0) {
-                    // creep.memory.full = false;
-                }
-            }
-            else if(target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 50) {
-                creep.transfer(target, RESOURCE_ENERGY);
             }
         }
 

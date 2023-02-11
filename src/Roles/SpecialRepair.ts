@@ -43,17 +43,17 @@ const run = function (creep) {
                         if(building.structureType == STRUCTURE_RAMPART) {
                             Ramparts.push(building);
                         }
-                        else if(building.structureType == STRUCTURE_CONTAINER) {
-                            let buildingsHere = building.pos.lookFor(LOOK_STRUCTURES)
-                            for(let house of buildingsHere) {
-                                if(house.structureType == STRUCTURE_RAMPART) {
-                                    creep.memory.rampart_to_repair = house.id;
-                                }
-                            }
-                            if(creep.memory.rampart_to_repair) {
-                                break;
-                            }
-                        }
+                        // else if(building.structureType == STRUCTURE_CONTAINER) {
+                        //     let buildingsHere = building.pos.lookFor(LOOK_STRUCTURES)
+                        //     for(let house of buildingsHere) {
+                        //         if(house.structureType == STRUCTURE_RAMPART) {
+                        //             creep.memory.rampart_to_repair = house.id;
+                        //         }
+                        //     }
+                        //     if(creep.memory.rampart_to_repair) {
+                        //         break;
+                        //     }
+                        // }
                     }
                 }
             }
@@ -71,63 +71,38 @@ const run = function (creep) {
     if(creep.memory.rampart_to_repair) {
         let target:any = Game.getObjectById(creep.memory.rampart_to_repair);
         let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+        let lookForCreepsAtTarget;
+        if(target && creep.pos.getRangeTo(target) !== 0) {
+            lookForCreepsAtTarget = target.pos.lookFor(LOOK_CREEPS);
+        }
 
         if(target) {
 
             if(creep.pos.getRangeTo(target) > 3) {
                 creep.moveToSafePositionToRepairRampart(target, 3);
             }
-            else if(creep.pos.getRangeTo(target) < 3 && storage && storage.pos.getRangeTo(target) > 7) {
-
-                if(creep.memory.MyContainer) {
-                    let MyContainer:any = Game.getObjectById(creep.memory.MyContainer);
-                    if(MyContainer) {
-                        creep.moveToSafePositionToRepairRampart(MyContainer, 0);
-                    }
-                    else {
-                        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
-                        if(storage) {
-                            creep.moveToSafePositionToRepairRampart(storage, 1);
+            else if(creep.pos.getRangeTo(target) == 1 && storage && creep.pos.getRangeTo(storage) == 10 && lookForCreepsAtTarget.length == 1 && lookForCreepsAtTarget[0].my && lookForCreepsAtTarget[0].memory.role == "RampartDefender") {
+                let lookForBuildingsOnCreep = creep.pos.lookFor(LOOK_STRUCTURES);
+                if(lookForBuildingsOnCreep.length > 0) {
+                    for(let building of lookForBuildingsOnCreep) {
+                        if(building.structureType == STRUCTURE_RAMPART) {
+                            creep.memory.rampart_to_repair = building.id;
+                            creep.memory.targets = false;
+                            return;
                         }
                     }
                 }
+            }
+            else if(creep.pos.getRangeTo(target) <= 3 && creep.pos.getRangeTo(target) >= 1 && storage && creep.pos.getRangeTo(storage) !== 7 && target.pos.lookFor(LOOK_CREEPS).length == 0) {
+
+                creep.moveToSafePositionToRepairRampart(target, 0);
 
             }
             else {
-                if(!creep.memory.MyContainer) {
-                    let structuresHere = creep.pos.lookFor(LOOK_STRUCTURES);
-                    if(structuresHere.length > 0) {
-                        for(let structure of structuresHere) {
-                            if(structure.structureType == STRUCTURE_CONTAINER) {
-                                creep.memory.MyContainer = structure.id;
-                            }
-                        }
-                    }
-                    if(!creep.memory.MyContainer) {
-                        let lookConstructionSitesHere = creep.pos.lookFor(LOOK_CONSTRUCTION_SITES);
-                        if(lookConstructionSitesHere.length > 0) {
-                            for(let site of lookConstructionSitesHere) {
-                                if(site.structureType == STRUCTURE_CONTAINER) {
-                                    creep.build(lookConstructionSitesHere[0]);
-                                }
-                            }
-                        }
-                        else {
-                            creep.pos.createConstructionSite(STRUCTURE_CONTAINER);
-                        }
-                    }
-                }
-            }
 
-
-            if(creep.memory.MyContainer) {
-
-                let MyContainer:any = Game.getObjectById(creep.memory.MyContainer);
-
-
-                if(!creep.memory.targets && MyContainer) {
+                if(!creep.memory.targets) {
                     let rampartIDS = [];
-                    let rampartsInRange = MyContainer.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}), 3);
+                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}), 3);
                     if(storage) {
                         rampartsInRange = rampartsInRange.filter(function(building) {return building.pos.getRangeTo(storage) > 4;});
                     }
@@ -138,7 +113,7 @@ const run = function (creep) {
                     creep.memory.targets = rampartIDS;
                 }
 
-                if(creep.memory.targets && MyContainer) {
+                if(creep.memory.targets) {
                     let targets = [];
                     for(let rampartid of creep.memory.targets) {
                         targets.push(Game.getObjectById(rampartid));
@@ -147,30 +122,27 @@ const run = function (creep) {
                     if(targets.length > 0) {
                         targets.sort((a,b) => a.hits - b.hits);
 
-                        if(targets[0].hits > 10000000 && MyContainer.hits < 225000) {
-                            creep.repair(MyContainer);
-                        }
-                        else {
-                            creep.repair(targets[0]);
-                        }
+                        creep.repair(targets[0]);
 
                     }
 
                 }
-                else if(!MyContainer) {
-                    creep.memory.MyContainer = false;
-                    creep.memory.rampart_to_repair = false;
-                    creep.memory.targets = false;
-                }
-
-                if(MyContainer && creep.store[RESOURCE_ENERGY] <= creep.getActiveBodyparts(WORK) && creep.pos.isNearTo(MyContainer) && MyContainer.store[RESOURCE_ENERGY] > 0) {
-                    creep.withdraw(MyContainer, RESOURCE_ENERGY);
+                if(creep.store[RESOURCE_ENERGY] <= 35) {
+                    let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && creep.pos.getRangeTo(r) <= 1});
+                    if(droppedResources.length > 0) {
+                        droppedResources.sort((a,b) => b.amount - a.amount);
+                        creep.pickup(droppedResources[0]);
+                    }
                 }
             }
 
+
+
+
+
+
+
         }
-
-
         else {
             creep.memory.rampart_to_repair = false;
         }
