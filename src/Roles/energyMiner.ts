@@ -65,6 +65,9 @@ const run = function (creep) {
             if(!result) {
                 return;
             }
+            else if (result) {
+                creep.memory.boosted = true;
+            }
         }
 
 
@@ -80,7 +83,7 @@ const run = function (creep) {
         }
 
 
-        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 4 || creep.memory.boostlabs && creep.store.getFreeCapacity() <= creep.getActiveBodyparts(WORK) * 12) {
+        if(!creep.memory.boosted && creep.store.getFreeCapacity() <= (8 * 4) || creep.memory.boosted && creep.store.getFreeCapacity() <= (12 * 12) || creep.store.getFreeCapacity() <= 40) {
             let source:any = Game.getObjectById(creep.memory.sourceId);
             if(creep.pos.isNearTo(source)) {
                 if(!creep.memory.NearbyExtensions) {
@@ -105,21 +108,27 @@ const run = function (creep) {
                 }
             }
 
-            if(creep.room.controller.level >= 7 && !creep.memory.myRampart && creep.ticksToLive > 1300 && Game.time % 10 == 0) {
-                let lookStructs = creep.pos.lookFor(LOOK_STRUCTURES);
-                for(let building of lookStructs) {
-                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 11000000) {
+            if(creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
+                let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
+                let rampartsInRangeOne = creep.pos.findInRange(myRamparts, 1);
+                if(rampartsInRangeOne.length > 0) {
+                    rampartsInRangeOne.sort((a,b) => a.amount - b.amount);
+                }
+                for(let building of rampartsInRangeOne) {
+                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 20050000) {
                         creep.memory.myRampart = building.id;
                     }
                 }
+                creep.memory.checkedForRampartToRepair = true;
             }
 
 
             if(creep.ticksToLive > 275 && creep.memory.myRampart && source && source.ticksToRegeneration * 10.5 > source.energy) {
                 let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                let rampart:any = Game.getObjectById(creep.memory.myRampart);
                 if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
-                    let rampart:any = Game.getObjectById(creep.memory.myRampart);
-                    if(rampart && rampart.hits < 11000000) {
+
+                    if(rampart && rampart.hits < 20050000) {
                         creep.repair(rampart);
                         return;
                     }
@@ -127,9 +136,42 @@ const run = function (creep) {
                         creep.memory.myRampart = false;
                     }
                 }
+                else if(storage && storage.store[RESOURCE_ENERGY] > 50000 && rampart && rampart.hits < 5050000) {
+                    creep.repair(rampart);
+                    return;
+                }
+                else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 15050000) {
+                    creep.repair(rampart);
+                    return;
+                }
             }
 
-            let closestLink = Game.getObjectById(creep.memory.sourceLink) || source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK}));
+
+            if(!creep.memory.checkedForSites) {
+                let siteIDs = []
+                let constructionSitesNearCreep = creep.pos.findInRange(creep.room.find(FIND_MY_CONSTRUCTION_SITES), 1);
+                if(constructionSitesNearCreep.length > 0) {
+                    for(let site of constructionSitesNearCreep) {
+                        siteIDs.push(site.id);
+                    }
+                }
+                if(siteIDs.length > 0) {
+                    creep.memory.constructionSites = siteIDs;
+                }
+                creep.memory.checkedForSites = true;
+            }
+            if(creep.memory.constructionSites && creep.memory.constructionSites.length > 0) {
+                let site:any = Game.getObjectById(creep.memory.constructionSites[creep.memory.constructionSites.length - 1]);
+                if(site) {
+                    creep.build(site);
+                }
+                else {
+                    creep.memory.constructionSites.pop()
+                }
+            }
+
+
+            let closestLink = Game.getObjectById(creep.memory.sourceLink) || source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK && creep.pos.getRangeTo(s) < 5}));
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);
@@ -140,24 +182,31 @@ const run = function (creep) {
             }
         }
 
-        if(!creep.memory.boostlabs && creep.store.getFreeCapacity() >= creep.getActiveBodyparts(WORK) * 2 || creep.memory.boostlabs && creep.store.getFreeCapacity() >= creep.getActiveBodyparts(WORK) * 6) {
+        if(!creep.memory.boosted && creep.store.getFreeCapacity() >= (8 * 4) || creep.memory.boosted && creep.store.getFreeCapacity() >= (12 * 12)) {
             let result = creep.harvestEnergy();
         }
-
-        // if(result == 0) {
-        // if(creep.roadCheck()) {
-        //     creep.moveAwayIfNeedTo();
-        // }
-        // }
-        // if(creep.harvestEnergy() == -1) {
-        //     let containers = creep
-
-        // }
 
 
 
         if(creep.store[RESOURCE_ENERGY] > 0 && creep.memory.homeRoom == creep.memory.targetRoom) {
+
             let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLink();
+
+            if(closestLink && closestLink.pos.isNearTo(creep) && !creep.memory.checkedForRampart) {
+                let lookForBuildingsHere = closestLink.pos.lookFor(LOOK_STRUCTURES);
+                let found = false;
+                for(let building of lookForBuildingsHere) {
+                    if(building.structureType == STRUCTURE_RAMPART) {
+                        found = true;
+                    }
+                }
+                let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+                if(!found && storage && closestLink.pos.getRangeTo(storage) > 7) {
+                    closestLink.pos.createConstructionSite(STRUCTURE_RAMPART);
+                }
+                creep.memory.checkedForRampart = true;
+            }
+
             let targetLink:any = Game.getObjectById(creep.room.memory.Structures.StorageLink) || creep.room.findStorageLink();
             let closestLinkToController;
             if(creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.controllerLink) {
