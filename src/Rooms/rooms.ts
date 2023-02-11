@@ -62,11 +62,11 @@ function rooms() {
                     }
                 }
             });
-            Memory.targetRampRoom = current;
+            Memory.targetRampRoom.room = current;
 
 
             if(room.controller && room.controller.level == 6 && room.controller.progress < 10000) {
-                Memory.targetRampRoom = room.name
+                Memory.targetRampRoom.room = room.name
             }
         }
 
@@ -92,6 +92,19 @@ function rooms() {
             }
             if(room.controller.level >= 5 && room.memory.Structures.container) {
                 delete room.memory.Structures.container;
+            }
+
+
+            if(room.memory.danger && room.memory.danger_timer > 125 && Game.time % 25 == 0) {
+                let remoteRooms = Object.keys(room.memory.resources);
+                if(remoteRooms.length > 1) {
+                    remoteRooms = remoteRooms.filter(function(remoteRoom) {return remoteRoom !== room.name;});
+                    if(remoteRooms.length > 1) {
+                        for(let remoteRoom of remoteRooms) {
+                            room.memory.resources[remoteRoom].active = false;
+                        }
+                    }
+                }
             }
 
 
@@ -125,7 +138,13 @@ function rooms() {
                 Memory.CPU.reduce = true;
                 let storage:any = Game.getObjectById(room.memory.Structures.storage);
                 if(storage && storage.store[RESOURCE_ENERGY] < 175000) {
-                    Memory.targetRampRoom = room.name;
+                    Memory.targetRampRoom.room = room.name;
+                    if(storage.store[RESOURCE_ENERGY] < 80000) {
+                        Memory.targetRampRoom.urgent = true;
+                    }
+                    else if(Game.time % 400 == 0) {
+                        Memory.targetRampRoom.urgent = false;
+                    }
                 }
             }
             else if(Game.time % 1000 == 0) {
@@ -153,7 +172,7 @@ function rooms() {
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-            if(room.controller.level == 8 && !Memory.CPU.reduce) {
+            if(room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 9990)) {
                 observe(room);
             }
             data(room);
@@ -184,7 +203,7 @@ function rooms() {
             }
 
 
-            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000) {
+            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000 && !room.memory.danger) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
@@ -277,7 +296,7 @@ function rooms() {
             }
 
         }
-        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 3) {
+        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 4) {
             for(let roomName of myRooms) {
                 let room = Game.rooms[roomName];
                 let remoteRooms = Object.keys(room.memory.resources);
