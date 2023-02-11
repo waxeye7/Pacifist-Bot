@@ -41,6 +41,7 @@ function findLocked(creep) {
     creep.memory.moving = false;
 
 
+
     if(creep.memory.suicide == true) {
         creep.recycle();
         return;
@@ -67,110 +68,28 @@ function findLocked(creep) {
         creep.memory.full = false;
     }
 
-    if(creep.memory.full) {
-        let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        let bin;
-        if(storage && creep.room.memory.Structures) {
-            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
-        }
-
-        if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
-            if(Game.getObjectById(creep.memory.storage)) {
-                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
-            }
-            else {
-                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
-            }
-        }
-
-
-        if(storage && storage.store.getFreeCapacity() !== 0) {
-            if(creep.pos.isNearTo(storage)) {
-                if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                    creep.memory.full = false;
-                }
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1)
-            }
-        }
-        else if(bin && bin.store.getFreeCapacity() != 0) {
-            if(creep.pos.isNearTo(bin)) {
-                if(creep.transfer(bin, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
-                    creep.memory.full = false;
-                }
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(bin, 1)
-            }
-        }
-        else {
-            if(!creep.memory.locked) {
-                let target = findLocked(creep);
-
-                if(!target) {
-                    if(spawn) {
-                        if(creep.pos.isNearTo(spawn) && creep.room.controller.level > 1) {
-                            creep.drop(RESOURCE_ENERGY);
-                        }
-                        else {
-                            creep.MoveCostMatrixRoadPrio(spawn, 1)
-                        }
-                        return;
-                    }
-                }
-            }
-
-            if(creep.memory.locked) {
-                let target = Game.getObjectById(creep.memory.locked);
-
-                if(!target) {
-                    if(spawn) {
-                        if(creep.pos.isNearTo(spawn)) {
-                            creep.drop(RESOURCE_ENERGY);
-                        }
-                        else {
-                            creep.MoveCostMatrixRoadPrio(spawn, 1)
-                        }
-                        return;
-                    }
-                }
-
-                if(creep.pos.isNearTo(target)) {
-                    creep.transfer(target, RESOURCE_ENERGY);
-                    if(creep.store[RESOURCE_ENERGY] == 0) {
-                        creep.memory.full = false;
-                    }
-                    else {
-                        findLocked(creep);
-                        let target = Game.getObjectById(creep.memory.locked);
-                        if(!creep.pos.isNearTo(target)) {
-                            creep.MoveCostMatrixRoadPrio(target, 1)
-                        }
-                    }
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(target, 1)
-                }
-            }
-        }
+    if(!creep.memory.full && creep.memory.pathLength && creep.ticksToLive + 3 == creep.memory.pathLength * 2) {
+        creep.memory.suicide = true;
     }
 
-    else {
-        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-                let travelTarget:any = Game.getObjectById(creep.memory.sourceId);
-                if(travelTarget == null) {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
-                    // return creep.moveToRoom(creep.memory.targetRoom, 25, 25, true, 1, 15);
-                }
+    if(creep.memory.full) {
 
-                // let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-                // if(lookForExistingStructures.length == 0 && creep.room.name != creep.memory.homeRoom && creep.room.name != creep.memory.targetRoom) {
-                //     creep.pos.createConstructionSite(STRUCTURE_ROAD);
-                // }
-                return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
-                // return creep.moveToRoom(creep.memory.targetRoom, travelTarget.pos.x, travelTarget.pos.y, true, 1, 2);
+        if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        }
+
+        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+        if(storage) {
+            creep.MoveCostMatrixRoadPrio(storage, 1)
+        }
+        creep.memory.role = "FakeFiller";
+        return;
+
+    }
+
+    if(!creep.memory.full) {
+        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         if(result == 0 && creep.store.getFreeCapacity() == 0) {
