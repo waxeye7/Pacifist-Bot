@@ -14,8 +14,32 @@ const run = function (creep:Creep) {
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
-            if(!creep.memory.myRampartToMan || creep.ticksToLive % 80 == 0) {
-                creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
+
+
+            if(!creep.memory.myRampartToMan || creep.ticksToLive % 3 == 0) {
+
+                let roomRampartTarget:any = Game.getObjectById(creep.room.memory.rampartToMan);
+
+                let rangeFromCreepToCreep;
+                let rangeFromRampartToCreep;
+                if(roomRampartTarget) {
+                    let closestEnemyCreepToRoomRampart = roomRampartTarget.pos.findClosestByRange(enemyCreeps);
+                    if(closestEnemyCreepToRoomRampart) {
+                        rangeFromRampartToCreep = roomRampartTarget.pos.getRangeTo(closestEnemyCreepToRoomRampart);
+                        rangeFromCreepToCreep = creep.pos.getRangeTo(closestEnemyCreep);
+                    }
+                }
+                if(rangeFromCreepToCreep && rangeFromRampartToCreep) {
+                    if(rangeFromCreepToCreep > rangeFromRampartToCreep) {
+                        creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
+                    }
+
+                }
+                else {
+                    creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
+                }
+
+
             }
             let rampartToMan = creep.memory.myRampartToMan;
 
@@ -27,8 +51,11 @@ const run = function (creep:Creep) {
                 if(LookStructures.length > 0) {
                     for(let building of LookStructures) {
                         if(building.structureType == STRUCTURE_RAMPART) {
-                            creep.attack(closestEnemyCreep);
-                            creep.room.memory.attack_target = closestEnemyCreep.id;
+
+                            let attackResult = creep.attack(closestEnemyCreep);
+                            if(attackResult == 0) {
+                                creep.room.roomTowersAttackEnemy(closestEnemyCreep);
+                            }
 
                             if(Game.time % 10 == 0) {
                                 creep.say("☮️", true);
@@ -48,10 +75,10 @@ const run = function (creep:Creep) {
 
                             if(rampart && creep.pos.isNearTo(rampart) && !creep.pos.isEqualTo(rampart) && Game.time % 10 == 1) {
 
-                                creep.moveTo(rampart);
+                                creep.moveToSafePositionToRepairRampart(rampart, 0);
 
                             }
-                            if(creep.attack(closestEnemyCreep) == 0) {
+                            if(attackResult == 0) {
                                 return;
                             }
                         }
@@ -67,16 +94,18 @@ const run = function (creep:Creep) {
                 //     return;
                 // }
 
+
                 let lookForStructuresHere = creep.pos.lookFor(LOOK_STRUCTURES);
                 if(lookForStructuresHere.length == 0 ||
                     lookForStructuresHere.length == 1 && lookForStructuresHere[0].structureType == STRUCTURE_ROAD ||
                     lookForStructuresHere.length == 2 && lookForStructuresHere[0].structureType == STRUCTURE_ROAD && lookForStructuresHere[1].structureType == STRUCTURE_CONTAINER ||
-                    lookForStructuresHere.length == 2 && lookForStructuresHere[1].structureType == STRUCTURE_ROAD && lookForStructuresHere[0].structureType == STRUCTURE_CONTAINER) {
+                    lookForStructuresHere.length == 2 && lookForStructuresHere[1].structureType == STRUCTURE_ROAD && lookForStructuresHere[0].structureType == STRUCTURE_CONTAINER ||
+                    creep.pos.getRangeTo(rampart) > 2) {
                     if(creep.pos.getRangeTo(rampart) > 3) {
-                        creep.MoveCostMatrixRoadPrio(rampart, 0);
+                        creep.moveToSafePositionToRepairRampart(rampart, 0);
                     }
                     else {
-                        creep.moveTo(rampart);
+                        creep.moveToSafePositionToRepairRampart(rampart, 0);
                     }
                     creep.attack(closestEnemyCreep);
                     return;
@@ -103,9 +132,16 @@ const run = function (creep:Creep) {
                 // }
 
                 // && rampart.pos.lookFor(LOOK_CREEPS).length == 1
-                else if(creep.pos && creep.pos != rampart.pos && enemyCreeps.length <= 1 && creep.pos.getRangeTo(closestEnemyCreep) <= 2 && creep.hits == 5000) {
+                else if(creep.pos && creep.pos != rampart.pos && enemyCreeps.length <= 1 && (creep.pos.getRangeTo(closestEnemyCreep) == Math.floor(Math.random() * 2) + 2 && creep.ticksToLive % 83 <= 11 || creep.pos.isNearTo(closestEnemyCreep)) && creep.hits == 5000) {
                     creep.moveTo(closestEnemyCreep);
-                    creep.attack(closestEnemyCreep);
+                    let result = creep.attack(closestEnemyCreep);
+                    let rangeToCreep = creep.pos.getRangeTo(closestEnemyCreep);
+                    if(result == 0 || closestEnemyCreep.hits < closestEnemyCreep.hitsMax && (rangeToCreep == 3 || rangeToCreep == 2)) {
+                        creep.room.roomTowersAttackEnemy(closestEnemyCreep);
+                    }
+                    if(result == 0 && creep.room.memory.Structures.towers && creep.room.memory.Structures.towers.length > 0) {
+                        creep.room.roomTowersAttackEnemy(closestEnemyCreep);
+                    }
                     return;
                 }
                 else {
@@ -115,13 +151,15 @@ const run = function (creep:Creep) {
                           lookForStructuresHere.length == 2 && lookForStructuresHere[0].structureType == STRUCTURE_ROAD && lookForStructuresHere[1].structureType == STRUCTURE_CONTAINER ||
                           (rampart && creep.pos.isNearTo(rampart) && Game.time % 5 == 0) || (rampart && creep.pos.getRangeTo(rampart) == 2 && Game.time % 21 == 0)) {
                         if(creep.pos.isNearTo(rampart)){
-                            creep.moveTo(rampart);
+                            creep.moveToSafePositionToRepairRampart(rampart, 0)
                         }
                         else {
-                            creep.MoveCostMatrixRoadPrio(creep.room.terminal, 1)
+                            creep.moveToSafePositionToRepairRampart(creep.room.terminal, 1)
                         }
                     }
-                    creep.attack(closestEnemyCreep);
+                    if(creep.attack(closestEnemyCreep) == 0) {
+                        creep.room.roomTowersAttackEnemy(closestEnemyCreep);
+                    }
                     // else if(creep.pos.getRangeTo(rampart) == 2) {
                     //     if(creep.room.terminal) {
                     //         creep.moveTo(creep.room.terminal);
