@@ -10,8 +10,46 @@ interface Room {
     findStorageLink:() => object | void;
     findObserver:() => object | void;
     findNuker:() => object | void;
+    roomTowersHealMe:any;
+    roomTowersAttackEnemy:any;
 }
 
+
+Room.prototype.roomTowersHealMe = function(creep): object | void {
+    if(creep) {
+        let towerIDs = this.memory.Structures.towers;
+        let towerObjs = [];
+        for(let towerID of towerIDs) {
+            let towerObj = Game.getObjectById(towerID);
+            if(towerObj) {
+                towerObjs.push(towerObj);
+            }
+        }
+        if(towerObjs.length > 0) {
+            for(let tower of towerObjs) {
+                tower.heal(creep);
+            }
+        }
+    }
+}
+
+Room.prototype.roomTowersAttackEnemy = function(enemyCreep): object | void {
+    if(enemyCreep) {
+        let towerIDs = this.memory.Structures.towers;
+        let towerObjs = [];
+        for(let towerID of towerIDs) {
+            let towerObj = Game.getObjectById(towerID);
+            if(towerObj) {
+                towerObjs.push(towerObj);
+            }
+        }
+        if(towerObjs.length > 0) {
+            for(let tower of towerObjs) {
+                tower.attack(enemyCreep);
+            }
+        }
+    }
+}
 
 Room.prototype.findNuker = function(): object | void {
     let nukers = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_NUKER);}});
