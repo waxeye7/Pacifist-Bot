@@ -817,7 +817,11 @@ function construction(room) {
                     let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
                     // room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3room.controller.getRangeTo(room.controller.pos.findClosestByRange(links)) > 3
                     if(links.length == 3) {
-                        room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
+                        let currentControllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
+                        if(currentControllerLink && currentControllerLink == STRUCTURE_CONTAINER || !currentControllerLink) {
+                            room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
+                        }
+
                     }
 
 
@@ -930,6 +934,23 @@ function construction(room) {
                                         let road = building.id;
                                         if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, road, 0)) {
                                             room.memory.keepTheseRoads.push(road);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) <= 10});
+                        for(let rampart of MyRamparts) {
+                            let lookForStructsHere = rampart.pos.lookFor(LOOK_STRUCTURES);
+                            if(lookForStructsHere.length == 1) {
+                                rampart.pos.createConstructionSite(STRUCTURE_ROAD);
+                            }
+                            else {
+                                for(let building of lookForExistingStructures) {
+                                    if(building.structureType == STRUCTURE_ROAD) {
+                                        if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, building.id, 0)) {
+                                            room.memory.keepTheseRoads.push(building.id);
                                         }
                                     }
                                 }
@@ -1078,10 +1099,15 @@ function construction(room) {
             let sources = room.find(FIND_SOURCES);
 
             sources.forEach(source => {
-                let sourceLink = source.pos.findInRange(links, 3)[0];
-                if(sourceLink == undefined) {
+                let sourceLinks = source.pos.findInRange(links, 2);
+                if(sourceLinks.length == 0) {
                     let open = source.pos.getOpenPositionsIgnoreCreeps();
                     findTwoOpenSpotsForLink(open, storage, room);
+                }
+                for(let link of sourceLinks) {
+                    if(storage.pos.getRangeTo(link) > 7) {
+                        link.pos.createConstructionSite(STRUCTURE_RAMPART);
+                    }
                 }
             });
         }
@@ -1361,29 +1387,33 @@ function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, ori
 
                 let buildhere = firstSpotOnPath.getOpenPositionsIgnoreCreeps();
 
-                for (let i = 0; i < buildhere.length; i++) {
-                    new RoomVisual(room.name).circle(buildhere[i].x, buildhere[i].y, {fill: 'transparent', radius: 0.75, stroke: 'white'});
+                let myLinks = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK});
+                if(myLinks.length >= 4) {
+                    for (let i = 0; i < buildhere.length; i++) {
+                        new RoomVisual(room.name).circle(buildhere[i].x, buildhere[i].y, {fill: 'transparent', radius: 0.75, stroke: 'white'});
 
-                    let buildings = buildhere[i].lookFor(LOOK_STRUCTURES);
-                    if(buildings.length == 0) {
-                        let count = 0;
-                        if(new RoomPosition(buildhere[i].x + 1, buildhere[i].y, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
-                            count ++;
-                        }
-                        if(new RoomPosition(buildhere[i].x - 1, buildhere[i].y, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
-                            count ++;
-                        }
-                        if(new RoomPosition(buildhere[i].x, buildhere[i].y + 1, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
-                            count ++;
-                        }
-                        if(new RoomPosition(buildhere[i].x, buildhere[i].y - 1, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
-                            count ++;
-                        }
-                        if(count < 2) {
-                            buildhere[i].createConstructionSite(STRUCTURE_EXTENSION);
+                        let buildings = buildhere[i].lookFor(LOOK_STRUCTURES);
+                        if(buildings.length == 0) {
+                            let count = 0;
+                            if(new RoomPosition(buildhere[i].x + 1, buildhere[i].y, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
+                                count ++;
+                            }
+                            if(new RoomPosition(buildhere[i].x - 1, buildhere[i].y, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
+                                count ++;
+                            }
+                            if(new RoomPosition(buildhere[i].x, buildhere[i].y + 1, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
+                                count ++;
+                            }
+                            if(new RoomPosition(buildhere[i].x, buildhere[i].y - 1, room.name).lookFor(LOOK_TERRAIN)[0] == "wall") {
+                                count ++;
+                            }
+                            if(count < 2) {
+                                buildhere[i].createConstructionSite(STRUCTURE_EXTENSION);
+                            }
                         }
                     }
                 }
+
                 return;
             }
             else {
@@ -1516,39 +1546,39 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
             [storageX + 2,storageY + 6],
             [storageX + 4,storageY + 6],
             [storageX + 6,storageY + 6],
-            [storageX + -5,storageY + -7],
-            [storageX + -3,storageY + -7],
-            [storageX + -1,storageY + -7],
-            [storageX + 1,storageY + -7],
-            [storageX + 3,storageY + -7],
-            [storageX + 5,storageY + -7],
-            [storageX + -7,storageY + -5],
-            [storageX + -7,storageY + -3],
-            [storageX + -7,storageY + -1],
-            [storageX + -7,storageY + 5],
-            [storageX + -5,storageY + 7],
-            [storageX + -3,storageY + 7],
-            [storageX + -1,storageY + 7],
-            [storageX + 1,storageY + 7],
-            [storageX + 3,storageY + 7],
-            [storageX + 5,storageY + 7],
-            [storageX + 7,storageY + 5],
-            [storageX + 7,storageY + 3],
-            [storageX + 7,storageY + 1],
-            [storageX + 7,storageY + -1],
-            [storageX + 7,storageY + -3],
-            [storageX + 7,storageY + -5],
-            [storageX + 0,storageY + 7],
-            [storageX + 7,storageY + 0],
-            [storageX + 0,storageY + -7],
-            [storageX + 4,storageY + 7],
-            [storageX + -4,storageY + 7],
-            [storageX + 7,storageY + 4],
-            [storageX + 7,storageY + -4],
-            [storageX + 4,storageY + -7],
-            [storageX + -4,storageY + -7],
-            [storageX + -7,storageY + 4],
-            [storageX + -7,storageY + -4],
+            // [storageX + -5,storageY + -7],
+            // [storageX + -3,storageY + -7],
+            // [storageX + -1,storageY + -7],
+            // [storageX + 1,storageY + -7],
+            // [storageX + 3,storageY + -7],
+            // [storageX + 5,storageY + -7],
+            // [storageX + -7,storageY + -5],
+            // [storageX + -7,storageY + -3],
+            // [storageX + -7,storageY + -1],
+            // [storageX + -7,storageY + 5],
+            // [storageX + -5,storageY + 7],
+            // [storageX + -3,storageY + 7],
+            // [storageX + -1,storageY + 7],
+            // [storageX + 1,storageY + 7],
+            // [storageX + 3,storageY + 7],
+            // [storageX + 5,storageY + 7],
+            // [storageX + 7,storageY + 5],
+            // [storageX + 7,storageY + 3],
+            // [storageX + 7,storageY + 1],
+            // [storageX + 7,storageY + -1],
+            // [storageX + 7,storageY + -3],
+            // [storageX + 7,storageY + -5],
+            // [storageX + 0,storageY + 7],
+            // [storageX + 7,storageY + 0],
+            // [storageX + 0,storageY + -7],
+            // [storageX + 4,storageY + 7],
+            // [storageX + -4,storageY + 7],
+            // [storageX + 7,storageY + 4],
+            // [storageX + 7,storageY + -4],
+            // [storageX + 4,storageY + -7],
+            // [storageX + -4,storageY + -7],
+            // [storageX + -7,storageY + 4],
+            // [storageX + -7,storageY + -4],
 
             // non extension buildings
             [storageX + -1,storageY + 2],
@@ -1709,39 +1739,39 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
             [storageX + 2,storageY + 6],
             [storageX + 4,storageY + 6],
             [storageX + 6,storageY + 6],
-            [storageX + -5,storageY + -7],
-            [storageX + -3,storageY + -7],
-            [storageX + -1,storageY + -7],
-            [storageX + 1,storageY + -7],
-            [storageX + 3,storageY + -7],
-            [storageX + 5,storageY + -7],
-            [storageX + -7,storageY + -5],
-            [storageX + -7,storageY + -3],
-            [storageX + -7,storageY + -1],
-            [storageX + -7,storageY + 5],
-            [storageX + -5,storageY + 7],
-            [storageX + -3,storageY + 7],
-            [storageX + -1,storageY + 7],
-            [storageX + 1,storageY + 7],
-            [storageX + 3,storageY + 7],
-            [storageX + 5,storageY + 7],
-            [storageX + 7,storageY + 5],
-            [storageX + 7,storageY + 3],
-            [storageX + 7,storageY + 1],
-            [storageX + 7,storageY + -1],
-            [storageX + 7,storageY + -3],
-            [storageX + 7,storageY + -5],
-            [storageX + 0,storageY + 7],
-            [storageX + 7,storageY + 0],
-            [storageX + 0,storageY + -7],
-            [storageX + 4,storageY + 7],
-            [storageX + -4,storageY + 7],
-            [storageX + 7,storageY + 4],
-            [storageX + 7,storageY + -4],
-            [storageX + 4,storageY + -7],
-            [storageX + -4,storageY + -7],
-            [storageX + -7,storageY + 4],
-            [storageX + -7,storageY + -4],
+            // [storageX + -5,storageY + -7],
+            // [storageX + -3,storageY + -7],
+            // [storageX + -1,storageY + -7],
+            // [storageX + 1,storageY + -7],
+            // [storageX + 3,storageY + -7],
+            // [storageX + 5,storageY + -7],
+            // [storageX + -7,storageY + -5],
+            // [storageX + -7,storageY + -3],
+            // [storageX + -7,storageY + -1],
+            // [storageX + -7,storageY + 5],
+            // [storageX + -5,storageY + 7],
+            // [storageX + -3,storageY + 7],
+            // [storageX + -1,storageY + 7],
+            // [storageX + 1,storageY + 7],
+            // [storageX + 3,storageY + 7],
+            // [storageX + 5,storageY + 7],
+            // [storageX + 7,storageY + 5],
+            // [storageX + 7,storageY + 3],
+            // [storageX + 7,storageY + 1],
+            // [storageX + 7,storageY + -1],
+            // [storageX + 7,storageY + -3],
+            // [storageX + 7,storageY + -5],
+            // [storageX + 0,storageY + 7],
+            // [storageX + 7,storageY + 0],
+            // [storageX + 0,storageY + -7],
+            // [storageX + 4,storageY + 7],
+            // [storageX + -4,storageY + 7],
+            // [storageX + 7,storageY + 4],
+            // [storageX + 7,storageY + -4],
+            // [storageX + 4,storageY + -7],
+            // [storageX + -4,storageY + -7],
+            // [storageX + -7,storageY + 4],
+            // [storageX + -7,storageY + -4],
 
             // non extension buildings
             [storageX + -1,storageY + 2],
