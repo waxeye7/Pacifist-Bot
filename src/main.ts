@@ -2,6 +2,7 @@
 
 import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
+import { memHack } from "utils/MemHack";
 
 import global from "./utils/Global";
 
@@ -25,6 +26,7 @@ import roleUpgrader from "./Roles/upgrader";
 import roleRepair from "./Roles/repair";
 import roleMaintainer from "Roles/maintainer";
 import roleFiller from "./Roles/filler";
+import roleFakeFiller from "Roles/FakeFiller";
 import roleControllerLinkFiller from "Roles/ControllerLinkFiller";
 import roleDefender from "./Roles/defender";
 import roleAttacker from "./Roles/attacker";
@@ -91,6 +93,7 @@ global.ROLES = {
   maintainer: roleMaintainer,
 
   filler: roleFiller,
+  FakeFiller: roleFakeFiller,
   ControllerLinkFiller: roleControllerLinkFiller,
   defender: roleDefender,
 
@@ -143,17 +146,20 @@ global.ROLES = {
 
 
 
-import { memHack } from "utils/MemHack";
-
-
-
-
 export const loop = ErrorMapper.wrapLoop(() => {
   const startTotal = Game.cpu.getUsed();
 
 
   memHack.run()
 //   console.log(Game.time % 100 + "/100");
+
+
+  if(!Memory.targetRampRoom) {
+    Memory.targetRampRoom = {
+      room:false,
+      urgent:false
+    }
+  }
 
   if(Game.time % 5 == 0) {
     console.log("my bucket:", Game.cpu.bucket)
@@ -265,6 +271,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
   console.log(tickTotal);
+
 
   if(!Memory.CPU) {
     Memory.CPU = {};
