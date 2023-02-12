@@ -111,12 +111,34 @@ const run = function (creep) {
             if(creep.room.controller.level >= 7 && !creep.memory.myRampart && !creep.memory.checkedForRampartToRepair) {
                 let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
                 let rampartsInRangeOne = creep.pos.findInRange(myRamparts, 1);
+
                 if(rampartsInRangeOne.length > 0) {
-                    rampartsInRangeOne.sort((a,b) => a.amount - b.amount);
+                    rampartsInRangeOne.sort((a,b) => a.hits - b.hits);
                 }
+
+                let found = false;
                 for(let building of rampartsInRangeOne) {
+                    if(found) {
+                        break;
+                    }
                     if(building.structureType == STRUCTURE_RAMPART && building.hits < 20050000) {
-                        creep.memory.myRampart = building.id;
+                        let buildingsHereLookFor = building.pos.lookFor(LOOK_STRUCTURES);
+                        for(let buildingHere of buildingsHereLookFor) {
+                            if(buildingHere.structureType == STRUCTURE_LINK) {
+                                creep.memory.myRampart = building.id;
+                                found = true;
+                                break;
+                            }
+                        }
+                        let creepsHere = building.pos.lookFor(LOOK_CREEPS);
+                        for(let c of creepsHere) {
+                            if(c.my && c.memory.role == "EnergyMiner") {
+                                creep.memory.myRampart = building.id;
+                                found = true;
+                                break;
+                            }
+                        }
+
                     }
                 }
                 creep.memory.checkedForRampartToRepair = true;
@@ -143,6 +165,9 @@ const run = function (creep) {
                 else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 15050000) {
                     creep.repair(rampart);
                     return;
+                }
+                else {
+                    creep.memory.myRampart = false;
                 }
             }
 
@@ -208,18 +233,13 @@ const run = function (creep) {
             }
 
             let targetLink:any = Game.getObjectById(creep.room.memory.Structures.StorageLink) || creep.room.findStorageLink();
-            let closestLinkToController;
-            if(creep.room.controller && creep.room.controller.level >= 7 && !creep.memory.controllerLink) {
-                creep.memory.controllerLink = creep.room.controller.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}})).id;
-            }
+            let closestLinkToController:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
+
             if(targetLink == null || closestLink == null) {
                 console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
                 return;
             }
 
-            if(creep.memory.controllerLink) {
-                closestLinkToController = Game.getObjectById(creep.memory.controllerLink);
-            }
             if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 closestLink.transferEnergy(closestLinkToController);
             }
