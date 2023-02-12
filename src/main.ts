@@ -70,6 +70,8 @@ import rolePowerHeal from "Roles/PowerHeal";
 
 import roleEfficient from "Roles/PowerCreeps/efficient";
 
+import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
+
 global.ROLES = {
   PowerMelee: rolePowerMelee,
   PowerHeal: rolePowerHeal,
@@ -142,6 +144,8 @@ global.ROLES = {
   Guard: roleGuard,
 
   efficient: roleEfficient,
+
+  SneakyControllerUpgrader: roleSneakyControllerUpgrader,
 }
 
 
@@ -159,6 +163,10 @@ export const loop = ErrorMapper.wrapLoop(() => {
       room:false,
       urgent:false
     }
+  }
+
+  if(!Memory.keepAfloat) {
+    Memory.keepAfloat = [];
   }
 
   if(Game.time % 5 == 0) {
