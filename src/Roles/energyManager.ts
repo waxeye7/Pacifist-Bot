@@ -708,7 +708,7 @@ import randomWords from "random-words";
 
                 if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
                     for(let resource in terminal.store) {
-                        if(listOfResourcesToStorage.includes(resource) && (storage.store[resource] < 30000 && terminal.store[resource] > 0 || terminal.store[resource] > 3000)) {
+                        if(listOfResourcesToStorage.includes(resource) && (storage.store[resource] < 25000 && terminal.store[resource] > 0 || terminal.store[resource] > 3000)) {
                             if(creep.pos.isNearTo(terminal)) {
                                 if(storage.store[resource] > 30000) {
                                     creep.withdraw(terminal,resource, terminal.store[resource] - 3000);

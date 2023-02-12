@@ -30,12 +30,37 @@ function rooms() {
         //     delete room.memory;
         // }
 
+
         if (room && room.controller && room.controller.my) {
+
+            if(Game.time % 100 == 0) {
+                let spawnAmount = room.find(FIND_MY_SPAWNS).length
+                if(room.controller.level >= 6 && spawnAmount == 0) {
+                    if(!Memory.keepAfloat.includes(room.name)) {
+                        Memory.keepAfloat.push(room.name)
+                    }
+                }
+                else if(room.controller.level >= 6 && spawnAmount > 0) {
+                    if(Memory.keepAfloat.includes(room.name)) {
+                        Memory.keepAfloat = Memory.keepAfloat.filter(r => r !== room.name);
+                    }
+                }
+            }
+
+
+            if(room.controller.safeMode && room.controller.safeMode > 100) {
+                room.memory.danger = false;
+                room.memory.danger_timer = 0;
+            }
+
             if(room.memory.danger) {
                 room.memory.danger_timer ++;
+                if(room.memory.danger_timer > 10000) {
+                    room.memory.danger_timer = 0;
+                }
             }
             else if(!room.memory.danger && room.memory.danger_timer > 0) {
-                room.memory.danger_timer --;
+                room.memory.danger_timer -= 25;
             }
 
             roomsIController += 1;
@@ -67,15 +92,6 @@ function rooms() {
 
             if(room.controller && room.controller.level == 6 && room.controller.progress < 10000) {
                 Memory.targetRampRoom.room = room.name
-            }
-        }
-
-        if(Game.time % 300 == 0) {
-            if(Game.gcl.level > roomsIController) {
-                Memory.CanClaimRemote = Game.gcl.level - roomsIController;
-            }
-            else {
-                Memory.CanClaimRemote = 0;
             }
         }
 
@@ -259,6 +275,16 @@ function rooms() {
 
 
     });
+
+
+    if(Game.time % 300 == 0) {
+        if(Game.gcl.level > roomsIController) {
+            Memory.CanClaimRemote = Game.gcl.level - roomsIController;
+        }
+        else {
+            Memory.CanClaimRemote = 0;
+        }
+    }
 
 
     if(Game.time % 10000 == 0) {

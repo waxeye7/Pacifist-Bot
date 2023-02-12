@@ -768,7 +768,7 @@ function construction(room) {
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource1.path.pop();
                 // }
-                if(pathFromStorageToSource1.path.length > 7) {
+                if(storage.pos.getRangeTo(pathFromStorageToSource1.path[pathFromStorageToSource1.path.length - 1]) > 7) {
                     container1.createConstructionSite(STRUCTURE_RAMPART);
                 }
 
@@ -777,7 +777,7 @@ function construction(room) {
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource2.path.pop();
                 // }
-                if(pathFromStorageToSource2.path.length > 7) {
+                if(storage.pos.getRangeTo(pathFromStorageToSource2.path[pathFromStorageToSource2.path.length - 1]) > 7) {
                     container2.createConstructionSite(STRUCTURE_RAMPART);
                 }
 
@@ -1866,7 +1866,6 @@ const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix =
         for(let o = -10; o <11; o++) {
             if((i==10 || i==-10)) {
                 let combinedX = storage.pos.x + i;
-                console.log(combinedX)
                 if(combinedX >= 2 && combinedX <= 47) {
                     rampartLocations.push([i,o]);
                 }

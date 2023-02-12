@@ -100,7 +100,7 @@ const run = function (creep) {
             }
             else {
 
-                if(!creep.memory.targets) {
+                if(!creep.memory.targets || creep.ticksToLive % 44 == 0) {
                     let rampartIDS = [];
                     let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}), 3);
                     if(storage) {

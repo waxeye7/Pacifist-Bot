@@ -3,7 +3,6 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    ;
 
     if(creep.memory.suicide) {
         creep.recycle();
