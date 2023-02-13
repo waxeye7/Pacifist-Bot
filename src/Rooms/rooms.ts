@@ -60,7 +60,14 @@ function rooms() {
                 }
             }
             else if(!room.memory.danger && room.memory.danger_timer > 0) {
-                room.memory.danger_timer -= 25;
+                if(room.memory.danger_timer > 25) {
+                    room.memory.danger_timer -= 25;
+                }
+                else {
+                    room.memory.danger_timer = 0;
+                }
+
+
             }
 
             roomsIController += 1;
@@ -226,7 +233,6 @@ function rooms() {
                     }
                 });
             }
-
             if(Game.time % 1506 == 1505 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2 ) {
                 const start = Game.cpu.getUsed()
                 construction(room);

@@ -332,7 +332,8 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
         }});
     }
 
-    if(this.memory.route != 2 && this.memory.route.length > 0) {
+
+    if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         let exit;
 
@@ -2286,7 +2287,7 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "RampartDefender") {
-            costs.set(creep.pos.x, creep.pos.y, 255);
+            costs.set(creep.pos.x, creep.pos.y, 200);
         }
         else if(creep.memory.role == "SpecialRepair") {
             costs.set(creep.pos.x, creep.pos.y, 100);

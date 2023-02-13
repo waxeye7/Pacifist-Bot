@@ -638,9 +638,9 @@ function construction(room) {
 
                     checkerboard = [
                         [-2,-2], [2,-2], [2,0],
-                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3],[-3,-2],[-3,2],[3,-2],
-                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[-4,4],[-2,4],[0,4],
-                        [-5,-5],[-5,3],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,1],[-5,-1],[-5,5],[-3,5],[-1,5],[1,5],[0,5],[0,-5],[-5,0],
+                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3],[-3,-2],[-3,2],[3,-2],[3,1],[3,-1],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,2],[-4,0],[-4,4],[-2,4],[0,4],[4,2],[4,-2],
+                        [-5,-5],[-5,3],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,1],[-5,-1],[-5,5],[-3,5],[-1,5],[1,5],[0,5],[0,-5],[-5,0],[5,1],[5,-1],
                         [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[-6,0],[-6,2],[6,-2],[6,0],[6,2],[-6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
                         [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,1],[-7,3],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5],
                         [0,7],[7,0],[0,-7],[-7,0],[4,7],[-4,7],[7,4],[7,-4],[4,-7],[-4,-7],[-7,4],[-7,-4]
@@ -648,12 +648,11 @@ function construction(room) {
 
                 }
                 else {
-
                     checkerboard = [
                         [-2,-2], [2,-2], [2,0],
-                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [1,3], [3,3],[-3,-2],[3,-2],
-                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,4],[-2,4],[0,4],[2,4],[4,4],
-                        [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],[0,5],[0,-5],
+                        [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [1,3], [3,3],[-3,-2],[3,-2],[3,-1],[3,1],
+                        [-4,-4],[-2,-4],[0,-4],[2,-4],[4,-4],[-4,-2],[-4,4],[-2,4],[0,4],[2,4],[4,4],[4,-2],[4,2],
+                        [-5,-5],[-3,-5],[-1,-5],[1,-5],[3,-5],[5,-5],[-5,-3],[5,-3],[-5,-1],[5,3],[-5,5],[-3,5],[-1,5],[1,5],[3,5],[5,5],[0,5],[0,-5],[5,1],[5,-1],
                         [-6,-6],[-4,-6],[-2,-6],[0,-6],[2,-6],[4,-6],[6,-6],[-6,-4],[6,-4],[-6,-2],[6,-2],[6,0],[6,2],[-6,4],[6,4],[-6,6],[-4,6],[-2,6],[0,6],[2,6],[4,6],[6,6],
                         [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5],
                         [0,7],[7,0],[0,-7],[4,7],[-4,7],[7,4],[7,-4],[4,-7],[-4,-7],[-7,4],[-7,-4]
@@ -743,21 +742,77 @@ function construction(room) {
 
         if(room.controller.level >= 3) {
             if(storage) {
-                let TowerLocations = [];
-                TowerLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y - 1, room.name));
-                if(room.controller.level >= 5) {
-                    TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y - 1, room.name));
+                let storageX = storage.pos.x;
+                let storageY = storage.pos.y;
+                let tower_raw_locations = [
+                    [storageX + -5,storageY + -7],
+                    [storageX + -3,storageY + -7],
+                    [storageX + -1,storageY + -7],
+                    [storageX + 1,storageY + -7],
+                    [storageX + 3,storageY + -7],
+                    [storageX + 5,storageY + -7],
+                    [storageX + -7,storageY + -5],
+                    [storageX + -7,storageY + -3],
+                    [storageX + -7,storageY + -1],
+                    [storageX + -7,storageY + 5],
+                    [storageX + -5,storageY + 7],
+                    [storageX + -3,storageY + 7],
+                    [storageX + -1,storageY + 7],
+                    [storageX + 1,storageY + 7],
+                    [storageX + 3,storageY + 7],
+                    [storageX + 5,storageY + 7],
+                    [storageX + 7,storageY + 5],
+                    [storageX + 7,storageY + 3],
+                    [storageX + 7,storageY + 1],
+                    [storageX + 7,storageY + -1],
+                    [storageX + 7,storageY + -3],
+                    [storageX + 7,storageY + -5],
+                    [storageX + 0,storageY + 7],
+                    [storageX + 7,storageY + 0],
+                    [storageX + 0,storageY + -7],
+                    [storageX + 4,storageY + 7],
+                    [storageX + -4,storageY + 7],
+                    [storageX + 7,storageY + 4],
+                    [storageX + 7,storageY + -4],
+                    [storageX + 4,storageY + -7],
+                    [storageX + -4,storageY + -7],
+                    [storageX + -7,storageY + 4],
+                    [storageX + -7,storageY + -4]
+                ];
+                let tower_locations_to_filter = [];
+                for(let raw_location of tower_raw_locations) {
+                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
+                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
+                    }
                 }
-                if(room.controller.level >= 7) {
-                    TowerLocations.push(new RoomPosition(storage.pos.x + 3, storage.pos.y + 1, room.name));
-                }
-                if(room.controller.level == 8) {
-                    TowerLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y + 2, room.name));
-                    TowerLocations.push(new RoomPosition(storage.pos.x + 4, storage.pos.y - 2, room.name));
-                    TowerLocations.push(new RoomPosition(storage.pos.x + 5, storage.pos.y + 1, room.name));
+                let tower_locations_to_shuffle = [];
+                if(storage) {
+                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
+                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
+                        for(let location of tower_locations_to_filter) {
+                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
+                            if(closestRampartToLocation == 3) {
+                                tower_locations_to_shuffle.push(location);
+                            }
+                        }
+
+                        const shuffle = arr => {
+                            for (let i = arr.length - 1; i > 0; i--) {
+                              const j = Math.floor(Math.random() * (i + 1));
+                              const temp = arr[i];
+                              arr[i] = arr[j];
+                              arr[j] = temp;
+                            }
+                            return arr;
+                        }
+                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
+                        console.log(shuffled_tower_locations);
+
+                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
+                    }
+
                 }
 
-                DestroyAndBuild(room, TowerLocations, STRUCTURE_TOWER);
             }
         }
         if(room.controller.level >= 1) {
@@ -1044,7 +1099,6 @@ function construction(room) {
                     // topLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestTopLeftRampart = storage.pos.findClosestByRange(topLeftRamparts);
                     let pathFromStorageToFurthestTopLeftRampart = PathFinder.search(storage.pos, {pos:closestTopLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
-                    pathFromStorageToFurthestTopLeftRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestTopLeftRampart, STRUCTURE_ROAD, room);
                 }
                 let topRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+1 && rampart.pos.y < storage.pos.y-1;});
@@ -1052,7 +1106,6 @@ function construction(room) {
                     // topRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestTopRightRampart = storage.pos.findClosestByRange(topRightRamparts);
                     let pathFromStorageToFurthestTopRightRampart = PathFinder.search(storage.pos, {pos:closestTopRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
-                    pathFromStorageToFurthestTopRightRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestTopRightRampart, STRUCTURE_ROAD, room);
                 }
                 let bottomRightRamparts = ramparts.filter(function(rampart) {return rampart.pos.x > storage.pos.x+1 && rampart.pos.y > storage.pos.y+1;});
@@ -1060,7 +1113,6 @@ function construction(room) {
                     // bottomRightRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestBottomRightRampart = storage.pos.findClosestByRange(bottomRightRamparts);
                     let pathFromStorageToFurthestBottomRightRampart = PathFinder.search(storage.pos, {pos:closestBottomRightRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
-                    pathFromStorageToFurthestBottomRightRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestBottomRightRampart, STRUCTURE_ROAD, room);
                 }
 
@@ -1069,7 +1121,6 @@ function construction(room) {
                     // bottomLeftRamparts.sort((a,b) => b.pos.getRangeTo(storage) - a.pos.getRangeTo(storage));
                     let closestBottomLeftRampart = storage.pos.findClosestByRange(bottomLeftRamparts);
                     let pathFromStorageToFurthestBottomLeftRampart = PathFinder.search(storage.pos, {pos:closestBottomLeftRampart.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
-                    pathFromStorageToFurthestBottomLeftRampart.path.pop()
                     pathBuilder(pathFromStorageToFurthestBottomLeftRampart, STRUCTURE_ROAD, room);
                 }
             }
@@ -1332,6 +1383,29 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
     }
 }
 
+function BuildIfICan(LocationsList, StructureType:string) {
+    for(let location of LocationsList) {
+        let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
+        if(lookForExistingStructures.length > 0) {
+            let canIBuild = true;
+            for(let existingstructure of lookForExistingStructures) {
+                if(existingstructure.structureType === STRUCTURE_ROAD || existingstructure.structureType === STRUCTURE_RAMPART || existingstructure.structureType === STRUCTURE_CONTAINER) {
+                    continue;
+                }
+                else {
+                    canIBuild = false;
+                    break;
+                }
+            }
+
+            if(canIBuild) {
+                new RoomVisual(location.roomName).circle(location.x, location.y, {fill: 'full', radius: 0.25, stroke: 'black'});
+                location.createConstructionSite(StructureType);
+            }
+        }
+    }
+}
+
 
 function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
     if(open.length > 1) {
@@ -1589,12 +1663,12 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
             [storageX + 3,storageY + 2],
             [storageX + -2,storageY + 0],
             // towers
-            [storageX + 4,storageY + -2],
-            [storageX + 3,storageY + -1],
-            [storageX + 5,storageY + -1],
-            [storageX + 3,storageY + 1],
-            [storageX + 5,storageY + 1],
-            [storageX + 4,storageY + 2],
+            // [storageX + 4,storageY + -2],
+            // [storageX + 3,storageY + -1],
+            // [storageX + 5,storageY + -1],
+            // [storageX + 3,storageY + 1],
+            // [storageX + 5,storageY + 1],
+            // [storageX + 4,storageY + 2],
             // labs
             [storageX + -3,storageY + 0],
             [storageX + -3,storageY + 1],
@@ -1610,7 +1684,7 @@ const makeStructuresCostMatrix = (roomName: string): boolean | CostMatrix => {
 
         for(let position of listOfPositionsInFutureToBeBuilt) {
             if(position[0] <= 47 && position[0] >= 2 && position[1] <= 47 && position[1] >= 2) {
-                costs.set(position[0], position[1], 100);
+                costs.set(position[0], position[1], 10);
             }
         }
     }
@@ -1782,12 +1856,12 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
             [storageX + 3,storageY + 2],
             [storageX + -2,storageY + 0],
             // towers
-            [storageX + 4,storageY + -2],
-            [storageX + 3,storageY + -1],
-            [storageX + 5,storageY + -1],
-            [storageX + 3,storageY + 1],
-            [storageX + 5,storageY + 1],
-            [storageX + 4,storageY + 2],
+            // [storageX + 4,storageY + -2],
+            // [storageX + 3,storageY + -1],
+            // [storageX + 5,storageY + -1],
+            // [storageX + 3,storageY + 1],
+            // [storageX + 5,storageY + 1],
+            // [storageX + 4,storageY + 2],
             // labs
             [storageX + -3,storageY + 0],
             [storageX + -3,storageY + 1],
@@ -1803,7 +1877,7 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
 
         for(let position of listOfPositionsInFutureToBeBuilt) {
             if(position[0] <= 47 && position[0] >= 2 && position[1] <= 47 && position[1] >= 2) {
-                costs.set(position[0], position[1], 100);
+                costs.set(position[0], position[1], 10);
             }
         }
     }
@@ -1988,6 +2062,7 @@ function Situational_Building(room) {
 
 
 }
+
 
 export { Build_Remote_Roads, Situational_Building };
 

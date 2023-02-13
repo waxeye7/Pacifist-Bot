@@ -1,5 +1,6 @@
 const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     ;
+
     creep.memory.moving = false;
 
     if(creep.room.name != creep.memory.targetRoom) {

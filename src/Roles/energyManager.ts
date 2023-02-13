@@ -594,7 +594,7 @@ import randomWords from "random-words";
         }
 
         if(creep.ticksToLive % 50 == 0 || creep.ticksToLive % 50 == 1 || creep.ticksToLive % 50 == 2 || creep.ticksToLive % 50 == 3 || creep.ticksToLive % 50 == 4 || creep.ticksToLive % 50 == 5 || creep.ticksToLive % 50 == 6 || creep.ticksToLive % 50 == 7 || creep.ticksToLive % 50 == 8 || creep.ticksToLive % 50 == 9) {
-            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_KEANIUM_ACID,RESOURCE_POWER];
+            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_KEANIUM_ACID,RESOURCE_POWER,RESOURCE_BATTERY];
                 if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
                     for(let resource in terminal.store) {
                         if(listOfResourcesToStorage.includes(resource)) {
@@ -647,7 +647,7 @@ import randomWords from "random-words";
                     }
                     return;
                 }
-                else if(storage && factory && (storage.store[RESOURCE_ENERGY] < 95000 || Memory.targetRampRoom.urgent) && factory.store[RESOURCE_ENERGY] > 0) {
+                else if(storage && factory && terminal && (storage.store[RESOURCE_ENERGY] < 95000 || Memory.targetRampRoom.urgent) && factory.store[RESOURCE_ENERGY] > 0) {
 
                     if(creep.pos.isNearTo(factory)) {
                         creep.withdraw(factory, RESOURCE_ENERGY);
@@ -660,6 +660,16 @@ import randomWords from "random-words";
                     }
                     else {
                         creep.MoveCostMatrixRoadPrio(factory, 1);
+                    }
+                    return;
+                }
+                else if(storage && factory && storage.store[RESOURCE_BATTERY] >= 200 && factory.store.getFreeCapacity() >= 1000) {
+                    if(creep.pos.isNearTo(storage)) {
+                        creep.withdraw(storage, RESOURCE_BATTERY);
+                        creep.memory.target = factory.id;
+                    }
+                    else {
+                        creep.MoveCostMatrixRoadPrio(storage, 1);
                     }
                     return;
                 }

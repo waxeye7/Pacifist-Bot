@@ -80,10 +80,100 @@ function findLocked(creep) {
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         if(storage) {
-            creep.MoveCostMatrixRoadPrio(storage, 1)
+            creep.MoveCostMatrixRoadPrio(storage, 1);
+            creep.memory.role = "FakeFiller";
+            return;
         }
-        creep.memory.role = "FakeFiller";
-        return;
+        else {
+            let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
+            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+            let bin;
+            if(storage && creep.room.memory.Structures) {
+                bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+            }
+
+            if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
+                if(Game.getObjectById(creep.memory.storage)) {
+                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
+                }
+                else {
+                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+                }
+            }
+
+
+            if(storage && storage.store.getFreeCapacity() !== 0) {
+                if(creep.pos.isNearTo(storage)) {
+                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                        creep.memory.full = false;
+                    }
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1)
+                }
+            }
+            else if(bin && bin.store.getFreeCapacity() != 0) {
+                if(creep.pos.isNearTo(bin)) {
+                    if(creep.transfer(bin, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                        creep.memory.full = false;
+                    }
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(bin, 1)
+                }
+            }
+            else {
+                if(!creep.memory.locked) {
+                    let target = findLocked(creep);
+
+                    if(!target) {
+                        if(spawn) {
+                            if(creep.pos.isNearTo(spawn) && creep.room.controller.level > 1) {
+                                creep.drop(RESOURCE_ENERGY);
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(spawn, 1)
+                            }
+                            return;
+                        }
+                    }
+                }
+
+                if(creep.memory.locked) {
+                    let target = Game.getObjectById(creep.memory.locked);
+
+                    if(!target) {
+                        if(spawn) {
+                            if(creep.pos.isNearTo(spawn)) {
+                                creep.drop(RESOURCE_ENERGY);
+                            }
+                            else {
+                                creep.MoveCostMatrixRoadPrio(spawn, 1)
+                            }
+                            return;
+                        }
+                    }
+
+                    if(creep.pos.isNearTo(target)) {
+                        creep.transfer(target, RESOURCE_ENERGY);
+                        if(creep.store[RESOURCE_ENERGY] == 0) {
+                            creep.memory.full = false;
+                        }
+                        else {
+                            findLocked(creep);
+                            let target = Game.getObjectById(creep.memory.locked);
+                            if(!creep.pos.isNearTo(target)) {
+                                creep.MoveCostMatrixRoadPrio(target, 1)
+                            }
+                        }
+                    }
+                    else {
+                        creep.MoveCostMatrixRoadPrio(target, 1)
+                    }
+                }
+            }
+        }
+
 
     }
 
