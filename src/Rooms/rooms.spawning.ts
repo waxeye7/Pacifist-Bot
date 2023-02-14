@@ -1261,31 +1261,61 @@ function add_creeps_to_spawn_list(room, spawn) {
             console.log('Adding SpecialRepair to Spawn List: ' + newName);
 
             // if room memory danger
-            if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab2 && room.memory.danger && room.memory.danger_timer >= 50) {
-                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
-                    room.memory.labs.status.boost = {};
+            if(room.controller.level >= 7) {
+                if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50) {
+                    if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                        room.memory.labs.status.boost = {};
+                    }
+                    if(room.memory.labs.status.boost) {
+                        if(room.memory.labs.status.boost.lab1) {
+                            room.memory.labs.status.boost.lab1.amount += 1080;
+                            room.memory.labs.status.boost.lab1.use += 1;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab1 = {};
+                            room.memory.labs.status.boost.lab1.amount = 1080;
+                            room.memory.labs.status.boost.lab1.use = 1;
+                        }
+                    }
+
+                    room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab1]}});
                 }
-                if(room.memory.labs.status.boost) {
-                    if(room.memory.labs.status.boost.lab2) {
-                        room.memory.labs.status.boost.lab2.amount += 1080;
-                        room.memory.labs.status.boost.lab2.use += 1;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab2 = {};
-                        room.memory.labs.status.boost.lab2.amount = 1080;
-                        room.memory.labs.status.boost.lab2.use = 1;
-                    }
+                else {
+                    room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
                 }
 
-                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab2]}});
+                let newName2 = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
+                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
+                console.log('Adding SpecialCarry to Spawn List: ' + newName);
             }
-            else {
-                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
+            else if(room.controller.level == 6) {
+                if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 540 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50) {
+                    if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                        room.memory.labs.status.boost = {};
+                    }
+                    if(room.memory.labs.status.boost) {
+                        if(room.memory.labs.status.boost.lab1) {
+                            room.memory.labs.status.boost.lab1.amount += 540;
+                            room.memory.labs.status.boost.lab1.use += 1;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab1 = {};
+                            room.memory.labs.status.boost.lab1.amount = 540;
+                            room.memory.labs.status.boost.lab1.use = 1;
+                        }
+                    }
+
+                    room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab1]}});
+                }
+                else {
+                    room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
+                }
+
+                let newName2 = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
+                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
+                console.log('Adding SpecialCarry to Spawn List: ' + newName);
             }
 
-            let newName2 = 'SpecialCarry-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
-            room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName2, {memory: {role: 'SpecialCarry'}});
-            console.log('Adding SpecialCarry to Spawn List: ' + newName);
 
         }
     }
@@ -1648,9 +1678,9 @@ function spawnFirstInLine(room, spawn) {
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
                 || room.memory.spawn_list[1].startsWith("Defender")) {
 
-                    if(room.memory.spawn_list[1].startsWith("SpecialRe") && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && room.memory.labs.status.boost.lab2.amount && room.memory.labs.status.boost.lab2.use > 0) {
-                        room.memory.labs.status.boost.lab2.use = 0;
-                        room.memory.labs.status.boost.lab2. amount = 0;
+                    if(room.memory.spawn_list[1].startsWith("SpecialRe") && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && room.memory.labs.status.boost.lab1.amount && room.memory.labs.status.boost.lab1.use > 0) {
+                        room.memory.labs.status.boost.lab1.use = 0;
+                        room.memory.labs.status.boost.lab1.amount = 0;
                     }
 
                     room.memory.spawn_list.shift();
@@ -1830,19 +1860,19 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         }
                         if(room.energyCapacityAvailable >= 750) {
                             if(room.controller.level >= 6) {
-                                if(Memory.CPU.reduce && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 720 && room.memory.labs && room.memory.labs.outputLab1) {
+                                if(Memory.CPU.reduce && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 720 && room.memory.labs && room.memory.labs.outputLab8) {
                                     if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                                         room.memory.labs.status.boost = {};
                                     }
                                     if(room.memory.labs.status.boost) {
-                                        if(room.memory.labs.status.boost.lab1) {
-                                            room.memory.labs.status.boost.lab1.amount = room.memory.labs.status.boost.lab1.amount + 360;
-                                            room.memory.labs.status.boost.lab1.use += 1;
+                                        if(room.memory.labs.status.boost.lab8) {
+                                            room.memory.labs.status.boost.lab8.amount = room.memory.labs.status.boos8.lab8.amount + 360;
+                                            room.memory.labs.status.boost.lab8.use += 1;
                                         }
                                         else {
-                                            room.memory.labs.status.boost.lab1 = {};
-                                            room.memory.labs.status.boost.lab1.amount = 360;
-                                            room.memory.labs.status.boost.lab1.use = 1;
+                                            room.memory.labs.status.boost.lab8 = {};
+                                            room.memory.labs.status.boost.lab8.amount = 360;
+                                            room.memory.labs.status.boost.lab8.use = 1;
                                         }
                                     }
                                     let body;
@@ -1853,7 +1883,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                         body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE]
                                     }
                                     room.memory.spawn_list.unshift(body, newName,
-                                        {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger:danger, boostlabs:[room.memory.labs.outputLab1]}});
+                                        {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger:danger, boostlabs:[room.memory.labs.outputLab8]}});
 
                                 }
                                 else {
