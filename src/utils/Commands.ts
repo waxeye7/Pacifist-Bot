@@ -89,7 +89,7 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
             let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 1050 &&
                  storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 1050 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 &&
-                 room.memory.labs && room.memory.labs.outputLab3 && room.memory.labs.outputLab4 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5 && room.memory.labs.outputLab7) {
                     if(room.memory.labs.status && !room.memory.labs.status.boost) {
                         room.memory.labs.status.boost = {};
                     }
@@ -106,24 +106,24 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
                             room.memory.labs.status.boost.lab3.use = 1;
                         }
                         // lemer alk
-                        if(room.memory.labs.status.boost.lab4) {
-                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 1050;
-                            room.memory.labs.status.boost.lab4.use += 1;
+                        if(room.memory.labs.status.boost.lab5) {
+                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 1050;
+                            room.memory.labs.status.boost.lab5.use += 1;
                         }
                         else {
-                            room.memory.labs.status.boost.lab4 = {};
-                            room.memory.labs.status.boost.lab4.amount = 1050;
-                            room.memory.labs.status.boost.lab4.use = 1;
+                            room.memory.labs.status.boost.lab5 = {};
+                            room.memory.labs.status.boost.lab5.amount = 1050;
+                            room.memory.labs.status.boost.lab5.use = 1;
                         }
                         // zyn alk
-                        if(room.memory.labs.status.boost.lab6) {
-                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 600;
-                            room.memory.labs.status.boost.lab6.use += 2;
+                        if(room.memory.labs.status.boost.lab2) {
+                            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 600;
+                            room.memory.labs.status.boost.lab2.use += 2;
                         }
                         else {
-                            room.memory.labs.status.boost.lab6 = {};
-                            room.memory.labs.status.boost.lab6.amount = 600;
-                            room.memory.labs.status.boost.lab6.use = 2;
+                            room.memory.labs.status.boost.lab2 = {};
+                            room.memory.labs.status.boost.lab2.amount = 600;
+                            room.memory.labs.status.boost.lab2.use = 2;
                         }
                         // gho alk
                         if(room.memory.labs.status.boost.lab7) {
@@ -140,12 +140,12 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
 
                     let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
                     room.memory.spawn_list.push(bodyRam8Boosted,
-                        newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                        newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Ram to Spawn List: ' + newNameRam);
 
                     let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
                     room.memory.spawn_list.push(bodySignifer8Boosted,
-                        newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                        newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
@@ -264,7 +264,7 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
             let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 870 &&
                  storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 870 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 660 &&
-                 room.memory.labs && room.memory.labs.outputLab3 && room.memory.labs.outputLab4 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5 && room.memory.labs.outputLab7) {
                     if(room.memory.labs.status && !room.memory.labs.status.boost) {
                         room.memory.labs.status.boost = {};
                     }
@@ -281,24 +281,24 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
                             room.memory.labs.status.boost.lab3.use = 1;
                         }
                         // lemer alk
-                        if(room.memory.labs.status.boost.lab4) {
-                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 870;
-                            room.memory.labs.status.boost.lab4.use += 1;
+                        if(room.memory.labs.status.boost.lab5) {
+                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 870;
+                            room.memory.labs.status.boost.lab5.use += 1;
                         }
                         else {
-                            room.memory.labs.status.boost.lab4 = {};
-                            room.memory.labs.status.boost.lab4.amount = 870;
-                            room.memory.labs.status.boost.lab4.use = 1;
+                            room.memory.labs.status.boost.lab5 = {};
+                            room.memory.labs.status.boost.lab5.amount = 870;
+                            room.memory.labs.status.boost.lab5.use = 1;
                         }
                         // zyn alk
-                        if(room.memory.labs.status.boost.lab6) {
-                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 600;
-                            room.memory.labs.status.boost.lab6.use += 2;
+                        if(room.memory.labs.status.boost.lab2) {
+                            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 600;
+                            room.memory.labs.status.boost.lab2.use += 2;
                         }
                         else {
-                            room.memory.labs.status.boost.lab6 = {};
-                            room.memory.labs.status.boost.lab6.amount = 600;
-                            room.memory.labs.status.boost.lab6.use = 2;
+                            room.memory.labs.status.boost.lab2 = {};
+                            room.memory.labs.status.boost.lab2.amount = 600;
+                            room.memory.labs.status.boost.lab2.use = 2;
                         }
                         // gho alk
                         if(room.memory.labs.status.boost.lab7) {
@@ -315,12 +315,12 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
 
                     let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
                     room.memory.spawn_list.push(bodyRam8Boosted,
-                        newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                        newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Ram to Spawn List: ' + newNameRam);
 
                     let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
                     room.memory.spawn_list.push(bodySignifer8Boosted,
-                        newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6,room.memory.labs.outputLab7]}});
+                        newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
                     console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
@@ -477,7 +477,7 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
             let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2400 &&
                  storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
-                 room.memory.labs && room.memory.labs.outputLab4 && room.memory.labs.outputLab5 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab4 && room.memory.labs.outputLab5) {
 
                     if(room.memory.labs.status && !room.memory.labs.status.boost) {
                         room.memory.labs.status.boost = {};
@@ -485,16 +485,6 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
 
                     if(room.memory.labs.status.boost) {
                         // lemer alk
-                        if(room.memory.labs.status.boost.lab4) {
-                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 2400;
-                            room.memory.labs.status.boost.lab4.use += 2;
-                        }
-                        else {
-                            room.memory.labs.status.boost.lab4 = {};
-                            room.memory.labs.status.boost.lab4.amount = 2400;
-                            room.memory.labs.status.boost.lab4.use = 2;
-                        }
-                        // keanium alk
                         if(room.memory.labs.status.boost.lab5) {
                             room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 2400;
                             room.memory.labs.status.boost.lab5.use += 2;
@@ -504,42 +494,42 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
                             room.memory.labs.status.boost.lab5.amount = 2400;
                             room.memory.labs.status.boost.lab5.use = 2;
                         }
-                        // zyn alk
-                        if(room.memory.labs.status.boost.lab6) {
-                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 1200;
-                            room.memory.labs.status.boost.lab6.use += 4;
+                        // keanium alk
+                        if(room.memory.labs.status.boost.lab4) {
+                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 2400;
+                            room.memory.labs.status.boost.lab4.use += 2;
                         }
                         else {
-                            room.memory.labs.status.boost.lab6 = {};
-                            room.memory.labs.status.boost.lab6.amount = 1200;
-                            room.memory.labs.status.boost.lab6.use = 4;
+                            room.memory.labs.status.boost.lab4 = {};
+                            room.memory.labs.status.boost.lab4.amount = 2400;
+                            room.memory.labs.status.boost.lab4.use = 2;
                         }
-                        // // gho alk
-                        // if(room.memory.labs.status.boost.lab7) {
-                        //     room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 240;
-                        //     room.memory.labs.status.boost.lab7.use += 4;
-                        // }
-                        // else {
-                        //     room.memory.labs.status.boost.lab7 = {};
-                        //     room.memory.labs.status.boost.lab7.amount = 240;
-                        //     room.memory.labs.status.boost.lab7.use = 4;
-                        // }
+                        // zyn alk
+                        if(room.memory.labs.status.boost.lab2) {
+                            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 1200;
+                            room.memory.labs.status.boost.lab2.use += 4;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab2 = {};
+                            room.memory.labs.status.boost.lab2.amount = 1200;
+                            room.memory.labs.status.boost.lab2.use = 4;
+                        }
                     }
 
                     let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6], targetPosition: new RoomPosition(25,25,targetRoomName)}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5], targetPosition: new RoomPosition(25,25,targetRoomName)}});
                     console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
                     let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5]}});
                     console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
                     let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4]}});
                     console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
                     let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4]}});
                     console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                     return "Success with boost";
@@ -699,7 +689,7 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
             let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 2400 &&
                  storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
-                 room.memory.labs && room.memory.labs.outputLab3 && room.memory.labs.outputLab4 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5) {
 
                     if(room.memory.labs.status && !room.memory.labs.status.boost) {
                         room.memory.labs.status.boost = {};
@@ -707,14 +697,14 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
 
                     if(room.memory.labs.status.boost) {
                         // lemer alk
-                        if(room.memory.labs.status.boost.lab4) {
-                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 2400;
-                            room.memory.labs.status.boost.lab4.use += 2;
+                        if(room.memory.labs.status.boost.lab5) {
+                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 2400;
+                            room.memory.labs.status.boost.lab5.use += 2;
                         }
                         else {
-                            room.memory.labs.status.boost.lab4 = {};
-                            room.memory.labs.status.boost.lab4.amount = 2400;
-                            room.memory.labs.status.boost.lab4.use = 2;
+                            room.memory.labs.status.boost.lab5 = {};
+                            room.memory.labs.status.boost.lab5.amount = 2400;
+                            room.memory.labs.status.boost.lab5.use = 2;
                         }
                         // UTRIUM ACID
                         if(room.memory.labs.status.boost.lab3) {
@@ -727,41 +717,31 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
                             room.memory.labs.status.boost.lab3.use = 2;
                         }
                         // zyn alk
-                        if(room.memory.labs.status.boost.lab6) {
-                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 1200;
-                            room.memory.labs.status.boost.lab6.use += 4;
+                        if(room.memory.labs.status.boost.lab2) {
+                            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 1200;
+                            room.memory.labs.status.boost.lab2.use += 4;
                         }
                         else {
-                            room.memory.labs.status.boost.lab6 = {};
-                            room.memory.labs.status.boost.lab6.amount = 1200;
-                            room.memory.labs.status.boost.lab6.use = 4;
+                            room.memory.labs.status.boost.lab2 = {};
+                            room.memory.labs.status.boost.lab2.amount = 1200;
+                            room.memory.labs.status.boost.lab2.use = 4;
                         }
-                        // // gho alk
-                        // if(room.memory.labs.status.boost.lab7) {
-                        //     room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 240;
-                        //     room.memory.labs.status.boost.lab7.use += 4;
-                        // }
-                        // else {
-                        //     room.memory.labs.status.boost.lab7 = {};
-                        //     room.memory.labs.status.boost.lab7.amount = 240;
-                        //     room.memory.labs.status.boost.lab7.use = 4;
-                        // }
                     }
 
                     let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6], targetPosition: new RoomPosition(25,25,targetRoomName)}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5], targetPosition: new RoomPosition(25,25,targetRoomName)}});
                     console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
                     let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5]}});
                     console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
                     let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3]}});
                     console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
                     let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3]}});
                     console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                     return "Success with boost";
@@ -923,7 +903,7 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
             let storage:any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
             if(boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] >= 2400 &&
                  storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
-                 room.memory.labs && room.memory.labs.outputLab4 && room.memory.labs.outputLab8 && room.memory.labs.outputLab6 && room.memory.labs.outputLab7) {
+                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab5 && room.memory.labs.outputLab6) {
 
                     if(room.memory.labs.status && !room.memory.labs.status.boost) {
                         room.memory.labs.status.boost = {};
@@ -931,61 +911,51 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
 
                     if(room.memory.labs.status.boost) {
                         // lemer alk
-                        if(room.memory.labs.status.boost.lab4) {
-                            room.memory.labs.status.boost.lab4.amount = room.memory.labs.status.boost.lab4.amount + 2400;
-                            room.memory.labs.status.boost.lab4.use += 2;
+                        if(room.memory.labs.status.boost.lab5) {
+                            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 2400;
+                            room.memory.labs.status.boost.lab5.use += 2;
                         }
                         else {
-                            room.memory.labs.status.boost.lab4 = {};
-                            room.memory.labs.status.boost.lab4.amount = 2400;
-                            room.memory.labs.status.boost.lab4.use = 2;
+                            room.memory.labs.status.boost.lab5 = {};
+                            room.memory.labs.status.boost.lab5.amount = 2400;
+                            room.memory.labs.status.boost.lab5.use = 2;
                         }
                         // ZYN ACID
-                        if(room.memory.labs.status.boost.lab8) {
-                            room.memory.labs.status.boost.lab8.amount = room.memory.labs.status.boost.lab8.amount + 2400;
-                            room.memory.labs.status.boost.lab8.use += 2;
-                        }
-                        else {
-                            room.memory.labs.status.boost.lab8 = {};
-                            room.memory.labs.status.boost.lab8.amount = 2400;
-                            room.memory.labs.status.boost.lab8.use = 2;
-                        }
-                        // zyn alk
                         if(room.memory.labs.status.boost.lab6) {
-                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 1200;
-                            room.memory.labs.status.boost.lab6.use += 4;
+                            room.memory.labs.status.boost.lab6.amount = room.memory.labs.status.boost.lab6.amount + 2400;
+                            room.memory.labs.status.boost.lab6.use += 2;
                         }
                         else {
                             room.memory.labs.status.boost.lab6 = {};
-                            room.memory.labs.status.boost.lab6.amount = 1200;
-                            room.memory.labs.status.boost.lab6.use = 4;
+                            room.memory.labs.status.boost.lab6.amount = 2400;
+                            room.memory.labs.status.boost.lab6.use = 2;
                         }
-                        // // gho alk
-                        // if(room.memory.labs.status.boost.lab7) {
-                        //     room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 240;
-                        //     room.memory.labs.status.boost.lab7.use += 4;
-                        // }
-                        // else {
-                        //     room.memory.labs.status.boost.lab7 = {};
-                        //     room.memory.labs.status.boost.lab7.amount = 240;
-                        //     room.memory.labs.status.boost.lab7.use = 4;
-                        // }
+                        // zyn alk
+                        if(room.memory.labs.status.boost.lab2) {
+                            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 1200;
+                            room.memory.labs.status.boost.lab2.use += 4;
+                        }
+                        else {
+                            room.memory.labs.status.boost.lab2 = {};
+                            room.memory.labs.status.boost.lab2.amount = 1200;
+                            room.memory.labs.status.boost.lab2.use = 4;
+                        }
                     }
 
                     let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6], targetPosition: new RoomPosition(25,25,targetRoomName)}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, {memory: {role: 'SquadCreepA', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5], targetPosition: new RoomPosition(25,25,targetRoomName)}});
                     console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
                     let newNameB = 'SquadCreepB-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, {memory: {role: 'SquadCreepB', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5]}});
                     console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
                     let newNameY = 'SquadCreepY-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab8,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, {memory: {role: 'SquadCreepY', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab6]}});
                     console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
                     let newNameZ = 'SquadCreepZ-'+ RandomWords + "-" + room.name;
-                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab8,room.memory.labs.outputLab6]}});
+                    room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, {memory: {role: 'SquadCreepZ', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab6]}});
                     console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                     return "Success with boost";

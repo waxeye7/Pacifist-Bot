@@ -208,7 +208,7 @@ const run = function (creep) {
         }
 
         let storedSource:any = Game.getObjectById(creep.memory.sourceId)
-        if(!creep.memory.checkAmIOnRampart && creep.pos.isNearTo(storedSource)) {
+        if(!creep.memory.checkAmIOnRampart && creep.pos.isNearTo(storedSource) && creep.memory.homeRoom == creep.memory.targetRoom) {
             let lookForRampart = creep.pos.lookFor(LOOK_STRUCTURES);
             if(lookForRampart.length > 0) {
                 for(let building of lookForRampart) {
