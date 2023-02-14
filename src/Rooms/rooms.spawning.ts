@@ -1074,7 +1074,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 else {
                     for(let roadID of room.memory.keepTheseRoads) {
                         let road:any = Game.getObjectById(roadID);
-                        if(road && road.hits <= 2000 && (!room.memory.danger || room.memory.danger && storage && storage.pos.getRangeTo(road) <= 10)) {
+                        if(road && road.hits <= 2000 && (!room.memory.danger || room.memory.danger && storage && storage.pos.roomName == road.pos.roomName && storage.pos.getRangeTo(road) <= 10)) {
                             let name = 'Maintainer-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
                             room.memory.spawn_list.push(spawnrules[7].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
                             console.log('Adding Maintainer to Spawn List: ' + name);
@@ -1349,7 +1349,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(room.memory.danger == true && room.memory.danger_timer >= 35 && RampartDefenders < 2 && fillers >= 2) {
+    if(room.memory.danger == true && room.memory.danger_timer >= 35 && RampartDefenders < 2 && fillers >= 2 && storage && storage.store[RESOURCE_ENERGY] > 10000) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 350;});
@@ -1866,7 +1866,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                     }
                                     if(room.memory.labs.status.boost) {
                                         if(room.memory.labs.status.boost.lab8) {
-                                            room.memory.labs.status.boost.lab8.amount = room.memory.labs.status.boos8.lab8.amount + 360;
+                                            room.memory.labs.status.boost.lab8.amount = room.memory.labs.status.boost.lab8.amount + 360;
                                             room.memory.labs.status.boost.lab8.use += 1;
                                         }
                                         else {

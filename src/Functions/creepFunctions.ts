@@ -401,13 +401,16 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 
     if(storedSource) {
 
-        if(this.pos.isNearTo(storedSource) && this.memory.checkAmIOnRampart && this.memory.role == "EnergyMiner" ||
-           this.memory.role !== "EnergyMiner" && this.pos.isNearTo(storedSource)) {
+        if(this.pos.isNearTo(storedSource) &&
+        (this.memory.checkAmIOnRampart && this.memory.role == "EnergyMiner" ||
+           this.memory.role !== "EnergyMiner" || this.memory.targetRoom !== this.memory.homeRoom)) {
             return this.harvest(storedSource);
         }
         else {
+
+            this.MoveToSourceSafely(storedSource, 1);
+
             if(this.memory.danger) {
-                this.MoveToSourceSafely(storedSource, 1);
                 let HostileCreeps = this.room.find(FIND_HOSTILE_CREEPS);
                 if(HostileCreeps.length > 0) {
                     let closestHostileToCreep = this.pos.findClosestByRange(HostileCreeps);
@@ -415,9 +418,6 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
                         this.room.roomTowersHealMe(this);
                     }
                 }
-            }
-            else {
-                this.MoveCostMatrixRoadPrio(storedSource, 1);
             }
         }
     }
@@ -1227,10 +1227,10 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
                 weight = 255
             }
             else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 5;
+                weight = 15;
             }
             else if(tile == 0){
-                weight = 1;
+                weight = 3;
             }
             costs.set(x, y, weight);
         }
@@ -1242,7 +1242,7 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
-            costs.set(struct.pos.x, struct.pos.y, 1);
+            costs.set(struct.pos.x, struct.pos.y, 2);
         }
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
@@ -1307,14 +1307,14 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
             let locked:any = Game.getObjectById(creep.memory.locked);
             if(creep.pos.getRangeTo(locked) <= 3) {
-                costs.set(creep.pos.x, creep.pos.y, 3);
+                costs.set(creep.pos.x, creep.pos.y, 6);
             }
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
-            costs.set(creep.pos.x, creep.pos.y, 3);
+            costs.set(creep.pos.x, creep.pos.y, 6);
         }
         else if(creep.memory.role == "repair" && creep.memory.repairing) {
-            costs.set(creep.pos.x, creep.pos.y, 5);
+            costs.set(creep.pos.x, creep.pos.y, 6);
         }
         else if(creep.memory.role == "ram") {
             costs.set(creep.pos.x, creep.pos.y, 255);

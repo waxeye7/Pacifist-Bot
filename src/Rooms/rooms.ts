@@ -19,8 +19,6 @@ function rooms() {
     let myRooms = [];
 
 
-
-
     let roomsIController = 0;
     _.forEach(Game.rooms, function(room:any) {
         // if(!room.controller) {
@@ -54,12 +52,14 @@ function rooms() {
             }
 
             if(room.memory.danger) {
+                console.log(room.name, room.memory.danger_timer)
                 room.memory.danger_timer ++;
                 if(room.memory.danger_timer > 10000) {
                     room.memory.danger_timer = 0;
                 }
             }
             else if(!room.memory.danger && room.memory.danger_timer !== 0) {
+                console.log(room.name, room.memory.danger_timer)
                 if(room.memory.danger_timer > 25) {
                     room.memory.danger_timer -= 25;
                 }
@@ -158,7 +158,9 @@ function rooms() {
 
 
             if(room.memory.danger && room.memory.danger_timer > 100) {
-                Memory.CPU.reduce = true;
+                if(room.memory.danger_timer > 350) {
+                    Memory.CPU.reduce = true;
+                }
                 let storage:any = Game.getObjectById(room.memory.Structures.storage);
                 if(storage && storage.store[RESOURCE_ENERGY] < 175000) {
                     Memory.targetRampRoom.room = room.name;
@@ -233,7 +235,7 @@ function rooms() {
                     }
                 });
             }
-            if(Game.time % 1506 == 1505 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2 ) {
+            if(Game.time % 1506 == 0 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2 ) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
