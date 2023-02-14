@@ -996,21 +996,24 @@ function construction(room) {
                         }
 
                         let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) <= 10});
-                        for(let rampart of MyRamparts) {
-                            let lookForStructsHere = rampart.pos.lookFor(LOOK_STRUCTURES);
-                            if(lookForStructsHere.length == 1) {
-                                rampart.pos.createConstructionSite(STRUCTURE_ROAD);
-                            }
-                            else {
-                                for(let building of lookForExistingStructures) {
-                                    if(building.structureType == STRUCTURE_ROAD) {
-                                        if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, building.id, 0)) {
-                                            room.memory.keepTheseRoads.push(building.id);
+                        if(myConstructionSites.length == 0) {
+                            for(let rampart of MyRamparts) {
+                                let lookForStructsHere = rampart.pos.lookFor(LOOK_STRUCTURES);
+                                if(lookForStructsHere.length == 1) {
+                                    rampart.pos.createConstructionSite(STRUCTURE_ROAD);
+                                }
+                                else {
+                                    for(let building of lookForExistingStructures) {
+                                        if(building.structureType == STRUCTURE_ROAD) {
+                                            if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, building.id, 0)) {
+                                                room.memory.keepTheseRoads.push(building.id);
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
+
 
                     }
 

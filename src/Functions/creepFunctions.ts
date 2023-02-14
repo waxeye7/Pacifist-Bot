@@ -389,45 +389,21 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 }
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
-    // console.log(this, this.memory.targetRoom);
-
-
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
         return this.moveToRoomAvoidEnemyRooms(this.memory.targetRoom)
     }
 
     let storedSource:any = Game.getObjectById(this.memory.source);
-    if (!storedSource || (!storedSource.pos.getOpenPositions().length && !this.pos.isNearTo(storedSource))) {
+    if (!storedSource || (!storedSource.pos.getOpenPositions().length && !this.pos.isNearTo(storedSource) && !this.memory.sourceId)) {
         delete this.memory.source;
         storedSource = this.findSource();
     }
 
     if(storedSource) {
 
-        if(this.memory.role == "EnergyMiner") {
-            if(!this.memory.checkAmIOnRampart && this.pos.isNearTo(storedSource)) {
-                let lookForRampart = this.pos.lookFor(LOOK_STRUCTURES);
-                if(lookForRampart.length > 0) {
-                    for(let building of lookForRampart) {
-                        if(building.structureType == STRUCTURE_RAMPART) {
-                            this.memory.checkAmIOnRampart = true;
-                            break;
-                        }
-                    }
-                }
-                if(!this.memory.checkAmIOnRampart) {
-                    let rampartsInRange3 = this.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(this) <= 2});
-                    if(rampartsInRange3.length == 0) {
-                        this.memory.checkAmIOnRampart = true;
-                    }
-                }
-            }
-        }
-
-
-        if(this.pos.isNearTo(storedSource) && this.memory.checkAmIOnRampart && this.memory.role == "EnergyMiner" || this.memory.role !== "EnergyMiner" && this.pos.isNearTo(storedSource)) {
-            let result = this.harvest(storedSource);
-            return result;
+        if(this.pos.isNearTo(storedSource) && this.memory.checkAmIOnRampart && this.memory.role == "EnergyMiner" ||
+           this.memory.role !== "EnergyMiner" && this.pos.isNearTo(storedSource)) {
+            return this.harvest(storedSource);
         }
         else {
             if(this.memory.danger) {
@@ -443,7 +419,6 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
             else {
                 this.MoveCostMatrixRoadPrio(storedSource, 1);
             }
-
         }
     }
 
@@ -1129,10 +1104,10 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             }
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
-            costs.set(creep.pos.x, creep.pos.y, 3);
+            costs.set(creep.pos.x, creep.pos.y, 20);
         }
         else if(creep.memory.role == "repair" && creep.memory.repairing) {
-            costs.set(creep.pos.x, creep.pos.y, 5);
+            costs.set(creep.pos.x, creep.pos.y, 6);
         }
         else if(creep.memory.role == "ram") {
             costs.set(creep.pos.x, creep.pos.y, 255);
@@ -2264,10 +2239,14 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
         else if(struct.structureType == STRUCTURE_RAMPART) {
             let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
             if(lookForBuildingsHere.length > 1) {
+                let found = false;
                 for(let building of lookForBuildingsHere) {
-                    if(building.structureType !== STRUCTURE_RAMPART) {
-                        return
+                    if(building.structureType !== STRUCTURE_RAMPART && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER) {
+                        found = true;
                     }
+                }
+                if(!found) {
+                    costs.set(struct.pos.x, struct.pos.y, 4);
                 }
             }
             else {
@@ -2287,7 +2266,7 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "RampartDefender") {
-            costs.set(creep.pos.x, creep.pos.y, 200);
+            costs.set(creep.pos.x, creep.pos.y, 100);
         }
         else if(creep.memory.role == "SpecialRepair") {
             costs.set(creep.pos.x, creep.pos.y, 100);

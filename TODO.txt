@@ -6,3 +6,5 @@ cache quad squad movement inside target room if position is unchanged or after x
 
 
 add same quad inter room pathing trick when turning corner of room to make more efficient movement
+
+move utrium oxide boost to lab 8 and move repair,move,ranged attack, attack to the four main labs. maybe repair should be level 6 boost that's how i set it up for only 1 boost per lab option

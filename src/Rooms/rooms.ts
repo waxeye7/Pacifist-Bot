@@ -59,7 +59,7 @@ function rooms() {
                     room.memory.danger_timer = 0;
                 }
             }
-            else if(!room.memory.danger && room.memory.danger_timer > 0) {
+            else if(!room.memory.danger && room.memory.danger_timer !== 0) {
                 if(room.memory.danger_timer > 25) {
                     room.memory.danger_timer -= 25;
                 }

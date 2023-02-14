@@ -357,7 +357,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     // console.log(DrainTowers, "tower drainers ;)")
 
 
-    let sites = room.find(FIND_CONSTRUCTION_SITES);
+    let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
@@ -1233,21 +1233,29 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SpecialRepairers < 1 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7) {
+    if(SpecialRepairers < 2 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7) {
         let rampartsInDangerOfDying = false;
+        let rampartsInDangerOfDying4Mil = false;
         if(rampartsInRoomBelowNineMil && rampartsInRoomBelowNineMil.length > 0 && storage) {
             rampartsInRoomBelowNineMil = rampartsInRoomBelowNineMil.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
             let rampartsInRoomBelow6Mil = rampartsInRoomBelowNineMil.filter(function(r) {return r.hits <= 6050000;})
-            if(room.controller.level == 8 && rampartsInRoomBelowNineMil.length > 0) {
-                rampartsInDangerOfDying = true;
+            let rampartsInRoomBelow4Mil = rampartsInRoomBelow6Mil.filter(function(r) {return r.hits <= 4050000;})
+            if(rampartsInRoomBelow4Mil.length > 0) {
+                rampartsInDangerOfDying4Mil = true;
             }
-            else if(room.controller.level == 7 && rampartsInRoomBelow6Mil.length > 0) {
-                rampartsInDangerOfDying = true;
+            else {
+                if(room.controller.level == 8 && rampartsInRoomBelowNineMil.length > 0) {
+                    rampartsInDangerOfDying = true;
+                }
+                else if(room.controller.level == 7 && rampartsInRoomBelow6Mil.length > 0) {
+                    rampartsInDangerOfDying = true;
+                }
             }
+
         }
 
 
-        if(rampartsInDangerOfDying) {
+        if(rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 2) {
 
             let newName = 'SpecialRepair-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
             console.log('Adding SpecialRepair to Spawn List: ' + newName);
@@ -1314,7 +1322,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(room.memory.danger == true && room.memory.danger_timer >= 35 && RampartDefenders < 2 && fillers >= 2) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 250;});
+        HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 350;});
         let inRangeFourteen = false;
         if(HostileCreeps.length > 0) {
             if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 14) {
@@ -1870,7 +1878,11 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         }
 
                         else if(room.energyCapacityAvailable >= 550) {
-                            if(room.controller.level >= 6) {
+                            if(room.controller.level >= 7) {
+                                room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,CARRY,MOVE], newName,
+                                    {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                            }
+                            else if(room.controller.level == 6) {
                                 room.memory.spawn_list.unshift([WORK,WORK,WORK,WORK,WORK,MOVE], newName,
                                     {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                             }
@@ -1889,7 +1901,16 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             return;
                         }
                         else {
-                            room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName, {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                            let body;
+                            if(room.controller.level >= 5) {
+                                body = [WORK,WORK,CARRY,MOVE];
+                            }
+                            else {
+                                body = [WORK,WORK,MOVE];
+                            }
+
+
+                            room.memory.spawn_list.unshift(body, newName, {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Energy Miner to Spawn List: ' + newName);
 
                             let sourceObj:any = Game.getObjectById(sourceId);
