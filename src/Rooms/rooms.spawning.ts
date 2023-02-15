@@ -1053,7 +1053,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Builder to Spawn List: ' + name);
                 }
             }
-            if((upgraders < spawnrules[7].upgrade_creep_spend.amount && room.name !== Memory.targetRampRoom.room || upgraders < spawnrules[7].upgrade_creep_spend.amount + 3 && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
+            if((upgraders < spawnrules[7].upgrade_creep_spend.amount && room.name !== Memory.targetRampRoom.room || upgraders < spawnrules[7].upgrade_creep_spend.amount + 1 && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1443,7 +1443,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     Game.rooms[roomName].controller.level == 8 && Game.rooms[roomName].controller.ticksToDowngrade < 135000) {
 
                         let newName = 'SneakyControllerUpgrader-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
-                        room.memory.spawn_list.push([WORK,CARRY,MOVE], newName, {memory: {role: 'SneakyControllerUpgrader',targetRoom: roomName , locked_away: 0}});
+                        room.memory.spawn_list.push([CARRY,WORK,MOVE], newName, {memory: {role: 'SneakyControllerUpgrader',targetRoom: roomName , locked_away: 0}});
                         console.log('Adding Sneaky Controller Upgrader to Spawn List: ' + newName);
                         break;
 
@@ -1861,6 +1861,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         if(room.energyCapacityAvailable >= 750) {
                             if(room.controller.level >= 6) {
                                 if(Memory.CPU.reduce && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 720 && room.memory.labs && room.memory.labs.outputLab8) {
+
                                     if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                                         room.memory.labs.status.boost = {};
                                     }

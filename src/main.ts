@@ -1,5 +1,3 @@
-// rollup -cw --environment DEST:main
-
 import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
@@ -71,6 +69,7 @@ import rolePowerHeal from "Roles/PowerHeal";
 import roleEfficient from "Roles/PowerCreeps/efficient";
 
 import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
+
 
 global.ROLES = {
   PowerMelee: rolePowerMelee,
@@ -149,7 +148,6 @@ global.ROLES = {
 }
 
 
-
 export const loop = ErrorMapper.wrapLoop(() => {
   const startTotal = Game.cpu.getUsed();
 
@@ -208,7 +206,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
               creep.suicide();
           }
           else {
+            let creepUsed = Game.cpu.getUsed();
             global.ROLES[creep.memory.role].run(creep);
+            if(global.profiler) {
+              console.log(creep.memory.role, "used", (Game.cpu.getUsed() - creepUsed).toFixed(2))
+            }
+
           }
       }
     }

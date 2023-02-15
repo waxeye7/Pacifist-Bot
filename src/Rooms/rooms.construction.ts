@@ -996,7 +996,7 @@ function construction(room) {
                         }
 
                         let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) <= 10});
-                        if(myConstructionSites.length == 0) {
+                        if(myConstructionSites.length == 0 && Game.shard.name !== "shard3") {
                             for(let rampart of MyRamparts) {
                                 let lookForStructsHere = rampart.pos.lookFor(LOOK_STRUCTURES);
                                 if(lookForStructsHere.length == 1) {

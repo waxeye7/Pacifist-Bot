@@ -9,7 +9,12 @@ import data from "./rooms.data";
 import remotes from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 
+
 function rooms() {
+
+      /* */
+
+
     const start = Game.cpu.getUsed()
     // _.forEach(Memory.rooms, function(RoomMemory) {
 
@@ -235,7 +240,7 @@ function rooms() {
                     }
                 });
             }
-            if(Game.time % 1506 == 0 && Game.cpu.bucket > 1000 || room.memory.DOB == 2 || room.memory.DOGug == 2 ) {
+            if(Game.time % 1506 == 0 && Game.cpu.bucket > 1000 || room.memory.data.DOB == 2 || room.memory.data.DOGug == 2) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
