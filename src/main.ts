@@ -1,12 +1,15 @@
 import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
-
 import global from "./utils/Global";
 
-import rooms from "./Rooms/rooms";
-
+import CPUmanager from "Managers/CPUmanager";
 import PowerCreepManager from "Managers/PowerCreepManager";
+import MemoryManager from "Managers/MemoryManager";
+import RunAllCreepsManager from "Managers/RunAllCreepsManager";
+
+
+import rooms from "./Rooms/rooms";
 
 import "./Functions/powerCreepFunctions"
 import "./Functions/creepFunctions";
@@ -35,7 +38,6 @@ import roleBuildContainer from "./Roles/buildcontainer";
 import roleClaimer from "./Roles/claimer";
 import roleRemoteDismantler from "./Roles/remoteDismantler";
 import roleDismantleControllerWalls from "Roles/DismantleControllerWalls";
-
 import roleScout from "./Roles/scout";
 import roleSweeper from "Roles/sweeper";
 import roleAnnoy from "Roles/annoy";
@@ -47,285 +49,88 @@ import roleRam from "Roles/ram";
 import roleSignifer from "Roles/signifer";
 import roleBilltong from "./Roles/billtong"
 import roleGoblin from "Roles/goblin";
-
 import roleSpecialRepair from "Roles/SpecialRepair";
 import roleSpecialCarry from "Roles/SpecialCarry";
-
 import roleWallClearer from "Roles/WallClearer";
-
 import roleSquadCreepA from "Roles/Squad/SquadCreepA";
 import roleSquadCreepB from "Roles/Squad/SquadCreepB";
 import roleSquadCreepY from "Roles/Squad/SquadCreepY";
 import roleSquadCreepZ from "Roles/Squad/SquadCreepZ";
-
 import roleSign from "Roles/Sign";
 import rolePriest from "Roles/Priest";
-
 import roleGuard from "Roles/Guard";
-
 import rolePowerMelee from "Roles/PowerMelee";
 import rolePowerHeal from "Roles/PowerHeal";
-
 import roleEfficient from "Roles/PowerCreeps/efficient";
-
 import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
-
 
 global.ROLES = {
   PowerMelee: rolePowerMelee,
   PowerHeal: rolePowerHeal,
-
   MineralMiner: roleMineralMiner,
-
   EnergyMiner : roleEnergyMiner,
   carry: roleCarry,
   reserve: roleReserve,
-
   EnergyManager: roleEnergyManager,
-
   Dismantler: roleDismantler,
   RemoteRepair: roleRemoteRepair,
-
-
   builder: roleBuilder,
   upgrader: roleUpgrader,
   repair: roleRepair,
-
   maintainer: roleMaintainer,
-
   filler: roleFiller,
   FakeFiller: roleFakeFiller,
   ControllerLinkFiller: roleControllerLinkFiller,
   defender: roleDefender,
-
   attacker: roleAttacker,
   RangedAttacker: roleRangedAttacker,
-
   DrainTower: roleDrainTower,
   healer: roleHealer,
-
   buildcontainer: roleBuildContainer,
   claimer: roleClaimer,
-
-
   RemoteDismantler: roleRemoteDismantler,
   DismantleControllerWalls: roleDismantleControllerWalls,
   scout: roleScout,
-
   sweeper: roleSweeper,
-
   annoy: roleAnnoy,
   CreepKiller: roleCreepKiller,
-
   RampartDefender: roleRampartDefender,
   RampartErector: roleRampartErector,
-
   signifer: roleSignifer,
   ram: roleRam,
-
   billtong: roleBilltong,
   goblin: roleGoblin,
-
-
   SpecialRepair: roleSpecialRepair,
   SpecialCarry: roleSpecialCarry,
-
   WallClearer: roleWallClearer,
-
   SquadCreepA: roleSquadCreepA,
   SquadCreepB: roleSquadCreepB,
   SquadCreepY: roleSquadCreepY,
   SquadCreepZ: roleSquadCreepZ,
-
   Sign: roleSign,
   Priest: rolePriest,
-
   Guard: roleGuard,
-
   efficient: roleEfficient,
-
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
 }
 
-
 export const loop = ErrorMapper.wrapLoop(() => {
+
   const startTotal = Game.cpu.getUsed();
 
-
   memHack.run()
-//   console.log(Game.time % 100 + "/100");
 
-
-  if(!Memory.targetRampRoom) {
-    Memory.targetRampRoom = {
-      room:false,
-      urgent:false
-    }
-  }
-
-  if(!Memory.keepAfloat) {
-    Memory.keepAfloat = [];
-  }
-
-  if(Game.time % 5 == 0) {
-    console.log("my bucket:", Game.cpu.bucket)
-  }
+  MemoryManager();
 
   rooms();
+
   PowerCreepManager();
 
-  const start = Game.cpu.getUsed()
-
-  for(let name in Game.powerCreeps) {
-    if(name.startsWith("efficient")) {
-      let creep = Game.powerCreeps[name];
-      if(creep && creep.ticksToLive) {
-        global.ROLES["efficient"].run(creep);
-      }
-
-    }
-  }
-
-
-  let executeCreepScriptsLaterList = [];
-
-  for(let name in Memory.creeps) {
-
-    if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ")) {
-      executeCreepScriptsLaterList.push(name);
-    }
-
-    else {
-      let creep = Game.creeps[name];
-      if(!creep) {
-          delete Memory.creeps[name];
-      }
-      else {
-          if(creep.memory.role == undefined) {
-              console.log("i am undefined", name)
-              creep.suicide();
-          }
-          else {
-            let creepUsed = Game.cpu.getUsed();
-            global.ROLES[creep.memory.role].run(creep);
-            if(global.profiler) {
-              console.log(creep.memory.role, "used", (Game.cpu.getUsed() - creepUsed).toFixed(2))
-            }
-
-          }
-      }
-    }
-  }
-
-  for(let name of executeCreepScriptsLaterList) {
-    let creep = Game.creeps[name];
-    if(!creep) {
-        delete Memory.creeps[name];
-    }
-    else {
-        if(creep.memory.role == undefined) {
-            console.log("i am undefined", name)
-            creep.suicide();
-        }
-        if(creep.memory.role == "SquadCreepA") {
-          global.ROLES[creep.memory.role].run(creep);
-        }
-    }
-  }
-  for(let name of executeCreepScriptsLaterList) {
-    let creep = Game.creeps[name];
-    if(!creep) {
-        delete Memory.creeps[name];
-    }
-    else {
-        if(creep.memory.role == undefined) {
-            console.log("i am undefined", name)
-            creep.suicide();
-        }
-        if(creep.memory.role !== "SquadCreepA") {
-          global.ROLES[creep.memory.role].run(creep);
-        }
-    }
-  }
-
-  console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
-
-  if(Game.time % 100 == 0) {
-    if(!Memory.CPU) {
-      Memory.CPU = {};
-    }
-    if(!Memory.CPU.reduce) {
-      Memory.CPU.reduce = false;
-    }
-    let difference = Game.cpu.bucket - Memory.CPU.bucket
-    console.log(" ");
-    console.log("-------------------", difference + "ms of CPU difference in the last 100 ticks");
-    console.log(" ");
-    console.log("-------------------", "Averaging", (2000-difference)/100, "CPU per tick")
-    Memory.CPU.bucket = Game.cpu.bucket;
-  }
-
-  if(Game.time % 100 == 0) {
-      console.log(" ");
-      console.log("-------------------",Game.cpu.bucket, 'unused cpu in my bucket');
-      console.log(" ");
-      // if(Game.cpu.bucket == 10000) {
-      //     if(Game.cpu.generatePixel() == 0) {
-      //         console.log('- generating pixel -');
-      //         console.log('- generating pixel -');
-      //         console.log('- generating pixel -');
-      //         console.log('- generating pixel -');
-      //         console.log('- generating pixel -');
-      //     }
-      // }
-  }
+  RunAllCreepsManager();
 
   let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
-  console.log(tickTotal);
+  console.log(tickTotal + "ms", "on this tick");
 
-
-  if(!Memory.CPU) {
-    Memory.CPU = {};
-  }
-  if(!Memory.CPU.hundredTickAvg) {
-    Memory.CPU.hundredTickAvg = {};
-    Memory.CPU.hundredTickAvg.data = [];
-    Memory.CPU.hundredTickAvg.avg = 0;
-  }
-  if(!Memory.CPU.fiveHundredTickAvg) {
-    Memory.CPU.fiveHundredTickAvg = {};
-    Memory.CPU.fiveHundredTickAvg.data = [];
-    Memory.CPU.fiveHundredTickAvg.avg = 0;
-  }
-
-  Memory.CPU.hundredTickAvg.data.push(tickTotal)
-
-  if(Game.time % 100 == 0) {
-    let total = 0;
-    for(let num of Memory.CPU.hundredTickAvg.data) {
-      total += Number(num);
-    }
-    let average = (total / 100).toFixed(2);
-
-    Memory.CPU.hundredTickAvg.avg = average;
-    console.log("hundred tick average is " + average)
-    Memory.CPU.hundredTickAvg.data = [];
-
-
-    Memory.CPU.fiveHundredTickAvg.data.push(average)
-    if(Game.time % 500 == 0) {
-
-      let total = 0;
-      for(let num of Memory.CPU.fiveHundredTickAvg.data) {
-        total += Number(num);
-      }
-      let average = (total / 5).toFixed(2);
-
-      Memory.CPU.fiveHundredTickAvg.avg = average;
-      console.log("five hundred tick average is " + average)
-      Memory.CPU.fiveHundredTickAvg.data = [];
-
-    }
-  }
+  CPUmanager(tickTotal);
 
 });
