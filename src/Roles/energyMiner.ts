@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+
+
 const run = function (creep) {
     creep.memory.moving = false;
 
@@ -23,6 +25,11 @@ const run = function (creep) {
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();
         // }
+
+        if(!creep.memory.checkAmIOnRampart) {
+            creep.memory.checkAmIOnRampart = true;
+        }
+
         let result = creep.harvestEnergy();
         if(result == 0) {
             creep.memory.harvested = true;
@@ -275,5 +282,6 @@ const roleEnergyMiner = {
     //function2,
     //function3
 };
+
 
 export default roleEnergyMiner;

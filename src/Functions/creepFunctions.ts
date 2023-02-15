@@ -64,6 +64,9 @@ Creep.prototype.Boost = function Boost():any {
                 else if(this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id) {
                     this.room.memory.labs.status.boost.lab7.use -= 1;
                 }
+                else if(this.room.memory.labs.outputLab8 && this.room.memory.labs.outputLab8 == closestLab.id) {
+                    this.room.memory.labs.status.boost.lab8.use -= 1;
+                }
 
                 let idToRemove = closestLab.id;
                 this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
