@@ -980,7 +980,9 @@ function construction(room) {
                         ];
 
                         for(let position of extraRoadPositions) {
-                            position.createConstructionSite(STRUCTURE_ROAD);
+                            if(position.lookFor(LOOK_TERRAIN)[0] !== "wall") {
+                                position.createConstructionSite(STRUCTURE_ROAD);
+                            }
 
                             let lookForRoad = position.lookFor(LOOK_STRUCTURES);
                             if(lookForRoad.length > 0) {
