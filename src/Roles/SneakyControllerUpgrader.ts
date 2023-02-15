@@ -5,7 +5,7 @@
 const run = function (creep) {
     console.log(creep.room.name);
     let targetRoom = creep.memory.targetRoom;
-    if(creep.room.name !== targetRoom && creep.memory.locked_away == 0) {
+    if(creep.room.name !== targetRoom) {
         if(creep.memory.locked_away == 0) {
             creep.memory.in_danger = false;
             creep.memory.exit = false;
@@ -13,46 +13,46 @@ const run = function (creep) {
         }
         else if(creep.memory.locked_away > 0) {
             creep.memory.locked_away -= 1;
-            if(this.pos.x == 49) {
-                if(this.move(LEFT) !== 0) {
-                    if(this.move(TOP_LEFT) !== 0) {
-                        if(this.move(BOTTOM_LEFT) !== 0) {
-                            if(this.move(TOP) !== 0) {
-                                this.move(BOTTOM);
+            if(creep.pos.x == 49) {
+                if(creep.move(LEFT) !== 0) {
+                    if(creep.move(TOP_LEFT) !== 0) {
+                        if(creep.move(BOTTOM_LEFT) !== 0) {
+                            if(creep.move(TOP) !== 0) {
+                                creep.move(BOTTOM);
                             }
                         }
                     }
                 }
 
             }
-            else if(this.pos.x == 0) {
-                if(this.move(RIGHT) !== 0) {
-                    if(this.move(TOP_RIGHT) !== 0) {
-                        if(this.move(BOTTOM_RIGHT) !== 0) {
-                            if(this.move(TOP) !== 0) {
-                                this.move(BOTTOM);
+            else if(creep.pos.x == 0) {
+                if(creep.move(RIGHT) !== 0) {
+                    if(creep.move(TOP_RIGHT) !== 0) {
+                        if(creep.move(BOTTOM_RIGHT) !== 0) {
+                            if(creep.move(TOP) !== 0) {
+                                creep.move(BOTTOM);
                             }
                         }
                     }
                 }
             }
-            else if(this.pos.y == 49) {
-                if(this.move(TOP) !== 0) {
-                    if(this.move(TOP_LEFT) !== 0) {
-                        if(this.move(TOP_RIGHT) !== 0) {
-                            if(this.move(LEFT) !== 0) {
-                                this.move(RIGHT);
+            else if(creep.pos.y == 49) {
+                if(creep.move(TOP) !== 0) {
+                    if(creep.move(TOP_LEFT) !== 0) {
+                        if(creep.move(TOP_RIGHT) !== 0) {
+                            if(creep.move(LEFT) !== 0) {
+                                creep.move(RIGHT);
                             }
                         }
                     }
                 }
             }
-            else if(this.pos.y == 0) {
-                if(this.move(BOTTOM) !== 0) {
-                    if(this.move(BOTTOM_LEFT) !== 0) {
-                        if(this.move(BOTTOM_RIGHT) !== 0) {
-                            if(this.move(LEFT) !== 0) {
-                                this.move(RIGHT);
+            else if(creep.pos.y == 0) {
+                if(creep.move(BOTTOM) !== 0) {
+                    if(creep.move(BOTTOM_LEFT) !== 0) {
+                        if(creep.move(BOTTOM_RIGHT) !== 0) {
+                            if(creep.move(LEFT) !== 0) {
+                                creep.move(RIGHT);
                             }
                         }
                     }
