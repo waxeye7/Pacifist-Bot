@@ -17,6 +17,7 @@ function labs(room) {
                 for(let building of lookForInputLab1Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.inputLab1 = building.id;
+                        break;
                     }
                 }
             }
@@ -27,6 +28,7 @@ function labs(room) {
                     for(let building of lookForInputLab1Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.inputLab1 = building.id;
+                            break;
                         }
                     }
                 }
@@ -39,6 +41,7 @@ function labs(room) {
                 for(let building of lookForInputLab2Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.inputLab2 = building.id;
+                        break;
                     }
                 }
             }
@@ -49,6 +52,7 @@ function labs(room) {
                     for(let building of lookForInputLab2Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.inputLab2 = building.id;
+                            break;
                         }
                     }
                 }
@@ -61,6 +65,7 @@ function labs(room) {
                 for(let building of lookForOutputLab1Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab1 = building.id;
+                        break;
                     }
                 }
             }
@@ -71,6 +76,7 @@ function labs(room) {
                     for(let building of lookForOutputLab1Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab1 = building.id;
+                            break;
                         }
                     }
                 }
@@ -88,6 +94,7 @@ function labs(room) {
                 for(let building of lookForOutputLab2Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab2 = building.id;
+                        break;
                     }
                 }
             }
@@ -98,6 +105,7 @@ function labs(room) {
                     for(let building of lookForOutputLab2Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab2 = building.id;
+                            break;
                         }
                     }
                 }
@@ -111,6 +119,7 @@ function labs(room) {
                 for(let building of lookForOutputLab3Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab3 = building.id;
+                        break;
                     }
                 }
             }
@@ -121,6 +130,7 @@ function labs(room) {
                     for(let building of lookForOutputLab3Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab3 = building.id;
+                            break;
                         }
                     }
                 }
@@ -134,6 +144,7 @@ function labs(room) {
                 for(let building of lookForOutputLab4Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab4 = building.id;
+                        break;
                     }
                 }
             }
@@ -144,6 +155,7 @@ function labs(room) {
                     for(let building of lookForOutputLab4Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab4 = building.id;
+                            break;
                         }
                     }
                 }
@@ -160,6 +172,7 @@ function labs(room) {
                 for(let building of lookForOutputLab5Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab5 = building.id;
+                        break;
                     }
                 }
             }
@@ -170,6 +183,7 @@ function labs(room) {
                     for(let building of lookForOutputLab5Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab5 = building.id;
+                            break;
                         }
                     }
                 }
@@ -182,6 +196,7 @@ function labs(room) {
                 for(let building of lookForOutputLab6Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab6 = building.id;
+                        break;
                     }
                 }
             }
@@ -192,6 +207,7 @@ function labs(room) {
                     for(let building of lookForOutputLab6Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab6 = building.id;
+                            break;
                         }
                     }
                 }
@@ -205,6 +221,7 @@ function labs(room) {
                 for(let building of lookForOutputLab7Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab7 = building.id;
+                        break;
                     }
                 }
             }
@@ -215,6 +232,7 @@ function labs(room) {
                     for(let building of lookForOutputLab7Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab7 = building.id;
+                            break;
                         }
                     }
                 }
@@ -227,6 +245,7 @@ function labs(room) {
                 for(let building of lookForOutputLab8Position) {
                     if(building.structureType == STRUCTURE_LAB) {
                         room.memory.labs.outputLab8 = building.id;
+                        break;
                     }
                 }
             }
@@ -237,6 +256,7 @@ function labs(room) {
                     for(let building of lookForOutputLab8Position) {
                         if(building.structureType == STRUCTURE_LAB) {
                             room.memory.labs.outputLab8 = building.id;
+                            break;
                         }
                     }
                 }
@@ -314,15 +334,8 @@ function labs(room) {
         }
 
 
-        if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3" ||
-            storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 40000 && currentOutput == RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3") {
-                lab1Input = RESOURCE_OXYGEN;
-                lab2Input = RESOURCE_UTRIUM;
-                currentOutput = RESOURCE_UTRIUM_OXIDE;
-            }
 
-
-        else if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
+        if(storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
             storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) {
                 lab1Input = RESOURCE_OXYGEN
                 lab2Input = RESOURCE_HYDROGEN;
@@ -555,6 +568,13 @@ function labs(room) {
                 lab2Input = RESOURCE_CATALYST;
                 currentOutput = RESOURCE_CATALYZED_GHODIUM_ALKALIDE;
             }
+
+        else if(storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 1000 && currentOutput != RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3" ||
+        storage && storage.store[RESOURCE_UTRIUM_OXIDE] < 40000 && currentOutput == RESOURCE_UTRIUM_OXIDE && Game.shard.name == "shard3") {
+            lab1Input = RESOURCE_OXYGEN;
+            lab2Input = RESOURCE_UTRIUM;
+            currentOutput = RESOURCE_UTRIUM_OXIDE;
+        }
 
 
 
