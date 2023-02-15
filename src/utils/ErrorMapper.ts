@@ -1,5 +1,5 @@
 import { SourceMapConsumer } from "source-map";
-
+import ErrorExporter from "./ErrorExporter";
 export class ErrorMapper {
   // Cache consumer
   private static _consumer?: SourceMapConsumer;
@@ -78,7 +78,10 @@ export class ErrorMapper {
             const message = `Source maps don't work in the simulator - displaying original error`;
             console.log(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
           } else {
-            console.log(`<span style='color:red'>${_.escape(this.sourceMappedStackTrace(e))}</span>`);
+            const stack = _.escape(this.sourceMappedStackTrace(e));
+
+            console.log(`<span style='color:red'>${stack}</span>`);
+            ErrorExporter.addErrorToSegment(stack);
           }
         } else {
           // can't handle it
