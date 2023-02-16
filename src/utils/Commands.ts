@@ -1,5 +1,79 @@
 import randomWords from "random-words";
 
+
+global.SS = function(roomName, targetRoomName):any {
+let room = Game.rooms[roomName];
+if(room) {
+let storage:any = Game.getObjectById(room.memory.Structures.storage);
+if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 270 && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 330 &&
+    storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 270) {
+
+    let body = [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
+                HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
+
+    let newName = 'Solomon-'+ randomWords({exactly:3,wordsPerString:1,join: '-'}) + "-" + room.name;
+    room.memory.spawn_list.push(body, newName, {memory: {role: 'Solomon', homeRoom:roomName, targetRoom:targetRoomName,boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
+    console.log('Adding Solomon to Spawn List: ' + newName + roomName, targetRoomName);
+
+
+    if(room.memory.labs.status && !room.memory.labs.status.boost) {
+        room.memory.labs.status.boost = {};
+    }
+
+    if(room.memory.labs.status.boost) {
+        // kean alk
+        if(room.memory.labs.status.boost.lab4) {
+            room.memory.labs.status.boost.lab4.amount += 330;
+            room.memory.labs.status.boost.lab4.use += 1;
+        }
+        else {
+            room.memory.labs.status.boost.lab4 = {};
+            room.memory.labs.status.boost.lab4.amount = 330;
+            room.memory.labs.status.boost.lab4.use = 1;
+        }
+        // lemer alk
+        if(room.memory.labs.status.boost.lab5) {
+            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 600;
+            room.memory.labs.status.boost.lab5.use += 1;
+        }
+        else {
+            room.memory.labs.status.boost.lab5 = {};
+            room.memory.labs.status.boost.lab5.amount = 600;
+            room.memory.labs.status.boost.lab5.use = 1;
+        }
+        // zyn alk
+        if(room.memory.labs.status.boost.lab2) {
+            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+            room.memory.labs.status.boost.lab2.use += 1;
+        }
+        else {
+            room.memory.labs.status.boost.lab2 = {};
+            room.memory.labs.status.boost.lab2.amount = 300;
+            room.memory.labs.status.boost.lab2.use = 1;
+        }
+        // gho alk
+        if(room.memory.labs.status.boost.lab7) {
+            room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 270;
+            room.memory.labs.status.boost.lab7.use += 1;
+        }
+        else {
+            room.memory.labs.status.boost.lab7 = {};
+            room.memory.labs.status.boost.lab7.amount = 270;
+            room.memory.labs.status.boost.lab7.use = 1;
+        }
+    }
+    return "Success";
+
+}
+}
+    return "Fail";
+}
+
+
 global.SD = function(roomName, targetRoomName, boost=false):any {
     let bodyRam6 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK]
     let bodyRam7 = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK];
