@@ -935,8 +935,19 @@ function construction(room) {
                 if(room.controller.level == 8 && myConstructionSites == 0 && room.controller.isPowerEnabled) {
                     let openPositionsAroundController = room.controller.pos.getOpenPositionsIgnoreCreeps();
                     for(let position of openPositionsAroundController) {
+                        let found = false;
                         if(storage && storage.pos.getRangeTo(position) >= 10) {
-                            position.createConstructionSite(STRUCTURE_WALL);
+                            let structuresHere = position.lookFor(LOOK_STRUCTURES);
+                            if(structuresHere.length > 0) {
+                                for(let building of structuresHere) {
+                                    if(building.structureType == STRUCTURE_RAMPART) {
+                                        found = true;
+                                    }
+                                }
+                            }
+                            if(!found) {
+                                position.createConstructionSite(STRUCTURE_WALL);
+                            }
                         }
                     }
                     // build walls around controller
