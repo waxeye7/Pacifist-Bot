@@ -77,7 +77,7 @@ const run = function (creep:Creep) {
     if(enemySpawns.length > 0) {
         let closestSpawn = creep.pos.findClosestByRange(enemySpawns);
         if(!creep.pos.isNearTo(closestSpawn)) {
-            GoToClosestSpawn(creep, closestSpawn, 1);
+            GoToClosestSpawn(creep, closestSpawn.pos, 1);
         }
     }
     else if(hostilesInRoom.length > 0) {
@@ -103,11 +103,6 @@ const run = function (creep:Creep) {
     }
 
 }
-
-const roleSolomon = {
-    run,
-};
-export default roleSolomon;
 
 
 function GoToClosestSpawn(creep, target, range) {
@@ -211,3 +206,11 @@ const GoToTheClosestSpawn = (roomName: string): boolean | CostMatrix => {
     });
     return costs;
 }
+
+const roleSolomon = {
+    run,
+};
+export default roleSolomon;
+
+
+
