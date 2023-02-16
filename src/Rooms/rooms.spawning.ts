@@ -105,6 +105,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     let signifers = 0;
 
     let RampartDefenders = 0;
+    let RangedRampartDefenders = 0;
 
     let goblins = 0;
 
@@ -208,6 +209,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                     RampartDefenders ++;
                     break;
                 }
+
+            case "RRD":
+                if(isInRoom(creep, room)) {
+                    RangedRampartDefenders ++;
+                    break;
+                }
+
 
             case "Dismantler":
                 if(isInRoom(creep, room)) {
@@ -1191,7 +1199,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(room.memory.Structures.controllerLink) {
         let controllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
-        if(Game.time % 40 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] == 0 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
+        if(Game.time % 70 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 100 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
             let name = 'ControllerLinkFiller-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
             room.memory.spawn_list.unshift(getBody([CARRY,CARRY,MOVE], room, 24), name, {memory: {role: 'ControllerLinkFiller'}});
             console.log('Adding ControllerLinkFiller to Spawn List: ' + name);
@@ -1349,18 +1357,105 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(room.memory.danger == true && room.memory.danger_timer >= 35 && RampartDefenders < 2 && fillers >= 2 && storage && storage.store[RESOURCE_ENERGY] > 10000) {
+    if(room.memory.danger == true && room.memory.danger_timer >= 35 && fillers >= 2 && storage && storage.store[RESOURCE_ENERGY] > 10000) {
         let addtolist = true;
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         HostileCreeps = HostileCreeps.filter(function(c) {return c.owner.username !== "Invader" && c.ticksToLive > 350;});
         let inRangeFourteen = false;
         if(HostileCreeps.length > 0) {
             if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 14) {
+
+
+                if(HostileCreeps.length > 2 && RampartDefenders <= 1 && storage &&
+                    storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
+                    storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 1200 &&
+                    (RangedRampartDefenders < 2 && room.controller.level == 7 || RangedRampartDefenders  < 1 && room.controller.level == 8))  {
+                    if(room.controller.level == 8) {
+
+                        let body = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE];
+                        let newName = 'RRD-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
+                        room.memory.spawn_list.push(body, newName, {role: 'RRD', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4, room.memory.labs.outputLab2]});
+                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
+
+                        if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                            room.memory.labs.status.boost = {};
+                        }
+                        if(room.memory.labs.status.boost) {
+                            if(room.memory.labs.status.boost.lab2) {
+                                room.memory.labs.status.boost.lab2.amount += 300;
+                                room.memory.labs.status.boost.lab2.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab2 = {amount:300, use:1};
+                            }
+
+                            if(room.memory.labs.status.boost.lab4) {
+                                room.memory.labs.status.boost.lab4.amount += 1200;
+                                room.memory.labs.status.boost.lab4.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab4 = {amount:1200, use:1};
+                            }
+                        }
+
+                    }
+                    else if(room.controller.level == 7) {
+
+                        let body = [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
+                                    RANGED_ATTACK,RANGED_ATTACK,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE];
+                        let newName = 'RRD-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
+                        room.memory.spawn_list.push(body, newName, {role: 'RRD', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4, room.memory.labs.outputLab2]});
+                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
+
+
+                        if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                            room.memory.labs.status.boost = {};
+                        }
+                        if(room.memory.labs.status.boost) {
+                            if(room.memory.labs.status.boost.lab2) {
+                                room.memory.labs.status.boost.lab2.amount += 240;
+                                room.memory.labs.status.boost.lab2.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab2 = {amount:240, use:1};
+                            }
+
+                            if(room.memory.labs.status.boost.lab4) {
+                                room.memory.labs.status.boost.lab4.amount += 960;
+                                room.memory.labs.status.boost.lab4.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab4 = {amount:960, use:1};
+                            }
+                        }
+
+                    }
+
+                }
+
+
                 inRangeFourteen = true;
             }
         }
 
-        if(inRangeFourteen) {
+        if(inRangeFourteen && RampartDefenders < 1) {
             let found = false;
             for(let enemyCreep of HostileCreeps) {
                 for(let part of enemyCreep.body) {
@@ -1384,8 +1479,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                         // body = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
                     }
                     // && HostileCreeps.length > 1
-                    if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 990 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab3 && (HostileCreeps.length > 1 || HostileCreeps.length == 1 && room.controller.level == 7 && HostileCreeps[0].getActiveBodyparts(HEAL) >= 16)) {
-                        if(HostileCreeps.length > 1) {
+                    if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 990 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab3 && (HostileCreeps.length > 1 || HostileCreeps.length == 1 && room.controller.level == 7 && HostileCreeps[0].getActiveBodyparts(HEAL) >= 16)) {
+                        if(HostileCreeps.length > 2) {
                             if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                                 room.memory.labs.status.boost = {};
                             }
@@ -1402,7 +1497,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                             }
                             room.memory.spawn_list.push(body, newName, {memory: {role: 'RampartDefender', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3]}});
                         }
-                        else {
+                        else if(HostileCreeps.length == 1) {
                             if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                                 room.memory.labs.status.boost = {};
                             }
@@ -1443,7 +1538,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     Game.rooms[roomName].controller.level == 8 && Game.rooms[roomName].controller.ticksToDowngrade < 135000) {
 
                         let newName = 'SneakyControllerUpgrader-'+ randomWords({exactly:2,wordsPerString:1,maxLength:20,join: '-'}) + "-" + room.name;
-                        room.memory.spawn_list.push([CARRY,WORK,MOVE], newName, {memory: {role: 'SneakyControllerUpgrader',targetRoom: roomName , locked_away: 0}});
+                        room.memory.spawn_list.push([WORK,CARRY,MOVE], newName, {memory: {role: 'SneakyControllerUpgrader',targetRoom: roomName , locked_away: 0}});
                         console.log('Adding Sneaky Controller Upgrader to Spawn List: ' + newName);
                         break;
 
@@ -1672,6 +1767,10 @@ function spawnFirstInLine(room, spawn) {
 
                 && !room.memory.spawn_list[1].startsWith("SpecialRepair")
                 && !room.memory.spawn_list[1].startsWith("SpecialCarry")
+
+                && !room.memory.spawn_list[1].startsWith("RRD")
+                && !room.memory.spawn_list[1].startsWith("Solomon")
+
 
                 && !room.memory.spawn_list[1].startsWith("PowerMelee"))
 

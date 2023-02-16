@@ -209,27 +209,40 @@ function market(room):any {
             //     }
             // }
 
-
-            if(room.terminal.store.getFreeCapacity() > 1000) {
-                for(let resource of BaseResources) {
-                    if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                        let result = buy_resource(resource, 12.5);
-                        if(result == 0) {
-                            return;
+            if(Game.market.credits > 1000000) {
+                if(room.terminal.store.getFreeCapacity() > 1000) {
+                    for(let resource of BaseResources) {
+                        if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                            let result = buy_resource(resource, 2);
+                            if(result == 0) {
+                                return;
+                            }
                         }
                     }
-                }
 
 
-                for(let resource of BaseResources) {
-                    if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                        let result = buy_resource(resource, 20);
-                        if(result == 0) {
-                            return;
+                    for(let resource of BaseResources) {
+                        if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                            let result = buy_resource(resource, 12.5);
+                            if(result == 0) {
+                                return;
+                            }
+                        }
+                    }
+
+
+                    for(let resource of BaseResources) {
+                        if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                            let result = buy_resource(resource, 20);
+                            if(result == 0) {
+                                return;
+                            }
                         }
                     }
                 }
             }
+
+
 
 
             // for(let resource of BaseResources) {

@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
+    creep.memory.moving = false;
     console.log(creep.room.name);
     let targetRoom = creep.memory.targetRoom;
     if(creep.room.name !== targetRoom) {

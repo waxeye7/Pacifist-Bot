@@ -300,7 +300,7 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
-    if(this.room.name != this.memory.homeRoom && this.ticksToLive % 15 == 0) {
+    if(this.room.name != this.memory.homeRoom) {
         if(this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER}).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
             Memory.AvoidRooms.push(this.room.name);
         }

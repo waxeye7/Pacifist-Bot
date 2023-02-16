@@ -2,7 +2,9 @@
 make spawn more carry based on if the carry function made the full amount of parts
 
 
+--SQUAD QUAD--
 cache quad squad movement inside target room if position is unchanged or after x ticks
-
-
 add same quad inter room pathing trick when turning corner of room to make more efficient movement
+
+--Attack--
+make singleton attacker

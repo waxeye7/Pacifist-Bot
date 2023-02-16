@@ -60,16 +60,16 @@ const run = function (creep:Creep) {
                             if(Game.time % 10 == 0) {
                                 creep.say("☮️", true);
                             }
-                            if(Game.time % 10 == 1) {
+                            else if(Game.time % 10 == 1) {
                                 creep.say("God", true);
                             }
-                            if(Game.time % 10 == 2) {
+                            else if(Game.time % 10 == 2) {
                                 creep.say("Save", true);
                             }
-                            if(Game.time % 10 == 3) {
+                            else if(Game.time % 10 == 3) {
                                 creep.say("Us", true);
                             }
-                            if(Game.time % 10 == 4) {
+                            else if(Game.time % 10 == 4) {
                                 creep.say("☮️", true);
                             }
 

@@ -1,4 +1,3 @@
-import { identity } from "lodash";
 import randomWords from "random-words";
 
 let checkerboard =
@@ -10,25 +9,7 @@ let checkerboard =
 [-5,-7],[-3,-7],[-1,-7],[1,-7],[3,-7],[5,-7],[-7,-5],[-7,-3],[-7,-1],[-7,1],[-7,3],[-7,5],[-5,7],[-3,7],[-1,7],[1,7],[3,7],[5,7],[7,5],[7,3],[7,1],[7,-1],[7,-3],[7,-5],
 [0,7],[7,0],[0,-7],[-7,0],[4,7],[-4,7],[7,4],[7,-4],[4,-7],[-4,-7],[-7,4],[-7,-4]];
 
-
-// let rampartLocations = [
-//     [9,0],[9,1],[9,2],[9,3],[9,4],[9,5],[9,6],[9,7],[9,8],[9,9],
-//     [8,9],[7,9],[6,9],[5,9],[4,9],[3,9],[2,9],[1,9],[0,9],[-1,9],[-2,9],[-3,9],[-4,9],[-5,9],[-6,9],[-7,9],[-8,9],[-9,9],
-//     [-9,8],[-9,7],[-9,6],[-9,5],[-9,4],[-9,3],[-9,2],[-9,1],[-9,0],[-9,-1],[-9,-2],[-9,-3],[-9,-4],[-9,-5],[-9,-6],[-9,-7],[-9,-8],[-9,-9],
-//     [-8,-9],[-7,-9],[-6,-9],[-5,-9],[-4,-9],[-3,-9],[-2,-9],[-1,-9],[0,-9],[1,-9],[2,-9],[3,-9],[4,-9],[5,-9],[6,-9],[7,-9],[8,-9],[9,-9],
-//     [9,-8],[9,-7],[9,-6],[9,-5],[9,-4],[9,-3],[9,-2],[9,-1]
-// ];
-
 function getNeighbours(tile, listOfLocations) {
-    // const deltas = [[-1, -1], [-1, 0], [-1, 1], [0, 1], [1, 1], [1, 0], [1, -1], [0, -1]]; not checkerboard
-
-    // const negative_checkerboard =
-    // [[0,-1],[-1,0],[1,0],[0,1],
-    // [-1,-2],[1,-2],[-2,-1],[2,-1],[-2,1],[2,1],[-1,2],[1,2],
-    // [-2,-3],[0,-3],[2,-3],[-3,-2],[3,-2],[-3,0],[3,0],[-3,2],[3,2],[-2,3],[0,3],[2,3],
-    // [-3,-4],[-1,-4],[1,-4],[3,-4],[-4,-3],[4,-3],[-4,-1],[4,-1],[-4,1],[4,1],[-4,3],[4,3],[-3,4],[-1,4],[1,4],[3,4],
-    // [-4,-5],[-2,-5],[0,-5],[2,-5],[2,-5],[4,-5],[-5,-4],[5,-4],[-5,-2],[5,-2],[-5,0],[5,0],[-5,2],[5,2],[-5,4],[5,4],[-4,5],[-2,5],[0,5],[2,5],[4,5]];
-
     let neighbours = [];
     listOfLocations.forEach(function(delta) {
         neighbours.push({x: tile.x + delta[0], y: tile.y + delta[1]});
@@ -949,6 +930,16 @@ function construction(room) {
                             PowerSpawnPosition.createConstructionSite(STRUCTURE_RAMPART);
                         }
                     }
+                }
+
+                if(room.controller.level == 8 && myConstructionSites == 0 && room.controller.isPowerEnabled) {
+                    let openPositionsAroundController = room.controller.pos.getOpenPositionsIgnoreCreeps();
+                    for(let position of openPositionsAroundController) {
+                        if(storage && storage.pos.getRangeTo(position) >= 10) {
+                            position.createConstructionSite(STRUCTURE_WALL);
+                        }
+                    }
+                    // build walls around controller
                 }
 
 

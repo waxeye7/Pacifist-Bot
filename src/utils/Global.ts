@@ -116,6 +116,7 @@ declare global {
             profiler:any;
             Memory:any;
             ROLES: any;
+            SS:any;
             SQR: any;
             SQM: any;
             SQD: any;
