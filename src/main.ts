@@ -44,6 +44,7 @@ import roleAnnoy from "Roles/annoy";
 import roleCreepKiller from "Roles/creepKiller";
 import roleReserve from "Roles/reserve";
 import roleRampartDefender from "Roles/RampartDefender";
+import roleRangedRampartDefender from "Roles/RangedRampartDefender";
 import roleRampartErector from "Roles/RampartErector";
 import roleRam from "Roles/ram";
 import roleSignifer from "Roles/signifer";
@@ -63,8 +64,11 @@ import rolePowerMelee from "Roles/PowerMelee";
 import rolePowerHeal from "Roles/PowerHeal";
 import roleEfficient from "Roles/PowerCreeps/efficient";
 import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
+import roleSolomon from "Roles/Solomon";
 
 global.ROLES = {
+  Solomon: roleSolomon,
+  RRD: roleRangedRampartDefender,
   PowerMelee: rolePowerMelee,
   PowerHeal: rolePowerHeal,
   MineralMiner: roleMineralMiner,
