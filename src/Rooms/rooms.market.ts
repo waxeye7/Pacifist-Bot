@@ -209,7 +209,7 @@ function market(room):any {
             //     }
             // }
 
-            if(Game.market.credits > 1000000) {
+            if(Game.market.credits > 1000000 && Game.shard.name == "shard3" || Game.shard.name !== "shard3" && Game.market.credits >= 10000) {
                 if(room.terminal.store.getFreeCapacity() > 1000) {
                     for(let resource of BaseResources) {
                         if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {

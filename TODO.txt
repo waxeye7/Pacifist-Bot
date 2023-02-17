@@ -8,3 +8,9 @@ add same quad inter room pathing trick when turning corner of room to make more 
 
 --Attack--
 make singleton attacker
+
+
+priest stuck on edge of map
+
+
+movetoroomavoidenemyrooms which exit to go to. aaaa

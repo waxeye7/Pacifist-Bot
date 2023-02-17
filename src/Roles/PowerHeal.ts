@@ -15,7 +15,7 @@ const run = function (creep) {
     }
 
 
-    if(!creep.memory.targets || Game.time % 20 == 0) {
+    if(!creep.memory.targets || Game.time % 30 == 0) {
         creep.memory.targets = [];
         let powerMelees = creep.room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "PowerMelee"});
         if(powerMelees.length > 0) {
@@ -24,7 +24,7 @@ const run = function (creep) {
             }
         }
 
-        else {
+        else if(Game.time % 30 == 0) {
             creep.memory.suicide = true;
         }
     }

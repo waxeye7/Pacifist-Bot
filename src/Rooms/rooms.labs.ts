@@ -322,7 +322,7 @@ function labs(room) {
         room.memory.labs.status.lab2Input = false;
     }
 
-    if(!room.memory.labs.status.lab1Input || !room.memory.labs.status.lab2Input || !room.memory.labs.status.currentOutput || Game.time % 750 == 0 && room.terminal) {
+    if((!room.memory.labs.status.lab1Input || !room.memory.labs.status.lab2Input || !room.memory.labs.status.currentOutput || Game.time % 500 == 0) && room.terminal) {
         let lab1Input:MineralConstant | MineralCompoundConstant | any;
         let lab2Input:MineralConstant | MineralCompoundConstant | any;
         let currentOutput;

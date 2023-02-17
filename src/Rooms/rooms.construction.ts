@@ -1706,7 +1706,7 @@ const makeStructuresCostMatrixModifiedTest = (roomName: string): boolean | CostM
     if(currentRoom == undefined || currentRoom === undefined || !currentRoom || currentRoom === null || currentRoom == null) {
         return false;
     }
-    if(currentRoom.controller.level == 0) {
+    if(currentRoom.controller && currentRoom.controller.level == 0) {
         return makeStructuresCostMatrix(roomName);
     }
 
