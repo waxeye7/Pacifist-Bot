@@ -1,5 +1,3 @@
-import randomWords from "random-words";
-
 let checkerboard =
 [[-2,-2], [2,-2], [2,0],
 [-3,-3], [-1,-3],[-1,3], [1,-3], [3,-3], [-3,-1],[-3,1], [-3,3], [1,3], [3,3],
@@ -401,7 +399,7 @@ function construction(room) {
 
     if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
         let position = Memory.target_colonise.spawn_pos
-        Game.rooms[Memory.target_colonise.room].createConstructionSite(position.x, position.y, STRUCTURE_SPAWN, randomWords({exactly:2,wordsPerString:1,join: '-'}));
+        Game.rooms[Memory.target_colonise.room].createConstructionSite(position.x, position.y, STRUCTURE_SPAWN);
         return;
     }
 
@@ -1075,7 +1073,7 @@ function construction(room) {
                     new RoomPosition(storage.pos.x + 1, storage.pos.y, room.name),
                     new RoomPosition(storage.pos.x - 1, storage.pos.y, room.name),
                     new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name),
-                    new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
+                    // new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
                 ]
 
                 pathBuilder(aroundStorageList, STRUCTURE_ROAD, room, false);
@@ -1392,6 +1390,10 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
 
 function BuildIfICan(LocationsList, StructureType:string) {
     for(let location of LocationsList) {
+        let source = location.findClosestByRange(Game.rooms[location.roomName].find(FIND_SOURCES));
+        if(location.getRangeTo(source) == 1) {
+            continue;
+        }
         let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
         if(lookForExistingStructures.length > 0) {
             let canIBuild = true;

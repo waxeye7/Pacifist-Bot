@@ -33,7 +33,7 @@
         let myhealer:any = Game.getObjectById(creep.memory.myhealer);
 
         if(creep.room.name != creep.memory.targetRoom && creep.fatigue == 0 && ((myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer)) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
-            creep.moveToRoom(creep.memory.targetRoom)
+            creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom)
         }
 
 

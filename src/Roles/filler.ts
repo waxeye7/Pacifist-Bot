@@ -1,4 +1,3 @@
-import randomWords from "random-words";
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -182,7 +181,7 @@ const run = function (creep) {
     creep.memory.moving = false;
 
     if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
-        let newName = 'filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
+        let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.controller.level <= 3 && creep.room.memory.spawn_list) {
             creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
         }
@@ -265,9 +264,15 @@ const run = function (creep) {
             target = Game.getObjectById(creep.memory.locked[0]);
             if(target) {
                 if(creep.pos.isNearTo(target)) {
-                    creep.transfer(target, RESOURCE_ENERGY);
+                    let transferResult = creep.transfer(target, RESOURCE_ENERGY);
                     if(_.keys(creep.store).length == 0) {
                         creep.memory.full = false;
+                    }
+                    if(creep.memory.locked.length == 2 && transferResult == 0) {
+                        let nextTarget:any = Game.getObjectById(creep.memory.locked[1]);
+                        if(nextTarget && creep.pos.getRangeTo(nextTarget) > 1) {
+                            creep.MoveCostMatrixRoadPrio(nextTarget, 1);
+                        }
                     }
                 }
                 else {

@@ -307,6 +307,22 @@ function labs(room) {
         outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
+    if(Game.time % 97 == 0) {
+        let spawns = room.find(FIND_MY_SPAWNS);
+        let found = false;
+        for(let spawn of spawns) {
+            if(spawn.spawning) {
+                found = true;
+                break;
+            }
+        }
+        if(!found) {
+            if(room.memory.spawn_list.length == 0) {
+                room.memory.labs.boost = {};
+            }
+        }
+    }
+
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     if(!room.memory.labs.status) {

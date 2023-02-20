@@ -1,5 +1,5 @@
 import "./utils/Commands";
-import { ErrorMapper } from "./utils/ErrorMapper";
+// import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
 import global from "./utils/Global";
 
@@ -118,7 +118,7 @@ global.ROLES = {
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
 }
 
-export const loop = ErrorMapper.wrapLoop(() => {
+export const loop = () => {
 
   const startTotal = Game.cpu.getUsed();
 
@@ -137,4 +137,4 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   CPUmanager(tickTotal);
 
-});
+};

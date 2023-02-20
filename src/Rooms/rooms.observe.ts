@@ -465,13 +465,13 @@ function observe(room) {
 
                             if(powerBanks.length > 0 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
                              powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
-                             storage.store[RESOURCE_ENERGY] > 330000) {
+                             storage.store[RESOURCE_ENERGY] > 350000) {
 
                                 global.SPK(room.name, adj);
 
                             }
 
-                            if(deposits.length > 0 && (deposits[0].lastCooldown < 20 || !deposits[0].lastCooldown) && storage.store[RESOURCE_ENERGY] > 325000 && Game.cpu.bucket >= 9500) {
+                            if(deposits.length > 0 && (deposits[0].lastCooldown < 20 || !deposits[0].lastCooldown) && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9500) {
 
                                 global.SDM(room.name, adj);
 

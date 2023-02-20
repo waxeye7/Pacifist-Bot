@@ -1,6 +1,3 @@
-import randomWords from "random-words";
-
-
 global.SS = function(roomName, targetRoomName):any {
 let room = Game.rooms[roomName];
 if(room) {
@@ -15,7 +12,7 @@ if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 270 && stora
                 HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
                 HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
 
-    let newName = 'Solomon-'+ randomWords({exactly:3,wordsPerString:1,join: '-'}) + "-" + room.name;
+    let newName = 'Solomon-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
     room.memory.spawn_list.push(body, newName, {memory: {role: 'Solomon', homeRoom:roomName, targetRoom:targetRoomName,boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
     console.log('Adding Solomon to Spawn List: ' + newName + roomName, targetRoomName);
 
@@ -116,24 +113,24 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
         let creepsInRoom = room.find(FIND_MY_CREEPS);
         let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
         if(fillers < 2) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
         if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
 
 
         if(room.controller.level == 6) {
-            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodySignifer6,
                 newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
-            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodyRam6,
                 newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -144,12 +141,12 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
         }
 
         else if(room.controller.level == 7) {
-            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodySignifer7,
                 newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
-            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodyRam7,
                 newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -212,12 +209,12 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
                     }
 
 
-                    let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                     room.memory.spawn_list.push(bodyRam8Boosted,
                         newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Ram to Spawn List: ' + newNameRam);
 
-                    let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                     room.memory.spawn_list.push(bodySignifer8Boosted,
                         newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab5,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
@@ -228,13 +225,13 @@ global.SD = function(roomName, targetRoomName, boost=false):any {
                     return "Success with boost";
             }
             else if(room.controller.level == 8 && !boost) {
-                let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodySignifer8,
                     newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
                 console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
-                let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodyRam8,
                     newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -291,24 +288,24 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
         let creepsInRoom = room.find(FIND_MY_CREEPS);
         let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
         if(fillers < 2) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
         if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
 
 
         if(room.controller.level == 6) {
-            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodySignifer6,
                 newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
-            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodyRam6,
                 newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -319,12 +316,12 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
         }
 
         else if(room.controller.level == 7) {
-            let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodySignifer7,
                 newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
-            let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+            let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
             room.memory.spawn_list.push(bodyRam7,
                 newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
             console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -387,12 +384,12 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
                     }
 
 
-                    let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                     room.memory.spawn_list.push(bodyRam8Boosted,
                         newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab3,room.memory.labs.outputLab2,room.memory.labs.outputLab7]}});
                     console.log('Adding Ram to Spawn List: ' + newNameRam);
 
-                    let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                    let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                     room.memory.spawn_list.push(bodySignifer8Boosted,
                         newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
                     console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
@@ -403,13 +400,13 @@ global.SDB = function(roomName, targetRoomName, boost=false):any {
                     return "Success with boost";
             }
             else if(room.controller.level == 8 && !boost) {
-                let newNameSignifer = 'Signifer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                let newNameSignifer = 'Signifer-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodySignifer8,
                     newNameSignifer, {memory: {role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName}});
                 console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
-                let newNameRam = 'Ram-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + roomName;
+                let newNameRam = 'Ram-'+ Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodyRam8,
                     newNameRam, {memory: {role: 'ram', targetRoom: targetRoomName, homeRoom: roomName}});
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
@@ -436,26 +433,26 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
     if(room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
 
         if(fillers < 4) {
-            let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName2 = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName2);
         }
 
         if(fillers < 5) {
-            let newName3 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName3 = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName3, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName3);
         }
 
 
         if(Memory.CanClaimRemote >= 1) {
-            let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'WallClearer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
@@ -503,7 +500,7 @@ global.SQR = function(roomName, targetRoomName, boost=false):any {
                                       MOVE];
 
 
-        let RandomWords = randomWords({exactly:3,wordsPerString:1,join: '-'});
+        let RandomWords = Math.floor(Math.random() * Game.time)
 
         if(room.controller.level == 6) {
             let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
@@ -651,25 +648,25 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
     if(room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
 
         if(fillers < 4) {
-            let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName2 = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName2);
         }
 
         if(fillers < 5) {
-            let newName3 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName3 = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName3, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName3);
         }
 
         if(Memory.CanClaimRemote >= 1) {
-            let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'WallClearer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
@@ -715,7 +712,7 @@ global.SQM = function(roomName, targetRoomName, boost=false):any {
                                       MOVE];
 
 
-        let RandomWords = randomWords({exactly:3,wordsPerString:1,join: '-'});
+        let RandomWords = Game.time
 
         if(room.controller.level == 6) {
             let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
@@ -863,25 +860,25 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
     if(room.controller.level >= 6 && CreepA == 0 && CreepB == 0 && CreepY == 0 && CreepZ == 0) {
 
         if(fillers < 3) {
-            let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName);
         }
 
         if(fillers < 4) {
-            let newName2 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName2 = 'Filler-'+Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName2, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName2);
         }
 
         if(fillers < 5) {
-            let newName3 = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName3 = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName3, {memory: {role: 'filler'}});
             console.log('Adding filler to Spawn List: ' + newName3);
         }
 
         if(Memory.CanClaimRemote >= 1) {
-            let newName = 'WallClearer-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + room.name;
+            let newName = 'WallClearer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:targetRoomName}});
             console.log('Adding wall-clearer to Spawn List: ' + newName);
         }
@@ -929,7 +926,7 @@ global.SQD = function(roomName, targetRoomName, boost=false):any {
                                       MOVE];
 
 
-        let RandomWords = randomWords({exactly:3,wordsPerString:1,join: '-'});
+        let RandomWords = Math.floor(Math.random() * Game.time)
 
         if(room.controller.level == 6) {
             let newNameA = 'SquadCreepA-'+ RandomWords + "-" + room.name;
@@ -1122,13 +1119,13 @@ global.SG = function(homeRoom, targetRoomName) {
             let creepsInRoom = Game.rooms[homeRoom].find(FIND_MY_CREEPS);
             let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
             if(fillers < 3) {
-                let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
+                let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + Game.rooms[homeRoom].name;
                 Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + newName);
             }
 
 
-            let newName = 'Goblin-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            let newName = 'Goblin-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding Goblin to Spawn List: ' + newName);
 
 
@@ -1166,7 +1163,7 @@ global.SCK = function (homeRoom, targetRoomName) {
     if(Game.rooms[homeRoom]) {
         if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {
 
-            let newName = 'CreepKiller-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            let newName = 'CreepKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding CreepKiller to Spawn List: ' + newName);
 
             Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE], newName, {memory: {role: 'CreepKiller', targetRoom: targetRoomName, homeRoom: homeRoom}});
@@ -1186,7 +1183,7 @@ global.SGD = function (homeRoom, targetRoomName, body) {
     if(Game.rooms[homeRoom]) {
         if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && targetRoomName !== homeRoom) {
 
-            let newName = 'Guard-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding Guard to Spawn List: ' + newName);
 
             Game.rooms[homeRoom].memory.spawn_list.push(body, newName, {memory: {role: 'Guard', targetRoom: targetRoomName, homeRoom: homeRoom, coma:true}});
@@ -1231,16 +1228,16 @@ global.SPK = function (homeRoom, targetRoomName) {
         let PowerMelees = creepsInRoom.filter(function(creep) {return creep.memory.role == "PowerMelee";}).length;
         if(PowerMelees <= 1) {
             if(Game.rooms[homeRoom].energyAvailable < 9750) {
-                let newName = 'Filler-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + Game.rooms[homeRoom].name;
+                let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + Game.rooms[homeRoom].name;
                 Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + newName);
             }
 
-            let newName = 'PowerMelee-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            let newName = 'PowerMelee-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding PowerMelee to Spawn List: ' + newName);
             Game.rooms[homeRoom].memory.spawn_list.push(meleeBody, newName, {memory: {role: 'PowerMelee', targetRoom: targetRoomName, homeRoom: homeRoom}});
 
-            let newName2 = 'PowerHeal-' + randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + homeRoom + "-" + targetRoomName;
+            let newName2 = 'PowerHeal-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding PowerHeal to Spawn List: ' + newName2);
             Game.rooms[homeRoom].memory.spawn_list.push(healBody, newName2, {memory: {role: 'PowerHeal', targetRoom: targetRoomName, homeRoom: homeRoom}});
 
@@ -1270,7 +1267,7 @@ if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.l
 
     if(billtongs == 0) {
 
-        let newName = 'Billtong-' + randomWords({exactly:1,wordsPerString:1,join: '-'}) + "-" + room.name;
+        let newName = 'Billtong-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push([MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,
             MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE,MOVE,WORK,CARRY,MOVE]
             , newName, {memory: {role: 'billtong', homeRoom:room.name, targetRoom:targetRoomName}});

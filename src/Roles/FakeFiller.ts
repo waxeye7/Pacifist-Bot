@@ -13,11 +13,11 @@ function findLocked(creep) {
         let possibleDropOffLocations = [];
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        if(storage) {
+        if(storage && storage.store.getFreeCapacity() !== 0) {
             possibleDropOffLocations.push(storage);
         }
 
-        let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity() > 0});
+        let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) !== 0});
         if(spawnAndExtensions.length > 0) {
             possibleDropOffLocations.push(creep.pos.findClosestByRange(spawnAndExtensions));
         }
@@ -44,10 +44,9 @@ const run = function (creep) {
 
 
 
-    let lock = Game.getObjectById(creep.memory.locked) || findLocked(creep);
+    let lock:any = Game.getObjectById(creep.memory.locked) || findLocked(creep);
     if(lock) {
-
-        if(lock.store.getFreeCapacity() == 0) {
+        if(lock.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
             lock = findLocked(creep);
         }
 

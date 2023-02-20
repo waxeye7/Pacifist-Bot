@@ -1,5 +1,3 @@
-import randomWords from "random-words";
-
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -8,7 +6,7 @@ import randomWords from "random-words";
     ;
     creep.memory.moving = false;
     if(creep.ticksToLive == 60 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
-        let newName = 'EnergyManager-'+ randomWords({exactly:2,wordsPerString:1,join: '-'}) + "-" + creep.room.name;
+        let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'EnergyManager'}});
         }

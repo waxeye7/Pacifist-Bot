@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
 const run = function (creep) {
-    ;
+    creep.memory.moving = false;
 
     if(creep.memory.suicide) {
         creep.recycle();
@@ -14,7 +14,7 @@ const run = function (creep) {
 
         let rooms = Object.values(Game.map.describeExits(creep.room.name))
 
-        let filtered_rooms = rooms.filter(function(roomname) {return !creep.memory.roomsVisited.includes(roomname);});
+        let filtered_rooms = rooms.filter(function(roomname) {return !creep.memory.roomsVisited.includes(roomname) && Game.map.getRoomStatus(roomname).status == "normal";});
 
         if(filtered_rooms.length > 0 ) {
             creep.memory.RoomToPreach = filtered_rooms[Math.floor(Math.random()*filtered_rooms.length)];

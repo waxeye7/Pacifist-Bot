@@ -68,7 +68,7 @@
     "typescript": "^4.3.5"
   },
   "dependencies": {
-    "random-words": "^1.2.0",
-    "source-map": "~0.6.1"
+    "@types/source-map": "^0.5.2",
+    "random-words": "^1.2.0"
   }
 }

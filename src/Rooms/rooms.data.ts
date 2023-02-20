@@ -11,6 +11,10 @@ function data(room) {
     if(room.controller.progress <= 200) {
         room.memory.data.DOBug = 0;
     }
+    if(!room.memory.data.c_spawned) {
+        room.memory.data.c_spawned = 0;
+    }
+
 
     let data = room.memory.data;
     data.DOB += 1;

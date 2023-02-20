@@ -317,7 +317,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                 if(Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
                 }
-                if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== targetRoom) {
+                if(Memory.AvoidRooms.includes(roomName) && roomName !== targetRoom) {
                     return 24;
                 }
 
@@ -339,6 +339,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
     if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         let exit;
+        let position;
 
         if(this.memory.role == "carry" || this.memory.role == "EnergyMiner" || this.memory.role == "RemoteRepair" || this.memory.role == "attacker") {
             if(this.memory.route[0].exit == FIND_EXIT_RIGHT) {
@@ -379,13 +380,16 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
             }
         }
         else {
-            exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+            if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
+                this.memory.exit = this.pos.findClosestByPath(this.memory.route[0].exit);
+            }
+            exit = this.memory.exit;
+            position = new RoomPosition(exit.x, exit.y, exit.roomName)
+            console.log(position);
+            // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
         }
 
-        this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(exit, 0)
-        // this.moveTo(exit, {reusePath:200});
-
-
+        this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(position, 0);
 
         return;
     }
@@ -1393,7 +1397,7 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function roomCallbackRo
         let direction = this.pos.getDirectionTo(pos);
 
         this.move(direction);
-        this.memory.moving = true;
+        // this.memory.moving = true;
         this.memory.path.shift();
         // this.moveByPath(this.memory.path);
      }
@@ -1471,7 +1475,7 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
-            costs.set(creep.pos.x, creep.pos.y, 11);
+            costs.set(creep.pos.x, creep.pos.y, 30);
         }
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
