@@ -37,7 +37,7 @@ const run = function (creep) {
         for(let s of hostileStructures) {
             let buildingsOnTheS = s.pos.lookFor(LOOK_STRUCTURES);
             buildingsOnTheS = buildingsOnTheS.filter(function(s) {return s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER;});
-            if(buildingsOnTheS.length == 1) {
+            if(buildingsOnTheS.length == 1 && s.structureType !== STRUCTURE_RAMPART) {
                 listOfTargets.push(s);
             }
         }
@@ -52,12 +52,29 @@ const run = function (creep) {
             listOfTargetsIds.push(target.id);
         }
 
+        if(listOfTargetsIds.length > 0) {
+            creep.memory.exposed_hostile_structs = listOfTargetsIds;
 
-        creep.memory.exposed_hostile_structs = listOfTargetsIds;
+        }
+        else {
+            creep.memory.exposed_hostile_structs = true;
+            let sites = creep.room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {filter: s => s.progress !== 0});
+            if(sites.length == 0) {
+                creep.memory.sites = true;
+            }
+            else {
+                let siteIDS = [];
+                for(let site of sites) {
+                    siteIDS.push(site.id);
+                }
+                creep.memory.sites = siteIDS;
+            }
+
+        }
 
     }
 
-    if(creep.memory.exposed_hostile_structs && creep.memory.exposed_hostile_structs.length > 0) {
+    if(creep.memory.exposed_hostile_structs && typeof(creep.memory.exposed_hostile_structs) !== "boolean"  && creep.memory.exposed_hostile_structs.length > 0) {
         let target = Game.getObjectById(creep.memory.exposed_hostile_structs[0]);
         if(target) {
             if(creep.pos.isNearTo(target)) {
@@ -69,6 +86,15 @@ const run = function (creep) {
         }
         else {
             creep.memory.exposed_hostile_structs.shift();
+        }
+    }
+    else if(creep.memory.sites && typeof(creep.memory.sites) !== "boolean" && creep.memory.sites.length > 0) {
+        let site = Game.getObjectById(creep.memory.sites[0]);
+        if(site) {
+            creep.MoveCostMatrixRoadPrio(site, 0);
+        }
+        else {
+            creep.memory.sites.shift();
         }
     }
     else {
