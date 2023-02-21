@@ -24,7 +24,7 @@ const run = function (creep:Creep) {
                 creep.rangedAttack(closestHostile);
             }
         }
-        else if(creep.hits < creep.hitsMax) {
+        if(creep.hits < creep.hitsMax) {
             creep.heal(creep);
         }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
@@ -46,17 +46,17 @@ const run = function (creep:Creep) {
             }
         }
     }
-
-    if(hostilesInRangeThree && hostilesInRangeThree.length == 0) {
-        let structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
+    let structures;
+    if(hostilesInRangeThree && hostilesInRangeThree.length == 0 || hostilesInRoom.length == 0) {
+        structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
             return s.structureType !== STRUCTURE_CONTROLLER &&
             s.structureType !== STRUCTURE_CONTAINER &&
             s.structureType !== STRUCTURE_INVADER_CORE &&
             s.structureType !== STRUCTURE_KEEPER_LAIR &&
             s.structureType !== STRUCTURE_ROAD
         });
-        let structuresInRangeThree = creep.pos.findInRange(structures, 3);
-        let structuresNextToMe = creep.pos.findInRange(structuresInRangeThree, 1);
+        let structuresInRangeThree:any = creep.pos.findInRange(structures, 3);
+        let structuresNextToMe:any = creep.pos.findInRange(structuresInRangeThree, 1);
         if(structuresNextToMe.length > 0) {
             structuresNextToMe.sort((a,b) => a.hits - b.hits);
             if(structuresNextToMe[0].structureType !== STRUCTURE_WALL) {
@@ -71,8 +71,16 @@ const run = function (creep:Creep) {
             creep.rangedAttack(structuresInRangeThree[0]);
         }
     }
-
-
+    if(!structures) {
+        structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
+            return s.structureType !== STRUCTURE_CONTROLLER &&
+            s.structureType !== STRUCTURE_CONTAINER &&
+            s.structureType !== STRUCTURE_INVADER_CORE &&
+            s.structureType !== STRUCTURE_KEEPER_LAIR &&
+            s.structureType !== STRUCTURE_ROAD
+        });
+    }
+    let enemyStructsNotRamparts = structures.filter(function(s) {return s.structureType !== STRUCTURE_RAMPART && s.structureType !== STRUCTURE_WALL;});
     let enemySpawns = creep.room.find(FIND_HOSTILE_SPAWNS);
     if(enemySpawns.length > 0) {
         let closestSpawn = creep.pos.findClosestByRange(enemySpawns);
@@ -82,6 +90,12 @@ const run = function (creep:Creep) {
     }
     else if(hostilesInRoom.length > 0) {
         creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(hostilesInRoom), 1);
+    }
+    else if(enemyStructsNotRamparts.length > 0) {
+        creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(enemyStructsNotRamparts), 1);
+    }
+    else if(structures.length > 0) {
+        creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(structures), 1);
     }
     else {
         let myCreeps = creep.room.find(FIND_MY_CREEPS);
