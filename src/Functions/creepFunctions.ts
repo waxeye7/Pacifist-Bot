@@ -312,7 +312,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 
     if(!this.memory.route || this.memory.route == 2 || this.memory.route && this.memory.route.length == 0 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
-            routeCallback(roomName, fromRoomName) {
+            routeCallback(roomName:any, fromRoomName) {
                 // !_.includes(Memory.AvoidRooms, targetRoom, 0)
                 if(Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
@@ -322,16 +322,40 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                 }
 
 
-                if(roomName.length == 6) {
-                    if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                        return 2;
-                    }
-                    if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                        return 2;
-                    }
-                }
+                // if(roomName.length == 6) {
+                //     if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                //         return 2;
+                //     }
+                //     if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                //         return 2;
+                //     }
+                // }
+                // else if(roomName.length !== 6) {
+                //     let homeRoomNameX;
+                //     let homeRoomNameY;
+                //     if(!isNaN(roomName[2])) {
+                //         homeRoomNameX = parseInt(roomName[1] + roomName[2]);
+                //         homeRoomNameY = parseInt(roomName[4]);
+                //     }
+                //     else {
+                //         homeRoomNameX = parseInt(roomName[1]);
+                //         if(roomName.length == 4) {
+                //             homeRoomNameY = parseInt(roomName[3]);
+                //         }
+                //         else if(roomName.length == 5) {
+                //             homeRoomNameY = parseInt(roomName[3] + roomName[4]);
+                //         }
+                //     }
 
-                return 3;
+                //     if(parseInt(homeRoomNameX) % 10 == 0) {
+                //         return 2;
+                //     }
+                //     if(parseInt(homeRoomNameY) % 10 == 0) {
+                //         return 2;
+                //     }
+                // }
+
+                return 2;
         }});
     }
 
@@ -376,6 +400,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                 }
                 else {
                     exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+                    position = new RoomPosition(exit.x, exit.y, exit.roomName);
                 }
             }
         }
@@ -1096,7 +1121,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
-            costs.set(creep.pos.x, creep.pos.y, 6);
+            costs.set(creep.pos.x, creep.pos.y, 11);
         }
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
@@ -1881,7 +1906,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
                 }
@@ -1890,7 +1915,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
                 }
