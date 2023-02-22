@@ -7,7 +7,7 @@ import CPUmanager from "Managers/CPUmanager";
 import PowerCreepManager from "Managers/PowerCreepManager";
 import MemoryManager from "Managers/MemoryManager";
 import RunAllCreepsManager from "Managers/RunAllCreepsManager";
-
+import ExecuteCommandsInNTicks from "Managers/ExecuteCommandsInNTicks";
 
 import rooms from "./Rooms/rooms";
 
@@ -131,6 +131,8 @@ export const loop = () => {
   PowerCreepManager();
 
   RunAllCreepsManager();
+
+  ExecuteCommandsInNTicks();
 
   let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
   console.log(tickTotal + "ms", "on this tick");
