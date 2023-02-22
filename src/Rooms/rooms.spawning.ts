@@ -1233,12 +1233,12 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && Game.time % 65000 < 400) {
         let newName = 'Priest' + "-" + room.name;
-        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CLAIM,MOVE], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
+        room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
         console.log('Adding Priest to Spawn List: ' + newName);
     }
 
 
-    if(SpecialRepairers < 2 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7) {
+    if(SpecialRepairers < 2 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
         let rampartsInDangerOfDying = false;
         let rampartsInDangerOfDying4Mil = false;
         if(rampartsInRoomBelowElevenMil && rampartsInRoomBelowElevenMil.length > 0 && storage) {
@@ -1699,7 +1699,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     _.forEach(Game.rooms, function(thisRoom) {
         _.forEach(resourceData, function(data, targetRoomName) {
-            if(thisRoom.name == targetRoomName && !room.memory.danger) {
+            if(thisRoom.name == targetRoomName && !room.memory.danger && activeRemotes.includes(targetRoomName)) {
                 if(thisRoom.memory.roomData && (thisRoom.memory.roomData.has_hostile_structures || thisRoom.memory.roomData.has_hostile_creeps) && !thisRoom.memory.roomData.has_attacker && thisRoom.controller && attackers < 1) {
                     let newName = 'Attacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(getBody([ATTACK,ATTACK,MOVE], room, 18), newName, {memory: {role: 'attacker', targetRoom: thisRoom.name, homeRoom:room.name}});

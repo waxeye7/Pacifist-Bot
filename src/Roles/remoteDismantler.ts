@@ -26,7 +26,7 @@
 }
 
  const run = function (creep) {
-    ;
+    creep.memory.moving = false;
 
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);

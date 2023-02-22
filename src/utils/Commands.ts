@@ -1252,7 +1252,7 @@ global.SPK = function (homeRoom, targetRoomName) {
 
 global.SDM = function (homeRoom, targetRoomName) {
 let room = Game.rooms[homeRoom];
-if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 3 && Game.cpu.bucket > 9500) {
+if(room && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit + 2 && Game.cpu.bucket > 9500) {
 
     let billtongs = 0;
     _.forEach(Game.creeps, function(creep) {

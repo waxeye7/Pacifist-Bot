@@ -51,7 +51,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     if(Game.map.getRoomStatus(roomName).status !== "normal") {
                         return Infinity;
                     }
-                    if(_.includes(Memory.AvoidRooms, roomName, 0) && roomName !== creep.memory.targetPosition.roomName) {
+                    if(_.includes(Memory.AvoidRooms, roomName, 0) || Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.my && (roomName !== creep.memory.targetPosition.roomName)) {
                         return 25;
                     }
 

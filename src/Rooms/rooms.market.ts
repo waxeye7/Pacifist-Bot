@@ -175,12 +175,15 @@ function market(room):any {
         if(Memory.my_goods[Mineral.mineralType].length == 0 || !Memory.my_goods[Mineral.mineralType].includes(room.name, 0)) {
             Memory.my_goods[Mineral.mineralType].push(room.name);
         }
+        else if(Game.time % 10000 == 0) {
+            Memory.my_goods = false;
+        }
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
 
             for(let resource of BaseResources) {
                 if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
-                    if(Memory.my_goods[resource].length > 0) {
+                    if(Memory.my_goods[resource] && Memory.my_goods[resource].length > 0) {
                         for(let room_with_mineral of Memory.my_goods[resource]) {
                             if(!Game.rooms[room_with_mineral]) {
                                 Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});

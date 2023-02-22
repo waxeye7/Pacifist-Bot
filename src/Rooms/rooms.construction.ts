@@ -719,81 +719,7 @@ function construction(room) {
             }
         }
 
-        if(room.controller.level >= 3) {
-            if(storage) {
-                let storageX = storage.pos.x;
-                let storageY = storage.pos.y;
-                let tower_raw_locations = [
-                    [storageX + -5,storageY + -7],
-                    [storageX + -3,storageY + -7],
-                    [storageX + -1,storageY + -7],
-                    [storageX + 1,storageY + -7],
-                    [storageX + 3,storageY + -7],
-                    [storageX + 5,storageY + -7],
-                    [storageX + -7,storageY + -5],
-                    [storageX + -7,storageY + -3],
-                    [storageX + -7,storageY + -1],
-                    [storageX + -7,storageY + 5],
-                    [storageX + -5,storageY + 7],
-                    [storageX + -3,storageY + 7],
-                    [storageX + -1,storageY + 7],
-                    [storageX + 1,storageY + 7],
-                    [storageX + 3,storageY + 7],
-                    [storageX + 5,storageY + 7],
-                    [storageX + 7,storageY + 5],
-                    [storageX + 7,storageY + 3],
-                    [storageX + 7,storageY + 1],
-                    [storageX + 7,storageY + -1],
-                    [storageX + 7,storageY + -3],
-                    [storageX + 7,storageY + -5],
-                    [storageX + 0,storageY + 7],
-                    [storageX + 7,storageY + 0],
-                    [storageX + 0,storageY + -7],
-                    [storageX + 4,storageY + 7],
-                    [storageX + -4,storageY + 7],
-                    [storageX + 7,storageY + 4],
-                    [storageX + 7,storageY + -4],
-                    [storageX + 4,storageY + -7],
-                    [storageX + -4,storageY + -7],
-                    [storageX + -7,storageY + 4],
-                    [storageX + -7,storageY + -4]
-                ];
-                let tower_locations_to_filter = [];
-                for(let raw_location of tower_raw_locations) {
-                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
-                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
-                    }
-                }
-                let tower_locations_to_shuffle = [];
-                if(storage) {
-                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
-                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
-                        for(let location of tower_locations_to_filter) {
-                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
-                            if(closestRampartToLocation == 3) {
-                                tower_locations_to_shuffle.push(location);
-                            }
-                        }
 
-                        const shuffle = arr => {
-                            for (let i = arr.length - 1; i > 0; i--) {
-                              const j = Math.floor(Math.random() * (i + 1));
-                              const temp = arr[i];
-                              arr[i] = arr[j];
-                              arr[j] = temp;
-                            }
-                            return arr;
-                        }
-                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
-                        console.log(shuffled_tower_locations);
-
-                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
-                    }
-
-                }
-
-            }
-        }
         if(room.controller.level >= 1) {
             let sources = room.find(FIND_SOURCES);
             if(storage) {
@@ -1045,6 +971,82 @@ function construction(room) {
                 }
             }
 
+        }
+
+        if(room.controller.level >= 3) {
+            if(storage) {
+                let storageX = storage.pos.x;
+                let storageY = storage.pos.y;
+                let tower_raw_locations = [
+                    [storageX + -5,storageY + -7],
+                    [storageX + -3,storageY + -7],
+                    [storageX + -1,storageY + -7],
+                    [storageX + 1,storageY + -7],
+                    [storageX + 3,storageY + -7],
+                    [storageX + 5,storageY + -7],
+                    [storageX + -7,storageY + -5],
+                    [storageX + -7,storageY + -3],
+                    [storageX + -7,storageY + -1],
+                    [storageX + -7,storageY + 5],
+                    [storageX + -5,storageY + 7],
+                    [storageX + -3,storageY + 7],
+                    [storageX + -1,storageY + 7],
+                    [storageX + 1,storageY + 7],
+                    [storageX + 3,storageY + 7],
+                    [storageX + 5,storageY + 7],
+                    [storageX + 7,storageY + 5],
+                    [storageX + 7,storageY + 3],
+                    [storageX + 7,storageY + 1],
+                    [storageX + 7,storageY + -1],
+                    [storageX + 7,storageY + -3],
+                    [storageX + 7,storageY + -5],
+                    [storageX + 0,storageY + 7],
+                    [storageX + 7,storageY + 0],
+                    [storageX + 0,storageY + -7],
+                    [storageX + 4,storageY + 7],
+                    [storageX + -4,storageY + 7],
+                    [storageX + 7,storageY + 4],
+                    [storageX + 7,storageY + -4],
+                    [storageX + 4,storageY + -7],
+                    [storageX + -4,storageY + -7],
+                    [storageX + -7,storageY + 4],
+                    [storageX + -7,storageY + -4]
+                ];
+                let tower_locations_to_filter = [];
+                for(let raw_location of tower_raw_locations) {
+                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
+                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
+                    }
+                }
+                let tower_locations_to_shuffle = [];
+                if(storage) {
+                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
+                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
+                        for(let location of tower_locations_to_filter) {
+                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
+                            if(closestRampartToLocation == 3) {
+                                tower_locations_to_shuffle.push(location);
+                            }
+                        }
+
+                        const shuffle = arr => {
+                            for (let i = arr.length - 1; i > 0; i--) {
+                              const j = Math.floor(Math.random() * (i + 1));
+                              const temp = arr[i];
+                              arr[i] = arr[j];
+                              arr[j] = temp;
+                            }
+                            return arr;
+                        }
+                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
+                        console.log(shuffled_tower_locations);
+
+                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
+                    }
+
+                }
+
+            }
         }
 
         // if(spawn && !storage && room.controller.level < 4) {

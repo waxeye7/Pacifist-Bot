@@ -27,6 +27,7 @@ declare global {
         target_colonise:any;
         resource_requests:any;
         keepAfloat:any;
+        commandsToExecute:any;
     }
 
     interface billtong_rooms {

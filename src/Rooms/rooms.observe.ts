@@ -454,7 +454,7 @@ function observe(room) {
 
                     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
-                    if(seenRoom && storage && storage.store[RESOURCE_ENERGY] > 330000) {
+                    if(seenRoom && storage && storage.store[RESOURCE_ENERGY] > 225000) {
 
                         let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
                         if(walls.length == 0) {
@@ -463,7 +463,7 @@ function observe(room) {
 
                             let deposits = seenRoom.find(FIND_DEPOSITS);
 
-                            if(powerBanks.length > 0 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
+                            if(powerBanks.length > 0 && storage.store[RESOURCE_ENERGY] > 330000 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
                              powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
                              storage.store[RESOURCE_ENERGY] > 350000) {
 
@@ -471,7 +471,7 @@ function observe(room) {
 
                             }
 
-                            if(deposits.length > 0 && (deposits[0].lastCooldown < 20 || !deposits[0].lastCooldown) && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9500) {
+                            if(deposits.length > 0 && deposits[0].lastCooldown < 20 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9500) {
 
                                 global.SDM(room.name, adj);
 

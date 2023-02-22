@@ -318,7 +318,18 @@ function labs(room) {
         }
         if(!found) {
             if(room.memory.spawn_list.length == 0) {
-                room.memory.labs.boost = {};
+                if(!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0 &&
+                    !room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0 &&
+                    !room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0 &&
+                    !room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0 &&
+                    !room.memory.labs.status.boost.lab5 || room.memory.labs.status.boost.lab5.amount == 0 &&
+                    !room.memory.labs.status.boost.lab6 || room.memory.labs.status.boost.lab6.amount == 0 &&
+                    !room.memory.labs.status.boost.lab7 || room.memory.labs.status.boost.lab7.amount == 0 &&
+                    !room.memory.labs.status.boost.lab8 || room.memory.labs.status.boost.lab8.amount == 0) {
+
+                        room.memory.labs.status.boost = {};
+
+                    }
             }
         }
     }
