@@ -98,7 +98,7 @@
 
 
 
-    if((!creep.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && creep.room.controller.level >= 2) {
+    if((creep.room.memory.Structures && (!creep.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && creep.room.controller.level >= 2)) {
         if(creep.room.controller.level < 7) {
             let containers = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== creep.room.memory.Structures.bin && building.id !== creep.room.memory.Structures.storage && building.pos.getRangeTo(creep.room.controller) == 2});
             if(containers.length > 0) {

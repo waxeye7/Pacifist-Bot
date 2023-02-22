@@ -84,7 +84,7 @@ function rooms() {
             let level = 1;
             let current = false;
             _.forEach(Game.rooms, function(anyroom:any) {
-                if(anyroom && anyroom.controller && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
+                if(anyroom && anyroom.controller && anyroom.controller.my && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
                     if(anyroom.controller.level > level) {
                         current = anyroom.name;
                         level = anyroom.controller.level;

@@ -307,7 +307,7 @@ function labs(room) {
         outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
-    if(Game.time % 97 == 0) {
+    if(Game.time % 904 == 0) {
         let spawns = room.find(FIND_MY_SPAWNS);
         let found = false;
         for(let spawn of spawns) {
@@ -318,14 +318,14 @@ function labs(room) {
         }
         if(!found) {
             if(room.memory.spawn_list.length == 0) {
-                if(!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0 &&
-                    !room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0 &&
-                    !room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0 &&
-                    !room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0 &&
-                    !room.memory.labs.status.boost.lab5 || room.memory.labs.status.boost.lab5.amount == 0 &&
-                    !room.memory.labs.status.boost.lab6 || room.memory.labs.status.boost.lab6.amount == 0 &&
-                    !room.memory.labs.status.boost.lab7 || room.memory.labs.status.boost.lab7.amount == 0 &&
-                    !room.memory.labs.status.boost.lab8 || room.memory.labs.status.boost.lab8.amount == 0) {
+                if((!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab5 || room.memory.labs.status.boost.lab5.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab6 || room.memory.labs.status.boost.lab6.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab7 || room.memory.labs.status.boost.lab7.amount == 0) &&
+                    (!room.memory.labs.status.boost.lab8 || room.memory.labs.status.boost.lab8.amount == 0)) {
 
                         room.memory.labs.status.boost = {};
 
