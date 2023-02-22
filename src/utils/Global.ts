@@ -126,6 +126,7 @@ declare global {
             SD:any;
             SDB:any;
             SG:any;
+            SGB:any;
             SCK:any;
             SGD:any;
             SPK:any;

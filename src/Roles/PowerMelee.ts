@@ -31,7 +31,7 @@ const run = function (creep) {
         if(target) {
 
             if(target.hits <= 180000 && !creep.memory.spawnedGoblin) {
-                global.SG(creep.memory.homeRoom, creep.memory.targetRoom);
+                global.SGB(creep.memory.homeRoom, creep.memory.targetRoom);
                 creep.memory.spawnedGoblin = true;
             }
 

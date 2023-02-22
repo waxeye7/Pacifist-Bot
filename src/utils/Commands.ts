@@ -1159,6 +1159,53 @@ global.SG = function(homeRoom, targetRoomName) {
 
 }
 
+global.SGB = function(homeRoom, targetRoomName) {
+    if(Game.rooms[homeRoom]) {
+        if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {
+
+            let creepsInRoom = Game.rooms[homeRoom].find(FIND_MY_CREEPS);
+            let fillers = creepsInRoom.filter(function(creep) {return creep.memory.role == "filler";}).length;
+            if(fillers < 3) {
+                let newName = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + Game.rooms[homeRoom].name;
+                Game.rooms[homeRoom].memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + newName);
+            }
+
+
+            let newName = 'Goblin-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding Goblin to Spawn List: ' + newName);
+
+
+            if(Game.rooms[homeRoom].controller.level == 5) {
+                Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'goblin', targetRoom: targetRoomName, homeRoom: homeRoom}});
+                return "Success!";
+            }
+
+            else if(Game.rooms[homeRoom].controller.level == 6) {
+                Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'goblin', targetRoom: targetRoomName, homeRoom: homeRoom}});
+                return "Success!";
+            }
+
+            else if(Game.rooms[homeRoom].controller.level == 7 || Game.rooms[homeRoom].controller.level == 8) {
+                Game.rooms[homeRoom].memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'goblin', targetRoom: targetRoomName, homeRoom: homeRoom}});
+                return "Success!";
+            }
+
+            else {
+                console.log("Controller Level too low to spawn Goblin")
+            }
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 5). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the Goblin from...")
+    }
+    return "Failed to spawn";
+
+}
+
 global.SCK = function (homeRoom, targetRoomName) {
     if(Game.rooms[homeRoom]) {
         if(Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {

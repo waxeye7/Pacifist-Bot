@@ -7,4 +7,3 @@ cache quad squad movement inside target room if position is unchanged or after x
 add same quad inter room pathing trick when turning corner of room to make more efficient movement
 
 filler is currently retarded and taking so many ticks to fill
-make heavy goblin role for power carrying
