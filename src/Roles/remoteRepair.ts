@@ -8,11 +8,21 @@ function findLockedRepair(creep) {
                 creep.memory.allowed_repairs.push(road.id);
             }
         });
-
+        let sources = creep.room.find(FIND_SOURCES);
         let nonRoadsInRoom = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType != STRUCTURE_ROAD && building.structureType !== STRUCTURE_WALL && building.structureType !== STRUCTURE_CONTROLLER && building.structureType !== STRUCTURE_RAMPART});
         _.forEach(nonRoadsInRoom, function(building) {
             // if(building.pos.lookFor(LOOK_CREEPS).length != 0) {
-            creep.memory.allowed_repairs.push(building.id)
+            if(building.structureType == STRUCTURE_CONTAINER) {
+                if(sources.length > 0) {
+                    let isNearToSource = creep.pos.isNearTo(creep.pos.findClosestByRange(sources));
+                    if(isNearToSource) {
+                        creep.memory.allowed_repairs.push(building.id)
+                    }
+                }
+            }
+            else {
+                creep.memory.allowed_repairs.push(building.id)
+            }
             // }
         });
     }
