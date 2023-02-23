@@ -307,7 +307,7 @@ function labs(room) {
         outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
-    if(Game.time % 904 == 0) {
+    if(Game.time % 21000 == 0) {
         let spawns = room.find(FIND_MY_SPAWNS);
         let found = false;
         for(let spawn of spawns) {
@@ -327,7 +327,16 @@ function labs(room) {
                     (!room.memory.labs.status.boost.lab7 || room.memory.labs.status.boost.lab7.amount == 0) &&
                     (!room.memory.labs.status.boost.lab8 || room.memory.labs.status.boost.lab8.amount == 0)) {
 
-                        room.memory.labs.status.boost = {};
+                        let creepsInRoom = room.find(FIND_MY_CREEPS);
+                        let rams = creepsInRoom.filter(function(c) {return c.memory.role == "ram";});
+                        let quadSquadChars = creepsInRoom.filter(function(c) {return c.name.startsWith("SquadCreep");});
+                        let solomons = creepsInRoom.filter(function(c) {return c.memory.role == "Solomon";});
+                        if(rams.length == 0 && quadSquadChars.length == 0 && solomons.length == 0) {
+
+                            room.memory.labs.status.boost = {};
+
+                        }
+
 
                     }
             }

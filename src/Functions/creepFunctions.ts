@@ -321,7 +321,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                     return 24;
                 }
 
-                if(this.memory.role == "Solomon" || this.memory.role == "Ram" || this.memory.role == "SquadCreepA") {
+                if(this.memory.role == "Solomon" || this.memory.role == "ram" || this.memory.role == "SquadCreepA") {
                     if(roomName.length == 6) {
                         if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
                             return 2;
