@@ -321,7 +321,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                     return 24;
                 }
 
-                if(this.memory.role == "Solomon" || this.memory.role == "ram" || this.memory.role == "SquadCreepA") {
+                if(this && this.memory && (this.memory.role == "Solomon" || this.memory.role == "ram" || this.memory.role == "SquadCreepA")) {
                     if(roomName.length == 6) {
                         if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
                             return 2;
@@ -1123,7 +1123,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
-            costs.set(creep.pos.x, creep.pos.y, 11);
+            costs.set(creep.pos.x, creep.pos.y, 21);
         }
         else if(creep.memory.role == "EnergyMiner" && creep.memory.source) {
             let source:any = Game.getObjectById(creep.memory.source)
