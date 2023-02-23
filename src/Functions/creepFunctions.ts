@@ -321,41 +321,43 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                     return 24;
                 }
 
+                if(this.memory.role == "Solomon" || this.memory.role == "Ram" || this.memory.role == "SquadCreepA") {
+                    if(roomName.length == 6) {
+                        if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                            return 2;
+                        }
+                        if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                            return 2;
+                        }
+                    }
+                    else if(roomName.length !== 6) {
+                        let homeRoomNameX;
+                        let homeRoomNameY;
+                        if(!isNaN(roomName[2])) {
+                            homeRoomNameX = parseInt(roomName[1] + roomName[2]);
+                            homeRoomNameY = parseInt(roomName[4]);
+                        }
+                        else {
+                            homeRoomNameX = parseInt(roomName[1]);
+                            if(roomName.length == 4) {
+                                homeRoomNameY = parseInt(roomName[3]);
+                            }
+                            else if(roomName.length == 5) {
+                                homeRoomNameY = parseInt(roomName[3] + roomName[4]);
+                            }
+                        }
 
-                // if(roomName.length == 6) {
-                //     if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
-                //         return 2;
-                //     }
-                //     if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
-                //         return 2;
-                //     }
-                // }
-                // else if(roomName.length !== 6) {
-                //     let homeRoomNameX;
-                //     let homeRoomNameY;
-                //     if(!isNaN(roomName[2])) {
-                //         homeRoomNameX = parseInt(roomName[1] + roomName[2]);
-                //         homeRoomNameY = parseInt(roomName[4]);
-                //     }
-                //     else {
-                //         homeRoomNameX = parseInt(roomName[1]);
-                //         if(roomName.length == 4) {
-                //             homeRoomNameY = parseInt(roomName[3]);
-                //         }
-                //         else if(roomName.length == 5) {
-                //             homeRoomNameY = parseInt(roomName[3] + roomName[4]);
-                //         }
-                //     }
+                        if(parseInt(homeRoomNameX) % 10 == 0) {
+                            return 2;
+                        }
+                        if(parseInt(homeRoomNameY) % 10 == 0) {
+                            return 2;
+                        }
+                    }
+                }
 
-                //     if(parseInt(homeRoomNameX) % 10 == 0) {
-                //         return 2;
-                //     }
-                //     if(parseInt(homeRoomNameY) % 10 == 0) {
-                //         return 2;
-                //     }
-                // }
 
-                return 2;
+                return 3;
         }});
     }
 
@@ -400,9 +402,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                 }
                 else {
                     exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-                    position = new RoomPosition(exit.x, exit.y, exit.roomName);
                 }
             }
+            position = new RoomPosition(exit.x, exit.y, exit.roomName);
         }
         else {
             if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
