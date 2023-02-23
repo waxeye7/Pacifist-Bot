@@ -411,6 +411,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
                 this.memory.exit = this.pos.findClosestByPath(this.memory.route[0].exit);
             }
             exit = this.memory.exit;
+            if(!exit) {
+                exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+            }
             position = new RoomPosition(exit.x, exit.y, exit.roomName)
             console.log(position);
             // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
