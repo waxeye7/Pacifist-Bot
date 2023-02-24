@@ -502,7 +502,7 @@ function observe(room) {
 
 function areRoomsNormalToThisRoom(homeRoom, targetRoom) {
     let route = Game.map.findRoute(homeRoom, targetRoom)
-    if(route && route !== -2 && route.length > 1) {
+    if(route && route !== -2 && route.length > 0) {
         for(let partOfRoute of route) {
             if(Game.map.getRoomStatus(partOfRoute.room).status !== "normal") {
                 return false;
