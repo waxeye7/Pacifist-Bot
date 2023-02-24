@@ -1,6 +1,7 @@
 interface Creep {
     Boost: () => boolean | "done";
     Speak: () => void;
+    evacuate:any;
     findSource: () => object;
     findSpawn:() => object | void;
     findStorage:() => object | void;
@@ -28,6 +29,48 @@ interface Creep {
     MoveToSourceSafely:any;
 }
 // CREEP PROTOTYPES
+Creep.prototype.evacuate = function evacuate():any {
+    if(this.room.memory.defence && this.room.memory.defence.nuke && this.room.memory.defence.evacuate || this.memory.nukeHaven) {
+        if(!this.memory.nukeTimer) {
+            let nukes = this.room.find(FIND_NUKES);
+            if(nukes.length > 0) {
+                nukes.sort((a,b) => a.timeToLand - b.timeToLand);
+                this.memory.nukeTimer = nukes[0].timeToLand + 1;
+            }
+        }
+        if(!this.memory.homeRoom) {
+            this.memory.homeRoom = this.room.name;
+        }
+        if(this.memory.nukeTimer && this.memory.nukeTimer > 0) {
+            this.memory.nukeTimer --;
+        }
+
+        if(this.memory.nukeTimer > 0) {
+
+            if(!this.memory.nukeHaven) {
+                let possibleRooms = Object.values(Game.map.describeExits(this.room.name));
+                let index = Math.floor(Math.random() * possibleRooms.length);
+                this.memory.nukeHaven = possibleRooms[index];
+            }
+            if(this.memory.nukeHaven) {
+                this.moveToRoom(this.memory.nukeHaven)
+            }
+
+        }
+        else {
+            if(this.room.name == this.memory.homeRoom) {
+                return false;
+            }
+            else {
+                this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
+                return true;
+            }
+        }
+
+        return true;
+    }
+    return false;
+}
 
 Creep.prototype.Boost = function Boost():any {
 
@@ -1137,7 +1180,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
         else if(creep.memory.role == "builder" && creep.memory.building && creep.memory.locked) {
             let locked:any = Game.getObjectById(creep.memory.locked);
             if(creep.pos.getRangeTo(locked) <= 3) {
-                costs.set(creep.pos.x, creep.pos.y, 3);
+                costs.set(creep.pos.x, creep.pos.y, 26);
             }
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
