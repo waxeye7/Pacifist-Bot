@@ -1,8 +1,10 @@
 function observe(room) {
 
     let interval = 64;
+    let twoTimesInterval = interval*2
+    let fourTimesInterval = interval*4;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
-    if(observer && Game.time % interval*2 <= 1) {
+    if(observer && (Game.time % fourTimesInterval == 0 || Game.time % fourTimesInterval == 1) && Game.cpu.bucket > 5000) {
         if(!room.memory.observe) {
             room.memory.observe = {};
         }
@@ -122,7 +124,7 @@ function observe(room) {
 
         let RoomsToSee = room.memory.observe.RoomsToSee
 
-        if(RoomsToSee.length > 0 && Game.time % interval*2 == 0) {
+        if(RoomsToSee.length > 0 && Game.time % fourTimesInterval == 0) {
             if(!room.memory.observe.lastObserved || room.memory.observe.lastObserved >= RoomsToSee.length) {
                 room.memory.observe.lastObserved = 0
             }
@@ -140,9 +142,9 @@ function observe(room) {
 
         }
 
-        if(Game.time % interval*2 == 1) {
+        if(Game.time % fourTimesInterval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
-
+            console.log(adj)
             if(areRoomsNormalToThisRoom(room.name, adj)) {
                 if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
                     let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
@@ -155,22 +157,87 @@ function observe(room) {
 
 
                             if(Memory.CanClaimRemote >= 1) {
-                                let found = false;
 
-                                for(let creepName in Game.creeps) {
-                                    if(creepName.startsWith("WallClearer")) {
-                                        if(Game.creeps[creepName].memory.role == "WallClearer" && Game.creeps[creepName].memory.homeRoom == room.name) {
-                                            found = true;
-                                            break;
+
+                                let canReachController = true;
+
+                                let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
+                                for(let roomName of nameOfRoomsWithExits) {
+                                    const exitDirection:any = Game.map.findExit(room.name, roomName);
+                                    const exit:any = Game.rooms[adj].controller.pos.findClosestByRange(exitDirection);
+                                    if(exit) {
+                                        if(PathFinder.search(Game.rooms[adj].controller.pos, {pos:exit,range:0,},{
+                                            maxRooms:1,
+                                            maxCost:600,
+                                            swampCost:1,
+                                            roomCallback: function(roomName):any {
+
+                                                let thisRoom = Game.rooms[roomName];
+                                                if (!room) return;
+                                                let costs = new PathFinder.CostMatrix;
+
+                                                thisRoom.find(FIND_STRUCTURES).forEach(function(struct) {
+                                                  if (struct.structureType === STRUCTURE_ROAD) {
+                                                    // Favor roads over plain tiles
+                                                    costs.set(struct.pos.x, struct.pos.y, 1);
+                                                  } else if (struct.structureType !== STRUCTURE_CONTAINER &&
+                                                             (struct.structureType !== STRUCTURE_RAMPART ||
+                                                              !struct.my)) {
+                                                    // Can't walk through non-walkable buildings
+                                                    costs.set(struct.pos.x, struct.pos.y, 255);
+                                                  }
+                                                });
+
+                                                return costs;
+                                              },
+                                                }).incomplete) {
+                                                    canReachController = false;
+                                                    break;
+                                                }
+                                    }
+                                    else {
+                                        canReachController = true;
+                                    }
+
+                                }
+
+                                if(canReachController) {
+                                    let found = false;
+
+                                    for(let creepName in Game.creeps) {
+                                        if(creepName.startsWith("WallClearer")) {
+                                            if(Game.creeps[creepName].memory.role == "WallClearer" && Game.creeps[creepName].memory.homeRoom == room.name) {
+                                                found = true;
+                                                break;
+                                            }
                                         }
+                                    }
+
+                                    if(!found) {
+                                        let newName = 'WallClearer-' + room.name + "-" + adj;
+                                        room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:adj}});
+                                        console.log('Adding wall-clearer to Spawn List: ' + newName);
+                                    }
+                                }
+                                if(!canReachController) {
+                                    let found = false;
+
+                                    for(let creepName in Game.creeps) {
+                                        if(creepName.startsWith("DismantleControllerWalls")) {
+                                            if(Game.creeps[creepName].memory.role == "DismantleControllerWalls" && Game.creeps[creepName].memory.homeRoom == room.name) {
+                                                found = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if(!found) {
+                                        let newName = 'DismantleControllerWalls-' + room.name + "-" + adj;
+                                        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, {memory: {role: 'DismantleControllerWalls', homeRoom: room.name, targetRoom:adj}});
+                                        console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);
                                     }
                                 }
 
-                                if(!found) {
-                                    let newName = 'WallClearer-' + room.name + "-" + adj;
-                                    room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:adj}});
-                                    console.log('Adding wall-clearer to Spawn List: ' + newName);
-                                }
                             }
                         }
                         else if(openControllerPositions && openControllerPositions.length == 0) {
@@ -233,9 +300,14 @@ function observe(room) {
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
-                        if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
+                        if(hostileSpawns.length > 0 && hostileTowers.length > 0 && Game.cpu) {
 
-                            global.SQR(room.name, adj)
+                            if(Game.cpu.bucket >= 8000) {
+                                global.SQR(room.name, adj)
+                            }
+                            else {
+                                console.log("not enough bucket to spawn quad")
+                            }
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
@@ -276,7 +348,10 @@ function observe(room) {
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
                         if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
 
-                            global.SD(room.name, adj, true)
+                            if(Game.cpu.bucket >= 7000) {
+                                global.SD(room.name, adj, true);
+                            }
+
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
@@ -320,7 +395,7 @@ function observe(room) {
     }
 
     // find power banks
-    if(observer && (Game.time % interval == 2 || Game.time % interval == 3)) {
+    if(observer && (Game.time % twoTimesInterval == 2 || Game.time % twoTimesInterval == 3) && Game.cpu.bucket > 4000) {
 
         if(!room.memory.observe.listOfRoomsForPower) {
 
@@ -428,7 +503,7 @@ function observe(room) {
 
             let RoomsToSee = room.memory.observe.listOfRoomsForPower
 
-            if(RoomsToSee.length > 0 && Game.time % interval == 2) {
+            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2) {
                 if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
                     room.memory.observe.lastRoomObservedForPowerIndex = 0
                 }
@@ -446,7 +521,7 @@ function observe(room) {
 
             }
 
-            if(Game.time % interval == 3) {
+            if(Game.time % twoTimesInterval == 3) {
                 let adj = room.memory.observe.lastRoomObservedForPower;
 
                 if(areRoomsNormalToThisRoom(room.name, adj)) {
