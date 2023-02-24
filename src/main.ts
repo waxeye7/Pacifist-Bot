@@ -29,6 +29,7 @@ import roleMaintainer from "Roles/maintainer";
 import roleFiller from "./Roles/filler";
 import roleFakeFiller from "Roles/FakeFiller";
 import roleControllerLinkFiller from "Roles/ControllerLinkFiller";
+import roleConvoy from "Roles/Convoy";
 import roleDefender from "./Roles/defender";
 import roleAttacker from "./Roles/attacker";
 import roleRangedAttacker from "./Roles/RangedAttacker";
@@ -116,6 +117,7 @@ global.ROLES = {
   Guard: roleGuard,
   efficient: roleEfficient,
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
+  Convoy: roleConvoy,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {
