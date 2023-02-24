@@ -264,25 +264,25 @@ function market(room):any {
 
             for(let resource of SellResources) {
                 if(room.terminal.store[resource] >= 1000) {
-                    let result = sell_resource(resource, 1, 1000);
+                    let result = sell_resource(resource, 2, 1000);
                     if(result == 0) {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 100) {
-                    let result = sell_resource(resource, 1, 100);
+                if(room.terminal.store[resource] >= 100 && Game.time % 100 == 0) {
+                    let result = sell_resource(resource, 2, 100);
                     if(result == 0) {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 10) {
-                    let result = sell_resource(resource, 1, 10);
+                if(room.terminal.store[resource] >= 1 && Game.time % 1000 == 0) {
+                    let result = sell_resource(resource, 2, 10);
                     if(result == 0) {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 1) {
-                    let result = sell_resource(resource, 1, 1);
+                if(room.terminal.store[resource] >= 1 && Game.time % 10000 == 0) {
+                    let result = sell_resource(resource, 2, 1);
                     if(result == 0) {
                         return;
                     }

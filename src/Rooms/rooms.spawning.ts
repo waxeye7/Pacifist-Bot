@@ -695,6 +695,27 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     };
 
+    if(room.memory.defence.nuke) {
+        let nukes = room.find(FIND_NUKES);
+        if(nukes.length > 0) {
+            nukes.sort((a,b) => a.timeToLand - b.timeToLand);
+            if(nukes[0].timeToLand <= 450) {
+                if(nukes[0].timeToLand <= 250) {
+                    room.memory.defence.evacuate = true;
+                }
+                else {
+                    room.memory.defence.evacuate = false;
+                }
+                return;
+            }
+
+        }
+        else {
+            room.memory.defence.nuke = false;
+            room.memory.defence.evacuate = false;
+        }
+    }
+
 
     let spawnMaintainer = false;
     let rampartsInRoom;
@@ -1008,7 +1029,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[7].energy_manager_creep.body, name, {memory: {role: 'EnergyManager'}});
                 console.log('Adding Energy Manager to Spawn List: ' + name);
             }
-            if((fillers < spawnrules[7].filler_creep.amount || fillers < spawnrules[7].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[7].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
+            if((fillers < spawnrules[7].filler_creep.amount || fillers < spawnrules[7].filler_creep.amount + 1 && activeRemotes.length > 2 || fillers < spawnrules[7].filler_creep.amount + 2 && activeRemotes.length > 3) && storage) {
                 let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[7].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
@@ -1097,7 +1118,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.unshift(spawnrules[8].energy_manager_creep.body, name, {memory: {role: 'EnergyManager'}});
                 console.log('Adding Energy Manager to Spawn List: ' + name);
             }
-            if((fillers < spawnrules[8].filler_creep.amount || fillers < spawnrules[8].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[8].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
+            if((fillers < spawnrules[8].filler_creep.amount || fillers < spawnrules[8].filler_creep.amount + 1 && activeRemotes.length > 2 || fillers < spawnrules[8].filler_creep.amount + 2 && activeRemotes.length > 3) && storage) {
                 let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[8].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
@@ -1231,7 +1252,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Signer to Spawn List: ' + newName);
     }
 
-    if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && Game.time % 65000 < 400) {
+    if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && Game.time % 95000 < 400) {
         let newName = 'Priest' + "-" + room.name;
         room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
         console.log('Adding Priest to Spawn List: ' + newName);

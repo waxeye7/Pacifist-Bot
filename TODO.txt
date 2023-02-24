@@ -15,3 +15,5 @@ filler is currently retarded and taking so many ticks to fill
 make ram smarter by retreating on lower hits and or tower damage too high - wait to drain tower first.
 
 make roles like the priest request and use observer!
+
+solomon no attack creep on rampart

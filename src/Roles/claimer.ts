@@ -12,7 +12,7 @@ import { getBody } from "Rooms/rooms.spawning";
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom) {
+    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom && !creep.room.controller.upgradeBlocked) {
         let newName = 'DismantleControllerWalls-' + creep.memory.homeRoom + "-" + creep.memory.targetRoom;
         Game.rooms[creep.memory.homeRoom].memory.spawn_list.push(getBody([MOVE,WORK], Game.rooms[creep.memory.homeRoom], 50), newName, {memory: {role: 'DismantleControllerWalls', homeRoom: creep.memory.homeRoom, targetRoom:creep.memory.targetRoom}});
         console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);

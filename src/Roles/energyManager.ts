@@ -3,8 +3,10 @@
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    ;
     creep.memory.moving = false;
+    if(creep.evacuate()) {
+		return;
+	}
     if(creep.ticksToLive == 60 && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "EnergyManager")}}).length == 1) {
         let newName = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.memory.danger && creep.room.memory.danger_timer > 100) {

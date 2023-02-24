@@ -15,7 +15,7 @@
     }
 
     let Structures = creep.room.find(FIND_STRUCTURES, {
-        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD});
+        filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType != STRUCTURE_CONTAINER});
 
     if(Structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(Structures);

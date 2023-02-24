@@ -57,9 +57,11 @@
 }
 
  const run = function (creep) {
-	;
 	creep.memory.moving = false;
 
+	if(creep.evacuate()) {
+		return;
+	}
 
 	// const start = Game.cpu.getUsed()
 

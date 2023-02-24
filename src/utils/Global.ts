@@ -114,6 +114,7 @@ declare global {
     // Syntax for adding proprties to `global` (ex "global.log")
     namespace NodeJS {
         interface Global {
+            spawnConvoy:any;
             profiler:any;
             Memory:any;
             ROLES: any;

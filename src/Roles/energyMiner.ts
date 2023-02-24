@@ -6,7 +6,9 @@
 
 const run = function (creep) {
     creep.memory.moving = false;
-
+	if(creep.evacuate()) {
+		return;
+	}
     if(creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }

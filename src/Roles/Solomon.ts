@@ -182,6 +182,13 @@ const GoToTheClosestSpawn = (roomName: string): boolean | CostMatrix => {
         costs.set(eCreep.pos.x, eCreep.pos.y, 10);
     }
 
+    let MyCreeps = room.find(FIND_MY_CREEPS);
+    for(let myCreep of MyCreeps) {
+        if(myCreep && myCreep.memory && myCreep.memory.role == "Solomon") {
+            costs.set(myCreep.pos.x, myCreep.pos.y, 51);
+        }
+    }
+
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
         if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);

@@ -171,6 +171,9 @@
 
 const run = function (creep) {
     creep.memory.moving = false;
+    if(creep.evacuate()) {
+		return;
+	}
     if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
         let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
         if(creep.room.controller.level <= 3 && creep.room.memory.spawn_list) {
