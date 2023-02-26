@@ -1260,7 +1260,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Signer to Spawn List: ' + newName);
     }
 
-    if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && Game.time % 95000 < 400) {
+    if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && room.memory.data.DOB % 75000 < 400) {
         let newName = 'Priest' + "-" + room.name;
         room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
         console.log('Adding Priest to Spawn List: ' + newName);
