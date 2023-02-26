@@ -154,7 +154,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     if(this.room.controller && this.room.memory.Structures.controllerLink) {
         let controllerLink:any = Game.getObjectById(this.room.memory.Structures.controllerLink);
         if(controllerLink) {
-            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200 && this.memory.locked.length < 2) {
+            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200) {
                 if(this.room.controller.level >= 7) {
                     this.room.memory.Structures.controllerLink = false;
                 }
@@ -163,7 +163,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
                     return controllerLink;
                 }
             }
-            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600 && this.memory.locked.length < 2) {
+            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600) {
                 this.memory.t = controllerLink.id;
                 return controllerLink;
             }
@@ -172,7 +172,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
             this.room.memory.Structures.controllerLink = false;
         }
     }
-
+    return false;
 }
 
 Creep.prototype.evacuate = function evacuate():any {
@@ -499,7 +499,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
         this.memory.route.shift();
     }
 
-    if(!this.memory.route || this.memory.route == 2 || this.memory.route && this.memory.route.length == 0 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
+    if(!this.memory.route || this.memory.route == -2 || this.memory.route && this.memory.route.length == 0 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
             routeCallback(roomName:any, fromRoomName) {
                 // !_.includes(Memory.AvoidRooms, targetRoom, 0)
@@ -2059,6 +2059,35 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
 
     let costs = new PathFinder.CostMatrix;
 
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
+        }
+
+    }
+
     const terrain = new Room.Terrain(roomName);
 
     for(let y = 0; y <= 49; y++) {
@@ -2091,36 +2120,6 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             }
         }
     });
-
-
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
-                for(let i=-5; i<5; i++) {
-                    for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-            else {
-                for(let i=-3; i<3; i++) {
-                    for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-
-        }
-        else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
-        }
-
-    }
 
 
 
@@ -2168,6 +2167,36 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
 
     let costs = new PathFinder.CostMatrix;
 
+
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+        }
+
+    }
+
     const terrain = new Room.Terrain(roomName);
 
     for(let y = 0; y <= 49; y++) {
@@ -2200,34 +2229,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
     });
 
 
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
-                for(let i=-5; i<5; i++) {
-                    for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
-                        }
-                    }
-                }
-            }
-            else {
-                for(let i=-3; i<3; i++) {
-                    for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
-                        }
-                    }
-                }
-            }
 
-        }
-        else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
-        }
-
-    }
 
 
 
