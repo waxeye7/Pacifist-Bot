@@ -1,5 +1,5 @@
 function market(room):any {
-    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 10 == 0) {
+    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 10 == 0 && Game.cpu.bucket > 100) {
         let BaseResources = [RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_KEANIUM, RESOURCE_LEMERGIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST];
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
 
