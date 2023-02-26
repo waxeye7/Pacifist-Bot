@@ -32,14 +32,14 @@ const run = function (creep) {
             }
 
             if(creep.rangedAttack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
-                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
+                creep.moveTo(closestEnemyCreep);
                 return;
             }
             if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee) {
                 creep.RangedAttackFleeFromMelee(closestEnemyCreep);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
+                creep.moveTo(closestEnemyCreep);
             }
         }
 
@@ -71,21 +71,21 @@ const run = function (creep) {
                     creep.RangedAttackFleeFromMelee(closestEnemyCreep);
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(creep, 0);
+                    creep.moveTo(creep);
                 }
             }
             else if(isMelee && creep.pos.getRangeTo(closestEnemyCreep) == 3) {
 
             }
             else if(!isMelee) {
-                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
+                creep.moveTo(closestEnemyCreep);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(closestEnemyCreep, 1);
+                creep.moveTo(closestEnemyCreep);
             }
 
             if((creep.pos.x == 1 || creep.pos.x == 48 || creep.pos.y == 1 || creep.pos.y == 48) && !isMelee) {
-                creep.MoveCostMatrixRoadPrio(creep, 0);
+                creep.moveTo(creep);
             }
 
             return;
