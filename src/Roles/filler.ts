@@ -236,7 +236,10 @@ const run = function (creep) {
             }
         }
         else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
-            creep.withdrawStorage(storage);
+            let result = creep.withdrawStorage(storage);
+            if(result == 0) {
+                creep.memory.full = true;
+            }
         }
         else if(!creep.room.memory.danger) {
             creep.acquireEnergyWithContainersAndOrDroppedEnergy();
@@ -252,20 +255,25 @@ const run = function (creep) {
 
         let target = Game.getObjectById(creep.memory.t) || creep.findFillerTarget();
         if(target) {
-            if(creep.pos.isNearTo(target)) {
-                creep.transfer(target, RESOURCE_ENERGY);
-                if(creep.store[RESOURCE_ENERGY] > target) {
-                    let newTarget = creep.findFillerTarget();
-                    if(newTarget && !creep.pos.isNearTo(newTarget)) {
-                        creep.MoveCostMatrixRoadPrio(newTarget, 1);
+            if(target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+                target = creep.findFillerTarget();
+            }
+            if(target) {
+                if(creep.pos.isNearTo(target)) {
+                    creep.transfer(target, RESOURCE_ENERGY);
+                    if(creep.store[RESOURCE_ENERGY] >= target.store.getFreeCapacity()) {
+                        let newTarget = creep.findFillerTarget();
+                        if(newTarget && !creep.pos.isNearTo(newTarget)) {
+                            creep.MoveCostMatrixRoadPrio(newTarget, 1);
+                        }
+                    }
+                    else {
+                        creep.memory.full = false;
                     }
                 }
                 else {
-                    creep.memory.full = false;
+                    creep.MoveCostMatrixRoadPrio(target, 1)
                 }
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1)
             }
         }
 
