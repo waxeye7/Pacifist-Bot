@@ -100,6 +100,12 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
         }
     });
 
+    let myCreeps = room.find(FIND_MY_CREEPS);
+    for(let myCreep of myCreeps) {
+        if(myCreep.memory.role == "roleDismantleControllerWalls") {
+            costs.set(myCreep.pos.x, myCreep.pos.y, 60);
+        }
+    }
 
     _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
