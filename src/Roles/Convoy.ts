@@ -12,7 +12,7 @@ const run = function (creep) {
         creep.memory.full = false;
     }
 
-    if(!creep.memory.full) {
+    if(!creep.memory.full && creep.ticksToLive > 1480) {
         let storage = Game.getObjectById(creep.room.memory.Structures.storage);
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
