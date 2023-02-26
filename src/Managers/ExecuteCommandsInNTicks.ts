@@ -16,7 +16,10 @@ function ExecuteCommandsInNTicks() {
 
         else if(command.delay == 0) {
             if(command.bucketNeeded && command.bucketNeeded <= Game.cpu.bucket) {
-                if(command.formation == "Duo") {
+                if(command.formation == "Singleton") {
+                    global.SS(command.homeRoom,command.targetRoom);
+                }
+                else if(command.formation == "Duo") {
                     global.SD(command.homeRoom,command.targetRoom,command.Boosted);
                 }
                 else if(command.formation == "ToughDuo") {

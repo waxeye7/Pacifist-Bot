@@ -69,7 +69,8 @@ const run = function (creep:Creep) {
             s.structureType !== STRUCTURE_INVADER_CORE &&
             s.structureType !== STRUCTURE_KEEPER_LAIR &&
             s.structureType !== STRUCTURE_ROAD &&
-            s.structureType !== STRUCTURE_PORTAL
+            s.structureType !== STRUCTURE_PORTAL &&
+            s.structureType !== STRUCTURE_EXTRACTOR
         });
         let structuresInRangeThree:any = creep.pos.findInRange(structures, 3);
         let structuresNextToMe:any = creep.pos.findInRange(structuresInRangeThree, 1);
@@ -94,12 +95,13 @@ const run = function (creep:Creep) {
             s.structureType !== STRUCTURE_INVADER_CORE &&
             s.structureType !== STRUCTURE_KEEPER_LAIR &&
             s.structureType !== STRUCTURE_ROAD &&
-            s.structureType !== STRUCTURE_PORTAL
+            s.structureType !== STRUCTURE_PORTAL &&
+            s.structureType !== STRUCTURE_EXTRACTOR
         });
     }
     let enemyStructsNotRamparts = structures.filter(function(s) {return s.structureType !== STRUCTURE_RAMPART && s.structureType !== STRUCTURE_WALL;});
     let enemySpawns = creep.room.find(FIND_HOSTILE_SPAWNS);
-    let myCreeps = creep.room.find(FIND_MY_CREEPS);
+    let myCreeps = creep.room.find(FIND_MY_CREEPS).filter(function(c) {return c.hits !== c.hitsMax});
     let portals = creep.room.find(FIND_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_PORTAL});
     if(enemySpawns.length > 0) {
         let closestSpawn = creep.pos.findClosestByRange(enemySpawns);
@@ -112,9 +114,6 @@ const run = function (creep:Creep) {
     }
     else if(enemyStructsNotRamparts.length > 0) {
         creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(enemyStructsNotRamparts), 1);
-    }
-    else if(structures.length > 0) {
-        creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(structures), 1);
     }
     else if(myCreeps.length > 0) {
         myCreeps.sort((a,b) => a.hitsMax - b.hitsMax);
@@ -135,12 +134,21 @@ const run = function (creep:Creep) {
     }
     else if(portals.length > 0) {
         let closestPortal = creep.pos.findClosestByRange(portals);
-        if(creep.pos.isNearTo(closestPortal)) {
-            if(creep.memory.backupTR.length > 0) {
-                creep.memory.targetRoom = creep.memory.backupTR;
+        if(closestPortal) {
+            if(creep.pos.isNearTo(closestPortal)) {
+                if(creep.memory.backupTR) {
+                    creep.memory.targetRoom = creep.memory.backupTR;
+                }
+                let direction = creep.pos.getDirectionTo(closestPortal);
+                creep.move(direction);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(closestPortal, 0);
             }
         }
-        creep.MoveCostMatrixRoadPrio(closestPortal, 0);
+    }
+    else if(structures.length > 0) {
+        creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(structures), 1);
     }
 
 }

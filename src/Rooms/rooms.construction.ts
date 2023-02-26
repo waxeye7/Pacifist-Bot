@@ -973,81 +973,7 @@ function construction(room) {
 
         }
 
-        if(room.controller.level >= 3) {
-            if(storage) {
-                let storageX = storage.pos.x;
-                let storageY = storage.pos.y;
-                let tower_raw_locations = [
-                    [storageX + -5,storageY + -7],
-                    [storageX + -3,storageY + -7],
-                    [storageX + -1,storageY + -7],
-                    [storageX + 1,storageY + -7],
-                    [storageX + 3,storageY + -7],
-                    [storageX + 5,storageY + -7],
-                    [storageX + -7,storageY + -5],
-                    [storageX + -7,storageY + -3],
-                    [storageX + -7,storageY + -1],
-                    [storageX + -7,storageY + 5],
-                    [storageX + -5,storageY + 7],
-                    [storageX + -3,storageY + 7],
-                    [storageX + -1,storageY + 7],
-                    [storageX + 1,storageY + 7],
-                    [storageX + 3,storageY + 7],
-                    [storageX + 5,storageY + 7],
-                    [storageX + 7,storageY + 5],
-                    [storageX + 7,storageY + 3],
-                    [storageX + 7,storageY + 1],
-                    [storageX + 7,storageY + -1],
-                    [storageX + 7,storageY + -3],
-                    [storageX + 7,storageY + -5],
-                    [storageX + 0,storageY + 7],
-                    [storageX + 7,storageY + 0],
-                    [storageX + 0,storageY + -7],
-                    [storageX + 4,storageY + 7],
-                    [storageX + -4,storageY + 7],
-                    [storageX + 7,storageY + 4],
-                    [storageX + 7,storageY + -4],
-                    [storageX + 4,storageY + -7],
-                    [storageX + -4,storageY + -7],
-                    [storageX + -7,storageY + 4],
-                    [storageX + -7,storageY + -4]
-                ];
-                let tower_locations_to_filter = [];
-                for(let raw_location of tower_raw_locations) {
-                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
-                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
-                    }
-                }
-                let tower_locations_to_shuffle = [];
-                if(storage) {
-                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
-                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
-                        for(let location of tower_locations_to_filter) {
-                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
-                            if(closestRampartToLocation == 3) {
-                                tower_locations_to_shuffle.push(location);
-                            }
-                        }
 
-                        const shuffle = arr => {
-                            for (let i = arr.length - 1; i > 0; i--) {
-                              const j = Math.floor(Math.random() * (i + 1));
-                              const temp = arr[i];
-                              arr[i] = arr[j];
-                              arr[j] = temp;
-                            }
-                            return arr;
-                        }
-                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
-                        console.log(shuffled_tower_locations);
-
-                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
-                    }
-
-                }
-
-            }
-        }
 
         // if(spawn && !storage && room.controller.level < 4) {
         //     let spawnNeighbours = getNeighbours(spawn.pos, checkerboard);
@@ -1196,181 +1122,84 @@ function construction(room) {
 
                     DestroyAndBuild(room, positionsList, STRUCTURE_TERMINAL);
                 }
+            }
+        }
+        if(room.controller.level >= 3) {
+            if(storage) {
+                let storageX = storage.pos.x;
+                let storageY = storage.pos.y;
+                let tower_raw_locations = [
+                    [storageX + -5,storageY + -7],
+                    [storageX + -3,storageY + -7],
+                    [storageX + -1,storageY + -7],
+                    [storageX + 1,storageY + -7],
+                    [storageX + 3,storageY + -7],
+                    [storageX + 5,storageY + -7],
+                    [storageX + -7,storageY + -5],
+                    [storageX + -7,storageY + -3],
+                    [storageX + -7,storageY + -1],
+                    [storageX + -7,storageY + 5],
+                    [storageX + -5,storageY + 7],
+                    [storageX + -3,storageY + 7],
+                    [storageX + -1,storageY + 7],
+                    [storageX + 1,storageY + 7],
+                    [storageX + 3,storageY + 7],
+                    [storageX + 5,storageY + 7],
+                    [storageX + 7,storageY + 5],
+                    [storageX + 7,storageY + 3],
+                    [storageX + 7,storageY + 1],
+                    [storageX + 7,storageY + -1],
+                    [storageX + 7,storageY + -3],
+                    [storageX + 7,storageY + -5],
+                    [storageX + 0,storageY + 7],
+                    [storageX + 7,storageY + 0],
+                    [storageX + 0,storageY + -7],
+                    [storageX + 4,storageY + 7],
+                    [storageX + -4,storageY + 7],
+                    [storageX + 7,storageY + 4],
+                    [storageX + 7,storageY + -4],
+                    [storageX + 4,storageY + -7],
+                    [storageX + -4,storageY + -7],
+                    [storageX + -7,storageY + 4],
+                    [storageX + -7,storageY + -4]
+                ];
+                let tower_locations_to_filter = [];
+                for(let raw_location of tower_raw_locations) {
+                    if(raw_location[0] >= 2 && raw_location[1] >= 2 && raw_location[0] <= 47 && raw_location[1] <= 47) {
+                        tower_locations_to_filter.push(new RoomPosition(raw_location[0], raw_location[1], room.name));
+                    }
+                }
+                let tower_locations_to_shuffle = [];
+                if(storage) {
+                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
+                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
+                        for(let location of tower_locations_to_filter) {
+                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
+                            if(closestRampartToLocation == 3) {
+                                tower_locations_to_shuffle.push(location);
+                            }
+                        }
 
-                // let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
-                // if(labsInRoom.length < 10) {
+                        const shuffle = arr => {
+                            for (let i = arr.length - 1; i > 0; i--) {
+                              const j = Math.floor(Math.random() * (i + 1));
+                              const temp = arr[i];
+                              arr[i] = arr[j];
+                              arr[j] = temp;
+                            }
+                            return arr;
+                        }
+                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
+                        console.log(shuffled_tower_locations);
 
-                //     // var index = array.indexOf(item);
-                //     // if (index !== -1) {
-                //     //   array.splice(index, 1);
-                //     // }
+                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
+                    }
 
-                //     let LabLocations = [];
-                //     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
-                //     checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 1);
-
-                //     LabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
-                //     checkerboard = checkerboard.filter(item => item[0] !== -5 && item[1] !== 2);
-
-                //     LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y, room.name));
-                //     checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 0);
-
-                //     if(room.controller.level >= 7) {
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 2);
-
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 3, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -4 && item[1] !== 3);
-
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y + 3, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 3);
-                //     }
-                //     if(room.controller.level == 8) {
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 6, storage.pos.y, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -6 && item[1] !== 0);
-
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 1, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 1);
-
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 7, storage.pos.y + 2, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -7 && item[1] !== 2);
-
-                //         LabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
-                //         checkerboard = checkerboard.filter(item => item[0] !== -3 && item[1] !== 1);
-                //     }
-
-
-
-                //     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
-
-                //     for(let lab of labsInRoom) {
-                //         if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
-                //             lab.pos.createConstructionSite(STRUCTURE_RAMPART);
-                //         }
-                //     }
-
-                // }
-
+                }
 
             }
         }
-
-
-        if(room.controller.level >= 5) {
-            // let rampartLocations = [];
-            // let rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_RAMPART);}});
-            // if(rampartsInRoom.length > 0) {
-
-
-
-            //     rampartsInRoom.forEach(rampart => {
-            //         let rampartsnexttorampart = rampart.pos.findInRange(rampartsInRoom, 1);
-
-            //         for(let RP of rampartsnexttorampart) {
-            //             if(rampart.pos == RP.pos) {
-            //                 return;
-            //             }
-            //             else if(rampart.pos.x == RP.pos.x || rampart.pos.y == RP.pos.y) {
-            //                 rampartLocations.push(RP.pos);
-            //                 return;
-            //             }
-            //         }
-            //     });
-            //     pathBuilder(rampartLocations, STRUCTURE_ROAD, room, false)
-            // }
-
-            // let closestJoinedToStorage = 100;
-            // let currentClosest;
-            // // rampartLocations.sort((a,b) => b.x - a.x);
-            // rampartLocations.sort((a,b) => b.y - a.y);
-
-            // rampartLocations.forEach(location => {
-            //     console.log(location);
-
-            //     rampartLocations.shift();
-            //     if(location.findClosestByRange(rampartLocations) == 1 && storage) {
-            //         if(location.getRangeTo(storage) < closestJoinedToStorage) {
-            //             closestJoinedToStorage = location.getRangeTo(storage);
-            //             currentClosest = location;
-            //         }
-            //     }
-            // });
-
-            // let pathFromClosestRampartInBunchToStorage = PathFinder.search(storage.pos, {pos:currentClosest, range:1}, {plainCost: 1, swampCost: 3, roomCallback: () => makeStructuresCostMatrix(room.name)});
-            // pathBuilder(pathFromClosestRampartInBunchToStorage, STRUCTURE_ROAD, room);
-
-        }
-
-                // do not delete
-                // this approach to creating a link for controller might be more robust but harder
-                // do not delete below
-
-        // if(room.controller.level >= 7) {
-        //     let Controller = room.controller;
-        //     let controllerLink = Controller.pos.findInRange(links, 3)[0];
-        //     if(controllerLink == undefined) {
-        //         let controllerLinkPosition = new RoomPosition(storage.pos.x-2, storage.pos.y, room.name);
-        //         new RoomVisual(room.name).circle(storageLinkPosition.x, storageLinkPosition.y, {fill: 'transparent', radius: .75, stroke: 'red'});
-        //         let existingStructuresHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
-        //         if(existingStructuresHere.length != 0) {
-        //             if(existingStructuresHere[0].structureType != STRUCTURE_LINK) {
-        //                 existingStructuresHere[0].destroy();
-        //             }
-        //         }
-        //         else {
-        //             storageLinkPosition.createConstructionSite(STRUCTURE_LINK);
-        //         }
-        //     }
-        // }
-
-
-
-                //     let sources = room.find(FIND_SOURCES);
-
-                //     let sourceLinkOne = sources[0].pos.findInRange(links, 4)[0];
-
-                //     let sourceLinkTwo = sources[1].pos.findInRange(links, 4)[0];
-
-                //     if(sourceLinkOne == undefined) {
-                //         let path = sources[0].pos.findPathTo(spawn, {ignoreCreeps: true, ignoreRoads: false});
-                //         path[1].x path[1.y] find empty space to place link then place the linK!
-                //         room.createConstructionSite(sources[0].pos.x, storage.pos.y -2, STRUCTURE_LINK);
-
-                //     }
-
-                //     if(sourceLinkTwo == undefined) {
-                //         room.createConstructionSite(storage.pos.x + 1, storage.pos.y -2, STRUCTURE_LINK);
-                //     }
-                // }
-
-
-
-
-
-
     }
-
-
-
-
-    // if(room.controller.level > 2 && room.controller.level < 6) {
-    //     let spawnPerimeter = rampartPerimeter(spawn.pos);
-
-    //     _.forEach(spawnPerimeter, function(block) {
-    //         const blockSpot = new RoomPosition(block.x, block.y, room.name);
-    //         let lookForExistingConstructionSites = blockSpot.lookFor(LOOK_CONSTRUCTION_SITES);
-    //         let lookForExistingStructures = blockSpot.lookFor(LOOK_STRUCTURES);
-    //         let lookForTerrain = blockSpot.lookFor(LOOK_TERRAIN);
-    //         if(lookForExistingStructures.length != 0 || lookForExistingConstructionSites.length != 0) {
-    //             console.log('building here already')
-    //             return;
-    //         }
-    //         else if (lookForTerrain == "swamp" || lookForTerrain == "plain") {
-    //             room.createConstructionSite(block.x, block.y, STRUCTURE_RAMPART);
-    //             return;
-    //         }
-    //     });
-    // }
 }
 
 

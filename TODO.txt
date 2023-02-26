@@ -12,3 +12,9 @@ quads smarter and kill structs in range 2 of enemy ramparts potentially.
 make ram smarter by retreating on lower hits and or tower damage too high - wait to drain tower first.
 
 make roles like the priest request and use observer!
+
+clean up rooms.ts
+
+add remote rooms preference based on distance to sources
+
+min cut

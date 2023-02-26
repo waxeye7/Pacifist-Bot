@@ -102,8 +102,8 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
 
     let myCreeps = room.find(FIND_MY_CREEPS);
     for(let myCreep of myCreeps) {
-        if(myCreep.memory.role == "roleDismantleControllerWalls") {
-            costs.set(myCreep.pos.x, myCreep.pos.y, 60);
+        if(myCreep.memory.role == "DismantleControllerWalls") {
+            costs.set(myCreep.pos.x, myCreep.pos.y, 140);
         }
     }
 
