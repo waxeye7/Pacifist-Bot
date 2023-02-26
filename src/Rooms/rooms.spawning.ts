@@ -898,6 +898,14 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 5:
+            let bin:any = Game.getObjectById(room.memory.Structures.bin);
+            if(EnergyManagers < 1 && storage && bin && bin.store.getFreeCapacity() == 0) {
+                let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.unshift([CARRY,MOVE], name, {memory: {role: 'EnergyManager'}});
+                console.log('Adding Energy Manager to Spawn List: ' + name);
+            }
+
+
             if((fillers < spawnrules[5].filler_creep.amount || fillers < spawnrules[5].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[5].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
                 let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[5].filler_creep.body, name, {memory: {role: 'filler'}});
@@ -1551,7 +1559,8 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(SneakyControllerUpgraders < 1 && Game.time % 1200 < 300 && room.controller.level >= 5 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 12000 && Game.cpu.bucket > 6000) {
         for(let roomName of Memory.keepAfloat) {
             if(Game.map.getRoomLinearDistance(room.name, roomName) <= 6 && Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.my) {
-                if(Game.rooms[roomName].controller.level == 6 && Game.rooms[roomName].controller.ticksToDowngrade < 80000 ||
+                if(Game.rooms[roomName].controller.level == 5 && Game.rooms[roomName].controller.ticksToDowngrade < 50000 ||
+                    Game.rooms[roomName].controller.level == 6 && Game.rooms[roomName].controller.ticksToDowngrade < 80000 ||
                     Game.rooms[roomName].controller.level == 7 && Game.rooms[roomName].controller.ticksToDowngrade < 95000 ||
                     Game.rooms[roomName].controller.level == 8 && Game.rooms[roomName].controller.ticksToDowngrade < 135000) {
 
