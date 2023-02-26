@@ -20,7 +20,7 @@ if(room) {
 return "Failed to spawn Convoy to room " + targetRoomName;
 }
 
-global.SS = function(roomName, targetRoomName):any {
+global.SS = function(roomName, targetRoomName, backupTR=""):any {
 let room = Game.rooms[roomName];
 if(room) {
 let storage:any = Game.getObjectById(room.memory.Structures.storage);
@@ -35,7 +35,7 @@ if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 270 && stora
                 HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL];
 
     let newName = 'Solomon-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-    room.memory.spawn_list.push(body, newName, {memory: {role: 'Solomon', homeRoom:roomName, targetRoom:targetRoomName,boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
+    room.memory.spawn_list.push(body, newName, {memory: {role: 'Solomon', homeRoom:roomName, targetRoom:targetRoomName, backupTR:backupTR, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab4,room.memory.labs.outputLab5,room.memory.labs.outputLab7]}});
     console.log('Adding Solomon to Spawn List: ' + newName + roomName, targetRoomName);
 
 

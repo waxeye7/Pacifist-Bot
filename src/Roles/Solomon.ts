@@ -36,14 +36,29 @@ const run = function (creep:Creep) {
     if(hostilesInRoom.length > 0) {
         hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3;});
         if(hostilesInRangeThree.length > 0) {
-            let closestEnemyCreep = creep.pos.findClosestByRange(hostilesInRangeThree);
-            if(creep.pos.isNearTo(closestEnemyCreep)) {
-                creep.rangedMassAttack();
+
+            let hostilesInRangeThreeNotUnderRampart = [];
+            for(let hostile of hostilesInRangeThree) {
+                let lookStructs = hostile.pos.lookFor(LOOK_STRUCTURES);
+                for(let building of lookStructs) {
+                    if(building.structureType == STRUCTURE_RAMPART) {
+                        hostilesInRangeThreeNotUnderRampart.push(hostile);
+                        break;
+                    }
+                }
             }
-            else {
-                hostilesInRangeThree.sort((a,b) => a.hits - b.hits);
-                creep.rangedAttack(hostilesInRangeThree[0]);
+            if(hostilesInRangeThreeNotUnderRampart.length > 0) {
+                let closestEnemyCreep = creep.pos.findClosestByRange(hostilesInRangeThreeNotUnderRampart);
+                if(creep.pos.isNearTo(closestEnemyCreep)) {
+                    creep.rangedMassAttack();
+                }
+                else {
+                    hostilesInRangeThreeNotUnderRampart.sort((a,b) => a.hits - b.hits);
+                    creep.rangedAttack(hostilesInRangeThreeNotUnderRampart[0]);
+                }
             }
+
+
         }
     }
     let structures;
@@ -53,7 +68,8 @@ const run = function (creep:Creep) {
             s.structureType !== STRUCTURE_CONTAINER &&
             s.structureType !== STRUCTURE_INVADER_CORE &&
             s.structureType !== STRUCTURE_KEEPER_LAIR &&
-            s.structureType !== STRUCTURE_ROAD
+            s.structureType !== STRUCTURE_ROAD &&
+            s.structureType !== STRUCTURE_PORTAL
         });
         let structuresInRangeThree:any = creep.pos.findInRange(structures, 3);
         let structuresNextToMe:any = creep.pos.findInRange(structuresInRangeThree, 1);
@@ -77,11 +93,14 @@ const run = function (creep:Creep) {
             s.structureType !== STRUCTURE_CONTAINER &&
             s.structureType !== STRUCTURE_INVADER_CORE &&
             s.structureType !== STRUCTURE_KEEPER_LAIR &&
-            s.structureType !== STRUCTURE_ROAD
+            s.structureType !== STRUCTURE_ROAD &&
+            s.structureType !== STRUCTURE_PORTAL
         });
     }
     let enemyStructsNotRamparts = structures.filter(function(s) {return s.structureType !== STRUCTURE_RAMPART && s.structureType !== STRUCTURE_WALL;});
     let enemySpawns = creep.room.find(FIND_HOSTILE_SPAWNS);
+    let myCreeps = creep.room.find(FIND_MY_CREEPS);
+    let portals = creep.room.find(FIND_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_PORTAL});
     if(enemySpawns.length > 0) {
         let closestSpawn = creep.pos.findClosestByRange(enemySpawns);
         if(!creep.pos.isNearTo(closestSpawn)) {
@@ -97,8 +116,7 @@ const run = function (creep:Creep) {
     else if(structures.length > 0) {
         creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(structures), 1);
     }
-    else {
-        let myCreeps = creep.room.find(FIND_MY_CREEPS);
+    else if(myCreeps.length > 0) {
         myCreeps.sort((a,b) => a.hitsMax - b.hitsMax);
         for(let mC of myCreeps) {
             if(mC.hits < mC.hitsMax) {
@@ -110,10 +128,19 @@ const run = function (creep:Creep) {
                     creep.rangedHeal(mC);
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(mC);
+                    creep.MoveCostMatrixRoadPrio(mC, 1);
                 }
             }
         }
+    }
+    else if(portals.length > 0) {
+        let closestPortal = creep.pos.findClosestByRange(portals);
+        if(creep.pos.isNearTo(closestPortal)) {
+            if(creep.memory.backupTR.length > 0) {
+                creep.memory.targetRoom = creep.memory.backupTR;
+            }
+        }
+        creep.MoveCostMatrixRoadPrio(closestPortal, 0);
     }
 
 }
