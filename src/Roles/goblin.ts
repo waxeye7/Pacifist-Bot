@@ -187,9 +187,9 @@
                 creep.MoveCostMatrixRoadPrio(target, 1);
             }
         }
-        else {
-            creep.memory.full = true;
-        }
+        // else {
+        //     creep.memory.full = true;
+        // }
 
         if(targets && targets.length == 0 && !creep.memory.full) {
             creep.memory.suicide = true;

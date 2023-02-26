@@ -8,12 +8,7 @@ add same quad inter room pathing trick when turning corner of room to make more 
 make quads bounce if too much damage
 quads smarter and kill structs in range 2 of enemy ramparts potentially.
 
-filler is currently retarded and taking so many ticks to fill
-
-
 :thinking: make a kind of raider role that walks around different rooms triggering a costly response but only committing as long as the response is not there
 make ram smarter by retreating on lower hits and or tower damage too high - wait to drain tower first.
 
 make roles like the priest request and use observer!
-
-solomon no attack creep on rampart

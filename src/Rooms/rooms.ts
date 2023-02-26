@@ -8,6 +8,7 @@ import observe from "./rooms.observe";
 import data from "./rooms.data";
 import remotes from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
+import supportOtherRooms from "./rooms.supportOtherRooms";
 
 
 function rooms() {
@@ -79,7 +80,7 @@ function rooms() {
             myRooms.push(room.name);
         }
 
-        if(Game.time % 500 == 0) {
+        if(Game.time % 400 == 0) {
             let progress = 0;
             let level = 1;
             let current = false;
@@ -99,22 +100,28 @@ function rooms() {
                     }
                 }
             });
+
             Memory.targetRampRoom.room = current;
 
 
             if(room.controller && room.controller.level == 6 && room.controller.progress < 10000) {
                 Memory.targetRampRoom.room = room.name
             }
+            if(room.memory.Structures) {
+                let storage:any = Game.getObjectById(room.memory.Structures.storage);
+                if(room.controller.level >= 6 && room.terminal && storage && storage.store[RESOURCE_ENERGY] < 40000) {
+                    Memory.targetRampRoom.room = room.name;
+                }
+            }
+
         }
 
 
 
         if(room && room.controller && room.controller.my) {
-            // if(room.controller.level >= 7 && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost) {
-            //     console.log(JSON.stringify(room.memory.labs.status.boost.lab1), room.name)
-            //     // room.memory.labs.status.boost.lab1.amount = 1000;
-            // }
-            // memory part a bit
+
+            supportOtherRooms(room);
+
             if(!room.memory.Structures) {
                 room.memory.Structures = {};
             }
