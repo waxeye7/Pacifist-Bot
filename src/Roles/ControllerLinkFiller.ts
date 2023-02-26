@@ -198,8 +198,7 @@ function findLocked(creep) {
         return;
 	}
 
-
-    if(!creep.memory.MaxStorage) {
+        if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
         for(let part of creep.body) {
             if(part.type == CARRY) {
@@ -208,7 +207,10 @@ function findLocked(creep) {
         }
         creep.memory.MaxStorage = carryPartsAmount * 50;
     }
+
     let MaxStorage = creep.memory.MaxStorage;
+
+
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 

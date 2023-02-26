@@ -190,8 +190,6 @@ const run = function (creep) {
         }
         console.log("added filler to spawn queue", creep.room.name)
     }
-
-
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;
 	}
@@ -199,8 +197,6 @@ const run = function (creep) {
 		creep.recycle();
         return;
 	}
-
-
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
         for(let part of creep.body) {
@@ -210,76 +206,26 @@ const run = function (creep) {
         }
         creep.memory.MaxStorage = carryPartsAmount * 50;
     }
+
     let MaxStorage = creep.memory.MaxStorage;
 
-    let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-
-
-    if(creep.store[RESOURCE_ENERGY] !== MaxStorage && creep.pos.isNearTo(storage)) {
-        creep.withdraw(storage, RESOURCE_ENERGY);
-    }
-
-
-
-    // const start = Game.cpu.getUsed()
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
-        creep.memory.locked = false;
     }
-    if(creep.memory.full && creep.store[RESOURCE_ENERGY] < 50) {
-        creep.memory.full = false;
-    }
-
-
     if(creep.memory.full) {
-        if(Game.time % 4 == 0 && (!creep.memory.locked || creep.memory.locked.length == 0)) {
-            findLocked(creep);
-        }
-        if(creep.memory.locked && creep.memory.locked.length > 0) {
-
-            let target:any = Game.getObjectById(creep.memory.locked[0]);
-            if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
-                creep.memory.locked.shift();
-
-                if(creep.memory.locked.length > 0) {
-                    target = Game.getObjectById(creep.memory.locked[0]);
-                    if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
-                        creep.memory.locked.shift();
-
-                        if(creep.memory.locked.length > 0) {
-                            target = Game.getObjectById(creep.memory.locked[0]);
-                            if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
-                                creep.memory.locked.shift();
-                            }
-                        }
-                    }
-                }
-            }
-            target = Game.getObjectById(creep.memory.locked[0]);
-            if(target) {
-                if(creep.pos.isNearTo(target)) {
-                    let transferResult = creep.transfer(target, RESOURCE_ENERGY);
-                    if(_.keys(creep.store).length == 0) {
-                        creep.memory.full = false;
-                    }
-                    if(creep.memory.locked.length == 2 && transferResult == 0) {
-                        let nextTarget:any = Game.getObjectById(creep.memory.locked[1]);
-                        if(nextTarget && creep.pos.getRangeTo(nextTarget) > 1) {
-                            creep.MoveCostMatrixRoadPrio(nextTarget, 1);
-                        }
-                    }
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(target, 1);
-                }
-            }
+        if(creep.room.controller && (creep.room.controller.level <= 6 && creep.store[RESOURCE_ENERGY] < 50 || creep.room.controller.level == 7 && creep.store[RESOURCE_ENERGY] < 100 || creep.room.controller.level == 8 && creep.store[RESOURCE_ENERGY] < 200)) {
+            creep.memory.full = false;
         }
     }
 
-    if(!creep.memory.full || creep.store[RESOURCE_ENERGY] == 0) {
+
+
+    if(!creep.memory.full) {
         let bin;
+        let storage;
         if(creep.room.memory.Structures) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
+            storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
         }
         if(bin && bin.store[RESOURCE_ENERGY] > MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
@@ -296,9 +242,37 @@ const run = function (creep) {
             creep.acquireEnergyWithContainersAndOrDroppedEnergy();
         }
     }
-    if(!creep.memory.locked && storage) {
-        creep.MoveCostMatrixSwampPrio(storage,5);
+
+    if(creep.memory.full) {
+        let storage;
+        if(creep.room.memory.Structures) {
+            storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
+        }
+
+
+        let target = Game.getObjectById(creep.memory.t) || creep.findFillerTarget();
+        if(target) {
+            if(creep.pos.isNearTo(target)) {
+                creep.transfer(target, RESOURCE_ENERGY);
+                if(creep.store[RESOURCE_ENERGY] > target) {
+                    let newTarget = creep.findFillerTarget();
+                    if(newTarget && !creep.pos.isNearTo(newTarget)) {
+                        creep.MoveCostMatrixRoadPrio(newTarget, 1);
+                    }
+                }
+                else {
+                    creep.memory.full = false;
+                }
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1)
+            }
+        }
+
     }
+
+
+
 }
 
 const roleFiller = {
