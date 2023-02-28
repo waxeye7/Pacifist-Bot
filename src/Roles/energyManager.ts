@@ -594,7 +594,7 @@
         }
 
         if(creep.ticksToLive % 50 == 0 || creep.ticksToLive % 50 == 1 || creep.ticksToLive % 50 == 2 || creep.ticksToLive % 50 == 3 || creep.ticksToLive % 50 == 4 || creep.ticksToLive % 50 == 5 || creep.ticksToLive % 50 == 6 || creep.ticksToLive % 50 == 7 || creep.ticksToLive % 50 == 8 || creep.ticksToLive % 50 == 9) {
-            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_KEANIUM_ACID,RESOURCE_POWER,RESOURCE_BATTERY];
+            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_POWER,RESOURCE_BATTERY];
                 if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
                     for(let resource in terminal.store) {
                         if(listOfResourcesToStorage.includes(resource)) {
@@ -619,7 +619,8 @@
                 RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
                 RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
                 RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
-                RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST];
+                RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,
+                RESOURCE_GHODIUM_HYDRIDE, RESOURCE_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_KEANIUM_ACID];
                 if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
                     for(let resource in storage.store) {
                         if(listOfResourcesToTerminal.includes(resource)) {
