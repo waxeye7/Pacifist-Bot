@@ -144,7 +144,6 @@ function observe(room) {
 
         if(Game.time % fourTimesInterval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
-            console.log(adj)
             if(areRoomsNormalToThisRoom(room.name, adj)) {
                 if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
                     let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
@@ -546,9 +545,33 @@ function observe(room) {
 
                             }
 
-                            if(deposits.length > 0 && deposits[0].lastCooldown < 20 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9500) {
+                            if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9000) {
 
-                                global.SDM(room.name, adj);
+                                let hostiles = seenRoom.find(FIND_HOSTILE_CREEPS)
+                                if(hostiles.length > 0) {
+                                    let allow = true;
+                                    for(let eCreep of hostiles) {
+                                        if(eCreep.getActiveBodyparts(ATTACK) > 0) {
+                                            allow = false;
+                                            break;
+                                        }
+                                        else if(eCreep.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                            allow = false;
+                                            break;
+                                        }
+                                    }
+
+                                    if(allow) {
+                                        let newName = 'Deposit-Attacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                                        room.memory.spawn_list.push([MOVE,ATTACK], newName, {memory: {role: 'attacker', targetRoom: seenRoom.name, homeRoom:room.name}});
+                                        console.log('Adding Deposit-Attacker to Spawn List: ' + newName);
+                                    }
+
+
+                                }
+                                if(deposits[0].lastCooldown < 20) {
+                                    global.SDM(room.name, adj);
+                                }
 
                             }
 
