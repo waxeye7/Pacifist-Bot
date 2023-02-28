@@ -59,8 +59,9 @@
         }
         if(creep.memory.locked) {
             let position = creep.memory.locked
-            if(position.x <= 47 && position.y <= 47 && position.x >= 2 && position.y >= 2) {
-                let lookForConstructionSites = position.lookFor(LOOK_CONSTRUCTION_SITES);
+            if(position && position.x <= 47 && position.y <= 47 && position.x >= 2 && position.y >= 2) {
+                let position2 = new RoomPosition(position.x, position.y, position.roomName)
+                let lookForConstructionSites = position2.lookFor(LOOK_CONSTRUCTION_SITES);
                 if(lookForConstructionSites.length > 0) {
                     let target = lookForConstructionSites[0];
                     if(creep.pos.getRangeTo(target) <= 3) {
@@ -71,7 +72,7 @@
                     }
                 }
                 else if(lookForConstructionSites.length == 0) {
-                    let lookForBuildings = position.lookFor(LOOK_STRUCTURES);
+                    let lookForBuildings = position2.lookFor(LOOK_STRUCTURES);
                     if(lookForBuildings.length > 0) {
                         for(let building of lookForBuildings) {
                             if(building.structureType == STRUCTURE_RAMPART) {

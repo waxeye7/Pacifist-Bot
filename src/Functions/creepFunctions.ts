@@ -276,7 +276,7 @@ Creep.prototype.evacuate = function evacuate():any {
                 return false;
             }
             else {
-                this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
+                this.moveToRoom(this.memory.homeRoom);
                 return true;
             }
         }
@@ -1163,7 +1163,6 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
                 }
             }
         }
-
     }
     else if(direction == 4) {
         if(this.pos.x != 49 && this.pos.y != 49) {
@@ -1400,10 +1399,13 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             }
         }
         else if(creep.memory.role == "buildcontainer" && creep.store[RESOURCE_ENERGY] > 0) {
-            costs.set(creep.pos.x, creep.pos.y, 20);
+            costs.set(creep.pos.x, creep.pos.y, 60);
         }
         else if(creep.memory.role == "repair" && creep.memory.repairing) {
             costs.set(creep.pos.x, creep.pos.y, 6);
+        }
+        else if(creep.memory.role == "Convoy" && creep.memory.repairing) {
+            costs.set(creep.pos.x, creep.pos.y, 41);
         }
         else if(creep.memory.role == "ram") {
             costs.set(creep.pos.x, creep.pos.y, 255);

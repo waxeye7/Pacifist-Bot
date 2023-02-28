@@ -1,5 +1,7 @@
 function observe(room) {
-
+    if(room.name == "E41N58") {
+        return;
+    }
     let interval = 64;
     let twoTimesInterval = interval*2
     let fourTimesInterval = interval*4;
