@@ -19,10 +19,11 @@ function CPUmanager(tickTotal) {
 
     if(Game.time % 100 == 0) {
         let total = 0;
+        let lengthOfHundredArray = Memory.CPU.hundredTickAvg.data.length;
         for(let num of Memory.CPU.hundredTickAvg.data) {
           total += Number(num);
         }
-        let average = (total / 100).toFixed(2);
+        let average = (total / lengthOfHundredArray).toFixed(2);
 
         Memory.CPU.hundredTickAvg.avg = average;
         console.log("hundred tick average is " + average)
@@ -33,10 +34,11 @@ function CPUmanager(tickTotal) {
         if(Game.time % 500 == 0) {
 
           let total = 0;
+          let lengthOfFiveHundredArray = Memory.CPU.fiveHundredTickAvg.data.length;
           for(let num of Memory.CPU.fiveHundredTickAvg.data) {
             total += Number(num);
           }
-          let average = (total / 5).toFixed(2);
+          let average = (total / lengthOfFiveHundredArray).toFixed(2);
 
           Memory.CPU.fiveHundredTickAvg.avg = average;
           console.log("five hundred tick average is " + average)
