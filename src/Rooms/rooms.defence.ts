@@ -167,7 +167,7 @@ function roomDefence(room) {
     if(Game.time % 5 == 0 || room.memory.danger && Game.time % 1 == 0) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         let storage:any = Game.getObjectById(room.memory.Structures.storage);
-        if(HostileCreeps.length > 0 && room.memory.blown_fuse) {
+        if(HostileCreeps.length > 0) {
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
             if(storage) {
                 MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
