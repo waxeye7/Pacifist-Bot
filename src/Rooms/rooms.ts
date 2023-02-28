@@ -194,7 +194,7 @@ function rooms() {
                 Memory.CPU.reduce = false;
             }
 
-            if(room.memory.danger && (room.controller.level == 2 || room.controller.level == 3) && room.memory.Structures.towers.length == 0 ) {
+            if(room.memory.danger && (room.controller.level == 2 || room.controller.level == 3) && (!room.memory.Structures.towers || room.memory.Structures.towers.length == 0)) {
                 room.controller.activateSafeMode();
             }
 
