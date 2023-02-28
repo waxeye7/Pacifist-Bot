@@ -62,7 +62,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
     }
     if(!creep.memory.building) {
-        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 20});
+        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 300});
         if(droppedResources.length > 0) {
             droppedResources.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedResources[0])) {
