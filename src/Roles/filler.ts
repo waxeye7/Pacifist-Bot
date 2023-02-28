@@ -171,6 +171,9 @@
 
 const run = function (creep) {
     creep.memory.moving = false;
+    if(creep.ticksToLive == 1499) {
+        creep.room.memory.reserveFill = [];
+    }
     if(creep.evacuate()) {
 		return;
 	}
@@ -227,9 +230,12 @@ const run = function (creep) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
             storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
         }
-        if(bin && bin.store[RESOURCE_ENERGY] > MaxStorage) {
+        if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
-                creep.withdraw(bin, RESOURCE_ENERGY);
+                let result = creep.withdraw(bin, RESOURCE_ENERGY);
+                if(result == 0) {
+                    creep.memory.full = true;
+                }
             }
             else {
                 creep.MoveCostMatrixSwampPrio(bin, 1);
@@ -260,15 +266,21 @@ const run = function (creep) {
             }
             if(target) {
                 if(creep.pos.isNearTo(target)) {
-                    creep.transfer(target, RESOURCE_ENERGY);
-                    if(creep.store[RESOURCE_ENERGY] >= target.store.getFreeCapacity()) {
+                    let result = creep.transfer(target, RESOURCE_ENERGY);
+                    if(result == 0) {
+                        creep.room.memory.reserveFill = creep.room.memory.reserveFill.filter(function(item) {return item !== target.id;});
+                    }
+                    if(creep.store[RESOURCE_ENERGY] >= target.store.getFreeCapacity(RESOURCE_ENERGY)) {
                         let newTarget = creep.findFillerTarget();
-                        if(newTarget && !creep.pos.isNearTo(newTarget)) {
+                        if(newTarget && creep.pos.getRangeTo(newTarget) > 1) {
                             creep.MoveCostMatrixRoadPrio(newTarget, 1);
                         }
                     }
                     else {
                         creep.memory.full = false;
+                        if(storage) {
+                            creep.MoveCostMatrixRoadPrio(storage, 1);
+                        }
                     }
                 }
                 else {

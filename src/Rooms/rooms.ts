@@ -125,6 +125,12 @@ function rooms() {
             if(!room.memory.Structures) {
                 room.memory.Structures = {};
             }
+
+            if(!room.memory.reserveFill) {
+                room.memory.reserveFill = [];
+            }
+            console.log(room.memory.reserveFill)
+
             if(room.controller.level >= 5 && room.memory.Structures.container) {
                 delete room.memory.Structures.container;
             }
@@ -322,7 +328,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 0) {
-        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 7 && Game.cpu.bucket > 9500) {
+        if(Game.shard.name !== "shard3" && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 7 && Game.cpu.bucket > 9500) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {

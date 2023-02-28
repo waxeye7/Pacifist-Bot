@@ -32,11 +32,14 @@ interface Creep {
 // CREEP PROTOTYPES
 Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
+    let reserveFill = this.room.memory.reserveFill;
+
     if(this.room.energyAvailable !== this.room.energyCapacityAvailable) {
 
-        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
         if(spawnAndExtensions.length > 0) {
             let t = this.pos.findClosestByRange(spawnAndExtensions);
+            this.room.memory.reserveFill.push(t.id);
             this.memory.t = t.id;
             return t;
         }
@@ -44,9 +47,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     }
 
 
-    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100)});
+    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id))});
     if(towers2.length > 0) {
         let t = this.pos.findClosestByRange(towers2);
+        this.room.memory.reserveFill.push(t.id);
         this.memory.t = t.id;
         return t;
     }
@@ -54,7 +58,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
     if(this.room.memory.Structures.factory) {
         let factory:any = Game.getObjectById(this.room.memory.Structures.factory);
-        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 460000) {
+        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 460000 && !reserveFill.includes(factory.id)) {
+            this.room.memory.reserveFill.push(factory.id);
             this.memory.t = factory.id;
             return factory;
         }
@@ -62,7 +67,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
     if(this.room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
-        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 200000) {
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 200000 && !reserveFill.includes(powerSpawn.id)) {
+            this.room.memory.reserveFill.push(powerSpawn.id);
             this.memory.t = powerSpawn.id;
             return powerSpawn;
         }
@@ -115,7 +121,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
         }
 
         for(let lab of Labs) {
-            if(lab && lab.store[RESOURCE_ENERGY] <= 2000 - this.memory.MaxStorage) {
+            if(lab && lab.store[RESOURCE_ENERGY] <= 2000 - this.memory.MaxStorage && !reserveFill.includes(lab.id)) {
+                this.room.memory.reserveFill.push(lab.id);
                 this.memory.t = lab.id;
                 return lab;
             }
@@ -159,13 +166,19 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
                     this.room.memory.Structures.controllerLink = false;
                 }
                 else {
-                    this.memory.t = controllerLink.id;
-                    return controllerLink;
+                    if(!reserveFill.includes(controllerLink.id)) {
+                        this.room.memory.reserveFill.push(controllerLink.id);
+                        this.memory.t = controllerLink.id;
+                        return controllerLink;
+                    }
                 }
             }
             else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600) {
-                this.memory.t = controllerLink.id;
-                return controllerLink;
+                if(!reserveFill.includes(controllerLink.id)) {
+                    this.room.memory.reserveFill.push(controllerLink.id);
+                    this.memory.t = controllerLink.id;
+                    return controllerLink;
+                }
             }
         }
         else {
@@ -603,7 +616,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
             if(!exit) {
                 exit = this.pos.findClosestByRange(this.memory.route[0].exit);
             }
-            position = new RoomPosition(exit.x, exit.y, exit.roomName)
+            if(exit) {
+                position = new RoomPosition(exit.x, exit.y, exit.roomName)
+            }
             console.log(position);
             // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
         }
