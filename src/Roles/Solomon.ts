@@ -39,12 +39,16 @@ const run = function (creep:Creep) {
 
             let hostilesInRangeThreeNotUnderRampart = [];
             for(let hostile of hostilesInRangeThree) {
+                let onRampart = false;
                 let lookStructs = hostile.pos.lookFor(LOOK_STRUCTURES);
                 for(let building of lookStructs) {
                     if(building.structureType == STRUCTURE_RAMPART) {
-                        hostilesInRangeThreeNotUnderRampart.push(hostile);
+                        onRampart = true;
                         break;
                     }
+                }
+                if(!onRampart) {
+                    hostilesInRangeThreeNotUnderRampart.push(hostile);
                 }
             }
             if(hostilesInRangeThreeNotUnderRampart.length > 0) {
