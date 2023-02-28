@@ -62,6 +62,28 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
     }
     if(!creep.memory.building) {
+        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 20});
+        if(droppedResources.length > 0) {
+            droppedResources.sort((a,b) => b.amount - a.amount);
+            if(creep.pos.isNearTo(droppedResources[0])) {
+                creep.pickup(droppedResources[0]);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(droppedResources[0], 1);
+            }
+            return;
+        }
+        let tombstones = creep.room.find(FIND_TOMBSTONES, {filter: t => t.store[RESOURCE_ENERGY] > 20});
+        if(tombstones.length > 0) {
+            tombstones.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+            if(creep.pos.isNearTo(tombstones[0])) {
+                creep.withdraw(tombstones[0],RESOURCE_ENERGY);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(tombstones[0], 1);
+            }
+            return;
+        }
         let ruins = creep.room.find(FIND_RUINS, {filter: r => r.store[RESOURCE_ENERGY] > 0});
         if(ruins.length > 0) {
             let closestRuin = creep.pos.findClosestByRange(ruins);
