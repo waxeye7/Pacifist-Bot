@@ -3,20 +3,6 @@
  * @param {Creep} creep
  **/
 function findLocked(creep, storage) {
-
-    // if(creep.room.memory.danger) {
-    //     let target:any = Game.getObjectById(creep.memory.locked);
-    //     if(creep.room.memory.rampartToMan && !target || creep.room.memory.rampartToMan && target && target.hits < 1000000) {
-    //         let rampart:any = Game.getObjectById(creep.room.memory.rampartToMan);
-    //         let RampartsNearRampartToMan = rampart.pos.findInRange(FIND_MY_STRUCTURES, {filter: (building) => {return (building.structureType == STRUCTURE_RAMPART);}}, 5);
-    //         if(RampartsNearRampartToMan.length > 0) {
-    //             RampartsNearRampartToMan.sort((a,b) => a.hits - b.hits);
-    //             creep.memory.locked = RampartsNearRampartToMan[0].id;
-    //             return RampartsNearRampartToMan[0].id;
-    //         }
-    //     }
-    // }
-
     let nukes = creep.room.find(FIND_NUKES);
     let nukeBOOL = false;
     if(nukes.length > 0) {
@@ -27,10 +13,10 @@ function findLocked(creep, storage) {
 
     if(creep.room.controller.level >= 6) {
         if(creep.room.memory.danger) {
-            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10});
+            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
         }
         else {
-            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 1050000)});
+            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) > 6 && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 1050000)});
         }
     }
     else if(creep.room.controller.level > 2) {
@@ -45,6 +31,14 @@ function findLocked(creep, storage) {
         if(creep.room.controller.level >= 6) {
 
             let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL || s.structureType == STRUCTURE_FACTORY || s.structureType == STRUCTURE_LAB});
+
+            for(let nuke of nukes) {
+                for(let s of important_structures) {
+                    if(nuke.pos.getRangeTo(s) <= 2) {
+                        s.pos.createConstructionSite(STRUCTURE_RAMPART);
+                    }
+                }
+            }
 
             let ramparts_on_important_structures = []
 
@@ -74,7 +68,7 @@ function findLocked(creep, storage) {
             }
 
             for(let data of important_structures_data) {
-                if(data[1] <= 600000) {
+                if(data[1] < 175000) {
                     creep.say("🎯", true);
                     creep.memory.locked = data[0].id;
                     creep.room.memory.NukeRepair = true;

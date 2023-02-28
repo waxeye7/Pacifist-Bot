@@ -722,14 +722,17 @@ function add_creeps_to_spawn_list(room, spawn) {
     let rampartsInRoomBelowFiftyK;
     let rampartsInRoomBelowElevenMil;
     if(room.controller.level >= 3) {
-        rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART});
-        rampartsInRoomBelowFiftyK = rampartsInRoom.filter(function(s) {return s.hits < 50000;})
-        rampartsInRoomBelowElevenMil = rampartsInRoom.filter(function(s) {return s.hits < 11000000;})
-        for(let rampart of rampartsInRoom) {
-            if(rampart.hits <= 10000) {
-                spawnMaintainer = true;
+        if(storage) {
+            rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) > 6});
+            rampartsInRoomBelowFiftyK = rampartsInRoom.filter(function(s) {return s.hits < 50000;})
+            rampartsInRoomBelowElevenMil = rampartsInRoom.filter(function(s) {return s.hits < 11000000;})
+            for(let rampart of rampartsInRoom) {
+                if(rampart.hits <= 10000) {
+                    spawnMaintainer = true;
+                }
             }
         }
+
     }
 
 
@@ -1637,7 +1640,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             console.log('Adding ContainerBuilder to Spawn List: ' + newName);
         }
 
-        if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 200000 && distance_to_target_room <= 6 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my && Game.time - Memory.target_colonise.lastSpawnRanger > 1500) {
+        if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 200000 && distance_to_target_room <= 6 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 2) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my && Game.time - Memory.target_colonise.lastSpawnRanger > 1500 && !Game.rooms[target_colonise].controller.safeMode) {
             let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true}});
 

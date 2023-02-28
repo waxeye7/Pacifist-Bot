@@ -418,7 +418,7 @@ function construction(room) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {
             for(let nuke of nukes) {
-                if(nuke.pos.getRangeTo(storage) > 7 && nuke.pos.getRangeTo(storage) < 13) {
+                if(nuke.pos.getRangeTo(storage) > 7 && nuke.pos.getRangeTo(storage) < 13 && nuke.pos.x <= 44 && nuke.pos.y <= 44 && nuke.pos.x >= 5 && nuke.pos.y >= 5) {
                     let perimeter = [
                         new RoomPosition(nuke.pos.x + 3, nuke.pos.y, room.name),
                         new RoomPosition(nuke.pos.x + 3, nuke.pos.y - 1, room.name),
@@ -514,20 +514,20 @@ function construction(room) {
     if(room.controller.level >= 1 && room.memory.Structures.spawn) {
         let spawn = Game.getObjectById(room.memory.Structures.spawn) || room.findSpawn();
 
-        if(room.controller.level >= 3) {
-            if(spawn) {
-                let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
-                if(spawnlocationlook.length == 1) {
-                    spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
-                }
-            }
-            if(storage) {
-                let storagelocationlook = storage.pos.lookFor(LOOK_STRUCTURES);
-                if(storagelocationlook.length == 1) {
-                    storage.pos.createConstructionSite(STRUCTURE_RAMPART);
-                }
-            }
-        }
+        // if(room.controller.level >= 3) {
+        //     if(spawn) {
+        //         let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
+        //         if(spawnlocationlook.length == 1) {
+        //             spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
+        //         }
+        //     }
+        //     if(storage) {
+        //         let storagelocationlook = storage.pos.lookFor(LOOK_STRUCTURES);
+        //         if(storagelocationlook.length == 1) {
+        //             storage.pos.createConstructionSite(STRUCTURE_RAMPART);
+        //         }
+        //     }
+        // }
 
             // var index = array.indexOf(item);
             // if (index !== -1) {
@@ -644,14 +644,14 @@ function construction(room) {
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
                 }
-                let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
-                if(labsInRoom.length > 0) {
-                    for(let lab of labsInRoom) {
-                        if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
-                            lab.pos.createConstructionSite(STRUCTURE_RAMPART);
-                        }
-                    }
-                }
+                // let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
+                // if(labsInRoom.length > 0) {
+                //     for(let lab of labsInRoom) {
+                //         if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
+                //             lab.pos.createConstructionSite(STRUCTURE_RAMPART);
+                //         }
+                //     }
+                // }
             }
 
 
@@ -805,10 +805,10 @@ function construction(room) {
 
                         DestroyAndBuild(room, listOfFactoryPositions, STRUCTURE_FACTORY);
 
-                        let lookforfactorypositionstructures = FactoryPosition.lookFor(LOOK_STRUCTURES)
-                        if(lookforfactorypositionstructures.length == 1 && lookforfactorypositionstructures[0].structureType == STRUCTURE_FACTORY) {
-                            FactoryPosition.createConstructionSite(STRUCTURE_RAMPART);
-                        }
+                        // let lookforfactorypositionstructures = FactoryPosition.lookFor(LOOK_STRUCTURES)
+                        // if(lookforfactorypositionstructures.length == 1 && lookforfactorypositionstructures[0].structureType == STRUCTURE_FACTORY) {
+                        //     FactoryPosition.createConstructionSite(STRUCTURE_RAMPART);
+                        // }
                     }
 
                 }
@@ -835,25 +835,25 @@ function construction(room) {
                         let listOfNukerPositions = [new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name)]
                         DestroyAndBuild(room, listOfNukerPositions, STRUCTURE_NUKER);
                     }
-                    else if(nukers.length == 1) {
-                        let NukerPosition = new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name);
-                        let lookForS = NukerPosition.lookFor(LOOK_STRUCTURES);
-                        if(lookForS.length == 1) {
-                            NukerPosition.createConstructionSite(STRUCTURE_RAMPART);
-                        }
-                    }
+                    // else if(nukers.length == 1) {
+                    //     let NukerPosition = new RoomPosition(storage.pos.x + 4, storage.pos.y, room.name);
+                    //     let lookForS = NukerPosition.lookFor(LOOK_STRUCTURES);
+                    //     if(lookForS.length == 1) {
+                    //         NukerPosition.createConstructionSite(STRUCTURE_RAMPART);
+                    //     }
+                    // }
                     let powerSpawns = room.find(FIND_MY_STRUCTURES, {filter:s => s.structureType == STRUCTURE_POWER_SPAWN});
                     if(powerSpawns.length == 0) {
                         let listOfPowerSpawnPositions = [new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name)]
                         DestroyAndBuild(room, listOfPowerSpawnPositions, STRUCTURE_POWER_SPAWN);
                     }
-                    else if(powerSpawns.length == 1) {
-                        let PowerSpawnPosition = new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name);
-                        let lookForS = PowerSpawnPosition.lookFor(LOOK_STRUCTURES);
-                        if(lookForS.length == 1) {
-                            PowerSpawnPosition.createConstructionSite(STRUCTURE_RAMPART);
-                        }
-                    }
+                    // else if(powerSpawns.length == 1) {
+                    //     let PowerSpawnPosition = new RoomPosition(storage.pos.x + 3, storage.pos.y + 2, room.name);
+                    //     let lookForS = PowerSpawnPosition.lookFor(LOOK_STRUCTURES);
+                    //     if(lookForS.length == 1) {
+                    //         PowerSpawnPosition.createConstructionSite(STRUCTURE_RAMPART);
+                    //     }
+                    // }
                 }
 
                 if(room.controller.level == 8 && myConstructionSites == 0 && room.controller.isPowerEnabled) {
@@ -1016,10 +1016,10 @@ function construction(room) {
                 ]
                 pathBuilder(aroundTerminalList, STRUCTURE_ROAD, room, false);
 
-                let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
-                if(lookterminallocation.length == 1) {
-                    room.terminal.pos.createConstructionSite(STRUCTURE_RAMPART);
-                }
+                // let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
+                // if(lookterminallocation.length == 1) {
+                //     room.terminal.pos.createConstructionSite(STRUCTURE_RAMPART);
+                // }
             }
         }
 
@@ -1220,11 +1220,25 @@ function DestroyAndBuild(room, LocationsList, StructureType:string) {
 }
 
 function BuildIfICan(LocationsList, StructureType:string) {
+    let ramparts;
+    if(LocationsList.length > 0) {
+        let storage:any = Game.getObjectById(Game.rooms[LocationsList[0].roomName].memory.Structures.storage);
+        if(storage) {
+            ramparts = Game.rooms[LocationsList[0].roomName].find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) > 6;});
+        }
+    }
     for(let location of LocationsList) {
         let source = location.findClosestByRange(Game.rooms[location.roomName].find(FIND_SOURCES));
         if(location.getRangeTo(source) == 1) {
             continue;
         }
+
+        if(ramparts.length > 0) {
+            if(location.getRangeTo(location.findClosestByRange(ramparts)) > 4) {
+                continue;
+            }
+        }
+
         let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
         if(lookForExistingStructures.length > 0) {
             let canIBuild = true;
