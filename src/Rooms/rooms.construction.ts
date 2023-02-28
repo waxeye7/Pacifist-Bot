@@ -741,13 +741,13 @@ function construction(room) {
                     container2.createConstructionSite(STRUCTURE_RAMPART);
                 }
 
-                let pathFromStorageToController = PathFinder.search(storage.pos, {pos:room.controller.pos, range:1}, {plainCost: 1, swampCost: 3, maxRooms:1, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
+                let pathFromStorageToController = PathFinder.search(storage.pos, {pos:room.controller.pos, range:2}, {plainCost: 1, swampCost: 3, maxRooms:1, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
 
                 pathFromStorageToController.path.pop();
 
                 let linkLocation = pathFromStorageToController.path[pathFromStorageToController.path.length - 1];
 
-                pathFromStorageToController.path.pop();
+
                 let mySpawns = room.find(FIND_MY_SPAWNS);
 
                 if(room.controller.level <= 6 && room.controller.level >= 2) {
