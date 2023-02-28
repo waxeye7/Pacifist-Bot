@@ -1,7 +1,7 @@
 function supportOtherRooms(room) {
 
     if(Game.cpu.bucket > 7000 &&
-        Game.time % 100 == 0 &&
+        Game.time % 250 == 0 &&
         Memory.target_colonise &&
         Game.rooms[Memory.target_colonise.room] &&
         Game.rooms[Memory.target_colonise.room].controller

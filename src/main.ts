@@ -66,6 +66,7 @@ import rolePowerHeal from "Roles/PowerHeal";
 import roleEfficient from "Roles/PowerCreeps/efficient";
 import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
 import roleSolomon from "Roles/Solomon";
+import roleRampartUpgrader from "Roles/rampartUpgrader";
 
 global.ROLES = {
   Solomon: roleSolomon,
@@ -118,6 +119,7 @@ global.ROLES = {
   efficient: roleEfficient,
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
   Convoy: roleConvoy,
+  RampartUpgrader:roleRampartUpgrader,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {

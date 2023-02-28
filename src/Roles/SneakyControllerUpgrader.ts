@@ -145,7 +145,7 @@ const run = function (creep) {
             creep.memory.source = false;
             creep.memory.full = false;
         }
-        if(!creep.memory.fuil && creep.store.getFreeCapacity() <= 1) {
+        if(!creep.memory.full && creep.store.getFreeCapacity() <= 1) {
             creep.memory.full = true;
         }
 
