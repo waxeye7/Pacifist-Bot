@@ -32,8 +32,8 @@ const run = function (creep) {
     }
 
     if(creep.room.name == creep.memory.targetRoom) {
-        let storage = Game.getObjectById(creep.room.memory.Structures.storage);
-        if(creep.memory.full && storage) {
+        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+        if(creep.memory.full && storage && storage.store.getFreeCapacity() > 100) {
             if(creep.pos.isNearTo(storage)) {
                 creep.transfer(storage, RESOURCE_ENERGY);
             }
