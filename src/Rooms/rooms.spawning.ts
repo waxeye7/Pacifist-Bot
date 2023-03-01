@@ -479,7 +479,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 2,
+                amount: 5,
                 body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
@@ -513,7 +513,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 1,
+                amount: 4,
                 body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
