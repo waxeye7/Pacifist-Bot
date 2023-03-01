@@ -168,11 +168,17 @@ function findLocked(creep, storage) {
         creep.memory.repairing = true;
     }
 
+
+    if(creep.ticksToLive <= 74 && (!creep.memory.repairing || _.keys(creep.store).length == 0)) {
+		creep.memory.suicide = true;
+	}
+	if(creep.memory.suicide) {
+		creep.recycle();
+        return;
+	}
+
     if(creep.memory.repairing) {
         let repairTarget:any = Game.getObjectById(creep.memory.locked);
-//  && creep.pos.getRangeTo(creep.pos.findClosestByRange(creep.room.find(FIND_HOSTILE_CREEPS))) <= 5
-
-        // flee to away to realign repair range 3 away so cant be hit by ranged attackers
 
         if(!repairTarget) {
             creep.memory.locked = findLocked(creep, storage);
@@ -195,12 +201,6 @@ function findLocked(creep, storage) {
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
                 creep.MoveCostMatrixRoadPrio(repairTarget, 3)
-
-                // let lookForExistingStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-                // if(lookForExistingStructures.length > 0 && lookForExistingStructures[0].hits < lookForExistingStructures[0].hitsMax) {
-                //     creep.repair(lookForExistingStructures[0]);
-                // }
-
             }
             else {
                 if(creep.store.getFreeCapacity() <= 50) {
@@ -217,7 +217,27 @@ function findLocked(creep, storage) {
 
     }
 
-    else if(!creep.memory.repairing && storage) {
+    if(!creep.memory.repairing && !creep.room.memory.danger && creep.room.memory.Structures && creep.room.memory.Structures.towers) {
+        let towers = [];
+        for(let towerID of creep.room.memory.Structures.towers) {
+            let tower:any = Game.getObjectById(towerID);
+            if(tower && tower.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() && creep.pos.getRangeTo(tower) <= 6) {
+                towers.push(tower);
+            }
+        }
+        if(towers.length > 0) {
+            let closestTower = creep.pos.findClosestByRange(towers);
+            if(creep.pos.isNearTo(closestTower)) {
+                creep.withdraw(closestTower, RESOURCE_ENERGY);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(closestTower, 1);
+            }
+            return;
+        }
+    }
+
+    if(!creep.memory.repairing && storage) {
         let result = creep.withdrawStorage(storage);
 		if(result == 0) {
 			if(!creep.memory.locked) {
@@ -230,7 +250,7 @@ function findLocked(creep, storage) {
 		}
     }
 
-    else {
+    else if(!creep.memory.repairing) {
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
 		if(result == 0) {
 			if(!creep.memory.locked) {
@@ -267,15 +287,6 @@ function findLocked(creep, storage) {
             }
         }
     }
-
-	if(creep.ticksToLive <= 74 && (!creep.memory.repairing || _.keys(creep.store).length == 0)) {
-		creep.memory.suicide = true;
-	}
-	if(creep.memory.suicide == true) {
-		creep.recycle();
-        return;
-	}
-    // console.log('Repair Ran in', Game.cpu.getUsed() - start, 'ms')
 }
 
 const roleRepair = {
