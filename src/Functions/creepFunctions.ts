@@ -37,7 +37,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
     if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
         if(this.room.controller.level < 7) {
-            let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 2});
+            let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 3});
             if(containers.length > 0) {
                 let controllerLink = this.room.controller.pos.findClosestByRange(containers);
                 if(containers.length > 1) {
@@ -192,7 +192,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
     if(this.memory.role == "filler" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
         if(this.room.controller.level < 7) {
-            let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 2});            if(containers.length > 0) {
+            let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 3});
+            if(containers.length > 0) {
                 let controllerLink = this.room.controller.pos.findClosestByRange(containers);
                 if(containers.length > 1) {
                     let sources = this.room.find(FIND_SOURCES);
@@ -1043,7 +1044,7 @@ Creep.prototype.Sweep = function Sweep() {
 
 
 Creep.prototype.recycle = function recycle() {
-    if(this.memory.homeRoom && this.memory.homeRoom != this.room.name) {
+    if(this.memory.homeRoom && this.memory.homeRoom !== this.room.name) {
         return this.moveToRoomAvoidEnemyRooms(this.memory.homeRoom);
     }
 
@@ -1078,6 +1079,22 @@ Creep.prototype.recycle = function recycle() {
             else {
                 this.suicide();
             }
+        }
+        else {
+            if(StructuresObject.storage) {
+                let storage:any = Game.getObjectById(StructuresObject.storage);
+                if(storage) {
+                    let binPos = new RoomPosition(storage.pos.x, storage.pos.y+1, storage.pos.roomName);
+                    let lookForBin = binPos.lookFor(LOOK_STRUCTURES);
+                    for(let s of lookForBin) {
+                        if(s.structureType == STRUCTURE_CONTAINER) {
+                            StructuresObject.bin = s.id;
+                            break;
+                        }
+                    }
+                }
+            }
+
         }
     }
     else {
