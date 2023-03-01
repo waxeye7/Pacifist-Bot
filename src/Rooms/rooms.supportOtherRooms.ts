@@ -1,6 +1,8 @@
 function supportOtherRooms(room) {
 
     if(Game.cpu.bucket > 7000 &&
+        room.memory.data &&
+        room.memory.data.DOB &&
         room.memory.data.DOB % 175 == 0 &&
         Memory.target_colonise &&
         Game.rooms[Memory.target_colonise.room] &&
