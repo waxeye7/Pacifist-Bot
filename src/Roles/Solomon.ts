@@ -97,15 +97,27 @@ const run = function (creep:Creep) {
     }
     let structures;
     if(hostilesInRangeThree && hostilesInRangeThree.length == 0 || hostilesInRoom.length == 0) {
-        structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
-            return s.structureType !== STRUCTURE_CONTROLLER &&
-            s.structureType !== STRUCTURE_CONTAINER &&
-            s.structureType !== STRUCTURE_INVADER_CORE &&
-            s.structureType !== STRUCTURE_KEEPER_LAIR &&
-            s.structureType !== STRUCTURE_ROAD &&
-            s.structureType !== STRUCTURE_PORTAL &&
-            s.structureType !== STRUCTURE_EXTRACTOR
-        });
+        if(creep.room.controller && creep.room.controller.my) {
+            structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
+                return s.structureType !== STRUCTURE_CONTROLLER &&
+                s.structureType !== STRUCTURE_CONTAINER &&
+                s.structureType !== STRUCTURE_INVADER_CORE &&
+                s.structureType !== STRUCTURE_KEEPER_LAIR &&
+                s.structureType !== STRUCTURE_ROAD &&
+                s.structureType !== STRUCTURE_PORTAL &&
+                s.structureType !== STRUCTURE_EXTRACTOR
+            });
+        }
+        else {
+            structures = creep.room.find(FIND_STRUCTURES).filter(function(s) {
+                return s.structureType !== STRUCTURE_CONTROLLER &&
+                s.structureType !== STRUCTURE_INVADER_CORE &&
+                s.structureType !== STRUCTURE_KEEPER_LAIR &&
+                s.structureType !== STRUCTURE_PORTAL &&
+                s.structureType !== STRUCTURE_EXTRACTOR
+            });
+        }
+
         let structuresInRangeThree:any = creep.pos.findInRange(structures, 3);
         let structuresNextToMe:any = creep.pos.findInRange(structuresInRangeThree, 1);
         if(structuresNextToMe.length > 0) {

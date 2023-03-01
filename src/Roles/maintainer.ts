@@ -10,6 +10,9 @@ const run = function (creep) {
         creep.recycle();
         return;
     }
+    if(creep.evacuate()) {
+		return;
+	}
     if(creep.memory.targetRoom && creep.room.name !== creep.memory.targetRoom) {
         creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }

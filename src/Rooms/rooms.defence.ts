@@ -4,6 +4,9 @@ function roomDefence(room) {
             towerShotsInRow:0
         }
     }
+    if(room.name == "E42N59") {
+        room.controller.activateSafeMode();
+    }
     if(Game.time % 250 == 0) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {
@@ -168,26 +171,13 @@ function roomDefence(room) {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         let storage:any = Game.getObjectById(room.memory.Structures.storage);
         if(HostileCreeps.length > 0) {
+            room.memory.danger = true;
+
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
             if(storage) {
                 MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
             }
             let myCreeps = room.find(FIND_MY_CREEPS);
-            let found = false;
-            for(let enemyCreep of HostileCreeps) {
-                for(let part of enemyCreep.body) {
-                    if(part.type == ATTACK || part.type == RANGED_ATTACK || part.type == WORK) {
-                        MyRamparts.forEach(rampart => {
-
-                        room.memory.danger = true;
-                        found = true;
-                        });
-                    }
-                }
-            }
-            if(found == false) {
-                room.memory.danger = false;
-            }
 
             if(HostileCreeps.length > 1 && room.memory.danger && myCreeps.length > 1) {
                 if(!Memory.DistressSignals) {

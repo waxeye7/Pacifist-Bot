@@ -61,6 +61,17 @@ const run = function (creep) {
         }
 
     }
+    else {
+        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+        if(storage && storage.store.getFreeCapacity() == 0)  {
+            if(creep.pos.isNearTo(storage)) {
+                creep.drop(RESOURCE_ENERGY);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(storage, 1)
+            }
+        }
+    }
 
 
 

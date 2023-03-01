@@ -1,3 +1,4 @@
+import construction from "./rooms.construction";
 function spawning(room: any) {
     if(!room.memory.spawn_list) {
         room.memory.spawn_list = [];
@@ -442,7 +443,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 2,
-                body:   getBody([WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
 
@@ -455,15 +456,15 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,CARRY,MOVE], room, 12),
+                body:   getBody([WORK,CARRY,MOVE], room, 50),
 
             },
             maintain_creep: {
 
                 amount: 1,
                 body:[WORK,WORK,WORK,WORK,
-                    MOVE,MOVE,MOVE,
-                    CARRY,CARRY],
+                    MOVE,MOVE,
+                    CARRY,CARRY,CARRY,CARRY],
 
             },
 
@@ -479,7 +480,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 2,
-                body:   getBody([WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
 
@@ -492,15 +493,13 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,CARRY,MOVE], room, 12),
+                body:   getBody([WORK,CARRY,MOVE], room, 50),
 
             },
             maintain_creep: {
 
                 amount: 1,
-                body:[WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                    CARRY,CARRY,CARRY,CARRY],
+                body:[WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY],
 
             },
         },
@@ -515,7 +514,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
             filler_creep: {
@@ -527,7 +526,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,CARRY,MOVE], room, 12),
+                body:   getBody([WORK,CARRY,MOVE], room, 50),
 
             },
             maintain_creep: {
@@ -551,7 +550,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
 
@@ -627,19 +626,27 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
 
             maintain_creep: {
 
                 amount: 1,
-                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                body:   [WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
         },
@@ -676,19 +683,27 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
 
             maintain_creep: {
 
                 amount: 1,
-                body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                        CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                        MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE],
+                body:   [WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         WORK,WORK,WORK,WORK,WORK,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,
+                         MOVE,MOVE,MOVE,MOVE,MOVE,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY,
+                         CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
         }
@@ -709,6 +724,10 @@ function add_creeps_to_spawn_list(room, spawn) {
                 return;
             }
 
+        }
+        else if(room.memory.defence.nuke && nukes.length == 0) {
+            room.memory.defence.nuke = false;
+            construction(room);
         }
         else {
             room.memory.defence.nuke = false;
@@ -1230,10 +1249,11 @@ function add_creeps_to_spawn_list(room, spawn) {
         let controllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
         if(Game.time % 70 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 100 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,MOVE], room, 24), name, {memory: {role: 'ControllerLinkFiller'}});
+            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 20), name, {memory: {role: 'ControllerLinkFiller'}});
             console.log('Adding ControllerLinkFiller to Spawn List: ' + name);
         }
     }
+
 
     if(room.controller.level >= 5 && !storage && builders < 5) {
         let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1559,10 +1579,11 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SneakyControllerUpgraders < 1 && Game.time % 1200 < 300 && room.controller.level >= 5 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 12000 && Game.cpu.bucket > 6000) {
+    if(SneakyControllerUpgraders < 1 && room.controller.level >= 5 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 12000 && Game.cpu.bucket > 1000) {
         for(let roomName of Memory.keepAfloat) {
             if(Game.map.getRoomLinearDistance(room.name, roomName) <= 6 && Game.rooms[roomName] && Game.rooms[roomName].controller && Game.rooms[roomName].controller.my) {
-                if(Game.rooms[roomName].controller.level == 5 && Game.rooms[roomName].controller.ticksToDowngrade < 50000 ||
+                if(Game.rooms[roomName].controller.level == 2 && Game.rooms[roomName].controller.ticksToDowngrade < 4000 ||
+                    Game.rooms[roomName].controller.level == 5 && Game.rooms[roomName].controller.ticksToDowngrade < 50000 ||
                     Game.rooms[roomName].controller.level == 6 && Game.rooms[roomName].controller.ticksToDowngrade < 80000 ||
                     Game.rooms[roomName].controller.level == 7 && Game.rooms[roomName].controller.ticksToDowngrade < 95000 ||
                     Game.rooms[roomName].controller.level == 8 && Game.rooms[roomName].controller.ticksToDowngrade < 135000) {

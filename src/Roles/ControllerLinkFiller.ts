@@ -103,9 +103,7 @@ const run = function (creep) {
                 if(creep.pos.isNearTo(target)) {
                     let result = creep.transfer(target, RESOURCE_ENERGY);
                     if(result == 0) {
-                        let IDS = creep.room.memory.reserveFill
-                        IDS = IDS.filter(ID => ID !== target.id);
-                        creep.room.memory.reserveFill = IDS;
+                        creep.room.memory.reserveFill = creep.room.memory.reserveFill.filter(ID => ID !== target.id);
                     }
                     if(creep.store[RESOURCE_ENERGY] >= target.store.getFreeCapacity(RESOURCE_ENERGY)) {
                         let newTarget = creep.findFillerTarget();

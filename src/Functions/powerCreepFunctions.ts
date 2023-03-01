@@ -2,6 +2,11 @@ interface PowerCreep {
     SwapPositionWithCreep:any;
     MoveCostMatrixRoadPrio:any;
     evacuate:any;
+    moveToRoom:any;
+}
+
+PowerCreep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
+    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:200, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
 PowerCreep.prototype.evacuate = function evacuate():any {

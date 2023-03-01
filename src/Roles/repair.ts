@@ -233,7 +233,9 @@ function findLocked(creep, storage) {
             else {
                 creep.MoveCostMatrixRoadPrio(closestTower, 1);
             }
-            return;
+            if(creep.pos.getRangeTo(storage) > creep.pos.getRangeTo(closestTower)) {
+                return;
+            }
         }
     }
 
