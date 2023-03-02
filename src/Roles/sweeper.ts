@@ -166,7 +166,7 @@ function findLocked(creep) {
         }
 
     }
-
+    creep.memory.moving = false;
     if(creep.memory.suicide == true) {
         creep.recycle();
         return;

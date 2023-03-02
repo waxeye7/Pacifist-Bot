@@ -44,22 +44,35 @@
         if(creep.room.name == creep.memory.targetRoom) {
             let move_location;
 
-            if(spawnsInRoom.length > 0) {
-                move_location = creep.pos.findClosestByRange(spawnsInRoom).pos;
+            let range = 1;
+            if(creep.room.controller && creep.room.controller.my) {
+                let hostilesInRoom = creep.room.find(FIND_HOSTILE_CREEPS);
+                if(hostilesInRoom.length > 0) {
+                    let closestHostile = creep.pos.findClosestByRange(hostilesInRoom);
+                    range = 0
+                    move_location = closestHostile.pos;
+                }
+
             }
-            else if(highPrioBuildingsInRoom.length > 0) {
-                move_location = creep.pos.findClosestByRange(highPrioBuildingsInRoom).pos;
+            else {
+                if(spawnsInRoom.length > 0) {
+                    move_location = creep.pos.findClosestByRange(spawnsInRoom).pos;
+                }
+                else if(highPrioBuildingsInRoom.length > 0) {
+                    move_location = creep.pos.findClosestByRange(highPrioBuildingsInRoom).pos;
+                }
+                else if (buildingsInRoom.length > 0) {
+                    move_location = creep.pos.findClosestByRange(buildingsInRoom).pos;
+                }
             }
-            else if (buildingsInRoom.length > 0) {
-                move_location = creep.pos.findClosestByRange(buildingsInRoom).pos;
-            }
+
             console.log(move_location)
 
 
 
             if(move_location && creep.fatigue == 0 && (myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
                 let path = PathFinder.search(
-                    creep.pos, {pos:move_location, range:1},
+                    creep.pos, {pos:move_location, range:range},
                     {
                         plainCost: 1,
                         swampCost: 5,

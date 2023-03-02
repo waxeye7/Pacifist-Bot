@@ -2203,10 +2203,11 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
         else if(struct.structureType == STRUCTURE_CONTAINER) {
             return;
         }
+        else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
+            return;
+        }
         else {
-            if(struct.structureType !== STRUCTURE_RAMPART) {
-                costs.set(struct.pos.x, struct.pos.y, 255);
-            }
+            costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
 

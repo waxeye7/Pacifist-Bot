@@ -219,16 +219,28 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
     }
     if(structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(structures);
-        if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
-            creep.rangedAttack(closestStructure);
-            creep.attack(closestStructure);
-            creep.dismantle(closestStructure);
+        if(creep.pos.getRangeTo(closestStructure) <= 3) {
+            if(creepBodyType == "ranged_attack" && !targetCreep) {
+                creep.rangedAttack(closestStructure);
+            }
+            else if(creepBodyType == "attack" && !targetCreep) {
+                creep.attack(closestStructure);
+            }
+            else if(creepBodyType == "work") {
+                creep.dismantle(closestStructure);
+            }
 
         }
-        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
-            creep.rangedMassAttack();
-            creep.attack(closestStructure);
-            creep.dismantle(closestStructure);
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL) {
+            if(creepBodyType == "ranged_attack" && !targetCreep) {
+                creep.rangedMassAttack();
+            }
+            else if(creepBodyType == "attack" && !targetCreep) {
+                creep.attack(closestStructure);
+            }
+            else if(creepBodyType == "work") {
+                creep.dismantle(closestStructure);
+            }
         }
         if(creep.memory.targetPosition.roomName == creep.room.name && !targetCreep && closestStructure) {
             // if(closestStructure.structureType !== STRUCTURE_WALL) {
@@ -463,7 +475,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                         plainCost: 1,
                         swampCost: 5,
                         maxOps: 3600,
-                        maxRooms: 40,
+                        maxRooms: 1,
                         roomCallback: (roomName) => roomCallbackSquadASwampCostSame(roomName)
                     }
                 );
@@ -479,7 +491,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                         plainCost: 1,
                         swampCost: 5,
                         maxOps: 3600,
-                        maxRooms: 40,
+                        maxRooms: 1,
                         roomCallback: (roomName) => roomCallbackSquadA(roomName)
                     }
                 );
@@ -1475,17 +1487,30 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                             creep.memory.target = false;
                         }
 
-                        if(creep.memory.target && !targetCreep) {
+                        if(creep.memory.target) {
                             let targetStructure:any = Game.getObjectById(creep.memory.target);
-                            if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || creep.pos.getRangeTo(targetStructure) > 1)) {
-                                creep.rangedAttack(targetStructure)
-                                creep.attack(targetStructure);
-                                creep.dismantle(targetStructure);
+                            if(targetStructure && (targetStructure.structureType == STRUCTURE_WALL || targetStructure.structureType == STRUCTURE_CONTAINER ||
+                                targetStructure.structureType == STRUCTURE_ROAD || creep.pos.getRangeTo(targetStructure) > 1)) {
+                                if(creepBodyType == "ranged_attack" && !targetCreep) {
+                                    creep.rangedAttack(targetStructure);
+                                }
+                                else if(creepBodyType == "attack" && !targetCreep) {
+                                    creep.attack(targetStructure);
+                                }
+                                else if(creepBodyType == "work") {
+                                    creep.dismantle(targetStructure);
+                                }
                             }
                             else {
-                                creep.rangedMassAttack();
-                                creep.attack(targetStructure);
-                                creep.dismantle(targetStructure);
+                                if(creepBodyType == "ranged_attack" && !targetCreep) {
+                                    creep.rangedMassAttack();
+                                }
+                                else if(creepBodyType == "attack" && !targetCreep) {
+                                    creep.attack(targetStructure);
+                                }
+                                else if(creepBodyType == "work") {
+                                    creep.dismantle(targetStructure);
+                                }
                             }
                         }
 
