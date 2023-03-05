@@ -145,8 +145,8 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     {
                         plainCost: 1,
                         swampCost: 5,
-                        maxOps: 4000,
-                        maxRooms: 40,
+                        maxOps: 1000,
+                        maxRooms: 5,
                         roomCallback: (roomName) => roomCallbackSquadGetReady(roomName)
                     }
                     );
@@ -194,7 +194,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                         }
                     }
                 }
-                else {
+                else {move_location
                     attack_able = false;
                     targetCreep = e_creep;
                 }
@@ -475,7 +475,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                         plainCost: 1,
                         swampCost: 5,
                         maxOps: 3600,
-                        maxRooms: 1,
+                        maxRooms: 5,
                         roomCallback: (roomName) => roomCallbackSquadASwampCostSame(roomName)
                     }
                 );
@@ -491,7 +491,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                         plainCost: 1,
                         swampCost: 5,
                         maxOps: 3600,
-                        maxRooms: 1,
+                        maxRooms: 5,
                         roomCallback: (roomName) => roomCallbackSquadA(roomName)
                     }
                 );

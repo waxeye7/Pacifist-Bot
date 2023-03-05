@@ -41,7 +41,10 @@ function findLocked(creep) {
 	if(creep.evacuate()) {
 		return;
 	}
-
+    if(creep.memory.suicide == true) {
+        creep.recycle();
+        return;
+    }
     if(!creep.memory.MaxStorage) {
         let carryPartsAmount = 0
         for(let part of creep.body) {
@@ -167,10 +170,7 @@ function findLocked(creep) {
 
     }
     creep.memory.moving = false;
-    if(creep.memory.suicide == true) {
-        creep.recycle();
-        return;
-    }
+
 
 }
 

@@ -774,7 +774,7 @@
 
 
         if(storage && nuker) {
-            if(storage.store[RESOURCE_ENERGY] >= 300000 && nuker.store[RESOURCE_ENERGY] < 300000) {
+            if(storage.store[RESOURCE_ENERGY] >= 275000 && nuker.store[RESOURCE_ENERGY] < 300000) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, RESOURCE_ENERGY);
                     creep.memory.target = nuker.id;

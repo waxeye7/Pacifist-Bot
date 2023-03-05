@@ -86,8 +86,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
             this.room.memory.Structures.controllerLink = false;
         }
     }
-
-    if(this.room.energyAvailable !== this.room.energyCapacityAvailable) {
+    if(this.room.energyAvailable < this.room.energyCapacityAvailable) {
 
         let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
         if(spawnAndExtensions.length > 0) {
@@ -220,7 +219,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
         }
     }
 
-    if(this.memory.role == "filler" && this.room.controller && this.room.memory.Structures.controllerLink) {
+    if(this.memory.role == "filler" && this.room.energyAvailable == this.room.energyCapacityAvailable && this.room.controller && this.room.memory.Structures.controllerLink) {
         let controllerLink:any = Game.getObjectById(this.room.memory.Structures.controllerLink);
         if(controllerLink) {
             if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200) {

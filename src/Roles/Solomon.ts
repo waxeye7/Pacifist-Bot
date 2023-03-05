@@ -64,7 +64,7 @@ const run = function (creep:Creep) {
 
     let hostilesInRangeThree;
     if(hostilesInRoom.length > 0) {
-        hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3;});
+        hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3 && creep.getActiveBodyparts(HEAL) < 3;});
         if(hostilesInRangeThree.length > 0) {
 
             let hostilesInRangeThreeNotUnderRampart = [];
@@ -163,7 +163,7 @@ const run = function (creep:Creep) {
         }
         if(structs.length > 0) {
             let closestExposedStruct = creep.pos.findClosestByRange(structs);
-            creep.MoveCostMatrixRoadPrio(closestExposedStruct, 3);
+            creep.MoveCostMatrixRoadPrio(closestExposedStruct, 1);
         }
         creep.memory.exposedStructures = listOfId;
     }

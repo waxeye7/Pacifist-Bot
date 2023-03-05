@@ -162,7 +162,9 @@ function findLocked(creep, storage) {
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
-        creep.memory.locked = false;
+        if(creep.room.memory.danger) {
+            creep.memory.locked = false;
+        }
     }
     if(!creep.memory.repairing && creep.store.getFreeCapacity() == 0) {
         creep.memory.repairing = true;

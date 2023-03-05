@@ -1,12 +1,20 @@
 function supportOtherRooms(room) {
+    let storage:any;
+    if(room.memory.Structures) {
+        if(room.memory.Structures.storage) {
+            storage = Game.getObjectById(room.memory.Structures.storage);
+        }
 
+    }
     if(Game.cpu.bucket > 7000 &&
         room.memory.data &&
         room.memory.data.DOB &&
         room.memory.data.DOB % 175 == 0 &&
         Memory.target_colonise &&
         Game.rooms[Memory.target_colonise.room] &&
-        Game.rooms[Memory.target_colonise.room].controller
+        Game.rooms[Memory.target_colonise.room].controller &&
+
+        storage && storage.store[RESOURCE_ENERGY] >= 100000
 
         &&
         (

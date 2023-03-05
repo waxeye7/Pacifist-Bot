@@ -18,3 +18,6 @@ clean up rooms.ts
 add remote rooms preference based on distance to sources
 
 min cut
+
+
+add carrier energy request system

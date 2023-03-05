@@ -52,6 +52,7 @@ const run = function (creep) {
     if(creep.memory.full) {
         if(creep.room.controller && (creep.room.controller.level <= 6 && creep.store[RESOURCE_ENERGY] < 50 || creep.room.controller.level == 7 && creep.store[RESOURCE_ENERGY] < 100 || creep.room.controller.level == 8 && creep.store[RESOURCE_ENERGY] < 200)) {
             creep.memory.full = false;
+            creep.memory.t = false;
         }
     }
 

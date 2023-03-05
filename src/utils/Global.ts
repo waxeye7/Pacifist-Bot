@@ -49,6 +49,7 @@ declare global {
     }
 
     interface RoomMemory {
+        safeGuard:number;
         spawn_list: Array<Array<string> | string | object>;
         roomData:any;
         has_hostile_structures: boolean;

@@ -4,9 +4,9 @@ function roomDefence(room) {
             towerShotsInRow:0
         }
     }
-    if(room.name == "E42N59") {
-        room.controller.activateSafeMode();
-    }
+    // if(room.name == "E42N59") {
+    //     room.controller.activateSafeMode();
+    // }
     if(Game.time % 250 == 0) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {

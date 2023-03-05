@@ -12,22 +12,6 @@ const run = function (creep) {
     if(creep.evacuate()) {
 		return;
 	}
-    if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
-        let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
-        if(creep.room.controller.level <= 3 && creep.room.memory.spawn_list) {
-            creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6 && creep.room.memory.spawn_list) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level == 7 && creep.room.memory.spawn_list) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        else if(creep.room.controller.level == 8 && creep.room.memory.spawn_list) {
-            creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
-        }
-        console.log("added filler to spawn queue", creep.room.name)
-    }
 	if(creep.ticksToLive <= 14 && !creep.memory.full) {
 		creep.memory.suicide = true;
 	}
@@ -53,6 +37,7 @@ const run = function (creep) {
     if(creep.memory.full) {
         if(creep.room.controller && (creep.room.controller.level <= 6 && creep.store[RESOURCE_ENERGY] < 50 || creep.room.controller.level == 7 && creep.store[RESOURCE_ENERGY] < 100 || creep.room.controller.level == 8 && creep.store[RESOURCE_ENERGY] < 200)) {
             creep.memory.full = false;
+            creep.memory.t = false;
         }
     }
 
