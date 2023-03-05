@@ -1,22 +1,4 @@
 function observe(room) {
-    if(room.name == "E41N58") {
-        let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
-
-        if(Game.time % 10 == 0) {
-            observer.observeRoom("E40N50");
-        }
-        if(Game.time % 10 == 1) {
-            let room = Game.rooms["E40N50"];
-            let hostiles = room.find(FIND_HOSTILE_CREEPS, {filter: c => c.owner.username == "Morningtea" && c.getActiveBodyparts(HEAL) > 3});
-            if(hostiles.length > 0 && Game.rooms["E42N59"] && !Game.rooms["E42N59"].controller.safeMode) {
-                if(!room.memory.safeGuard || (Game.time - room.memory.safeGuard) > 1000) {
-                    room.memory.safeGuard = Game.time;
-                    global.SD("E41N58","E42N59",true);
-                }
-            }
-        }
-        return;
-    }
     let interval = 64;
     let twoTimesInterval = interval*2
     let fourTimesInterval = interval*4;
