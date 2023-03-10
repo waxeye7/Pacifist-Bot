@@ -1,3 +1,12 @@
+/**
+ * Ripped from https://github.com/AlinaNova21/ZeSwarm/
+ * Organized by Carson Burke and xTwisteDx
+ *
+ * Usage:
+ * Before the loop, import memHack
+ * At start of loop(), run memHack.run()
+ */
+
 class MemHack {
     memory: Memory | undefined
 
