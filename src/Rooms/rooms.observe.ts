@@ -384,6 +384,51 @@ function observe(room) {
                         }
 
                     }
+                    else if((Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 7) && !Game.rooms[adj].controller.safeMode && Game.rooms[adj].controller.owner.username === "Snowgoose") {
+                        let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                        let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                        let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
+                        if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
+
+                            if(Game.cpu.bucket >= 7000) {
+                                global.SS(room.name, adj);
+                            }
+
+
+                        }
+                        else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
+
+                            global.SGD(room.name, adj,
+                                [
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE,MOVE,MOVE,
+                                    MOVE,MOVE,MOVE
+                                ]
+                                );
+
+                        }
+                        else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+
+                            global.SGD(room.name, adj,
+                                [
+                                    MOVE,MOVE,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    MOVE,MOVE,MOVE
+                                ]
+                                );
+
+                        }
+
+                    }
+
                 }
             }
 
