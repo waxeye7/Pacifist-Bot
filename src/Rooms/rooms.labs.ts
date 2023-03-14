@@ -318,7 +318,7 @@ function labs(room) {
         }
         if(!found) {
             if(room.memory.spawn_list.length == 0) {
-                if((!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
+                if(room.memory.labs.status.boost && (!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
                     (!room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0) &&
                     (!room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0) &&
                     (!room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0) &&
