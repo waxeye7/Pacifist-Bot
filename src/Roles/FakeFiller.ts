@@ -5,7 +5,7 @@
 
 function findLocked(creep) {
 
-    if(creep.room.energyAvailable == creep.room.energyCapacityAvailable) {
+    if(creep.room.energyAvailable == creep.room.energyCapacityAvailable && creep.room.memory.Structures) {
         creep.memory.locked = creep.room.memory.Structures.storage;
         return;
     }
