@@ -24,8 +24,10 @@ function findLocked(creep) {
 
         if(possibleDropOffLocations.length > 0) {
             let lock = creep.pos.findClosestByRange(possibleDropOffLocations);
-            creep.memory.locked = lock.id;
-            return lock
+            if(lock) {
+                creep.memory.locked = lock.id;
+                return lock
+            }
         }
     }
 
@@ -62,13 +64,15 @@ const run = function (creep) {
 
     }
     else {
-        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
-        if(storage && storage.store.getFreeCapacity() == 0)  {
-            if(creep.pos.isNearTo(storage)) {
-                creep.drop(RESOURCE_ENERGY);
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(storage, 1)
+        if(creep.room.memory.Structures && creep.room.memory.Structures.storage) {
+            let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
+            if(storage && storage.store.getFreeCapacity() == 0)  {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.drop(RESOURCE_ENERGY);
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1)
+                }
             }
         }
     }

@@ -440,6 +440,9 @@ function observe(room) {
     // find power banks
     if(observer && (Game.time % twoTimesInterval == 2 || Game.time % twoTimesInterval == 3) && Game.cpu.bucket > 4000) {
 
+        if(!room.memory.observe)
+            room.memory.observe = {};
+
         if(!room.memory.observe.listOfRoomsForPower) {
 
             if(!room.memory.observe.lastRoomObservedForPowerIndex) {
