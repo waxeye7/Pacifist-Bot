@@ -1262,7 +1262,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Builder to Spawn List: ' + name);
     }
 
-    if(room.memory.NukeRepair && repairers < 5 && storage && storage.store[RESOURCE_ENERGY] > 70000) {
+    if((room.memory.NukeRepair && repairers < 5 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 70000) {
         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
             CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
@@ -1419,7 +1419,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 if(HostileCreeps.length > 2 && RampartDefenders <= 1 && storage &&
                     storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
                     storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 1200 &&
-                    (RangedRampartDefenders < 2 && room.controller.level == 7 || RangedRampartDefenders  < 1 && room.controller.level == 8))  {
+                    (RangedRampartDefenders < 3 && room.controller.level == 7 || RangedRampartDefenders  < 2 && room.controller.level == 8))  {
                     if(room.controller.level == 8) {
 
                         let body = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
@@ -1433,7 +1433,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                                     MOVE,MOVE,MOVE,MOVE,MOVE,
                                     MOVE,MOVE,MOVE,MOVE,MOVE];
                         let newName = 'RRD-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                        room.memory.spawn_list.push(body, newName, {role: 'RRD', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4, room.memory.labs.outputLab2]});
+                        room.memory.spawn_list.push(body, newName, { memory: { role: 'RRD', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab4, room.memory.labs.outputLab2] } } );
                         console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
 
                         if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
@@ -1471,7 +1471,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                                     MOVE,MOVE,MOVE,MOVE,MOVE,
                                     MOVE,MOVE,MOVE,MOVE,MOVE];
                         let newName = 'RRD-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                        room.memory.spawn_list.push(body, newName, {role: 'RRD', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab4, room.memory.labs.outputLab2]});
+                        room.memory.spawn_list.push(body, newName, { memory: { role: 'RRD', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab4, room.memory.labs.outputLab2] } } );
                         console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
 
 
