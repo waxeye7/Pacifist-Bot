@@ -14,6 +14,7 @@ function roomDefence(room) {
         }
         else {
             room.memory.defence.nuke = false;
+            room.memory.defence.evacuate = false;
         }
     }
     if(room.memory.danger_timer == 0) {
