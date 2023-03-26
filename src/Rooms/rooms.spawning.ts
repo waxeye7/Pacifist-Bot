@@ -1262,7 +1262,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Builder to Spawn List: ' + name);
     }
 
-    if((room.memory.NukeRepair && repairers < 5 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 70000) {
+    if((room.memory.NukeRepair && repairers < 5 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 40000) {
         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
             CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
