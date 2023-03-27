@@ -84,24 +84,27 @@ function rooms() {
             let progress = 0;
             let level = 1;
             let current = false;
-            _.forEach(Game.rooms, function(anyroom:any) {
-                if(anyroom && anyroom.controller && anyroom.controller.my && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
-                    if(anyroom.controller.level > level) {
-                        current = anyroom.name;
-                        level = anyroom.controller.level;
-                        progress = anyroom.controller.progress;
-                    }
-                    else if(anyroom.controller.level == level) {
-                        if(anyroom.controller.progress > progress) {
+            if(Game.time % 50000 === 0) {
+                _.forEach(Game.rooms, function (anyroom: any) {
+                    if (anyroom && anyroom.controller && anyroom.controller.my && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
+                        if (anyroom.controller.level > level) {
                             current = anyroom.name;
                             level = anyroom.controller.level;
                             progress = anyroom.controller.progress;
                         }
+                        else if (anyroom.controller.level == level) {
+                            if (anyroom.controller.progress > progress) {
+                                current = anyroom.name;
+                                level = anyroom.controller.level;
+                                progress = anyroom.controller.progress;
+                            }
+                        }
                     }
-                }
-            });
+                });
+            }
 
-            Memory.targetRampRoom.room = current;
+            if(current)
+                Memory.targetRampRoom.room = current;
 
 
             if(room.controller && room.controller.level == 6 && room.controller.progress < 10000) {

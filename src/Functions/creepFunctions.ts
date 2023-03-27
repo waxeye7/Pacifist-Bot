@@ -262,7 +262,7 @@ Creep.prototype.evacuate = function evacuate():any {
         if(this.memory.nukeTimer > 0) {
 
             if(!this.memory.nukeHaven) {
-                let possibleRooms = Object.values(Game.map.describeExits(this.room.name));
+                let possibleRooms = Object.values(Game.map.describeExits(this.room.name)).filter(roomname => Game.map.getRoomStatus(roomname).status === Game.map.getRoomStatus(this.room.name).status);
                 let index = Math.floor(Math.random() * possibleRooms.length);
                 this.memory.nukeHaven = possibleRooms[index];
             }
