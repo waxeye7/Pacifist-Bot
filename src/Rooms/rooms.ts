@@ -109,7 +109,7 @@ function rooms() {
             }
             if(room.memory.Structures) {
                 let storage:any = Game.getObjectById(room.memory.Structures.storage);
-                if(room.controller.level >= 6 && room.terminal && storage && storage.store[RESOURCE_ENERGY] < 40000) {
+                if(room.controller.level >= 6 && room.terminal && storage && storage.store[RESOURCE_ENERGY] < 75000) {
                     Memory.targetRampRoom.room = room.name;
                 }
             }
