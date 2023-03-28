@@ -1335,7 +1335,8 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
         let direction = this.pos.getDirectionTo(pos);
 
         this.move(direction);
-        this.memory.moving = true;
+        if(this.memory.role !== "RRD" && this.memory.role !== "RampartDefender")
+            this.memory.moving = true;
         this.memory.path.shift();
         // this.moveByPath(this.memory.path);
      }
