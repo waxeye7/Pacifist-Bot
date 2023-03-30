@@ -67,6 +67,7 @@ import roleEfficient from "Roles/PowerCreeps/efficient";
 import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
 import roleSolomon from "Roles/Solomon";
 import roleRampartUpgrader from "Roles/rampartUpgrader";
+import roleContinuousControllerKiller from "Roles/ContinuousControllerKiller";
 
 global.ROLES = {
   Solomon: roleSolomon,
@@ -120,6 +121,7 @@ global.ROLES = {
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
   Convoy: roleConvoy,
   RampartUpgrader:roleRampartUpgrader,
+  CCK: roleContinuousControllerKiller,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {

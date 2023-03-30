@@ -1,3 +1,23 @@
+global.SCCK = function (homeRoom, targetRoomName) {
+    if (Game.rooms[homeRoom]) {
+        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8) {
+
+            let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
+
+            Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom } });
+            return "Success!";
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 8). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the ContinuousControllerKiller from...")
+    }
+    return "Failed to spawn";
+}
+
 global.spawnConvoy = function(roomName, targetRoomName) {
 let room = Game.rooms[roomName];
 if(room) {

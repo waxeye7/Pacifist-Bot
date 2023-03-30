@@ -279,6 +279,7 @@ function observe(room) {
                                 MOVE,MOVE,MOVE
                             ]
                             );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
@@ -290,6 +291,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                     }
@@ -325,6 +327,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length == 0 && hostileTowers.length == 0) {
@@ -336,6 +339,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
 
@@ -369,6 +373,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
@@ -380,7 +385,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
-
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
                         }
 
                     }
@@ -413,6 +418,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
@@ -424,6 +430,7 @@ function observe(room) {
                                     MOVE,MOVE,MOVE
                                 ]
                                 );
+                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
 

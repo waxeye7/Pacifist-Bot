@@ -80,6 +80,7 @@ declare global {
         Structures:any;
         resources:any;
         controllerLink:any;
+        observe:any;
     }
     interface CreepMemory {
         exposedStructures:any;
@@ -135,6 +136,7 @@ declare global {
             SGD:any;
             SPK:any;
             SDM:any;
+            SCCK:any;
         }
     }
 }

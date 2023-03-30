@@ -132,7 +132,6 @@ function rooms() {
             if(!room.memory.reserveFill) {
                 room.memory.reserveFill = [];
             }
-            console.log(room.name, room.memory.reserveFill)
 
             if(room.controller.level >= 5 && room.memory.Structures.container) {
                 delete room.memory.Structures.container;

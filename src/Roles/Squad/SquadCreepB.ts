@@ -83,7 +83,7 @@
     }
     if(structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(structures);
-        if(creep.pos.getRangeTo(closestStructure) <= 3 && !targetCreep) {
+        if(creep.pos.getRangeTo(closestStructure) <= 3) {
             if(creepBodyType == "ranged_attack" && !targetCreep) {
                 creep.rangedAttack(closestStructure);
             }
@@ -94,7 +94,7 @@
                 creep.dismantle(closestStructure);
             }
         }
-        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL && !targetCreep) {
+        if(creep.pos.isNearTo(closestStructure) && closestStructure.structureType !== STRUCTURE_WALL) {
             if(creepBodyType == "ranged_attack" && !targetCreep) {
                 creep.rangedMassAttack();
             }

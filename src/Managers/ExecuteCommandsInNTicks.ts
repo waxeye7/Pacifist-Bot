@@ -34,6 +34,9 @@ function ExecuteCommandsInNTicks() {
                 else if(command.formation == "DismantleQuad") {
                     global.SQD(command.homeRoom,command.targetRoom,command.Boosted)
                 }
+                else if(command.formation == "CCK") {
+                    global.SCCK(command.homeRoom, command.targetRoom);
+                }
                 commands.splice(index, 1);
             }
             else if(!command.bucketNeeded || !command.formation) {
