@@ -739,12 +739,12 @@ function add_creeps_to_spawn_list(room, spawn) {
     let spawnMaintainer = false;
     let rampartsInRoom;
     let rampartsInRoomBelowFiftyK;
-    let rampartsInRoomBelowElevenMil;
+    let rampartsInRoomBelowTwelveMil;
     if(room.controller.level >= 3) {
         if(storage) {
             rampartsInRoom = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) > 6});
             rampartsInRoomBelowFiftyK = rampartsInRoom.filter(function(s) {return s.hits < 50000;})
-            rampartsInRoomBelowElevenMil = rampartsInRoom.filter(function(s) {return s.hits < 11000000;})
+            rampartsInRoomBelowTwelveMil = rampartsInRoom.filter(function(s) {return s.hits < 12000000;})
             for(let rampart of rampartsInRoom) {
                 if(rampart.hits <= 10000) {
                     spawnMaintainer = true;
@@ -1166,7 +1166,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[8].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 290000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
+            if(repairers < spawnrules[8].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 290000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000)) {
                 let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 12550000;});
                 if(rampartsInRoomBelow10Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1294,15 +1294,15 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(SpecialRepairers < 2 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
         let rampartsInDangerOfDying = false;
         let rampartsInDangerOfDying4Mil = false;
-        if(rampartsInRoomBelowElevenMil && rampartsInRoomBelowElevenMil.length > 0 && storage) {
-            rampartsInRoomBelowElevenMil = rampartsInRoomBelowElevenMil.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
-            let rampartsInRoomBelow6Mil = rampartsInRoomBelowElevenMil.filter(function(r) {return r.hits <= 6050000;})
+        if(rampartsInRoomBelowTwelveMil && rampartsInRoomBelowTwelveMil.length > 0 && storage) {
+            rampartsInRoomBelowTwelveMil = rampartsInRoomBelowTwelveMil.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
+            let rampartsInRoomBelow6Mil = rampartsInRoomBelowTwelveMil.filter(function(r) {return r.hits <= 6050000;})
             let rampartsInRoomBelow4Mil = rampartsInRoomBelow6Mil.filter(function(r) {return r.hits <= 4050000;})
             if(rampartsInRoomBelow4Mil.length > 0) {
                 rampartsInDangerOfDying4Mil = true;
             }
             else {
-                if(room.controller.level == 8 && rampartsInRoomBelowElevenMil.length > 0) {
+                if(room.controller.level == 8 && rampartsInRoomBelowTwelveMil.length > 0) {
                     rampartsInDangerOfDying = true;
                 }
                 else if(room.controller.level == 7 && rampartsInRoomBelow6Mil.length > 0) {

@@ -21,6 +21,7 @@ const run = function (creep:Creep) {
 
                 let rangeFromCreepToCreep;
                 let rangeFromRampartToCreep;
+                let storage = creep.room.storage;
                 if(roomRampartTarget) {
                     let closestEnemyCreepToRoomRampart = roomRampartTarget.pos.findClosestByRange(enemyCreeps);
                     if(closestEnemyCreepToRoomRampart) {
@@ -29,7 +30,7 @@ const run = function (creep:Creep) {
                     }
                 }
                 if(rangeFromCreepToCreep && rangeFromRampartToCreep) {
-                    if(rangeFromCreepToCreep > rangeFromRampartToCreep) {
+                    if (rangeFromCreepToCreep > rangeFromRampartToCreep && storage && (closestEnemyCreep.pos.getRangeTo(storage) === 11 || rangeFromCreepToCreep > 4)) {
                         creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
                     }
 

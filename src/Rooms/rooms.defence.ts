@@ -27,6 +27,7 @@ function roomDefence(room) {
             for(let eCreep of enemyCreepsInRoom) {
                 if(eCreep.owner.username !== "Invader") {
                     room.controller.activateSafeMode();
+                    room.memory.danger_timer = 1
                 }
             }
         }
@@ -196,12 +197,12 @@ function roomDefence(room) {
 
             let found_creep = false;
             _.forEach(MyRamparts, function(rampart) {
-                if(rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RampartDefender" || rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "defender") {
+                if(rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RampartDefender" || rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RRD") {
                     room.memory.in_position = true;
                     found_creep = true;
                     return;
                 }
-                let myRampartDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender";});
+                let myRampartDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender" || c.memory.role === "RRD";});
                 if(myRampartDefenders.length > 0) {
                     let closestRampartDefender = rampart.pos.findClosestByRange(myRampartDefenders);
                     if(rampart.pos.getRangeTo(closestRampartDefender) <= 1) {

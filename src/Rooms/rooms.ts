@@ -52,7 +52,7 @@ function rooms() {
             }
 
 
-            if(room.controller.safeMode && room.controller.safeMode > 100) {
+            if(room.controller.safeMode && room.controller.safeMode > 100 && Game.time % 100 === 0 && !room.find(FIND_HOSTILE_CREEPS).length) {
                 room.memory.danger = false;
                 room.memory.danger_timer = 0;
             }

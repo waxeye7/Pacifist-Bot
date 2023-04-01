@@ -2474,7 +2474,7 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
 
             let costMatrix;
-            if(this.memory.role == "RampartDefender") {
+            if(this.memory.role == "RampartDefender" || this.memory.role === "RRD") {
                 costMatrix = roomCallbackForRampartDefender;
             }
             else {
@@ -2585,10 +2585,13 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {
         if(creep.memory.role == "RampartDefender") {
-            costs.set(creep.pos.x, creep.pos.y, 100);
+            costs.set(creep.pos.x, creep.pos.y, 255);
         }
         else if(creep.memory.role == "SpecialRepair") {
             costs.set(creep.pos.x, creep.pos.y, 100);
+        }
+        else if (creep.memory.role == "RRD") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
         }
     });
 
@@ -2702,6 +2705,7 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
             }
         }
     }
+
 
 
 
