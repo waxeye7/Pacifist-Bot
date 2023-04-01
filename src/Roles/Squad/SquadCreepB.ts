@@ -41,30 +41,33 @@
         let attack_able = false;
         for(let e_creep of enemyCreepInRangeThree) {
 
-            if(e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
-                attack_able = true;
-                targetCreep = e_creep;
-            }
-            else {
-                let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
-                if(lookStructuresOnEnemyCreep.length > 0) {
-                    if(lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
-                        lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
-                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
-                        lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
-
-                        attack_able = true;
-                        targetCreep = e_creep;
-                    }
-                    for(let structure of lookStructuresOnEnemyCreep) {
-                        if(structure.structureType == STRUCTURE_RAMPART) {
-                            attack_able = false;
-                        }
-                    }
+            if (getMostFrequent(e_creep.body) !== "heal" || creepBodyType !== "ranged_attack") {
+                if (e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
+                    attack_able = true;
+                    targetCreep = e_creep;
                 }
                 else {
-                    attack_able = false;
-                    targetCreep = e_creep;
+
+                    let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
+                    if (lookStructuresOnEnemyCreep.length > 0) {
+                        if (lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
+                            lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
+                            lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
+                            lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
+                            attack_able = true;
+                            targetCreep = e_creep;
+                        }
+                        for (let structure of lookStructuresOnEnemyCreep) {
+                            if (structure.structureType == STRUCTURE_RAMPART) {
+                                attack_able = false;
+                            }
+                        }
+                    }
+                    else {
+                        attack_able = false;
+                        targetCreep = e_creep;
+                    }
+
                 }
             }
         }

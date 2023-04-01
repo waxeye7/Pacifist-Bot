@@ -21,7 +21,7 @@ const run = function (creep) {
                 if(creep.attackController(controller) === 0) {
                     creep.signController(controller, "too close to pacifist bot room, claim elsewhere.");
 
-                    Memory.commandsToExecute.push({ delay: 1000-(creep.memory.ticksToGetHere+creep.body.length*3 + 10), bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
+                    Memory.commandsToExecute.push({ delay: 1000-(creep.memory.ticksToGetHere+creep.body.length*3 + 50), bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
 
 
                     creep.suicide();
