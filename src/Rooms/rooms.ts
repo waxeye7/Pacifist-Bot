@@ -84,7 +84,7 @@ function rooms() {
             let progress = 0;
             let level = 1;
             let current = false;
-            if(Game.time % 50000 === 0) {
+            if(Game.time % 25000 === 0) {
                 _.forEach(Game.rooms, function (anyroom: any) {
                     if (anyroom && anyroom.controller && anyroom.controller.my && anyroom.controller.level < 8 && anyroom.controller.level >= 6) {
                         if (anyroom.controller.level > level) {
