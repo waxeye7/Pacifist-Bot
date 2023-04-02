@@ -236,7 +236,7 @@ function market(room):any {
 
                     for(let resource of BaseResources) {
                         if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 20);
+                            let result = buy_resource(resource, 30);
                             if(result == 0) {
                                 return;
                             }

@@ -109,17 +109,35 @@
         if(enemyCreeps.length > 0) {
             for(let enemycreep of enemyCreeps) {
                 if(enemycreep.pos.isNearTo(creep)) {
+                    let found = false;
                     let lookStructuresEnemyCreep = enemycreep.pos.lookFor(LOOK_STRUCTURES);
                     for(let building of lookStructuresEnemyCreep) {
                         if(building.structureType == STRUCTURE_RAMPART) {
-                            break;
+                            found = true;
                         }
                     }
-                    creep.attack(enemycreep);
-                    creep_to_attack_found = true;
+                    if(!found) {
+                        creep.attack(enemycreep);
+                        creep_to_attack_found = true;
+                    }
+
                 }
                 else if(myhealer && creep.pos.getRangeTo(enemycreep) == 2 && myhealer.pos.isNearTo(enemycreep)) {
-                    creep.moveTo(myhealer);
+                    let lookForStructs =  enemycreep.pos.lookFor(LOOK_STRUCTURES);
+                    if(lookForStructs.length) {
+                        let found = false;
+                        for(let s of lookForStructs) {
+                            if(s.structureType === STRUCTURE_RAMPART) {
+                                found = true;
+                            }
+                        }
+                        if(!found) {
+                            creep.moveTo(myhealer);
+                        }
+                    }
+                    else {
+                        creep.moveTo(myhealer);
+                    }
                 }
             }
         }

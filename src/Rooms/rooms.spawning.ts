@@ -1801,8 +1801,14 @@ function spawnFirstInLine(room, spawn) {
 
                 let storage = Game.getObjectById(room.memory.Structures.storage);
                 if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 300 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
+                    let body = [MOVE,CARRY];
+                    if(room.controller.level === 7)
+                        body.push(CARRY)
+                    if(room.controller.level === 8)
+                        body.push(MOVE,CARRY,CARRY)
+
                     let newName = 'emergencyFILLER-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    spawn.spawnCreep([MOVE,CARRY], newName, {memory: {role: 'filler'}});
+                    spawn.spawnCreep(body, newName, {memory: {role: 'filler'}});
                     return "spawning";
                 }
 

@@ -42,7 +42,7 @@ import roleDismantleControllerWalls from "Roles/DismantleControllerWalls";
 import roleScout from "./Roles/scout";
 import roleSweeper from "Roles/sweeper";
 import roleAnnoy from "Roles/annoy";
-import roleCreepKiller from "Roles/creepKiller";
+import roleCreepKiller from "Roles/CreepKiller";
 import roleReserve from "Roles/reserve";
 import roleRampartDefender from "Roles/RampartDefender";
 import roleRangedRampartDefender from "Roles/RangedRampartDefender";
