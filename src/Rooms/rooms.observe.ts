@@ -389,7 +389,7 @@ function observe(room) {
                         }
 
                     }
-                    else if((Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 7) && !Game.rooms[adj].controller.safeMode && Game.rooms[adj].controller.owner.username === "Snowgoose") {
+                    else if((Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) && !Game.rooms[adj].controller.safeMode && Game.rooms[adj].controller.owner.username === "Snowgoose") {
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
