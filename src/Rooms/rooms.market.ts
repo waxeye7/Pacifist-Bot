@@ -70,6 +70,8 @@ function market(room):any {
                         return ((x-min)*(x-max) <= 0);
                     }
                     if(!inRange(order.price, recPrice-2, recPrice+2)) {
+                        if(recPrice > 500)
+                            recPrice = 500;
                         Game.market.changeOrderPrice(order.id, recPrice);
                     }
                 }
