@@ -128,7 +128,7 @@ const run = function (creep) {
                     if(found) {
                         break;
                     }
-                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 20050000) {
+                    if(building.structureType == STRUCTURE_RAMPART && building.hits < 50050000) {
                         let buildingsHereLookFor = building.pos.lookFor(LOOK_STRUCTURES);
                         for(let buildingHere of buildingsHereLookFor) {
                             if(buildingHere.structureType == STRUCTURE_LINK) {
@@ -157,7 +157,7 @@ const run = function (creep) {
                 let rampart:any = Game.getObjectById(creep.memory.myRampart);
                 if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
 
-                    if(rampart && rampart.hits < 20050000) {
+                    if(rampart && rampart.hits < 50050000) {
                         creep.repair(rampart);
                         return;
                     }
@@ -169,7 +169,7 @@ const run = function (creep) {
                     creep.repair(rampart);
                     return;
                 }
-                else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 15050000) {
+                else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 50050000) {
                     creep.repair(rampart);
                     return;
                 }

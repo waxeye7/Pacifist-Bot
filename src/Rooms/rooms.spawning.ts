@@ -1173,7 +1173,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
-                else if(storage.store[RESOURCE_ENERGY] >= 450000) {
+                else if(storage.store[RESOURCE_ENERGY] >= 400000) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);

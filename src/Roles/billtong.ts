@@ -257,9 +257,9 @@
                     }
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(deposit, 1);
+                    creep.moveTo(deposit);
                 }
-                creep.MoveCostMatrixRoadPrio(deposit, 1);
+                creep.moveTo(deposit);
             }
 
             if(creep.ticksToLive == creep.memory.timeToGetHome || creep.ticksToLive == creep.memory.timeToGetHome - 1) {

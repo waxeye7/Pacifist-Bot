@@ -804,7 +804,7 @@
             return;
         }
 
-        if(storage && terminal && storage.store[RESOURCE_OPS] > 50000 && terminal.store.getUsedCapacity() < 290000) {
+        if(storage && terminal && storage.store[RESOURCE_OPS] > 20000 && terminal.store.getUsedCapacity() < 290000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_OPS);
                 creep.memory.target = terminal.id;
