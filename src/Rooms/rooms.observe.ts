@@ -18,8 +18,8 @@ function observe(room) {
 
                 let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
                 let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
-                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
-                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
+                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
                         if(i % 10 !== 0 && o % 10 !== 0) {
                             if(i % 10 >= 4 && i % 10 <= 6 && o % 10 >= 4 && o % 10 <= 6) {
                                 // do nothing
@@ -56,7 +56,7 @@ function observe(room) {
                         homeRoomNameY = parseInt(room.name[3] + room.name[4]);
                     }
                 }
-                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
                     let EorW;
                     let x;
                     let switchX = false;
@@ -78,7 +78,7 @@ function observe(room) {
                         x = i;
                         EorW = EastOrWest;
                     }
-                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
                         let NorS;
                         let y;
                         let switchY = false;
@@ -463,8 +463,8 @@ function observe(room) {
                 let NorthOrSouth = room.name[3];
                 let homeRoomNameX = parseInt(room.name[1] + room.name[2]);
                 let homeRoomNameY = parseInt(room.name[4] + room.name[5]);
-                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
-                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
+                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
                         if(i % 10 == 0 || o % 10 == 0) {
                             let firstString = i.toString();
                             let secondString = o.toString();
@@ -494,7 +494,7 @@ function observe(room) {
                         homeRoomNameY = parseInt(room.name[3] + room.name[4]);
                     }
                 }
-                for(let i = homeRoomNameX-3; i<=homeRoomNameX+3; i++) {
+                for(let i = homeRoomNameX-4; i<=homeRoomNameX+4; i++) {
                     let EorW;
                     let x;
                     let switchX = false;
@@ -515,7 +515,7 @@ function observe(room) {
                         x = i;
                         EorW = EastOrWest;
                     }
-                    for(let o = homeRoomNameY-3; o<=homeRoomNameY+3; o++) {
+                    for(let o = homeRoomNameY-4; o<=homeRoomNameY+4; o++) {
                         let NorS;
                         let y;
                         let switchY = false;
