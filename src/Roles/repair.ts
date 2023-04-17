@@ -16,7 +16,7 @@ function findLocked(creep, storage) {
             buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
         }
         else {
-            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) > 6 && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 1050000)});
+            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) > 6 && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 50050000)});
         }
     }
     else if(creep.room.controller.level > 2) {
@@ -30,7 +30,7 @@ function findLocked(creep, storage) {
     if(nukeBOOL) {
         if(creep.room.controller.level >= 6) {
 
-            let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL || s.structureType == STRUCTURE_FACTORY || s.structureType == STRUCTURE_LAB});
+            let important_structures = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_STORAGE || s.structureType == STRUCTURE_TERMINAL || s.structureType == STRUCTURE_FACTORY || s.structureType == STRUCTURE_LAB || s.structureType === STRUCTURE_NUKER || s.structureType === STRUCTURE_POWER_SPAWN});
 
             for(let nuke of nukes) {
                 for(let s of important_structures) {
@@ -112,6 +112,14 @@ function findLocked(creep, storage) {
 
  const run = function (creep) {
     creep.memory.moving = false;
+
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
     if(creep.evacuate()) {
 		return;
 	}
@@ -203,6 +211,7 @@ function findLocked(creep, storage) {
             let result = creep.repair(repairTarget)
             if(result == ERR_NOT_IN_RANGE) {
                 creep.MoveCostMatrixRoadPrio(repairTarget, 3)
+                creep.memory.moving = false;
             }
             else {
                 if(creep.store.getFreeCapacity() <= 50) {

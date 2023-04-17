@@ -26,48 +26,14 @@ const run = function (creep) {
 
     let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
 
-    if(creep.memory.full) {
 
-
-        if(!creep.memory.creep_target) {
-            let SpecialRepairers = creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "SpecialRepair");}});
-            if(SpecialRepairers.length > 0) {
-                SpecialRepairers.sort((a,b) => b.ticksToLive - a.ticksToLive);
-                creep.memory.creep_target = SpecialRepairers[0].id;
-            }
-        }
-
-        if(creep.memory.creep_target) {
-            let target:any = Game.getObjectById(creep.memory.creep_target);
-            if(!target) {
-                creep.memory.creep_target = false;
-                return;
-            }
-
-
-            if(!creep.pos.isNearTo(target)) {
-                creep.moveToSafePositionToRepairRampart(target, 1)
-            }
-
-
-
-            // let container:any = Game.getObjectById(creep.memory.container_target);
-
-
-            if(target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 175) {
-                if(creep.transfer(target, RESOURCE_ENERGY) == 0 && storage && creep.store[RESOURCE_ENERGY] <= ((creep.pos.getRangeTo(storage) + 2) * 35 * 2)) {
-                    creep.drop(RESOURCE_ENERGY, creep.store[RESOURCE_ENERGY] - target.store.getFreeCapacity());
-                }
-            }
-        }
-
-    }
 
     if(!creep.memory.full) {
         if(storage) {
 
             if(creep.pos.isNearTo(storage)) {
-                creep.withdraw(storage, RESOURCE_ENERGY);
+                if(creep.withdraw(storage, RESOURCE_ENERGY) === 0)
+                    creep.memory.full = true;
             }
             else {
                 creep.moveToSafePositionToRepairRampart(storage, 1);
@@ -75,6 +41,44 @@ const run = function (creep) {
 
         }
     }
+
+        if (creep.memory.full) {
+          if (!creep.memory.creep_target) {
+            let SpecialRepairers = creep.room.find(FIND_MY_CREEPS, {
+              filter: c => {
+                return c.memory.role == "SpecialRepair";
+              }
+            });
+            if (SpecialRepairers.length > 0) {
+              SpecialRepairers.sort((a, b) => b.ticksToLive - a.ticksToLive);
+              creep.memory.creep_target = SpecialRepairers[0].id;
+            }
+          }
+
+          if (creep.memory.creep_target) {
+            let target: any = Game.getObjectById(creep.memory.creep_target);
+            if (!target) {
+              creep.memory.creep_target = false;
+              return;
+            }
+
+            if (!creep.pos.isNearTo(target)) {
+              creep.moveToSafePositionToRepairRampart(target, 1);
+            }
+
+            // let container:any = Game.getObjectById(creep.memory.container_target);
+
+            if (target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 175) {
+              if (
+                creep.transfer(target, RESOURCE_ENERGY) == 0 &&
+                storage &&
+                creep.store[RESOURCE_ENERGY] <= (creep.pos.getRangeTo(storage) + 2) * 35 * 2
+              ) {
+                creep.drop(RESOURCE_ENERGY, creep.store[RESOURCE_ENERGY] - target.store.getFreeCapacity());
+              }
+            }
+          }
+        }
 }
 
 const roleSpecialCarry = {

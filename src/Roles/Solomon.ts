@@ -114,7 +114,6 @@ const run = function (creep:Creep) {
                 s.structureType !== STRUCTURE_INVADER_CORE &&
                 s.structureType !== STRUCTURE_KEEPER_LAIR &&
                 s.structureType !== STRUCTURE_PORTAL &&
-                s.structureType !== STRUCTURE_EXTRACTOR &&
                 s.structureType !== STRUCTURE_CONTAINER &&
                     s.structureType !== STRUCTURE_ROAD
             });

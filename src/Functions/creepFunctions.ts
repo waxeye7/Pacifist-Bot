@@ -1420,7 +1420,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(creep.pos.x, creep.pos.y, 60);
         }
         else if(creep.memory.role == "repair" && creep.memory.repairing) {
-            costs.set(creep.pos.x, creep.pos.y, 6);
+            costs.set(creep.pos.x, creep.pos.y, 12);
         }
         else if(creep.memory.role == "Convoy" && creep.memory.repairing) {
             costs.set(creep.pos.x, creep.pos.y, 41);

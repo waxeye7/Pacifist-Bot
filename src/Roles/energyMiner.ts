@@ -165,10 +165,6 @@ const run = function (creep) {
                         creep.memory.myRampart = false;
                     }
                 }
-                else if(storage && storage.store[RESOURCE_ENERGY] > 50000 && rampart && rampart.hits < 5050000) {
-                    creep.repair(rampart);
-                    return;
-                }
                 else if(storage && storage.store[RESOURCE_ENERGY] > 90000 && rampart && rampart.hits < 50050000) {
                     creep.repair(rampart);
                     return;

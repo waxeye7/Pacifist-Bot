@@ -304,6 +304,13 @@ function observe(room) {
 
                             if(Game.cpu.bucket >= 8000) {
                                 global.SQR(room.name, adj)
+                                Memory.commandsToExecute.push({
+                                  delay: 1000,
+                                  bucketNeeded: 8000,
+                                  formation: "CCK",
+                                  homeRoom: room.name,
+                                  targetRoom: adj
+                                });
                             }
                             else {
                                 console.log("not enough bucket to spawn quad")
@@ -352,6 +359,13 @@ function observe(room) {
 
                             if(Game.cpu.bucket >= 7000) {
                                 global.SD(room.name, adj, true);
+                                Memory.commandsToExecute.push({
+                                  delay: 1000,
+                                  bucketNeeded: 8000,
+                                  formation: "CCK",
+                                  homeRoom: room.name,
+                                  targetRoom: adj
+                                });
                             }
 
 

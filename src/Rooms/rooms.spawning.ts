@@ -1267,11 +1267,32 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Builder to Spawn List: ' + name);
     }
 
-    if((room.memory.NukeRepair && repairers < 5 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 40000) {
+    if((room.memory.NukeRepair && repairers < 4 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 40000) {
         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-            CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-            MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name}});
+            if(room.controller.level >= 7 && room.find(FIND_NUKES).length > 5 && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1980 && room.memory.labs && room.memory.labs.outputLab1) {
+                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                    room.memory.labs.status.boost = {};
+                }
+                if(room.memory.labs.status.boost) {
+                    if(room.memory.labs.status.boost.lab1) {
+                        room.memory.labs.status.boost.lab1.amount += 660;
+                        room.memory.labs.status.boost.lab1.use += 1;
+                    }
+                    else {
+                        room.memory.labs.status.boost.lab1 = {};
+                        room.memory.labs.status.boost.lab1.amount = 660;
+                        room.memory.labs.status.boost.lab1.use = 1;
+                    }
+                }
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
+                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});}
+            else {
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
+                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name}});
+                }
+
         console.log('Adding Repair to Spawn List: ' + name);
     }
 
