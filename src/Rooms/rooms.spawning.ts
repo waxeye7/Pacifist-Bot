@@ -2052,11 +2052,12 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         }
                         if(room.energyCapacityAvailable >= 750) {
                             if(room.controller.level >= 6) {
+                                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                                    room.memory.labs.status.boost = {};
+                                }
                                 if(Memory.CPU.reduce && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 720 && room.memory.labs && room.memory.labs.outputLab8) {
 
-                                    if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
-                                        room.memory.labs.status.boost = {};
-                                    }
+
                                     if(room.memory.labs.status.boost) {
                                         if(room.memory.labs.status.boost.lab8) {
                                             room.memory.labs.status.boost.lab8.amount = room.memory.labs.status.boost.lab8.amount + 360;
@@ -2080,6 +2081,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
 
                                 }
                                 else {
+                                    room.memory.labs.status.boost.lab8 = undefined;
                                     let body;
                                     if(danger) {
                                         body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,CARRY,MOVE]

@@ -15,7 +15,7 @@ const run = function (creep) {
 
     if(creep.room.controller) {
         let controller = creep.room.controller;
-        if(!creep.pos.isNearTo(controller)) {creep.moveTo(controller, {reusePath:100})}
+        if(!creep.pos.isNearTo(controller)) {creep.MoveCostMatrixRoadPrio(controller, 1)}
         else {
             if(!controller.upgradeBlocked) {
                 if(creep.attackController(controller) === 0) {

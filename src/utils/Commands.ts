@@ -5,7 +5,7 @@ global.SCCK = function (homeRoom, targetRoomName) {
             let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
 
-            Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE,MOVE,MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM,MOVE,MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom } });
+            Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE,MOVE,MOVE,MOVE,MOVE,MOVE, CLAIM,CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM,MOVE,MOVE, MOVE, MOVE,MOVE,MOVE,MOVE,MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom } });
             return "Success!";
         }
         else {
