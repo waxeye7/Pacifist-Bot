@@ -260,6 +260,12 @@ const run = function (creep) {
             let closestLinkToController:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
 
             if(targetLink == null || closestLink == null) {
+                if(!targetLink) {
+                    creep.room.memory.Structures.StorageLink = undefined;
+                    if(creep.room.storage) {
+                        new RoomPosition(creep.room.storage.pos.x-2,creep.room.storage.pos.y,creep.room.name).createConstructionSite(STRUCTURE_LINK);
+                    }
+                }
                 console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
                 return;
             }

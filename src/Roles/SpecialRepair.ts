@@ -15,6 +15,11 @@ const run = function (creep) {
     }
 
 
+    if(creep.evacuate()) {
+		return;
+	}
+
+
     if(!creep.memory.rampart_to_repair) {
         let rampartLocations = [];
         for(let i = -10; i<11; i++) {

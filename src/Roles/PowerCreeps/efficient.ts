@@ -4,9 +4,9 @@
  **/
 const run = function (creep) {
     creep.memory.moving = false;
-    if(creep.evacuate()) {
-		return;
-	}
+    // if(creep.evacuate()) {
+	// 	return;
+	// }
 
     if(creep.room.controller && !creep.room.controller.isPowerEnabled) {
         if(creep.pos.isNearTo(creep.room.controller)) {

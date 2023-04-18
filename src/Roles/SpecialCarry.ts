@@ -6,6 +6,11 @@
 const run = function (creep) {
     creep.memory.moving = false;
 
+
+    if(creep.evacuate()) {
+      return;
+    }
+
     if(creep.memory.suicide) {
 		creep.recycle();
         return;

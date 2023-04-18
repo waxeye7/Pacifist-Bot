@@ -246,7 +246,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 Creep.prototype.evacuate = function evacuate():any {
     if(this.room.memory.defence && this.room.memory.defence.nuke && this.room.memory.defence.evacuate || this.memory.nukeHaven) {
         if(!this.memory.nukeTimer) {
-            let nukes = this.room.find(FIND_NUKES);
+            let nukes = this.room.find(FIND_NUKES).filter(function(nuke) {return nuke.timeToLand < 300;});;
             if(nukes.length > 0) {
                 nukes.sort((a,b) => a.timeToLand - b.timeToLand);
                 this.memory.nukeTimer = nukes[0].timeToLand + 1;

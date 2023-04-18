@@ -92,6 +92,9 @@ Room.prototype.findStorageLink = function(): object | void {
                 }
             }
         }
+        else {
+            this.memory.Structures.storageLink = undefined;
+        }
     }
 }
 

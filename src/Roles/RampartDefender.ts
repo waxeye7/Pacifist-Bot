@@ -9,6 +9,11 @@ const run = function (creep:Creep) {
         }
     }
 
+
+    if(creep.evacuate()) {
+		return;
+	}
+
     if(creep.room.memory.danger) {
 
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);

@@ -250,6 +250,23 @@ function findLocked(creep, storage) {
         }
     }
 
+    if(!creep.memory.repairing && !creep.room.memory.danger && creep.room.memory.Structures && creep.room.memory.Structures.controllerLink) {
+        let controllerLink = <StructureLink> Game.getObjectById(creep.room.memory.Structures.controllerLink);
+        if(controllerLink && controllerLink.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() /2 && creep.pos.getRangeTo(controllerLink) <= 4) {
+            if(creep.pos.isNearTo(controllerLink)) {
+                if(creep.withdraw(controllerLink, RESOURCE_ENERGY) === 0) {
+                    creep.memory.full = true;
+                }
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(controllerLink, 1);
+            }
+            if(creep.pos.getRangeTo(storage) > creep.pos.getRangeTo(controllerLink)) {
+                return;
+            }
+        }
+    }
+
     if(!creep.memory.repairing && storage) {
         let result = creep.withdrawStorage(storage);
 		if(result == 0) {

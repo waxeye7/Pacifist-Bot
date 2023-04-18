@@ -714,15 +714,15 @@ function add_creeps_to_spawn_list(room, spawn) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {
             nukes.sort((a,b) => a.timeToLand - b.timeToLand);
-            if(nukes[0].timeToLand <= 450) {
-                if(nukes[0].timeToLand <= 250) {
+                if(nukes[0].timeToLand <= 200) {
                     room.memory.defence.evacuate = true;
                 }
                 else {
                     room.memory.defence.evacuate = false;
                 }
-                return;
-            }
+                if(nukes[0].timeToLand <= 400) {
+                    return;
+                }
 
         }
         else if(room.memory.defence.nuke && nukes.length == 0) {
@@ -1160,6 +1160,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 console.log('Adding filler to Spawn List: ' + name);
             }
             else if(fillers < spawnrules[6].filler_creep.amount + 1 && storage && room.energyCapacityAvailable < 500) {
+                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
+                console.log('Adding filler to Spawn List: ' + name);
+            }
+            else if(fillers<1 && room.energyAvailable === 300 && storage) {
                 let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift(spawnrules[6].filler_creep.body, name, {memory: {role: 'filler'}});
                 console.log('Adding filler to Spawn List: ' + name);
@@ -1826,12 +1831,12 @@ function spawnFirstInLine(room, spawn) {
             if(spawnAttempt == -6) {
 
                 let storage = Game.getObjectById(room.memory.Structures.storage);
-                if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 300 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
+                if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 1000 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
                     let body = [MOVE,CARRY];
                     if(room.controller.level === 7)
-                        body.push(CARRY)
+                        body.push(CARRY,CARRY)
                     if(room.controller.level === 8)
-                        body.push(MOVE,CARRY,CARRY)
+                        body.push(CARRY,CARRY,CARRY)
 
                     let newName = 'emergencyFILLER-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     spawn.spawnCreep(body, newName, {memory: {role: 'filler'}});
