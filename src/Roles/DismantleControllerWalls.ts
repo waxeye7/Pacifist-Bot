@@ -3,7 +3,6 @@
  * @param {Creep} creep
  **/
  const run = function (creep) {
-    ;
 
     if(creep.room.name != creep.memory.targetRoom) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
@@ -26,20 +25,15 @@
     if(buildingsInRange.length > 0) {
         buildingsInRange.sort(function (a, b):any {
 
-            // Sort by votes
-            // If the first item has a higher number, move it down
-            // If the first item has a lower number, move it up
+
             if (a.pos.getRangeTo(controller) > b.pos.getRangeTo(controller)) return 1;
             if (a.pos.getRangeTo(controller) < b.pos.getRangeTo(controller)) return -1;
 
-            // If the votes number is the same between both items, sort alphabetically
-            // If the first item comes first in the alphabet, move it up
-            // Otherwise move it down
+
             if (a.hits > b.hits) return 1;
             if (a.hits < b.hits) return -1;
 
         });
-        // buildingsInRange.sort((a,b) => a.pos.getRangeTo(controller) - b.pos.getRangeTo(controller));
         creep.dismantle(buildingsInRange[0]);
     }
 }

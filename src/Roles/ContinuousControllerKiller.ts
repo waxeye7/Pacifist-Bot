@@ -30,7 +30,7 @@ const run = function (creep) {
             }
         }
 
-        if(creep.ticksToLive === 1) {
+        if(creep.ticksToLive === 1 && creep.room.controller && !creep.room.controller.safeMode) {
             const index = Game.rooms[creep.memory.homeRoom].memory.observe.RoomsToSee.indexOf(creep.memory.targetRoom);
             if (index === 0) {
                 Game.rooms[creep.memory.homeRoom].memory.observe.lastObserved = Game.rooms[creep.memory.homeRoom].memory.observe.RoomsToSee.length - 1
