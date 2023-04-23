@@ -1311,13 +1311,13 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     if(Signers < 1 && room.controller.level >= 5 && !room.memory.danger && room.memory.danger_timer == 0 && room.controller.sign && room.controller.sign.text !== "We did not inherit the earth from our ancestors; we borrowed it from our children") {
         let newName = 'Signer' + "-" + room.name;
-        room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'Sign', homeRoom: room.name}});
+        room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'Sign', homeRoom: room.name}});
         console.log('Adding Signer to Spawn List: ' + newName);
     }
 
     if(Priests < 1 && room.controller.level >= 6 && !room.memory.danger && room.memory.danger_timer == 0 && room.memory.data.DOB % 75000 < 400) {
         let newName = 'Priest' + "-" + room.name;
-        room.memory.spawn_list.push([MOVE,CLAIM], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
+        room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'Priest', homeRoom: room.name, roomsVisited: []}});
         console.log('Adding Priest to Spawn List: ' + newName);
     }
 
