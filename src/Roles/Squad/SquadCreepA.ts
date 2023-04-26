@@ -382,7 +382,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_ROAD && building.structureType!=STRUCTURE_RAMPART;});
                     if(nowall.length > 0) {
                         let closestBuilding = creep.pos.findClosestByRange(nowall);
-                        // creep.memory.targetPosition = closestBuilding.pos;
+                        creep.memory.targetPosition = closestBuilding.pos;
                         move_location = creep.memory.targetPosition
                     }
 
