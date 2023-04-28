@@ -860,7 +860,7 @@ function construction(room) {
                     let openPositionsAroundController = room.controller.pos.getOpenPositionsIgnoreCreeps();
                     for(let position of openPositionsAroundController) {
                         let found = false;
-                        if(storage && storage.pos.getRangeTo(position) >= 10) {
+                        if(storage && (storage.pos.getRangeTo(position) >= 10 || storage.pos.findPathTo(position, { ignoreCreeps: true, ignoreRoads: true, swampCost: 1 }).length > 11)) {
                             let structuresHere = position.lookFor(LOOK_STRUCTURES);
                             if(structuresHere.length > 0) {
                                 for(let building of structuresHere) {
