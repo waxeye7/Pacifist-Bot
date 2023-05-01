@@ -62,7 +62,7 @@ const run = function (creep:Creep) {
 
     creep.heal(creep);
 
-    let hostilesInRangeThree;
+    let hostilesInRangeThree = null;
     if(hostilesInRoom.length > 0) {
         hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3 && creep.getActiveBodyparts(HEAL) < 3;});
         if(hostilesInRangeThree.length > 0) {
@@ -83,10 +83,9 @@ const run = function (creep:Creep) {
             }
             if(hostilesInRangeThreeNotUnderRampart.length > 0) {
                 let closestEnemyCreep = creep.pos.findClosestByRange(hostilesInRangeThreeNotUnderRampart);
-                if(creep.pos.isNearTo(closestEnemyCreep)) {
+                if (closestEnemyCreep && creep.pos.isNearTo(closestEnemyCreep)) {
                     creep.rangedMassAttack();
-                }
-                else {
+                } else if (closestEnemyCreep) {
                     hostilesInRangeThreeNotUnderRampart.sort((a,b) => a.hits - b.hits);
                     creep.rangedAttack(hostilesInRangeThreeNotUnderRampart[0]);
                 }
