@@ -682,7 +682,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             repair_creep: {
 
-                amount: 1,
+                amount: 2,
                 body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
                          WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
                          WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
