@@ -360,14 +360,21 @@ function observe(room) {
 
                         }
                         else if(hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 50, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
+                            let armedHostileCreeps =  hostileCreeps.filter(c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);
+                            if(!armedHostileCreeps) {
+                                global.SGD(room.name, adj,
+                                    [
+                                        MOVE,MOVE,
+                                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                        MOVE,MOVE,MOVE
+                                    ]
+                                    );
+                            }
+                            else {
+                                global.SD(room.name, adj, false);
+                            }
+
+                            Memory.commandsToExecute.push({ delay: 200, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
                         }
 
                     }
@@ -422,7 +429,25 @@ function observe(room) {
                             Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
                         }
 
+                        else if(Game.rooms[adj].controller.level == 5 && hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
+                            let armedHostileCreeps =  hostileCreeps.filter(c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);
+                            if(!armedHostileCreeps) {
+                                global.SGD(room.name, adj,
+                                    [
+                                        MOVE,MOVE,
+                                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                        MOVE,MOVE,MOVE
+                                    ]
+                                    );
+                            }
+                            else {
+                                global.SD(room.name, adj, false);
+                            }
+
+                            Memory.commandsToExecute.push({ delay: 200, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
+                        }
                     }
+
                     else if (
                       (Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
                       !Game.rooms[adj].controller.safeMode &&
