@@ -556,70 +556,57 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
     this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:200, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
 }
 
-Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(targetRoom) {
-    if(this.room.name != this.memory.homeRoom) {
-        if(this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER}).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
+Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
+    if (this.room.name !== this.memory.homeRoom) {
+        if (this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
             Memory.AvoidRooms.push(this.room.name);
         }
     }
 
-    if(this.memory.route && this.memory.route.length > 0 && this.memory.route[0].room == this.room.name) {
+    if (this.memory.route && this.memory.route.length > 0 && this.memory.route[0].room === this.room.name) {
         this.memory.route.shift();
     }
 
-    if(!this.memory.route || this.memory.route == -2 || this.memory.route && this.memory.route.length == 0 || this.memory.route.length == 1 && this.memory.route[0].room == this.room.name || this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom) {
+    if (!this.memory.route || this.memory.route === -2 || this.memory.route && this.memory.route.length === 0 || (this.memory.route.length === 1 && this.memory.route[0].room === this.room.name) || (this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom)) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
-            routeCallback(roomName:any, fromRoomName) {
-                // !_.includes(Memory.AvoidRooms, targetRoom, 0)
-                if(Game.map.getRoomStatus(roomName).status !== "normal") {
+            routeCallback(roomName, fromRoomName) {
+                if (Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
                 }
-                if(Memory.AvoidRooms.includes(roomName) && roomName !== targetRoom) {
+                if (Memory.AvoidRooms.includes(roomName) && roomName !== targetRoom) {
                     return 24;
                 }
 
-                if(this && this.memory && (this.memory.role == "Solomon" || this.memory.role == "ram" || this.memory.role == "SquadCreepA")) {
-                    if(roomName.length == 6) {
-                        if(parseInt(roomName[1] + roomName[2]) % 10 == 0) {
+                if (this && this.memory && (this.memory.role === "Solomon" || this.memory.role === "ram" || this.memory.role === "SquadCreepA")) {
+                    if (roomName.length === 6) {
+                        if (parseInt(roomName[1] + roomName[2]) % 10 === 0) {
                             return 2;
                         }
-                        if(parseInt(roomName[4] + roomName[5]) % 10 == 0) {
+                        if (parseInt(roomName[4] + roomName[5]) % 10 === 0) {
                             return 2;
                         }
-                    }
-                    else if(roomName.length !== 6) {
-                        let homeRoomNameX;
-                        let homeRoomNameY;
-                        if(!isNaN(roomName[2])) {
-                            homeRoomNameX = parseInt(roomName[1] + roomName[2]);
-                            homeRoomNameY = parseInt(roomName[4]);
+                        if (parseInt(roomName[1]) >= 4 && parseInt(roomName[1]) <= 6 && parseInt(roomName[2]) >= 4 && parseInt(roomName[2]) <= 6 && parseInt(roomName[4]) >= 4 && parseInt(roomName[4]) <= 6 && parseInt(roomName[5]) >= 4 && parseInt(roomName[5]) <= 6) {
+                            return 24;
                         }
-                        else {
-                            homeRoomNameX = parseInt(roomName[1]);
-                            if(roomName.length == 4) {
-                                homeRoomNameY = parseInt(roomName[3]);
-                            }
-                            else if(roomName.length == 5) {
-                                homeRoomNameY = parseInt(roomName[3] + roomName[4]);
-                            }
+                    } else if (roomName.length === 4) {
+                        if (parseInt(roomName[1]) >= 4 && parseInt(roomName[1]) <= 6 && parseInt(roomName[3]) >= 4 && parseInt(roomName[3]) <= 6) {
+                            return 24;
                         }
+                    } else if (roomName.length === 5) {
+                        const numberPart = roomName.substring(1, 3);
+                        const lastNumberPart = roomName.substring(3);
 
-                        if(parseInt(homeRoomNameX) % 10 == 0) {
-                            return 2;
-                        }
-                        if(parseInt(homeRoomNameY) % 10 == 0) {
-                            return 2;
+                        if ((parseInt(numberPart) >= 4 && parseInt(numberPart) <= 6) || (parseInt(lastNumberPart) >= 4 && parseInt(lastNumberPart) <= 6)) {
+                            return 24;
                         }
                     }
                 }
 
-
                 return 3;
-        }});
+            }
+        });
     }
-
-
-    if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
+        if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
         // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         let exit;
         let position;
@@ -683,7 +670,10 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function moveToRoomAvoidEnemyRooms(t
 
         return;
     }
-}
+
+};
+
+
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
