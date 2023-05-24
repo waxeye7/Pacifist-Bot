@@ -294,6 +294,16 @@ function observe(room) {
                             Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
+                        else if(hostileCreeps.length && !hostileSpawns.length) {
+                            global.SGD(room.name, adj,
+                                [
+                                    MOVE,MOVE,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    MOVE,MOVE,MOVE
+                                ]
+                                );
+                            Memory.commandsToExecute.push({ delay: 50, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
+                        }
                     }
 
                     else if((Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) && !Game.rooms[adj].controller.safeMode) {
@@ -348,6 +358,16 @@ function observe(room) {
                                 );
                             Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
+                        }
+                        else if(hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
+                            global.SGD(room.name, adj,
+                                [
+                                    MOVE,MOVE,
+                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
+                                    MOVE,MOVE,MOVE
+                                ]
+                                );
+                            Memory.commandsToExecute.push({ delay: 50, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
                         }
 
                     }
