@@ -1,9 +1,8 @@
 function observe(room) {
     let interval = 64;
     let twoTimesInterval = interval*2
-    let fourTimesInterval = interval*4;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
-    if(observer && (Game.time % fourTimesInterval == 0 || Game.time % fourTimesInterval == 1) && Game.cpu.bucket > 5000) {
+    if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 5000) {
         if(!room.memory.observe) {
             room.memory.observe = {};
         }
@@ -123,7 +122,7 @@ function observe(room) {
 
         let RoomsToSee = room.memory.observe.RoomsToSee
 
-        if(RoomsToSee.length > 0 && Game.time % fourTimesInterval == 0) {
+        if(RoomsToSee.length > 0 && Game.time % interval == 0) {
             if(!room.memory.observe.lastObserved || room.memory.observe.lastObserved >= RoomsToSee.length) {
                 room.memory.observe.lastObserved = 0
             }
@@ -141,7 +140,7 @@ function observe(room) {
 
         }
 
-        if(Game.time % fourTimesInterval == 1) {
+        if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(areRoomsNormalToThisRoom(room.name, adj)) {
                 if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
