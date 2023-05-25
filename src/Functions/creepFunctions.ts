@@ -577,7 +577,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                     return 24;
                 }
 
-                if (this && this.memory && (this.memory.role === "Solomon" || this.memory.role === "ram" || this.memory.role === "SquadCreepA")) {
+                if (this && this.memory) {
                     if (roomName.length === 6) {
                         if (parseInt(roomName[1] + roomName[2]) % 10 === 0) {
                             return 2;
@@ -1416,10 +1416,10 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(creep.pos.x, creep.pos.y, 41);
         }
         else if(creep.memory.role == "ram") {
-            costs.set(creep.pos.x, creep.pos.y, 255);
+            costs.set(creep.pos.x, creep.pos.y, 200);
         }
         else if(creep.memory.role == "signifer") {
-            costs.set(creep.pos.x, creep.pos.y, 255);
+            costs.set(creep.pos.x, creep.pos.y, 200);
         }
         else if(creep.memory.role == "PowerMelee") {
             costs.set(creep.pos.x, creep.pos.y, 20);

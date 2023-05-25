@@ -3,7 +3,6 @@
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    ;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();

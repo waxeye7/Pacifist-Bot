@@ -3,7 +3,6 @@
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-    ;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
@@ -21,7 +20,7 @@
         return;
     }
 
-    if(!creep.memory.myhealer) {
+    if(!creep.memory.myhealer || creep.room.name === creep.memory.homeRoom && creep.ticksToLive < 1400 && Game.time % 100 === 0) {
         let creepsInRoom = creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "signifer");}});
         if(creepsInRoom.length > 0) {
             creepsInRoom.sort((a,b) => b.ticksToLive - a.ticksToLive);
@@ -34,6 +33,7 @@
 
         if(creep.room.name != creep.memory.targetRoom && creep.fatigue == 0 && ((myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer)) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
             creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom)
+            return;
         }
 
 
