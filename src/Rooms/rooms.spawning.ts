@@ -1256,7 +1256,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.memory.Structures.controllerLink) {
+    if(room.memory.Structures.controllerLink && room.controller.level !== 8) {
         let controllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
         if(Game.time % 70 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 100 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
