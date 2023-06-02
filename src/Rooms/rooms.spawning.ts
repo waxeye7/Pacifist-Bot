@@ -1429,7 +1429,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 250000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && Game.getObjectById(room.memory.Structures.extractor) && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 250000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
         let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
         if(mineral.mineralAmount > 0 && storage.store[mineral.mineralType] < 100000) {
             let newName = 'MineralMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
