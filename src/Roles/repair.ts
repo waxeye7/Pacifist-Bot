@@ -113,6 +113,7 @@ function findLocked(creep, storage) {
  const run = function (creep) {
     creep.memory.moving = false;
 
+    if(Game.cpu.bucket < 10)return;
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {
@@ -170,7 +171,7 @@ function findLocked(creep, storage) {
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
-        if(creep.room.memory.danger) {
+        if(creep.room.memory.danger || creep.room.memory.defence.nuke || Game.time % 17 === 0) {
             creep.memory.locked = false;
         }
     }

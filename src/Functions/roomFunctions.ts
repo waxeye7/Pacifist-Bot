@@ -12,6 +12,7 @@ interface Room {
     findNuker:() => object | void;
     roomTowersHealMe:any;
     roomTowersAttackEnemy:any;
+    roomTowersRepairTarget:any;
 }
 
 
@@ -43,9 +44,35 @@ Room.prototype.roomTowersAttackEnemy = function(enemyCreep): object | void {
                 towerObjs.push(towerObj);
             }
         }
+        if(enemyCreep.hits < enemyCreep.hitsMax/1.5) {
+            for(let tower of towerObjs) {
+                tower.attack(enemyCreep);
+            }
+        }
+        for(let tower of towerObjs) {
+            if(tower.store[RESOURCE_ENERGY] < 400) return;
+        }
         if(towerObjs.length > 0) {
             for(let tower of towerObjs) {
                 tower.attack(enemyCreep);
+            }
+        }
+    }
+}
+
+Room.prototype.roomTowersRepairTarget = function(target): object | void {
+    if(target) {
+        let towerIDs = this.memory.Structures.towers;
+        let towerObjs = [];
+        for(let towerID of towerIDs) {
+            let towerObj = Game.getObjectById(towerID);
+            if(towerObj) {
+                towerObjs.push(towerObj);
+            }
+        }
+        if(towerObjs.length > 0) {
+            for(let tower of towerObjs) {
+                tower.repair(target);
             }
         }
     }

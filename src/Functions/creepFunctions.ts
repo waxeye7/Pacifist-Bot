@@ -86,53 +86,6 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
             this.room.memory.Structures.controllerLink = false;
         }
     }
-    if(this.room.energyAvailable < this.room.energyCapacityAvailable) {
-
-        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
-        if(spawnAndExtensions.length > 0) {
-            let t = this.pos.findClosestByRange(spawnAndExtensions);
-            if(!this.room.memory.reserveFill.includes(t.id)) {
-                this.room.memory.reserveFill.push(t.id);
-            }
-            this.memory.t = t.id;
-            return t;
-        }
-
-    }
-
-
-    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id))});
-    if(towers2.length > 0) {
-        let t = this.pos.findClosestByRange(towers2);
-        if(!this.room.memory.reserveFill.includes(t.id)) {
-            this.room.memory.reserveFill.push(t.id);
-        }        this.memory.t = t.id;
-        return t;
-    }
-
-    let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    if(this.room.memory.Structures.factory) {
-        let factory:any = Game.getObjectById(this.room.memory.Structures.factory);
-        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 460000 && !reserveFill.includes(factory.id)) {
-            if(!this.room.memory.reserveFill.includes(factory.id)) {
-                this.room.memory.reserveFill.push(factory.id);
-            }            this.memory.t = factory.id;
-            return factory;
-        }
-    }
-
-    if(this.room.memory.Structures.powerSpawn) {
-        let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
-        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 200000 && !reserveFill.includes(powerSpawn.id)) {
-            if(!this.room.memory.reserveFill.includes(powerSpawn.id)) {
-                this.room.memory.reserveFill.push(powerSpawn.id);
-            }
-            this.memory.t = powerSpawn.id;
-            return powerSpawn;
-        }
-    }
-
-
     if(this.room.memory.labs && Object.keys(this.room.memory.labs).length >= 4) {
         let outputLab1;
         let outputLab2;
@@ -188,6 +141,54 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
             }
         }
     }
+    if(this.room.energyAvailable < this.room.energyCapacityAvailable) {
+
+        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
+        if(spawnAndExtensions.length > 0) {
+            let t = this.pos.findClosestByRange(spawnAndExtensions);
+            if(!this.room.memory.reserveFill.includes(t.id)) {
+                this.room.memory.reserveFill.push(t.id);
+            }
+            this.memory.t = t.id;
+            return t;
+        }
+
+    }
+
+
+    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id))});
+    if(towers2.length > 0) {
+        let t = this.pos.findClosestByRange(towers2);
+        if(!this.room.memory.reserveFill.includes(t.id)) {
+            this.room.memory.reserveFill.push(t.id);
+        }        this.memory.t = t.id;
+        return t;
+    }
+
+    let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
+    if(this.room.memory.Structures.factory) {
+        let factory:any = Game.getObjectById(this.room.memory.Structures.factory);
+        if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 460000 && !reserveFill.includes(factory.id)) {
+            if(!this.room.memory.reserveFill.includes(factory.id)) {
+                this.room.memory.reserveFill.push(factory.id);
+            }            this.memory.t = factory.id;
+            return factory;
+        }
+    }
+
+    if(this.room.memory.Structures.powerSpawn) {
+        let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 200000 && !reserveFill.includes(powerSpawn.id)) {
+            if(!this.room.memory.reserveFill.includes(powerSpawn.id)) {
+                this.room.memory.reserveFill.push(powerSpawn.id);
+            }
+            this.memory.t = powerSpawn.id;
+            return powerSpawn;
+        }
+    }
+
+
+
 
     if(this.memory.role == "filler" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
         if(this.room.controller.level < 7) {
@@ -328,6 +329,9 @@ Creep.prototype.Boost = function Boost():any {
                 let idToRemove = closestLab.id;
                 this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
                 return true;
+            }
+            else {
+                console.log(result)
             }
         }
         else {
@@ -1410,7 +1414,7 @@ const roomCallbackRoadPrio = (roomName: string): boolean | CostMatrix => {
             costs.set(creep.pos.x, creep.pos.y, 60);
         }
         else if(creep.memory.role == "repair" && creep.memory.repairing) {
-            costs.set(creep.pos.x, creep.pos.y, 12);
+            costs.set(creep.pos.x, creep.pos.y, 60);
         }
         else if(creep.memory.role == "Convoy" && creep.memory.repairing) {
             costs.set(creep.pos.x, creep.pos.y, 41);
@@ -2464,8 +2468,11 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
 
             let costMatrix;
-            if(this.memory.role == "RampartDefender" || this.memory.role === "RRD") {
+            if(this.memory.role == "RampartDefender") {
                 costMatrix = roomCallbackForRampartDefender;
+            }
+            else if(this.memory.role === "RRD") {
+                costMatrix = roomCallbackForRangedRampartDefender;
             }
             else {
                 costMatrix = roomCallbackAvoidInvaders;
@@ -2526,15 +2533,10 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             costs.set(x, y, weight);
         }
     }
-
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        for(let i=-3; i<3; i++) {
-            for(let o=-3; o<3; o++) {
-                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
-                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
-                }
-            }
+    let myCreeps = room.find(FIND_MY_CREEPS);
+    for(let creep of myCreeps) {
+        if(creep.memory.role === "SpecialCarry") {
+            costs.set(creep.pos.x, creep.pos.y, 25)
         }
     }
 
@@ -2570,6 +2572,18 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        for(let i=-3; i<3; i++) {
+            for(let o=-3; o<3; o++) {
+                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                    costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
+                }
+            }
+        }
+    }
+
 
 
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
@@ -2611,6 +2625,123 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     return costs;
 }
 
+const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 0; y <= 49; y++) {
+        for(let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 25;
+            }
+            else if(tile == 0){
+                weight = 5;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+
+        if(struct.structureType === STRUCTURE_ROAD){
+            return;
+        }
+        else if(struct.structureType == STRUCTURE_RAMPART) {
+            let lookForBuildingsHere = struct.pos.lookFor(LOOK_STRUCTURES);
+            if(lookForBuildingsHere.length > 1) {
+                for(let building of lookForBuildingsHere) {
+                    if(building.structureType !== STRUCTURE_RAMPART) {
+                        return;
+                    }
+                }
+            }
+            else {
+                costs.set(struct.pos.x, struct.pos.y, 4);
+            }
+
+        }
+        else if(struct.structureType == STRUCTURE_CONTAINER) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+
+
+
+    room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
+        if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
+            costs.set(site.pos.x, site.pos.y, 255);
+        }
+    });
+    let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
+    myCreepsNotSpawning.forEach(function(creep) {
+        if(creep.memory.role == "RampartDefender") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
+        else if(creep.memory.role == "SpecialRepair") {
+            costs.set(creep.pos.x, creep.pos.y, 100);
+        }
+        else if (creep.memory.role == "RRD") {
+            costs.set(creep.pos.x, creep.pos.y, 255);
+        }
+    });
+
+
+    room.find(FIND_HOSTILE_CREEPS).forEach(function(c) {
+        if (c.getActiveBodyparts(RANGED_ATTACK) > 15) {
+            for (let dx = -3; dx <= 3; dx++) {
+                for (let dy = -3; dy <= 3; dy++) {
+                    if(c.pos.x + dx > 0 && c.pos.x + dx < 49 && c.pos.y + dy > 0 && c.pos.y + dy < 49) {
+                        let cost = costs.get(c.pos.x + dx, c.pos.y + dy);
+                        if(cost - 25 <= 255) {
+                            costs.set(c.pos.x + dx, c.pos.y + dy, cost + 25);
+                        }
+                    }
+
+                }
+            }
+        }
+    });
+
+    let storage:any = Game.getObjectById(Game.rooms[roomName].memory.Structures.storage);
+    if(storage) {
+        for(let i=-13; i<=13; i++) {
+            for(let o=-13; o<=13; o++) {
+                if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
+                    if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        costs.set(storage.pos.x + i, storage.pos.y + o, 255);
+                    }
+                }
+                // if(i<=-9 || i >= 9 || o <= -9 || o >= 9) {
+                //     if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                //         costs.set(storage.pos.x + i, storage.pos.y + o, 40);
+                //     }
+                // }
+            }
+        }
+    }
+
+
+
+
+
+    return costs;
+}
 
 
 const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix => {

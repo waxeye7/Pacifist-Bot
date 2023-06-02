@@ -1171,7 +1171,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[8].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 290000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000)) {
+            if(repairers < spawnrules[8].repair_creep.amount && Game.cpu.bucket > 100 && storage && (storage.store[RESOURCE_ENERGY] > 290000 || Game.time % 3000 < 100 && Game.cpu.bucket > 100  && storage.store[RESOURCE_ENERGY] > 150000)) {
                 let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 12550000;});
                 if(rampartsInRoomBelow10Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1185,7 +1185,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
 
             }
-            if(builders < spawnrules[8].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 100000 || !storage)) {
+            if(builders < spawnrules[8].build_creep.amount  && sites.length > 0 && (EnergyMinersInRoom > 1 || room.memory.danger) && (storage && storage.store[RESOURCE_ENERGY] > 50000 || !storage)) {
                 let allowSpawn = true;
                 let spawnSmall = false;
                 for(let site of sites) {
@@ -1199,6 +1199,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                         break;
                     }
                 }
+
                 if(allowSpawn) {
                     let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].build_creep.body, name, {memory: {role: 'builder'}});
@@ -1272,34 +1273,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Builder to Spawn List: ' + name);
     }
 
-    if((room.memory.NukeRepair && repairers < 4 || room.memory.defence && room.memory.defence.nuke && repairers < 1) && storage && storage.store[RESOURCE_ENERGY] > 40000) {
-        let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            if(room.controller.level >= 7 && room.find(FIND_NUKES).length > 5 && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1980 && room.memory.labs && room.memory.labs.outputLab1) {
-                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
-                    room.memory.labs.status.boost = {};
-                }
-                if(room.memory.labs.status.boost) {
-                    if(room.memory.labs.status.boost.lab1) {
-                        room.memory.labs.status.boost.lab1.amount += 660;
-                        room.memory.labs.status.boost.lab1.use += 1;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab1 = {};
-                        room.memory.labs.status.boost.lab1.amount = 660;
-                        room.memory.labs.status.boost.lab1.use = 1;
-                    }
-                }
-                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});}
-            else {
-                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
-                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
-                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name}});
-                }
 
-        console.log('Adding Repair to Spawn List: ' + name);
-    }
 
 
     if(RampartErectors < 1 && storage && (room.controller.level == 3 && storage.store[RESOURCE_ENERGY] > 200 || room.controller.level >= 4 && storage.store[RESOURCE_ENERGY] > 12000) && room.memory.construction && room.memory.construction.rampartLocations && room.memory.construction.rampartLocations.length > 0) {
@@ -1322,13 +1296,13 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(SpecialRepairers < 2 && storage && storage.store[RESOURCE_ENERGY] > 45000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
+    if(SpecialRepairers < 4 && storage && storage.store[RESOURCE_ENERGY] > 25000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
         let rampartsInDangerOfDying = false;
         let rampartsInDangerOfDying4Mil = false;
         if(rampartsInRoomBelowTwelveMil && rampartsInRoomBelowTwelveMil.length > 0 && storage) {
             rampartsInRoomBelowTwelveMil = rampartsInRoomBelowTwelveMil.filter(function(r) {return storage.pos.getRangeTo(r) >= 8 && storage.pos.getRangeTo(r) <= 10;})
-            let rampartsInRoomBelow6Mil = rampartsInRoomBelowTwelveMil.filter(function(r) {return r.hits <= 6050000;})
-            let rampartsInRoomBelow4Mil = rampartsInRoomBelow6Mil.filter(function(r) {return r.hits <= 4050000;})
+            let rampartsInRoomBelow6Mil = rampartsInRoomBelowTwelveMil.filter(function(r) {return r.hits <= 8050000;})
+            let rampartsInRoomBelow4Mil = rampartsInRoomBelow6Mil.filter(function(r) {return r.hits <= 7050000;})
             if(rampartsInRoomBelow4Mil.length > 0) {
                 rampartsInDangerOfDying4Mil = true;
             }
@@ -1344,7 +1318,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
 
-        if(rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 2) {
+        if(rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 4) {
 
             let newName = 'SpecialRepair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             console.log('Adding SpecialRepair to Spawn List: ' + newName);
@@ -1408,7 +1382,34 @@ function add_creeps_to_spawn_list(room, spawn) {
 
         }
     }
+    if((room.memory.NukeRepair && repairers < 4 && !room.memory.danger || room.memory.defence && room.memory.defence.nuke && repairers < 1) && Game.cpu.bucket > 150 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
+        let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+            if(room.controller.level >= 7 && room.find(FIND_NUKES).length > 2 && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1980 && room.memory.labs && room.memory.labs.outputLab1) {
+                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                    room.memory.labs.status.boost = {};
+                }
+                if(room.memory.labs.status.boost) {
+                    if(room.memory.labs.status.boost.lab1) {
+                        room.memory.labs.status.boost.lab1.amount += 660;
+                        room.memory.labs.status.boost.lab1.use += 1;
+                    }
+                    else {
+                        room.memory.labs.status.boost.lab1 = {};
+                        room.memory.labs.status.boost.lab1.amount = 660;
+                        room.memory.labs.status.boost.lab1.use = 1;
+                    }
+                }
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
+                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});}
+            else {
+                room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
+                    CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
+                    MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name}});
+                }
 
+        console.log('Adding Repair to Spawn List: ' + name);
+    }
 
 
     if(room.controller.level >= 2 && Game.shard.name !== "shard3") {
@@ -1447,7 +1448,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 14) {
 
 
-                if(HostileCreeps.length > 2 && RampartDefenders <= 1 && storage &&
+                if(HostileCreeps.length > 4 && RampartDefenders <= 1 && storage &&
                     storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
                     storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 1200 &&
                     (RangedRampartDefenders < 3 && room.controller.level == 7 || RangedRampartDefenders  < 2 && room.controller.level == 8))  {

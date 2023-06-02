@@ -122,7 +122,12 @@ const run = function (creep) {
                     }
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(target, 1)
+                    if(creep.room.memory.danger) {
+                        creep.moveToSafePositionToRepairRampart(target, 1);
+                    }else {
+                        creep.MoveCostMatrixRoadPrio(target, 1)
+
+                    }
                 }
             }
         }

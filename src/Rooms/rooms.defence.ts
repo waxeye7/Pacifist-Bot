@@ -74,7 +74,7 @@ function roomDefence(room) {
                 let isDanger = room.memory.danger;
 
                 if(isDanger) {
-                    let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
+                    let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender" || creep.memory.role == "RRD"});
                     let rampartDefendersLength = rampartDefenders.length;
                     if(rampartDefendersLength <= 2) {
                         let rampartToMan = room.memory.rampartToMan;

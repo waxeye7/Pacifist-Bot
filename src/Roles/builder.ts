@@ -132,6 +132,12 @@
 	// 	creep.memory.suicide = true;
 	// }
 	if(creep.memory.suicide == true) {
+		let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART && s.hits < 20000});
+		if(myRamparts.length) {
+			myRamparts.sort((a,b) => a.hits - b.hits);
+			creep.room.roomTowersRepairTarget(myRamparts[0]);
+			return;
+		}
 		creep.recycle();
 		return;
 	}

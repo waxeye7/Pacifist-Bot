@@ -4,6 +4,7 @@ const run = function (creep:Creep) {
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
+        console.log(result)
         if(!result) {
             return;
         }

@@ -40,7 +40,7 @@
         let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
         let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER});
         let spawnsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_SPAWN});
-
+        let enemyCreepsInRoom =  creep.room.find(FIND_HOSTILE_CREEPS);
         if(creep.room.name == creep.memory.targetRoom) {
             let move_location;
 
@@ -70,7 +70,11 @@
                 else if (buildingsInRoom.length > 0) {
                     move_location = creep.pos.findClosestByRange(buildingsInRoom).pos;
                 }
+                else if(enemyCreepsInRoom.length > 0) {
+                    move_location = creep.pos.findClosestByRange(enemyCreepsInRoom).pos;
+                }
             }
+
 
             console.log(move_location)
 

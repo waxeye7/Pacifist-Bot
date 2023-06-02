@@ -828,7 +828,30 @@ function market(room):any {
             }
     }
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
-    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 10000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
+    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 100000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
+
+
+        function CalcPriceForOrder(resourceToSell) {
+            let resourceData = Game.market.getHistory(resourceToSell);
+            let myTotalAverage = 0;
+            let weightNumber = 1;
+
+            if (resourceData && resourceData.length > 0) {
+                for (let day of resourceData) {
+                    myTotalAverage += day.avgPrice * weightNumber;
+                    weightNumber++;
+                }
+
+                let Average = myTotalAverage / 105;
+                console.log(Average, "average price");
+
+                return Average + 1;
+            } else {
+                return 5.889;
+            }
+        }
+
+
         let foundInRoomEnergyOrder = false;
 
         let Orders = Game.market.orders;
@@ -840,7 +863,7 @@ function market(room):any {
                 foundInRoomEnergyOrder = true;
             }
 
-            if(order.roomName == room.name && order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.amount <= 1000 && storage && storage.store[RESOURCE_ENERGY] < 10000) {
+            if(order.roomName == room.name && order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.amount <= 1000 && storage && storage.store[RESOURCE_ENERGY] < 100000) {
                 Game.market.extendOrder(orderID, 20000);
             }
         }
@@ -849,7 +872,7 @@ function market(room):any {
             Game.market.createOrder({
                 type: ORDER_BUY,
                 resourceType: RESOURCE_ENERGY,
-                price: 5.889,
+                price: CalcPriceForOrder(RESOURCE_ENERGY),
                 totalAmount: 20000,
                 roomName: room.name
             });
