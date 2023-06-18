@@ -31,7 +31,7 @@ if(room) {
                                 MOVE,CARRY,MOVE,CARRY,MOVE,
                                 CARRY,MOVE,CARRY,MOVE,CARRY,
                                 MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,CARRY],
+                                CARRY,MOVE,CARRY,MOVE,ATTACK],
     newName, {memory: {role: 'Convoy', homeRoom:targetRoomName, targetRoom:targetRoomName}});
     console.log('Adding Convoy to Spawn List: ' + newName);
 
