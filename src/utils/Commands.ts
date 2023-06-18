@@ -22,16 +22,7 @@ global.spawnConvoy = function(roomName, targetRoomName) {
 let room = Game.rooms[roomName];
 if(room) {
     let newName = 'Convoy-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-    room.memory.spawn_list.push([MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,CARRY,
-                                MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,CARRY,
-                                MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,CARRY,
-                                MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,CARRY,
-                                MOVE,CARRY,MOVE,CARRY,MOVE,
-                                CARRY,MOVE,CARRY,MOVE,ATTACK],
+    room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,ATTACK,MOVE],
     newName, {memory: {role: 'Convoy', homeRoom:targetRoomName, targetRoom:targetRoomName}});
     console.log('Adding Convoy to Spawn List: ' + newName);
 
