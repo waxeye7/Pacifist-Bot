@@ -52,7 +52,7 @@ const run = function (creep) {
         }
 
         if(!creep.memory.rampartsToRepair) {
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 50000});
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000});
             let idsOfRamparts = [];
             for(let rampart of rampartsInRoom) {
                 idsOfRamparts.push(rampart.id);
