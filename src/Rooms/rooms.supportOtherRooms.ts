@@ -14,7 +14,7 @@ function supportOtherRooms(room) {
         Game.rooms[Memory.target_colonise.room] &&
         Game.rooms[Memory.target_colonise.room].controller &&
 
-        storage && storage.store[RESOURCE_ENERGY] >= 200000
+        storage && storage.store[RESOURCE_ENERGY] >= 220000
 
         &&
         (
