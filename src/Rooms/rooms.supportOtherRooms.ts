@@ -14,15 +14,15 @@ function supportOtherRooms(room) {
         Game.rooms[Memory.target_colonise.room] &&
         Game.rooms[Memory.target_colonise.room].controller &&
 
-        storage && storage.store[RESOURCE_ENERGY] >= 100000
+        storage && storage.store[RESOURCE_ENERGY] >= 200000
 
         &&
         (
-            Game.rooms[Memory.target_colonise.room].controller.level >= 3 ||
+            room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && (Game.rooms[Memory.target_colonise.room].controller.level >= 3 ||
             Game.rooms[Memory.target_colonise.room].controller.level == 2 &&
             Game.rooms[Memory.target_colonise.room].memory.Structures &&
             Game.rooms[Memory.target_colonise.room].memory.Structures.bin &&
-            Game.getObjectById(Game.rooms[Memory.target_colonise.room].memory.Structures.bin)
+            Game.getObjectById(Game.rooms[Memory.target_colonise.room].memory.Structures.bin))
         )
         &&
 
