@@ -12,7 +12,7 @@ const run = function (creep) {
         creep.memory.full = false;
     }
 
-    if(!creep.memory.full && creep.ticksToLive > 1480) {
+    if(!creep.memory.full && creep.ticksToLive > 1480 && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
         let storage = Game.getObjectById(creep.room.memory.Structures.storage);
         if(storage) {
             if(creep.pos.isNearTo(storage)) {
@@ -31,7 +31,7 @@ const run = function (creep) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.room.name == creep.memory.targetRoom) {
+    if(creep.room.name == creep.memory.targetRoom && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
         let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
         if(creep.memory.full && storage && storage.store.getFreeCapacity() > 100) {
             if(creep.pos.isNearTo(storage)) {
@@ -44,6 +44,9 @@ const run = function (creep) {
         else {
             creep.recycle();
         }
+    }
+    else if(!creep.room.memory.Structures || !creep.room.memory.Structures.storage) {
+        creep.suicide();
     }
 }
 
