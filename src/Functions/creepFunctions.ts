@@ -615,60 +615,19 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
         let exit;
         let position;
 
-        if(this.memory.role == "carry" || this.memory.role == "EnergyMiner" || this.memory.role == "RemoteRepair" || this.memory.role == "attacker") {
-            if(this.memory.route[0].exit == FIND_EXIT_RIGHT) {
-                let roadsAtX48 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.x == 48});
-                if(roadsAtX48.length > 0) {
-                    exit = roadsAtX48[0].pos.findClosestByRange(this.memory.route[0].exit);
-                }
-                else {
-                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-                }
-            }
-            else if(this.memory.route[0].exit == FIND_EXIT_BOTTOM) {
-                let roadsAtY48 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.y == 48});
-                if(roadsAtY48.length > 0) {
-                    exit = roadsAtY48[0].pos.findClosestByRange(this.memory.route[0].exit);
-                }
-                else {
-                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-                }
-            }
-            else if(this.memory.route[0].exit == FIND_EXIT_LEFT) {
-                let roadsAtX1 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.x == 1});
-                if(roadsAtX1.length > 0) {
-                    exit = roadsAtX1[0].pos.findClosestByRange(this.memory.route[0].exit);
-                }
-                else {
-                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-                }
-            }
-            else if(this.memory.route[0].exit == FIND_EXIT_TOP) {
-                let roadsAtY1 = this.room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_ROAD && s.pos.y == 1});
-                if(roadsAtY1.length > 0) {
-                    exit = roadsAtY1[0].pos.findClosestByRange(this.memory.route[0].exit);
-                }
-                else {
-                    exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-                }
-            }
-            if(exit && exit.x && exit.y && exit.roomName)
-                position = new RoomPosition(exit.x, exit.y, exit.roomName);
+
+        if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
+            this.memory.exit = this.pos.findClosestByPath(this.memory.route[0].exit);
         }
-        else {
-            if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
-                this.memory.exit = this.pos.findClosestByPath(this.memory.route[0].exit);
-            }
-            exit = this.memory.exit;
-            if(!exit) {
-                exit = this.pos.findClosestByRange(this.memory.route[0].exit);
-            }
-            if(exit) {
-                position = new RoomPosition(exit.x, exit.y, exit.roomName)
-            }
-            console.log(position);
-            // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+        exit = this.memory.exit;
+        if(!exit) {
+            exit = this.pos.findClosestByRange(this.memory.route[0].exit);
         }
+        if(exit) {
+            position = new RoomPosition(exit.x, exit.y, exit.roomName)
+        }
+        console.log(position);
+        // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
 
         this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(position, 0);
 

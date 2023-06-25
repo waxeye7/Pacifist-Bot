@@ -5,9 +5,7 @@
 const run = function (creep) {
     ;
 
-    if(creep.notifyWhenAttacked(true)) {
-        creep.notifyWhenAttacked(false);
-    }
+
     if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
 
@@ -23,7 +21,6 @@ const run = function (creep) {
                 return;
             }
         }
-
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
     else {
