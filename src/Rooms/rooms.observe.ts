@@ -1,5 +1,5 @@
 function observe(room) {
-    let interval = 32;
+    let interval = 128;
     let twoTimesInterval = interval*2
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
     // if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 5000) {
