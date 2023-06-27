@@ -694,17 +694,17 @@ function observe(room) {
                         let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
                         if(walls.length == 0) {
 
-                            // let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
+                            let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
 
                             let deposits = seenRoom.find(FIND_DEPOSITS);
 
-                            // if(powerBanks.length > 0 && storage.store[RESOURCE_ENERGY] > 330000 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
-                            //  powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
-                            //  storage.store[RESOURCE_ENERGY] > 350000) {
+                            if(powerBanks.length > 0 && storage.store[RESOURCE_ENERGY] > 330000 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
+                             powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
+                             storage.store[RESOURCE_ENERGY] > 350000) {
 
-                            //     global.SPK(room.name, adj);
+                                global.SPK(room.name, adj);
 
-                            // }
+                            }
 
                             if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9000) {
 
