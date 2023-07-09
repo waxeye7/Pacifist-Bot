@@ -97,6 +97,8 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let annoyers = 0;
 
+    let clearers = 0;
+
     let billtongs = 0;
 
     let rams = 0;
@@ -278,6 +280,10 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             case "annoy":
                 annoyers ++;
+                break;
+
+            case "clearer":
+                clearers ++;
                 break;
 
             case "ram":
@@ -1295,6 +1301,77 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Priest to Spawn List: ' + newName);
     }
 
+    if (room.controller.level === 8 && clearers < 1 && room.memory.danger && room.memory.danger_timer > 300 && RampartDefenders === 0) {
+        let hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+        if(hostileCreeps.length) {
+            let attackCreeps = _.filter(hostileCreeps, (c:any) => c.getActiveBodyparts(ATTACK) > 0);
+            let rangedAttackCreeps = _.filter(hostileCreeps, (c:any) => c.getActiveBodyparts(RANGED_ATTACK) > 0);
+            if(attackCreeps.length > 0 || rangedAttackCreeps.length > 0) {
+                if(attackCreeps.length) {
+                    let newName = 'Clearer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+                    room.memory.spawn_list.push(
+                      [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
+                      newName,
+                      { memory: { role: 'clearer', boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3,room.memory.labs.outputLab7] }}
+                    );
+                    console.log('Adding Clearer to Spawn List: ' + newName);
+
+                    if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
+                        storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 &&
+                        room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab7) {
+                           if(room.memory.labs.status && !room.memory.labs.status.boost) {
+                               room.memory.labs.status.boost = {};
+                           }
+
+                           if(room.memory.labs.status.boost) {
+                               // utrium acid
+                               if(room.memory.labs.status.boost.lab3) {
+                                   room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 900;
+                                   room.memory.labs.status.boost.lab3.use += 1;
+                               }
+                               else {
+                                   room.memory.labs.status.boost.lab3 = {};
+                                   room.memory.labs.status.boost.lab3.amount = 900;
+                                   room.memory.labs.status.boost.lab3.use = 1;
+                               }
+                               // zyn alk
+                               if(room.memory.labs.status.boost.lab2) {
+                                   room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+                                   room.memory.labs.status.boost.lab2.use += 1;
+                               }
+                               else {
+                                   room.memory.labs.status.boost.lab2 = {};
+                                   room.memory.labs.status.boost.lab2.amount = 300;
+                                   room.memory.labs.status.boost.lab2.use = 1;
+                               }
+                               // gho alk
+                               if(room.memory.labs.status.boost.lab7) {
+                                   room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 300;
+                                   room.memory.labs.status.boost.lab7.use += 1;
+                               }
+                               else {
+                                   room.memory.labs.status.boost.lab7 = {};
+                                   room.memory.labs.status.boost.lab7.amount = 300;
+                                   room.memory.labs.status.boost.lab7.use = 1;
+                               }
+                           }
+                        }
+                }
+            }
+            else {
+                let newName = 'Clearer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(
+                  [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
+                  newName,
+                  { memory: { role: 'clearer' }}
+                );
+                console.log('Adding Clearer to Spawn List: ' + newName);
+            }
+        }
+
+    }
+
+
 
     if(SpecialRepairers < 4 && storage && storage.store[RESOURCE_ENERGY] > 25000 && room.memory.danger && room.controller.level >= 7 && (room.memory.danger || room.memory.danger_timer > 0)) {
         let rampartsInDangerOfDying = false;
@@ -1426,7 +1503,6 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
         }
     }
-
 
 
     if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && Game.getObjectById(room.memory.Structures.extractor) && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 250000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 7500) {
@@ -1688,22 +1764,49 @@ function add_creeps_to_spawn_list(room, spawn) {
         //     }
         // });
 
-        if(target_colonise && containerbuilders < 1 && !room.memory.danger && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.cpu.bucket > 6000 && distance_to_target_room <= 8 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 1 || Game.rooms[target_colonise].controller.level >= 5 && !Game.getObjectById(Game.rooms[target_colonise].memory.Structures.storage)) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
+        if(target_colonise && containerbuilders < 2 && !room.memory.danger && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.cpu.bucket > 6000 && distance_to_target_room <= 8 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 1 || Game.rooms[target_colonise].controller.level >= 5 && !Game.getObjectById(Game.rooms[target_colonise].memory.Structures.storage)) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
             let newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
             console.log('Adding ContainerBuilder to Spawn List: ' + newName);
         }
 
         if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 180000 && distance_to_target_room <= 6 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 3) && Game.rooms[target_colonise].controller.level >= 1 && (Game.rooms[target_colonise].controller.my || !Game.rooms[target_colonise].controller.my && !Game.rooms[target_colonise].find(FIND_HOSTILE_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER}).length)  && Game.time - Memory.target_colonise.lastSpawnRanger > 1500 && !Game.rooms[target_colonise].controller.safeMode) {
-            let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true}});
+            if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 20000 && Game.rooms[target_colonise].controller.level < 3) {
+                let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true, boostlabs: [room.memory.labs.outputLab4] }});
 
-            console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
+                console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
 
-            Memory.target_colonise.lastSpawnRanger = Game.time - (distance_to_target_room * 100) ;
+                Memory.target_colonise.lastSpawnRanger = Game.time - (distance_to_target_room * 100) ;
+
+
+                if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+                    room.memory.labs.status.boost = {};
+                }
+                if(room.memory.labs.status.boost) {
+                    if(room.memory.labs.status.boost.lab4) {
+                        room.memory.labs.status.boost.lab4.amount += 600;
+                        room.memory.labs.status.boost.lab4.use += 1;
+                    }
+                    else {
+                        room.memory.labs.status.boost.lab4 = {amount:600, use:1};
+                    }
+                }
+            }
+            else {
+                let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true}});
+
+                console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
+
+                Memory.target_colonise.lastSpawnRanger = Game.time - (distance_to_target_room * 100) ;
+            }
+
         }
 
     }
+
+
 
 
     // if(billtongs < 1 && Game.cpu.bucket > 9500 && room.controller.level >= 4 && room.controller.level !== 8 && storage && storage.store[RESOURCE_ENERGY] > 320000 && !room.memory.danger && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 4) {
@@ -1755,6 +1858,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
     }
+
 
     // next to add
     let droppedPLUStombs = (room.find(FIND_DROPPED_RESOURCES).length + room.find(FIND_TOMBSTONES, {filter: tombstone => tombstone.store[RESOURCE_ENERGY] > 0}).length + 1);
