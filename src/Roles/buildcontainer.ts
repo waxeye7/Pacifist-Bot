@@ -20,7 +20,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         creep.memory.building = true;
     }
     if(creep.memory.building) {
-        if(creep.room.controller && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 8000)) {
+        if(creep.room.controller && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 18000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 27000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 36000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 45000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 54000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 63000)) {
             if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
                 creep.upgradeController(creep.room.controller);
             }
@@ -59,6 +59,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             else {
                 creep.MoveCostMatrixRoadPrio(mySpawns[0], 1);
             }
+            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
+            let lookForBuildings = location.lookFor(LOOK_STRUCTURES);
+            if(lookForBuildings.length > 0) {
+                for(let building of lookForBuildings) {
+                    if(building.structureType == STRUCTURE_RAMPART) {
+                        creep.repair(building)
+                    }
+                }
+            }
+            location.createConstructionSite(STRUCTURE_RAMPART);
         }
     }
     if(!creep.memory.building) {

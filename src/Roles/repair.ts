@@ -12,12 +12,12 @@ function findLocked(creep, storage) {
     let buildingsToRepair300mil;
 
     if(creep.room.controller.level >= 6) {
-        if(creep.room.memory.danger) {
-            buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
-        }
-        else {
+        // if(creep.room.memory.danger) {
+        //     buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) <= 10 && building.pos.getRangeTo(storage) > 6});
+        // }
+        // else {
             buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && building.pos.getRangeTo(storage) > 6 && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 50050000)});
-        }
+        // }
     }
     else if(creep.room.controller.level > 2) {
         buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits + 1000 < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER});
@@ -251,7 +251,7 @@ function findLocked(creep, storage) {
         }
     }
 
-    if(!creep.memory.repairing && !creep.room.memory.danger && creep.room.memory.Structures && creep.room.memory.Structures.controllerLink) {
+    if(!creep.memory.repairing && creep.room.memory.Structures && creep.room.memory.Structures.controllerLink) {
         let controllerLink = <StructureLink> Game.getObjectById(creep.room.memory.Structures.controllerLink);
         if(controllerLink && controllerLink.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() /2 && creep.pos.getRangeTo(controllerLink) <= 4) {
             if(creep.pos.isNearTo(controllerLink)) {

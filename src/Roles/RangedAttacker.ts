@@ -8,7 +8,14 @@
 
 const run = function (creep) {
     ;
+
     creep.memory.moving = false;
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
     let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
     let Structures;
 
@@ -31,11 +38,18 @@ const run = function (creep) {
                 }
             }
 
-            if(creep.rangedAttack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
+            if(creep.pos.getRangeTo(closestEnemyCreep) > 3) {
                 creep.moveTo(closestEnemyCreep);
                 return;
             }
-            if(creep.rangedAttack(closestEnemyCreep) == 0 && isMelee) {
+            else if(creep.pos.isNearTo(closestEnemyCreep)) {
+                creep.rangedMassAttack();
+            }
+            else {
+                creep.rangedAttack(closestEnemyCreep);
+                creep.moveTo(closestEnemyCreep);
+            }
+            if(isMelee && creep.rangedAttack(closestEnemyCreep) == 0) {
                 creep.RangedAttackFleeFromMelee(closestEnemyCreep);
             }
             else {

@@ -68,6 +68,7 @@ import roleSneakyControllerUpgrader from "Roles/SneakyControllerUpgrader";
 import roleSolomon from "Roles/Solomon";
 import roleRampartUpgrader from "Roles/rampartUpgrader";
 import roleContinuousControllerKiller from "Roles/ContinuousControllerKiller";
+import roleClearer from "Roles/clearer";
 
 global.ROLES = {
   Solomon: roleSolomon,
@@ -122,6 +123,7 @@ global.ROLES = {
   Convoy: roleConvoy,
   RampartUpgrader:roleRampartUpgrader,
   CCK: roleContinuousControllerKiller,
+  clearer: roleClearer,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {
