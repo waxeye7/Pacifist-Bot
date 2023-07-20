@@ -66,8 +66,8 @@ function rooms() {
             }
             else if(!room.memory.danger && room.memory.danger_timer !== 0) {
                 console.log(room.name, room.memory.danger_timer)
-                if(room.memory.danger_timer > 25) {
-                    room.memory.danger_timer -= 25;
+                if(room.memory.danger_timer > 5) {
+                    room.memory.danger_timer -= 5;
                 }
                 else {
                     room.memory.danger_timer = 0;
@@ -330,7 +330,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 0) {
-        if(Game.shard.name !== "shard3" && Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 7 && Game.cpu.bucket > 9500) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 7 && Game.cpu.bucket > 9500) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {
@@ -400,7 +400,7 @@ function establishMemory(room) {
 
 
         let HostileStructures = room.find(FIND_HOSTILE_STRUCTURES);
-        let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+        let HostileCreeps:Array<Creep> = room.find(FIND_HOSTILE_CREEPS);
         let isArmed = false;
 
         // check if has attacking parts.
@@ -436,7 +436,63 @@ function establishMemory(room) {
                 if(!Memory.tasks.wipeRooms.killCreeps.includes(room.name)) {
                     Memory.tasks.wipeRooms.killCreeps.push(room.name)
                 }
+                // calculate total attack parts, ranged attack parts, and heal parts
+                let attackParts = 0;
+                let rangedAttackParts = 0;
+                let healParts = 0;
+
+                HostileCreeps.forEach(Hostile => {
+                    for(let part of Hostile.body) {
+                        let boostMultiplier = 1;
+                        let toughMultiplier = 0;
+
+                        if (part.boost) {
+                            switch (part.boost) {
+                                case 'XUH2O': // T3 boost for ATTACK
+                                case 'XKHO2': // T3 boost for RANGED_ATTACK
+                                case 'XLHO2': // T3 boost for HEAL
+                                    boostMultiplier = 4;
+                                    break;
+                                case 'UH2O':  // T2 boost for ATTACK
+                                case 'KHO2':  // T2 boost for RANGED_ATTACK
+                                case 'LHO2':  // T2 boost for HEAL
+                                    boostMultiplier = 3;
+                                    break;
+                                case 'UH':  // T1 boost for ATTACK
+                                case 'KO':   // T1 boost for RANGED_ATTACK
+                                case 'LO':   // T1 boost for HEAL
+                                    boostMultiplier = 2;
+                                    break;
+                                case 'XGHO2': // T3 boost for TOUGH
+                                    toughMultiplier = 24;
+                                    break;
+                                case 'GHO2':  // T2 boost for TOUGH
+                                    toughMultiplier = 11;
+                                    break;
+                                case 'GO':   // T1 boost for TOUGH
+                                    toughMultiplier = 5; //4.2 ish
+                                    break;
+                            }
+                        }
+
+                        if(part.type == ATTACK) {
+                            attackParts += boostMultiplier;
+                        }
+                        else if(part.type == RANGED_ATTACK) {
+                            rangedAttackParts += boostMultiplier;
+                        }
+                        else if(part.type == HEAL) {
+                            healParts += boostMultiplier;
+                        }
+                        else if(part.type == TOUGH) {
+                            rangedAttackParts += toughMultiplier;
+                        }
+                    }
+                });
+
                 room.memory.roomData.has_hostile_creeps = true;
+                room.memory.roomData.hostile_body_type = {attack: attackParts, ranged_attack: rangedAttackParts, heal: healParts}
+
             }
             else if(HostileCreeps.length > 0) {
                 room.memory.roomData.has_safe_creeps = true;
@@ -444,6 +500,7 @@ function establishMemory(room) {
             else {
                 Memory.tasks.wipeRooms.killCreeps = Memory.tasks.wipeRooms.killCreeps.filter(element => element != room.name)
                 room.memory.roomData.has_hostile_creeps = false;
+                delete room.memory.roomData.hostile_body_type;
                 room.memory.roomData.has_safe_creeps = false;
             }
 
@@ -452,7 +509,7 @@ function establishMemory(room) {
 
             let attackersInRoom:number = 0;
             _.forEach(Game.creeps, function(creep) {
-                if(creep.memory.role == 'attacker' && creep.room.name == room.name) {
+                if((creep.memory.role == 'attacker' || creep.memory.role === "RangedAttacker") && creep.room.name == room.name) {
                     attackersInRoom += 1;
                 }
             });

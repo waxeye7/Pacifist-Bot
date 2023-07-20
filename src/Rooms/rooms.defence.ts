@@ -21,7 +21,7 @@ function roomDefence(room) {
         room.memory.defence.towerShotsInRow = 0;
     }
 
-    if(room.memory.danger && room.memory.danger_timer >= 500) {
+    if(room.memory.danger && room.memory.danger_timer >= 1750) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length > 3) {
             for(let eCreep of enemyCreepsInRoom) {

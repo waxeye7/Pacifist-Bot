@@ -132,7 +132,7 @@ const run = function (creep) {
                     }
 
                 }
-                if(creep.store[RESOURCE_ENERGY] <= 35) {
+                if(creep.store[RESOURCE_ENERGY] < 72) {
                     let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && creep.pos.getRangeTo(r) <= 1});
                     if(droppedResources.length > 0) {
                         droppedResources.sort((a,b) => b.amount - a.amount);

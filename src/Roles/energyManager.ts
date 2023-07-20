@@ -557,9 +557,6 @@
         //     }
         // }
 
-
-
-
         if(terminal && terminal.store[RESOURCE_ENERGY] > 45000 && creep.store.getFreeCapacity() == MaxStorage || storage && storage.store[RESOURCE_ENERGY] < 20000 && terminal && terminal.store[RESOURCE_ENERGY] > MaxStorage) {
             if(creep.pos.isNearTo(terminal)) {
                 creep.withdraw(terminal, RESOURCE_ENERGY);
@@ -570,6 +567,8 @@
             }
             return;
         }
+
+
 
 
         if(terminal && terminal.store[RESOURCE_ENERGY] < 40000 && storage && storage.store[RESOURCE_ENERGY] > 100000) {
@@ -583,6 +582,7 @@
             return;
         }
 
+
         let Mineral:any = Game.getObjectById(creep.room.memory.mineral) || creep.room.findMineral();
         let MineralType = Mineral.mineralType;
         if(storage && storage.store[MineralType] > 20000 && terminal && terminal.store.getFreeCapacity() > 10000) {
@@ -595,6 +595,8 @@
             }
             return;
         }
+
+
 
         if(creep.ticksToLive % 50 == 0 || creep.ticksToLive % 50 == 1 || creep.ticksToLive % 50 == 2 || creep.ticksToLive % 50 == 3 || creep.ticksToLive % 50 == 4 || creep.ticksToLive % 50 == 5 || creep.ticksToLive % 50 == 6 || creep.ticksToLive % 50 == 7 || creep.ticksToLive % 50 == 8 || creep.ticksToLive % 50 == 9) {
             let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_POWER,RESOURCE_BATTERY];

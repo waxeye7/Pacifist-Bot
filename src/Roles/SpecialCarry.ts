@@ -73,7 +73,7 @@ const run = function (creep) {
 
             // let container:any = Game.getObjectById(creep.memory.container_target);
 
-            if (target && creep.pos.isNearTo(target) && target.store.getFreeCapacity() >= 175) {
+            if (target && creep.pos.isNearTo(target) && target.store[RESOURCE_ENERGY] < 72 && !target.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 250 && target.pos.getRangeTo(r) <= 1}).length) {
               if (
                 creep.transfer(target, RESOURCE_ENERGY) == 0 &&
                 storage &&

@@ -416,7 +416,7 @@ function construction(room) {
 
     if(room.controller.level >= 5) {
         let nukes = room.find(FIND_NUKES);
-        if(nukes.length > 0) {
+        if(nukes.length > 4) {
             for(let nuke of nukes) {
                 if(nuke.pos.getRangeTo(storage) > 7 && nuke.pos.getRangeTo(storage) < 13 && nuke.pos.x <= 44 && nuke.pos.y <= 44 && nuke.pos.x >= 5 && nuke.pos.y >= 5) {
                     let perimeter = [

@@ -157,7 +157,7 @@ const run = function (creep) {
                 let rampart:any = Game.getObjectById(creep.memory.myRampart);
                 if(storage && storage.store[RESOURCE_ENERGY] >= 300000) {
 
-                    if(rampart && rampart.hits < 50050000) {
+                    if(rampart && rampart.hits < 100050000) {
                         creep.repair(rampart);
                         return;
                     }

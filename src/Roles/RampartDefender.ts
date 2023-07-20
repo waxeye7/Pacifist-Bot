@@ -2,7 +2,7 @@ const run = function (creep:Creep) {
 
     creep.memory.moving = false;
 
-    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0 && creep.room.memory.danger) {
         let result = creep.Boost();
         if(!result) {
             return;

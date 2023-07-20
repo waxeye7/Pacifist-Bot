@@ -3,7 +3,7 @@
  * @param {Creep} creep
  **/
  const run = function (creep:any) {
-
+    creep.memory.moving = false;
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {
@@ -38,6 +38,9 @@
 
 
         let buildingsInRoom = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
+        if(creep.room.controller && creep.room.controller.my && buildingsInRoom.length > 0) {
+            buildingsInRoom = buildingsInRoom.filter(function(building) {return building.owner !== undefined});
+        }
         let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER});
         let spawnsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_SPAWN});
         let enemyCreepsInRoom =  creep.room.find(FIND_HOSTILE_CREEPS);
@@ -121,6 +124,9 @@
                         }
                     }
                     if(!found) {
+                        if(creep.room.controller && creep.room.controller.my && creep.room.controller.level >= 3) {
+                            creep.room.roomTowersAttackEnemy(enemycreep);
+                        }
                         creep.attack(enemycreep);
                         creep_to_attack_found = true;
                     }

@@ -4,6 +4,7 @@ function market(room):any {
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
 
 
+
         let resourceToSell = Mineral.mineralType;
         // if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_HYDROGEN] >= 20000) {
         //     resourceToSell = RESOURCE_HYDROGEN;
