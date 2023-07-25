@@ -18,6 +18,57 @@ global.SCCK = function (homeRoom, targetRoomName) {
     return "Failed to spawn";
 }
 
+global.SCCK2 = function (homeRoom, targetRoomName) {
+    if (Game.rooms[homeRoom]) {
+        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 50 &&  Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 100) {
+
+            let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
+            console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
+
+            Game.rooms[homeRoom].memory.spawn_list.push([TOUGH,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom, boostlabs: [Game.rooms[homeRoom].memory.labs.outputLab5, Game.rooms[homeRoom].memory.labs.outputLab7] } });
+
+            if (Game.rooms[homeRoom].memory.labs.status && !Game.rooms[homeRoom].memory.labs.status.boost) {
+                Game.rooms[homeRoom].memory.labs.status.boost = {};
+            }
+
+            if (Game.rooms[homeRoom].memory.labs.status.boost) {
+
+                // lemer alk
+                if (Game.rooms[homeRoom].memory.labs.status.boost.lab5) {
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab5.amount = Game.rooms[homeRoom].memory.labs.status.boost.lab5.amount + 60;
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab5.use += 1;
+                }
+                else {
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab5 = {};
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab5.amount = 60;
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab5.use = 1;
+                }
+
+                // gho alk
+                if (Game.rooms[homeRoom].memory.labs.status.boost.lab7) {
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab7.amount = Game.rooms[homeRoom].memory.labs.status.boost.lab7.amount + 30;
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab7.use += 1;
+                }
+                else {
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab7 = {};
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab7.amount = 30;
+                    Game.rooms[homeRoom].memory.labs.status.boost.lab7.use = 1;
+                }
+            }
+
+
+            return "Success!";
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 8). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the ContinuousControllerKiller from...")
+    }
+    return "Failed to spawn";
+}
+
 global.spawnConvoy = function (roomName, targetRoomName) {
     let room = Game.rooms[roomName];
     if (room) {

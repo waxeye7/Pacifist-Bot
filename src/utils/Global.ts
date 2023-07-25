@@ -15,6 +15,7 @@ declare global {
     interface Memory {
         CPU:any;
         AvoidRooms: any;
+        AvoidRoomsTemp:{[key:string]:number};
         billtong_rooms: any;
         CanClaimRemote:number;
         DistressSignals:any;
@@ -137,6 +138,7 @@ declare global {
             SPK:any;
             SDM:any;
             SCCK:any;
+            SCCK2:any;
         }
     }
 }

@@ -16,6 +16,8 @@ interface Creep {
     roadCheck:() => boolean;
     roadlessLocation:(RoomPosition:object) => RoomPosition | null;
     fleeHomeIfInDanger: () => void | string;
+    fleeFromMelee: (creep:Creep) => void;
+    fleeFromRanged: (creep:Creep) => void;
     moveAwayIfNeedTo:any;
     Sweep: () => string | number | false;
     recycle: () => void;
@@ -334,6 +336,7 @@ Creep.prototype.Boost = function Boost():any {
                 console.log(result)
             }
         }
+
         else {
             this.MoveCostMatrixRoadPrio(closestLab, 1);
             return false;
@@ -561,10 +564,49 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
+
+    function isValidRoomName(roomName) {
+        const match = roomName.match(/^(\d+)(\d+)$/);
+        if (!match) {
+          return false; // Invalid room name format
+        }
+
+        const [eastWestCoord, northSouthCoord] = match.slice(1).map(Number);
+
+        const isValidNumber = (num) => {
+          const remainder = num % 10;
+          return remainder >= 4 && remainder <= 6;
+        };
+
+        return isValidNumber(eastWestCoord) && isValidNumber(northSouthCoord);
+      }
+
+
     if (this.room.name !== this.memory.homeRoom) {
         if (this.room.controller && !this.room.controller.my && this.room.controller.level > 2 && this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_TOWER}).length > 0 && !_.includes(Memory.AvoidRooms, this.room.name, 0)) {
             Memory.AvoidRooms.push(this.room.name);
         }
+
+        else if (isValidRoomName(this.room.name)) {
+
+        let strongholds = this.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === StructureInvaderCore && s.level > 0});
+            if(strongholds.length && strongholds[0].effects && strongholds[0].effects.length &&
+                strongholds[0].effects[0].effect === EFFECT_COLLAPSE_TIMER) {
+
+                let timerUntilGone = strongholds[0].effects[0].ticksRemaining;
+
+                if (Memory.AvoidRoomsTemp && typeof Memory.AvoidRoomsTemp[this.room.name] === 'number') {
+                    const roomValue = Memory.AvoidRoomsTemp[this.room.name];
+                    if (roomValue === 0) {
+                        Memory.AvoidRoomsTemp[this.room.name] = timerUntilGone;
+                    }
+                } else {
+                    Memory.AvoidRoomsTemp[this.room.name] = timerUntilGone;
+                }
+            }
+
+        }
+
     }
 
     if (this.memory.route && this.memory.route.length > 0 && this.memory.route[0].room === this.room.name) {
@@ -577,7 +619,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                 if (Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
                 }
-                if (Memory.AvoidRooms.includes(roomName) && roomName !== targetRoom) {
+                if ((Memory.AvoidRooms.includes(roomName) || Memory.AvoidRoomsTemp[roomName]) && roomName !== targetRoom) {
                     return 24;
                 }
 
@@ -1061,6 +1103,76 @@ Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(f
     this.move(this.pos.getDirectionTo(FirstPathGuy));
     return;
 }
+
+Creep.prototype.fleeFromMelee = function(fleeTarget) {
+    const room = this.room;
+    const terrain = new Room.Terrain(room.name);
+
+    // Create a CostMatrix considering walls and terrain walls as impassable
+    const costMatrix = new PathFinder.CostMatrix();
+    room.find(FIND_STRUCTURES).forEach((structure) => {
+        if (structure.structureType === STRUCTURE_WALL || structure.structureType === STRUCTURE_RAMPART) {
+            // Set the wall and rampart tiles to a very high cost, effectively making them impassable
+            costMatrix.set(structure.pos.x, structure.pos.y, 255);
+        } else if (structure.structureType !== STRUCTURE_ROAD && structure.structureType !== STRUCTURE_CONTAINER) {
+            // Set other structures' tiles to a higher cost to discourage the pathfinder from using them
+            costMatrix.set(structure.pos.x, structure.pos.y, 5);
+        }
+    });
+
+    // Consider terrain walls (walls and border edges of the room) as impassable
+    for (let x = 0; x < 50; x++) {
+        for (let y = 0; y < 50; y++) {
+            if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+                costMatrix.set(x, y, 255);
+            }
+        }
+    }
+
+    // Use PathFinder with the custom cost matrix and flee set to true
+    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 3 }, { flee: true, roomCallback: (roomName) => costMatrix });
+
+    // Get the next position to move to
+    const FirstPathGuy = FleePath.path[0];
+
+    // Move to the next position
+    this.move(this.pos.getDirectionTo(FirstPathGuy));
+};
+
+Creep.prototype.fleeFromRanged = function(fleeTarget) {
+    const room = this.room;
+    const terrain = new Room.Terrain(room.name);
+
+    // Create a CostMatrix considering walls and terrain walls as impassable
+    const costMatrix = new PathFinder.CostMatrix();
+    room.find(FIND_STRUCTURES).forEach((structure) => {
+        if (structure.structureType !== STRUCTURE_ROAD && structure.structureType !== STRUCTURE_CONTAINER) {
+            // Set other structures' tiles to a higher cost to discourage the pathfinder from using them
+            costMatrix.set(structure.pos.x, structure.pos.y, 255);
+        }
+    });
+
+    // Consider terrain walls (walls and border edges of the room) as impassable
+    for (let x = 0; x < 50; x++) {
+        for (let y = 0; y < 50; y++) {
+            if (terrain.get(x, y) === TERRAIN_MASK_WALL) {
+                costMatrix.set(x, y, 255);
+            }
+            else if(terrain.get(x, y) === TERRAIN_MASK_SWAMP) {
+                costMatrix.set(x, y, 2);
+            }
+        }
+    }
+
+    // Use PathFinder with the custom cost matrix and flee set to true
+    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 6 }, { flee: true, roomCallback: (roomName) => costMatrix });
+
+    // Get the next position to move to
+    const FirstPathGuy = FleePath.path[0];
+
+    // Move to the next position
+    this.move(this.pos.getDirectionTo(FirstPathGuy));
+};
 
 
 // make walk random direction if certain creep!

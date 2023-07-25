@@ -21,7 +21,7 @@ function roomDefence(room) {
         room.memory.defence.towerShotsInRow = 0;
     }
 
-    if(room.memory.danger && room.memory.danger_timer >= 1750) {
+    if(room.memory.danger && (room.memory.danger_timer >= 11000 || room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length > 3) {
             for(let eCreep of enemyCreepsInRoom) {
@@ -32,6 +32,70 @@ function roomDefence(room) {
             }
         }
     }
+
+    let spawn = <StructureSpawn> Game.getObjectById(room.memory.Structures.spawn);
+    if(Game.cpu.bucket > 200 && spawn && room.memory.danger && room.memory.danger_timer > 500 && spawn.effects && spawn.effects.length && spawn.effects[0].effect === PWR_DISRUPT_SPAWN && room.storage) {
+        let towerIDS = room.memory.Structures.towers;
+        let towers = [];
+        for(let towerID of towerIDS) {
+            let tower = <StructureTower> Game.getObjectById(towerID);
+            if(tower && tower.store[RESOURCE_ENERGY] >= 10) {
+                towers.push(tower);
+            }
+        }
+        const damagedStructures = room.find(FIND_MY_STRUCTURES, {
+            filter: (structure) =>
+              (structure.structureType === STRUCTURE_RAMPART &&
+               structure.pos.getRangeTo(room.storage.pos) >= 8 && structure.pos.getRangeTo(room.storage.pos) <= 13)
+          });
+        damagedStructures.sort(function(a, b) {
+            return a.hits - b.hits;
+        });
+        let rampartToRepair = damagedStructures[0];
+
+        for(let tower of towers) {
+            if(rampartToRepair.hits < 2500000 || tower.pos.getRangeTo(rampartToRepair) <= 8 || tower.store[RESOURCE_ENERGY] >= 800) {
+                tower.repair(rampartToRepair);
+
+            }
+        }
+    }
+
+    function hasDamagedRamparts(roomName) {
+        const room = Game.rooms[roomName];
+        if (!room) {
+          console.log(`Room ${roomName} not visible.`);
+          return false;
+        }
+
+        // Get your storage structure (assuming it's a single structure)
+        const storage = room.storage;
+
+        if (!storage) {
+          console.log(`Storage not found in ${roomName}.`);
+          return false;
+        }
+
+        // Define the minimum hits for damaged ramparts
+        const minimumHits = 750000;
+
+        // Define the minimum distance from storage for ramparts and ruins
+        const minimumDistance = 8;
+
+        // Define the maximum distance from storage for ramparts and ruins
+        const maximumDistance = 13;
+
+        // Find ramparts and ruins within the room that are between 8 to 13 range away from storage and have less than 1 million hits
+        const damagedStructures = room.find(FIND_MY_STRUCTURES, {
+          filter: (structure) =>
+            (structure.structureType === STRUCTURE_RAMPART && structure.hits < minimumHits &&
+             structure.pos.getRangeTo(storage.pos) >= minimumDistance && structure.pos.getRangeTo(storage.pos) <= maximumDistance)
+        });
+
+
+
+        return damagedStructures.length > 0;
+      }
 
 
     let maxRepairTower;
@@ -180,6 +244,31 @@ function roomDefence(room) {
                 MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
             }
             let myCreeps = room.find(FIND_MY_CREEPS);
+
+            let nonRangedMeleeCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) == 0 && c.getActiveBodyparts(ATTACK) > 0});
+            let rangedCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) > 0});
+            if(rangedCreeps.length > 0) {
+                let myContainerBuilders = myCreeps.filter(function(c) {return c.memory.role == "buildcontainer"});
+                for(let containerBuilder of myContainerBuilders) {
+                    let closestHostileToContainerBuilder = containerBuilder.pos.findClosestByRange(rangedCreeps);
+                    if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 6) {
+                        containerBuilder.drop(RESOURCE_ENERGY);
+                        containerBuilder.fleeFromRanged(closestHostileToContainerBuilder);
+                    }
+                }
+            }
+            else if(nonRangedMeleeCreeps.length > 0) {
+                let myContainerBuilders = myCreeps.filter(function(c) {return c.memory.role == "buildcontainer"});
+                for(let containerBuilder of myContainerBuilders) {
+                    let closestHostileToContainerBuilder = containerBuilder.pos.findClosestByRange(nonRangedMeleeCreeps);
+                    if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 3) {
+                        containerBuilder.drop(RESOURCE_ENERGY);
+                        containerBuilder.fleeFromMelee(closestHostileToContainerBuilder);
+                    }
+                }
+            }
+
+
 
             if(HostileCreeps.length > 1 && room.memory.danger && myCreeps.length > 1) {
                 if(!Memory.DistressSignals) {

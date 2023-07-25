@@ -214,17 +214,17 @@ function findLocked(creep, storage) {
                 creep.MoveCostMatrixRoadPrio(repairTarget, 3)
                 creep.memory.moving = false;
             }
-            else {
-                if(creep.store.getFreeCapacity() <= 50) {
-                    if(creep.roadCheck()) {
-                        let roadlessLocation = creep.roadlessLocation(repairTarget);
-                        creep.moveTo(roadlessLocation);
-                    }
-                }
-                if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
-                    creep.moveAwayIfNeedTo();
-                }
-            }
+            // else {
+                // if(creep.store.getFreeCapacity() <= 50) {
+                //     if(creep.roadCheck()) {
+                //         let roadlessLocation = creep.roadlessLocation(repairTarget);
+                //         creep.moveTo(roadlessLocation);
+                //     }
+                // }
+                // if(creep.store.getFreeCapacity() < 100 && creep.store.getFreeCapacity() > 50 && creep.roadCheck()) {
+                //     creep.moveAwayIfNeedTo();
+                // }
+            // }
         }
 
     }
@@ -233,7 +233,7 @@ function findLocked(creep, storage) {
         let towers = [];
         for(let towerID of creep.room.memory.Structures.towers) {
             let tower:any = Game.getObjectById(towerID);
-            if(tower && tower.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() && creep.pos.getRangeTo(tower) <= 6) {
+            if(tower && tower.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() / 2 && creep.pos.getRangeTo(tower) <= 6) {
                 towers.push(tower);
             }
         }
@@ -256,7 +256,7 @@ function findLocked(creep, storage) {
         if(controllerLink && controllerLink.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() /2 && creep.pos.getRangeTo(controllerLink) <= 4) {
             if(creep.pos.isNearTo(controllerLink)) {
                 if(creep.withdraw(controllerLink, RESOURCE_ENERGY) === 0) {
-                    creep.memory.full = true;
+                    creep.memory.repairing = true;
                 }
             }
             else {

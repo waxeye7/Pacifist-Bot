@@ -252,6 +252,34 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
             if(costs.get(creep.pos.x, creep.pos.y) <= 5) {
                 costs.set(creep.pos.x, creep.pos.y, weight);
             }
+            if (creep.getActiveBodyparts(ATTACK) > 25) {
+                const range = 3;
+                const centerX = creep.pos.x;
+                const centerY = creep.pos.y;
+
+                for (let x = centerX - range; x <= centerX + range; x++) {
+                    for (let y = centerY - range; y <= centerY + range; y++) {
+                        // Calculate the Manhattan distance from the creep's position
+                        const distance = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
+
+                        // Set the base cost as 105 minus 10 times the distance
+                        const baseCost = 205 - (20 * distance);
+
+                        // Make sure the base cost is not negative or lower than a minimum value
+                        const cost = Math.max(baseCost, 5);
+
+                        if (costs.get(x, y) <= 50) {
+                            if(terrain.get(x, y) === TERRAIN_MASK_SWAMP) {
+                                costs.set(x, y, 240);
+                            }else {
+                            costs.set(x, y, cost);
+
+                            }
+                        }
+                    }
+                }
+            }
+
         }
     });
 

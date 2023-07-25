@@ -27,14 +27,30 @@ const run = function (creep) {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
         let Structures;
 
+        let lowHitWalls = creep.room.find(FIND_STRUCTURES, {
+            filter: object => object.structureType == STRUCTURE_WALL && object.hits < 10000
+        });
+
+
         if(creep.room.controller && creep.room.controller.my) {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER});}
         else {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
-
         }
+
+        if(lowHitWalls.length > 0) {
+            let closestLowHitWall = creep.pos.findClosestByRange(lowHitWalls);
+            if(creep.pos.isNearTo(closestLowHitWall)) {
+                creep.attack(closestLowHitWall);
+            }
+            else{
+                creep.moveTo(closestLowHitWall);
+            }
+            return;
+        }
+
 
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);

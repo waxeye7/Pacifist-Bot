@@ -52,9 +52,12 @@ function rooms() {
             }
 
 
-            if(room.controller.safeMode && room.controller.safeMode > 100 && Game.time % 100 === 0 && !room.find(FIND_HOSTILE_CREEPS).length) {
-                room.memory.danger = false;
-                room.memory.danger_timer = 0;
+            if(room.controller.safeMode && room.controller.safeMode > 100 && Game.time % 100 === 0) {
+                let hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+                if(!hostileCreeps.length) {
+                    room.memory.danger = false;
+                    room.memory.danger_timer = 0;
+                }
             }
 
             if(room.memory.danger) {
@@ -123,7 +126,7 @@ function rooms() {
 
         if(room && room.controller && room.controller.my) {
 
-            supportOtherRooms(room);
+            // supportOtherRooms(room);
 
             if(!room.memory.Structures) {
                 room.memory.Structures = {};
@@ -202,6 +205,10 @@ function rooms() {
 
             if(!Memory.AvoidRooms) {
                 Memory.AvoidRooms = [];
+            }
+
+            if(!Memory.AvoidRoomsTemp) {
+                Memory.AvoidRoomsTemp = {};
             }
 
             if(!Memory.billtong_rooms) {

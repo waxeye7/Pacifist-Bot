@@ -1,5 +1,4 @@
 const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
-    ;
 
     creep.memory.moving = false;
 
@@ -7,8 +6,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
+    if(creep.room.memory.danger) {
+        return;
+    }
     let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
     let closestTarget = creep.pos.findClosestByRange(targets);
+    if(closestTarget && closestTarget.structureType === STRUCTURE_SPAWN && creep.pos.isEqualTo(closestTarget.pos)) {
+        creep.move(TOP);creep.move(BOTTOM);creep.move(LEFT);creep.move(RIGHT);
+
+
+    }
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
 
@@ -116,8 +123,12 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             let result = creep.withdrawStorage(storage)
         }
         else {
-            if(creep.harvestEnergy() == -6 || creep.harvestEnergy() == -11)  {
+            let result = creep.harvestEnergy();
+            if(result == -6 || result == -11)  {
                 creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+            }
+            else if(result === 0) {
+                creep.pos.createConstructionSite(STRUCTURE_RAMPART)
             }
         }
     }

@@ -28,32 +28,34 @@ const run = function (creep) {
     }
 
     if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-        if(enemyCreeps.length > 0) {
-            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+        if(!creep.memory.ignore) {
+            if(enemyCreeps.length > 0) {
+                let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
-            let isMelee = false;
-            for(let part of closestEnemyCreep.body) {
-                if(part.type == ATTACK) {
-                    isMelee = true;
+                let isMelee = false;
+                for(let part of closestEnemyCreep.body) {
+                    if(part.type == ATTACK) {
+                        isMelee = true;
+                    }
                 }
-            }
 
-            if(creep.pos.getRangeTo(closestEnemyCreep) > 3) {
-                creep.moveTo(closestEnemyCreep);
-                return;
-            }
-            else if(creep.pos.isNearTo(closestEnemyCreep)) {
-                creep.rangedMassAttack();
-            }
-            else {
-                creep.rangedAttack(closestEnemyCreep);
-                creep.moveTo(closestEnemyCreep);
-            }
-            if(isMelee && creep.rangedAttack(closestEnemyCreep) == 0) {
-                creep.RangedAttackFleeFromMelee(closestEnemyCreep);
-            }
-            else {
-                creep.moveTo(closestEnemyCreep);
+                if(creep.pos.getRangeTo(closestEnemyCreep) > 3) {
+                    creep.moveTo(closestEnemyCreep);
+                    return;
+                }
+                else if(creep.pos.isNearTo(closestEnemyCreep)) {
+                    creep.rangedMassAttack();
+                }
+                else {
+                    creep.rangedAttack(closestEnemyCreep);
+                    creep.moveTo(closestEnemyCreep);
+                }
+                if(isMelee && creep.rangedAttack(closestEnemyCreep) == 0) {
+                    creep.RangedAttackFleeFromMelee(closestEnemyCreep);
+                }
+                else {
+                    creep.moveTo(closestEnemyCreep);
+                }
             }
         }
 

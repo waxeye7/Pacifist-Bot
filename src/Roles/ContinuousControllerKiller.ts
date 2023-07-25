@@ -5,6 +5,15 @@
 const run = function (creep) {
     creep.memory.moving = false;
 
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+
+    if(creep.hits !== creep.hitsMax || creep.room.name === creep.memory.targetRoom) creep.heal();
+
     if (creep.room.name !== creep.memory.targetRoom) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }

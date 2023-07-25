@@ -5,6 +5,7 @@ const run = function (creep:Creep) {
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {
+            creep.memory.moving = false;
             return;
         }
     }
@@ -29,6 +30,8 @@ const run = function (creep:Creep) {
         }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
+
+    creep.rangedMassAttack()
 
     if(!creep.memory.exposedStructures) {
         let exposedStructures = [];

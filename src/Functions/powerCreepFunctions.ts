@@ -3,7 +3,40 @@ interface PowerCreep {
     MoveCostMatrixRoadPrio:any;
     evacuate:any;
     moveToRoom:any;
+    fortifyRampartWithEnemyNextToIt:any;
 }
+
+PowerCreep.prototype.fortifyRampartWithEnemyNextToIt = function() {
+    // Check if the creep has the FORTIFY power
+    if (!this.powers[PWR_FORTIFY] || this.powers[PWR_FORTIFY].cooldown > 0) {
+      return;
+    }
+
+  // Find all ramparts in the room
+  const ramparts = this.room.find(FIND_MY_STRUCTURES, {
+    filter: (structure) => structure.structureType === STRUCTURE_RAMPART && structure.hits <= 65000000
+  });
+
+  // Filter the ramparts that have an enemy creep with ATTACK or WORK parts next to them
+  const rampartsWithEnemies = ramparts.filter((rampart) => {
+    const nearbyEnemies = rampart.pos.findInRange(FIND_HOSTILE_CREEPS, 1);
+    return nearbyEnemies.some((enemy) => enemy.getActiveBodyparts(ATTACK) >= 5 || enemy.getActiveBodyparts(WORK) >= 5);
+  });
+
+  // Sort the filtered ramparts by their hits in ascending order
+  const sortedRamparts = rampartsWithEnemies.sort((a, b) => a.hits - b.hits);
+
+  // Get the rampart with the lowest hits from the sorted list
+  const chosenRampart = sortedRamparts[0];
+  console.log(chosenRampart)
+
+    if (chosenRampart && chosenRampart.effects && (!chosenRampart.effects.length || chosenRampart.effects[0].ticksRemaining === 1)) {
+      // Move towards the chosen rampart using your custom MoveCostMatrixRoadPrio function
+      this.MoveCostMatrixRoadPrio(chosenRampart, 3);
+      // Use the FORTIFY power on the chosen rampart
+      this.usePower(PWR_FORTIFY, chosenRampart);
+    }
+  };
 
 PowerCreep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
     this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:200, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});

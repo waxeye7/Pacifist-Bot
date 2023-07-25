@@ -8,6 +8,7 @@ import PowerCreepManager from "Managers/PowerCreepManager";
 import MemoryManager from "Managers/MemoryManager";
 import RunAllCreepsManager from "Managers/RunAllCreepsManager";
 import ExecuteCommandsInNTicks from "Managers/ExecuteCommandsInNTicks";
+import decrementTempBadRooms from "Misc/decrementTempBadRooms";
 
 import rooms from "./Rooms/rooms";
 
@@ -69,6 +70,7 @@ import roleSolomon from "Roles/Solomon";
 import roleRampartUpgrader from "Roles/rampartUpgrader";
 import roleContinuousControllerKiller from "Roles/ContinuousControllerKiller";
 import roleClearer from "Roles/clearer";
+import roleSafeModer from "Roles/SafeModer";
 
 global.ROLES = {
   Solomon: roleSolomon,
@@ -124,6 +126,7 @@ global.ROLES = {
   RampartUpgrader:roleRampartUpgrader,
   CCK: roleContinuousControllerKiller,
   clearer: roleClearer,
+  SafeModer: roleSafeModer,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {
@@ -141,6 +144,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
   RunAllCreepsManager();
 
   ExecuteCommandsInNTicks();
+
+  decrementTempBadRooms();
 
   let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
   console.log(tickTotal + "ms", "on this tick");

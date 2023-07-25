@@ -400,7 +400,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
                         console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax && target && target.hits < target.hitsMax || target && target.hits <= target.hitsMax/2.1) {
+                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax && target && target.hits < target.hitsMax || target && target.hits <= target.hitsMax/2.1 || enemyCreepInRangeThree.length && enemyCreepInRangeThree.filter(ecreep => ecreep.getActiveBodyparts(ATTACK) > 0 && ecreep.pos.findPathTo(creep, { ignoreCreeps: false, ignoreRoads: true, swampCost: 1 }).length <= 3).length) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
