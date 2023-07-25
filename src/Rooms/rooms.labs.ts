@@ -646,7 +646,7 @@ function labs(room) {
 
 
         // 50K
-        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 50000 &&
+        else if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] < 75000 &&
             terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_LEMERGIUM_ACID] + storage.store[RESOURCE_LEMERGIUM_ACID] >= 1000) {
                 lab1Input = RESOURCE_CATALYST;
                 lab2Input = RESOURCE_LEMERGIUM_ACID;
@@ -683,7 +683,7 @@ function labs(room) {
             currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
         }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 75000 &&
+        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 40000 &&
             terminal.store[RESOURCE_GHODIUM_ALKALIDE] + storage.store[RESOURCE_GHODIUM_ALKALIDE] >= 1000 && terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000) {
             lab1Input = RESOURCE_GHODIUM_ALKALIDE;
             lab2Input = RESOURCE_CATALYST;

@@ -12,11 +12,14 @@
         Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
     }
     let sources = creep.room.find(FIND_SOURCES);
-    if(sources.length <= 2 && creep.room.controller && creep.room.controller.level == 0) {
+    if(sources.length <= 2 && creep.room.controller && creep.room.controller.level == 0 && !creep.room.controller.reservation) {
         for(let source of sources) {
             Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy[source.id] = {};
             Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].active = true;
         }
+    }
+    else {
+        Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
     }
 
     creep.suicide();

@@ -50,8 +50,14 @@
             let range = 1;
             if(creep.room.controller && creep.room.controller.my || !creep.room.controller) {
                 let hostilesInRoom = creep.room.find(FIND_HOSTILE_CREEPS);
+                let hostilePowerCreeps = creep.room.find(FIND_HOSTILE_POWER_CREEPS);
                 let portals = creep.room.find(FIND_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_PORTAL});
-                if(hostilesInRoom.length > 0) {
+                if(hostilePowerCreeps.length > 0) {
+                    let closestHostile = creep.pos.findClosestByRange(hostilePowerCreeps);
+                    range = 0
+                    move_location = closestHostile.pos;
+                }
+                else if(hostilesInRoom.length > 0) {
                     let closestHostile = creep.pos.findClosestByRange(hostilesInRoom);
                     range = 0
                     move_location = closestHostile.pos;

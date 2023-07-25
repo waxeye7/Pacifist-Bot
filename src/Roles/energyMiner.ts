@@ -258,6 +258,7 @@ const run = function (creep) {
 
             let targetLink:any = Game.getObjectById(creep.room.memory.Structures.StorageLink) || creep.room.findStorageLink();
             let closestLinkToController:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
+            let extraLink:any = Game.getObjectById(creep.room.memory.Structures.extraLink);
 
             if(targetLink == null || closestLink == null) {
                 if(!targetLink) {
@@ -272,6 +273,10 @@ const run = function (creep) {
 
             if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 closestLink.transferEnergy(closestLinkToController);
+            }
+
+            else if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && extraLink && extraLink.store[RESOURCE_ENERGY] <= 200) {
+                closestLink.transferEnergy(extraLink);
             }
 
             else if(closestLink && closestLink.store[RESOURCE_ENERGY] == 800 && targetLink && targetLink.store[RESOURCE_ENERGY] == 0) {

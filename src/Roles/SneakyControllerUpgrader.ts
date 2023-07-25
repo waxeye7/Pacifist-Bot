@@ -174,7 +174,7 @@ const run = function (creep) {
                     creep.upgradeController(controller);
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(controller, 3);
+                    creep.MoveCostMatrixRoadPrio(controller, 1);
                 }
             }
 

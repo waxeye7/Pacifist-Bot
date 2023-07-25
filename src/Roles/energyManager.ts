@@ -570,7 +570,6 @@
 
 
 
-
         if(terminal && terminal.store[RESOURCE_ENERGY] < 40000 && storage && storage.store[RESOURCE_ENERGY] > 100000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_ENERGY);
@@ -597,148 +596,146 @@
         }
 
 
+        if(Game.time % 50 <= 30) {
 
-        if(creep.ticksToLive % 50 == 0 || creep.ticksToLive % 50 == 1 || creep.ticksToLive % 50 == 2 || creep.ticksToLive % 50 == 3 || creep.ticksToLive % 50 == 4 || creep.ticksToLive % 50 == 5 || creep.ticksToLive % 50 == 6 || creep.ticksToLive % 50 == 7 || creep.ticksToLive % 50 == 8 || creep.ticksToLive % 50 == 9) {
-            let listOfResourcesToStorage:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_POWER,RESOURCE_BATTERY];
-                if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
-                    for(let resource in terminal.store) {
-                        if(listOfResourcesToStorage.includes(resource)) {
-                            if(creep.pos.isNearTo(terminal)) {
-                                creep.withdraw(terminal, resource);
-                                creep.memory.target = storage.id;
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(terminal, 1);
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
 
-        if(creep.ticksToLive % 50 == 10 || creep.ticksToLive % 50 == 11 || creep.ticksToLive % 50 == 12 || creep.ticksToLive % 50 == 13 || creep.ticksToLive % 50 == 14 || creep.ticksToLive % 50 == 15 || creep.ticksToLive % 50 == 16 || creep.ticksToLive % 50 == 17 || creep.ticksToLive % 50 == 18 || creep.ticksToLive % 50 == 19) {
-            let listOfResourcesToTerminal:any = [
-                RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
-                RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
-                RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
-                RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
-                RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
-                RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
-                RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,
-                RESOURCE_GHODIUM_HYDRIDE, RESOURCE_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_KEANIUM_ACID];
-                if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
-                    for(let resource in storage.store) {
-                        if(listOfResourcesToTerminal.includes(resource)) {
-                            if(creep.pos.isNearTo(storage)) {
-                                creep.withdraw(storage, resource);
-                                creep.memory.target = terminal.id;
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
-                        }
-                    }
-                }
-            }
-
-            if(creep.ticksToLive % 50 == 20 || creep.ticksToLive % 50 == 21 || creep.ticksToLive % 50 == 22 || creep.ticksToLive % 50 == 23 || creep.ticksToLive % 50 == 24 || creep.ticksToLive % 50 == 25 || creep.ticksToLive % 50 == 26 || creep.ticksToLive % 50 == 27 || creep.ticksToLive % 50 == 28 || creep.ticksToLive % 50 == 29) {
-                if(storage && factory && factory.store[RESOURCE_ENERGY] < 10000 && storage.store[RESOURCE_ENERGY] > 380000 && factory.store.getFreeCapacity() > 0) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.withdraw(storage, RESOURCE_ENERGY);
-                        creep.memory.target = factory.id;
-                    }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(storage, 1);
-                    }
-                    return;
-                }
-                else if(storage && factory && terminal && (storage.store[RESOURCE_ENERGY] < 95000 || Memory.targetRampRoom.urgent) && factory.store[RESOURCE_ENERGY] > 0) {
-
-                    if(creep.pos.isNearTo(factory)) {
-                        creep.withdraw(factory, RESOURCE_ENERGY);
-                        if(storage.store[RESOURCE_ENERGY] > 95000 && Memory.targetRampRoom.urgent && terminal) {
+        let listOfResourcesToTerminal1:any = [
+            RESOURCE_ALLOY, RESOURCE_TUBE, RESOURCE_FIXTURES, RESOURCE_FRAME, RESOURCE_HYDRAULICS, RESOURCE_MACHINE,
+            RESOURCE_CELL, RESOURCE_PHLEGM, RESOURCE_TISSUE, RESOURCE_MUSCLE, RESOURCE_ORGANOID, RESOURCE_ORGANISM,
+            RESOURCE_WIRE, RESOURCE_SWITCH, RESOURCE_TRANSISTOR, RESOURCE_MICROCHIP, RESOURCE_CIRCUIT, RESOURCE_DEVICE,
+            RESOURCE_CONDENSATE, RESOURCE_CONCENTRATE, RESOURCE_EXTRACT, RESOURCE_SPIRIT, RESOURCE_EMANATION, RESOURCE_ESSENCE,
+            RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
+            RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
+            RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,
+            RESOURCE_GHODIUM_HYDRIDE, RESOURCE_GHODIUM_ACID, RESOURCE_CATALYZED_GHODIUM_ACID, RESOURCE_KEANIUM_ACID];
+            if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
+                for(let resource in storage.store) {
+                    if(listOfResourcesToTerminal1.includes(resource)) {
+                        if(creep.pos.isNearTo(storage)) {
+                            creep.withdraw(storage, resource);
                             creep.memory.target = terminal.id;
                         }
                         else {
+                            creep.MoveCostMatrixRoadPrio(storage, 1);
+                        }
+                        return;
+                    }
+                }
+            }
+
+
+            let listOfResourcesToTerminal2:any = [
+                RESOURCE_CATALYZED_LEMERGIUM_ACID,
+                RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+                RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+                RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+                RESOURCE_CATALYZED_UTRIUM_ACID,
+                RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+                RESOURCE_CATALYZED_ZYNTHIUM_ACID
+            ];
+
+            if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
+                for(let resource in storage.store) {
+                    if(listOfResourcesToTerminal2.includes(resource) && storage.store[resource] > 30000 && terminal.store[resource] < 3000) {
+                        if(creep.pos.isNearTo(storage)) {
+                            creep.withdraw(storage, resource);
+                            creep.memory.target = terminal.id;
+                        }
+                        else {
+                            creep.MoveCostMatrixRoadPrio(storage, 1);
+                        }
+                        return;
+                    }
+                }
+            }
+
+
+            let listOfResourcesToStorage2:any = [
+                RESOURCE_CATALYZED_LEMERGIUM_ACID,
+                RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
+                RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
+                RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
+                RESOURCE_CATALYZED_UTRIUM_ACID,
+                RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
+                RESOURCE_CATALYZED_ZYNTHIUM_ACID
+            ];
+
+            if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
+                for(let resource in terminal.store) {
+                    if(listOfResourcesToStorage2.includes(resource) && (storage.store[resource] < 25000 && terminal.store[resource] > 0 || terminal.store[resource] > 3000)) {
+                        if(creep.pos.isNearTo(terminal)) {
+                            if(storage.store[resource] > 30000) {
+                                creep.withdraw(terminal,resource, terminal.store[resource] - 3000);
+                            }
+                            else {
+                                creep.withdraw(terminal, resource);
+                            }
                             creep.memory.target = storage.id;
                         }
+                        else {
+                            creep.MoveCostMatrixRoadPrio(terminal, 1);
+                        }
+                        return;
                     }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(factory, 1);
-                    }
-                    return;
-                }
-                else if(storage && factory && storage.store[RESOURCE_BATTERY] >= 200 && factory.store.getFreeCapacity() >= 1000) {
-                    if(creep.pos.isNearTo(storage)) {
-                        creep.withdraw(storage, RESOURCE_BATTERY);
-                        creep.memory.target = factory.id;
-                    }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(storage, 1);
-                    }
-                    return;
                 }
             }
 
 
-            if(creep.ticksToLive % 50 == 30 || creep.ticksToLive % 50 == 31 || creep.ticksToLive % 50 == 32 || creep.ticksToLive % 50 == 33 || creep.ticksToLive % 50 == 34 || creep.ticksToLive % 50 == 35 || creep.ticksToLive % 50 == 36 || creep.ticksToLive % 50 == 37 || creep.ticksToLive % 50 == 38 || creep.ticksToLive % 50 == 39) {
+            if(storage && factory && factory.store[RESOURCE_ENERGY] < 10000 && storage.store[RESOURCE_BATTERY] < 200 && storage.store[RESOURCE_ENERGY] > 380000 && factory.store.getFreeCapacity() > 0) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_ENERGY);
+                    creep.memory.target = factory.id;
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+                return;
+            }
+            else if(storage && factory && terminal && (storage.store[RESOURCE_BATTERY] > 200 || storage.store[RESOURCE_ENERGY] < 95000 || Memory.targetRampRoom.urgent) && factory.store[RESOURCE_ENERGY] > 0) {
 
-                let listOfResourcesToTerminal:any = [
-                    RESOURCE_CATALYZED_LEMERGIUM_ACID,
-                    RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_UTRIUM_ACID,
-                    RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_ZYNTHIUM_ACID
-                ];
-
-                if(storage && terminal && terminal.store.getFreeCapacity() > MaxStorage * 10) {
-                    for(let resource in storage.store) {
-                        if(listOfResourcesToTerminal.includes(resource) && storage.store[resource] > 30000 && terminal.store[resource] < 3000) {
-                            if(creep.pos.isNearTo(storage)) {
-                                creep.withdraw(storage, resource);
-                                creep.memory.target = terminal.id;
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
-                        }
+                if(creep.pos.isNearTo(factory)) {
+                    creep.withdraw(factory, RESOURCE_ENERGY);
+                    if(storage.store[RESOURCE_ENERGY] < 95000 && Memory.targetRampRoom.urgent && terminal) {
+                        creep.memory.target = terminal.id;
+                    }
+                    else {
+                        creep.memory.target = storage.id;
                     }
                 }
+                else {
+                    creep.MoveCostMatrixRoadPrio(factory, 1);
+                }
+                return;
+            }
+            else if(storage && factory && storage.store[RESOURCE_BATTERY] >= 200 && factory.store.getFreeCapacity() >= 1000) {
+                if(creep.pos.isNearTo(storage)) {
+                    creep.withdraw(storage, RESOURCE_BATTERY);
+                    creep.memory.target = factory.id;
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+                return;
             }
 
-            if(creep.ticksToLive % 50 == 40 || creep.ticksToLive % 50 == 41 || creep.ticksToLive % 50 == 42 || creep.ticksToLive % 50 == 43 || creep.ticksToLive % 50 == 44 || creep.ticksToLive % 50 == 45 || creep.ticksToLive % 50 == 46 || creep.ticksToLive % 50 == 47 || creep.ticksToLive % 50 == 48 || creep.ticksToLive % 50 == 49) {
 
-                let listOfResourcesToStorage:any = [
-                    RESOURCE_CATALYZED_LEMERGIUM_ACID,
-                    RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_KEANIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_UTRIUM_ACID,
-                    RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-                    RESOURCE_CATALYZED_ZYNTHIUM_ACID
-                ];
 
-                if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
-                    for(let resource in terminal.store) {
-                        if(listOfResourcesToStorage.includes(resource) && (storage.store[resource] < 25000 && terminal.store[resource] > 0 || terminal.store[resource] > 3000)) {
-                            if(creep.pos.isNearTo(terminal)) {
-                                if(storage.store[resource] > 30000) {
-                                    creep.withdraw(terminal,resource, terminal.store[resource] - 3000);
-                                }
-                                else {
-                                    creep.withdraw(terminal, resource);
-                                }
-                                creep.memory.target = storage.id;
-                            }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(terminal, 1);
-                            }
-                            return;
+
+
+
+
+            let listOfResourcesToStorage1:any = [RESOURCE_KEANIUM_OXIDE,RESOURCE_ZYNTHIUM_ALKALIDE,RESOURCE_ZYNTHIUM_HYDRIDE,RESOURCE_POWER,RESOURCE_BATTERY];
+            if(storage && terminal && storage.store.getFreeCapacity() > MaxStorage * 10) {
+                for(let resource in terminal.store) {
+                    if(listOfResourcesToStorage1.includes(resource)) {
+                        if(creep.pos.isNearTo(terminal)) {
+                            creep.withdraw(terminal, resource);
+                            creep.memory.target = storage.id;
                         }
+                        else {
+                            creep.MoveCostMatrixRoadPrio(terminal, 1);
+                        }
+                        return;
                     }
                 }
             }
@@ -809,7 +806,7 @@
             return;
         }
 
-        if(storage && terminal && storage.store[RESOURCE_OPS] > 20000 && terminal.store.getUsedCapacity() < 290000) {
+        if(storage && terminal && storage.store[RESOURCE_OPS] > 30000 && terminal.store.getUsedCapacity() < 290000) {
             if(creep.pos.isNearTo(storage)) {
                 creep.withdraw(storage, RESOURCE_OPS);
                 creep.memory.target = terminal.id;
@@ -819,6 +816,9 @@
             }
             return;
         }
+
+        }
+
 
         // if(!creep.memory.target) {
         //     creep.MoveCostMatrixRoadPrio(storage, 5);

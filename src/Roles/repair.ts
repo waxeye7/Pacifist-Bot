@@ -237,6 +237,14 @@ function findLocked(creep, storage) {
                 towers.push(tower);
             }
         }
+
+        if(creep.room.memory.Structures.extraLink) {
+            let link = <StructureLink> Game.getObjectById(creep.room.memory.Structures.extraLink);
+            if(link && link.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() / 2 && creep.pos.getRangeTo(link) <= 6) {
+                towers.push(link)
+            }
+        }
+
         if(towers.length > 0) {
             let closestTower = creep.pos.findClosestByRange(towers);
             if(creep.pos.isNearTo(closestTower)) {

@@ -1231,14 +1231,20 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
+            if(storage.store[RESOURCE_ENERGY] > 350000 && Game.cpu.bucket > 8000) {
+                spawnrules[8].repair_creep.amount = 4;
+            }
+            else if(Game.cpu.bucket < 100) {
+                spawnrules[8].repair_creep.amount = 1;
+            }
             if((repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && Game.cpu.bucket > 100 && storage && (storage.store[RESOURCE_ENERGY] > 290000 || Game.time % 3000 < 100 && Game.cpu.bucket > 100  && storage.store[RESOURCE_ENERGY] > 150000)) {
-                let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 52550000;});
+                let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 102550000;});
                 if(rampartsInRoomBelow10Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
-                else if(storage.store[RESOURCE_ENERGY] >= 420000) {
+                else if(storage.store[RESOURCE_ENERGY] >= 405000) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);
@@ -1546,7 +1552,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(room.controller.level >= 2 ) {
         for(let remoteRoom of roomsToRemote) {
             if(remoteRoom !== room.name) {
-                if(Object.keys(room.memory.resources[remoteRoom]).length == 0 && Game.map.getRoomStatus(remoteRoom).status == "normal") {
+                if((Object.keys(room.memory.resources[remoteRoom]).length == 0 || Object.keys(room.memory.resources[remoteRoom].length == 1) && room.memory.resources[remoteRoom].active && !room.memory.resources[remoteRoom].energy) && Game.map.getRoomStatus(remoteRoom).status == "normal") {
                     if(scouts < 1 && EnergyMinersInRoom > 1) {
                         let newName = 'Scout-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout', homeRoom: room.name, targetRoom: remoteRoom}});

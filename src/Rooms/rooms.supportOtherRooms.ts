@@ -14,6 +14,7 @@ function supportOtherRooms(room) {
         Game.rooms[Memory.target_colonise.room] &&
         Game.rooms[Memory.target_colonise.room].controller &&
         Game.rooms[Memory.target_colonise.room].controller.my &&
+        Game.rooms[Memory.target_colonise.room].controller.safeMode &&
 
         storage && storage.store[RESOURCE_ENERGY] >= 320000
 
@@ -37,10 +38,7 @@ function supportOtherRooms(room) {
             else if(Game.rooms[Memory.target_colonise.room].controller.level >= 4) {
                 global.spawnConvoy(room.name, Memory.target_colonise.room);
             }
-
-
         }
-
 }
 
 

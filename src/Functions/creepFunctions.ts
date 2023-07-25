@@ -178,6 +178,18 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
         }
     }
 
+    if(this.room.memory.Structures.extraLink) {
+        let extraLink:any = Game.getObjectById(this.room.memory.Structures.extraLink);
+        if(extraLink && extraLink.store[RESOURCE_ENERGY] < 800 && storage && storage.store[RESOURCE_ENERGY] > 100000 && !reserveFill.includes(extraLink.id)) {
+            if(!this.room.memory.reserveFill.includes(extraLink.id)) {
+                this.room.memory.reserveFill.push(extraLink.id);
+            }
+            this.memory.t = extraLink.id;
+            return extraLink;
+        }
+    }
+
+
     if(this.room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
         if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 200000 && !reserveFill.includes(powerSpawn.id)) {

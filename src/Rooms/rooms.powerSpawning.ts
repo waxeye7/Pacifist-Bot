@@ -1,7 +1,7 @@
 function powerSpawning(room) {
 if(room.controller.level == 8) {
 
-    if(Game.time % 5000 == 0 && !Game.powerCreeps["efficient-" + room.name]) {
+    if(Game.time % 5000 == 0 && !Game.powerCreeps["efficient-" + room.name] && room.storage && room.terminal && room.memory.Structures.powerSpawn && Game.getObjectById(room.memory.Structures.powerSpawn) && room.find(FIND_MY_SPAWNS).length) {
         let allow = true;
         for(let name in Game.powerCreeps) {
             let roomName = name.split("-")[1];

@@ -184,18 +184,20 @@ function market(room):any {
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
 
-            for(let resource of BaseResources) {
-                if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
-                    if(Memory.my_goods[resource] && Memory.my_goods[resource].length > 0) {
-                        for(let room_with_mineral of Memory.my_goods[resource]) {
-                            if(!Game.rooms[room_with_mineral]) {
-                                Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
-                                break;
-                            }
-                            if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 1000) {
-                                Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
-                                console.log("sending", room.name, "1000", resource)
-                                break;
+            if(room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && room.storage) {
+                for(let resource of BaseResources) {
+                    if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType) {
+                        if(Memory.my_goods[resource] && Memory.my_goods[resource].length > 0) {
+                            for(let room_with_mineral of Memory.my_goods[resource]) {
+                                if(!Game.rooms[room_with_mineral]) {
+                                    Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
+                                    break;
+                                }
+                                if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 1000) {
+                                    Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
+                                    console.log("sending", room.name, "1000", resource)
+                                    break;
+                                }
                             }
                         }
                     }
@@ -340,7 +342,7 @@ function market(room):any {
             }
         }
 
-        function sell_resource(resource:ResourceConstant | RESOURCE_BATTERY, OrderPrice:number=5, OrderAmount=100):any | void {
+        function sell_resource(resource:ResourceConstant, OrderPrice:number=5, OrderAmount=100):any | void {
             let OrderMaxEnergy = OrderAmount * 8;
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
@@ -438,7 +440,7 @@ function market(room):any {
             if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 20000) {
                 if(Memory.resource_requests[boost].length > 0) {
                     for(let roomName of Memory.resource_requests[boost]) {
-                        if(roomName !== room.name && Game.rooms[roomName] && Game.rooms[roomName].memory.Structures.spawn && Game.getObjectById(Game.rooms[roomName].memory.Structures.spawn)) {
+                        if(roomName !== room.name && Game.rooms[roomName] && Game.rooms[roomName].memory.Structures.spawn && Game.getObjectById(Game.rooms[roomName].memory.Structures.spawn) && Game.rooms[roomName].storage) {
                             let roomObj = Game.rooms[roomName];
                             if(roomObj && roomObj.controller && roomObj.controller.level >= 6) {
                                 let theirTerminal = roomObj.terminal;
@@ -820,7 +822,7 @@ function market(room):any {
 
     let targetRampRoom = Memory.targetRampRoom.room;
     if(targetRampRoom && Game.time % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
-        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000 && Game.rooms[targetRampRoom].find(FIND_MY_SPAWNS).length > 0) {
+        Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000 && Game.rooms[targetRampRoom].memory.Structures.spawn && Game.getObjectById(Game.rooms[targetRampRoom].memory.Structures.spawn) && Game.rooms[targetRampRoom].storage) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
             if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && (storage.store[RESOURCE_ENERGY] > 200000 && Memory.CPU.reduce && theirStorage.store[RESOURCE_ENERGY] < 300000 || storage.store[RESOURCE_ENERGY] > 290000 && !Memory.CPU.reduce)) {
@@ -831,7 +833,7 @@ function market(room):any {
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
 
 
-    if(Game.time % 1000 === 0 && storage && storage.store[RESOURCE_ENERGY] > 360000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
+    if(Game.time % 1000 === 0 && storage && storage.store[RESOURCE_ENERGY] > 430000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
         if(!room.memory.market.sellOrders.energy) {
             room.memory.market.sellOrders.energy = {};
         }
