@@ -155,6 +155,13 @@
                         creep.moveTo(myhealer);
                     }
                 }
+                else {
+                    let structuresNotMine = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
+                    let closestStructure = creep.pos.findClosestByRange(structuresNotMine);
+                    if(creep.pos.isNearTo(closestStructure)) {
+                        creep.attack(closestStructure);
+                    }
+                }
             }
         }
 

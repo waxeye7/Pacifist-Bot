@@ -113,7 +113,7 @@ function findLocked(creep, storage) {
  const run = function (creep) {
     creep.memory.moving = false;
 
-    if(Game.cpu.bucket < 10)return;
+    if(Game.cpu.bucket < 10 && !creep.memory.boosted)return;
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
         if(!result) {
@@ -240,7 +240,7 @@ function findLocked(creep, storage) {
 
         if(creep.room.memory.Structures.extraLink) {
             let link = <StructureLink> Game.getObjectById(creep.room.memory.Structures.extraLink);
-            if(link && link.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity() / 2 && creep.pos.getRangeTo(link) <= 6) {
+            if(link && link.store[RESOURCE_ENERGY] >= 0 && creep.pos.getRangeTo(link) <= 6) {
                 towers.push(link)
             }
         }
@@ -248,7 +248,9 @@ function findLocked(creep, storage) {
         if(towers.length > 0) {
             let closestTower = creep.pos.findClosestByRange(towers);
             if(creep.pos.isNearTo(closestTower)) {
-                creep.withdraw(closestTower, RESOURCE_ENERGY);
+                if(creep.withdraw(closestTower, RESOURCE_ENERGY) === 0) {
+                    creep.memory.repairing = true;
+                }
             }
             else {
                 creep.MoveCostMatrixRoadPrio(closestTower, 1);

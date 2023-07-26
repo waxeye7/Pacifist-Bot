@@ -596,7 +596,7 @@
         }
 
 
-        if(Game.time % 50 <= 30) {
+        if(Game.time % 50 <= 50) {
 
 
         let listOfResourcesToTerminal1:any = [
@@ -638,7 +638,7 @@
                 for(let resource in storage.store) {
                     if(listOfResourcesToTerminal2.includes(resource) && storage.store[resource] > 30000 && terminal.store[resource] < 3000) {
                         if(creep.pos.isNearTo(storage)) {
-                            creep.withdraw(storage, resource);
+                            creep.withdraw(storage, resource, 3000 - terminal.store[resource]);
                             creep.memory.target = terminal.id;
                         }
                         else {
@@ -664,7 +664,7 @@
                 for(let resource in terminal.store) {
                     if(listOfResourcesToStorage2.includes(resource) && (storage.store[resource] < 25000 && terminal.store[resource] > 0 || terminal.store[resource] > 3000)) {
                         if(creep.pos.isNearTo(terminal)) {
-                            if(storage.store[resource] > 30000) {
+                            if(storage.store[resource] < 32000) {
                                 creep.withdraw(terminal,resource, terminal.store[resource] - 3000);
                             }
                             else {
@@ -707,7 +707,7 @@
                 }
                 return;
             }
-            else if(storage && factory && storage.store[RESOURCE_BATTERY] >= 200 && factory.store.getFreeCapacity() >= 1000) {
+            else if(storage && factory && storage.store[RESOURCE_BATTERY] >= 200 && factory.store.getFreeCapacity() >= 5000) {
                 if(creep.pos.isNearTo(storage)) {
                     creep.withdraw(storage, RESOURCE_BATTERY);
                     creep.memory.target = factory.id;

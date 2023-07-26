@@ -4,10 +4,32 @@
  **/
 const run = function (creep) {
     creep.memory.moving = false;
+
+    if(creep.memory.full && creep.store[RESOURCE_ENERGY] <= 1) {
+        creep.memory.source = false;
+        creep.memory.full = false;
+    }
+    if(!creep.memory.full && creep.store.getFreeCapacity() <= 1) {
+        creep.memory.full = true;
+    }
+
     console.log(creep.room.name);
     let targetRoom = creep.memory.targetRoom;
     if(creep.room.name !== targetRoom) {
         if(creep.memory.locked_away == 0) {
+            if(!creep.memory.full && creep.room.name === creep.memory.homeRoom) {
+                let storage = creep.room.storage;
+                if(storage) {
+                    let result = creep.withdraw(storage, RESOURCE_ENERGY);
+                    if(result == ERR_NOT_IN_RANGE) {
+                        creep.MoveCostMatrixRoadPrio(storage.pos,1);
+                        return;
+                    }
+                    else if(result === 0) {
+                        creep.memory.full = true;
+                    }
+                }
+            }
             creep.memory.in_danger = false;
             creep.memory.exit = false;
             return creep.moveToRoomAvoidEnemyRooms(targetRoom);
@@ -141,13 +163,7 @@ const run = function (creep) {
             return;
         }
 
-        if(creep.memory.full && creep.store[RESOURCE_ENERGY] <= 1) {
-            creep.memory.source = false;
-            creep.memory.full = false;
-        }
-        if(!creep.memory.full && creep.store.getFreeCapacity() <= 1) {
-            creep.memory.full = true;
-        }
+
 
 
         let controller = creep.room.controller;
@@ -173,9 +189,7 @@ const run = function (creep) {
                 if(creep.pos.getRangeTo(controller) <= 3) {
                     creep.upgradeController(controller);
                 }
-                else {
-                    creep.MoveCostMatrixRoadPrio(controller, 1);
-                }
+                creep.MoveCostMatrixRoadPrio(controller, 1);
             }
 
         }

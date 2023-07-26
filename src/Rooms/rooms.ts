@@ -367,8 +367,11 @@ function rooms() {
                         let found = false;
                         for(let remoteRoom of remoteRooms) {
                             room.memory.resources[remoteRoom].active = false;
-                            found = true;
-                            break;
+                            if(room.memory.resources[remoteRoom].active) {
+                                found = true;
+                                break;
+                            }
+
                         }
                         if(found) {
                             break;
@@ -500,6 +503,13 @@ function establishMemory(room) {
                 room.memory.roomData.has_hostile_creeps = true;
                 room.memory.roomData.hostile_body_type = {attack: attackParts, ranged_attack: rangedAttackParts, heal: healParts}
 
+                room.memory.roomData.has_only_invader = true;
+                for(let Hostile of HostileCreeps) {
+                    if((Hostile.getActiveBodyparts(ATTACK) > 0 || Hostile.getActiveBodyparts(RANGED_ATTACK) > 0) && Hostile.owner.username !== "Invader") {
+                        room.memory.roomData.has_only_invader = false;
+                    }
+                }
+
             }
             else if(HostileCreeps.length > 0) {
                 room.memory.roomData.has_safe_creeps = true;
@@ -509,6 +519,7 @@ function establishMemory(room) {
                 room.memory.roomData.has_hostile_creeps = false;
                 delete room.memory.roomData.hostile_body_type;
                 room.memory.roomData.has_safe_creeps = false;
+                room.memory.roomData.has_only_invader = false;
             }
 
 

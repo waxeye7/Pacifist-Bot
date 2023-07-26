@@ -50,7 +50,7 @@ Room.prototype.roomTowersAttackEnemy = function(enemyCreep): object | void {
             }
         }
         for(let tower of towerObjs) {
-            if(tower.store[RESOURCE_ENERGY] < 400) return;
+            if(tower.store[RESOURCE_ENERGY] < 100) return;
         }
         if(towerObjs.length > 0) {
             for(let tower of towerObjs) {

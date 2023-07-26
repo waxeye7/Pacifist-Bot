@@ -275,7 +275,7 @@ const run = function (creep) {
                 closestLink.transferEnergy(closestLinkToController);
             }
 
-            else if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && extraLink && extraLink.store[RESOURCE_ENERGY] <= 200) {
+            else if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 200 && extraLink && extraLink.store[RESOURCE_ENERGY] <= 200) {
                 closestLink.transferEnergy(extraLink);
             }
 

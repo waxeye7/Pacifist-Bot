@@ -161,6 +161,8 @@ function roomDefence(room) {
                 }
 
                 if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.Structures.towers.length && Game.cpu.bucket > 250) {
+
+
                     let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
                     let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
                     let rampartDefendersLength = rampartDefenders.length;
@@ -239,6 +241,19 @@ function roomDefence(room) {
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;
 
+
+            let hostilePowerCreeps = room.find(FIND_HOSTILE_POWER_CREEPS);
+            if(hostilePowerCreeps.length) {
+                for(let hostilePowerCreep of hostilePowerCreeps) {
+                    hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES);
+                    if(hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES).length === 0) {
+                        room.roomTowersAttackEnemy.attack(hostilePowerCreep);
+                        return;
+                    }
+                }
+            }
+
+
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
             if(storage) {
                 MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
@@ -254,6 +269,7 @@ function roomDefence(room) {
                     if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 6) {
                         containerBuilder.drop(RESOURCE_ENERGY);
                         containerBuilder.fleeFromRanged(closestHostileToContainerBuilder);
+                        containerBuilder.memory.fleeing = true;
                     }
                 }
             }
@@ -264,6 +280,7 @@ function roomDefence(room) {
                     if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 3) {
                         containerBuilder.drop(RESOURCE_ENERGY);
                         containerBuilder.fleeFromMelee(closestHostileToContainerBuilder);
+                        containerBuilder.memory.fleeing = true;
                     }
                 }
             }

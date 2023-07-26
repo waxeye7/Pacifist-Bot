@@ -6,8 +6,11 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.room.memory.danger) {
+    if(creep.room.memory.danger && creep.memory.fleeing) {
         return;
+    }
+    else if(!creep.memory.danger) {
+        creep.memory.fleeing = false;
     }
     let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
     let closestTarget = creep.pos.findClosestByRange(targets);
