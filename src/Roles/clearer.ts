@@ -3,12 +3,16 @@
  * @param {Creep} creep
  **/
 const run = function (creep: Creep) {
+
+  creep.memory.moving = false;
+
   if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
     let result = creep.Boost();
     if(!result) {
         return;
     }
 }
+
 
   const hostile = creep.pos.findClosestByRange(FIND_HOSTILE_CREEPS);
   if (hostile) {
@@ -19,6 +23,9 @@ const run = function (creep: Creep) {
     }
     creep.moveTo(hostile);
 
+  }
+  else if(creep.ticksToLive < 100 || !creep.room.memory.danger && creep.room.memory.danger_timer === 0) {
+    creep.recycle();
   }
 
 };

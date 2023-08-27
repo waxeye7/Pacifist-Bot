@@ -24,18 +24,35 @@ const run = function (creep) {
 
     if(creep.room.controller) {
         let controller = creep.room.controller;
-        if(!creep.pos.isNearTo(controller)) {creep.MoveCostMatrixRoadPrio(controller, 1)}
+        if(!creep.pos.isNearTo(controller)) {
+            creep.MoveCostMatrixRoadPrio(controller, 1);
+            let structuresInRangeOne = creep.pos.findInRange(FIND_STRUCTURES, 1);
+            if(structuresInRangeOne.length > 0) {
+                structuresInRangeOne.sort((a,b) => a.hits - b.hits);
+                creep.attack(structuresInRangeOne[0]);
+            }
+
+        }
         else {
-            if(!controller.upgradeBlocked) {
-                if(creep.attackController(controller) === 0) {
-                    creep.signController(controller, "too close to pacifist bot room, claim elsewhere.");
-
-                    Memory.commandsToExecute.push({ delay: 1000-(creep.memory.ticksToGetHere+creep.body.length*3 + 50), bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
-
-
-                    creep.suicide();
-                    return;
+            if(!controller.upgradeBlocked && !controller.my && controller.level > 0) {
+                let myControllerKillers = _.filter(Game.creeps, (c) => c.memory.role == "CCK" && c.memory.targetRoom == creep.room.name && Math.abs(c.ticksToLive - creep.ticksToLive) < 200);
+                if(myControllerKillers.length > 1 && creep.ticksToLive > 1 && !creep.room.find(FIND_HOSTILE_CREEPS, {
+                    filter: c => (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0) && c.pos.getRangeTo(c) <= 3
+                }).length) {
+                    // wait
                 }
+                else {
+                    if(creep.attackController(controller) === 0) {
+                        creep.signController(controller, "too close to pacifist bot room, claim elsewhere.");
+
+                        Memory.commandsToExecute.push({ delay: 1000-(creep.memory.ticksToGetHere+creep.body.length*3 + 50), bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
+
+
+                        creep.suicide();
+                        return;
+                    }
+                }
+
             }
         }
 

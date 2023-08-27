@@ -30,7 +30,6 @@ function QuadSquadRunManager(QuadSquadNameList) {
             }
         }
       }
-
 }
 
 export default QuadSquadRunManager;

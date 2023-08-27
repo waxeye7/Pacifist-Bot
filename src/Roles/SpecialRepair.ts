@@ -22,16 +22,31 @@ const run = function (creep) {
 
     if(!creep.memory.rampart_to_repair) {
         let rampartLocations = [];
-        for(let i = -10; i<11; i++) {
-            for(let o = -10; o <11; o++) {
-                if((i>=8 || i<=-8)) {
-                    rampartLocations.push([i,o]);
-                }
-                else if((o>=8 || o<=-8)) {
-                    rampartLocations.push([i,o]);
+        if(creep.room.name === "E41N58") {
+            for(let i = -25; i<=25; i++) {
+                for(let o = -25; o <=25; o++) {
+                    if((i>=23 || i<=-23)) {
+                        rampartLocations.push([i,o]);
+                    }
+                    else if((o>=23 || o<=-23)) {
+                        rampartLocations.push([i,o]);
+                    }
                 }
             }
         }
+        else {
+            for(let i = -10; i<=10; i++) {
+                for(let o = -10; o <=10; o++) {
+                    if((i>=8 || i<=-8)) {
+                        rampartLocations.push([i,o]);
+                    }
+                    else if((o>=8 || o<=-8)) {
+                        rampartLocations.push([i,o]);
+                    }
+                }
+            }
+        }
+
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
         let RampartPositions = getNeighbours(storage.pos, rampartLocations);

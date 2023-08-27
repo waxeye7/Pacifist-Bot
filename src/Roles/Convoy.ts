@@ -28,14 +28,19 @@ const run = function (creep) {
     }
 
     if(creep.memory.full && creep.room.name !== creep.memory.targetRoom) {
+        if(creep.hits < creep.hitsMax / 1.5) {
+            Memory.delayConvoy[creep.memory.homeRoom] = 8000;
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.room.name == creep.memory.targetRoom && creep.room.memory.Structures && creep.room.memory.Structures.storage) {
-        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage);
-        if(creep.memory.full && storage && storage.store.getFreeCapacity() > 100) {
+    if(creep.room.name == creep.memory.targetRoom && (creep.room.memory.Structures && creep.room.memory.Structures.storage || creep.room.storage)) {
+        let storage:any = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.storage;
+        if(creep.memory.full && storage && storage.store.getFreeCapacity() > 100 && creep.store.getUsedCapacity() > 0) {
             if(creep.pos.isNearTo(storage)) {
-                creep.transfer(storage, RESOURCE_ENERGY);
+                if(creep.transfer(storage, RESOURCE_ENERGY) === 0) {
+                    creep.memory.homeRoom = creep.memory.targetRoom;
+                }
             }
             else {
                 creep.MoveCostMatrixRoadPrio(storage, 1);
@@ -46,7 +51,18 @@ const run = function (creep) {
         }
     }
     else if(!creep.room.memory.Structures || !creep.room.memory.Structures.storage) {
-        creep.suicide();
+        let spawn = creep.pos.findClosestByRange(FIND_MY_SPAWNS);
+        if(spawn) {
+            if(creep.pos.isNearTo(spawn)) {
+                spawn.recycle(creep);
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(spawn, 1);
+            }
+        }
+        else {
+            creep.suicide();
+        }
     }
 }
 

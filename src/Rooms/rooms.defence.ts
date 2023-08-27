@@ -23,7 +23,7 @@ function roomDefence(room) {
 
     if(room.memory.danger && (room.memory.danger_timer >= 11000 || room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
-        if(enemyCreepsInRoom.length > 3) {
+        if(enemyCreepsInRoom.length >= 2) {
             for(let eCreep of enemyCreepsInRoom) {
                 if(eCreep.owner.username !== "Invader") {
                     room.controller.activateSafeMode();
@@ -34,7 +34,7 @@ function roomDefence(room) {
     }
 
     let spawn = <StructureSpawn> Game.getObjectById(room.memory.Structures.spawn);
-    if(Game.cpu.bucket > 200 && spawn && room.memory.danger && room.memory.danger_timer > 500 && spawn.effects && spawn.effects.length && spawn.effects[0].effect === PWR_DISRUPT_SPAWN && room.storage) {
+    if(Game.cpu.bucket > 300 && spawn && room.memory.danger && room.memory.danger_timer > 500 && spawn.effects && spawn.effects.length && spawn.effects[0].effect === PWR_DISRUPT_SPAWN && room.storage) {
         let towerIDS = room.memory.Structures.towers;
         let towers = [];
         for(let towerID of towerIDS) {
@@ -241,7 +241,6 @@ function roomDefence(room) {
         if(HostileCreeps.length > 0) {
             room.memory.danger = true;
 
-
             let hostilePowerCreeps = room.find(FIND_HOSTILE_POWER_CREEPS);
             if(hostilePowerCreeps.length) {
                 for(let hostilePowerCreep of hostilePowerCreeps) {
@@ -256,34 +255,64 @@ function roomDefence(room) {
 
             let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
             if(storage) {
-                MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
+                if(room.name === "E41N58") {
+                    MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 25});
+                }
+                else {
+                    MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
+                }
             }
             let myCreeps = room.find(FIND_MY_CREEPS);
 
-            let nonRangedMeleeCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) == 0 && c.getActiveBodyparts(ATTACK) > 0});
-            let rangedCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) > 0});
-            if(rangedCreeps.length > 0) {
-                let myContainerBuilders = myCreeps.filter(function(c) {return c.memory.role == "buildcontainer"});
-                for(let containerBuilder of myContainerBuilders) {
-                    let closestHostileToContainerBuilder = containerBuilder.pos.findClosestByRange(rangedCreeps);
-                    if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 6) {
-                        containerBuilder.drop(RESOURCE_ENERGY);
-                        containerBuilder.fleeFromRanged(closestHostileToContainerBuilder);
-                        containerBuilder.memory.fleeing = true;
+            if(room.controller.level <= 5) {
+                let nonRangedMeleeCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) == 0 && c.getActiveBodyparts(ATTACK) > 0});
+                let rangedCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) > 0});
+                if(rangedCreeps.length > 0) {
+                    for(let creep of myCreeps) {
+                        if(creep.memory.role === "RampartDefender" || creep.memory.role === "RRD" || creep.memory.role === "ram") {
+                            continue;
+                        }
+                        let creepOnRampart = false;
+                        let structsOnCreep = creep.pos.lookFor(LOOK_STRUCTURES);
+                        for(let structOnCreep of structsOnCreep) {
+                            if(structOnCreep.structureType == STRUCTURE_RAMPART) {
+                                creepOnRampart = true;
+                                break;
+                            }
+                        }
+
+                        let closestHostileToCreep = creep.pos.findClosestByRange(rangedCreeps);
+                        if(creep.room.controller && creep.room.controller.level <= 3 && creep.pos.getRangeTo(closestHostileToCreep) <= 5 && !creepOnRampart) {
+                            creep.drop(RESOURCE_ENERGY);
+                            creep.fleeFromRanged(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
+                        else if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !creepOnRampart) {
+                            creep.fleeFromRanged(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
+                        else {
+                            creep.memory.fleeing = false;
+                        }
+                    }
+                }
+                else if(nonRangedMeleeCreeps.length > 0) {
+                    for(let creep of myCreeps) {
+                        let closestHostileToCreep = creep.pos.findClosestByRange(nonRangedMeleeCreeps);
+                        if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
+                            {
+                                maxOps: 150,
+                                maxRooms: 1,
+                                roomCallback: (roomName) => pathAroundMyRampartsAndStructuresAndTerrain(roomName)
+                            }).incomplete) {
+                            creep.drop(RESOURCE_ENERGY);
+                            creep.fleeFromMelee(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
                     }
                 }
             }
-            else if(nonRangedMeleeCreeps.length > 0) {
-                let myContainerBuilders = myCreeps.filter(function(c) {return c.memory.role == "buildcontainer"});
-                for(let containerBuilder of myContainerBuilders) {
-                    let closestHostileToContainerBuilder = containerBuilder.pos.findClosestByRange(nonRangedMeleeCreeps);
-                    if(containerBuilder.pos.getRangeTo(closestHostileToContainerBuilder) <= 3) {
-                        containerBuilder.drop(RESOURCE_ENERGY);
-                        containerBuilder.fleeFromMelee(closestHostileToContainerBuilder);
-                        containerBuilder.memory.fleeing = true;
-                    }
-                }
-            }
+
 
 
 
@@ -360,3 +389,46 @@ function roomDefence(room) {
 }
 export default roomDefence;
 // module.exports = roomDefence
+
+
+
+const pathAroundMyRampartsAndStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 0; y <= 49; y++) {
+        for(let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 1;
+            }
+            else if(tile == 0){
+                weight = 1;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+
+        if(struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_ROAD) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+    return costs;
+
+}
+

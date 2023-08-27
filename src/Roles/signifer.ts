@@ -25,9 +25,32 @@
         if(creepsInRoom.length > 0) {
             creepsInRoom.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.healtarget = creepsInRoom[0].id;
+            if(!creep.memory.healtarget)return;
         }
     }
+
+    let hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+
+    // Assuming "creep" is your reference point
+    let hostilesInRangeFour = hostileCreeps.filter(hostileCreep => {
+      // Calculate the distance between the hostileCreep and your "creep"
+      let distance = creep.pos.getRangeTo(hostileCreep);
+
+      // Keep the hostileCreep in the resulting array if it is within range 4
+      return distance <= 4;
+    });
+
+    let hostilesInRangeThree = hostilesInRangeFour.filter(hostileCreep => {
+        // Calculate the distance between the hostileCreep and your "creep"
+        let distance = creep.pos.getRangeTo(hostileCreep);
+
+        // Keep the hostileCreep in the resulting array if it is within range 4
+        return distance <= 3;
+      });
+
     if(creep.memory.healtarget) {
+
+
         let target:any = Game.getObjectById(creep.memory.healtarget);
         if(target) {
             creep.moveTo(target.pos);
@@ -78,10 +101,10 @@
                 }
             }
 
-            if(creep.hits == creep.hitsMax) {
+            if(creep.hits == creep.hitsMax && (creep.room.name === creep.memory.targetRoom || target.hits !== target.hitsMax && creep.hits < target.hits || hostilesInRangeFour.length)) {
                 creep.heal(target);
             }
-            else {
+            else if(creep.room.name === creep.memory.targetRoom || creep.hits !== creep.hitsMax || hostilesInRangeThree.length) {
                 creep.heal(creep);
             }
         }
@@ -89,7 +112,7 @@
             creep.heal(creep);
         }
     }
-    else {
+    else if(creep.hits !== creep.hitsMax || hostilesInRangeThree.length) {
         creep.heal(creep);
     }
 }

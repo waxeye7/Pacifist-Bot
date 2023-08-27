@@ -1,5 +1,5 @@
 function market(room):any {
-    if(room.terminal && room.terminal.cooldown == 0 && Game.time % 10 == 0 && Game.cpu.bucket > 100) {
+    if(room.terminal && room.terminal.cooldown == 0 && room.storage && room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && Game.time % 10 == 0 && Game.cpu.bucket > 1000) {
         let BaseResources = [RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_KEANIUM, RESOURCE_LEMERGIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST];
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
 
@@ -33,8 +33,7 @@ function market(room):any {
 
         if(room.terminal.store.getUsedCapacity() > 280000 && room.terminal.store[resourceToSell] > 100000) {
             let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
-                order.type == ORDER_BUY &&
-                Game.market.calcTransactionCost(500, room.name, order.roomName) < 500);
+                order.type == ORDER_BUY);
 
             console.log(resourceToSell, "buy orders found:", orders.length);
             orders.sort(function(a,b){return b.price - a.price;});
@@ -220,7 +219,7 @@ function market(room):any {
             if(Game.market.credits > 1000000 && Game.shard.name == "shard3" || Game.shard.name !== "shard3" && Game.market.credits >= 10000) {
                 if(room.terminal.store.getFreeCapacity() > 1000) {
                     for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                        if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
                             let result = buy_resource(resource, 2);
                             if(result == 0) {
                                 return;
@@ -230,7 +229,7 @@ function market(room):any {
 
 
                     for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                        if(room.terminal.store[resource] < 7000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
                             let result = buy_resource(resource, 12.5);
                             if(result == 0) {
                                 return;
@@ -240,8 +239,17 @@ function market(room):any {
 
 
                     for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 4000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                        if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
                             let result = buy_resource(resource, 30);
+                            if(result == 0) {
+                                return;
+                            }
+                        }
+                    }
+
+                    for(let resource of BaseResources) {
+                        if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
+                            let result = buy_resource(resource, 100);
                             if(result == 0) {
                                 return;
                             }
@@ -265,7 +273,10 @@ function market(room):any {
 
             let SellResources = [RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
             RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
-            RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON, RESOURCE_MIST,RESOURCE_KEANIUM_ACID,RESOURCE_GHODIUM_HYDRIDE,RESOURCE_GHODIUM_ACID,RESOURCE_CATALYZED_GHODIUM_ACID];
+            RESOURCE_METAL, RESOURCE_BIOMASS, RESOURCE_SILICON,RESOURCE_KEANIUM_ACID,RESOURCE_GHODIUM_HYDRIDE,RESOURCE_GHODIUM_ACID];
+//  RESOURCE_MIST,
+
+
 
             for(let resource of SellResources) {
                 if(room.terminal.store[resource] >= 1000) {
@@ -413,7 +424,8 @@ function market(room):any {
                 "XLH2O":[],
                 "XGHO2":[],
                 "XZHO2":[],
-                "XZH2O":[]
+                "XZH2O":[],
+                "XKH2O":[],
             };
         }
         let boostsToNeed = [RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,
@@ -422,7 +434,8 @@ function market(room):any {
                             RESOURCE_CATALYZED_LEMERGIUM_ACID,
                             RESOURCE_CATALYZED_GHODIUM_ALKALIDE,
                             RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,
-                            RESOURCE_CATALYZED_ZYNTHIUM_ACID];
+                            RESOURCE_CATALYZED_ZYNTHIUM_ACID,
+                            RESOURCE_CATALYZED_KEANIUM_ACID];
 
         for(let boost of boostsToNeed) {
             if(storage && storage.store[boost] < 10000 && room.terminal.store[boost] < 3000) {
@@ -437,7 +450,7 @@ function market(room):any {
 
 
         for(let boost of boostsToNeed) {
-            if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 20000) {
+            if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 18000) {
                 if(Memory.resource_requests[boost].length > 0) {
                     for(let roomName of Memory.resource_requests[boost]) {
                         if(roomName !== room.name && Game.rooms[roomName] && Game.rooms[roomName].memory.Structures.spawn && Game.getObjectById(Game.rooms[roomName].memory.Structures.spawn) && Game.rooms[roomName].storage) {
@@ -757,7 +770,7 @@ function market(room):any {
         }
     }
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 110 == 0 && Game.cpu.bucket > 6000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 110 == 0 && Game.cpu.bucket > 9000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
         let crawler_list = [
             RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_GHODIUM,
             RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,

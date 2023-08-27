@@ -172,7 +172,7 @@ function rooms() {
                 console.log(room.name, "has", Math.floor((room.controller.progress/room.controller.progressTotal) * 100) + "%", "and is level", room.controller.level);
             }
 
-            if(room.controller.level == 1 && Game.time % 1000 == 0) {
+            if(room.controller.level == 1 && Game.time % 25000 == 0 && !room.controller.safeMode) {
                 let walls = room.find(FIND_STRUCTURES, {filter: (building) => building.structureType == STRUCTURE_WALL || !building.my && building.structureType != STRUCTURE_ROAD && building.structureType != STRUCTURE_CONTAINER});
                 for(let wall of walls) {
                     wall.destroy();
@@ -220,7 +220,12 @@ function rooms() {
             spawning(room);
 
 
+            if(Game.time % 500 === 0 && room.memory.ram_coming) {
+                delete room.memory.ram_coming;
+            }
+
             // const defenceTime = Game.cpu.getUsed()
+
             roomDefence(room);
             // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
@@ -255,21 +260,21 @@ function rooms() {
             }
 
 
-            if(Game.time % 3012 == 0 && Game.cpu.bucket > 1000 && !room.memory.danger) {
+            if(Game.time % 3012 == 0 && Game.cpu.bucket > 3500 && !room.memory.danger) {
                 _.forEach(Game.rooms, function(everyRoom) {
                     if(everyRoom && everyRoom.memory && !everyRoom.memory.danger && everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0) {
                         everyRoom.memory.keepTheseRoads = [];
                     }
                 });
             }
-            if(Game.time % 1506 == 0 && Game.cpu.bucket > 1000 || room.memory.data.DOB == 2 || room.memory.data.DOGug == 2) {
+            if(Game.time % 1506 == 0 && Game.cpu.bucket > 3500 || room.memory.data.DOB == 2 || room.memory.data.DOGug == 2) {
                 const start = Game.cpu.getUsed()
                 construction(room);
                 console.log('BASE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
             }
 
             if(Game.time % 3012 == 0 &&
-                 Game.cpu.bucket > 1000) {
+                 Game.cpu.bucket > 3500) {
                 const start = Game.cpu.getUsed()
                 Build_Remote_Roads(room);
                 console.log('REMOTE Construction Ran in', Game.cpu.getUsed() - start, 'ms')
@@ -337,7 +342,7 @@ function rooms() {
 
 
     if(Game.time % 500 == 1) {
-        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 6 && Game.cpu.bucket > 9500) {
+        if(Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 5 && Game.cpu.bucket > 9500) {
             let room = Game.rooms[myRooms[Math.floor(Math.random()*myRooms.length)]];
 
             if(room.controller.level >= 2) {
@@ -351,13 +356,14 @@ function rooms() {
                         }
                         else if(!room.memory.resources[remoteRoom].active) {
                             room.memory.resources[remoteRoom].active = true;
+                            break;
                         }
                     }
                 }
             }
 
         }
-        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 4) {
+        else if(Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 3) {
             for(let roomName of myRooms) {
                 let room = Game.rooms[roomName];
                 let remoteRooms = Object.keys(room.memory.resources);
@@ -505,7 +511,7 @@ function establishMemory(room) {
 
                 room.memory.roomData.has_only_invader = true;
                 for(let Hostile of HostileCreeps) {
-                    if((Hostile.getActiveBodyparts(ATTACK) > 0 || Hostile.getActiveBodyparts(RANGED_ATTACK) > 0) && Hostile.owner.username !== "Invader") {
+                    if((Hostile.getActiveBodyparts(ATTACK) > 0 || Hostile.getActiveBodyparts(RANGED_ATTACK) > 0)) {
                         room.memory.roomData.has_only_invader = false;
                     }
                 }

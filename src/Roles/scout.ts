@@ -5,6 +5,7 @@
 
  const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
+        if(creep.memory.route = -2) creep.suicide()
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 

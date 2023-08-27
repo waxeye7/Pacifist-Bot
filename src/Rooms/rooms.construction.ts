@@ -644,14 +644,14 @@ function construction(room) {
                     DestroyAndBuild(room, LabLocations, STRUCTURE_LAB);
 
                 }
-                // let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
-                // if(labsInRoom.length > 0) {
-                //     for(let lab of labsInRoom) {
-                //         if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
-                //             lab.pos.createConstructionSite(STRUCTURE_RAMPART);
-                //         }
-                //     }
-                // }
+                let labsInRoom = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LAB);}})
+                if(labsInRoom.length > 0) {
+                    for(let lab of labsInRoom) {
+                        if(lab.pos.lookFor(LOOK_STRUCTURES).length == 1) {
+                            lab.pos.createConstructionSite(STRUCTURE_RAMPART);
+                        }
+                    }
+                }
             }
 
 
@@ -1001,7 +1001,7 @@ function construction(room) {
                     new RoomPosition(storage.pos.x + 1, storage.pos.y, room.name),
                     new RoomPosition(storage.pos.x - 1, storage.pos.y, room.name),
                     new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name),
-                    // new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
+                    new RoomPosition(storage.pos.x, storage.pos.y - 1, room.name),
                 ]
 
                 pathBuilder(aroundStorageList, STRUCTURE_ROAD, room, false);
@@ -1016,10 +1016,10 @@ function construction(room) {
                 ]
                 pathBuilder(aroundTerminalList, STRUCTURE_ROAD, room, false);
 
-                // let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
-                // if(lookterminallocation.length == 1) {
-                //     room.terminal.pos.createConstructionSite(STRUCTURE_RAMPART);
-                // }
+                let lookterminallocation = room.terminal.pos.lookFor(LOOK_STRUCTURES);
+                if(lookterminallocation.length == 1) {
+                    room.terminal.pos.createConstructionSite(STRUCTURE_RAMPART);
+                }
             }
         }
 

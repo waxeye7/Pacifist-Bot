@@ -28,7 +28,7 @@
     if(creep.memory.full) {
         if(creep.memory.locked_repair) {
             let target:any = Game.getObjectById(creep.memory.locked_repair);
-            if(target && target.hits < 50000) {
+            if(target && target.hits < 500000) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(target, 3)
                 }

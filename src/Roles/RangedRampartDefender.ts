@@ -99,6 +99,12 @@ const run = function (creep:Creep) {
             }
         }
     }
+    else if(!creep.room.memory.danger && creep.ticksToLive < 50) {
+        if(creep.memory.targetRoom) {
+            creep.memory.homeRoom = creep.memory.targetRoom;
+        }
+        creep.recycle();
+    }
 }
 
 const roleRangedRampartDefender = {

@@ -7,12 +7,22 @@ import { getBody } from "Rooms/rooms.spawning";
 
  const run = function (creep) {
     creep.memory.moving = false;
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
+        let result = creep.Boost();
+        if(!result) {
+            return;
+        }
+    }
+    creep.heal(creep);
 
-    if(creep.room.name != creep.memory.targetRoom) {
+    if(creep.room.name != creep.memory.targetRoom && !creep.memory.line) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
+    else if(creep.room.name != creep.memory.targetRoom && creep.memory.line) {
+        return;
+    }
 
-    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom && !creep.room.controller.upgradeBlocked) {
+    if(creep.ticksToLive == 1 && creep.room.name == creep.memory.targetRoom && !creep.room.controller.upgradeBlocked && !creep.room.controller.reservation) {
         let newName = 'DismantleControllerWalls-' + creep.memory.homeRoom + "-" + creep.memory.targetRoom;
         Game.rooms[creep.memory.homeRoom].memory.spawn_list.push(getBody([MOVE,WORK], Game.rooms[creep.memory.homeRoom], 50), newName, {memory: {role: 'DismantleControllerWalls', homeRoom: creep.memory.homeRoom, targetRoom:creep.memory.targetRoom}});
         console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);

@@ -57,64 +57,64 @@ if(Game.time % 5000 == 1) {
                 console.log("adding power", "PWR_OPERATE_TOWER", "to", PowerCreeps[0]);
             }
             else if(level == 10) {
-                PowerCreeps[0].upgrade(PWR_REGEN_SOURCE);
-                console.log("adding power", "PWR_REGEN_SOURCE", "to", PowerCreeps[0]);
-            }
-            else if(level == 11) {
-                PowerCreeps[0].upgrade(PWR_REGEN_SOURCE);
-                console.log("adding power", "PWR_REGEN_SOURCE", "to", PowerCreeps[0]);
-            }
-            else if(level == 12) {
-                PowerCreeps[0].upgrade(PWR_REGEN_SOURCE);
-                console.log("adding power", "PWR_REGEN_SOURCE", "to", PowerCreeps[0]);
-            }
-            else if(level == 13) {
                 PowerCreeps[0].upgrade(PWR_OPERATE_SPAWN);
                 console.log("adding power", "PWR_OPERATE_SPAWN", "to", PowerCreeps[0]);
             }
-            else if(level == 14) {
-                PowerCreeps[0].upgrade(PWR_REGEN_SOURCE);
-                console.log("adding power", "PWR_REGEN_SOURCE", "to", PowerCreeps[0]);
+            else if(level == 11) {
+                PowerCreeps[0].upgrade(PWR_OPERATE_SPAWN);
+                console.log("adding power", "PWR_OPERATE_SPAWN", "to", PowerCreeps[0]);
             }
-            else if(level == 15) {
+            else if(level == 12) {
+                PowerCreeps[0].upgrade(PWR_OPERATE_LAB);
+                console.log("adding power", "PWR_OPERATE_LAB", "to", PowerCreeps[0]);
+            }
+            else if(level == 13) {
+                PowerCreeps[0].upgrade(PWR_OPERATE_LAB);
+                console.log("adding power", "PWR_OPERATE_LAB", "to", PowerCreeps[0]);
+            }
+            else if(level == 14) {
                 PowerCreeps[0].upgrade(PWR_GENERATE_OPS);
                 console.log("adding power", "PWR_GENERATE_OPS", "to", PowerCreeps[0]);
             }
-            else if(level == 16) {
+            else if(level == 15) {
                 PowerCreeps[0].upgrade(PWR_OPERATE_EXTENSION);
                 console.log("adding power", "PWR_OPERATE_EXTENSION", "to", PowerCreeps[0]);
             }
-            else if(level == 17) {
+            else if(level == 16) {
                 PowerCreeps[0].upgrade(PWR_OPERATE_TOWER);
                 console.log("adding power", "PWR_OPERATE_TOWER", "to", PowerCreeps[0]);
             }
-            else if(level == 18) {
+            else if(level == 17) {
                 PowerCreeps[0].upgrade(PWR_OPERATE_SPAWN);
                 console.log("adding power", "PWR_OPERATE_SPAWN", "to", PowerCreeps[0]);
+            }
+            else if(level == 18) {
+                PowerCreeps[0].upgrade(PWR_OPERATE_LAB);
+                console.log("adding power", "PWR_OPERATE_LAB", "to", PowerCreeps[0]);
             }
             else if(level == 19) {
-                PowerCreeps[0].upgrade(PWR_OPERATE_SPAWN);
-                console.log("adding power", "PWR_OPERATE_SPAWN", "to", PowerCreeps[0]);
+                PowerCreeps[0].upgrade(PWR_OPERATE_LAB);
+                console.log("adding power", "PWR_OPERATE_LAB", "to", PowerCreeps[0]);
             }
             else if(level == 20) {
-                PowerCreeps[0].upgrade(PWR_OPERATE_OBSERVER);
-                console.log("adding power", "PWR_OPERATE_OBSERVER", "to", PowerCreeps[0]);
+                PowerCreeps[0].upgrade(PWR_FORTIFY);
+                console.log("adding power", "PWR_FORTIFY", "to", PowerCreeps[0]);
             }
             else if(level == 21) {
-                PowerCreeps[0].upgrade(PWR_OPERATE_OBSERVER);
-                console.log("adding power", "PWR_OPERATE_OBSERVER", "to", PowerCreeps[0]);
+                PowerCreeps[0].upgrade(PWR_FORTIFY);
+                console.log("adding power", "PWR_FORTIFY", "to", PowerCreeps[0]);
             }
             else if(level == 22) {
-                PowerCreeps[0].upgrade(PWR_REGEN_SOURCE);
-                console.log("adding power", "PWR_REGEN_SOURCE", "to", PowerCreeps[0]);
-            }
-            else if(level == 23) {
                 PowerCreeps[0].upgrade(PWR_GENERATE_OPS);
                 console.log("adding power", "PWR_GENERATE_OPS", "to", PowerCreeps[0]);
             }
-            else if(level == 24) {
+            else if(level == 23) {
                 PowerCreeps[0].upgrade(PWR_OPERATE_TOWER);
                 console.log("adding power", "PWR_OPERATE_TOWER", "to", PowerCreeps[0]);
+            }
+            else if(level == 24) {
+                PowerCreeps[0].upgrade(PWR_OPERATE_SPAWN);
+                console.log("adding power", "PWR_OPERATE_SPAWN", "to", PowerCreeps[0]);
             }
         }
     }

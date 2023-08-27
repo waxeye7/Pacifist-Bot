@@ -1,5 +1,5 @@
 function factory(room) {
-    if(room.controller && room.controller.my && room.controller.level >= 7 && Game.time % 10 == 0) {
+    if(room.controller && room.controller.my && room.controller.level >= 7 && Game.time % 10 == 0 && Game.cpu.bucket > 3500) {
         if(!room.memory.Structures.factory) {
             let factories = room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_FACTORY});
             if(factories.length > 0) {
@@ -15,7 +15,7 @@ function factory(room) {
             if(factory && factory.cooldown == 0 && factory.store[RESOURCE_ENERGY] >= 600 && storage.store[RESOURCE_BATTERY] === 0 && storage && storage.store[RESOURCE_ENERGY] > 250000) {
                 factory.produce(RESOURCE_BATTERY);
             }
-            else if(factory && factory.cooldown == 0 && factory.store[RESOURCE_BATTERY] >= 50 && factory.store.getFreeCapacity() >= 450 && storage && (storage.store[RESOURCE_BATTERY] > 200 || storage.store[RESOURCE_ENERGY] <= 100000 || Memory.targetRampRoom.urgent && storage.store[RESOURCE_ENERGY] < 80000)) {
+            else if(factory && factory.cooldown == 0 && factory.store[RESOURCE_BATTERY] >= 50 && factory.store.getFreeCapacity() >= 450 && storage && (storage.store[RESOURCE_ENERGY] <= 420000 && storage.store[RESOURCE_BATTERY] > 200 && factory.store[RESOURCE_BATTERY] >= 30000 || Memory.targetRampRoom.urgent && storage.store[RESOURCE_ENERGY] < 130000)) {
                 factory.produce(RESOURCE_ENERGY);
             }
             // if(factory.cooldown == 0) {

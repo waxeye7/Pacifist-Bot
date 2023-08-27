@@ -114,7 +114,7 @@ const run = function (creep) {
         }
         else {
             Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
-                filter: object => object.structureType != STRUCTURE_CONTROLLER});
+                filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_ROAD && object.structureType !== STRUCTURE_CONTAINER});
         }
 
 
@@ -133,10 +133,10 @@ const run = function (creep) {
         let myConstructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
         if(myConstructionSites.length > 0) {
             if(myConstructionSites[0].structureType == STRUCTURE_CONTAINER || myConstructionSites[0].structureType == STRUCTURE_ROAD) {
-                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 0);
+                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 2);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 1);
+                creep.MoveCostMatrixRoadPrio(myConstructionSites[0], 3);
             }
         }
 

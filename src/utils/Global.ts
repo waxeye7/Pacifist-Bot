@@ -29,6 +29,8 @@ declare global {
         resource_requests:any;
         keepAfloat:any;
         commandsToExecute:any;
+        delayConvoy:object;
+        Operations:{clear_claimed_rooms:{}};
     }
 
     interface billtong_rooms {
@@ -72,7 +74,6 @@ declare global {
         labs: any;
         attack_target: any;
         request_unboost: boolean;
-        // labs: Array<Id<_HasId>>;
         AvoidRooms: Array<string>;
         Energy_Spent_First: Array<string>;
         spawning_squad: object;
@@ -114,17 +115,21 @@ declare global {
         moving:boolean;
         path:any;
         boostlabs:Array<any>;
+        line:number;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")
     namespace NodeJS {
         interface Global {
+            showBoosts:any;
             spawnConvoy:any;
+            spawnSafeModer:any;
             profiler:any;
             Memory:any;
             ROLES: any;
             SS:any;
             SQR: any;
+            SRDP:any;
             SQM: any;
             SQD: any;
             SRD:any;
@@ -139,6 +144,9 @@ declare global {
             SDM:any;
             SCCK:any;
             SCCK2:any;
+            SMDP:any;
+            spawn_hunting_party:any;
+            lock_room:any;
         }
     }
 }

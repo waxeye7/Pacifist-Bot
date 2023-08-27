@@ -158,7 +158,7 @@ function findLocked(creep) {
             }
         }
 //  && _.keys(creep.store).length == 0
-        if(result == "nothing to sweep") {
+        if(result == "nothing to sweep" && creep.ticksToLive <= 1400) {
             creep.memory.suicide = true;
         }
         else if(creep.store.getFreeCapacity() == 0) {

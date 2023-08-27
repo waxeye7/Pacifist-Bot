@@ -72,6 +72,12 @@ import roleContinuousControllerKiller from "Roles/ContinuousControllerKiller";
 import roleClearer from "Roles/clearer";
 import roleSafeModer from "Roles/SafeModer";
 
+import roleCCKparty from "Roles/Party/CCKparty";
+import roleFreedomFighter from "Roles/Party/FreedomFighter";
+
+import roleRoomLocker from "Roles/RoomLocker";
+import roleEscort from "Roles/Escort";
+
 global.ROLES = {
   Solomon: roleSolomon,
   RRD: roleRangedRampartDefender,
@@ -127,6 +133,10 @@ global.ROLES = {
   CCK: roleContinuousControllerKiller,
   clearer: roleClearer,
   SafeModer: roleSafeModer,
+  CCKparty: roleCCKparty,
+  FreedomFighter: roleFreedomFighter,
+  RoomLocker: roleRoomLocker,
+  Escort: roleEscort,
 }
 
 export const loop = ErrorMapper.wrapLoop(() => {

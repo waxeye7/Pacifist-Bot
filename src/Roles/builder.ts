@@ -63,6 +63,29 @@
 		return;
 	}
 
+
+	if(creep.memory.fleeing) {
+		// find hostiles with attack or ranged attack
+		let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+		let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0 );
+		let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0 );
+		if(rangedHostiles.length) {
+				let closestRangedHostile = creep.pos.findClosestByRange(rangedHostiles);
+				if(creep.pos.getRangeTo(closestRangedHostile) <= 8) {
+						return;
+				}
+		}
+		else if(meleeHostiles.length) {
+				let closestMeleeHostile = creep.pos.findClosestByRange(meleeHostiles);
+				if(creep.pos.getRangeTo(closestMeleeHostile) <= 6) {
+						return;
+				}
+		}
+}
+else if(!creep.memory.danger) {
+		creep.memory.fleeing = false;
+}
+
 	// const start = Game.cpu.getUsed()
 
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
@@ -132,7 +155,7 @@
 	// 	creep.memory.suicide = true;
 	// }
 	if(creep.memory.suicide == true) {
-		let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART && s.hits < 20000});
+		let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART && (s.hits < 450000 && creep.room.memory.danger || s.hits < 10000)});
 		if(myRamparts.length) {
 			myRamparts.sort((a,b) => a.hits - b.hits);
 			creep.room.roomTowersRepairTarget(myRamparts[0]);

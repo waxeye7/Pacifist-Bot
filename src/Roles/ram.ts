@@ -32,8 +32,82 @@
         let myhealer:any = Game.getObjectById(creep.memory.myhealer);
 
         if(creep.room.name != creep.memory.targetRoom && creep.fatigue == 0 && ((myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer)) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
-            creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom)
+            creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+            if (!creep.room.controller || (!creep.room.controller.my && !creep.room.controller.reservation)) {
+                let structuresNearMe = creep.room.find(FIND_STRUCTURES);
+                let structuresToHit = creep.pos.findInRange(structuresNearMe, 1);
+                if(structuresToHit.length > 0) {
+                    for(let structure of structuresToHit) {
+                        if(!structure.my && structure.structureType !== STRUCTURE_CONTROLLER) {
+                            creep.attack(structure);
+                            break;
+                        }
+                    }
+                }
+            }
+                let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+                if(hostiles.length > 0) {
+                    // sort hostiles by distance and then secondly by the amount of active attack parts in a custom sort function
+
+                    hostiles.sort((a, b) => {
+                        // First, sort by distance from your creep
+                        const distanceA = creep.pos.getRangeTo(a);
+                        const distanceB = creep.pos.getRangeTo(b);
+
+                        if (distanceA !== distanceB) {
+                          return distanceA - distanceB; // Sort by distance in ascending order
+                        } else {
+                          // If both hostiles are at the same distance, sort by the number of active attack parts
+                          const activeRangedAttackPartsA = a.getActiveBodyparts(RANGED_ATTACK);
+                            const activeRangedAttackPartsB = b.getActiveBodyparts(RANGED_ATTACK);
+                          const activeAttackPartsA = a.getActiveBodyparts(ATTACK);
+                          const activeAttackPartsB = b.getActiveBodyparts(ATTACK);
+
+                          return activeRangedAttackPartsB - activeRangedAttackPartsA - activeAttackPartsB - activeAttackPartsA; // Sort by active attack parts in descending order
+                        }
+                      });
+
+                    let closestHostile = hostiles[0];
+
+                    if(creep.pos.isNearTo(closestHostile)) {
+                        creep.attack(closestHostile);
+                        creep.moveTo(closestHostile);
+                    }
+                }
             return;
+        }
+
+
+        if(!creep.memory.powerCreep && creep.room.name === creep.memory.targetRoom) {
+            let powerCreeps = creep.room.find(FIND_HOSTILE_POWER_CREEPS);
+            if(powerCreeps.length) {
+                let closestPowerCreep = creep.pos.findClosestByRange(powerCreeps);
+                if(!PathFinder.search(creep.pos, {pos:closestPowerCreep.pos, range:1},
+                    {
+                        maxOps: 400,
+                        maxRooms: 1,
+                        roomCallback: (roomName) => pathAroundStructuresAndTerrain(roomName)
+                    }).incomplete) {
+                        creep.memory.powerCreep = closestPowerCreep.id;
+                    }
+            }
+            else {
+                creep.memory.powerCreep = "not found"
+            }
+        }
+
+        if(creep.memory.powerCreep && creep.memory.powerCreep !== "not found") {
+            let powerCreep = <PowerCreep>Game.getObjectById(creep.memory.powerCreep);
+            if(powerCreep && !PathFinder.search(creep.pos, {pos:powerCreep.pos, range:1},
+                {
+                    maxOps: 400,
+                    maxRooms: 1,
+                    roomCallback: (roomName) => pathAroundStructuresAndTerrain(roomName)
+                }).incomplete) {
+                    creep.moveTo(powerCreep,{reusePath: 1});
+                    creep.attack(powerCreep);
+                    return;
+                }
         }
 
 
@@ -41,7 +115,7 @@
         if(creep.room.controller && creep.room.controller.my && buildingsInRoom.length > 0) {
             buildingsInRoom = buildingsInRoom.filter(function(building) {return building.owner !== undefined});
         }
-        let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER});
+        let highPrioBuildingsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_TOWER || building.structureType === STRUCTURE_TERMINAL || building.structureType === STRUCTURE_STORAGE});
         let spawnsInRoom = buildingsInRoom.filter(function(building) {return building.structureType == STRUCTURE_SPAWN});
         let enemyCreepsInRoom =  creep.room.find(FIND_HOSTILE_CREEPS);
         if(creep.room.name == creep.memory.targetRoom) {
@@ -52,7 +126,11 @@
                 let hostilesInRoom = creep.room.find(FIND_HOSTILE_CREEPS);
                 let hostilePowerCreeps = creep.room.find(FIND_HOSTILE_POWER_CREEPS);
                 let portals = creep.room.find(FIND_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_PORTAL});
-                if(hostilePowerCreeps.length > 0) {
+                if(creep.memory.defendController && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) > 6) {
+                    move_location = creep.room.controller.pos;
+                    range = 2;
+                }
+                else if(hostilePowerCreeps.length > 0) {
                     let closestHostile = creep.pos.findClosestByRange(hostilePowerCreeps);
                     range = 0
                     move_location = closestHostile.pos;
@@ -66,6 +144,9 @@
                     let closestPortal = creep.pos.findClosestByRange(portals);
                     range = 1;
                     move_location = closestPortal.pos;
+                }
+                else {
+                    move_location = new RoomPosition(12, 25, creep.memory.targetRoom);
                 }
 
             }
@@ -121,39 +202,39 @@
         let creep_to_attack_found = false;
         if(enemyCreeps.length > 0) {
             for(let enemycreep of enemyCreeps) {
-                if(enemycreep.pos.isNearTo(creep)) {
-                    let found = false;
+                let enemyCreepExposed = true;
+                if(creep.pos.getRangeTo(enemycreep) <= 4) {
                     let lookStructuresEnemyCreep = enemycreep.pos.lookFor(LOOK_STRUCTURES);
                     for(let building of lookStructuresEnemyCreep) {
                         if(building.structureType == STRUCTURE_RAMPART) {
-                            found = true;
+                            enemyCreepExposed = false;
                         }
                     }
-                    if(!found) {
+                }
+
+                if(enemycreep.pos.isNearTo(creep) && enemyCreepExposed) {
+
+                    if(enemyCreepExposed) {
                         if(creep.room.controller && creep.room.controller.my && creep.room.controller.level >= 3) {
                             creep.room.roomTowersAttackEnemy(enemycreep);
                         }
-                        creep.attack(enemycreep);
                         creep_to_attack_found = true;
+
+                        if(creep.attack(enemycreep) === 0) break;
                     }
 
                 }
-                else if(myhealer && creep.pos.getRangeTo(enemycreep) == 2 && myhealer.pos.isNearTo(enemycreep)) {
-                    let lookForStructs =  enemycreep.pos.lookFor(LOOK_STRUCTURES);
-                    if(lookForStructs.length) {
-                        let found = false;
-                        for(let s of lookForStructs) {
-                            if(s.structureType === STRUCTURE_RAMPART) {
-                                found = true;
-                            }
-                        }
-                        if(!found) {
-                            creep.moveTo(myhealer);
-                        }
-                    }
-                    else {
-                        creep.moveTo(myhealer);
-                    }
+                else if(myhealer && creep.pos.getRangeTo(enemycreep) == 2 && myhealer.pos.isNearTo(enemycreep) && enemyCreepExposed) {
+                    creep.moveTo(myhealer);
+
+                }
+                else if(myhealer && creep.pos.getRangeTo(enemycreep) <= 4 && enemyCreepExposed && !PathFinder.search(creep.pos, {pos:enemycreep.pos, range:1},
+                    {
+                        maxOps: 400,
+                        maxRooms: 1,
+                        roomCallback: (roomName) => pathAroundStructuresAndTerrain(roomName)
+                    }).incomplete) {
+                    creep.moveTo(enemycreep);
                 }
                 else {
                     let structuresNotMine = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER});
@@ -265,7 +346,7 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
             if(costs.get(creep.pos.x, creep.pos.y) <= 5) {
                 costs.set(creep.pos.x, creep.pos.y, weight);
             }
-            if (creep.getActiveBodyparts(ATTACK) > 25) {
+            if (creep.getActiveBodyparts(ATTACK) >= 24) {
                 const range = 3;
                 const centerX = creep.pos.x;
                 const centerY = creep.pos.y;
@@ -275,8 +356,7 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                         // Calculate the Manhattan distance from the creep's position
                         const distance = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
 
-                        // Set the base cost as 105 minus 10 times the distance
-                        const baseCost = 205 - (20 * distance);
+                        const baseCost = 235 - (35 * distance);
 
                         // Make sure the base cost is not negative or lower than a minimum value
                         const cost = Math.max(baseCost, 5);
@@ -293,6 +373,9 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                 }
             }
 
+        }
+        else if(creep.my) {
+            costs.set(creep.pos.x, creep.pos.y, 200);
         }
     });
 
@@ -319,6 +402,46 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
 
 
 
+const pathAroundStructuresAndTerrain = (roomName: string): boolean | CostMatrix => {
+    let room = Game.rooms[roomName];
+    if (!room || room == undefined || room === undefined || room == null || room === null) {
+        return false;
+    }
+
+    let costs = new PathFinder.CostMatrix;
+
+    const terrain = new Room.Terrain(roomName);
+
+    for(let y = 0; y <= 49; y++) {
+        for(let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            let weight;
+            if(tile == TERRAIN_MASK_WALL) {
+                weight = 255
+            }
+            else if(tile == TERRAIN_MASK_SWAMP) {
+                weight = 1;
+            }
+            else if(tile == 0){
+                weight = 1;
+            }
+            costs.set(x, y, weight);
+        }
+    }
+
+    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+
+        if(struct.structureType == STRUCTURE_CONTAINER || struct.structureType == STRUCTURE_ROAD) {
+            return;
+        }
+        else {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
+    });
+    return costs;
+
+}
+
 
 
 
@@ -331,3 +454,4 @@ const roleRam = {
     //function3
 };
 export default roleRam;
+

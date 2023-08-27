@@ -2,22 +2,54 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     creep.memory.moving = false;
 
-    if(creep.room.name != creep.memory.targetRoom) {
+    if(creep.room.name != creep.memory.targetRoom && !creep.memory.fill) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.room.memory.danger && creep.memory.fleeing) {
-        return;
+    if(creep.room.name !== creep.memory.targetRoom && creep.memory.fill) {
+        if(creep.store.getFreeCapacity() !== 0) {
+            let storage = creep.room.storage;
+            if(storage) {
+                let result = creep.withdraw(storage, RESOURCE_ENERGY);
+                if(result == ERR_NOT_IN_RANGE) {
+                    creep.MoveCostMatrixRoadPrio(storage,1);
+                }
+                else if(result === 0) {
+                    creep.memory.fill = false;
+                }
+            }
+            else {
+                creep.memory.fill = false;
+            }
+        }
+    }
+
+    if(creep.memory.fleeing) {
+        // find hostiles with attack or ranged attack
+        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+        let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0 );
+        let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0 );
+        if(rangedHostiles.length) {
+            let closestRangedHostile = creep.pos.findClosestByRange(rangedHostiles);
+            if(creep.pos.getRangeTo(closestRangedHostile) <= 5) {
+                return;
+            }
+        }
+        else if(meleeHostiles.length) {
+            let closestMeleeHostile = creep.pos.findClosestByRange(meleeHostiles);
+            if(creep.pos.getRangeTo(closestMeleeHostile) <= 3) {
+                return;
+            }
+        }
     }
     else if(!creep.memory.danger) {
         creep.memory.fleeing = false;
     }
+
     let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
     let closestTarget = creep.pos.findClosestByRange(targets);
     if(closestTarget && closestTarget.structureType === STRUCTURE_SPAWN && creep.pos.isEqualTo(closestTarget.pos)) {
         creep.move(TOP);creep.move(BOTTOM);creep.move(LEFT);creep.move(RIGHT);
-
-
     }
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
@@ -34,14 +66,47 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
                 creep.upgradeController(creep.room.controller);
             }
-            else {
+            if(creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000) {
                 creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+                return;
             }
+
         }
-        else if(targets.length > 0) {
+
+        let mySpawns = creep.room.find(FIND_MY_SPAWNS)
+        if(Game.time % 25 == 0 && Memory.target_colonise && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0 && creep.room.name === Memory.target_colonise.room) {
+            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
+            location.createConstructionSite(STRUCTURE_SPAWN);
+        }
+
+        if(mySpawns.length == 1) {
+            if(mySpawns[0].store.getFreeCapacity() !== 0) {
+                if(creep.pos.isNearTo(mySpawns[0])) {
+                    creep.transfer(mySpawns[0], RESOURCE_ENERGY);
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(mySpawns[0], 1);
+                }
+            }
+
+            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
+            let lookForBuildings = location.lookFor(LOOK_STRUCTURES);
+            if(lookForBuildings.length > 0) {
+                for(let building of lookForBuildings) {
+                    if(building.structureType == STRUCTURE_RAMPART && (building.hits < building.hitsMax - 5000 && building.hits < 1500000)) {
+                        creep.repair(building)
+                        return;
+                    }
+                }
+            }
+            location.createConstructionSite(STRUCTURE_RAMPART);
+        }
+
+        if(targets.length > 0) {
             if(creep.build(closestTarget) == ERR_NOT_IN_RANGE) {
                 creep.MoveCostMatrixRoadPrio(closestTarget, 3);
             }
+            return
         }
         else {
             const buildingsToRepair = creep.room.find(FIND_STRUCTURES, {
@@ -54,35 +119,20 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(closestTarget, 3);
                 }
+                return;
             }
-        }
-        let mySpawns = creep.room.find(FIND_MY_SPAWNS)
-        if(Game.time % 25 == 0 && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0) {
-            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
-            location.createConstructionSite(STRUCTURE_SPAWN);
-        }
-
-        if(mySpawns.length == 1) {
-            if(creep.pos.isNearTo(mySpawns[0])) {
-                creep.transfer(mySpawns[0], RESOURCE_ENERGY);
-            }
-            else {
-                creep.MoveCostMatrixRoadPrio(mySpawns[0], 1);
-            }
-            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
-            let lookForBuildings = location.lookFor(LOOK_STRUCTURES);
-            if(lookForBuildings.length > 0) {
-                for(let building of lookForBuildings) {
-                    if(building.structureType == STRUCTURE_RAMPART) {
-                        creep.repair(building)
-                    }
-                }
-            }
-            location.createConstructionSite(STRUCTURE_RAMPART);
         }
     }
     if(!creep.memory.building) {
-        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && r.amount > 300});
+        if(creep.room.storage) {
+            if(creep.room.storage.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity()) {
+                if(creep.withdraw(creep.room.storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
+                    creep.MoveCostMatrixRoadPrio(creep.room.storage, 1);
+                }
+                return;
+            }
+        }
+        let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.resourceType == RESOURCE_ENERGY && (r.amount >= 300 && creep.pos.getRangeTo(r) <= 20 || r.amount >= 50 && creep.pos.getRangeTo(r) < 3)});
         if(droppedResources.length > 0) {
             droppedResources.sort((a,b) => b.amount - a.amount);
             if(creep.pos.isNearTo(droppedResources[0])) {
@@ -129,9 +179,6 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             let result = creep.harvestEnergy();
             if(result == -6 || result == -11)  {
                 creep.acquireEnergyWithContainersAndOrDroppedEnergy();
-            }
-            else if(result === 0) {
-                creep.pos.createConstructionSite(STRUCTURE_RAMPART)
             }
         }
     }

@@ -1,9 +1,9 @@
 function observe(room) {
     if(room.name === "E33N59")return;
-    let interval = 128;
+    let interval = 64;
     let twoTimesInterval = interval*2
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
-    if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 5000) {
+    if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 8000) {
         if(!room.memory.observe) {
             room.memory.observe = {};
         }
@@ -144,7 +144,8 @@ function observe(room) {
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(areRoomsNormalToThisRoom(room.name, adj)) {
-                if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
+                if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner && Game.rooms[adj].controller.owner.username !== "Huanyi_HuTao") && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
+
                     let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
                     let openControllerPositions;
 
@@ -259,7 +260,7 @@ function observe(room) {
 
                         }
                     }
-                    else if((Game.rooms[adj].controller.level == 1 || Game.rooms[adj].controller.level == 2) && !Game.rooms[adj].controller.safeMode) {
+                    else if(Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode) {
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         if(hostileSpawns.length > 0 && hostileCreeps.length > 0) {
@@ -280,6 +281,8 @@ function observe(room) {
                             ]
                             );
                             Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
+
+                            Memory.commandsToExecute.push({ delay: 5000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
@@ -307,24 +310,26 @@ function observe(room) {
                     }
 
                     else if((Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) && !Game.rooms[adj].controller.safeMode) {
+                        let controllerFreePositions =  Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreeps().length;
                         let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                         let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
-                        if(hostileSpawns.length > 0 && hostileTowers.length > 0 && Game.cpu) {
+                        if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
 
-                            if(Game.cpu.bucket >= 8000) {
-                                global.SQR(room.name, adj)
+                            // if(controllerFreePositions > 1 && room.storage && room.storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 2000 && room.storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 3000 && room.storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 1000 && room.storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 2000) {
+                            //     global.spawn_hunting_party(room.name, adj, controllerFreePositions)
+                            // }
+                            // else {
+                                Memory.commandsToExecute.push({delay:1, bucketNeeded:7000, formation:"RangedQuad", homeRoom:room.name, Boosted:false, targetRoom:adj})
                                 Memory.commandsToExecute.push({
-                                  delay: 1000,
-                                  bucketNeeded: 8000,
-                                  formation: "CCK",
-                                  homeRoom: room.name,
-                                  targetRoom: adj
+                                    delay: 500,
+                                    bucketNeeded: 8000,
+                                    formation: "CCK",
+                                    homeRoom: room.name,
+                                    targetRoom: adj
                                 });
-                            }
-                            else {
-                                console.log("not enough bucket to spawn quad")
-                            }
+                            // }
+
 
                         }
                         else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
@@ -384,7 +389,6 @@ function observe(room) {
                         let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
                         if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
 
-                            if(Game.cpu.bucket >= 7000) {
                                 global.SD(room.name, adj, true);
                                 Memory.commandsToExecute.push({
                                   delay: 1000,
@@ -393,7 +397,6 @@ function observe(room) {
                                   homeRoom: room.name,
                                   targetRoom: adj
                                 });
-                            }
 
 
                         }
@@ -458,8 +461,11 @@ function observe(room) {
                         filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
                       });
                       if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
-                        if (Game.cpu.bucket >= 7000) {
-                          global.SD(room.name, adj, true);
+                        if (Game.cpu.bucket >= 8000) {
+                          global.SQR(room.name, adj, true);
+                        }
+                        else  if(Game.cpu.bucket >= 5000) {
+                          global.SDB(room.name, adj, true);
                         }
                       } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
                         global.SGD(room.name, adj, [
@@ -553,7 +559,7 @@ function observe(room) {
     }
 
     // find power banks
-    if(observer && (Game.time % twoTimesInterval == 2 || Game.time % twoTimesInterval == 3) && Game.cpu.bucket > 4000) {
+    if(observer && (Game.time % twoTimesInterval == 2 || Game.time % twoTimesInterval == 3) && Game.cpu.bucket > 7000) {
 
         if(!room.memory.observe)
             room.memory.observe = {};
@@ -695,42 +701,42 @@ function observe(room) {
                         let walls = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_WALL});
                         if(walls.length == 0) {
 
-                            let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
+                            // let powerBanks = seenRoom.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_POWER_BANK && (s.ticksToDecay > 1700 || s.ticksToDecay > 1000 && s.hits < 700000)});
 
                             let deposits = seenRoom.find(FIND_DEPOSITS);
 
-                            if(powerBanks.length > 0 && storage.store[RESOURCE_ENERGY] > 330000 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 5000 || Game.cpu.bucket > 9000) &&
-                             powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
-                             storage.store[RESOURCE_ENERGY] > 350000) {
+                            // if(powerBanks.length > 0 && storage.store[RESOURCE_ENERGY] > 330000 && (powerBanks[0].hits < 2000000 && Game.cpu.bucket > 7000 || Game.cpu.bucket > 9000) &&
+                            //  powerBanks[0].pos.getOpenPositionsIgnoreCreeps().length > 1 &&
+                            //  storage.store[RESOURCE_ENERGY] > 350000) {
 
-                                global.SPK(room.name, adj);
+                            //     global.SPK(room.name, adj);
 
-                            }
+                            // }
 
-                            if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9000) {
+                            if(deposits.length > 0 && storage.store[RESOURCE_ENERGY] > 225000 && Game.cpu.bucket >= 9750) {
 
-                                let hostiles = seenRoom.find(FIND_HOSTILE_CREEPS)
-                                if(hostiles.length > 0) {
-                                    let allow = true;
-                                    for(let eCreep of hostiles) {
-                                        if(eCreep.getActiveBodyparts(ATTACK) > 0) {
-                                            allow = false;
-                                            break;
-                                        }
-                                        else if(eCreep.getActiveBodyparts(RANGED_ATTACK) > 0) {
-                                            allow = false;
-                                            break;
-                                        }
-                                    }
+                                // let hostiles = seenRoom.find(FIND_HOSTILE_CREEPS)
+                                // if(hostiles.length > 0) {
+                                //     let allow = true;
+                                //     for(let eCreep of hostiles) {
+                                //         if(eCreep.getActiveBodyparts(ATTACK) > 0) {
+                                //             allow = false;
+                                //             break;
+                                //         }
+                                //         else if(eCreep.getActiveBodyparts(RANGED_ATTACK) > 0) {
+                                //             allow = false;
+                                //             break;
+                                //         }
+                                //     }
 
-                                    if(allow) {
-                                        let newName = 'Deposit-Attacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                                        room.memory.spawn_list.push([MOVE,ATTACK], newName, {memory: {role: 'attacker', targetRoom: seenRoom.name, homeRoom:room.name}});
-                                        console.log('Adding Deposit-Attacker to Spawn List: ' + newName);
-                                    }
+                                //     if(allow) {
+                                //         let newName = 'Deposit-Attacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                                //         room.memory.spawn_list.push([MOVE,ATTACK], newName, {memory: {role: 'attacker', targetRoom: seenRoom.name, homeRoom:room.name}});
+                                //         console.log('Adding Deposit-Attacker to Spawn List: ' + newName);
+                                //     }
 
 
-                                }
+                                // }
                                 if(deposits[0].lastCooldown < 20) {
                                     global.SDM(room.name, adj);
                                 }

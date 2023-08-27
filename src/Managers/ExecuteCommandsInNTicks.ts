@@ -37,6 +37,9 @@ function ExecuteCommandsInNTicks() {
                 else if(command.formation == "CCK") {
                     global.SCCK(command.homeRoom, command.targetRoom);
                 }
+                else if(command.formation == "CCKparty") {
+                    global.spawn_hunting_party(command.homeRoom, command.targetRoom, command.controllerFreePositions);
+                }
                 commands.splice(index, 1);
             }
             else if(!command.bucketNeeded || !command.formation) {

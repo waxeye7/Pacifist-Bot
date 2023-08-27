@@ -22,7 +22,7 @@ const run = function (creep) {
                 if(storage) {
                     let result = creep.withdraw(storage, RESOURCE_ENERGY);
                     if(result == ERR_NOT_IN_RANGE) {
-                        creep.MoveCostMatrixRoadPrio(storage.pos,1);
+                        creep.MoveCostMatrixRoadPrio(storage,1);
                         return;
                     }
                     else if(result === 0) {
@@ -85,11 +85,10 @@ const run = function (creep) {
         }
     }
     if(creep.room.name == targetRoom) {
-        if(!creep.memory.in_danger && Game.time % 10 == 0) {
+        if(!creep.memory.in_danger || Game.time % 10 == 0) {
             let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+            HostileCreeps = HostileCreeps.filter(function(c) {return  creep.pos.getRangeTo(c <= 15) && (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);});
             if(HostileCreeps.length > 0) {
-                HostileCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0;});
-                if(HostileCreeps.length > 0) {
 
                     let roomsAvailable = Object.keys(Game.map.describeExits(creep.room.name));
                     let badGuy = HostileCreeps[0];
@@ -155,7 +154,10 @@ const run = function (creep) {
                     creep.memory.locked_away = 100;
                     creep.drop(RESOURCE_ENERGY);
 
-                }
+            }
+            else {
+                creep.memory.locked_away = 0;
+                creep.memory.in_danger = false;
             }
         }
         if(creep.memory.in_danger) {
@@ -178,7 +180,20 @@ const run = function (creep) {
             }
 
             if(!creep.memory.full) {
-                creep.harvestEnergy();
+                let droppedEnergy = creep.pos.findClosestByRange(FIND_DROPPED_RESOURCES, {
+                    filter: (resource) => {
+                        return resource.resourceType == RESOURCE_ENERGY;
+                    }
+                });
+                if(droppedEnergy) {
+                    if(creep.pickup(droppedEnergy) == ERR_NOT_IN_RANGE) {
+                        creep.moveTo(droppedEnergy);
+                        return;
+                    }
+                }
+                else {
+                    creep.harvestEnergy();
+                }
                 if(creep.pos.getRangeTo(controller) <= 3) {
                     creep.upgradeController(controller);
                     return;

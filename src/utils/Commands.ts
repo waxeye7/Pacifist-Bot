@@ -1,3 +1,373 @@
+global.showBoosts = function () {
+
+    let descriptions = {
+        'XGH2O': 'UPGRADE',
+        'GH2O': 'UPGRADE',
+        'GH': 'UPGRADE',
+
+        'XLH2O': 'REPAIR',
+        'LH2O': 'REPAIR',
+        'LH': 'REPAIR',
+
+        'XUHO2': 'HARVEST',
+        'UHO2': 'HARVEST',
+        'UO': 'HARVEST',
+
+        'XZH2O': 'DISMANTLE',
+        'ZH2O': 'DISMANTLE',
+        'ZH': 'DISMANTLE',
+
+        'XUH2O': 'ATTACK',
+        'UH2O': 'ATTACK',
+        'UH': 'ATTACK',
+
+        'XKHO2': 'R_ATTACK',
+        'KHO2': 'R_ATTACK',
+        'KO': 'R_ATTACK',
+
+        'XLHO2': 'HEAL',
+        'LHO2': 'HEAL',
+        'LO': 'HEAL',
+
+        'XKH2O': 'CARRY',
+        'KH2O': 'CARRY',
+        'KH': 'CARRY',
+
+        'XGHO2': 'TOUGH',
+        'GHO2': 'TOUGH',
+        'GO': 'TOUGH',
+
+        'XZHO2': 'MOVE',
+        'ZHO2': 'MOVE',
+        'ZO': 'MOVE',
+    }
+
+    let msg = '', sum = 0;
+    ['XUH2O', 'XUHO2', 'XKH2O', 'XKHO2', 'XLH2O', 'XLHO2', 'XZH2O', 'XZHO2', 'XGH2O', 'XGHO2'].forEach(res => {
+        let resCounter = 0
+        _.filter(Game.rooms, r => r.controller && r.controller.my).forEach(mr => {
+            if (mr.storage) resCounter += mr.storage.store[res]
+            if (mr.terminal) resCounter += mr.terminal.store[res]
+        })
+        msg += res + ': ' + numberWithSpaces(resCounter) + '\t' + (descriptions[res] ? descriptions[res] : '') + '\n'; sum += resCounter
+    })
+    console.log('sum: ' + numberWithSpaces(sum) + '\n' + msg)
+
+    function numberWithSpaces(x) {
+        if (typeof x !== 'number') { return x }
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, " ");
+    }
+
+}
+
+
+global.lock_room = function (homeRoom, targetRoom) {
+    let room = Game.rooms[homeRoom];
+    let storage = room.storage
+    if(room && room.controller.level === 8 && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 1000 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2000  && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1000) {
+
+
+        let newName3 = 'Escort' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName3, {memory: {role: 'Escort', targetRoom: targetRoom, homeRoom:room.name, line:1, boostlabs:[room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7] }});
+        console.log('Adding Escort to Spawn List: ' + newName3);
+
+        if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+            room.memory.labs.status.boost = {};
+        }
+        if(room.memory.labs.status.boost) {
+            if(room.memory.labs.status.boost.lab2) {
+                room.memory.labs.status.boost.lab2.amount += 300;
+                room.memory.labs.status.boost.lab2.use += 1;
+            }
+            else {
+                room.memory.labs.status.boost.lab2 = {};
+                room.memory.labs.status.boost.lab2.amount = 300;
+                room.memory.labs.status.boost.lab2.use = 1;
+            }
+            if(room.memory.labs.status.boost.lab4) {
+                room.memory.labs.status.boost.lab4.amount += 750;
+                room.memory.labs.status.boost.lab4.use += 1;
+            }
+            else {
+                room.memory.labs.status.boost.lab4 = {};
+                room.memory.labs.status.boost.lab4.amount = 750;
+                room.memory.labs.status.boost.lab4.use = 1;
+            }
+            if(room.memory.labs.status.boost.lab5) {
+                room.memory.labs.status.boost.lab5.amount += 300;
+                room.memory.labs.status.boost.lab5.use += 1;
+            }
+            else {
+                room.memory.labs.status.boost.lab5 = {};
+                room.memory.labs.status.boost.lab5.amount = 300;
+                room.memory.labs.status.boost.lab5.use = 1;
+            }
+            if(room.memory.labs.status.boost.lab7) {
+                room.memory.labs.status.boost.lab7.amount += 150;
+                room.memory.labs.status.boost.lab7.use += 1;
+            }
+            else {
+                room.memory.labs.status.boost.lab7 = {};
+                room.memory.labs.status.boost.lab7.amount = 150;
+                room.memory.labs.status.boost.lab7.use = 1;
+            }
+        }
+
+
+
+        let newName2 = 'RoomLocker' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,WORK,CARRY,MOVE], newName2, {memory: {role: 'RoomLocker', targetRoom: targetRoom, homeRoom:room.name, line:3}});
+        console.log('Adding RoomLocker to Spawn List: ' + newName2);
+
+
+    }
+}
+
+global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpawn) {
+    if(amountToSpawn > 5) {
+        amountToSpawn = 5;
+    }
+    let room = Game.rooms[homeRoomName];
+    if (room && room.controller && room.controller.my && room.controller.level === 8) {
+        let amountZYN_ALK = 90*amountToSpawn + 600 + 30;
+        if(amountToSpawn >= 2) {
+            amountZYN_ALK -= 30;
+        }
+        let amountGHO_ALK = 30*amountToSpawn + 300;
+        if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+            room.memory.labs.status.boost = {};
+        }
+        if(room.memory.labs.status.boost) {
+            if(room.memory.labs.status.boost.lab2) {
+                room.memory.labs.status.boost.lab2.amount += amountZYN_ALK;
+                room.memory.labs.status.boost.lab2.use += (2+amountToSpawn);
+            }
+            else {
+                room.memory.labs.status.boost.lab2 = {};
+                room.memory.labs.status.boost.lab2.amount = amountZYN_ALK;
+                room.memory.labs.status.boost.lab2.use = (2+amountToSpawn);
+            }
+            if(room.memory.labs.status.boost.lab3) {
+                room.memory.labs.status.boost.lab3.amount += 300;
+                room.memory.labs.status.boost.lab3.use += 2;
+            }
+            else {
+                room.memory.labs.status.boost.lab3 = {};
+                room.memory.labs.status.boost.lab3.amount = 300;
+                room.memory.labs.status.boost.lab3.use = 2;
+            }
+            if(room.memory.labs.status.boost.lab4) {
+                room.memory.labs.status.boost.lab4.amount += 1200;
+                room.memory.labs.status.boost.lab4.use += 2;
+            }
+            else {
+                room.memory.labs.status.boost.lab4 = {};
+                room.memory.labs.status.boost.lab4.amount = 1200;
+                room.memory.labs.status.boost.lab4.use = 2;
+            }
+            if(room.memory.labs.status.boost.lab5) {
+                room.memory.labs.status.boost.lab5.amount += 600;
+                room.memory.labs.status.boost.lab5.use += 2;
+            }
+            else {
+                room.memory.labs.status.boost.lab5 = {};
+                room.memory.labs.status.boost.lab5.amount = 600;
+                room.memory.labs.status.boost.lab5.use = 2;
+            }
+            if(room.memory.labs.status.boost.lab7) {
+                room.memory.labs.status.boost.lab7.amount += amountGHO_ALK;
+                room.memory.labs.status.boost.lab7.use += (2+amountToSpawn);
+            }
+            else {
+                room.memory.labs.status.boost.lab7 = {};
+                room.memory.labs.status.boost.lab7.amount = amountGHO_ALK;
+                room.memory.labs.status.boost.lab7.use = (2+amountToSpawn);
+            }
+        }
+
+        let newNameA = "FreedomFighter-party-1-" + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding FreedomFighter to Spawn List: ' + newNameA);
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameA, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:1, lineLength:2+amountToSpawn, boostlabs:[room.memory.labs.outputLab2, room.memory.labs.outputLab3, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7] } });
+
+        let newNameB = `FreedomFighter-party-${amountToSpawn+2}-` + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding FreedomFighter to Spawn List: ' + newNameB);
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameB, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:amountToSpawn+2, boostlabs:[room.memory.labs.outputLab2, room.memory.labs.outputLab3, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7] } });
+
+        let newNameFiller = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.unshift([CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE,CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], newNameFiller, { memory: { role: 'filler' } });
+        console.log('Adding filler to Spawn List: ' + newNameFiller);
+
+
+
+        let newName = 'ContinuousControllerKiller-party-2-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
+        room.memory.spawn_list.push([TOUGH,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,MOVE,MOVE,MOVE,MOVE], newName, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:2, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab7] } });
+
+        amountToSpawn--;
+        if(amountToSpawn === 0)  return;
+
+
+        let normalBody = [TOUGH,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,MOVE,MOVE,MOVE];
+        let lastBody = [TOUGH,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,MOVE,MOVE];
+
+        let body2 = normalBody;
+        if(amountToSpawn === 1) {
+            body2 = lastBody
+        }
+        let newName2 = 'ContinuousControllerKiller-party-3-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName2);
+        room.memory.spawn_list.push(body2, newName2, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:3, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab7] } });
+
+        amountToSpawn--;
+        if(amountToSpawn === 0)  return;
+
+        let body3 = normalBody;
+        if(amountToSpawn === 1) {
+            body3 = lastBody
+        }
+        let newName3 = 'ContinuousControllerKiller-party-4-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName3);
+        room.memory.spawn_list.push(body3, newName3, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:4, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab7] } });
+
+        amountToSpawn--;
+        if(amountToSpawn === 0)  return;
+
+        let body4 = normalBody;
+        if(amountToSpawn === 1) {
+            body4 = lastBody
+        }
+        let newName4 = 'ContinuousControllerKiller-party-5-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName4);
+        room.memory.spawn_list.push(body4, newName4, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:5, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab7] } });
+
+        amountToSpawn--;
+        if(amountToSpawn === 0)  return;
+
+        let newName5 = 'ContinuousControllerKiller-party-6-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
+        console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName5);
+        room.memory.spawn_list.push(lastBody, newName5, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:6, boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab7] } });
+
+
+    }
+}
+
+
+global.SMDP = function (roomName, targetRoomName) {
+    let room = Game.rooms[roomName];
+    if (Game.rooms[targetRoomName] && Game.rooms[targetRoomName].storage && Game.rooms[targetRoomName].controller && Game.rooms[targetRoomName].controller.level >= 4) {
+        let storage: any = Game.getObjectById(room.memory.Structures.storage);
+        if (storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 1200 &&
+            storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
+            room.memory.labs.outputLab3 && room.memory.labs.outputLab2 && room.memory.labs.outputLab7 && Game.rooms[targetRoomName].controller.my &&
+            Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode) {
+
+            let body = [
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                MOVE, MOVE, MOVE, MOVE, MOVE, MOVE,MOVE, MOVE, MOVE, MOVE
+            ];
+
+            let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+            room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2], again: true } });
+            console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
+
+
+            if (room.memory.labs.status && !room.memory.labs.status.boost) {
+                room.memory.labs.status.boost = {};
+            }
+
+            if (room.memory.labs.status.boost) {
+                // zyn alk
+                if (room.memory.labs.status.boost.lab2) {
+                    room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+                    room.memory.labs.status.boost.lab2.use += 1;
+                }
+                else {
+                    room.memory.labs.status.boost.lab2 = {};
+                    room.memory.labs.status.boost.lab2.amount = 300;
+                    room.memory.labs.status.boost.lab2.use = 1;
+                }
+                // utrium acid
+                if (room.memory.labs.status.boost.lab3) {
+                    room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 1200;
+                    room.memory.labs.status.boost.lab3.use += 1;
+                }
+                else {
+                    room.memory.labs.status.boost.lab3 = {};
+                    room.memory.labs.status.boost.lab3.amount = 1200;
+                    room.memory.labs.status.boost.lab3.use = 1;
+                }
+            }
+            return "Success";
+
+        }
+    }
+    else {
+        let storage: any = Game.getObjectById(room.memory.Structures.storage);
+        if (storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
+            storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
+            room.memory.labs.outputLab3 && room.memory.labs.outputLab2 && room.memory.labs.outputLab7 && Game.rooms[targetRoomName].controller.my &&
+            Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode) {
+
+            let body = [
+                TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
+                MOVE, MOVE, MOVE, MOVE,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
+                MOVE, MOVE, MOVE, MOVE, MOVE, MOVE
+            ];
+
+            let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+            room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7], again: true } });
+            console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
+
+
+            if (room.memory.labs.status && !room.memory.labs.status.boost) {
+                room.memory.labs.status.boost = {};
+            }
+
+            if (room.memory.labs.status.boost) {
+                // zyn alk
+                if (room.memory.labs.status.boost.lab2) {
+                    room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+                    room.memory.labs.status.boost.lab2.use += 1;
+                }
+                else {
+                    room.memory.labs.status.boost.lab2 = {};
+                    room.memory.labs.status.boost.lab2.amount = 300;
+                    room.memory.labs.status.boost.lab2.use = 1;
+                }
+                // utrium acid
+                if (room.memory.labs.status.boost.lab3) {
+                    room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 900;
+                    room.memory.labs.status.boost.lab3.use += 1;
+                }
+                else {
+                    room.memory.labs.status.boost.lab3 = {};
+                    room.memory.labs.status.boost.lab3.amount = 900;
+                    room.memory.labs.status.boost.lab3.use = 1;
+                }
+                // gho alk
+                if (room.memory.labs.status.boost.lab7) {
+                    room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 300;
+                    room.memory.labs.status.boost.lab7.use += 1;
+                }
+                else {
+                    room.memory.labs.status.boost.lab7 = {};
+                    room.memory.labs.status.boost.lab7.amount = 300;
+                    room.memory.labs.status.boost.lab7.use = 1;
+                }
+            }
+            return "Success";
+
+        }
+    }
+    return "Fail";
+}
+
 global.SCCK = function (homeRoom, targetRoomName) {
     if (Game.rooms[homeRoom]) {
         if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8) {
@@ -5,7 +375,7 @@ global.SCCK = function (homeRoom, targetRoomName) {
             let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
 
-            Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom } });
+            Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM,ATTACK,MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom } });
             return "Success!";
         }
         else {
@@ -20,12 +390,12 @@ global.SCCK = function (homeRoom, targetRoomName) {
 
 global.SCCK2 = function (homeRoom, targetRoomName) {
     if (Game.rooms[homeRoom]) {
-        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 50 &&  Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 100) {
+        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 50 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 100) {
 
             let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
 
-            Game.rooms[homeRoom].memory.spawn_list.push([TOUGH,HEAL,HEAL,MOVE,MOVE,MOVE,MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom, boostlabs: [Game.rooms[homeRoom].memory.labs.outputLab5, Game.rooms[homeRoom].memory.labs.outputLab7] } });
+            Game.rooms[homeRoom].memory.spawn_list.push([TOUGH, HEAL, HEAL, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom, boostlabs: [Game.rooms[homeRoom].memory.labs.outputLab5, Game.rooms[homeRoom].memory.labs.outputLab7] } });
 
             if (Game.rooms[homeRoom].memory.labs.status && !Game.rooms[homeRoom].memory.labs.status.boost) {
                 Game.rooms[homeRoom].memory.labs.status.boost = {};
@@ -73,14 +443,40 @@ global.spawnConvoy = function (roomName, targetRoomName) {
     let room = Game.rooms[roomName];
     if (room) {
         let newName = 'Convoy-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, ATTACK, ATTACK, MOVE],
-            newName, { memory: { role: 'Convoy', homeRoom: targetRoomName, targetRoom: targetRoomName } });
+        let body = [];
+        if(Memory.delayConvoy && Memory.delayConvoy[roomName] &&Memory.delayConvoy[roomName] > 3000) {
+            body = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, ATTACK,ATTACK,ATTACK, ATTACK, ATTACK, MOVE];
+        }
+        else if(Memory.delayConvoy && Memory.delayConvoy[roomName] && Memory.delayConvoy[roomName] > 1000) {
+            body = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, ATTACK, ATTACK, MOVE];
+        }
+        else {
+            body = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY,CARRY, MOVE]
+        }
+        room.memory.spawn_list.push(body,
+        newName, { memory: { role: 'Convoy', homeRoom: roomName, targetRoom: targetRoomName } });
         console.log('Adding Convoy to Spawn List: ' + newName);
 
         return "Success!";
     }
     return "Failed to spawn Convoy to room " + targetRoomName;
 }
+
+
+global.spawnSafeModer = function (roomName, targetRoomName) {
+    let room = Game.rooms[roomName];
+    if (room) {
+        let newName = 'SafeModer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        let body = [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE];
+        room.memory.spawn_list.push(body,
+            newName, { memory: { role: 'SafeModer', homeRoom: targetRoomName, targetRoom: targetRoomName } });
+        console.log('Adding SafeModer to Spawn List: ' + newName);
+
+        return "Success!";
+    }
+    return "Failed to spawn Convoy to room " + targetRoomName;
+}
+
 
 global.SS = function (roomName, targetRoomName, backupTR = ""): any {
     let room = Game.rooms[roomName];
@@ -330,7 +726,7 @@ global.SD = function (roomName, targetRoomName, boost = false): any {
 
 }
 
-global.SDB = function (roomName, targetRoomName, boost = false): any {
+global.SDB = function (roomName, targetRoomName, boost = false, defendController = false): any {
     let bodyRam6 = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK]
     let bodyRam7 = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK];
     let bodyRam8 = [MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE,
@@ -470,7 +866,7 @@ global.SDB = function (roomName, targetRoomName, boost = false): any {
 
                 let newNameRam = 'Ram-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodyRam8Boosted,
-                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7] } });
+                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7], defendController:true } });
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
 
                 let newNameSignifer = 'Signifer-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
@@ -1144,6 +1540,49 @@ global.SQD = function (roomName, targetRoomName, boost = false): any {
 
 
 
+}
+
+global.SRDP = function (roomName, targetRoomName) {
+    if (Game.rooms[roomName]) {
+        if (Game.rooms[roomName].controller && Game.rooms[roomName].controller.my && Game.rooms[roomName].controller.level > 4) {
+
+
+            let newName = 'RemoteDismantler-' + roomName + "-" + targetRoomName + Math.floor(Math.random() * 100000);
+            console.log('Adding RemoteDismantler to Spawn List: ' + newName);
+
+
+            if (Game.rooms[roomName].controller.level == 5) {
+                Game.rooms[roomName].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK], newName, { memory: { role: 'RemoteDismantler', targetRoom: targetRoomName, homeRoom: roomName, persistent: true } });
+                return "Success!";
+            }
+
+            else if (Game.rooms[roomName].controller.level == 6) {
+                Game.rooms[roomName].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK], newName, { memory: { role: 'RemoteDismantler', targetRoom: targetRoomName, homeRoom: roomName, persistent: true } });
+                return "Success!";
+            }
+
+            else if (Game.rooms[roomName].controller.level == 7) {
+                Game.rooms[roomName].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK], newName, { memory: { role: 'RemoteDismantler', targetRoom: targetRoomName, homeRoom: roomName, persistent: true } });
+                return "Success!";
+            }
+
+            else if (Game.rooms[roomName].controller.level == 8) {
+                Game.rooms[roomName].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK, WORK], newName, { memory: { role: 'RemoteDismantler', targetRoom: targetRoomName, homeRoom: roomName, persistent: true } });
+                return "Success!";
+            }
+
+            else {
+                console.log("Controller Level too low to spawn Remote Dismantler")
+            }
+        }
+        else {
+            console.log("This Room contains no Controller (or is not your controller) (or controller level less than 5). Try again")
+        }
+    }
+    else {
+        console.log("Perhaps own the room you want to spawn the Remote Dismantler from...")
+    }
+    return "Failed to spawn";
 }
 
 global.SRD = function (roomName, targetRoomName) {
