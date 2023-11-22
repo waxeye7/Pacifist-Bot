@@ -144,7 +144,7 @@ function observe(room) {
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(areRoomsNormalToThisRoom(room.name, adj)) {
-                if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner && Game.rooms[adj].controller.owner.username !== "Huanyi_HuTao") && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
+                if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner) && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
 
                     let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
                     let openControllerPositions;
@@ -450,11 +450,10 @@ function observe(room) {
                             Memory.commandsToExecute.push({ delay: 200, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
                         }
                     }
-
+                    //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
                     else if (
                       (Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
-                      !Game.rooms[adj].controller.safeMode &&
-                      !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length) {
+                      !Game.rooms[adj].controller.safeMode) {
                       let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                       let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                       let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
@@ -462,10 +461,13 @@ function observe(room) {
                       });
                       if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
                         if (Game.cpu.bucket >= 8000) {
-                          global.SQR(room.name, adj, true);
+                          global.SDB(room.name, adj, true);
+
                         }
                         else  if(Game.cpu.bucket >= 5000) {
+                        //   global.SQR(room.name, adj, true);
                           global.SDB(room.name, adj, true);
+
                         }
                       } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
                         global.SGD(room.name, adj, [
