@@ -9,11 +9,12 @@
     "outDir": "dist",
     "baseUrl": "src/",
     "sourceMap": true,
-    "strict": false,
+    "strict": false, // Disable strict mode
     "experimentalDecorators": true,
     "noImplicitReturns": true,
     "allowSyntheticDefaultImports": true,
-    "allowUnreachableCode": false
+    "allowUnreachableCode": false,
+    "forceConsistentCasingInFileNames": false // Disable forceConsistentCasingInFileNames
   },
   "exclude": [
     "node_modules"
