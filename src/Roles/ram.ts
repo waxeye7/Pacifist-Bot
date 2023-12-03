@@ -126,7 +126,7 @@
                 let hostilesInRoom = creep.room.find(FIND_HOSTILE_CREEPS);
                 let hostilePowerCreeps = creep.room.find(FIND_HOSTILE_POWER_CREEPS);
                 let portals = creep.room.find(FIND_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_PORTAL});
-                if(creep.memory.defendController && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) > 6) {
+                if(creep.memory.defendController && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) > 6 && (!creep.room.controller.my || creep.room.controller.level !== 8)) {
                     move_location = creep.room.controller.pos;
                     range = 2;
                 }
@@ -356,7 +356,7 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                         // Calculate the Manhattan distance from the creep's position
                         const distance = Math.max(Math.abs(x - centerX), Math.abs(y - centerY));
 
-                        const baseCost = 235 - (35 * distance);
+                        const baseCost = 235 - (50 * distance);
 
                         // Make sure the base cost is not negative or lower than a minimum value
                         const cost = Math.max(baseCost, 5);
@@ -375,7 +375,7 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
 
         }
         else if(creep.my) {
-            costs.set(creep.pos.x, creep.pos.y, 200);
+            costs.set(creep.pos.x, creep.pos.y, 230);
         }
     });
 
@@ -386,9 +386,6 @@ const roomCallbackRam = (roomName: string): boolean | CostMatrix => {
                 // let cost = costs.get(x,y);
                 if(tile == TERRAIN_MASK_WALL) {
                     costs.set(x, y, 255);
-                }
-                else {
-                    costs.set(x, y, 10);
                 }
             }
         }
