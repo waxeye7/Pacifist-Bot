@@ -252,6 +252,13 @@ const run = function (creep) {
                 if(rampartsInRange3.length == 0) {
                     creep.memory.checkAmIOnRampart = true;
                 }
+                else {
+                    let rampart = creep.pos.findClosestByRange(rampartsInRange3);
+                    if(rampart) {
+                        creep.memory.checkAmIOnRampart = true;
+                        creep.MoveCostMatrixRoadPrio(rampart, 0);
+                    }
+                }
             }
         }
 
