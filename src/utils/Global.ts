@@ -13,24 +13,25 @@ declare global {
         boosted:boolean;
     }
     interface Memory {
-        CPU:any;
-        AvoidRooms: any;
-        AvoidRoomsTemp:{[key:string]:number};
-        billtong_rooms: any;
-        CanClaimRemote:number;
-        DistressSignals:any;
-        tasks: any;
-        uuid: number;
-        log: any;
-        targetRampRoom:any;
-        // my_goods:Array<Array<string & string>>;
-        my_goods:any;
-        target_colonise:any;
-        resource_requests:any;
-        keepAfloat:any;
-        commandsToExecute:any;
-        delayConvoy:object;
-        Operations:{clear_claimed_rooms:{}};
+      CPU: any;
+      AvoidRooms: any;
+      AvoidRoomsTemp: { [key: string]: number };
+      billtong_rooms: any;
+      CanClaimRemote: number;
+      DistressSignals: any;
+      tasks: any;
+      uuid: number;
+      log: any;
+      targetRampRoom: any;
+      // my_goods:Array<Array<string & string>>;
+      my_goods: any;
+      target_colonise: any;
+      resource_requests: any;
+      keepAfloat: any;
+      commandsToExecute: any;
+      delayConvoy: object;
+      Operations: { clear_claimed_rooms: {} };
+      e: { mosquito: Array<{ n: string; ts: number; cp?: RoomPosition | null }> };
     }
 
     interface billtong_rooms {
@@ -121,32 +122,33 @@ declare global {
     // Syntax for adding proprties to `global` (ex "global.log")
     namespace NodeJS {
         interface Global {
-            showBoosts:any;
-            spawnConvoy:any;
-            spawnSafeModer:any;
-            profiler:any;
-            Memory:any;
-            ROLES: any;
-            SS:any;
-            SQR: any;
-            SRDP:any;
-            SQM: any;
-            SQD: any;
-            SRD:any;
-            SC:any;
-            SD:any;
-            SDB:any;
-            SG:any;
-            SGB:any;
-            SCK:any;
-            SGD:any;
-            SPK:any;
-            SDM:any;
-            SCCK:any;
-            SCCK2:any;
-            SMDP:any;
-            spawn_hunting_party:any;
-            lock_room:any;
+          showBoosts: any;
+          spawnConvoy: any;
+          spawnSafeModer: any;
+          profiler: any;
+          Memory: any;
+          ROLES: any;
+          SS: any;
+          SQR: any;
+          SRDP: any;
+          SQM: any;
+          SQD: any;
+          SRD: any;
+          SC: any;
+          SD: any;
+          SDB: any;
+          SG: any;
+          SGB: any;
+          SCK: any;
+          SGD: any;
+          SPK: any;
+          SDM: any;
+          SCCK: any;
+          SCCK2: any;
+          SMDP: any;
+          spawn_hunting_party: any;
+          lock_room: any;
+          spawn_mosquito: any;
         }
     }
 }
