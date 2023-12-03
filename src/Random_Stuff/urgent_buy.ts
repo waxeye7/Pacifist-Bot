@@ -6,6 +6,7 @@ function urgent_buy(terminal: StructureTerminal, resource: ResourceConstant, amo
     console.log(orders);
     if (orders.length > 0) {
       orders.sort((a, b) => a.price - b.price);
+      amount = Math.min(orders[0].amount, amount);
       let orderID = orders[0].id;
       let result = Game.market.deal(orderID, amount, terminal.room.name);
       if (result === 0) {
