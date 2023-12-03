@@ -1,3 +1,181 @@
+import urgent_buy from "Random_Stuff/urgent_buy";
+global.spawn_mosquito = function (homeRoom: string, roomName: string): boolean {
+  if (Game.cpu.bucket < 1500) return false;
+  if (homeRoom) {
+    let room = Game.rooms[homeRoom];
+    let spawns = room.find(FIND_MY_SPAWNS);
+    let nonSpawningSpawn = _.filter(spawns, (s) => !s.spawning);
+    if (nonSpawningSpawn.length === 0) return false;
+    if (
+      room &&
+      room.controller &&
+      room.controller.level === 8 &&
+      room.controller.my &&
+      room.energyAvailable >= 9000 &&
+      Game.market.credits > 5000000
+    ) {
+      let terminal = room.terminal;
+      if (!terminal || terminal.store[RESOURCE_ENERGY] < 1000 || terminal.cooldown) return false;
+      let storage = room.storage;
+      if (!storage) return false;
+        if (
+          storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] + terminal.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] <
+          5000
+        ) {
+          urgent_buy(terminal, RESOURCE_CATALYZED_GHODIUM_ALKALIDE, 5000);
+          return false;
+        }
+        if (
+          storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] + terminal.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] <
+          5000
+        ) {
+          urgent_buy(terminal, RESOURCE_CATALYZED_KEANIUM_ALKALIDE, 5000);
+          return false;
+        }
+
+        if (
+          storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] + terminal.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] <
+          5000
+        ) {
+          urgent_buy(terminal, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, 5000);
+          return false;
+        }
+
+        if (
+          storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] + terminal.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] <
+          3600
+        ) {
+          urgent_buy(terminal, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, 3600);
+          return false;
+        }
+
+        let body = [
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          TOUGH,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          RANGED_ATTACK,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          MOVE,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          HEAL,
+          MOVE
+        ];
+
+
+        if (room.memory.labs.status && !room.memory.labs.status.boost) {
+            room.memory.labs.status.boost = {};
+        }
+
+        if (room.memory.labs.status.boost) {
+            // kean alk
+            if (room.memory.labs.status.boost.lab4) {
+            room.memory.labs.status.boost.lab4.amount += 450;
+            room.memory.labs.status.boost.lab4.use += 1;
+            } else {
+            room.memory.labs.status.boost.lab4 = {};
+            room.memory.labs.status.boost.lab4.amount = 450;
+            room.memory.labs.status.boost.lab4.use = 1;
+            }
+            // lemer alk
+            if (room.memory.labs.status.boost.lab5) {
+            room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 480;
+            room.memory.labs.status.boost.lab5.use += 1;
+            } else {
+            room.memory.labs.status.boost.lab5 = {};
+            room.memory.labs.status.boost.lab5.amount = 480;
+            room.memory.labs.status.boost.lab5.use = 1;
+            }
+            // zyn alk
+            if (room.memory.labs.status.boost.lab2) {
+            room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+            room.memory.labs.status.boost.lab2.use += 1;
+            } else {
+            room.memory.labs.status.boost.lab2 = {};
+            room.memory.labs.status.boost.lab2.amount = 300;
+            room.memory.labs.status.boost.lab2.use = 1;
+            }
+            // gho alk
+            if (room.memory.labs.status.boost.lab7) {
+            room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 270;
+            room.memory.labs.status.boost.lab7.use += 1;
+            } else {
+            room.memory.labs.status.boost.lab7 = {};
+            room.memory.labs.status.boost.lab7.amount = 270;
+            room.memory.labs.status.boost.lab7.use = 1;
+            }
+        }
+
+
+
+        let newName2 = "mosquito" + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push(
+          body,
+          newName2,
+          {
+            memory: {
+              role: "mosquito",
+              targetRoom: roomName,
+              homeRoom: homeRoom,
+              boostlabs: [
+                room.memory.labs.outputLab2,
+                room.memory.labs.outputLab4,
+                room.memory.labs.outputLab5,
+                room.memory.labs.outputLab7
+              ]
+            }
+          }
+        );
+        console.log("Adding mosquito to Spawn List: " + newName2);
+
+        return true
+      }
+    }
+  return false;
+
+};
+
+
 global.showBoosts = function () {
 
     let descriptions = {
