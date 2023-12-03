@@ -78,13 +78,18 @@ import roleFreedomFighter from "Roles/Party/FreedomFighter";
 import roleRoomLocker from "Roles/RoomLocker";
 import roleEscort from "Roles/Escort";
 
+import mosquito from "Roles/mosquito";
+
+import mosquito_attack from "Misc/mosquito_attack";
+import mosquito_manager from "Misc/mosquito_manager";
+
 global.ROLES = {
   Solomon: roleSolomon,
   RRD: roleRangedRampartDefender,
   PowerMelee: rolePowerMelee,
   PowerHeal: rolePowerHeal,
   MineralMiner: roleMineralMiner,
-  EnergyMiner : roleEnergyMiner,
+  EnergyMiner: roleEnergyMiner,
   carry: roleCarry,
   reserve: roleReserve,
   EnergyManager: roleEnergyManager,
@@ -129,7 +134,7 @@ global.ROLES = {
   efficient: roleEfficient,
   SneakyControllerUpgrader: roleSneakyControllerUpgrader,
   Convoy: roleConvoy,
-  RampartUpgrader:roleRampartUpgrader,
+  RampartUpgrader: roleRampartUpgrader,
   CCK: roleContinuousControllerKiller,
   clearer: roleClearer,
   SafeModer: roleSafeModer,
@@ -137,7 +142,8 @@ global.ROLES = {
   FreedomFighter: roleFreedomFighter,
   RoomLocker: roleRoomLocker,
   Escort: roleEscort,
-}
+  mosquito: mosquito,
+};
 
 export const loop = ErrorMapper.wrapLoop(() => {
 
@@ -151,7 +157,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   PowerCreepManager();
 
+
+
   RunAllCreepsManager();
+
+  mosquito_attack();
+  mosquito_manager();
 
   ExecuteCommandsInNTicks();
 
