@@ -193,7 +193,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
     if(this.room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
-        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 180000 && !reserveFill.includes(powerSpawn.id)) {
+        if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 280000 && !reserveFill.includes(powerSpawn.id)) {
             if(!this.room.memory.reserveFill.includes(powerSpawn.id)) {
                 this.room.memory.reserveFill.push(powerSpawn.id);
             }
