@@ -415,6 +415,323 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                             move_location = fleeTowerPath.path[fleeTowerPath.path.length - 1];
                         }
                         else if(enemyCreepInRangeThree.length && enemyCreepInRangeThree.filter(ecreep => ecreep.getActiveBodyparts(ATTACK) > 24 && ecreep.pos.findPathTo(creep, { ignoreCreeps: false, ignoreRoads: true, swampCost: 1 }).length === 3).length) {
+                            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreepInRangeThree);
+                            let directionToEnemyCreep = creep.pos.getDirectionTo(closestEnemyCreep);
+
+                                                        if(aliveCreeps.length == 4) {
+
+                                let leaderMemory = a.memory;
+                                let nonLeaderMemoryB = b.memory;
+                                let nonLeaderMemoryY = y.memory;
+                                let nonLeaderMemoryZ = z.memory;
+
+                                if((directionToEnemyCreep == 1 || directionToEnemyCreep == 2 || directionToEnemyCreep == 8) && creepBodyType == "heal" && b.memory.bodyType == "heal") {
+                                    leaderMemory.squad.a = y.id;
+                                    leaderMemory.squad.y = a.id;
+                                    leaderMemory.squad.b = z.id;
+                                    leaderMemory.squad.z = b.id;
+
+                                    nonLeaderMemoryB.squad.a = y.id;
+                                    nonLeaderMemoryB.squad.y = a.id;
+                                    nonLeaderMemoryB.squad.b = z.id;
+                                    nonLeaderMemoryB.squad.z = b.id;
+
+                                    nonLeaderMemoryY.squad.a = y.id;
+                                    nonLeaderMemoryY.squad.y = a.id;
+                                    nonLeaderMemoryY.squad.b = z.id;
+                                    nonLeaderMemoryY.squad.z = b.id;
+
+                                    nonLeaderMemoryZ.squad.a = y.id;
+                                    nonLeaderMemoryZ.squad.y = a.id;
+                                    nonLeaderMemoryZ.squad.b = z.id;
+                                    nonLeaderMemoryZ.squad.z = b.id;
+
+
+                                    a.memory = nonLeaderMemoryY;
+                                    b.memory = nonLeaderMemoryZ;
+                                    y.memory = leaderMemory;
+                                    z.memory = nonLeaderMemoryB;
+
+                                    a.move(BOTTOM);
+                                    y.move(TOP);
+                                    b.move(BOTTOM);
+                                    z.move(TOP);
+                                }
+                                else if(directionToEnemyCreep == 1 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.b = y.id;
+                                    nonLeaderMemoryB.squad.y = b.id;
+
+                                    nonLeaderMemoryY.squad.b = y.id;
+                                    nonLeaderMemoryY.squad.y = b.id;
+
+                                    nonLeaderMemoryZ.squad.b = y.id;
+                                    nonLeaderMemoryZ.squad.y = b.id;
+
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+                                else if(directionToEnemyCreep == 1 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.z = a.id;
+                                    leaderMemory.squad.a = z.id;
+
+                                    nonLeaderMemoryB.squad.z = a.id;
+                                    nonLeaderMemoryB.squad.a = z.id;
+
+                                    nonLeaderMemoryY.squad.z = a.id;
+                                    nonLeaderMemoryY.squad.a = z.id;
+
+                                    nonLeaderMemoryZ.squad.z = a.id;
+                                    nonLeaderMemoryZ.squad.a = z.id;
+
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+
+                                else if((directionToEnemyCreep == 4 || directionToEnemyCreep == 5 || directionToEnemyCreep == 6) && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.a = y.id;
+                                    leaderMemory.squad.y = a.id;
+                                    leaderMemory.squad.b = z.id;
+                                    leaderMemory.squad.z = b.id;
+
+                                    nonLeaderMemoryB.squad.a = y.id;
+                                    nonLeaderMemoryB.squad.y = a.id;
+                                    nonLeaderMemoryB.squad.b = z.id;
+                                    nonLeaderMemoryB.squad.z = b.id;
+
+                                    nonLeaderMemoryY.squad.a = y.id;
+                                    nonLeaderMemoryY.squad.y = a.id;
+                                    nonLeaderMemoryY.squad.b = z.id;
+                                    nonLeaderMemoryY.squad.z = b.id;
+
+                                    nonLeaderMemoryZ.squad.a = y.id;
+                                    nonLeaderMemoryZ.squad.y = a.id;
+                                    nonLeaderMemoryZ.squad.b = z.id;
+                                    nonLeaderMemoryZ.squad.z = b.id;
+
+                                    a.memory = nonLeaderMemoryY;
+                                    b.memory = nonLeaderMemoryZ;
+                                    y.memory = leaderMemory;
+                                    z.memory = nonLeaderMemoryB;
+
+                                    a.move(BOTTOM);
+                                    y.move(TOP);
+                                    b.move(BOTTOM);
+                                    z.move(TOP);
+                                }
+                                else if(directionToEnemyCreep == 5 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+                                else if(directionToEnemyCreep == 5 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.b = y.id;
+                                    leaderMemory.squad.y = b.id;
+
+                                    nonLeaderMemoryB.squad.b = y.id;
+                                    nonLeaderMemoryB.squad.y = b.id;
+
+                                    nonLeaderMemoryY.squad.b = y.id;
+                                    nonLeaderMemoryY.squad.y = b.id;
+
+                                    nonLeaderMemoryZ.squad.b = y.id;
+                                    nonLeaderMemoryZ.squad.y = b.id;
+
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    b.move(BOTTOM_LEFT);
+                                    y.move(TOP_RIGHT);
+                                }
+
+
+                                else if(directionToEnemyCreep == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.a = b.id;
+                                    leaderMemory.squad.b = a.id;
+                                    leaderMemory.squad.y = z.id;
+                                    leaderMemory.squad.z = y.id;
+
+                                    nonLeaderMemoryB.squad.a = b.id;
+                                    nonLeaderMemoryB.squad.b = a.id;
+                                    nonLeaderMemoryB.squad.y = z.id;
+                                    nonLeaderMemoryB.squad.z = y.id;
+
+                                    nonLeaderMemoryY.squad.a = b.id;
+                                    nonLeaderMemoryY.squad.b = a.id;
+                                    nonLeaderMemoryY.squad.y = z.id;
+                                    nonLeaderMemoryY.squad.z = y.id;
+
+                                    nonLeaderMemoryZ.squad.a = b.id;
+                                    nonLeaderMemoryZ.squad.b = a.id;
+                                    nonLeaderMemoryZ.squad.y = z.id;
+                                    nonLeaderMemoryZ.squad.z = y.id;
+
+                                    a.memory = nonLeaderMemoryB;
+                                    b.memory = leaderMemory;
+                                    y.memory = nonLeaderMemoryZ;
+                                    z.memory = nonLeaderMemoryY;
+
+                                    a.move(RIGHT);
+                                    y.move(RIGHT);
+                                    b.move(LEFT);
+                                    z.move(LEFT);
+                                }
+
+                                else if(directionToEnemyCreep == 3 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.y = b.id;
+                                    nonLeaderMemoryB.squad.b = y.id;
+
+                                    nonLeaderMemoryY.squad.y = b.id;
+                                    nonLeaderMemoryY.squad.b = y.id;
+
+                                    nonLeaderMemoryZ.squad.y = b.id;
+                                    nonLeaderMemoryZ.squad.b = y.id;
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+
+                                else if(directionToEnemyCreep == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+
+                                else if(directionToEnemyCreep == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack") && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.a = b.id;
+                                    leaderMemory.squad.b = a.id;
+                                    leaderMemory.squad.y = z.id;
+                                    leaderMemory.squad.z = y.id;
+
+                                    nonLeaderMemoryB.squad.a = b.id;
+                                    nonLeaderMemoryB.squad.b = a.id;
+                                    nonLeaderMemoryB.squad.y = z.id;
+                                    nonLeaderMemoryB.squad.z = y.id;
+
+                                    nonLeaderMemoryY.squad.a = b.id;
+                                    nonLeaderMemoryY.squad.b = a.id;
+                                    nonLeaderMemoryY.squad.y = z.id;
+                                    nonLeaderMemoryY.squad.z = y.id;
+
+                                    nonLeaderMemoryZ.squad.a = b.id;
+                                    nonLeaderMemoryZ.squad.b = a.id;
+                                    nonLeaderMemoryZ.squad.y = z.id;
+                                    nonLeaderMemoryZ.squad.z = y.id;
+
+                                    a.memory = nonLeaderMemoryB;
+                                    b.memory = leaderMemory;
+                                    y.memory = nonLeaderMemoryZ;
+                                    z.memory = nonLeaderMemoryY;
+
+                                    a.move(RIGHT);
+                                    y.move(RIGHT);
+                                    b.move(LEFT);
+                                    z.move(LEFT);
+                                }
+
+                                else if(directionToEnemyCreep == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.y = b.id;
+                                    leaderMemory.squad.b = y.id;
+
+                                    nonLeaderMemoryB.squad.y = b.id;
+                                    nonLeaderMemoryB.squad.b = y.id;
+
+                                    nonLeaderMemoryY.squad.y = b.id;
+                                    nonLeaderMemoryY.squad.b = y.id;
+
+                                    nonLeaderMemoryZ.squad.y = b.id;
+                                    nonLeaderMemoryZ.squad.b = y.id;
+
+                                    a.memory = leaderMemory;
+                                    b.memory = nonLeaderMemoryY;
+                                    y.memory = nonLeaderMemoryB;
+                                    z.memory = nonLeaderMemoryZ;
+
+                                    y.move(TOP_RIGHT);
+                                    b.move(BOTTOM_LEFT);
+                                }
+
+                                else if(directionToEnemyCreep == 7 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
+                                    leaderMemory.squad.a = z.id;
+                                    leaderMemory.squad.z = a.id;
+
+                                    nonLeaderMemoryB.squad.a = z.id;
+                                    nonLeaderMemoryB.squad.z = a.id;
+
+                                    nonLeaderMemoryY.squad.a = z.id;
+                                    nonLeaderMemoryY.squad.z = a.id;
+
+                                    nonLeaderMemoryZ.squad.a = z.id;
+                                    nonLeaderMemoryZ.squad.z = a.id;
+
+                                    a.memory = nonLeaderMemoryZ;
+                                    b.memory = nonLeaderMemoryB;
+                                    y.memory = nonLeaderMemoryY;
+                                    z.memory = leaderMemory;
+
+                                    a.move(BOTTOM_RIGHT);
+                                    z.move(TOP_LEFT);
+                                }
+                                }
+
                             move_location = creep.pos;
                         }
                     }
@@ -442,7 +759,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
         let range;
 
-        if(move_location.roomName == creep.memory.targetPosition.roomName) {
+        if(move_location.roomName == creep.memory.targetPosition?.roomName) {
             // range = 1
             // if(creep.pos.getRangeTo(creep.memory.targetPosition) <= 2) {
                 range = 0
