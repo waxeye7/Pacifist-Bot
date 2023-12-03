@@ -144,414 +144,742 @@ function observe(room) {
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
             if(areRoomsNormalToThisRoom(room.name, adj)) {
-                if(Game.rooms[adj] && room.name !== adj && Game.rooms[adj].controller && (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner) && !Game.rooms[adj].controller.my && Game.map.getRoomStatus(adj).status == "normal") {
+                if (
+                  Game.rooms[adj] &&
+                  room.name !== adj &&
+                  Game.rooms[adj].controller &&
+                  (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner) &&
+                  !Game.rooms[adj].controller.my &&
+                  Game.rooms[adj].controller.owner?.username !== "An1via" &&
+                  Game.rooms[adj].controller.owner?.username !== "Cornered_Hamster" &&
+                  Game.map.getRoomStatus(adj).status == "normal"
+                ) {
+                  let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {
+                    filter: s =>
+                      s.structureType !== STRUCTURE_ROAD &&
+                      s.structureType !== STRUCTURE_CONTAINER &&
+                      s.structureType !== STRUCTURE_CONTROLLER &&
+                      s.structureType !== STRUCTURE_INVADER_CORE &&
+                      s.pos.x >= 1 &&
+                      s.pos.x <= 48 &&
+                      s.pos.y >= 1 &&
+                      s.pos.y <= 48
+                  });
+                  let openControllerPositions;
 
-                    let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
-                    let openControllerPositions;
+                  if (Game.rooms[adj].controller.level == 0) {
+                    openControllerPositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
 
-                    if(Game.rooms[adj].controller.level == 0) {
-                        openControllerPositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
+                    if (
+                      openControllerPositions &&
+                      openControllerPositions.length > 0 &&
+                      buildings.length > 0 &&
+                      !Game.rooms[adj].controller.reservation
+                    ) {
+                      if (Memory.CanClaimRemote >= 1) {
+                        let canReachController = true;
 
-                        if(openControllerPositions && openControllerPositions.length > 0 && buildings.length > 0 && !Game.rooms[adj].controller.reservation) {
+                        let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
+                        for (let roomName of nameOfRoomsWithExits) {
+                          const exitDirection: any = Game.map.findExit(room.name, roomName);
+                          const exit: any = Game.rooms[adj].controller.pos.findClosestByRange(exitDirection);
+                          if (exit) {
+                            if (
+                              PathFinder.search(
+                                Game.rooms[adj].controller.pos,
+                                { pos: exit, range: 0 },
+                                {
+                                  maxRooms: 1,
+                                  maxCost: 600,
+                                  swampCost: 1,
+                                  roomCallback: function (roomName): any {
+                                    let thisRoom = Game.rooms[roomName];
+                                    if (!room) return;
+                                    let costs = new PathFinder.CostMatrix();
 
+                                    thisRoom.find(FIND_STRUCTURES).forEach(function (struct) {
+                                      if (struct.structureType === STRUCTURE_ROAD) {
+                                        // Favor roads over plain tiles
+                                        costs.set(struct.pos.x, struct.pos.y, 1);
+                                      } else if (
+                                        struct.structureType !== STRUCTURE_CONTAINER &&
+                                        (struct.structureType !== STRUCTURE_RAMPART || !struct.my)
+                                      ) {
+                                        // Can't walk through non-walkable buildings
+                                        costs.set(struct.pos.x, struct.pos.y, 255);
+                                      }
+                                    });
 
-                            if(Memory.CanClaimRemote >= 1) {
-
-
-                                let canReachController = true;
-
-                                let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
-                                for(let roomName of nameOfRoomsWithExits) {
-                                    const exitDirection:any = Game.map.findExit(room.name, roomName);
-                                    const exit:any = Game.rooms[adj].controller.pos.findClosestByRange(exitDirection);
-                                    if(exit) {
-                                        if(PathFinder.search(Game.rooms[adj].controller.pos, {pos:exit,range:0,},{
-                                            maxRooms:1,
-                                            maxCost:600,
-                                            swampCost:1,
-                                            roomCallback: function(roomName):any {
-
-                                                let thisRoom = Game.rooms[roomName];
-                                                if (!room) return;
-                                                let costs = new PathFinder.CostMatrix;
-
-                                                thisRoom.find(FIND_STRUCTURES).forEach(function(struct) {
-                                                  if (struct.structureType === STRUCTURE_ROAD) {
-                                                    // Favor roads over plain tiles
-                                                    costs.set(struct.pos.x, struct.pos.y, 1);
-                                                  } else if (struct.structureType !== STRUCTURE_CONTAINER &&
-                                                             (struct.structureType !== STRUCTURE_RAMPART ||
-                                                              !struct.my)) {
-                                                    // Can't walk through non-walkable buildings
-                                                    costs.set(struct.pos.x, struct.pos.y, 255);
-                                                  }
-                                                });
-
-                                                return costs;
-                                              },
-                                                }).incomplete) {
-                                                    canReachController = false;
-                                                    break;
-                                                }
-                                    }
-                                    else {
-                                        canReachController = true;
-                                    }
-
+                                    return costs;
+                                  }
                                 }
-
-                                if(canReachController) {
-                                    let found = false;
-
-                                    for(let creepName in Game.creeps) {
-                                        if(creepName.startsWith("WallClearer")) {
-                                            if(Game.creeps[creepName].memory.role == "WallClearer" && Game.creeps[creepName].memory.homeRoom == room.name) {
-                                                found = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if(!found) {
-                                        let newName = 'WallClearer-' + room.name + "-" + adj;
-                                        room.memory.spawn_list.push([CLAIM,MOVE], newName, {memory: {role: 'WallClearer', homeRoom: room.name, targetRoom:adj}});
-                                        console.log('Adding wall-clearer to Spawn List: ' + newName);
-                                    }
-                                }
-                                if(!canReachController) {
-                                    let found = false;
-
-                                    for(let creepName in Game.creeps) {
-                                        if(creepName.startsWith("DismantleControllerWalls")) {
-                                            if(Game.creeps[creepName].memory.role == "DismantleControllerWalls" && Game.creeps[creepName].memory.homeRoom == room.name) {
-                                                found = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-
-                                    if(!found) {
-                                        let newName = 'DismantleControllerWalls-' + room.name + "-" + adj;
-                                        room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, {memory: {role: 'DismantleControllerWalls', homeRoom: room.name, targetRoom:adj}});
-                                        console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);
-                                    }
-                                }
-
+                              ).incomplete
+                            ) {
+                              canReachController = false;
+                              break;
                             }
+                          } else {
+                            canReachController = true;
+                          }
                         }
-                        else if(openControllerPositions && openControllerPositions.length == 0) {
 
-                            let found = false;
+                        if (canReachController) {
+                          let found = false;
 
-                            for(let creepName in Game.creeps) {
-                                if(creepName.startsWith("DismantleControllerWalls")) {
-                                    if(Game.creeps[creepName].memory.role == "DismantleControllerWalls" && Game.creeps[creepName].memory.homeRoom == room.name) {
-                                        found = true;
-                                        break;
-                                    }
-                                }
+                          for (let creepName in Game.creeps) {
+                            if (creepName.startsWith("WallClearer")) {
+                              if (
+                                Game.creeps[creepName].memory.role == "WallClearer" &&
+                                Game.creeps[creepName].memory.homeRoom == room.name
+                              ) {
+                                found = true;
+                                break;
+                              }
                             }
+                          }
 
-                            if(!found) {
-                                let newName = 'DismantleControllerWalls-' + room.name + "-" + adj;
-                                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK], newName, {memory: {role: 'DismantleControllerWalls', homeRoom: room.name, targetRoom:adj}});
-                                console.log('Adding DismantleControllerWalls to Spawn List: ' + newName);
-                            }
-
+                          if (!found) {
+                            let newName = "WallClearer-" + room.name + "-" + adj;
+                            room.memory.spawn_list.push([CLAIM, MOVE], newName, {
+                              memory: { role: "WallClearer", homeRoom: room.name, targetRoom: adj }
+                            });
+                            console.log("Adding wall-clearer to Spawn List: " + newName);
+                          }
                         }
-                    }
-                    else if(Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode) {
-                        let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                        let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                        if(hostileSpawns.length > 0 && hostileCreeps.length > 0) {
+                        if (!canReachController) {
+                          let found = false;
 
-                            global.SGD(room.name, adj,
-                            [
-                                MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,
-                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,MOVE
-                            ]
+                          for (let creepName in Game.creeps) {
+                            if (creepName.startsWith("DismantleControllerWalls")) {
+                              if (
+                                Game.creeps[creepName].memory.role == "DismantleControllerWalls" &&
+                                Game.creeps[creepName].memory.homeRoom == room.name
+                              ) {
+                                found = true;
+                                break;
+                              }
+                            }
+                          }
+
+                          if (!found) {
+                            let newName = "DismantleControllerWalls-" + room.name + "-" + adj;
+                            room.memory.spawn_list.push(
+                              [
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                MOVE,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK,
+                                WORK
+                              ],
+                              newName,
+                              { memory: { role: "DismantleControllerWalls", homeRoom: room.name, targetRoom: adj } }
                             );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
-                            Memory.commandsToExecute.push({ delay: 5000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
+                            console.log("Adding DismantleControllerWalls to Spawn List: " + newName);
+                          }
                         }
-                        else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+                      }
+                    } else if (openControllerPositions && openControllerPositions.length == 0) {
+                      let found = false;
 
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
+                      for (let creepName in Game.creeps) {
+                        if (creepName.startsWith("DismantleControllerWalls")) {
+                          if (
+                            Game.creeps[creepName].memory.role == "DismantleControllerWalls" &&
+                            Game.creeps[creepName].memory.homeRoom == room.name
+                          ) {
+                            found = true;
+                            break;
+                          }
                         }
-                        else if(hostileCreeps.length && !hostileSpawns.length) {
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 50, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-                        }
-                    }
+                      }
 
-                    else if((Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) && !Game.rooms[adj].controller.safeMode) {
-                        let controllerFreePositions =  Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreeps().length;
-                        let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                        let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                        let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
-                        if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
-
-                            // if(controllerFreePositions > 1 && room.storage && room.storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 2000 && room.storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 3000 && room.storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 1000 && room.storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 2000) {
-                            //     global.spawn_hunting_party(room.name, adj, controllerFreePositions)
-                            // }
-                            // else {
-                                Memory.commandsToExecute.push({delay:1, bucketNeeded:7000, formation:"RangedQuad", homeRoom:room.name, Boosted:false, targetRoom:adj})
-                                Memory.commandsToExecute.push({
-                                    delay: 500,
-                                    bucketNeeded: 8000,
-                                    formation: "CCK",
-                                    homeRoom: room.name,
-                                    targetRoom: adj
-                                });
-                            // }
-
-
-                        }
-                        else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
-
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
-                        }
-                        else if(hostileSpawns.length > 0 && hostileCreeps.length == 0 && hostileTowers.length == 0) {
-
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
-                        }
-                        else if(hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
-                            let armedHostileCreeps =  hostileCreeps.filter(c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);
-                            if(!armedHostileCreeps) {
-                                global.SGD(room.name, adj,
-                                    [
-                                        MOVE,MOVE,
-                                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                        MOVE,MOVE,MOVE
-                                    ]
-                                    );
-                            }
-                            else {
-                                global.SD(room.name, adj, false);
-                            }
-
-                            Memory.commandsToExecute.push({ delay: 200, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-                        }
-
-                    }
-                    else if((Game.rooms[adj].controller.level == 5) && !Game.rooms[adj].controller.safeMode) {
-                        let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                        let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                        let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9});
-                        if(hostileSpawns.length > 0 && hostileTowers.length > 0) {
-
-                                global.SD(room.name, adj, true);
-                                Memory.commandsToExecute.push({
-                                  delay: 1000,
-                                  bucketNeeded: 8000,
-                                  formation: "CCK",
-                                  homeRoom: room.name,
-                                  targetRoom: adj
-                                });
-
-
-                        }
-                        else if(hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
-
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE,MOVE,MOVE,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-
-                        }
-                        else if(hostileSpawns.length > 0 && hostileCreeps.length == 0) {
-
-                            global.SGD(room.name, adj,
-                                [
-                                    MOVE,MOVE,
-                                    ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                    MOVE,MOVE,MOVE
-                                ]
-                                );
-                            Memory.commandsToExecute.push({ delay: 1000, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-                        }
-
-                        else if(Game.rooms[adj].controller.level == 5 && hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
-                            let armedHostileCreeps =  hostileCreeps.filter(c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);
-                            if(!armedHostileCreeps) {
-                                global.SGD(room.name, adj,
-                                    [
-                                        MOVE,MOVE,
-                                        ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,
-                                        MOVE,MOVE,MOVE
-                                    ]
-                                    );
-                            }
-                            else {
-                                global.SD(room.name, adj, false);
-                            }
-
-                            Memory.commandsToExecute.push({ delay: 200, bucketNeeded: 8000, formation: "CCK", homeRoom: room.name, targetRoom: adj });
-                        }
-                    }
-                    //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
-                    else if (
-                      (Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
-                      !Game.rooms[adj].controller.safeMode) {
-                      let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
-                      let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
-                      let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                        filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
-                      });
-                      if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
-                        if (Game.cpu.bucket >= 8000) {
-                          global.SDB(room.name, adj, true);
-
-                        }
-                        else  if(Game.cpu.bucket >= 5000) {
-                        //   global.SQR(room.name, adj, true);
-                          global.SDB(room.name, adj, true);
-
-                        }
-                      } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
-                        global.SGD(room.name, adj, [
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE,
-                          MOVE
-                        ]);
-                        Memory.commandsToExecute.push({
-                          delay: 1000,
-                          bucketNeeded: 8000,
-                          formation: "CCK",
-                          homeRoom: room.name,
-                          targetRoom: adj
-                        });
-                      } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
-                        global.SGD(room.name, adj, [
-                          MOVE,
-                          MOVE,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          ATTACK,
-                          MOVE,
-                          MOVE,
-                          MOVE
-                        ]);
-                        Memory.commandsToExecute.push({
-                          delay: 1000,
-                          bucketNeeded: 8000,
-                          formation: "CCK",
-                          homeRoom: room.name,
-                          targetRoom: adj
-                        });
+                      if (!found) {
+                        let newName = "DismantleControllerWalls-" + room.name + "-" + adj;
+                        room.memory.spawn_list.push(
+                          [
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            MOVE,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK,
+                            WORK
+                          ],
+                          newName,
+                          { memory: { role: "DismantleControllerWalls", homeRoom: room.name, targetRoom: adj } }
+                        );
+                        console.log("Adding DismantleControllerWalls to Spawn List: " + newName);
                       }
                     }
+                  } else if (Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode) {
+                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    if (hostileSpawns.length > 0 && hostileCreeps.length > 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
 
+                      Memory.commandsToExecute.push({
+                        delay: 5000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileCreeps.length && !hostileSpawns.length) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 50,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    }
+                  } else if (
+                    (Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) &&
+                    !Game.rooms[adj].controller.safeMode
+                  ) {
+                    let controllerFreePositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreeps().length;
+                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                    });
+                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
+                      // if(controllerFreePositions > 1 && room.storage && room.storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 2000 && room.storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 3000 && room.storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 1000 && room.storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 2000) {
+                      //     global.spawn_hunting_party(room.name, adj, controllerFreePositions)
+                      // }
+                      // else {
+                      Memory.commandsToExecute.push({
+                        delay: 1,
+                        bucketNeeded: 7000,
+                        formation: "RangedQuad",
+                        homeRoom: room.name,
+                        Boosted: false,
+                        targetRoom: adj
+                      });
+                      Memory.commandsToExecute.push({
+                        delay: 500,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                      // }
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0 && hostileTowers.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
+                      let armedHostileCreeps = hostileCreeps.filter(
+                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
+                      );
+                      if (!armedHostileCreeps) {
+                        global.SGD(room.name, adj, [
+                          MOVE,
+                          MOVE,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          MOVE,
+                          MOVE,
+                          MOVE
+                        ]);
+                      } else {
+                        global.SD(room.name, adj, false);
+                      }
+
+                      Memory.commandsToExecute.push({
+                        delay: 200,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    }
+                  } else if (Game.rooms[adj].controller.level == 5 && !Game.rooms[adj].controller.safeMode) {
+                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                    });
+                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
+                      global.SD(room.name, adj, true);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (
+                      Game.rooms[adj].controller.level == 5 &&
+                      hostileCreeps.length &&
+                      !hostileSpawns.length &&
+                      !hostileTowers.length
+                    ) {
+                      let armedHostileCreeps = hostileCreeps.filter(
+                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
+                      );
+                      if (!armedHostileCreeps) {
+                        global.SGD(room.name, adj, [
+                          MOVE,
+                          MOVE,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          MOVE,
+                          MOVE,
+                          MOVE
+                        ]);
+                      } else {
+                        global.SD(room.name, adj, false);
+                      }
+
+                      Memory.commandsToExecute.push({
+                        delay: 200,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    }
+                  }
+                  //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
+                  else if (
+                    (Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
+                    !Game.rooms[adj].controller.safeMode
+                  ) {
+                    let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
+                    let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
+                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                    });
+                    if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
+                      if (Game.cpu.bucket >= 8000) {
+                        global.SDB(room.name, adj, true);
+                      } else if (Game.cpu.bucket >= 5000) {
+                        //   global.SQR(room.name, adj, true);
+                        global.SDB(room.name, adj, true);
+                      }
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileSpawns.length > 0 && hostileCreeps.length == 0) {
+                      global.SGD(room.name, adj, [
+                        MOVE,
+                        MOVE,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        ATTACK,
+                        MOVE,
+                        MOVE,
+                        MOVE
+                      ]);
+                      Memory.commandsToExecute.push({
+                        delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    }
+                  }
                 }
             }
 
