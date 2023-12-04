@@ -1,5 +1,4 @@
 function observe(room) {
-    if(room.name === "E33N59")return;
     let interval = 64;
     let twoTimesInterval = interval*2
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
@@ -169,6 +168,13 @@ function observe(room) {
 
                   if (Game.rooms[adj].controller.level == 0) {
                     openControllerPositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
+
+                    // remove this room name from avoidrooms
+                    if (!Memory.AvoidRooms) {
+                      Memory.AvoidRooms = [];
+                    }
+                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+
 
                     if (
                       openControllerPositions &&
@@ -783,7 +789,7 @@ function observe(room) {
                   }
                   //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
                   else if (
-                    (Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
+                    (Game.rooms[adj].controller.level == 6 || Game.rooms[adj].controller.level == 7) &&
                     !Game.rooms[adj].controller.safeMode
                   ) {
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
@@ -880,6 +886,17 @@ function observe(room) {
                       });
                     }
                   }
+                }
+                else {
+                  // filter out adj room name in Memory.AvoidRooms so Memory.AvoidRooms is up to date
+
+                  if(!Memory.AvoidRooms) {
+                    Memory.AvoidRooms = [];
+                  }
+
+                  Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
+
+
                 }
             }
 
