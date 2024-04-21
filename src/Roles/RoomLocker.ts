@@ -49,14 +49,25 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         wallExits(creep.room);
         creep.memory.walled = true;
       }
-      let constructionSites = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+      let constructionSites:Array<ConstructionSite> = creep.room.find(FIND_CONSTRUCTION_SITES);
+      // filter by structureWall
+      constructionSites = constructionSites.filter((site) => site.structureType === STRUCTURE_WALL);
       if(constructionSites.length > 0) {
         let closestConstructionSite = creep.pos.findClosestByRange(constructionSites);
         if(creep.pos.getRangeTo(closestConstructionSite) <= 3) {
           creep.build(closestConstructionSite);
         }
         else {
-          creep.moveTo(closestConstructionSite, {reusePath:50, ignoreCreeps:true});
+          creep.moveTo(closestConstructionSite);
+        }
+      }
+      else {
+        // if no construction sites, upgrade controller
+        if(creep.pos.getRangeTo(controller) > 3) {
+          creep.moveTo(controller);
+        }
+        else {
+          creep.upgradeController(controller);
         }
       }
     }

@@ -403,12 +403,22 @@ function construction(room) {
         return;
     }
 
+    if(room.controller.level === 1 || room.controller.level === 2) {
+        let walls = room.find(FIND_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_WALL});
+        for(let wall of walls) {
+            wall.destroy();
+        }
+    }
+
+
 
     if(room.memory.danger) {
         return;
     }
 
     let myConstructionSites = room.find(FIND_MY_CONSTRUCTION_SITES).length
+
+
 
 
 
@@ -509,6 +519,7 @@ function construction(room) {
         let filteredStorageRampartNeighbors = storageRampartNeighbors.filter(position => position.x > 0 && position.x < 49 && position.y > 0 && position.y < 49);
         pathBuilder(filteredStorageRampartNeighbors, STRUCTURE_RAMPART, room, false);
     }
+
 
 
     if(room.controller.level >= 1 && room.memory.Structures.spawn) {
@@ -671,7 +682,7 @@ function construction(room) {
                     }
                 }
             }
-            else {
+            else if(room.energyCapacityAvailable > 500) {
                 binLocation.createConstructionSite(STRUCTURE_CONTAINER);
             }
             if(lookForExistingStructuresOnBinLocation.length == 1 && lookForExistingStructuresOnBinLocation[0].structureType == STRUCTURE_ROAD) {
@@ -684,7 +695,7 @@ function construction(room) {
         }
 
 
-        if(room.controller.level == 1 || room.controller.level == 2 || room.controller.level == 3) {
+        if(room.controller.level == 2 || room.controller.level == 3) {
             let storageLocation = new RoomPosition(spawn.pos.x, spawn.pos.y -2, room.name);
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
             if(lookForExistingStructures.length != 0 && lookForExistingStructures[0].structureType != STRUCTURE_CONTAINER) {
@@ -728,7 +739,7 @@ function construction(room) {
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource1.path.pop();
                 // }
-                if(storage.pos.getRangeTo(pathFromStorageToSource1.path[pathFromStorageToSource1.path.length - 1]) > 7) {
+                if(storage.pos.getRangeTo(pathFromStorageToSource1.path[pathFromStorageToSource1.path.length - 1]) > 7 && room.controller.level >= 6) {
                     container1.createConstructionSite(STRUCTURE_RAMPART);
                 }
 
@@ -737,7 +748,7 @@ function construction(room) {
                 // if(room.controller.level >= 6) {
                 //     pathFromStorageToSource2.path.pop();
                 // }
-                if(storage.pos.getRangeTo(pathFromStorageToSource2.path[pathFromStorageToSource2.path.length - 1]) > 7) {
+                if(storage.pos.getRangeTo(pathFromStorageToSource2.path[pathFromStorageToSource2.path.length - 1]) > 7 && room.controller.level >= 6) {
                     container2.createConstructionSite(STRUCTURE_RAMPART);
                 }
 
@@ -882,14 +893,14 @@ function construction(room) {
                 if(room.controller.level < 6) {
                     Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);
                 }
-                pathBuilder(pathFromStorageToSource1, STRUCTURE_ROAD, room);
+                if(room.controller.level >= 3) pathBuilder(pathFromStorageToSource1, STRUCTURE_ROAD, room);
 
                 if(room.controller.level < 6) {
                     Game.rooms[container2.roomName].createConstructionSite(container2.x, container2.y, STRUCTURE_CONTAINER);
                 }
-                pathBuilder(pathFromStorageToSource2, STRUCTURE_ROAD, room);
+                if(room.controller.level >= 3) pathBuilder(pathFromStorageToSource2, STRUCTURE_ROAD, room);
 
-                pathBuilder(pathFromStorageToController, STRUCTURE_ROAD, room);
+                if(room.controller.level >= 3) pathBuilder(pathFromStorageToController, STRUCTURE_ROAD, room);
 
                 if(room.controller.level >= 6) {
 
@@ -1195,6 +1206,9 @@ function construction(room) {
                         BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
                     }
 
+                }
+                else {
+                    BuildIfICan(tower_locations_to_filter, STRUCTURE_TOWER);
                 }
 
             }
@@ -1870,7 +1884,7 @@ function Build_Remote_Roads(room) {
     let resourceData = _.get(room.memory, ['resources']);
     _.forEach(resourceData, function(data, targetRoomName){
         _.forEach(data.energy, function(values, sourceId:any) {
-            if(room.name != targetRoomName) {
+            if(room.name === targetRoomName) {
                 let source:any = Game.getObjectById(sourceId);
                 if(source != null && storage) {
                     let pathFromStorageToRemoteSource = PathFinder.search(storage.pos, {pos:source.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});

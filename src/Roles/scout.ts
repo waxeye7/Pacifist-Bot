@@ -5,7 +5,7 @@
 
  const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
-        if(creep.memory.route = -2) creep.suicide()
+        // if(creep.memory.route = -2) creep.suicide()
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
@@ -20,7 +20,13 @@
         }
     }
     else {
-        Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
+        if(creep.room.controller?.level<3 && !creep.room.controller.my && !creep.room.controller.safeMode) {
+            let newName = 'Annoyer-' + Math.floor(Math.random() * Game.time) + "-" + creep.memory.homeRoom;
+            Memory.rooms[creep.memory.homeRoom].spawn_list.push([ATTACK, MOVE], newName, {memory: {role: 'annoy', homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name}});
+        }
+        else {
+            Memory.rooms[creep.memory.homeRoom].resources[creep.room.name].energy = {};
+        }
     }
 
     creep.suicide();

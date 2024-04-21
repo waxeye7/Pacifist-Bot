@@ -1,9 +1,9 @@
 /**
- * A little description of this function
+ * A detailed description of this function with extensive logging for debugging purposes.
  * @param {Creep} creep
  **/
- const run = function (creep:any) {
-    ;
+const run = function (creep) {
+
     creep.memory.moving = false;
 
     if(creep.memory.suicide) {
@@ -15,14 +15,12 @@
         creep.memory.suicide = true;
     }
 
-
-
     if(creep.memory.homeRoom && !creep.memory.dropRoom) {
         creep.memory.dropRoom = creep.memory.homeRoom;
     }
 
     if(!creep.memory.MaxStorage) {
-        let carryPartsAmount = 0
+        let carryPartsAmount = 0;
         for(let part of creep.body) {
             if(part.type == CARRY) {
                 carryPartsAmount += 1;
@@ -30,8 +28,8 @@
         }
         creep.memory.MaxStorage = carryPartsAmount * 50;
     }
-    let MaxStorage = creep.memory.MaxStorage;
 
+    let MaxStorage = creep.memory.MaxStorage;
 
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
@@ -42,16 +40,16 @@
 
             _.forEach(Game.rooms, function(AllRooms) {
                 if (AllRooms && AllRooms.controller && AllRooms.controller.my && AllRooms.controller.level >= 4) {
-                    if(Game.map.getRoomLinearDistance(creep.room.name, AllRooms.name) < closestRoom[1]) {
-                        creep.memory.dropRoom = AllRooms.name
-                        closestRoom = [creep.memory.dropRoom, Game.map.getRoomLinearDistance(creep.room.name, creep.memory.dropRoom)]
+                    let distance = Game.map.getRoomLinearDistance(creep.room.name, AllRooms.name);
+                    if(distance < closestRoom[1]) {
+                        creep.memory.dropRoom = AllRooms.name;
+                        closestRoom = [creep.memory.dropRoom, distance];
                     }
                 }
             });
-
         }
-
     }
+
     if(creep.memory.full && creep.store.getFreeCapacity() >= MaxStorage) {
         creep.memory.full = false;
     }
@@ -73,11 +71,11 @@
             }
         }
     }
+
     if(!creep.memory.full) {
         if(creep.room.name != creep.memory.targetRoom) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
-
 
         let ruins = creep.room.find(FIND_RUINS);
         if(ruins.length > 0) {
@@ -86,34 +84,28 @@
 
             for(let ruin of refinedRuins) {
                 if(_.keys(ruin.store).length == 1 && _.keys(ruin.store)[0] == RESOURCE_ENERGY)  {
-                    // do nothing
+                    refinedRuinsList.push(ruin);
+                    // Log if needed
                 }
                 else {
                     refinedRuinsList.push(ruin);
                 }
             }
 
-
             for(let ruin of refinedRuinsList) {
                 for(let resource in ruin.store) {
-                    if(resource !== RESOURCE_ENERGY) {
                         if(creep.pos.isNearTo(ruin)) {
-                            creep.withdraw(ruin, resource)
+                            creep.withdraw(ruin, resource);
                         }
                         else {
                             creep.MoveCostMatrixRoadPrio(ruin, 1);
                         }
                         return;
-                    }
                 }
             }
-
         }
 
-
-
         let droppedTarget = creep.room.find(FIND_DROPPED_RESOURCES);
-
         droppedTarget = droppedTarget.filter(function(resource) {return resource.resourceType !== RESOURCE_ENERGY;});
         if(droppedTarget.length > 0) {
             droppedTarget.sort((a,b) => b.amount - a.amount);
@@ -121,14 +113,15 @@
                 creep.pickup(droppedTarget[0]);
             }
             else {
-                creep.MoveCostMatrixRoadPrio(droppedTarget[0], 1)
+                creep.MoveCostMatrixRoadPrio(droppedTarget[0], 1);
             }
 
             return;
         }
 
-
-        let targets:any = creep.room.find(FIND_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_POWER_SPAWN) && _.keys(building.store).length > 0});
+        let targets = creep.room.find(FIND_STRUCTURES, {
+            filter: building => (building.structureType == STRUCTURE_CONTAINER || building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_STORAGE || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_POWER_SPAWN) && _.keys(building.store).length > 0
+        });
         let targetsList = [];
         let specialTargets;
         let specialTargetsList = [];
@@ -137,74 +130,66 @@
             targets = targets.filter(target => _.keys(target.store).length > 0);
             for(let target of targets) {
                 if(_.keys(target.store).length == 1 && _.keys(target.store)[0] == RESOURCE_ENERGY)  {
-                    // do nothing
+                    targetsList.push(target);
                 }
                 else {
-                    targetsList.push(target);
+                    specialTargetsList.push(target);
                 }
             }
             specialTargets = targets.filter(function(building) {return building.structureType == STRUCTURE_LAB || building.structureType == STRUCTURE_FACTORY || building.structureType == STRUCTURE_TERMINAL || building.structureType == STRUCTURE_POWER_BANK;});
             for(let target of specialTargets) {
                 if(_.keys(target.store).length == 1 && _.keys(target.store)[0] == RESOURCE_ENERGY)  {
-                    // do nothing
+                    targetsList.push(target);
                 }
                 else {
                     specialTargetsList.push(target);
                 }
             }
         }
+
         let specialTarget;
         let target;
         if(specialTargetsList.length > 0) {
             specialTarget = creep.pos.findClosestByRange(specialTargetsList);
         }
         if(targetsList.length > 0) {
-            creep.pos.findClosestByRange(targetsList);
+            target = creep.pos.findClosestByRange(targetsList);
         }
 
         if(specialTarget) {
             if(creep.pos.isNearTo(specialTarget)) {
                 for(let resource in specialTarget.store) {
-                    if(resource !== RESOURCE_ENERGY) {
-                        creep.withdraw(specialTarget, resource)
-                    }
+
+                        console.log(`[Withdraw From Special Target] - ${creep.name} withdrawing ${resource}.`);
+
                 }
             }
             else {
                 creep.MoveCostMatrixRoadPrio(specialTarget, 1);
             }
-        }
-
-        else if(target) {
+        } else if(target) {
             if(creep.pos.isNearTo(target)) {
                 for(let resource in target.store) {
-                    if(resource !== RESOURCE_ENERGY) {
-                        creep.withdraw(target, resource)
-                    }
+                        creep.withdraw(target, resource);
                 }
             }
             else {
                 creep.MoveCostMatrixRoadPrio(target, 1);
             }
         }
-        // else {
-        //     creep.memory.full = true;
-        // }
 
         if(targets && targets.length == 0 && !creep.memory.full) {
             creep.memory.suicide = true;
-        }
-        else if(!targets && !creep.memory.full) {
+        } else if (!targets && !creep.memory.full) {
             creep.memory.suicide = true;
         }
     }
-}
 
+}
 
 const roleGoblin = {
     run,
-    //run: run,
-    //function2,
-    //function3
+    // Additional roleGoblin functions or properties here
 };
+
 export default roleGoblin;

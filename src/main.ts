@@ -3,6 +3,9 @@ import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
 import global from "./utils/Global";
 
+// import TerrainDataExporter from "./utils/TerrainDataExporter";
+
+
 import CPUmanager from "Managers/CPUmanager";
 import PowerCreepManager from "Managers/PowerCreepManager";
 import MemoryManager from "Managers/MemoryManager";
@@ -147,6 +150,7 @@ global.ROLES = {
 
 export const loop = ErrorMapper.wrapLoop(() => {
 
+
   const startTotal = Game.cpu.getUsed();
 
   memHack.run()
@@ -168,8 +172,12 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   decrementTempBadRooms();
 
+  // TerrainDataExporter();
+  // console.log(JSON.stringify(Memory.roomStatuses))
+
   let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
   console.log(tickTotal + "ms", "on this tick");
+
 
   CPUmanager(tickTotal);
 

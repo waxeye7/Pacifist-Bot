@@ -12,6 +12,8 @@
 
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
+        creep.memory.locked_repair = false;
+        creep.memory.locked = false;
     }
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;

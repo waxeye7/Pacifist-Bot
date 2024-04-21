@@ -5,9 +5,7 @@
  const run = function (creep:Creep) {
     creep.memory.moving = false;
 
-    if(creep.fleeHomeIfInDanger() == "timeOut") {
-        return;
-    }
+
 
     // if(creep.room.name == creep.memory.homeRoom) {
     //     if(creep.room.controller && creep.room.controller.my && creep.room.controller.sign.text !== "we come in peace") {
@@ -28,12 +26,18 @@
     if(creep.room.controller) {
         if(creep.memory.claim) {
             if(creep.room.controller.level == 0) {
-                if(creep.claimController(creep.room.controller) == 0) {
+                let claimOutcome = creep.claimController(creep.room.controller);
+                if(claimOutcome === 0) {
                     // creep.signController(creep.room.controller, "we come in peace")
                     creep.suicide();
                     return;
                 }
-                if(creep.claimController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                if(claimOutcome === -7) {
+                    creep.attackController(creep.room.controller);
+                    return;
+                }
+
+                if(claimOutcome === ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(creep.room.controller, 1)
                     return;
                 }

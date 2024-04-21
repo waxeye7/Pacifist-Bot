@@ -291,6 +291,9 @@ global.lock_room = function (homeRoom, targetRoom) {
             }
         }
 
+        let newName4 = 'Claimer' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([CLAIM, MOVE], newName4, {memory: {role: 'claimer', targetRoom: targetRoom, homeRoom:room.name}});
+        console.log('Adding Claimer to Spawn List: ' + newName4);
 
 
         let newName2 = 'RoomLocker' + Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -298,6 +301,15 @@ global.lock_room = function (homeRoom, targetRoom) {
         console.log('Adding RoomLocker to Spawn List: ' + newName2);
 
 
+    }
+    else if(room && room.controller.level <= 7 && room.controller.level >= 4 && room.energyCapacityAvailable >= 1200) {
+        let newName2 = 'RoomLocker' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,CARRY,MOVE,WORK,CARRY,MOVE], newName2, {memory: {role: 'RoomLocker', targetRoom: targetRoom, homeRoom:room.name}});
+        console.log('Adding RoomLocker to Spawn List: ' + newName2);
+
+        let newName4 = 'Claimer' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([CLAIM, MOVE], newName4, {memory: {role: 'claimer', targetRoom: targetRoom, homeRoom:room.name}});
+        console.log('Adding Claimer to Spawn List: ' + newName4);
     }
 }
 
@@ -1815,7 +1827,7 @@ global.SC = function (targetRoomName, x, y) {
 
 global.SG = function (homeRoom, targetRoomName) {
     if (Game.rooms[homeRoom]) {
-        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level > 4) {
+        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level >= 4) {
 
             let creepsInRoom = Game.rooms[homeRoom].find(FIND_MY_CREEPS);
             let fillers = creepsInRoom.filter(function (creep) { return creep.memory.role == "filler"; }).length;
@@ -1829,8 +1841,12 @@ global.SG = function (homeRoom, targetRoomName) {
             let newName = 'Goblin-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding Goblin to Spawn List: ' + newName);
 
+            if (Game.rooms[homeRoom].controller.level == 4) {
+                Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY], newName, { memory: { role: 'goblin', targetRoom: targetRoomName, homeRoom: homeRoom } });
+                return "Success!";
+            }
 
-            if (Game.rooms[homeRoom].controller.level == 5) {
+            else if (Game.rooms[homeRoom].controller.level == 5) {
                 Game.rooms[homeRoom].memory.spawn_list.push([MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'goblin', targetRoom: targetRoomName, homeRoom: homeRoom } });
                 return "Success!";
             }

@@ -282,12 +282,12 @@ function roomDefence(room) {
                         }
 
                         let closestHostileToCreep = creep.pos.findClosestByRange(rangedCreeps);
-                        if(creep.room.controller && creep.room.controller.level <= 3 && creep.pos.getRangeTo(closestHostileToCreep) <= 5 && !creepOnRampart) {
+                        if(creep.room.controller && !creep.room.controller.safeMode && creep.room.controller.level <= 3 && creep.pos.getRangeTo(closestHostileToCreep) <= 5 && !creepOnRampart) {
                             creep.drop(RESOURCE_ENERGY);
                             creep.fleeFromRanged(closestHostileToCreep);
                             creep.memory.fleeing = true;
                         }
-                        else if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !creepOnRampart) {
+                        else if(!creep.room.controller.safeMode && creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !creepOnRampart) {
                             creep.fleeFromRanged(closestHostileToCreep);
                             creep.memory.fleeing = true;
                         }
@@ -296,7 +296,7 @@ function roomDefence(room) {
                         }
                     }
                 }
-                else if(nonRangedMeleeCreeps.length > 0) {
+                else if(room.controller.safeMode && nonRangedMeleeCreeps.length > 0) {
                     for(let creep of myCreeps) {
                         let closestHostileToCreep = creep.pos.findClosestByRange(nonRangedMeleeCreeps);
                         if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
@@ -384,6 +384,12 @@ function roomDefence(room) {
         else {
             room.memory.blown_fuse = false;
         }
+
+    }
+    if(room.controller.safeMode) {
+        room.memory.danger = false;
+        room.memory.blown_fuse = false;
+        room.memory.danger_timer = 0;
 
     }
 }

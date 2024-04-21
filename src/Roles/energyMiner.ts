@@ -52,6 +52,19 @@ const run = function (creep) {
         //     creep.moveAwayIfNeedTo();
         // }
 
+        if(creep.room.name === creep.memory.targetRoom && creep.ticksToLive === 700) {
+            const storages = creep.room.find(FIND_STRUCTURES, {filter: s => !s.my && s.structureType === STRUCTURE_STORAGE&& s.store[RESOURCE_ENERGY] > 0});
+            if(storages.length > 0) {
+                global.SG(creep.memory.homeRoom, creep.memory.targetRoom)
+            }
+            if(!storages.length && creep.room.controller.my) {
+                let ruinsWithEnergy = creep.room.find(FIND_RUINS, {filter: r => r.store[RESOURCE_ENERGY] > 0});
+                if(ruinsWithEnergy.length > 0) {
+                    global.SG(creep.memory.homeRoom, creep.memory.targetRoom)
+                }
+            }
+        }
+
         if(!creep.memory.checkAmIOnRampart) {
             creep.memory.checkAmIOnRampart = true;
         }

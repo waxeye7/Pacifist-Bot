@@ -32,6 +32,9 @@ declare global {
       delayConvoy: object;
       Operations: { clear_claimed_rooms: {} };
       e: { mosquito: Array<{ n: string; ts: number; cp?: RoomPosition | null }> };
+      terrainDataInitialized: boolean;
+      lastProcessedCoord: { x: number; y: number; };
+      roomStatuses: any;
     }
 
     interface billtong_rooms {

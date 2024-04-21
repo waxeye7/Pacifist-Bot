@@ -8,6 +8,9 @@ import {
 import find_exposed_creeps from "./find_exposed_creeps";
 import find_exposed_structs from "./find_exposed_structs";
 function mosquito_attack() {
+  if(!Memory.e) {
+    Memory.e = {mosquito: []};
+  }
   for (let attack of Memory.e.mosquito) {
     let room = Game.rooms[attack.n];
 

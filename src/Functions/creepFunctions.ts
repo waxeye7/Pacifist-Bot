@@ -238,7 +238,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     if(this.memory.role == "filler" && this.room.energyAvailable == this.room.energyCapacityAvailable && this.room.controller && this.room.memory.Structures.controllerLink) {
         let controllerLink:any = Game.getObjectById(this.room.memory.Structures.controllerLink);
         if(controllerLink) {
-            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() >= 200) {
+            if(controllerLink.structureType == STRUCTURE_CONTAINER && controllerLink.store.getFreeCapacity() > 1800) {
                 if(this.room.controller.level >= 7) {
                     this.room.memory.Structures.controllerLink = false;
                 }
@@ -247,7 +247,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
                     return controllerLink;
                 }
             }
-            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 600) {
+            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400) {
                 this.memory.t = controllerLink.id;
                 return controllerLink;
             }
@@ -927,7 +927,7 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | strin
             this.moveToRoom(this.memory.homeRoom);
             return "timeOut";
         }
-        else if(this.room.name == this.memory.homeRoom && this.memory.timeOut > 0) {
+        else if(this.memory.timeOut && this.room.name !== this.memory.targetRoom && this.memory.timeOut > 0) {
             this.memory.timeOut -= 1;
             if(this.pos.x == 49) {
                 if(this.move(LEFT) !== 0) {

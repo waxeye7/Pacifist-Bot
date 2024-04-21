@@ -5,7 +5,7 @@ function mosquito_manager() {
   for (let u of Memory.e.mosquito) {
     if (u.ts > 0) {
       function findClosestRooms(roomName: string) {
-        const range = 4;
+        const range = 5;
         let myRoomNames = ["E45N59","E49N59","E49N58","E51N54","E41N58","E42N59"];
         myRoomNames = _.shuffle(myRoomNames);
 
