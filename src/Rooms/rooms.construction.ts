@@ -545,6 +545,12 @@ function construction(room) {
             //   array.splice(index, 1);
             // }
 
+            if(spawn) {
+                let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
+                if(spawnlocationlook.length == 1) {
+                    spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
+                }
+            }
 
             if(storage ) {
                 let LabLocations = [];
