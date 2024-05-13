@@ -28,10 +28,10 @@ const run = function (creep) {
 
     }
 
-    if(creep.room.controller && (!creep.room.controller.sign || creep.room.controller.sign.text !== "We did not inherit the earth from our ancestors; we borrowed it from our children") &&
+    if(creep.room.controller && (!creep.room.controller.sign || creep.room.controller.sign.text !== "check out my YT channel - marlyman123") &&
     creep.room.controller.pos.getOpenPositionsIgnoreCreepsCheckStructs().length > 0) {
         if(creep.pos.isNearTo(creep.room.controller)) {
-            creep.signController(creep.room.controller, "We did not inherit the earth from our ancestors; we borrowed it from our children")
+            creep.signController(creep.room.controller, "check out my YT channel - marlyman123")
         }
         else {
             creep.MoveCostMatrixSwampPrio(creep.room.controller, 1);

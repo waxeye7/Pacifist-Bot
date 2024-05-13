@@ -41,7 +41,7 @@ const run = function (creep) {
     if(creep.room.name !== creep.memory.homeRoom && controller && controller.level == 0 && !controller.reservation && buildings.length > 0 && openControllerPositions.length > 0) {
         if(creep.pos.isNearTo(controller)) {
             creep.claimController(controller);
-            creep.signController(creep.room.controller, "We did not inherit the earth from our ancestors; we borrowed it from our children")
+            creep.signController(creep.room.controller, "check out my YT channel - marlyman123")
         }
         else {
             creep.MoveCostMatrixRoadPrio(controller, 1)
