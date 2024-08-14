@@ -21,7 +21,7 @@ const run = function (creep) {
                 return;
             }
         }
-        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+        return creep.moveToRoom(creep.memory.targetRoom);
     }
     else {
         let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);

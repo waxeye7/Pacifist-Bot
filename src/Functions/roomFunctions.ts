@@ -34,31 +34,34 @@ Room.prototype.roomTowersHealMe = function(creep): object | void {
     }
 }
 
-Room.prototype.roomTowersAttackEnemy = function(enemyCreep): object | void {
-    if(enemyCreep) {
-        let towerIDs = this.memory.Structures.towers;
+Room.prototype.roomTowersAttackEnemy = function(enemyCreep) {
+    if (enemyCreep) {
+        let towerIDs = this.memory.Structures.towers || [];
         let towerObjs = [];
-        for(let towerID of towerIDs) {
+        for (let towerID of towerIDs) {
             let towerObj = Game.getObjectById(towerID);
-            if(towerObj) {
+            if (towerObj) {
                 towerObjs.push(towerObj);
             }
         }
-        if(enemyCreep.hits < enemyCreep.hitsMax/1.5) {
-            for(let tower of towerObjs) {
+        if (towerObjs.length === 0) return; // No towers, exit the function
+
+        if (enemyCreep.hits < enemyCreep.hitsMax / 1.5) {
+            for (let tower of towerObjs) {
                 tower.attack(enemyCreep);
             }
         }
-        for(let tower of towerObjs) {
-            if(tower.store[RESOURCE_ENERGY] < 100) return;
+        for (let tower of towerObjs) {
+            if (tower.store[RESOURCE_ENERGY] < 100) return;
         }
-        if(towerObjs.length > 0) {
-            for(let tower of towerObjs) {
+        if (towerObjs.length > 0) {
+            for (let tower of towerObjs) {
                 tower.attack(enemyCreep);
             }
         }
     }
-}
+};
+
 
 Room.prototype.roomTowersRepairTarget = function(target): object | void {
     if(target) {

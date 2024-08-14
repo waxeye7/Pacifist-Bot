@@ -139,10 +139,9 @@ const run = function (creep) {
                         targets.push(Game.getObjectById(rampartid));
                     }
 
-                    if(targets.length > 0) {
-                        targets.sort((a,b) => a.hits - b.hits);
-
-                        creep.repair(targets[0]);
+                    if(targets?.length > 0) {
+                        targets?.sort((a,b) => a.hits - b.hits);
+                        if(targets[0]) creep.repair(targets[0]);
 
                     }
 

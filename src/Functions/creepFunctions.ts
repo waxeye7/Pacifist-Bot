@@ -921,7 +921,7 @@ Creep.prototype.roadlessLocation = function roadlessLocation(repairTarget) {
 
 
 Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | string {
-    if(this.memory.targetRoom && this.memory.homeRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
+    if(this.memory.targetRoom && this.memory.homeRoom && this.memory.targetRoom !== this.memory.homeRoom && Memory.rooms[this.memory.targetRoom] && Memory.rooms[this.memory.targetRoom].roomData && Memory.rooms[this.memory.targetRoom].roomData.has_hostile_creeps) {
         if(this.room.name == this.memory.targetRoom) {
             this.memory.timeOut = 25;
             this.moveToRoom(this.memory.homeRoom);

@@ -664,7 +664,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             upgrade_creep_spend: {
 
-                amount: 1,
+                amount: 3,
                 body:   [WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE,MOVE,MOVE],
 
             },
@@ -1245,7 +1245,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 spawn_energy_miner(resourceData, room, activeRemotes);
                 spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             }
-            if(storage.store[RESOURCE_ENERGY] > 350000 && Game.cpu.bucket > 7000) {
+            if(storage?.store[RESOURCE_ENERGY] > 350000 && Game.cpu.bucket > 7000) {
                 spawnrules[8].repair_creep.amount = 4;
             }
             else if(Game.cpu.bucket < 6000) {
@@ -1306,6 +1306,15 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
 
+            }
+            if(room.energyCapacityAvailable < 2000) {
+                spawnrules[8].build_creep.amount += 5;
+            }
+            else if(room.energyCapacityAvailable < 3000) {
+                spawnrules[8].build_creep.amount += 3;
+            }
+            else if(room.energyCapacityAvailable < 5000) {
+                spawnrules[8].build_creep.amount += 1;
             }
             if(builders < spawnrules[8].build_creep.amount  && sites.length > 0 && (EnergyMinersInRoom > 1 || room.memory.danger) && (storage && storage.store[RESOURCE_ENERGY] > 50000 || !storage)) {
                 let allowSpawn = true;
@@ -1521,7 +1530,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
 
-        if(room.memory.danger_timer > 200 && SpecialRepairers < 1 || rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 4) {
+        if(room.memory.danger_timer > 200 && SpecialRepairers < 1 || rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 4 && room.energyCapacityAvailable >= 4000) {
 
             let newName = 'SpecialRepair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             console.log('Adding SpecialRepair to Spawn List: ' + newName);
@@ -1979,9 +1988,27 @@ function add_creeps_to_spawn_list(room, spawn) {
             //     }
             // });
 
-            if(target_colonise && containerbuilders < 2 && !room.memory.danger && room.controller.level >= 3 && storage && storage.store[RESOURCE_ENERGY] > 10000 && Game.cpu.bucket > 7750 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 1 || Game.rooms[target_colonise].controller.level >= 4 && (!Game.rooms[target_colonise].storage && containerbuilders < 1 || Game.rooms[target_colonise].energyCapacityAvailable <= 500)) && Game.rooms[target_colonise].controller.level >= 1 && Game.rooms[target_colonise].controller.my) {
+            if (
+                target_colonise &&
+                containerbuilders < 2 &&
+                !room.memory.danger &&
+                room.controller.level >= 3 &&
+                storage &&
+                storage.store[RESOURCE_ENERGY] > 10000 &&
+                Game.cpu.bucket > 7750 &&
+                distance_to_target_room <= 7 &&
+                Game.rooms[target_colonise] &&
+                (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 ||
+                Game.rooms[target_colonise].controller.level <= 1 ||
+                (Game.rooms[target_colonise].controller.level >= 4 &&
+                    (!Game.rooms[target_colonise].storage && containerbuilders < 1 ||
+                    Game.rooms[target_colonise].energyCapacityAvailable <= 500)) ||
+                (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 && containerbuilders < 1)) &&
+                Game.rooms[target_colonise].controller.level >= 1 &&
+                Game.rooms[target_colonise].controller.my
+            ) {
                 let newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
+                room.memory.spawn_list.push(getBody([WORK, CARRY, CARRY, CARRY, MOVE], room, 50), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
                 console.log('Adding ContainerBuilder to Spawn List: ' + newName);
             }
 

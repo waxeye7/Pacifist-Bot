@@ -242,11 +242,13 @@ function roomDefence(room) {
             room.memory.danger = true;
 
             let hostilePowerCreeps = room.find(FIND_HOSTILE_POWER_CREEPS);
-            if(hostilePowerCreeps.length) {
-                for(let hostilePowerCreep of hostilePowerCreeps) {
+            if (hostilePowerCreeps.length) {
+                for (let hostilePowerCreep of hostilePowerCreeps) {
                     hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES);
-                    if(hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES).length === 0) {
-                        room.roomTowersAttackEnemy.attack(hostilePowerCreep);
+                    if (hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES).length === 0) {
+                        if (room.memory.Structures.towers && room.memory.Structures.towers.length > 0) {
+                            room.roomTowersAttackEnemy(hostilePowerCreep);
+                        }
                         return;
                     }
                 }

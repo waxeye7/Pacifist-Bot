@@ -151,6 +151,7 @@ function observe(room) {
                   !Game.rooms[adj].controller.my &&
                   Game.rooms[adj].controller.owner?.username !== "An1via" &&
                   Game.rooms[adj].controller.owner?.username !== "Cornered_Hamster" &&
+                  Game.rooms[adj].controller.owner?.username !== "nanachi" &&
                   Game.map.getRoomStatus(adj).status == "normal"
                 ) {
                   let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {
@@ -789,7 +790,7 @@ function observe(room) {
                   }
                   //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
                   else if (
-                    (Game.rooms[adj].controller.level == 6 || Game.rooms[adj].controller.level == 7) &&
+                    (Game.rooms[adj].controller.level == 6 || Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
                     !Game.rooms[adj].controller.safeMode
                   ) {
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);

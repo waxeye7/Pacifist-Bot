@@ -62,16 +62,26 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         creep.memory.building = true;
     }
     if(creep.memory.building) {
-        if(creep.room.controller && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 18000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 27000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 36000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 45000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 54000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 63000)) {
+        if(creep.room.controller && creep.room.controller.level !== 8) {
             if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
                 creep.upgradeController(creep.room.controller);
             }
-            if(creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000) {
+            if(!creep.room.controller.upgradeBlocked && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000)) {
                 creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
                 return;
             }
 
         }
+        // if(creep.room.controller && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 18000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 27000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 36000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 45000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 54000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 63000)) {
+        //     if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
+        //         creep.upgradeController(creep.room.controller);
+        //     }
+        //     if(creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000) {
+        //         creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+        //         return;
+        //     }
+
+        // }
 
         let mySpawns = creep.room.find(FIND_MY_SPAWNS)
         if(Game.time % 25 == 0 && Memory.target_colonise && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0 && creep.room.name === Memory.target_colonise.room) {
