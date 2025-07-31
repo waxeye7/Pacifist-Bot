@@ -994,6 +994,9 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
         let creep_nearby = false;
         let empty_block = false;
         for (let position of positions) {
+            if (!position || position.length !== 3 || typeof position[0] !== 'number' || typeof position[1] !== 'number' || typeof position[2] !== 'string' || position[0] < 0 || position[0] > 49 || position[1] < 0 || position[1] > 49) {
+                continue;
+            }
             let positioninroom = new RoomPosition(position[0], position[1], position[2]);
 
             let lookTerrain = positioninroom.lookFor(LOOK_TERRAIN);
@@ -1021,7 +1024,7 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
     }
 
     let position = findOpenBlocks(this)
-    if(position != false) {
+    if(position !== false && Array.isArray(position) && position.length === 3 && typeof position[0] === 'number' && typeof position[1] === 'number' && typeof position[2] === 'string' && position[0] >= 0 && position[0] <= 49 && position[1] >= 0 && position[1] <= 49) {
         let LocationToMove =  new RoomPosition(position[0], position[1], position[2]);
         this.moveTo(LocationToMove);
         // console.log(this.room.name, "moving away now")
@@ -1287,7 +1290,7 @@ Creep.prototype.recycle = function recycle() {
             if(StructuresObject.storage || this.room.storage) {
                 let storage:any = Game.getObjectById(StructuresObject.storage) || this.room.storage;
                 if(storage) {
-                    let binPos = new RoomPosition(storage.pos.x, storage.pos.y+1, storage.pos.roomName);
+                    let binPos = new RoomPosition(storage.pos.x, storage.pos.y+1, storage.room.name);
                     let lookForBin = binPos.lookFor(LOOK_STRUCTURES);
                     for(let s of lookForBin) {
                         if(s.structureType == STRUCTURE_CONTAINER) {

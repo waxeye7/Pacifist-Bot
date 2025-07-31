@@ -229,7 +229,7 @@ function mosquito_attack() {
           let path: Array<RoomPosition> | null = null;
           let targetMemory = mosquito.memory.target;
           let targetMemoryPosition: RoomPosition | null = null;
-          if (targetMemory)
+          if (targetMemory && typeof targetMemory.x === 'number' && typeof targetMemory.y === 'number' && typeof targetMemory.roomName === 'string' && targetMemory.x >= 0 && targetMemory.x <= 49 && targetMemory.y >= 0 && targetMemory.y <= 49)
             targetMemoryPosition = new RoomPosition(targetMemory.x, targetMemory.y, targetMemory.roomName);
           if (
             <number>mosquito.ticksToLive % 41 === 0 ||
@@ -265,8 +265,10 @@ function mosquito_attack() {
             path = [];
             for (let i = 0; i < mosquito.memory.path.length; i++) {
               let posMemory = mosquito.memory.path[i];
-              let pos = new RoomPosition(posMemory.x, posMemory.y, posMemory.roomName);
-              path.push(pos);
+              if (posMemory && typeof posMemory.x === 'number' && typeof posMemory.y === 'number' && typeof posMemory.roomName === 'string' && posMemory.x >= 0 && posMemory.x <= 49 && posMemory.y >= 0 && posMemory.y <= 49) {
+                let pos = new RoomPosition(posMemory.x, posMemory.y, posMemory.roomName);
+                path.push(pos);
+              }
             }
           }
 
