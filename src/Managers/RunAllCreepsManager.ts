@@ -11,7 +11,12 @@ function RunAllCreepsManager() {
 
 
     let executeCreepScriptsLaterList = [];
-    for(let name in Memory.creeps) {
+    const creepNames = Object.keys(Memory.creeps);
+    for(let name of creepNames) {
+      if(!Game.creeps[name]) {
+        delete Memory.creeps[name];
+        continue;
+      }
       if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ")) {
         executeCreepScriptsLaterList.push(name);
       }

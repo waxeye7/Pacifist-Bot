@@ -37,8 +37,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     let reserveFill = this.room.memory.reserveFill;
 
 
-    if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
-        if(this.room.controller.level < 7) {
+    if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
+        if(this.room.controller && this.room.controller.level < 7) {
             let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 3});
             if(containers.length > 0) {
                 let controllerLink = this.room.controller.pos.findClosestByRange(containers);
@@ -632,7 +632,10 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
                 let timerUntilGone = strongholds[0].effects[0].ticksRemaining;
 
-                if (Memory.AvoidRoomsTemp && typeof Memory.AvoidRoomsTemp[this.room.name] === 'number') {
+                if (!Memory.AvoidRoomsTemp) {
+                    Memory.AvoidRoomsTemp = {};
+                }
+                if (typeof Memory.AvoidRoomsTemp[this.room.name] === 'number') {
                     const roomValue = Memory.AvoidRoomsTemp[this.room.name];
                     if (roomValue === 0) {
                         Memory.AvoidRoomsTemp[this.room.name] = timerUntilGone;
@@ -656,7 +659,7 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
                 if (Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
                 }
-                if ((Memory.AvoidRooms.includes(roomName) || Memory.AvoidRoomsTemp[roomName]) && roomName !== targetRoom) {
+                if ((Memory.AvoidRooms && Memory.AvoidRooms.includes(roomName)) || (Memory.AvoidRoomsTemp && Memory.AvoidRoomsTemp[roomName]) && roomName !== targetRoom) {
                     return 24;
                 }
 
