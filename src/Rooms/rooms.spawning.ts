@@ -1067,7 +1067,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            let rampartsInRoomBelow3Mil = rampartsInRoom.filter(function(s) {return s.hits < 3050000;});
+            let rampartsInRoomBelow3Mil = rampartsInRoom?.filter(function(s) {return s.hits < 3050000;});
             if(repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsInRoomBelow3Mil.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
@@ -1150,7 +1150,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
-                let rampartsInRoomBelow5Mil = rampartsInRoom.filter(function(s) {return s.hits < 4050000;});
+                let rampartsInRoomBelow5Mil = rampartsInRoom?.filter(function(s) {return s.hits < 4050000;});
                 if(rampartsInRoomBelow5Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[7].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
@@ -1218,8 +1218,15 @@ function add_creeps_to_spawn_list(room, spawn) {
         case 8:
             if(EnergyManagers < spawnrules[8].energy_manager_creep.amount && storage) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[8].energy_manager_creep.body, name, {memory: {role: 'EnergyManager'}});
-                console.log('Adding Energy Manager to Spawn List: ' + name);
+                // If room is energy starved, spawn small emergency energy manager
+                if(room.energyAvailable < room.energyCapacityAvailable * 0.5 && room.energyAvailable <= 300) {
+                    room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], name, {memory: {role: 'EnergyManager'}});
+                    console.log('Adding Emergency Energy Manager to Spawn List: ' + name);
+                }
+                else {
+                    room.memory.spawn_list.unshift(spawnrules[8].energy_manager_creep.body, name, {memory: {role: 'EnergyManager'}});
+                    console.log('Adding Energy Manager to Spawn List: ' + name);
+                }
             }
             if((fillers < spawnrules[8].filler_creep.amount || fillers < spawnrules[8].filler_creep.amount + 1 && repairers > 1 ||fillers < spawnrules[8].filler_creep.amount + 2 && repairers > 3 || fillers < spawnrules[8].filler_creep.amount + 1 && repairers > 2 ||  fillers < spawnrules[8].filler_creep.amount + 1 && activeRemotes.length > 2 || fillers < spawnrules[8].filler_creep.amount + 2 && activeRemotes.length > 3) && storage) {
                 let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2224,6 +2231,45 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 function spawnFirstInLine(room, spawn) {
+    // Emergency energy manager check - run this BEFORE checking spawn list
+    let storage = Game.getObjectById(room.memory.Structures.storage);
+    let energyManagers = _.filter(Game.creeps, (creep) => creep.memory.role == 'EnergyManager' && creep.room.name == room.name).length;
+
+    // Check if room is energy starved and has no energy managers
+    if(room.controller.level >= 4 && storage && energyManagers === 0) {
+        console.log(`Room ${room.name} energy: ${room.energyAvailable}/${room.energyCapacityAvailable}, checking for emergency spawn`);
+
+        // Clear the spawn queue if we're in emergency mode
+        if(room.energyAvailable < room.energyCapacityAvailable * 0.5) {
+            if(room.memory.spawn_list.length > 0) {
+                console.log(`Clearing spawn queue in ${room.name} for emergency EnergyManager`);
+                room.memory.spawn_list = [];
+            }
+
+            let name = 'EmergencyEnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+            let body;
+
+            // Ultra small body for extreme emergencies
+            if(room.energyAvailable < 200) {
+                body = [CARRY, CARRY, MOVE]; // 150 energy
+                console.log(`Using ultra small emergency body in ${room.name}, energy: ${room.energyAvailable}`);
+            } else {
+                body = [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE]; // 300 energy
+            }
+
+            let spawnAttempt = spawn.spawnCreep(body, name, {memory: {role: 'EnergyManager'}});
+
+            if(spawnAttempt === 0) {
+                console.log(`SUCCESS: Spawning emergency energy manager in ${room.name}`);
+                room.memory.data.c_spawned++;
+                return "spawning";
+            } else {
+                console.log(`FAILED to spawn emergency energy manager in ${room.name}, error: ${spawnAttempt}`);
+            }
+        }
+    }
+
+    // Normal spawn queue processing
     if(room.memory.spawn_list.length >= 1) {
         let spawnAttempt = spawn.spawnCreep(room.memory.spawn_list[0],room.memory.spawn_list[1], room.memory.spawn_list[2]);
         if(spawnAttempt == 0) {
@@ -2231,7 +2277,7 @@ function spawnFirstInLine(room, spawn) {
             room.memory.spawn_list.shift();
             room.memory.spawn_list.shift();
             room.memory.spawn_list.shift();
-            room.memory.data.c_spawned ++;
+            room.memory.data.c_spawned++;
             return "spawning";
         }
         else {
@@ -2255,6 +2301,7 @@ function spawnFirstInLine(room, spawn) {
                 if((room.memory.spawn_list[0].length >= 4
                 && !room.memory.spawn_list[1].startsWith("Carrier")
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner")
+                && !room.memory.spawn_list[1].startsWith("WallClearer")
 
                 && !room.memory.spawn_list[1].startsWith("SquadCreepA")
                 && !room.memory.spawn_list[1].startsWith("SquadCreepB")
@@ -2282,7 +2329,8 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("PowerMelee"))
 
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
-                || room.memory.spawn_list[1].startsWith("Defender")) {
+                || room.memory.spawn_list[1].startsWith("Defender")
+                || room.memory.spawn_list[1].startsWith("WallClearer")) {
 
                     if(room.memory.spawn_list[1].startsWith("SpecialRe") && room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && room.memory.labs.status.boost.lab1.amount && room.memory.labs.status.boost.lab1.use > 0) {
                         room.memory.labs.status.boost.lab1.use = 0;
@@ -2293,7 +2341,7 @@ function spawnFirstInLine(room, spawn) {
                     room.memory.spawn_list.shift();
                     room.memory.spawn_list.shift();
 
-                    console.log("clearing spawn queue because too high energy cost or is defender")
+                    console.log("clearing spawn queue because too high energy cost or is defender/wallclearer")
 
                 }
                 else if(room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||

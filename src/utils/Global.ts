@@ -152,6 +152,7 @@ declare global {
           spawn_hunting_party: any;
           lock_room: any;
           spawn_mosquito: any;
+          buildRemoteRoads: any;
         }
     }
 }

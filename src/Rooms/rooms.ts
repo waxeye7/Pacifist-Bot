@@ -222,7 +222,7 @@ function rooms() {
       roomDefence(room);
       // console.log('Room Defence Ran in', Game.cpu.getUsed() - defenceTime, 'ms')
 
-      if (room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 9900)) {
+      if (room.controller.level == 8 && (!Memory.CPU.reduce || Game.cpu.bucket >= 8000)) {
         observe(room);
       }
       data(room);
@@ -328,7 +328,7 @@ function rooms() {
   // }
 
   if (Game.time % 500 == 1) {
-    if (Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 5 && Game.cpu.bucket > 9500) {
+    if (Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 10 && Game.cpu.bucket > 9000) {
       let room = Game.rooms[myRooms[Math.floor(Math.random() * myRooms.length)]];
 
       if (room.controller.level >= 2) {

@@ -150,8 +150,8 @@ function observe(room) {
                   (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner) &&
                   !Game.rooms[adj].controller.my &&
                   Game.rooms[adj].controller.owner?.username !== "An1via" &&
-                  Game.rooms[adj].controller.owner?.username !== "Cornered_Hamster" &&
                   Game.rooms[adj].controller.owner?.username !== "nanachi" &&
+                  Game.rooms[adj].controller.owner?.username !== "nekey975" &&
                   Game.map.getRoomStatus(adj).status == "normal"
                 ) {
                   let buildings = Game.rooms[adj].find(FIND_STRUCTURES, {
@@ -423,7 +423,6 @@ function observe(room) {
                         MOVE,
                         MOVE,
                         MOVE,
-                        ATTACK,
                         ATTACK,
                         ATTACK,
                         ATTACK,
@@ -800,10 +799,24 @@ function observe(room) {
                     });
                     if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
                       if (Game.cpu.bucket >= 8000) {
-                        global.SDB(room.name, adj, true);
+                        // At high CPU, randomly choose between all formations
+                        let rand = Math.random();
+                        if (rand < 0.25) {
+                            global.SDB(room.name, adj, true);
+                        } else if (rand < 0.5) {
+                            global.SQR(room.name, adj, true);
+                        } else if (rand < 0.75) {
+                            global.SS(room.name, adj, true);
+                        } else {
+                            global.SQM(room.name, adj, true);
+                        }
                       } else if (Game.cpu.bucket >= 5000) {
-                        //   global.SQR(room.name, adj, true);
-                        global.SDB(room.name, adj, true);
+                        // At lower CPU, randomly choose between lighter formations
+                        if (Math.random() < 0.5) {
+                            global.SDB(room.name, adj, true);
+                        } else {
+                            global.SS(room.name, adj, true);
+                        }
                       }
                     } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
                       global.SGD(room.name, adj, [

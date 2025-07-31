@@ -392,9 +392,47 @@ function rampartPerimeter(tile) {
 
 
 function construction(room) {
+    console.log(`Construction function called for room ${room.name}`);
+
     if(!room.memory.construction) {
         room.memory.construction = {};
+        console.log(`Initialized construction memory for room ${room.name}`);
     }
+
+    if(room.controller.level >= 3 && room.storage) {
+        console.log(`Room ${room.name} meets criteria for rampart calculation`);
+        let storage = room.storage;
+        let rampartLocations = [];
+        for(let i = -10; i <= 10; i++) {
+            for(let o = -10; o <= 10; o++) {
+                let combinedX = storage.pos.x + i;
+                let combinedY = storage.pos.y + o;
+
+                // Ensure combinedX is within the boundaries
+                if (combinedX < 2) combinedX = 2;
+                if (combinedX > 47) combinedX = 47;
+
+                // Ensure combinedY is within the boundaries
+                if (combinedY < 2) combinedY = 2;
+                if (combinedY > 47) combinedY = 47;
+
+                if (Math.abs(i) == 10 || Math.abs(o) == 10) {
+                    rampartLocations.push([combinedX, combinedY]);
+                }
+            }
+        }
+
+        console.log(`Calculated ${rampartLocations.length} rampart locations for room ${room.name}`);
+
+        // Store rampartLocations in memory
+        room.memory.construction.rampartLocations = rampartLocations;
+        console.log(`Stored rampart locations in memory for room ${room.name}`);
+    } else {
+        console.log(`Room ${room.name} does not meet criteria for rampart calculation`);
+    }
+
+    // Log the current state of rampartLocations in memory
+    console.log(`Current rampartLocations in memory for room ${room.name}:`, JSON.stringify(room.memory.construction.rampartLocations));
 
 
     if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
@@ -466,51 +504,35 @@ function construction(room) {
     }
 
 
-    if(room.controller.level >= 3 && storage && myConstructionSites == 0) {
+    if (room.controller.level >= 3 && storage && myConstructionSites == 0) {
 
         let rampartLocations = [];
-        for(let i = -10; i<11; i++) {
-            for(let o = -10; o <11; o++) {
-                if((i==10 || i==-10)) {
-                    let combinedX = storage.pos.x + i;
-                    if(combinedX >= 2 && combinedX <= 47) {
-                        rampartLocations.push([i,o]);
-                    }
-                    else {
-                        if(combinedX == 48) {
-                            rampartLocations.push([i-1,o]);
-                        }
-                        else if(combinedX == 49) {
-                            rampartLocations.push([i-2,o]);
-                        }
-                        else if(combinedX == 1) {
-                            rampartLocations.push([i+1,o]);
-                        }
-                        else if(combinedX == 0) {
-                            rampartLocations.push([i+2,o]);
-                        }
-                    }
+        for (let i = -10; i <= 10; i++) {
+            for (let o = -10; o <= 10; o++) {
+                let combinedX = storage.pos.x + i;
+                let combinedY = storage.pos.y + o;
 
-                }
-                else if((o==10 || o==-10)) {
-                    let combinedY = storage.pos.y + o;
-                    if(combinedY >= 2 && combinedY <= 47) {
-                        rampartLocations.push([i,o]);
-                    }
-                    else {
-                        if(combinedY == 48) {
-                            rampartLocations.push([i,o-1]);
-                        }
-                        else if(combinedY == 49) {
-                            rampartLocations.push([i,o-2]);
-                        }
-                        else if(combinedY == 1) {
-                            rampartLocations.push([i,o+1]);
-                        }
-                        else if(combinedY == 0) {
-                            rampartLocations.push([i,o+2]);
-                        }
-                    }
+                // Ensure combinedX is within the boundaries
+                if (combinedX < 2) combinedX = 2;
+                if (combinedX > 47) combinedX = 47;
+
+                // Ensure combinedY is within the boundaries
+                if (combinedY < 2) combinedY = 2;
+                if (combinedY > 47) combinedY = 47;
+
+                if (Math.abs(i) == 10 || Math.abs(o) == 10) {
+                    // Adjust to ensure they remain as close to 10 away as possible within bounds
+                    let adjustedX = storage.pos.x + (i < 0 ? -10 : 10);
+                    let adjustedY = storage.pos.y + (o < 0 ? -10 : 10);
+
+                    // Ensure the adjusted positions are within bounds
+                    if (adjustedX < 2) adjustedX = 2;
+                    if (adjustedX > 47) adjustedX = 47;
+
+                    if (adjustedY < 2) adjustedY = 2;
+                    if (adjustedY > 47) adjustedY = 47;
+
+                    rampartLocations.push([adjustedX, adjustedY]);
                 }
             }
         }
@@ -519,6 +541,7 @@ function construction(room) {
         let filteredStorageRampartNeighbors = storageRampartNeighbors.filter(position => position.x > 0 && position.x < 49 && position.y > 0 && position.y < 49);
         pathBuilder(filteredStorageRampartNeighbors, STRUCTURE_RAMPART, room, false);
     }
+
 
 
 
@@ -1098,7 +1121,7 @@ function construction(room) {
 
         if(room.controller.level >= 5) {
             let sources = room.find(FIND_SOURCES);
-
+            if(sources.length > 0) {
             sources.forEach(source => {
                 let sourceLinks = source.pos.findInRange(links, 2);
                 if(sourceLinks.length == 0) {
@@ -1110,7 +1133,8 @@ function construction(room) {
                         link.pos.createConstructionSite(STRUCTURE_RAMPART);
                     }
                 }
-            });
+            }
+        )};
         }
 
         if(room.controller.level >= 6) {
@@ -1882,29 +1906,59 @@ const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix =
 
 
 function Build_Remote_Roads(room) {
+    console.log(`Building remote roads for room ${room.name}`);
     if(room.memory.danger) {
+        console.log(`Room ${room.name} is in danger, skipping road building`);
         return;
     }
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+    if (!storage) {
+        console.log(`No storage found in room ${room.name}`);
+        return;
+    }
 
     let resourceData = _.get(room.memory, ['resources']);
-    _.forEach(resourceData, function(data, targetRoomName){
-        _.forEach(data.energy, function(values, sourceId:any) {
-            if(room.name === targetRoomName) {
-                let source:any = Game.getObjectById(sourceId);
-                if(source != null && storage) {
-                    let pathFromStorageToRemoteSource = PathFinder.search(storage.pos, {pos:source.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName)});
-                    let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
-                    values.pathLength = pathFromStorageToRemoteSource.path.length;
-                    if(containerSpot && containerSpot.roomName) {
-                        Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
-                        pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
-                    }
-                }
-            }
-        });
-    });
+    console.log(`Resource data for room ${room.name}:`, JSON.stringify(resourceData));
 
+    _.forEach(resourceData, function(data, targetRoomName){
+        // We want to build roads to remote rooms, not the current room
+        if(room.name !== targetRoomName) {
+            _.forEach(data.energy, function(values, sourceId:any) {
+                let source:any = Game.getObjectById(sourceId);
+                // Check if we have visibility of the source
+                if(source != null && storage) {
+                    let pathFromStorageToRemoteSource = PathFinder.search(
+                        storage.pos,
+                        {pos:source.pos, range:1},
+                        {
+                            plainCost: 1,
+                            swampCost: 3,
+                            roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName),
+                            maxRooms: 16  // Allow cross-room pathing
+                        }
+                    );
+
+                    if(!pathFromStorageToRemoteSource.incomplete) {
+                        let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
+                        values.pathLength = pathFromStorageToRemoteSource.path.length;
+
+                        if(containerSpot && Game.rooms[containerSpot.roomName]) {
+                            console.log(`Creating container construction site at (${containerSpot.x}, ${containerSpot.y}) in room ${containerSpot.roomName}`);
+                            Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
+                            console.log(`Building road from storage to remote source in room ${targetRoomName}`);
+                            pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
+                        } else {
+                            console.log(`No visibility in container room ${containerSpot?.roomName}`);
+                        }
+                    } else {
+                        console.log(`Could not find path to remote source in ${targetRoomName}`);
+                    }
+                } else {
+                    console.log(`No visibility of source ${sourceId} in room ${targetRoomName}`);
+                }
+            });
+        }
+    });
 }
 
 function Situational_Building(room) {

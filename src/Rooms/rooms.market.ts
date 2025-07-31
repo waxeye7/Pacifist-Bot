@@ -230,7 +230,7 @@ function market(room):any {
 
                     for(let resource of BaseResources) {
                         if(room.terminal.store[resource] < 7000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 12.5);
+                            let result = buy_resource(resource, 50);
                             if(result == 0) {
                                 return;
                             }
@@ -240,7 +240,7 @@ function market(room):any {
 
                     for(let resource of BaseResources) {
                         if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 30);
+                            let result = buy_resource(resource, 100);
                             if(result == 0) {
                                 return;
                             }
@@ -249,7 +249,7 @@ function market(room):any {
 
                     for(let resource of BaseResources) {
                         if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 100);
+                            let result = buy_resource(resource, 500);
                             if(result == 0) {
                                 return;
                             }

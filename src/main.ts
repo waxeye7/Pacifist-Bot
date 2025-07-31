@@ -85,6 +85,7 @@ import mosquito from "Roles/mosquito";
 
 import mosquito_attack from "Misc/mosquito_attack";
 import mosquito_manager from "Misc/mosquito_manager";
+import { Build_Remote_Roads } from "Rooms/rooms.construction";
 
 global.ROLES = {
   Solomon: roleSolomon,
@@ -180,5 +181,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
 
   CPUmanager(tickTotal);
-
+  global.buildRemoteRoads = function(roomName) {
+    Build_Remote_Roads(Game.rooms[roomName]);
+  };
 });
