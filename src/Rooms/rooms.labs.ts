@@ -11,7 +11,8 @@ function labs(room) {
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
 
 
-            let inputLab1Position = new RoomPosition(storage?.pos.x - 4, storage?.pos.y + 1, room.name);
+            if(!storage || storage.pos.x < 4 || storage.pos.y > 48) return;
+            let inputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name);
             let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
             if(lookForInputLab1Position.length > 0) {
                 for(let building of lookForInputLab1Position) {

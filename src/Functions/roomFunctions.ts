@@ -112,6 +112,8 @@ Room.prototype.findStorageLink = function(): object | void {
     let links = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
     if(links.length > 0) {
         let storage = Game.getObjectById(this.memory.Structures.storage) || this.findStorage();
+        if(!storage) return;
+        if(storage.pos.x < 2) return; // Would go out of bounds
         let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.name);
         let lookStructuresHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
         if(lookStructuresHere.length > 0) {
@@ -159,7 +161,7 @@ Room.prototype.findSpawn = function() {
 
 Room.prototype.findStorageContainer = function(): object | void {
     let spawn:any = Game.getObjectById(this.memory.Structures.spawn);
-    if(spawn) {
+    if(spawn && spawn.pos.y >= 2) {
         let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.name);
         let storagePositionStructures = storagePosition.lookFor(LOOK_STRUCTURES);
         if(storagePositionStructures.length > 0) {
@@ -209,7 +211,7 @@ Room.prototype.findMineral = function() {
 }
 
 Room.prototype.findBin = function(storage): object | void {
-    if(storage) {
+    if(storage && storage.pos.y < 49) {
         let binPosition = new RoomPosition(storage.pos.x, storage.pos.y + 1, this.name);
         let binPositionStructures = binPosition.lookFor(LOOK_STRUCTURES);
         if(binPositionStructures.length > 0) {

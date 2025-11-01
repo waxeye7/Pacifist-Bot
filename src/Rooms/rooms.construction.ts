@@ -580,16 +580,21 @@ function construction(room) {
 
                 let first_location_good = true;
                 let testLabLocations = [];
-                testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 3, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
-                testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y, room.name));
+                // Check if storage is far enough from edges
+                if(storage.pos.x >= 5 && storage.pos.y <= 46) {
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 3, storage.pos.y + 3, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name));
+                    testLabLocations.push(new RoomPosition(storage.pos.x - 5, storage.pos.y, room.name));
+                } else {
+                    first_location_good = false;
+                }
                 for(let location of testLabLocations) {
                     let lookForWall = location.lookFor(LOOK_TERRAIN);
                     if(lookForWall.length > 0) {

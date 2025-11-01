@@ -1819,6 +1819,13 @@ global.SRD = function (roomName, targetRoomName) {
 }
 
 global.SC = function (targetRoomName, x, y) {
+    if(typeof targetRoomName !== 'string' || typeof x !== 'number' || typeof y !== 'number' || 
+       x < 0 || x > 49 || y < 0 || y > 49) {
+        return "Invalid parameters: x and y must be numbers between 0-49, targetRoomName must be a string";
+    }
+    if(!Memory.target_colonise) {
+        Memory.target_colonise = {};
+    }
     Memory.target_colonise.room = targetRoomName;
     Memory.target_colonise.spawn_pos = new RoomPosition(x, y, targetRoomName);
     Memory.target_colonise.lastSpawnRanger = 1501;

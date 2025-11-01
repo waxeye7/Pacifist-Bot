@@ -501,7 +501,7 @@ Creep.prototype.findStorage = function() {
     }
     else if(this.room.controller && this.room.controller.level < 4 && this.room.controller.level != 0) {
         let spawn:any = Game.getObjectById(this.memory.spawn) || this.findSpawn();
-        if(spawn) {
+        if(spawn && spawn.pos.y >= 2) {
             let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.room.name);
             let storagePositionStructures = storagePosition.lookFor(LOOK_STRUCTURES);
             if(storagePositionStructures.length > 0) {
@@ -527,7 +527,7 @@ Creep.prototype.findClosestLink = function() {
 
 Creep.prototype.findClosestLinkToStorage = function():any {
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    if(storage) {
+    if(storage && storage.pos.x >= 2) {
         let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.room.name);
         let lookForBuildingsOnStorageLinkPosition = storageLinkPosition.lookFor(LOOK_STRUCTURES);
         if(lookForBuildingsOnStorageLinkPosition.length > 0) {
@@ -713,8 +713,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
         if(!exit) {
             exit = this.pos.findClosestByRange(this.memory.route[0].exit);
         }
-        if(exit) {
-            position = new RoomPosition(exit.x, exit.y, exit.roomName)
+        if(exit && typeof exit.x === 'number' && typeof exit.y === 'number') {
+            // Exit coordinates should be in current room, not exit.roomName which might be undefined
+            position = new RoomPosition(exit.x, exit.y, this.room.name);
         }
         console.log(position);
         // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
@@ -985,14 +986,19 @@ Creep.prototype.fleeHomeIfInDanger = function fleeHomeIfInDanger(): void | strin
 Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
     function findOpenBlocks(creep) {
         let positions = []
-        positions.push([creep.pos.x -1, creep.pos.y -1, creep.room.name]);
-        positions.push([creep.pos.x -1, creep.pos.y, creep.room.name]);
-        positions.push([creep.pos.x -1, creep.pos.y +1, creep.room.name]);
-        positions.push([creep.pos.x, creep.pos.y -1, creep.room.name]);
-        positions.push([creep.pos.x, creep.pos.y +1, creep.room.name]);
-        positions.push([creep.pos.x +1, creep.pos.y -1, creep.room.name]);
-        positions.push([creep.pos.x +1, creep.pos.y, creep.room.name]);
-        positions.push([creep.pos.x +1, creep.pos.y +1, creep.room.name]);
+        // Check bounds before adding positions
+        if(creep.pos.x > 0) {
+            if(creep.pos.y > 0) positions.push([creep.pos.x -1, creep.pos.y -1, creep.room.name]);
+            positions.push([creep.pos.x -1, creep.pos.y, creep.room.name]);
+            if(creep.pos.y < 49) positions.push([creep.pos.x -1, creep.pos.y +1, creep.room.name]);
+        }
+        if(creep.pos.y > 0) positions.push([creep.pos.x, creep.pos.y -1, creep.room.name]);
+        if(creep.pos.y < 49) positions.push([creep.pos.x, creep.pos.y +1, creep.room.name]);
+        if(creep.pos.x < 49) {
+            if(creep.pos.y > 0) positions.push([creep.pos.x +1, creep.pos.y -1, creep.room.name]);
+            positions.push([creep.pos.x +1, creep.pos.y, creep.room.name]);
+            if(creep.pos.y < 49) positions.push([creep.pos.x +1, creep.pos.y +1, creep.room.name]);
+        }
 
         let creep_nearby = false;
         let empty_block = false;
