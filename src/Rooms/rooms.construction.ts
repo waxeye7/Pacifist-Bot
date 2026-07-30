@@ -1,3 +1,5 @@
+import { getBasePlan, placeFromBasePlan } from "utils/BasePlan";
+
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
 function vizCircle(roomName: string, x: number, y: number, style: any) {
     if (!Memory.verbose) return;
@@ -409,6 +411,18 @@ function construction(room) {
     if(!room.memory.construction) {
         room.memory.construction = {};
         console.log(`Initialized construction memory for room ${room.name}`);
+    }
+
+    // Dynamic hub plan (cached). Places storage/container/extensions/towers from scored hub.
+    // Legacy stamp logic below still runs for roads-to-sources / ramparts / links until fully migrated.
+    if (room.controller && room.controller.my && !room.memory.danger) {
+        getBasePlan(room);
+        placeFromBasePlan(room, 5);
+        // Hub visual when verbose
+        if (Memory.verbose && room.memory.basePlan && room.memory.basePlan.hub) {
+            const h = room.memory.basePlan.hub;
+            vizCircle(room.name, h.x, h.y, { fill: "transparent", radius: 0.55, stroke: "#00ff88", strokeWidth: 0.15 });
+        }
     }
 
     // Clear stray road sites along exits / remote corridors until base is mature

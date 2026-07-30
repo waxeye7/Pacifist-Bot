@@ -84,6 +84,8 @@ declare global {
         spawn_list: Array<Array<string> | string | object>;
         /** Local speedrun markers (active, rcl) — see utils/Speedrun.ts */
         speedrun?: { active?: boolean; rcl?: number; [key: string]: any };
+        /** Dynamic layout cache — see utils/BasePlan.ts */
+        basePlan?: any;
         roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;

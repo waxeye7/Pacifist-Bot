@@ -12,8 +12,28 @@ import {
 } from "utils/Bench";
 import { getFeatures } from "utils/Features";
 import { resetSpeedrun, speedrunStatus } from "utils/Speedrun";
+import { replanRoom, getBasePlan } from "utils/BasePlan";
 
 const g = global as any;
+
+/** Force dynamic base replan: replanBase("E2S7") */
+g.replanBase = function (roomName: string): string {
+  const msg = replanRoom(roomName);
+  logAlways(msg);
+  return msg;
+};
+
+/** Show cached hub: basePlan("E2S7") */
+g.basePlan = function (roomName: string) {
+  const room = Game.rooms[roomName];
+  if (!room) {
+    logAlways(`no vision ${roomName}`);
+    return null;
+  }
+  const plan = getBasePlan(room);
+  logAlways(plan ? JSON.stringify({ hub: plan.hub, score: plan.score, version: plan.version }) : "no plan");
+  return plan;
+};
 
 /** Console: setVerbose(true|false) — default silent for shard3 */
 global.setVerbose = function (on: boolean = true): string {
