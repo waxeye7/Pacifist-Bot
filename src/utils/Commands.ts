@@ -10,12 +10,64 @@ import {
   clearBench,
   getOpts,
 } from "utils/Bench";
+import { getFeatures } from "utils/Features";
+import { resetSpeedrun, speedrunStatus } from "utils/Speedrun";
+
+const g = global as any;
 
 /** Console: setVerbose(true|false) — default silent for shard3 */
 global.setVerbose = function (on: boolean = true): string {
   const msg = setVerbose(on);
   logAlways(msg);
   return msg;
+};
+
+// --- Feature flags: power OFF + tick speedrun (game ticks, not wall-clock) ---
+
+/** Console: speedrunStatus() — RCL tick times */
+g.speedrunStatus = function (): string {
+  return speedrunStatus();
+};
+
+/** Console: resetSpeedrun("E5S1"?) — zero timers after room reset / respawn */
+g.resetSpeedrun = function (roomName?: string): string {
+  return resetSpeedrun(roomName);
+};
+
+g.enableSpeedrun = function (): string {
+  getFeatures().speedrun = true;
+  const msg = "speedrun ON (ticks-to-RCL tracking + early remotes off)";
+  logAlways(msg);
+  return msg;
+};
+
+g.disableSpeedrun = function (): string {
+  getFeatures().speedrun = false;
+  const msg = "speedrun OFF";
+  logAlways(msg);
+  return msg;
+};
+
+/** Power stays OFF by default — never enable power mode (enemy PC exposure) */
+g.disablePower = function (): string {
+  getFeatures().disablePower = true;
+  const msg = "disablePower ON — no PC managers, processPower, or power-mode enable";
+  logAlways(msg);
+  return msg;
+};
+
+/** Opt-in only if you accept enemy power creep attacks */
+g.enablePower = function (): string {
+  getFeatures().disablePower = false;
+  const msg = "disablePower OFF — power systems may run (exposes rooms to enemy PCs)";
+  logAlways(msg);
+  return msg;
+};
+
+g.features = function () {
+  const f = getFeatures();
+  logAlways(JSON.stringify(f));
+  return f;
 };
 
 /** Console: cpuStatus() — limit, bucket, remotes policy (always prints) */
@@ -28,8 +80,6 @@ global.cpuStatus = function (): string {
 global.cpuPolicy = function () {
   return getCpuPolicy();
 };
-
-const g = global as any;
 
 /** A/B profiles: setProfile("optimized"|"baseline") */
 g.setProfile = function (name: "optimized" | "baseline"): string {

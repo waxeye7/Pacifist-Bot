@@ -18,6 +18,15 @@ declare global {
       verbose?: boolean;
       /** A/B bench: setProfile / reportCpu / benchAuto — see utils/Bench.ts */
       bench?: any;
+      /** Feature flags: disablePower (default true), speedrun (default true) */
+      features?: { disablePower?: boolean; speedrun?: boolean; [key: string]: any };
+      /** Tick-based RCL speedrun scoreboard — see utils/Speedrun.ts */
+      speedrun?: {
+        startTick: number;
+        rclTimes: { [level: number]: number };
+        lastRcl: number;
+        roomName?: string;
+      };
       AvoidRooms: any;
       AvoidRoomsTemp: { [key: string]: number };
       billtong_rooms: any;
@@ -73,6 +82,8 @@ declare global {
     interface RoomMemory {
         safeGuard:number;
         spawn_list: Array<Array<string> | string | object>;
+        /** Local speedrun markers (active, rcl) — see utils/Speedrun.ts */
+        speedrun?: { active?: boolean; rcl?: number; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;

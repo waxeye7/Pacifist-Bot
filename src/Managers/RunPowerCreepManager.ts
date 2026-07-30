@@ -1,4 +1,9 @@
+import { powerDisabled } from "utils/Features";
+
 function RunPowerCreepManager() {
+if (powerDisabled()) {
+    return;
+}
 
 for(let name in Game.powerCreeps) {
     if(name.startsWith("efficient")) {

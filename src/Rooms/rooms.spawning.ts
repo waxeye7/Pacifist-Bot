@@ -835,8 +835,12 @@ function add_creeps_to_spawn_list(room, spawn) {
     const roomResources = room.memory.resources || {};
     let roomsToRemote = Object.keys(roomResources);
     let activeRemotes = [];
-    // Home room always counts; real remotes only when RCL is ready (stops border pile-ups early game)
-    const remotesAllowed = room.controller && room.controller.level >= 4;
+    // Home room always counts. Remotes: not during low-RCL speedrun; else RCL>=4 only.
+    const speedrun = Memory.features && Memory.features.speedrun;
+    const remotesAllowed =
+        room.controller &&
+        room.controller.level >= 4 &&
+        !speedrun;
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);
@@ -844,7 +848,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if (remotesAllowed) {
                 activeRemotes.push(remoteRoom);
             } else {
-                // force off until RCL4+
+                // force off until RCL4+ and not mid-speedrun
                 roomResources[remoteRoom].active = false;
             }
         }

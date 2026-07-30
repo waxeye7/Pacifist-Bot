@@ -10,6 +10,8 @@ import remotes from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
 import { getCpuPolicy } from "utils/CpuPolicy";
+import { powerDisabled, speedrunEnabled } from "utils/Features";
+import { applySpeedrunSpawnHints } from "utils/Speedrun";
 
 function rooms() {
   /* */
@@ -211,7 +213,12 @@ function rooms() {
         Memory.billtong_rooms = [];
       }
 
-      powerSpawning(room);
+      if (!powerDisabled()) {
+        powerSpawning(room);
+      }
+      if (speedrunEnabled()) {
+        applySpeedrunSpawnHints(room);
+      }
       spawning(room);
 
       if (Game.time % 500 === 0 && room.memory.ram_coming) {

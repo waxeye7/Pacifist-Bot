@@ -1,4 +1,10 @@
+import { powerDisabled } from "utils/Features";
+
 function powerSpawning(room) {
+// Hard off: no PC create/spawn/processPower (avoids enabling power-mode exposure)
+if (powerDisabled()) {
+    return;
+}
 if(room.controller.level == 8) {
 
     if(Game.time % 5000 == 0 && !Game.powerCreeps["efficient-" + room.name] && room.storage && room.terminal && room.memory.Structures.powerSpawn && Game.getObjectById(room.memory.Structures.powerSpawn) && room.find(FIND_MY_SPAWNS).length) {

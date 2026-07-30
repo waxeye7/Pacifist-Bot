@@ -5,7 +5,9 @@ import global from "./utils/Global";
 import { installLogger } from "utils/Logger";
 import { RoomCache } from "utils/RoomCache";
 import { getCpuPolicy } from "utils/CpuPolicy";
-import { getOpts, recordTick, setProfile } from "utils/Bench";
+import { getOpts, recordTick } from "utils/Bench";
+import { powerDisabled, getFeatures } from "utils/Features";
+import { trackRoomRcl } from "utils/Speedrun";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -173,7 +175,18 @@ export const loop = ErrorMapper.wrapLoop(() => {
 
   rooms();
 
-  PowerCreepManager();
+  // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
+  if (!powerDisabled()) {
+    PowerCreepManager();
+  }
+
+  // RCL tick scoreboard (game ticks, not wall-clock)
+  if (getFeatures().speedrun) {
+    for (const name in Game.rooms) {
+      const room = Game.rooms[name];
+      if (room.controller && room.controller.my) trackRoomRcl(room);
+    }
+  }
 
   RunAllCreepsManager();
 

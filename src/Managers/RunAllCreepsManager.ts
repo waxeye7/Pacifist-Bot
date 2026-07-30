@@ -1,13 +1,16 @@
 import QuadSquadRunManager from "./QuadSquadRunManager";
 import RunCreepManager from "./RunCreepManager";
 import RunPowerCreepManager from "./RunPowerCreepManager";
+import { powerDisabled } from "utils/Features";
 
 function RunAllCreepsManager() {
 
     const start = Game.cpu.getUsed()
 
 
-    RunPowerCreepManager();
+    if (!powerDisabled()) {
+        RunPowerCreepManager();
+    }
 
 
     let executeCreepScriptsLaterList = [];

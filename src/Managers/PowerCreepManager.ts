@@ -1,4 +1,9 @@
+import { powerDisabled } from "utils/Features";
+
 function PowerCreepManager() {
+if (powerDisabled()) {
+    return;
+}
 if(Game.time % 5000 == 1) {
 
     let myGpl = Game.gpl.level;
