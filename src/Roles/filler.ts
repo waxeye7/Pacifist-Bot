@@ -88,7 +88,21 @@ const run = function (creep) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
             storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
         }
-        if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
+
+        // Salvage free floor energy first (ruins / tombs / drops) even if storage has energy
+        const freeLoot =
+            creep.room.find(FIND_DROPPED_RESOURCES, {
+                filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= MaxStorage,
+            }).length +
+            creep.room.find(FIND_TOMBSTONES, {
+                filter: (t) => t.store[RESOURCE_ENERGY] >= MaxStorage,
+            }).length +
+            creep.room.find(FIND_RUINS, {
+                filter: (r) => r.store[RESOURCE_ENERGY] >= MaxStorage,
+            }).length;
+        if (freeLoot > 0 && !creep.room.memory.danger) {
+            creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+        } else if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
                 let result = creep.withdraw(bin, RESOURCE_ENERGY);
                 if(result == 0) {

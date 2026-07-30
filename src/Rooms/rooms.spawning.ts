@@ -2125,12 +2125,31 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    // next to add
-    let droppedPLUStombs = (room.find(FIND_DROPPED_RESOURCES).length + room.find(FIND_TOMBSTONES, {filter: tombstone => tombstone.store[RESOURCE_ENERGY] > 0}).length + 1);
-    if(room.controller.level >= 4 && storage && !room.memory.danger && room.memory.danger_timer == 0 && sweepers < Math.floor(droppedPLUStombs/3)) {
-        let newName = 'Sweeper-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'sweeper'}});
-        console.log('Adding Sweeper to Spawn List: ' + newName);
+    // Sweep floor loot (drops / tombs / ruins from dead creeps & destroyed structures)
+    const looseLootCount =
+        room.find(FIND_DROPPED_RESOURCES, { filter: (r) => r.amount >= 50 }).length +
+        room.find(FIND_TOMBSTONES, { filter: (t) => _.sum(t.store) > 0 }).length +
+        room.find(FIND_RUINS, { filter: (r) => _.sum(r.store) > 0 }).length;
+    // RCL1–3: one small sweeper if there's real loot; RCL4+: scale with storage
+    const wantSweepers =
+        looseLootCount === 0
+            ? 0
+            : room.controller.level < 4
+              ? 1
+              : Math.max(1, Math.floor((looseLootCount + 1) / 3));
+    if (
+        wantSweepers > 0 &&
+        sweepers < wantSweepers &&
+        !room.memory.danger &&
+        (room.memory.danger_timer == null || room.memory.danger_timer === 0)
+    ) {
+        const body =
+            room.controller.level < 4
+                ? [CARRY, CARRY, MOVE]
+                : [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE];
+        const newName = "Sweeper-" + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push(body, newName, { memory: { role: "sweeper" } });
+        console.log("Adding Sweeper to Spawn List: " + newName);
     }
 
     if(room.controller.level >= 4 && room.energyAvailable >= 1050 && (!room.memory.danger || room.controller.safeMode && room.controller.safeMode > 0) && room.controller.safeModeAvailable <= 1 && SafeModers < 1 && storage && storage.store[RESOURCE_GHODIUM] >= 1000) {

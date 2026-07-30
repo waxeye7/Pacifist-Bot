@@ -961,89 +961,88 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 
 // try here to make ignore creeps on home path but not ignore creeps on the way there because then can stay on road when full energy for best movement but it could be risky hm
 
+/**
+ * Grab free energy from floor / ruins / tombstones / containers.
+ * Used by carry, filler, upgrader, builder, etc. — including home room.
+ */
 Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquireEnergyWithContainersAndOrDroppedEnergy() {
-    // let Containers = this.room.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > this.store.getFreeCapacity()});
+    const free = this.store.getFreeCapacity();
+    if (free <= 0) return;
 
-    let room = this.room;
-    let container;
+    const room = this.room;
+    if (!room.memory.Structures) room.memory.Structures = {};
 
-    if(!this.room.memory.Structures) {
-        this.room.memory.Structures = {};
-    }
-    let spawn:any = Game.getObjectById(this.memory.spawn);
-    container = Game.getObjectById(this.room.memory.Structures.container) || room.findContainers(this.store.getFreeCapacity());
+    const go = (target: any) => {
+        if (this.memory.role === "carry") this.MoveCostMatrixSwampPrio(target, 1);
+        else this.MoveCostMatrixRoadPrio(target, 1);
+    };
 
-    if(container && this.pos.isNearTo(container)) {
-        this.withdraw(container, RESOURCE_ENERGY);
-    }
-    else if(!container) {
-        container = room.findContainers(this.store.getFreeCapacity());
-    }
-    let dropped_resources
-    if(spawn) {
-        dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i.pos) < 8 && i.amount > this.store.getFreeCapacity() + this.pos.findPathTo(i.pos).length + 1 && i.resourceType == RESOURCE_ENERGY && !i.pos.isNearTo(spawn)});
-    }
-    else {
-        dropped_resources = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => this.pos.getRangeTo(i.pos) < 8 && i.amount > this.store.getFreeCapacity() + this.pos.findPathTo(i.pos).length + 1 && i.resourceType == RESOURCE_ENERGY});
-    }
+    // 1) Adjacent salvage first (instant tick)
+    const adjDrop = this.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
+        filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount > 0,
+    });
+    if (adjDrop.length) return this.pickup(adjDrop[0]);
 
-    if(dropped_resources.length > 0) {
-        let closestDroppedEnergy = this.pos.findClosestByRange(dropped_resources);
-        if(this.pos.isNearTo(closestDroppedEnergy)) {
-            let result = this.pickup(closestDroppedEnergy, RESOURCE_ENERGY);
-            return result;
-        }
-        else {
-            if(this.memory.role == "carry") {
-                this.MoveCostMatrixSwampPrio(closestDroppedEnergy, 1)
-            }
-            else {
-                this.MoveCostMatrixRoadPrio(closestDroppedEnergy, 1)
-            }
-        }
+    const adjRuin = this.pos.findInRange(FIND_RUINS, 1, {
+        filter: (r) => r.store[RESOURCE_ENERGY] > 0,
+    });
+    if (adjRuin.length) return this.withdraw(adjRuin[0], RESOURCE_ENERGY);
 
+    const adjTomb = this.pos.findInRange(FIND_TOMBSTONES, 1, {
+        filter: (t) => t.store[RESOURCE_ENERGY] > 0,
+    });
+    if (adjTomb.length) return this.withdraw(adjTomb[0], RESOURCE_ENERGY);
+
+    // 2) Room salvage: ruins → tombstones → drops (any meaningful pile)
+    //    Old filter required amount > freeCapacity + pathLen which often skipped real loot.
+    const ruins = room.find(FIND_RUINS, { filter: (r) => r.store[RESOURCE_ENERGY] > 0 });
+    if (ruins.length) {
+        ruins.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+        const target = this.pos.findClosestByRange(ruins) || ruins[0];
+        if (this.pos.isNearTo(target)) return this.withdraw(target, RESOURCE_ENERGY);
+        go(target);
         return;
     }
 
-
-    if(container) {
-        if(container.store[RESOURCE_ENERGY] <= this.store.getFreeCapacity()) {
-            container = room.findContainers(this.store.getFreeCapacity());
-        }
-    }
-
-    if(container) {
-        if(this.pos.isNearTo(container)) {
-            let result = this.withdraw(container, RESOURCE_ENERGY);
-            return result;
-        }
-        else {
-            if(this.memory.role == "carry") {
-                this.MoveCostMatrixSwampPrio(container, 1)
-            }
-            else {
-                this.MoveCostMatrixRoadPrio(container, 1)
-            }
-        }
+    const tombs = room.find(FIND_TOMBSTONES, { filter: (t) => t.store[RESOURCE_ENERGY] > 0 });
+    if (tombs.length) {
+        tombs.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+        const target = this.pos.findClosestByRange(tombs) || tombs[0];
+        if (this.pos.isNearTo(target)) return this.withdraw(target, RESOURCE_ENERGY);
+        go(target);
         return;
     }
 
-    let dropped_resources_last_chance = this.room.find(FIND_DROPPED_RESOURCES, {filter: (i) => i.resourceType == RESOURCE_ENERGY});
+    // Nearby drops first (range 12, amount worth walking), then any pile
+    let drops = room.find(FIND_DROPPED_RESOURCES, {
+        filter: (r) =>
+            r.resourceType === RESOURCE_ENERGY &&
+            r.amount >= 25 &&
+            this.pos.getRangeTo(r) <= 12,
+    });
+    if (!drops.length) {
+        drops = room.find(FIND_DROPPED_RESOURCES, {
+            filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount > 0,
+        });
+    }
+    if (drops.length) {
+        drops.sort((a, b) => b.amount - a.amount);
+        const target = this.pos.findClosestByRange(drops) || drops[0];
+        if (this.pos.isNearTo(target)) return this.pickup(target);
+        go(target);
+        return;
+    }
 
-    if(dropped_resources_last_chance.length > 0) {
-        dropped_resources_last_chance.sort((a,b) => b.amount - a.amount);
-        if(this.pos.isNearTo(dropped_resources_last_chance[0])) {
-            let result = this.pickup(dropped_resources_last_chance[0], RESOURCE_ENERGY);
-            return result;
-        }
-        else {
-            if(this.memory.role == "carry") {
-                this.MoveCostMatrixSwampPrio(dropped_resources_last_chance[0], 1)
-            }
-            else {
-                this.MoveCostMatrixRoadPrio(dropped_resources_last_chance[0], 1);
-            }
-        }
+    // 3) Containers
+    let container: any =
+        Game.getObjectById(room.memory.Structures.container) ||
+        room.findContainers(free);
+    if (container && container.store[RESOURCE_ENERGY] <= 0) {
+        container = room.findContainers(1);
+    }
+    if (container && container.store[RESOURCE_ENERGY] > 0) {
+        if (this.pos.isNearTo(container)) return this.withdraw(container, RESOURCE_ENERGY);
+        go(container);
         return;
     }
 }
@@ -1234,60 +1233,95 @@ Creep.prototype.moveAwayIfNeedTo = function moveAwayIfNeedTo() {
 }
 
 Creep.prototype.Sweep = function Sweep() {
-    if(!this.memory.lockedDropped || Game.getObjectById(this.memory.lockedDropped) == null) {
-        let sources=  this.room.find(FIND_SOURCES);
-        if(!sources.length) return "nothing to sweep";
+    if (!this.memory.lockedDropped || Game.getObjectById(this.memory.lockedDropped) == null) {
+        const sources = this.room.find(FIND_SOURCES);
+        if (!sources.length) return "nothing to sweep";
+
+        // Drops: at low RCL ignore miner-side piles (miners drop by source on purpose)
         let droppedResources = this.room.find(FIND_DROPPED_RESOURCES);
-        if(this.room.controller && this.room.controller.level <= 3) droppedResources = droppedResources.filter(function(resource) {return resource.pos.getRangeTo(resource.pos.findClosestByRange(sources)) > 1;});
-        let droppedResourcesTombstones = this.room.find(FIND_TOMBSTONES, {filter: tombstone => _.keys(tombstone.store).length > 0});
-
-        let droppedResourcesNearby;
-        let droppedResourcesTombstonesNearby;
-
-        if(droppedResources.length > 0) {
-            droppedResourcesNearby = droppedResources.filter(function(resource) {return resource.pos.getRangeTo(this) < 6;});
-        }
-        if(droppedResourcesTombstones.length > 0) {
-            droppedResourcesTombstonesNearby = droppedResourcesTombstones.filter(function(tomb) {return tomb.pos.getRangeTo(this) < 6;});
+        if (this.room.controller && this.room.controller.level <= 3) {
+            droppedResources = droppedResources.filter((resource) => {
+                const src = resource.pos.findClosestByRange(sources);
+                return !src || resource.pos.getRangeTo(src) > 1;
+            });
         }
 
-        if(droppedResources.length == 0 && droppedResourcesTombstones.length == 0) {
+        const tombs = this.room.find(FIND_TOMBSTONES, {
+            filter: (t) => _.sum(t.store) > 0,
+        });
+        const ruins = this.room.find(FIND_RUINS, {
+            filter: (r) => _.sum(r.store) > 0,
+        });
+
+        if (!droppedResources.length && !tombs.length && !ruins.length) {
             return "nothing to sweep";
         }
 
-        if(droppedResourcesNearby && droppedResourcesNearby.length > 0) {
-            droppedResourcesNearby.sort((a,b) => a.amount - b.amount);
-            this.memory.lockedDropped = droppedResourcesNearby[0].id;
-        }
-        else if(droppedResourcesTombstonesNearby && droppedResourcesTombstonesNearby.length > 0) {
-            droppedResourcesTombstonesNearby.sort((a,b) => a.amount - b.amount);
-            this.memory.lockedDropped = droppedResourcesTombstonesNearby[0].id;
-        }
-        else if(droppedResources.length > 0) {
-            droppedResources.sort((a,b) => a.amount - b.amount);
+        // Prefer nearby, then largest loot piles (including ruins from destroyed structures)
+        const nearDrops = droppedResources.filter((r) => this.pos.getRangeTo(r) < 8);
+        const nearTombs = tombs.filter((t) => this.pos.getRangeTo(t) < 8);
+        const nearRuins = ruins.filter((r) => this.pos.getRangeTo(r) < 8);
+
+        if (nearRuins.length) {
+            nearRuins.sort((a, b) => _.sum(b.store) - _.sum(a.store));
+            this.memory.lockedDropped = nearRuins[0].id;
+        } else if (nearTombs.length) {
+            nearTombs.sort((a, b) => _.sum(b.store) - _.sum(a.store));
+            this.memory.lockedDropped = nearTombs[0].id;
+        } else if (nearDrops.length) {
+            nearDrops.sort((a, b) => b.amount - a.amount);
+            this.memory.lockedDropped = nearDrops[0].id;
+        } else if (ruins.length) {
+            ruins.sort((a, b) => _.sum(b.store) - _.sum(a.store));
+            this.memory.lockedDropped = ruins[0].id;
+        } else if (tombs.length) {
+            tombs.sort((a, b) => _.sum(b.store) - _.sum(a.store));
+            this.memory.lockedDropped = tombs[0].id;
+        } else {
+            droppedResources.sort((a, b) => b.amount - a.amount);
             this.memory.lockedDropped = droppedResources[0].id;
         }
-        else if(droppedResourcesTombstones.length > 0) {
-            droppedResourcesTombstones = droppedResourcesTombstones.reverse();
-            this.memory.lockedDropped = droppedResourcesTombstones[0].id;
+    }
+
+    const target: any = Game.getObjectById(this.memory.lockedDropped);
+    if (!target) {
+        this.memory.lockedDropped = false;
+        return "nothing to sweep";
+    }
+
+    // Dropped resource
+    if (target.amount != null && target.resourceType) {
+        const res = this.pickup(target);
+        if (res === OK) return "picked up";
+        if (res === ERR_NOT_IN_RANGE) {
+            this.MoveCostMatrixSwampPrio(target, 1);
+            return false;
         }
+        this.memory.lockedDropped = false;
+        return false;
     }
 
-    let target = Game.getObjectById(this.memory.lockedDropped);
+    // Ruin / tombstone — withdraw any resource (prefer energy)
+    if (target.store) {
+        const resType =
+            target.store[RESOURCE_ENERGY] > 0
+                ? RESOURCE_ENERGY
+                : (Object.keys(target.store)[0] as ResourceConstant);
+        if (!resType) {
+            this.memory.lockedDropped = false;
+            return "nothing to sweep";
+        }
+        const res = this.withdraw(target, resType);
+        if (res === OK) return "picked up";
+        if (res === ERR_NOT_IN_RANGE) {
+            this.MoveCostMatrixSwampPrio(target, 1);
+            return false;
+        }
+        this.memory.lockedDropped = false;
+        return false;
+    }
 
-    if(this.pickup(target) == 0) {
-        return "picked up";
-    }
-    else if(this.pickup(target) == ERR_NOT_IN_RANGE) {
-        this.moveTo(target, {reusePath:25, ignoreRoads:true, swampCost:1});
-    }
-    else if(this.withdraw(target, RESOURCE_ENERGY) == 0) {
-        return "picked up";
-    }
-    else if(this.withdraw(target, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
-        this.MoveCostMatrixSwampPrio(target, 1)
-    }
-
+    this.memory.lockedDropped = false;
     return false;
 }
 
