@@ -16,6 +16,9 @@ function CPUmanager(tickTotal) {
       }
 
     Memory.CPU.hundredTickAvg.data.push(tickTotal)
+    Memory.CPU.lastTick = tickTotal;
+    Memory.CPU.limit = Game.cpu.limit;
+    Memory.CPU.bucket = Game.cpu.bucket;
 
     if(Game.time % 100 == 0) {
         let total = 0;
@@ -23,10 +26,11 @@ function CPUmanager(tickTotal) {
         for(let num of Memory.CPU.hundredTickAvg.data) {
           total += Number(num);
         }
-        let average = (total / lengthOfHundredArray).toFixed(2);
+        // keep numeric avg (was string via toFixed — broke remote comparisons)
+        let average = lengthOfHundredArray ? total / lengthOfHundredArray : 0;
 
         Memory.CPU.hundredTickAvg.avg = average;
-        console.log("hundred tick average is " + average)
+        console.log("hundred tick average is " + average.toFixed(2))
         Memory.CPU.hundredTickAvg.data = [];
 
 
@@ -38,18 +42,19 @@ function CPUmanager(tickTotal) {
           for(let num of Memory.CPU.fiveHundredTickAvg.data) {
             total += Number(num);
           }
-          let average = (total / lengthOfFiveHundredArray).toFixed(2);
+          let average = lengthOfFiveHundredArray ? total / lengthOfFiveHundredArray : 0;
 
           Memory.CPU.fiveHundredTickAvg.avg = average;
-          console.log("five hundred tick average is " + average)
+          console.log("five hundred tick average is " + average.toFixed(2))
           Memory.CPU.fiveHundredTickAvg.data = [];
 
         }
     }
 
 
-    if(Game.time % 5 == 0) {
-      console.log("my bucket:", Game.cpu.bucket)
+    // was every 5 ticks — only when verbose
+    if(Game.time % 50 == 0) {
+      console.log("my bucket:", Game.cpu.bucket, "limit:", Game.cpu.limit)
     }
 }
 

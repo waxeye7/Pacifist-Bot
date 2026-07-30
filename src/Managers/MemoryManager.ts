@@ -11,6 +11,10 @@ function MemoryManager() {
         Memory.keepAfloat = [];
       }
 
+      // default silent logs (shard3). Toggle: setVerbose(true) / Memory.verbose = true
+      if (Memory.verbose === undefined) {
+        Memory.verbose = false;
+      }
 
 }
 

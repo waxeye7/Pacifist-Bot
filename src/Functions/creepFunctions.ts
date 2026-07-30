@@ -30,7 +30,21 @@ interface Creep {
     moveToSafePositionToRepairRampart:any;
     MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch:any;
     MoveToSourceSafely:any;
+    /** Unified movement — prefer this over bare moveTo */
+    goTo: (target: any, opts?: GoToOpts) => ScreepsReturnCode | void;
 }
+
+interface GoToOpts {
+    range?: number;
+    /** "road" | "swamp" | "ignoreRoads" | "avoidHostiles" */
+    style?: "road" | "swamp" | "ignoreRoads" | "avoidHostiles";
+    ignoreRoads?: boolean;
+    swampCost?: number;
+    reusePath?: number;
+    /** if target room differs, use multi-room travel */
+    maxRooms?: number;
+}
+
 // CREEP PROTOTYPES
 Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
@@ -585,8 +599,121 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
     }
 }
 
+/** Native moveTo — captured before we replace it */
+const _nativeMoveTo: any = Creep.prototype.moveTo;
+
+function asMoveTarget(target: any, dest: RoomPosition): any {
+    if (target && target.pos && target.id) return target;
+    if (target && target.pos) return target;
+    return { pos: dest, id: "p" + dest.roomName + ":" + dest.x + "," + dest.y };
+}
+
+/**
+ * Single movement API for Pacifist.
+ * Same room → PathFinder + cached cost matrices.
+ * Other room → native multi-room (long reusePath) for now.
+ *
+ * Styles: road (default), swamp, ignoreRoads, avoidHostiles
+ */
+Creep.prototype.goTo = function goTo(target: any, opts: GoToOpts = {}) {
+    if (this.fatigue > 0) return ERR_TIRED;
+    if (target == null) return ERR_INVALID_TARGET;
+
+    const range = opts.range != null ? opts.range : 1;
+    let style: GoToOpts["style"] = opts.style;
+    if (!style) {
+        if (opts.ignoreRoads || (opts.swampCost != null && opts.swampCost <= 2)) style = "ignoreRoads";
+        else if (opts.swampCost != null && opts.swampCost <= 3) style = "swamp";
+        else style = "road";
+    }
+    if (this.memory.fleeing || (this.room.memory && this.room.memory.danger)) {
+        style = "avoidHostiles";
+    }
+
+    let dest: RoomPosition;
+    if (target instanceof RoomPosition) {
+        dest = target;
+    } else if (target.pos) {
+        dest = target.pos;
+    } else if (typeof target.x === "number" && typeof target.y === "number" && target.roomName) {
+        dest = new RoomPosition(target.x, target.y, target.roomName);
+    } else {
+        return ERR_INVALID_TARGET;
+    }
+
+    if (this.pos.roomName === dest.roomName && this.pos.getRangeTo(dest) <= range) {
+        return OK;
+    }
+
+    // multi-room fallback (never visualize — paths-to-edge spam + CPU)
+    if (dest.roomName !== this.pos.roomName) {
+        return _nativeMoveTo.call(this, dest, {
+            range,
+            reusePath: opts.reusePath != null ? opts.reusePath : 80,
+            ignoreRoads: style === "ignoreRoads",
+            swampCost: style === "swamp" || style === "ignoreRoads" ? 2 : 5,
+            maxRooms: opts.maxRooms != null ? opts.maxRooms : 16,
+            // intentionally omit visualizePathStyle
+        });
+    }
+
+    const mt = asMoveTarget(target, dest);
+    if (style === "swamp") {
+        this.MoveCostMatrixSwampPrio(mt, range);
+    } else if (style === "ignoreRoads") {
+        this.MoveCostMatrixIgnoreRoads(mt, range);
+    } else if (style === "avoidHostiles") {
+        this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(mt, range);
+    } else {
+        this.MoveCostMatrixRoadPrio(mt, range);
+    }
+    return OK;
+};
+
+/**
+ * Soft-replace moveTo → goTo when Memory.bench.opts.goTo (optimized).
+ * baseline profile restores native moveTo behavior.
+ */
+(Creep.prototype as any).moveTo = function (first: any, second?: any, third?: any) {
+    const useGoTo = !(Memory.bench && Memory.bench.opts && Memory.bench.opts.goTo === false);
+    // strip path visuals always (blue exit lines / white combat paths)
+    if (typeof first === "number" && typeof second === "number" && third && third.visualizePathStyle) {
+        delete third.visualizePathStyle;
+    } else if (second && second.visualizePathStyle) {
+        delete second.visualizePathStyle;
+    }
+    if (!useGoTo) {
+        return _nativeMoveTo.apply(this, arguments as any);
+    }
+    if (typeof first === "number" && typeof second === "number") {
+        const opts = third || {};
+        const pos = this.room.getPositionAt(first, second);
+        if (!pos) return ERR_INVALID_TARGET;
+        this.goTo(pos, {
+            range: opts.range != null ? opts.range : 0,
+            ignoreRoads: opts.ignoreRoads,
+            swampCost: opts.swampCost,
+            reusePath: opts.reusePath,
+        });
+        return OK;
+    }
+    const opts = second || {};
+    this.goTo(first, {
+        range: opts.range != null ? opts.range : 1,
+        ignoreRoads: opts.ignoreRoads,
+        swampCost: opts.swampCost,
+        reusePath: opts.reusePath,
+    });
+    return OK;
+};
+
 Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, travelTarget_y = 25, ignoreRoadsBool = false, swampCostValue = 5, rangeValue = 20) {
-    this.moveTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {range:rangeValue, reusePath:200, ignoreRoads: ignoreRoadsBool, swampCost: swampCostValue});
+    this.goTo(new RoomPosition(travelTarget_x, travelTarget_y, roomName), {
+        range: rangeValue,
+        reusePath: 80,
+        ignoreRoads: ignoreRoadsBool,
+        swampCost: swampCostValue,
+    });
 }
 
 Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
@@ -693,10 +820,20 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
         });
     }
         if(this.memory.route && this.memory.route != 2 && this.memory.route.length > 0) {
-        // console.log('Now heading to room '+route[0].room, "and I'm in" ,this.room.name, "and I'm a", this.memory.role);
         let exit;
         let position;
 
+        // Stuck on border pile-up: re-pick exit if we haven't moved
+        if (this.memory._exitStuckPos === this.pos.x + "," + this.pos.y) {
+            this.memory._exitStuck = (this.memory._exitStuck || 0) + 1;
+        } else {
+            this.memory._exitStuck = 0;
+            this.memory._exitStuckPos = this.pos.x + "," + this.pos.y;
+        }
+        if (this.memory._exitStuck >= 5) {
+            delete this.memory.exit;
+            this.memory._exitStuck = 0;
+        }
 
         if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
             const routeData = this.memory.route[0];
@@ -704,23 +841,63 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
             const exitPositions = this.room.find(routeData.exit);
             const exitsWithoutWalls = exitPositions.filter(position => {
               const structuresAtExit = position.lookFor(LOOK_STRUCTURES);
+              const creepsHere = position.lookFor(LOOK_CREEPS);
+              // skip blocked by walls; prefer emptier tiles later
               return !structuresAtExit.some(structure => structure.structureType === STRUCTURE_WALL);
             });
 
-            this.memory.exit = this.pos.findClosestByPath(exitsWithoutWalls, {ignoreCreeps:true});
+            if (exitsWithoutWalls.length > 0) {
+                // Spread creeps across exit tiles (was: all findClosestByPath + ignoreCreeps → border line)
+                const hash = this.name.split("").reduce((a, c) => a + c.charCodeAt(0), 0);
+                // score: prefer closer, prefer fewer creeps on tile, slight hash offset for diversity
+                let best = null;
+                let bestScore = Infinity;
+                for (let i = 0; i < exitsWithoutWalls.length; i++) {
+                    const p = exitsWithoutWalls[i];
+                    const crowd = p.lookFor(LOOK_CREEPS).length;
+                    const dist = this.pos.getRangeTo(p);
+                    // path cost without ignoreCreeps so occupied exits look worse
+                    const path = this.pos.findPathTo(p, { ignoreCreeps: false, maxOps: 500 });
+                    const pathLen = path && path.length ? path.length : dist + 20;
+                    const score = pathLen * 3 + crowd * 15 + ((i + hash) % 3);
+                    if (score < bestScore) {
+                        bestScore = score;
+                        best = p;
+                    }
+                }
+                this.memory.exit = best || exitsWithoutWalls[hash % exitsWithoutWalls.length];
+            }
         }
         exit = this.memory.exit;
         if(!exit) {
             exit = this.pos.findClosestByRange(this.memory.route[0].exit);
         }
         if(exit && typeof exit.x === 'number' && typeof exit.y === 'number') {
-            // Exit coordinates should be in current room, not exit.roomName which might be undefined
             position = new RoomPosition(exit.x, exit.y, this.room.name);
         }
-        console.log(position);
-        // exit = this.pos.findClosestByRange(this.memory.route[0].exit);
+        if (!position) {
+            delete this.memory.exit;
+            return;
+        }
 
-        this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(position, 0);
+        // If someone is already on the exit tile and it isn't us, don't all stand on the border —
+        // path to a free adjacent approach or wait one tile back.
+        const onExit = position.lookFor(LOOK_CREEPS);
+        const blockedByOther = onExit.some((c) => c.id !== this.id);
+        if (blockedByOther && this.pos.getRangeTo(position) <= 1) {
+            // re-roll exit next tick
+            delete this.memory.exit;
+            // step aside along the border if possible
+            const open = this.pos.getOpenPositions ? this.pos.getOpenPositions() : [];
+            if (open && open.length) {
+                this.move(this.pos.getDirectionTo(open[0]));
+            }
+            return;
+        }
+
+        // range 0 only when adjacent; otherwise range 1 reduces queueing on the exit pixel
+        const range = this.pos.getRangeTo(position) <= 1 ? 0 : 1;
+        this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(position, range);
 
         return;
     }
@@ -730,6 +907,18 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
 
 Creep.prototype.harvestEnergy = function harvestEnergy() {
+    if (
+        this.memory.targetRoom &&
+        this.memory.homeRoom &&
+        this.memory.targetRoom !== this.memory.homeRoom
+    ) {
+        const home = Game.rooms[this.memory.homeRoom];
+        if (home && home.controller && home.controller.my && home.controller.level < 4) {
+            this.memory.targetRoom = this.memory.homeRoom;
+            delete this.memory.exit;
+            delete this.memory.route;
+        }
+    }
     if(this.memory.targetRoom && this.memory.targetRoom !== this.room.name) {
         return this.moveToRoomAvoidEnemyRooms(this.memory.targetRoom)
     }
@@ -1667,6 +1856,32 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
         return false;
     }
 
+    // Rebuild once per tick per room (was: full terrain loop every pathfind — huge CPU)
+    const cacheKey = "roadPrio";
+    const useMatrixCache = !(Memory.bench && Memory.bench.opts && Memory.bench.opts.matrixCache === false);
+    if (useMatrixCache && room.cache && room.cache.tick === Game.time && room.cache.costMatrices[cacheKey]) {
+        // clone not needed if we only set dynamic creep costs on a copy — PathFinder may mutate? docs say don't reuse if mutated. We only read after build; creeps change each call so bake creeps into matrix each search is correct...
+        // Cache BASE terrain+structures once; overlay my creeps cheaply on a clone.
+        const base = room.cache.costMatrices[cacheKey];
+        const costs = base.clone();
+        const myCreepsNotSpawning = (room.cache.myCreeps || room.find(FIND_MY_CREEPS)).filter((c) => !c.spawning);
+        myCreepsNotSpawning.forEach(function(creep) {
+            if(creep.memory.role == "upgrader" && creep.memory.upgrading && creep.room.controller && creep.pos.getRangeTo(creep.room.controller) <= 3) {
+                costs.set(creep.pos.x, creep.pos.y, 61);
+            }
+            else if(role !== "EnergyMiner" && creep.memory.role == "EnergyMiner") {
+                costs.set(creep.pos.x, creep.pos.y, 12);
+            }
+            else if(creep.memory.role == "filler" || creep.memory.role == "EnergyManager" || creep.memory.moving) {
+                // leave default
+            }
+            else {
+                costs.set(creep.pos.x, creep.pos.y, 7);
+            }
+        });
+        return costs;
+    }
+
     let costs = new PathFinder.CostMatrix;
 
     const terrain = new Room.Terrain(roomName);
@@ -1688,14 +1903,14 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
         }
     }
 
-    room.find(FIND_HOSTILE_CREEPS).forEach(function(creep) {
+    (room.cache && room.cache.hostileCreeps ? room.cache.hostileCreeps : room.find(FIND_HOSTILE_CREEPS)).forEach(function(creep) {
         costs.set(creep.pos.x, creep.pos.y, 255);
     });
 
 
 
 
-    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
+    _.forEach((room.cache && room.cache.structures) ? room.cache.structures : room.find(FIND_STRUCTURES), function(struct:any) {
         if(struct.structureType == STRUCTURE_ROAD) {
             costs.set(struct.pos.x, struct.pos.y, 3);
         }
@@ -1715,6 +1930,11 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
             costs.set(site.pos.x, site.pos.y, 255);
         }
     });
+
+    // store base (terrain+structures+hostiles) without my-creep overlay
+    if (useMatrixCache && room.cache && room.cache.tick === Game.time) {
+        room.cache.costMatrices[cacheKey] = costs.clone();
+    }
 
     let myCreepsNotSpawning = room.find(FIND_MY_CREEPS, {filter: (c) => {return (!c.spawning);}});
     myCreepsNotSpawning.forEach(function(creep) {

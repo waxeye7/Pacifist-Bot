@@ -9,6 +9,7 @@ import data from "./rooms.data";
 import remotes from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
+import { getCpuPolicy } from "utils/CpuPolicy";
 
 function rooms() {
   /* */
@@ -263,8 +264,11 @@ function rooms() {
         });
       }
       let bucket = Game.cpu.bucket;
+      // Low RCL: build more often so extensions/containers aren't stuck waiting 1000 ticks.
+      // High RCL keeps the old expensive cadence.
+      const constructionInterval = room.controller.level < 4 ? 100 : 1000;
       if (
-        (Game.time % 1000 == 0 && bucket > 3500) ||
+        (Game.time % constructionInterval == 0 && bucket > 3500) ||
         room.memory.data.DOB == 2 ||
         room.memory.data.DOGug == 2
       ) {
@@ -273,7 +277,13 @@ function rooms() {
         console.log("BASE Construction Ran in", Game.cpu.getUsed() - start, "ms");
       }
 
-      if (Game.time % 2000 == 0 && bucket > 3500 && room.controller.level >= 3) {
+      // Remote roads paint site-lines to exits — only when RCL is ready + remotes allowed
+      if (
+        Game.time % 2000 == 0 &&
+        bucket > 5000 &&
+        room.controller.level >= 4 &&
+        getCpuPolicy().allowRemotes
+      ) {
         const start = Game.cpu.getUsed();
         Build_Remote_Roads(room);
         console.log("REMOTE Construction Ran in", Game.cpu.getUsed() - start, "ms");
@@ -328,29 +338,40 @@ function rooms() {
   // }
 
   if (Game.time % 500 == 1) {
-    if (Memory.CPU.fiveHundredTickAvg.avg < Game.cpu.limit - 10 && Game.cpu.bucket > 9000) {
+    const policy = getCpuPolicy();
+    const avg = Number(Memory.CPU && Memory.CPU.fiveHundredTickAvg && Memory.CPU.fiveHundredTickAvg.avg) || 0;
+
+    if (policy.allowRemotes && avg < Game.cpu.limit - (policy.limit <= 30 ? 4 : 10) && Game.cpu.bucket > (policy.limit <= 30 ? 5000 : 9000)) {
       let room = Game.rooms[myRooms[Math.floor(Math.random() * myRooms.length)]];
 
-      if (room.controller.level >= 2) {
-        for (let remoteRoom of Object.keys(room.memory.resources)) {
-          if (remoteRoom !== room.name) {
-            if (Object.keys(room.memory.resources[remoteRoom]).length == 0) {
-              let newName = "Scout-" + "-" + room.name;
-              room.memory.spawn_list.push([MOVE], newName, {
-                memory: { role: "scout", homeRoom: room.name, targetRoom: remoteRoom }
-              });
-              console.log("Adding Scout to Spawn List: " + newName);
-              break;
-            } else if (!room.memory.resources[remoteRoom].active) {
-              room.memory.resources[remoteRoom].active = true;
-              break;
+      if (room && room.controller && room.controller.level >= 2 && room.memory.resources) {
+        // count active remotes vs policy.maxRemotes
+        let activeCount = 0;
+        for (const rn of Object.keys(room.memory.resources)) {
+          if (rn !== room.name && room.memory.resources[rn] && room.memory.resources[rn].active) activeCount++;
+        }
+        if (activeCount < policy.maxRemotes) {
+          for (let remoteRoom of Object.keys(room.memory.resources)) {
+            if (remoteRoom !== room.name) {
+              if (Object.keys(room.memory.resources[remoteRoom]).length == 0) {
+                let newName = "Scout-" + "-" + room.name;
+                room.memory.spawn_list.push([MOVE], newName, {
+                  memory: { role: "scout", homeRoom: room.name, targetRoom: remoteRoom }
+                });
+                console.log("Adding Scout to Spawn List: " + newName);
+                break;
+              } else if (!room.memory.resources[remoteRoom].active) {
+                room.memory.resources[remoteRoom].active = true;
+                break;
+              }
             }
           }
         }
       }
-    } else if (Memory.CPU.fiveHundredTickAvg.avg > Game.cpu.limit - 3) {
+    } else if (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3)) {
       for (let roomName of myRooms) {
         let room = Game.rooms[roomName];
+        if (!room || !room.memory.resources) continue;
         let remoteRooms = Object.keys(room.memory.resources);
         if (remoteRooms.length > 1) {
           remoteRooms = remoteRooms.filter(function (remoteRoom) {

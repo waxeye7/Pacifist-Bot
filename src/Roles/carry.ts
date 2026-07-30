@@ -199,6 +199,19 @@ function findLocked(creep) {
     }
 
     if(!creep.memory.full) {
+        // Early RCL: don't leave home for remotes (causes exit traffic jams)
+        if (
+            creep.memory.targetRoom &&
+            creep.memory.homeRoom &&
+            creep.memory.targetRoom !== creep.memory.homeRoom
+        ) {
+            const home = Game.rooms[creep.memory.homeRoom];
+            if (home && home.controller && home.controller.my && home.controller.level < 4) {
+                creep.memory.targetRoom = creep.memory.homeRoom;
+                delete creep.memory.exit;
+                delete creep.memory.route;
+            }
+        }
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }

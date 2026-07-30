@@ -2,6 +2,10 @@ import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
 import global from "./utils/Global";
+import { installLogger } from "utils/Logger";
+import { RoomCache } from "utils/RoomCache";
+import { getCpuPolicy } from "utils/CpuPolicy";
+import { getOpts, recordTick, setProfile } from "utils/Bench";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -150,38 +154,47 @@ global.ROLES = {
 };
 
 export const loop = ErrorMapper.wrapLoop(() => {
-
+  // Silent by default — Memory.verbose = true to re-enable console spam
+  installLogger();
 
   const startTotal = Game.cpu.getUsed();
+  // ensureBench (via getOpts) boots A/B on version bump
+  const opts = getOpts();
 
-  memHack.run()
+  memHack.run();
 
   MemoryManager();
+  if (opts.roomCache) {
+    RoomCache.tick();
+  }
+
+  const policy = getCpuPolicy();
+  global._cpuPolicy = policy;
 
   rooms();
 
   PowerCreepManager();
 
-
-
   RunAllCreepsManager();
 
-  mosquito_attack();
-  mosquito_manager();
+  // Combat kits / ops only when budget allows (or baseline = always run for fair compare)
+  if (!opts.expensiveGate || policy.allowExpensive) {
+    mosquito_attack();
+    mosquito_manager();
+  }
 
   ExecuteCommandsInNTicks();
 
   decrementTempBadRooms();
 
-  // TerrainDataExporter();
-  // console.log(JSON.stringify(Memory.roomStatuses))
+  const tickCpu = Game.cpu.getUsed() - startTotal;
+  recordTick(tickCpu);
 
-  let tickTotal = (Game.cpu.getUsed() - startTotal).toFixed(2);
-  console.log(tickTotal + "ms", "on this tick");
-
+  let tickTotal = tickCpu.toFixed(2);
+  console.log(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
 
   CPUmanager(tickTotal);
-  global.buildRemoteRoads = function(roomName) {
+  global.buildRemoteRoads = function (roomName) {
     Build_Remote_Roads(Game.rooms[roomName]);
   };
 });

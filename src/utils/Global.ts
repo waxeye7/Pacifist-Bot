@@ -14,6 +14,10 @@ declare global {
     }
     interface Memory {
       CPU: any;
+      /** false = silent console (default). true = full spam. Console: setVerbose(true) */
+      verbose?: boolean;
+      /** A/B bench: setProfile / reportCpu / benchAuto — see utils/Bench.ts */
+      bench?: any;
       AvoidRooms: any;
       AvoidRoomsTemp: { [key: string]: number };
       billtong_rooms: any;
@@ -36,6 +40,17 @@ declare global {
       lastProcessedCoord: { x: number; y: number; };
       roomStatuses: any;
     }
+
+    // console helpers (see utils/Commands.ts, Logger, CpuPolicy)
+    // setVerbose / cpuStatus / cpuPolicy attached on global
+    // eslint-disable-next-line no-var
+    var setVerbose: (on?: boolean) => string;
+    // eslint-disable-next-line no-var
+    var cpuStatus: () => string;
+    // eslint-disable-next-line no-var
+    var cpuPolicy: () => any;
+    // eslint-disable-next-line no-var
+    var _cpuPolicy: any;
 
     interface billtong_rooms {
         billtong_rooms:Array<string>;

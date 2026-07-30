@@ -26,6 +26,7 @@ function RunAllCreepsManager() {
     }
 
     QuadSquadRunManager(executeCreepScriptsLaterList);
+    // gated by Memory.verbose via Logger
     console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');
 
 }

@@ -1,4 +1,81 @@
 import urgent_buy from "Random_Stuff/urgent_buy";
+import { setVerbose, logAlways } from "utils/Logger";
+import { cpuStatusString, getCpuPolicy } from "utils/CpuPolicy";
+import {
+  setProfile,
+  toggleOpt,
+  setOpt,
+  benchAuto,
+  reportCpu,
+  clearBench,
+  getOpts,
+} from "utils/Bench";
+
+/** Console: setVerbose(true|false) — default silent for shard3 */
+global.setVerbose = function (on: boolean = true): string {
+  const msg = setVerbose(on);
+  logAlways(msg);
+  return msg;
+};
+
+/** Console: cpuStatus() — limit, bucket, remotes policy (always prints) */
+global.cpuStatus = function (): string {
+  const s = cpuStatusString();
+  logAlways(s);
+  return s;
+};
+
+global.cpuPolicy = function () {
+  return getCpuPolicy();
+};
+
+const g = global as any;
+
+/** A/B profiles: setProfile("optimized"|"baseline") */
+g.setProfile = function (name: "optimized" | "baseline"): string {
+  const msg = setProfile(name);
+  logAlways(msg);
+  return msg;
+};
+
+g.toggleOpt = function (name: string): string {
+  const msg = toggleOpt(name as any);
+  logAlways(msg);
+  return msg;
+};
+
+g.setOpt = function (name: string, value: boolean): string {
+  const msg = setOpt(name as any, value);
+  logAlways(msg);
+  return msg;
+};
+
+/** Flip optimized/baseline every N ticks and accumulate stats */
+g.benchAuto = function (on: boolean = true, period: number = 100): string {
+  const msg = benchAuto(on, period);
+  logAlways(msg);
+  return msg;
+};
+
+/** Print proof averages */
+g.reportCpu = function (): string {
+  const msg = reportCpu();
+  logAlways(msg);
+  return msg;
+};
+
+g.clearBench = function (): string {
+  const msg = clearBench();
+  logAlways(msg);
+  return msg;
+};
+
+g.opts = function () {
+  const o = getOpts();
+  logAlways(JSON.stringify(o));
+  return o;
+};
+
 global.spawn_mosquito = function (homeRoom: string, roomName: string): boolean {
   if (Game.cpu.bucket < 1500) return false;
   if (homeRoom) {

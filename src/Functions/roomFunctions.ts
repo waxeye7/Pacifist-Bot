@@ -161,8 +161,14 @@ Room.prototype.findSpawn = function() {
 
 Room.prototype.findStorageContainer = function(): object | void {
     let spawn:any = Game.getObjectById(this.memory.Structures.spawn);
-    if(spawn && spawn.pos.y >= 2) {
-        let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, this.name);
+    if(!spawn) return;
+    // Match construction hub offsets (legacy spawn.y-2 first, then fallbacks).
+    const offsets = [[0, -2], [0, 2], [-2, 0], [2, 0], [-1, -2], [1, -2], [-2, -1], [2, -1]];
+    for (let i = 0; i < offsets.length; i++) {
+        const x = spawn.pos.x + offsets[i][0];
+        const y = spawn.pos.y + offsets[i][1];
+        if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+        let storagePosition = new RoomPosition(x, y, this.name);
         let storagePositionStructures = storagePosition.lookFor(LOOK_STRUCTURES);
         if(storagePositionStructures.length > 0) {
             for(let building of storagePositionStructures) {

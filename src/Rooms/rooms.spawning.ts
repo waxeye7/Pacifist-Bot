@@ -780,6 +780,10 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
     }
 
+    if(!room.memory.defence) {
+        room.memory.defence = {nuke: false, evacuate: false};
+    }
+
     if(room.memory.defence.nuke) {
         let nukes = room.find(FIND_NUKES);
         if(nukes.length > 0) {
@@ -828,11 +832,21 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    let roomsToRemote = Object.keys(room.memory.resources);
+    const roomResources = room.memory.resources || {};
+    let roomsToRemote = Object.keys(roomResources);
     let activeRemotes = [];
+    // Home room always counts; real remotes only when RCL is ready (stops border pile-ups early game)
+    const remotesAllowed = room.controller && room.controller.level >= 4;
     for(let remoteRoom of roomsToRemote) {
-        if(remoteRoom == room.name || room.memory.resources[remoteRoom].active) {
+        if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);
+        } else if(roomResources[remoteRoom]?.active) {
+            if (remotesAllowed) {
+                activeRemotes.push(remoteRoom);
+            } else {
+                // force off until RCL4+
+                roomResources[remoteRoom].active = false;
+            }
         }
     }
     let constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES)
