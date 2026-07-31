@@ -11,6 +11,27 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export const V2_ROOT = __dirname;
 export const OUT_V2 = path.join(__dirname, "..", "out-v2");
 
+/**
+ * TERRAIN CODES ARE BITMASKS, NOT AN ENUM.
+ *
+ * The room terrain string stores one digit per tile: bit0 = wall, bit1 =
+ * swamp. Code 3 (wall|swamp) is a REAL WALL that happens to also carry the
+ * swamp flag — 10,863 of them exist across the 164 claimable rooms on this
+ * shard, and every one of them used to read as buildable floor here because
+ * this module compared with `=== WALL`.
+ *
+ * Ground truth, @screeps/engine/src/utils.js:333-336
+ *     exports.checkTerrain = function(terrain, x, y, mask) {
+ *         var code = terrain instanceof Uint8Array ? terrain[y*50+x]
+ *                                                  : Number(terrain.charAt(y*50 + x));
+ *         return (code & mask) > 0;
+ *     };
+ * and utils.js:149
+ *     if(structureType != 'road' && exports.checkTerrain(objects, x, y, C.TERRAIN_MASK_WALL)) return false;
+ *
+ * So: wall = (code & 1) > 0, swamp = (code & 2) > 0, and a tile can be both.
+ * Wall always wins for walkability and buildability.
+ */
 export const WALL = 1;
 export const SWAMP = 2;
 
@@ -35,14 +56,80 @@ export function tileAt(terrain, x, y) {
   if (x < 0 || x > 49 || y < 0 || y > 49) return WALL;
   return parseInt(terrain.charAt(y * 50 + x), 10);
 }
+/** wall = bit 0. Code 3 (wall|swamp) IS a wall. */
 export function isWall(terrain, x, y) {
-  return tileAt(terrain, x, y) === WALL;
+  return (tileAt(terrain, x, y) & WALL) > 0;
+}
+/** swamp = bit 1. A code-3 tile is a wall first — it is never "swamp" to us. */
+export function isSwamp(terrain, x, y) {
+  const t = tileAt(terrain, x, y);
+  return (t & WALL) === 0 && (t & SWAMP) > 0;
 }
 export function walkable(terrain, x, y) {
   return x >= 0 && x <= 49 && y >= 0 && y <= 49 && !isWall(terrain, x, y);
 }
 export function buildable(terrain, x, y) {
   return x >= 2 && x <= 47 && y >= 2 && y <= 47 && !isWall(terrain, x, y);
+}
+
+// ---------------------------------------------------------------------------
+// ENGINE BORDER-ADJACENCY RULE
+// ---------------------------------------------------------------------------
+/**
+ * @screeps/engine/src/utils.js:120-126 (checkConstructionSite, verbatim):
+ *
+ *     var borderTiles;
+ *     if(structureType != 'road' && structureType != 'container' &&
+ *        (x == 1 || x == 48 || y == 1 || y == 48)) {
+ *         if(x == 1)  borderTiles = [[0,y-1],[0,y],[0,y+1]];
+ *         if(x == 48) borderTiles = [[49,y-1],[49,y],[49,y+1]];
+ *         if(y == 1)  borderTiles = [[x-1,0],[x,0],[x+1,0]];
+ *         if(y == 48) borderTiles = [[x-1,49],[x,49],[x+1,49]];
+ *     }
+ *     ... if(borderTiles) for(var i in borderTiles)
+ *             if(!exports.checkTerrain(objects, bt[0], bt[1], C.TERRAIN_MASK_WALL)) return false;
+ *
+ * Three things the model has to copy exactly:
+ *   1. road and container are EXEMPT. Everything else is not — including the
+ *      extractor, whose exemption (utils.js:145) comes AFTER the border check.
+ *   2. The four `if`s are sequential, not else-if, so at a CORNER the later
+ *      assignment wins: a structure at (1,1) is checked against the y==1
+ *      triple [[0,0],[1,0],[2,0]] and NOT against the x==1 triple. Same for
+ *      (48,1), (1,48), (48,48) — the y-side always wins.
+ *   3. Every border tile must BE a natural wall (the test is inverted: a
+ *      non-wall edge tile rejects the site). No clamping is needed — x and y
+ *      of a legal structure are in 1..48, so the triples never leave 0..49.
+ */
+export function borderTiles(structureType, x, y) {
+  if (structureType === "road" || structureType === "container") return null;
+  if (!(x === 1 || x === 48 || y === 1 || y === 48)) return null;
+  let bt = null;
+  if (x === 1) bt = [[0, y - 1], [0, y], [0, y + 1]];
+  if (x === 48) bt = [[49, y - 1], [49, y], [49, y + 1]];
+  if (y === 1) bt = [[x - 1, 0], [x, 0], [x + 1, 0]];
+  if (y === 48) bt = [[x - 1, 49], [x, 49], [x + 1, 49]];
+  return bt;
+}
+
+/** true when the engine's border-adjacency rule permits `type` at (x,y). */
+export function borderLegal(terrain, x, y, type) {
+  const bt = borderTiles(type, x, y);
+  if (!bt) return true;
+  for (const [bx, by] of bt) if (!isWall(terrain, bx, by)) return false;
+  return true;
+}
+
+/**
+ * Full terrain-side createConstructionSite predicate, mirroring the
+ * `_.isString(objects)` branch of utils.js:128-162. Object-side collisions
+ * (stacking, obstacles) are the validator's STACK/OBJECT checks, not this.
+ */
+export function engineBuildable(terrain, x, y, type) {
+  if (x < 1 || y < 1 || x > 48 || y > 48) return false; // utils.js:191 (objects branch)
+  if (!borderLegal(terrain, x, y, type)) return false; // utils.js:139-143
+  if (type === "extractor") return true; // utils.js:145-147
+  if (type !== "road" && isWall(terrain, x, y)) return false; // utils.js:149
+  return true;
 }
 export function chebyshev(a, b) {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));

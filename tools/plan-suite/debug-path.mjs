@@ -16,12 +16,15 @@ const j = JSON.parse(raw.slice(raw.indexOf("{")));
 const terrain = j.terrain;
 console.log("tlen", terrain.length, "objs", j.objects);
 
+// terrain codes are BITMASKS: 1=wall, 2=swamp, 3=wall|swamp (engine
+// utils.js:333 checkTerrain -> `(code & mask) > 0`). Equality misreads every
+// code-3 tile as open floor.
 const WALL = 1;
 function tileAt(x, y) {
   return parseInt(terrain.charAt(y * 50 + x), 10);
 }
 function walkable(x, y) {
-  return x >= 0 && x <= 49 && y >= 0 && y <= 49 && tileAt(x, y) !== WALL;
+  return x >= 0 && x <= 49 && y >= 0 && y <= 49 && (tileAt(x, y) & WALL) === 0;
 }
 
 const ctrl = j.objects.find((o) => o.type === "controller");

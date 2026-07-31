@@ -42,12 +42,44 @@
  *          sitter, and every structure D8-touches it. The network is the
  *          REAL walkable one: a road tile buried under a blocking structure
  *          conducts nothing and is excluded.
+ *   ENGINE every planned tile survives createConstructionSite's TERRAIN-side
+ *          test, byte for byte: bitmask wall rule (roads exempt — a road on
+ *          a wall is a legal tunnel; extractor exempt on its mineral) AND
+ *          the border-adjacency rule for any non-road non-container structure
+ *          at x/y 1 or 48. See shared.mjs for the engine lines.
+ *   LINKS  >= 4. Hub + one per source + controller is the whole point of a
+ *          link network; three links means a source hauls forever.
+ *   CONTAINERS >= #sources + 1 (a seat per source, the pre-RCL7 upgrader bin)
+ *          + 1 more when the room has a mineral.
+ *   TOWERS depth >= 4 against the re-derived exterior with NO rampart
+ *          exemption. A ramparted tower still eats ranged fire through the
+ *          rampart's hit points; the whole point of a tower is that it is
+ *          unreachable.
+ *   LABS   exactly 10, plan.labInputs are 2 of them, and every lab is within
+ *          range 2 of BOTH inputs (that is the reaction rule, not taste).
  *
- * Exits nonzero on any failure.
+ * DECLARED SHORTFALLS. A plan may carry meta.shortfalls = [{gate, detail,
+ * tiles}]. A gate violation that matches a declaration is PASS-WITH-NOTE:
+ * printed loudly, counted separately, does not fail the room. The identical
+ * violation with no declaration is a hard fail. That is the whole mechanism —
+ * the planner is allowed to be beaten by a room, it is not allowed to be
+ * quiet about it.
+ *
+ * Exits nonzero on any undeclared failure.
  */
 import fs from "fs";
 import path from "path";
-import { OUT_V2, D4, D8, fetchRoomsFromMongo, isWall, key, walkable } from "./shared.mjs";
+import {
+  OUT_V2,
+  D4,
+  D8,
+  chebyshev,
+  engineBuildable,
+  fetchRoomsFromMongo,
+  isWall,
+  key,
+  walkable,
+} from "./shared.mjs";
 
 const idx = (x, y) => x + y * 50;
 
@@ -132,13 +164,32 @@ const FORBIDDEN = ["factory", "powerSpawn", "constructedWall"];
 const EXT_SHORTFALL_OK = new Set([]);
 
 const DEPTH_SAFE = 4;
+/** hub link + one per source + controller link. Below this the link network
+ *  is not a network — a source hauls its energy by creep, forever. */
+const MIN_LINKS = 4;
 
-/** exterior = flood from the exits; ramparts are walls. */
-function exteriorFlood(terrain, rampartSet) {
+/**
+ * Passability the way the ENGINE moves a creep, not the way terrain reads.
+ *
+ * A road built on a natural wall is a legal construction site (utils.js:149
+ * exempts 'road' from the wall test) and creeps walk it. So a road on a wall
+ * is a TUNNEL, and a plan whose min-cut leans on that wall has an open core
+ * even though every terrain-only flood says it is sealed. That is exactly the
+ * failure mode the `=== WALL` bug shipped in seven rooms: the gate rampart on
+ * the code-3 tile was rejected in-game, the road on the same tile was not,
+ * and the result was a paved corridor from the exit to the sitter.
+ */
+function passableFn(terrain, roadSet) {
+  return (x, y) =>
+    x >= 0 && x <= 49 && y >= 0 && y <= 49 && (!isWall(terrain, x, y) || roadSet.has(key(x, y)));
+}
+
+/** exterior = flood from the exits; ramparts are walls; roads tunnel. */
+function exteriorFlood(passable, rampartSet) {
   const ext = new Uint8Array(2500);
   const q = [];
   const seed = (x, y) => {
-    if (!walkable(terrain, x, y) || rampartSet.has(key(x, y))) return;
+    if (!passable(x, y) || rampartSet.has(key(x, y))) return;
     const i = idx(x, y);
     if (ext[i]) return;
     ext[i] = 1;
@@ -194,7 +245,7 @@ function depthFromExterior(ext) {
 }
 
 /** interior walk component containing the sitter (D8; roads/ramparts pass) */
-function interiorComponent(terrain, ext, blocked, sitter) {
+function interiorComponent(passable, ext, blocked, sitter) {
   const seen = new Uint8Array(2500);
   const si = idx(sitter.x, sitter.y);
   seen[si] = 1;
@@ -209,7 +260,7 @@ function interiorComponent(terrain, ext, blocked, sitter) {
         ny = y + dy;
       if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
       const ni = nx + ny * 50;
-      if (seen[ni] || !walkable(terrain, nx, ny) || ext[ni]) continue;
+      if (seen[ni] || !passable(nx, ny) || ext[ni]) continue;
       if (blocked.has(key(nx, ny))) continue;
       seen[ni] = 1;
       q.push(ni);
@@ -249,9 +300,38 @@ function roadComponent(structures, sitter, blockedTiles) {
   return comp;
 }
 
+/**
+ * Gate names are normalised so a declaration written the obvious way still
+ * matches: "link"/"links", "container"/"containers", "extension"/"extensions".
+ */
+const GATE_ALIAS = {
+  link: "links",
+  links: "links",
+  container: "containers",
+  containers: "containers",
+  extension: "extensions",
+  extensions: "extensions",
+  rampart: "rampart",
+  ramparts: "rampart",
+};
+const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g || "").toLowerCase();
+
+/**
+ * Gates NO declaration can ever excuse. A shortfall is an honest "this room
+ * beat me" about CAPACITY — one link short, three extensions short. It is not
+ * a licence to ship a structure the server will refuse to build, two
+ * structures on one tile, or a base with a hole in it. Those are wrong, not
+ * short, and there is no note that makes them right.
+ */
+const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core"]);
+
 export function checkRoom(plan, terrain, objects) {
   const s = plan.structures || {};
-  const fails = [];
+  /** @type {{gate:string,msg:string,tiles:string[]}[]} */
+  const raw = [];
+  /** gate: the shortfall channel this violation belongs to. tiles: optional
+   *  tile keys — a declaration that lists tiles only excuses those tiles. */
+  const fail = (gate, msg, tiles = []) => raw.push({ gate: normGate(gate), msg, tiles });
   const sitter = plan.sitter || plan.hub;
   const room = plan.room;
 
@@ -271,30 +351,69 @@ export function checkRoom(plan, terrain, objects) {
     const got = (s[type] || []).length;
     if (got === want) continue;
     if (type === "extension" && got < want && EXT_SHORTFALL_OK.has(room)) continue;
-    fails.push(`${type} ${got}!=${want}`);
+    fail(type, `${type} ${got}!=${want}`);
+  }
+  // LINKS — a REQUIRED count, not a cap. hub + one per source + controller.
+  const wantLinks = MIN_LINKS;
+  const gotLinks = (s.link || []).length;
+  if (gotLinks < wantLinks) fail("links", `link ${gotLinks}<${wantLinks}`);
+  // CONTAINERS — what the planner promises: one seat per source (layer-hub
+  // claimSourceWorks), the pre-RCL7 upgrader bin (claimControllerContainer)
+  // and, when the room has a mineral, the miner seat (layer-misc).
+  const wantContainers = sources.length + 1 + (mineral ? 1 : 0);
+  const gotContainers = (s.container || []).length;
+  if (gotContainers < wantContainers) {
+    fail("containers", `container ${gotContainers}<${wantContainers}`);
   }
   if (mineral) {
     const ex = s.extractor || [];
-    if (ex.length !== 1) fails.push(`extractor ${ex.length}!=1`);
+    if (ex.length !== 1) fail("extractor", `extractor ${ex.length}!=1`);
     else if (ex[0].x !== mineral.x || ex[0].y !== mineral.y) {
-      fails.push(`extractor@${ex[0].x},${ex[0].y} not on mineral ${mineral.x},${mineral.y}`);
+      fail("extractor", `extractor@${ex[0].x},${ex[0].y} not on mineral ${mineral.x},${mineral.y}`);
     }
   } else if ((s.extractor || []).length) {
-    fails.push(`extractor without a mineral`);
+    fail("extractor", `extractor without a mineral`);
   }
   for (const [type, arr] of Object.entries(s)) {
     if (!Array.isArray(arr)) continue;
     const cap = RCL8_CAP[type];
     if (cap === undefined) {
-      if (arr.length) fails.push(`unknown type ${type} x${arr.length}`);
+      if (arr.length) fail("count", `unknown type ${type} x${arr.length}`);
       continue;
     }
-    if (arr.length > cap) fails.push(`${type} ${arr.length}>cap${cap}`);
+    if (arr.length > cap) fail("count", `${type} ${arr.length}>cap${cap}`);
   }
   for (const type of FORBIDDEN) {
     const n = (s[type] || []).length;
-    if (n) fails.push(`${type} present x${n} (must be absent)`);
+    if (n) fail("count", `${type} present x${n} (must be absent)`);
   }
+
+  // ------------------------------------------------------------------
+  // LABS — geometry, not just a count. Every lab must be within range 2 of
+  // BOTH input labs or it can never run a reaction (LAB_REACTION_RANGE=2).
+  // ------------------------------------------------------------------
+  const labs = s.lab || [];
+  const labInputs = plan.labInputs || [];
+  const labFails = [];
+  if (labs.length !== 10) labFails.push(`lab ${labs.length}!=10`);
+  if (labInputs.length !== 2) labFails.push(`labInputs ${labInputs.length}!=2`);
+  else {
+    const labSet = new Set(labs.map((l) => key(l.x, l.y)));
+    for (const li of labInputs) {
+      if (!labSet.has(key(li.x, li.y))) labFails.push(`labInput@${li.x},${li.y} is not a lab`);
+    }
+    if (key(labInputs[0].x, labInputs[0].y) === key(labInputs[1].x, labInputs[1].y)) {
+      labFails.push(`labInputs are the same tile`);
+    }
+    let outOfReach = 0;
+    for (const l of labs) {
+      if (labInputs.some((li) => li.x === l.x && li.y === l.y)) continue;
+      if (labInputs.every((li) => chebyshev(l, li) <= 2)) continue;
+      outOfReach++;
+    }
+    if (outOfReach) labFails.push(`labs out of reagent range x${outOfReach}`);
+  }
+  for (const m of labFails) fail("labs", m);
 
   // ------------------------------------------------------------------
   // STACK / BOUNDS / OBJECT — one pass over every planned tile
@@ -312,6 +431,7 @@ export function checkRoom(plan, terrain, objects) {
   const onObject = [];
   const outOfBounds = [];
   const onWall = [];
+  const engineReject = [];
   for (const [k, types] of tiles) {
     const [x, y] = k.split(",").map(Number);
     // duplicates of a type on one tile
@@ -333,19 +453,52 @@ export function checkRoom(plan, terrain, objects) {
       const bad = types.filter((t) => t !== "road" && t !== "extractor");
       if (bad.length) onWall.push(`${bad.join("+")}@${k}`);
     }
+    // ENGINE — the terrain-side createConstructionSite test, per structure
+    // type on the tile. The extractor is exempt from the wall rule but NOT
+    // from the border rule (utils.js checks borderTiles before the extractor
+    // early-return), and it is only legal at all on the mineral.
+    for (const t of types) {
+      if (!engineBuildable(terrain, x, y, t)) engineReject.push(`${t}@${k}`);
+      if (t === "extractor" && !objectTiles.has(k)) engineReject.push(`extractor-off-mineral@${k}`);
+    }
   }
-  if (stack.length) fails.push(`stack x${stack.length} (${stack.slice(0, 3).join(" ")})`);
-  if (onObject.length) fails.push(`on-object x${onObject.length} (${onObject.slice(0, 3).join(" ")})`);
-  if (outOfBounds.length) fails.push(`edge x${outOfBounds.length} (${outOfBounds.slice(0, 3).join(" ")})`);
-  if (onWall.length) fails.push(`on-wall x${onWall.length} (${onWall.slice(0, 3).join(" ")})`);
+  if (stack.length) fail("stack", `stack x${stack.length} (${stack.slice(0, 3).join(" ")})`);
+  if (onObject.length) fail("object", `on-object x${onObject.length} (${onObject.slice(0, 3).join(" ")})`);
+  if (outOfBounds.length) fail("bounds", `edge x${outOfBounds.length} (${outOfBounds.slice(0, 3).join(" ")})`);
+  if (onWall.length) fail("engine", `on-wall x${onWall.length} (${onWall.slice(0, 3).join(" ")})`);
+  if (engineReject.length) {
+    fail(
+      "engine",
+      `engine-reject x${engineReject.length} (${engineReject.slice(0, 3).join(" ")})`,
+      engineReject.map((e) => e.split("@")[1]),
+    );
+  }
 
   // ------------------------------------------------------------------
   // LEAK + DEPTH
   // ------------------------------------------------------------------
-  const rampartSet = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
-  const ext = exteriorFlood(terrain, rampartSet);
+  // Only structures the ENGINE would accept exist in the real room, so only
+  // those may block or conduct here. A rampart on a code-3 tile is not a
+  // wall — it is a construction site that returns ERR_INVALID_TARGET — and
+  // flooding as if it were there is precisely how seven rooms shipped an open
+  // core that every terrain-only check called sealed.
+  const rampartSet = new Set(
+    (s.rampart || []).filter((r) => engineBuildable(terrain, r.x, r.y, "rampart")).map((r) => key(r.x, r.y)),
+  );
+  const roadSet = new Set(
+    (s.road || []).filter((r) => engineBuildable(terrain, r.x, r.y, "road")).map((r) => key(r.x, r.y)),
+  );
+  const passable = passableFn(terrain, roadSet);
+  const ext = exteriorFlood(passable, rampartSet);
   const depth = depthFromExterior(ext);
   const leaks = [];
+
+  // OPEN CORE — is there a walk path from any exit to the sitter? The
+  // exterior flood already answers it (ramparts block, roads tunnel), so a
+  // sitter that came out exterior means the enclosure has a hole.
+  if (ext[idx(sitter.x, sitter.y)]) {
+    fail("core", `OPEN CORE — sitter ${sitter.x},${sitter.y} is in the exterior flood`);
+  }
   const mineralSeat = new Set(
     mineral
       ? (s.container || [])
@@ -356,7 +509,13 @@ export function checkRoom(plan, terrain, objects) {
   for (const t of OWNED) {
     for (const p of s[t] || []) if (ext[idx(p.x, p.y)]) leaks.push(`${t}@${p.x},${p.y}`);
   }
-  if (leaks.length) fails.push(`leak x${leaks.length} (${leaks.slice(0, 3).join(" ")})`);
+  if (leaks.length) {
+    fail(
+      "rampart",
+      `leak x${leaks.length} (${leaks.slice(0, 3).join(" ")})`,
+      leaks.map((l) => l.split("@")[1]),
+    );
+  }
 
   const shallow = [];
   for (const t of NEEDS_DEPTH) {
@@ -367,14 +526,34 @@ export function checkRoom(plan, terrain, objects) {
       shallow.push(`${t}@${p.x},${p.y}d${depth[idx(p.x, p.y)]}`);
     }
   }
-  if (shallow.length) fails.push(`shallow x${shallow.length} (${shallow.slice(0, 3).join(" ")})`);
+  if (shallow.length) {
+    fail(
+      "rampart",
+      `shallow x${shallow.length} (${shallow.slice(0, 3).join(" ")})`,
+      shallow.map((l) => l.split("@")[1].replace(/d\d+$/, "")),
+    );
+  }
+
+  // TOWERS — depth >= 4, NO rampart exemption. A rampart over a tower does
+  // not make the tower unreachable, it makes it a rampart with a tower under
+  // it: the ranged attacker still parks at range 3 and grinds. The whole
+  // point of a tower is that nothing can stand where it can be shot.
+  const shallowTowers = [];
+  for (const p of s.tower || []) {
+    const d = depth[idx(p.x, p.y)];
+    if (d >= DEPTH_SAFE) continue;
+    shallowTowers.push(`tower@${p.x},${p.y}d${d}`);
+  }
+  if (shallowTowers.length) {
+    fail("towers", `shallow towers x${shallowTowers.length} (${shallowTowers.slice(0, 3).join(" ")})`);
+  }
 
   // ------------------------------------------------------------------
   // D4 (extensions)
   // ------------------------------------------------------------------
   const blocked = new Set(objectTiles);
   for (const t of BLOCKING) for (const p of s[t] || []) blocked.add(key(p.x, p.y));
-  const interior = interiorComponent(terrain, ext, blocked, sitter);
+  const interior = interiorComponent(passable, ext, blocked, sitter);
   let diagOnly = 0;
   let noFace = 0;
   for (const e of s.extension || []) {
@@ -392,21 +571,20 @@ export function checkRoom(plan, terrain, objects) {
     if (d8) diagOnly++;
     else noFace++;
   }
-  if (diagOnly) fails.push(`ext diag-only x${diagOnly}`);
-  if (noFace) fails.push(`ext unreachable x${noFace}`);
+  if (diagOnly) fail("extensions", `ext diag-only x${diagOnly}`);
+  if (noFace) fail("extensions", `ext unreachable x${noFace}`);
 
   // ------------------------------------------------------------------
   // EXT-ROAD — owner: extensions must be EASILY accessible, not merely
   // reachable. A filler that has to leave the road to service an extension
   // pays 2 ticks/tile on plain, every refill, forever. Hard fail.
   // ------------------------------------------------------------------
-  const roadTiles = new Set((s.road || []).map((r) => key(r.x, r.y)));
   let extNoRoad = 0;
   for (const e of s.extension || []) {
-    if (D4.some(([dx, dy]) => roadTiles.has(key(e.x + dx, e.y + dy)))) continue;
+    if (D4.some(([dx, dy]) => roadSet.has(key(e.x + dx, e.y + dy)))) continue;
     extNoRoad++;
   }
-  if (extNoRoad) fails.push(`ext off-road x${extNoRoad}`);
+  if (extNoRoad) fail("extensions", `ext off-road x${extNoRoad}`);
 
   // ------------------------------------------------------------------
   // ROAD — one live component, everything on it
@@ -414,7 +592,8 @@ export function checkRoom(plan, terrain, objects) {
   const comp = roadComponent(s, sitter, blocked);
   const orphanRoads = (s.road || []).filter((r) => !comp.has(key(r.x, r.y)));
   if (orphanRoads.length) {
-    fails.push(
+    fail(
+      "road",
       `road orphans x${orphanRoads.length} (${orphanRoads
         .slice(0, 3)
         .map((r) => `${r.x},${r.y}`)
@@ -432,10 +611,43 @@ export function checkRoom(plan, terrain, objects) {
       if (!touch) stranded.push(`${t}@${p.x},${p.y}`);
     }
   }
-  if (stranded.length) fails.push(`no-road x${stranded.length} (${stranded.slice(0, 3).join(" ")})`);
+  if (stranded.length) fail("road", `no-road x${stranded.length} (${stranded.slice(0, 3).join(" ")})`);
+
+  // ------------------------------------------------------------------
+  // DECLARED-SHORTFALL ARBITRATION
+  //
+  // A declaration excuses a violation when the GATE matches and — if the
+  // declaration names tiles — every tile the violation names is one of them.
+  // A tile-less declaration ("only 57 extensions fit") excuses the whole
+  // gate; that is fine, because the count itself is the violation. A
+  // declaration for a DIFFERENT gate excuses nothing, and an undeclared
+  // violation is always a hard fail. There is no wildcard.
+  // ------------------------------------------------------------------
+  const declared = (plan.meta && plan.meta.shortfalls) || [];
+  const byGate = new Map();
+  for (const sf of declared) {
+    const g = normGate(sf.gate);
+    if (!byGate.has(g)) byGate.set(g, { any: false, tiles: new Set() });
+    const e = byGate.get(g);
+    if (!sf.tiles || !sf.tiles.length) e.any = true;
+    else for (const t of sf.tiles) e.tiles.add(key(t.x, t.y));
+  }
+  const excused = (f) => {
+    if (UNDECLARABLE.has(f.gate)) return false;
+    const e = byGate.get(f.gate);
+    if (!e) return false;
+    if (!f.tiles.length) return e.any || e.tiles.size > 0;
+    if (e.any) return true;
+    return f.tiles.every((t) => e.tiles.has(t));
+  };
+  const fails = [];
+  const notes = [];
+  for (const f of raw) (excused(f) ? notes : fails).push(f.msg);
 
   return {
     fails,
+    notes,
+    declared: declared.length,
     diagOnly,
     extNoRoad,
     roads: (s.road || []).length,
@@ -444,6 +656,8 @@ export function checkRoom(plan, terrain, objects) {
     stack: stack.length,
     onObject: onObject.length,
     shallow: shallow.length,
+    shallowTowers: shallowTowers.length,
+    engineReject: engineReject.length,
     orphanRoads: orphanRoads.length,
   };
 }
@@ -463,8 +677,20 @@ function main() {
   const byRoom = new Map(data.map((d) => [d.room, d]));
 
   const rows = [];
+  const noteRows = [];
   let pass = 0;
-  const agg = { diagOnly: 0, extNoRoad: 0, leaks: 0, stranded: 0, stack: 0, onObject: 0, shallow: 0, orphanRoads: 0 };
+  const agg = {
+    diagOnly: 0,
+    extNoRoad: 0,
+    leaks: 0,
+    stranded: 0,
+    stack: 0,
+    onObject: 0,
+    shallow: 0,
+    shallowTowers: 0,
+    engineReject: 0,
+    orphanRoads: 0,
+  };
   const roadCounts = [];
   for (const p of list) {
     const d = byRoom.get(p.room);
@@ -475,6 +701,9 @@ function main() {
     const r = checkRoom(p, d.terrain, d.objects);
     for (const k of Object.keys(agg)) agg[k] += r[k];
     roadCounts.push(r.roads);
+    if (r.notes.length) {
+      noteRows.push([p.room, r.notes.join(" · "), (p.meta?.shortfalls || []).map((s) => s.detail)]);
+    }
     if (r.fails.length) rows.push([p.room, r.fails.join(" · ")]);
     else pass++;
   }
@@ -488,10 +717,23 @@ function main() {
     for (const [room, why] of rows) console.log(`${room.padEnd(w)}  ${why}`);
     console.log("");
   }
+  // DECLARED SHORTFALLS — loud on purpose. These are rooms the planner lost
+  // to and said so; they pass, but nobody gets to not see them.
+  if (noteRows.length) {
+    console.log("");
+    console.log(`!! DECLARED SHORTFALLS — ${noteRows.length} room(s) pass with a note`);
+    console.log("-".repeat(78));
+    for (const [room, why, details] of noteRows) {
+      console.log(`${room}  ${why}`);
+      for (const d of details) console.log(`        ${d}`);
+    }
+    console.log("");
+  }
   console.log(
-    `pass ${pass}/${list.length} · fail ${rows.length} · totals: ` +
-      `leaks ${agg.leaks}, stacked ${agg.stack}, on-object ${agg.onObject}, ` +
-      `shallow ${agg.shallow}, diag-only exts ${agg.diagOnly}, off-road exts ${agg.extNoRoad}, ` +
+    `pass ${pass}/${list.length} · fail ${rows.length} · declared-shortfall ${noteRows.length} · totals: ` +
+      `engine-rejects ${agg.engineReject}, leaks ${agg.leaks}, stacked ${agg.stack}, ` +
+      `on-object ${agg.onObject}, shallow ${agg.shallow}, shallow towers ${agg.shallowTowers}, ` +
+      `diag-only exts ${agg.diagOnly}, off-road exts ${agg.extNoRoad}, ` +
       `orphan roads ${agg.orphanRoads}, structures off-network ${agg.stranded}`,
   );
   if (roadCounts.length) {

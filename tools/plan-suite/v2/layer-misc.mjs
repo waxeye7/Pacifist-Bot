@@ -25,7 +25,7 @@
  * need one to FUNCTION, but a structure nothing can walk to is a plan
  * smell and trips the suite validator).
  */
-import { D4, D8, buildable, key, walkable } from "./shared.mjs";
+import { D4, D8, borderLegal, buildable, key, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 
 const DEPTH_SAFE = 4;
@@ -174,6 +174,8 @@ export function planMisc(terrain, plan) {
   const extractor = [];
   const mineralContainer = [];
   const bubbles = [];
+  const bubbleRejected = [];
+  const shortfalls = [];
   const mineral = plan.mineral;
   if (mineral) {
     extractor.push({ x: mineral.x, y: mineral.y });
@@ -191,13 +193,30 @@ export function planMisc(terrain, plan) {
       // preferred — three rooms have a mineral whose entire walkable ring is
       // already paved, and they would otherwise get no miner seat at all
       if (roadSet.has(k)) d += 0.5;
+      // engine border rule: a seat at x/y 1 or 48 whose edge triple is not all
+      // wall can never carry the miner's rampart bubble (shared.mjs borderLegal)
+      if (!borderLegal(terrain, x, y, "rampart")) d += 12;
       if (!seat || d < seat.d) seat = { x, y, d };
     }
     if (seat) {
       mineralContainer.push({ x: seat.x, y: seat.y });
       occupied.add(key(seat.x, seat.y));
       const i = idx(seat.x, seat.y);
-      if (ext[i] || depth[i] < DEPTH_SAFE) bubbles.push({ x: seat.x, y: seat.y });
+      if (ext[i] || depth[i] < DEPTH_SAFE) {
+        if (borderLegal(terrain, seat.x, seat.y, "rampart")) {
+          bubbles.push({ x: seat.x, y: seat.y });
+        } else {
+          bubbleRejected.push({ x: seat.x, y: seat.y });
+        }
+      }
+    } else {
+      shortfalls.push({
+        gate: "containers",
+        detail:
+          `mineral ${mineral.x},${mineral.y} has no free walkable ring tile — ` +
+          `no miner seat, so no mineral container`,
+        tiles: [{ x: mineral.x, y: mineral.y }],
+      });
     }
   }
 
@@ -208,6 +227,8 @@ export function planMisc(terrain, plan) {
     extractor,
     mineralContainer,
     bubbles, // caller pushes these onto structures.rampart
+    bubbleRejected, // border-rule-illegal rampart tiles -> meta.shortfalls
+    shortfalls,
     roads: newRoads,
     miscMeta: {
       nukerHubDist: nuker.d,

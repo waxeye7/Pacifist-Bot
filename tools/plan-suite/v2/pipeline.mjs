@@ -36,6 +36,11 @@ export function composePlan(d, shellOpts = {}) {
   const hub = planHub(d.terrain, d.objects, shellOpts);
   if (hub.error) return { room: d.room, error: hub.error };
   const plan = { room: d.room, terrain: d.terrain, ...hub };
+  // meta.shortfalls — the honest-shortfall channel. Layer 1 may already have
+  // filled it (boxed-in source links); every later layer appends. The
+  // validator PASSES a declared shortfall with a loud note and FAILS the same
+  // violation when it is undeclared.
+  plan.meta.shortfalls = [...(plan.meta.shortfalls || [])];
 
   const shell = planShell(d.terrain, plan, shellOpts);
   if (shell.error) {
@@ -48,6 +53,16 @@ export function composePlan(d, shellOpts = {}) {
   plan.depth = shell.depth;
   plan.meta.counts.rampart = shell.rampart.length;
   plan.meta.shell = shell.shell;
+  for (const b of shell.bubbleRejected || []) {
+    plan.meta.shortfalls.push({
+      gate: "rampart",
+      detail:
+        `${b.x},${b.y} wants a personal rampart but sits on the border band ` +
+        `(x/y 1 or 48) with a non-wall edge triple — engine returns ` +
+        `ERR_INVALID_TARGET (utils.js:120-143)`,
+      tiles: [{ x: b.x, y: b.y }],
+    });
+  }
 
   const tw = planTowers(d.terrain, plan, shellOpts);
   if (tw.error) plan.towerError = tw.error;
@@ -78,6 +93,16 @@ export function composePlan(d, shellOpts = {}) {
     if (ms.extractor.length) plan.structures.extractor = ms.extractor;
     if (ms.mineralContainer.length) plan.structures.container.push(...ms.mineralContainer);
     if (ms.bubbles.length && plan.structures.rampart) plan.structures.rampart.push(...ms.bubbles);
+    plan.meta.shortfalls.push(...(ms.shortfalls || []));
+    for (const b of ms.bubbleRejected || []) {
+      plan.meta.shortfalls.push({
+        gate: "rampart",
+        detail:
+          `mineral seat ${b.x},${b.y} is on the border band with a non-wall ` +
+          `edge triple — its rampart bubble can never be built`,
+        tiles: [{ x: b.x, y: b.y }],
+      });
+    }
     plan.structures.road.push(...ms.roads);
     plan.meta.counts.nuker = ms.nuker.length;
     plan.meta.counts.observer = ms.observer.length;
@@ -97,6 +122,16 @@ export function composePlan(d, shellOpts = {}) {
     }
     plan.meta.counts.extension = ex.extension.length;
     plan.meta.extensions = ex.extMeta;
+    if (ex.extension.length < EXT_TARGET) {
+      plan.meta.shortfalls.push({
+        gate: "extension",
+        detail:
+          `only ${ex.extension.length}/${EXT_TARGET} extensions fit — the ` +
+          `widest shell the escalation ladder would pay for still encloses ` +
+          `${plan.shell?.deepTiles ?? "?"} deep tiles`,
+        tiles: [],
+      });
+    }
   }
 
   // late roads LAST — rampart spurs, the extension-face safety net and the

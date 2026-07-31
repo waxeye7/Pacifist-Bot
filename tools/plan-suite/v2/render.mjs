@@ -125,8 +125,9 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
 
   for (let y = y0; y <= y1; y++) {
     for (let x = x0; x <= x1; x++) {
+      // BITMASK, not enum: code 3 is wall|swamp and draws as WALL (see shared.mjs)
       const t = tileAt(plan.terrain, x, y);
-      const fill = t === WALL ? "#0e0e0e" : t === SWAMP ? "#16301a" : "#2c2c24";
+      const fill = t & WALL ? "#0e0e0e" : t & SWAMP ? "#16301a" : "#2c2c24";
       const p = ox(x, y);
       parts.push(
         `<rect x="${p.x * cell}" y="${p.y * cell}" width="${cell}" height="${cell}" fill="${fill}"/>`,

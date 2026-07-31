@@ -30,7 +30,7 @@
  *
  * RCL8 final positions; lower RCLs fill the same tiles later.
  */
-import { D4, D8, buildable, chebyshev, key, walkable } from "./shared.mjs";
+import { D4, D8, borderLegal, buildable, chebyshev, key, walkable } from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
 
 const INF = 999;
@@ -385,23 +385,46 @@ export function fieldFrom(terrain, origin, impassable) {
  * closest to the hub by walk; link on a container neighbor, preferring
  * tiles OFF the mining ring so it doesn't eat a harvest spot.
  */
-function claimSourceWorks(terrain, source, hubField, impassable) {
-  let container = null;
-  for (const [dx, dy] of D8) {
-    const x = source.x + dx,
-      y = source.y + dy;
-    if (!walkable(terrain, x, y) || impassable.has(key(x, y))) continue;
-    const d = hubField[idx(x, y)];
-    if (d >= INF) continue;
-    if (!container || d < hubField[idx(container.x, container.y)]) container = { x, y };
-  }
-  if (!container) return null;
+/**
+ * RAMPART-LEGALITY PENALTY (engine border rule, utils.js:120-126).
+ * A container is exempt from the rule, so it can sit at x/y 1 or 48 quite
+ * legally — but the RAMPART layer-shell wants to bubble it with cannot. Two
+ * rooms used to ship exactly that: a miner seat one tile off the edge with a
+ * gate rampart that returns ERR_INVALID_TARGET forever. So a seat whose tile
+ * can never be covered costs a few tiles of hauler distance in the scoring;
+ * it is still taken when it is the only seat there is.
+ */
+const NO_RAMPART_PENALTY = 12;
+const rampartPenalty = (terrain, x, y) =>
+  borderLegal(terrain, x, y, "rampart") ? 0 : NO_RAMPART_PENALTY;
+
+/**
+ * best link tile D8 of `seat`, or null. Prefers tiles off the mining ring.
+ *
+ * A link is a BLOCKING structure, so a link on the seat's only corridor walls
+ * the miner out of its own container. There is a repair pass further down
+ * that notices and deletes the link, but by then the seat is already chosen
+ * and the room silently ships one link short — E14S6's source at 26,25 sits
+ * in a one-tile pocket and lost its link exactly this way. Cheap local test:
+ * the seat must keep at least one hub-reachable walkable neighbour that is
+ * not the link.
+ */
+function bestLinkFor(terrain, source, seat, hubField, impassable) {
+  const keepsSeatOpen = (lx, ly) =>
+    D8.some(([dx, dy]) => {
+      const x = seat.x + dx,
+        y = seat.y + dy;
+      if (x === lx && y === ly) return false;
+      if (!walkable(terrain, x, y) || impassable.has(key(x, y))) return false;
+      return hubField[idx(x, y)] < INF;
+    });
   let link = null;
   let linkSc = -Infinity;
   for (const [dx, dy] of D8) {
-    const x = container.x + dx,
-      y = container.y + dy;
+    const x = seat.x + dx,
+      y = seat.y + dy;
     if (!buildable(terrain, x, y) || impassable.has(key(x, y))) continue;
+    if (!keepsSeatOpen(x, y)) continue;
     const offRing = chebyshev({ x, y }, source) > 1 ? 10 : 0;
     const sc = offRing - hubField[idx(x, y)] * 0.1;
     if (sc > linkSc) {
@@ -409,7 +432,42 @@ function claimSourceWorks(terrain, source, hubField, impassable) {
       link = { x, y };
     }
   }
-  return { container, link };
+  return link;
+}
+
+/**
+ * LINK-FEASIBLE SEAT (the "links >= 4" gate, honestly).
+ * The seat used to be picked purely on hauler distance and the link had to
+ * make do with whatever ring the winner happened to have. In a boxed-in
+ * source that lost the link outright and the room quietly shipped 3 links
+ * forever. A seat one tile further from the hub that CAN carry a link is
+ * worth far more than the tick it costs, so "has a legal link neighbour" is
+ * now part of the seat's score — a hard shortfall only when no seat on the
+ * whole ring can hold one.
+ */
+const NO_LINK_PENALTY = 30;
+
+function claimSourceWorks(terrain, source, hubField, impassable) {
+  const seats = [];
+  for (const [dx, dy] of D8) {
+    const x = source.x + dx,
+      y = source.y + dy;
+    if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+    if (!walkable(terrain, x, y) || impassable.has(key(x, y))) continue;
+    const d = hubField[idx(x, y)];
+    if (d >= INF) continue;
+    const link = bestLinkFor(terrain, source, { x, y }, hubField, impassable);
+    seats.push({
+      x,
+      y,
+      link,
+      sc: d + rampartPenalty(terrain, x, y) + (link ? 0 : NO_LINK_PENALTY),
+    });
+  }
+  if (!seats.length) return null;
+  seats.sort((a, b) => a.sc - b.sc || a.x - b.x || a.y - b.y);
+  const seat = seats[0];
+  return { container: { x: seat.x, y: seat.y }, link: seat.link };
 }
 
 /**
@@ -491,7 +549,7 @@ function claimControllerContainer(terrain, controller, ctrlLink, hubField, block
     if (ch < 1 || ch > 3) continue;
     const d = hubField[idx(x, y)];
     if (d >= INF) continue;
-    const sc = (ch === 3 ? 100 : 0) - d;
+    const sc = (ch === 3 ? 100 : 0) - d - rampartPenalty(terrain, x, y);
     if (!best || sc > best.sc) best = { x, y, sc };
   }
   return best ? { x: best.x, y: best.y } : null;
@@ -798,6 +856,24 @@ export function planHub(terrain, objects, opts = {}) {
   const containers = sourceWorks.map((w) => w.container);
   const sourceLinks = sourceWorks.filter((w) => w.link).map((w) => w.link);
 
+  // DECLARED SHORTFALLS — the "honest shortfall" mechanism. A source whose
+  // whole walkable ring has no seat with a buildable, non-conflicting link
+  // tile beside it cannot have a source link, period. Saying so out loud is
+  // the contract; shipping 3 links and a passing validator is not.
+  const shortfalls = [];
+  for (let i = 0; i < sources.length; i++) {
+    if (sourceWorks[i].link) continue;
+    const src = sources[i];
+    const seat = sourceWorks[i].container;
+    shortfalls.push({
+      gate: "links",
+      detail:
+        `source ${src.x},${src.y} boxed in — no buildable link tile beside any ` +
+        `walkable seat on its ring (seat ${seat.x},${seat.y})`,
+      tiles: [{ x: src.x, y: src.y }],
+    });
+  }
+
   // upgrader bin — sources first, controller after, mineral last (layer 5)
   const ctrlContainer = claimControllerContainer(terrain, controller, ctrlLink, hubField, [
     impassable,
@@ -805,6 +881,15 @@ export function planHub(terrain, objects, opts = {}) {
     new Set([key(sitter.x, sitter.y)]),
   ]);
   if (ctrlContainer) containers.push(ctrlContainer);
+  else {
+    shortfalls.push({
+      gate: "containers",
+      detail:
+        `controller ${controller.x},${controller.y} has no free walkable tile ` +
+        `D8 of its link and within range 3 — no pre-RCL7 upgrader bin`,
+      tiles: [{ x: controller.x, y: controller.y }],
+    });
+  }
 
   const structures = {
     storage: [{ x: storage.x, y: storage.y }],
@@ -853,6 +938,7 @@ export function planHub(terrain, objects, opts = {}) {
       ctrlContainer: ctrlContainer ? { ...ctrlContainer, range: chebyshev(ctrlContainer, controller) } : null,
       roadConnected: conn.connected,
       roadOrphans: conn.orphanStructs,
+      shortfalls,
       counts: {
         storage: 1,
         terminal: 1,

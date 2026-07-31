@@ -25,7 +25,7 @@
  *   7. Battlements: cut tiles facing wide approach lanes — where the
  *      RampartDefenders should stand. Metadata for defence AI.
  */
-import { D8, buildable, chebyshev, isWall, key, walkable, tileAt, SWAMP } from "./shared.mjs";
+import { D8, borderLegal, buildable, chebyshev, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const INF_FLOW = 1 << 28;
 const EXIT_T = 5001;
@@ -271,7 +271,9 @@ export function computeCut(terrain, protectSet, opts = {}) {
       else {
         const d = dP[i] >= 9999 ? 20 : dP[i];
         w = Math.round(SCALE * (1 + k * d * d));
-        if (tileAt(terrain, x, y) === SWAMP) w += swampBias;
+        // isSwamp() is wall-first: a code-3 (wall|swamp) tile is never walkable
+        // and never reaches this line, so the bias only ever prices real swamp
+        if (isSwamp(terrain, x, y)) w += swampBias;
       }
       g.addEdge(2 * i, 2 * i + 1, w);
       for (const [dx, dy] of D8) {
@@ -663,10 +665,22 @@ export function planShell(terrain, plan, opts = {}) {
   // ranged attacker's reach (depth < 4). Anything enclosed AND deep is
   // already covered by the shell — a bubble there is pure upkeep.
   const bubble = [];
+  const bubbleRejected = [];
   const addBubble = (p) => {
     if (!p) return;
     const i = idx(p.x, p.y);
     if (!extF[i] && depthF[i] >= DEPTH_SAFE) return; // redundant
+    // ENGINE BORDER RULE (utils.js:120-143): a rampart at x/y 1 or 48 needs all
+    // three adjacent room-EDGE tiles to be natural wall, or the site is
+    // ERR_INVALID_TARGET forever. Shipping one is worse than shipping none: it
+    // never builds, and the tile LOOKS covered on every render and in the
+    // upkeep quote. Record it as a shortfall instead.
+    if (!borderLegal(terrain, p.x, p.y, "rampart")) {
+      if (!bubbleRejected.some((b) => b.x === p.x && b.y === p.y)) {
+        bubbleRejected.push({ x: p.x, y: p.y });
+      }
+      return;
+    }
     if (!bubble.some((b) => b.x === p.x && b.y === p.y)) bubble.push({ x: p.x, y: p.y });
   };
   for (const c of plan.structures.container) addBubble(c);
@@ -724,6 +738,9 @@ export function planShell(terrain, plan, opts = {}) {
   return {
     layer: "shell",
     rampart,
+    // tiles that wanted a personal rampart and cannot legally have one —
+    // the pipeline turns these into meta.shortfalls entries
+    bubbleRejected,
     shell: {
       cut,
       bubble: bubbleOnly,
