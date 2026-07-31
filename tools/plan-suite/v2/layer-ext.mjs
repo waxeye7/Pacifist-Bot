@@ -51,10 +51,61 @@ const TARGET = 60;
 const DEPTH_SAFE = 4;
 /** how long a corridor stub may reach before it has to justify itself */
 const MAX_STUB = 3;
-/** hard ceiling on stub paving — corridors are cheap, sprawl is not */
-const MAX_STUB_ROADS = 40;
+/**
+ * hard ceiling on stub paving — corridors are cheap, sprawl is not. 48 rather
+ * than 40 because the directed dig below spends a burst of tiles crossing dead
+ * floor to reach a deep pocket; layer 7 prunes any corridor tile that ends up
+ * serving nothing, and the fleet roads-median is the gate that actually bites.
+ */
+const MAX_STUB_ROADS = 48;
 /** consecutive stubs allowed to yield no extension before we give up */
 const MAX_STALLS = 6;
+/**
+ * how far a DIRECTED dig may tunnel toward a deep pocket. A greedy 3-step stub
+ * cannot cross a longer stretch of already-unusable floor, so the pocket stays
+ * unreachable and its extensions get taken shallow instead — at a personal
+ * rampart each, forever. 8 tiles of one-off road is cheaper than 4 ramparts.
+ */
+const DIG_MAX = 8;
+/**
+ * A room with this much free floor per extension has floor to spare: its
+ * corridors may be paved wherever they read best and its digs are affordable.
+ * Below it the room is rationing deep tiles between roads and extensions.
+ */
+const RICH_RATIO = 1.5;
+/** paving budget for a room that still has somewhere worth reaching */
+const MAX_STUB_ROADS_RICH = 56;
+/**
+ * PAVEMENT COSTS, in the same units the stub scorer values an opened slot
+ * (one deep flank = 3). That scale is the point: charging 0.8 against a term
+ * worth 3 per flank cannot change any decision except an exact tie, which is
+ * why the old cost never actually steered anything.
+ *
+ *   shallow floor (0.35) — cheap: the slot it forfeits was going to cost a
+ *     personal rampart anyway, so losing it is nearly free.
+ *   dead floor (0.15) — nearly free: too near the wall to hold anything, it
+ *     exists to be walked on.
+ *   deep floor — priced by SCARCITY, see COST_DEEP below.
+ */
+const COST_SHALLOW = 0.35;
+const COST_DEAD = 0.15;
+/**
+ * Deep pavement is charged clamp(A - B * deepPerExtension) — from 0.3 in a
+ * room swimming in free floor (spend it, the flanks are what matter) up to 13
+ * in a cramped one, where a paved deep tile is an extension that now has to
+ * be taken shallow and rampart it forever. Measured across the fleet the
+ * curve is not monotone: too flat and deep-poor rooms grind their floor into
+ * corridor (1793 shallow), too steep and the corridors refuse to enter the
+ * deep core at all and never reach the pockets behind it (1818 at max 50).
+ */
+const COST_DEEP_A = 16;
+const COST_DEEP_B = 7;
+const COST_DEEP_MIN = 0.3;
+const COST_DEEP_MAX = 13;
+/** deep slots the skeleton wants standing before the mass lands */
+const NEED_DEEP_MUL = 1.1;
+/** stubs allowed to add no NET deep capacity before the dig takes over */
+const P1_STALL = 2;
 
 function idx(x, y) {
   return x + y * 50;
@@ -295,6 +346,36 @@ export function planExtensions(terrain, plan) {
   };
 
   // --- corridor stubs -------------------------------------------------
+  /**
+   * DEEP FLOOR IS DUAL-USE, and that is the whole economics of this layer: a
+   * free tile can hold an extension OR carry the corridor that serves four of
+   * them, never both. How dear a paved deep tile is therefore depends on how
+   * much deep floor the room has, and rooms split cleanly into two kinds:
+   *
+   *   RICH (E11S6: ~180 deep tiles) — floor is not the constraint, corridor
+   *     REACH is. Deep pavement is cheap here and should be spent freely;
+   *     every tile of spine hands the mass up to four rampart-free slots.
+   *   POOR (E14S6, E18S5: ~110 deep tiles, half of them already under the hub
+   *     and the eco roads) — every corridor tile laid on deep floor is one
+   *     extension that now has to be taken shallow, at a personal rampart
+   *     forever. Here the corridor belongs in the shallow band or on floor too
+   *     tight to build on, flanking the deep pocket rather than crossing it.
+   *
+   * A fixed pavement cost serves one kind and wrecks the other, so the cost is
+   * scaled by the room's own deep surplus, measured once before any corridor
+   * exists. Same reasoning for the paving ceiling: only a room with floor left
+   * to reach has anything to buy with a longer skeleton.
+   */
+  const deepPool = (() => {
+    let n = 0;
+    for (let x = 2; x <= 47; x++) {
+      for (let y = 2; y <= 47; y++) if (extCapable(x, y) && tierOf(idx(x, y)) === 0) n++;
+    }
+    return n;
+  })();
+  const deepRatio = deepPool / TARGET;
+  const COST_DEEP = Math.min(COST_DEEP_MAX, Math.max(COST_DEEP_MIN, COST_DEEP_A - COST_DEEP_B * deepRatio));
+  const stubCap = deepRatio >= RICH_RATIO ? MAX_STUB_ROADS_RICH : MAX_STUB_ROADS;
   const TIER_VALUE = [1, 0.6, 0.35];
   /** capacity a road on (x,y) would unlock RIGHT NOW */
   const opensNow = (x, y) => {
@@ -320,6 +401,33 @@ export function planExtensions(terrain, plan) {
     }
     return v;
   };
+  // The DEEP pair. A shallow slot is not a cheap deep slot, it is a different
+  // good: it comes with a personal rampart bolted to it for the life of the
+  // room. So the skeleton phase that hunts free capacity must be blind to
+  // shallow flanks entirely — score them at zero, not at a discount, or the
+  // corridor happily settles next to a shallow field and calls it a win.
+  const opensNowDeep = (x, y) => {
+    let v = 0;
+    for (const [dx, dy] of D4) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (!extCapable(nx, ny) || onRoad(nx, ny)) continue;
+      v += tierOf(idx(nx, ny)) === 0 ? TIER_VALUE[0] : 0;
+    }
+    return v;
+  };
+  const potentialDeep = (x, y) => {
+    let v = 0;
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dy = -2; dy <= 2; dy++) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (!extCapable(nx, ny) || onRoad(nx, ny)) continue;
+        v += tierOf(idx(nx, ny)) === 0 ? TIER_VALUE[0] : 0;
+      }
+    }
+    return v;
+  };
   /** a tile a corridor may occupy: free interior floor, not already paved */
   const stubTile = (x, y) => {
     if (x < 2 || y < 2 || x > 47 || y > 47) return false;
@@ -333,12 +441,15 @@ export function planExtensions(terrain, plan) {
    * Grow ONE stub: pick the best tile off the network (or off the tip of the
    * stub so far) until it opens real capacity or we hit MAX_STUB. Returns
    * true when it opened something an extension can use.
+   *
+   * `opens`/`pot` are injected so the same walker can hunt ANY capacity or
+   * DEEP capacity only — the two phases below differ in nothing else.
    */
-  const growStub = () => {
+  const growStubWith = (opens, pot) => {
     let tip = null;
     let opened = 0;
     for (let step = 0; step < MAX_STUB; step++) {
-      if (stubRoads.length >= MAX_STUB_ROADS) break;
+      if (stubRoads.length >= stubCap) break;
       const seeds = [];
       if (tip) {
         for (const [dx, dy] of D4) {
@@ -359,11 +470,17 @@ export function planExtensions(terrain, plan) {
       let bestSc = -Infinity;
       let bestOpen = 0;
       for (const s of seeds) {
-        const now = opensNow(s.x, s.y);
-        // spending a DEEP tile on pavement is the expensive kind of corridor —
-        // deep tiles are the scarce resource the extensions actually need
-        const cost = depth[idx(s.x, s.y)] >= DEPTH_SAFE ? 0.8 : 0.3;
-        const sc = now * 3 + potential(s.x, s.y) - hubField[idx(s.x, s.y)] * 0.05 - cost;
+        const now = opens(s.x, s.y);
+        // Pavement is charged what the tile was worth as a BUILD site, not
+        // what it costs to walk on: dead floor is nearly free, a shallow slot
+        // is worth little (it came with a rampart attached), and deep floor
+        // costs whatever the room's own surplus says it costs. In a roomy
+        // room that is nothing and the spine runs straight through the deep
+        // core; in a cramped one it outweighs a whole opened flank, and the
+        // corridor hugs the shallow band and reaches in from the side.
+        const st = tierOf(idx(s.x, s.y));
+        const cost = st === 0 ? COST_DEEP : st > 0 ? COST_SHALLOW : COST_DEAD;
+        const sc = now * 3 + pot(s.x, s.y) - hubField[idx(s.x, s.y)] * 0.05 - cost;
         if (sc > bestSc) {
           bestSc = sc;
           best = s;
@@ -372,7 +489,7 @@ export function planExtensions(terrain, plan) {
       }
       if (!best || bestSc <= -Infinity) break;
       // a stub that opens nothing AND has nothing in sight is sprawl
-      if (bestOpen <= 0 && potential(best.x, best.y) <= 0) break;
+      if (bestOpen <= 0 && pot(best.x, best.y) <= 0) break;
       roadSet.add(key(best.x, best.y));
       pavedTiles.add(key(best.x, best.y));
       stubRoads.push({ x: best.x, y: best.y });
@@ -381,6 +498,86 @@ export function planExtensions(terrain, plan) {
       if (bestOpen > 0) break; // corridor reached open space — go place
     }
     return opened > 0;
+  };
+  const growStub = () => growStubWith(opensNow, potential);
+  const growDeepStub = () => growStubWith(opensNowDeep, potentialDeep);
+
+  /**
+   * DIRECTED DIG. The greedy walker above is three steps of local hill
+   * climbing; it cannot cross a wider stretch of floor that is itself
+   * unusable (too tight, too built-up, already flanked) even when a large
+   * deep pocket sits right behind it. That is the exact shape of the rooms
+   * that end up with 25 shallow extensions and 50 free deep tiles nobody
+   * paved to. So when the frontier stalls, aim once: BFS out of the live
+   * network over corridor-legal floor to the NEAREST tile that would open a
+   * deep slot, and pave the whole path in one commit.
+   *
+   * D4 because a corridor is what a filler walks and what layer 7 prunes,
+   * and the whole path is charged against the room's paving budget — a dig
+   * that does not fit is not taken at all rather than left half-dug.
+   *
+   * Only a room with deep floor to SPARE may dig, and that gate is not
+   * timidity: a dig commits up to DIG_MAX tiles at once, and in a deep-poor
+   * room most of them land on the very floor the extensions were competing
+   * for — measured fleet-wide, ungated digs cost more slots than they open.
+   * Where the pocket is large the tiles are surplus and the dig pays for
+   * itself several times over as the greedy walker fans out inside it.
+   * Returns the number of tiles paved (0 = no reachable pocket in range).
+   */
+  const digDeep = () => {
+    if (deepRatio < RICH_RATIO) return 0;
+    const prev = new Int32Array(2500).fill(-2);
+    const dist = new Int32Array(2500);
+    const q = [];
+    // seed set = exactly the step-0 seeds of a stub: legal floor touching the
+    // live road network. dist counts TILES PAVED, so a seed already costs 1.
+    for (let x = 2; x <= 47; x++) {
+      for (let y = 2; y <= 47; y++) {
+        if (!stubTile(x, y) || !onRoad(x, y)) continue;
+        const i = idx(x, y);
+        prev[i] = -1;
+        dist[i] = 1;
+        q.push(i);
+      }
+    }
+    let target = -1;
+    for (let qi = 0; qi < q.length && target < 0; qi++) {
+      const i = q[qi];
+      const x = i % 50,
+        y = (i / 50) | 0;
+      if (opensNowDeep(x, y) > 0) {
+        target = i;
+        break;
+      }
+      if (dist[i] >= DIG_MAX) continue;
+      for (const [dx, dy] of D4) {
+        const nx = x + dx,
+          ny = y + dy;
+        const ni = nx + ny * 50;
+        if (nx < 2 || ny < 2 || nx > 47 || ny > 47 || prev[ni] !== -2) continue;
+        if (!stubTile(nx, ny)) continue;
+        prev[ni] = i;
+        dist[ni] = dist[i] + 1;
+        q.push(ni);
+      }
+    }
+    if (target < 0) return 0;
+    if (stubRoads.length + dist[target] > stubCap) return 0;
+    let paved = 0;
+    for (let i = target; i >= 0; ) {
+      const x = i % 50,
+        y = (i / 50) | 0;
+      const k = key(x, y);
+      if (!pavedTiles.has(k)) {
+        pavedTiles.add(k);
+        roadSet.add(k);
+        stubRoads.push({ x, y });
+        paved++;
+      }
+      if (prev[i] === -1) break;
+      i = prev[i];
+    }
+    return paved;
   };
 
   // --- the actual run -------------------------------------------------
@@ -403,8 +600,56 @@ export function planExtensions(terrain, plan) {
     }
     return n;
   };
+  /**
+   * ...but a plain count is the wrong stop condition on its own, because it
+   * is satisfied by 75 slots of ANY tier: the skeleton downs tools the moment
+   * the shallow band has been harvested and never learns that a deep pocket
+   * was two tiles further out. Every slot that count was short of deep is a
+   * personal rampart the room pays forever. So the skeleton runs in two
+   * phases, and the FIRST one can only see free capacity.
+   */
+  const capacityDeep = () => {
+    let n = 0;
+    for (let x = 2; x <= 47; x++) {
+      for (let y = 2; y <= 47; y++) if (extCapable(x, y) && onRoad(x, y) && tierOf(idx(x, y)) === 0) n++;
+    }
+    return n;
+  };
   const NEED = Math.round(TARGET * 1.25);
-  while (capacity() < NEED && stubRoads.length < MAX_STUB_ROADS) {
+  // Phase 1 wants only a thin margin over TARGET: free slots the invariant
+  // later refuses are backfilled by phase 2 anyway, and every extra deep slot
+  // demanded here is paid for in corridor length.
+  const NEED_DEEP_SLOTS = Math.round(TARGET * NEED_DEEP_MUL);
+  let deepExhausted = false;
+  let digRoads = 0;
+  let p1stall = 0;
+  for (;;) {
+    const capd = capacityDeep();
+    if (capd >= NEED_DEEP_SLOTS || stubRoads.length >= stubCap) break;
+    if (growDeepStub()) {
+      // GROSS progress is not progress: a stub that opens two deep slots by
+      // paving over two deep tiles has moved nothing and spent floor doing
+      // it. Only the net count decides, or a deep-poor room happily grinds
+      // its whole paving budget into a capacity number that never rises.
+      if (capacityDeep() > capd) {
+        p1stall = 0;
+        continue;
+      }
+      if (++p1stall < P1_STALL) continue;
+    }
+    // greedy frontier is stalled or out of reach of anything deep — aim
+    // once, and if even that finds nothing in range, say so honestly
+    const dug = digDeep();
+    if (!dug) {
+      deepExhausted = true;
+      break;
+    }
+    digRoads += dug;
+    p1stall = 0;
+  }
+  // Phase 2, for rooms where deep space is genuinely short (small shells,
+  // heavy terrain): top the skeleton up on any tier so 60 still lands.
+  while (capacity() < NEED && stubRoads.length < stubCap) {
     if (!growStub()) break;
   }
 
@@ -415,7 +660,7 @@ export function planExtensions(terrain, plan) {
     if (extensions.length >= TARGET) break;
     if (extensions.length > before) stalls = 0;
     else if (++stalls > MAX_STALLS) break;
-    if (stubRoads.length >= MAX_STUB_ROADS) break;
+    if (stubRoads.length >= stubCap) break;
     if (!growStub()) break;
   }
 
@@ -529,6 +774,8 @@ export function planExtensions(terrain, plan) {
       full: extensions.length >= TARGET,
       shallow: shallow.length,
       stubRoads: stubRoads.length,
+      deepExhausted,
+      digRoads,
       corridorPlaced,
       corridorFallback: extensions.length - corridorPlaced,
       maxHubDist: extensions.length ? Math.max(...extensions.map((e) => hubField[idx(e.x, e.y)])) : 0,
