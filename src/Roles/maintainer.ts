@@ -29,7 +29,7 @@ const run = function (creep) {
 
     if(creep.memory.repairing) {
         let buildingsToRepair = [];
-        creep.room.memory.keepTheseRoads.forEach(function(roadID) {
+        (creep.room.memory.keepTheseRoads || []).forEach(function(roadID) {
             let road:any = Game.getObjectById(roadID);
             if(road && road.hits <= road.hitsMax - 500) {
                 buildingsToRepair.push(road);

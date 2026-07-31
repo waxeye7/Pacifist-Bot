@@ -114,8 +114,12 @@ export function applySpeedrunSpawnHints(room: Room): void {
   room.memory.speedrun.active = true;
   room.memory.speedrun.rcl = rcl;
 
-  // ensure remotes off while speedrunning early RCL
-  if (room.memory.resources) {
+  // Ensure remotes off while speedrunning early RCL — RCL1-2 only.
+  // From RCL3 the commune can afford a reserver + remote miners, and the
+  // owner wants remotes running there; forcing `active = false` for the
+  // whole RCL1-4 window (the old behaviour) fought manageRemotes() every
+  // tick and was one of the reasons no remote ever opened.
+  if (rcl <= 2 && room.memory.resources) {
     for (const rn of Object.keys(room.memory.resources)) {
       if (rn !== room.name && room.memory.resources[rn]) {
         room.memory.resources[rn].active = false;

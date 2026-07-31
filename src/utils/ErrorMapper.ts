@@ -1,5 +1,6 @@
 import { SourceMapConsumer } from "source-map";
 import ErrorExporter from "./ErrorExporter";
+import { logAlways } from "./Logger";
 export class ErrorMapper {
   // Cache consumer
   private static _consumer?: SourceMapConsumer;
@@ -76,11 +77,11 @@ export class ErrorMapper {
         if (e instanceof Error) {
           if ("sim" in Game.rooms) {
             const message = `Source maps don't work in the simulator - displaying original error`;
-            console.log(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
+            logAlways(`<span style='color:red'>${message}<br>${_.escape(e.stack)}</span>`);
           } else {
             const stack = _.escape(this.sourceMappedStackTrace(e));
 
-            console.log(`<span style='color:red'>${stack}</span>`);
+            logAlways(`<span style='color:red'>${stack}</span>`);
             ErrorExporter.addErrorToSegment(stack);
           }
         } else {

@@ -1,3 +1,227 @@
+// returns the lab standing on the given tile, if any
+function labAt(room, x, y) {
+    if(x < 0 || x > 49 || y < 0 || y > 49) {
+        return undefined;
+    }
+    let structuresHere = new RoomPosition(x, y, room.name).lookFor(LOOK_STRUCTURES);
+    for(let building of structuresHere) {
+        if(building.structureType == STRUCTURE_LAB) {
+            return building;
+        }
+    }
+    return undefined;
+}
+
+// legacy strip layout: 3 columns x 4 rows beside storage, the 2 input labs sit in the middle column.
+// returns the matching offset table, or undefined when the room is not built in that shape.
+function legacyLabLayout(room, storage) {
+    let layouts = [
+        {
+            inputLab1: {x: storage.pos.x - 4, y: storage.pos.y + 1},
+            inputLab2: {x: storage.pos.x - 4, y: storage.pos.y + 2},
+            outputLab1: {x: storage.pos.x - 3, y: storage.pos.y},
+            outputLab2: {x: storage.pos.x - 3, y: storage.pos.y + 1},
+            outputLab3: {x: storage.pos.x - 3, y: storage.pos.y + 2},
+            outputLab4: {x: storage.pos.x - 3, y: storage.pos.y + 3},
+            outputLab5: {x: storage.pos.x - 5, y: storage.pos.y + 3},
+            outputLab6: {x: storage.pos.x - 5, y: storage.pos.y + 2},
+            outputLab7: {x: storage.pos.x - 5, y: storage.pos.y + 1},
+            outputLab8: {x: storage.pos.x - 5, y: storage.pos.y}
+        },
+        {
+            inputLab1: {x: storage.pos.x + 4, y: storage.pos.y + 4},
+            inputLab2: {x: storage.pos.x + 4, y: storage.pos.y + 5},
+            outputLab1: {x: storage.pos.x + 3, y: storage.pos.y + 3},
+            outputLab2: {x: storage.pos.x + 3, y: storage.pos.y + 4},
+            outputLab3: {x: storage.pos.x + 3, y: storage.pos.y + 5},
+            outputLab4: {x: storage.pos.x + 3, y: storage.pos.y + 6},
+            outputLab5: {x: storage.pos.x + 5, y: storage.pos.y + 3},
+            outputLab6: {x: storage.pos.x + 5, y: storage.pos.y + 4},
+            outputLab7: {x: storage.pos.x + 5, y: storage.pos.y + 5},
+            outputLab8: {x: storage.pos.x + 5, y: storage.pos.y + 6}
+        }
+    ];
+    for(let layout of layouts) {
+        if(!labAt(room, layout.inputLab1.x, layout.inputLab1.y) || !labAt(room, layout.inputLab2.x, layout.inputLab2.y)) {
+            continue;
+        }
+        // Two labs on the input offsets is not proof the room was BUILT to the
+        // strip — a dynamic layout can hit those two tiles by coincidence and
+        // then get its whole reaction chain hijacked. Demand that the strip
+        // holds (essentially) every lab the room has.
+        let onLayout = 0;
+        for(let slot of Object.keys(layout)) {
+            if(labAt(room, layout[slot].x, layout[slot].y)) {
+                onLayout++;
+            }
+        }
+        let labCount = room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LAB}).length;
+        if(onLayout >= Math.min(6, labCount)) {
+            return layout;
+        }
+    }
+    return undefined;
+}
+
+// v2-planned rooms: the two reaction inputs are FIXED by the plan (the lab
+// diamond's centre pair), so neither the legacy storage offsets nor the
+// adjacency heuristic may be consulted. Returns false while fewer than two
+// input labs are actually built — early RCL7 has a partial diamond and the
+// caller falls back to adjacency for the interim.
+function assignPlanV2Labs(room, storage, LabsInRoom) {
+    let packed = room.memory.planV2 && room.memory.planV2.t && room.memory.planV2.t.labInput;
+    if(!packed || packed.length < 2) {
+        return false;
+    }
+    let inputs = [];
+    for(let p of packed) {
+        let lab = labAt(room, p % 50, Math.floor(p / 50));
+        if(lab) {
+            inputs.push(lab);
+        }
+    }
+    if(inputs.length < 2) {
+        return false;
+    }
+    room.memory.labs.inputLab1 = inputs[0].id;
+    room.memory.labs.inputLab2 = inputs[1].id;
+
+    let outputs = LabsInRoom.filter(function(lab) {return lab.id != inputs[0].id && lab.id != inputs[1].id;});
+    // stable order so boost slots (lab1..lab8) do not shuffle on re-detection
+    outputs.sort(function(a, b) {
+        let da = storage ? a.pos.getRangeTo(storage) : 0;
+        let db = storage ? b.pos.getRangeTo(storage) : 0;
+        if(da != db) {
+            return da - db;
+        }
+        if(a.pos.x != b.pos.x) {
+            return a.pos.x - b.pos.x;
+        }
+        if(a.pos.y != b.pos.y) {
+            return a.pos.y - b.pos.y;
+        }
+        return a.id < b.id ? -1 : 1;
+    });
+    let slot = 1;
+    for(let lab of outputs) {
+        if(slot > 8) {
+            break;
+        }
+        room.memory.labs["outputLab" + slot] = lab.id;
+        slot++;
+    }
+    for(let empty = slot; empty <= 8; empty++) {
+        delete room.memory.labs["outputLab" + empty];
+    }
+    return true;
+}
+
+// keeps the historic assignment on rooms that were built with the storage relative strip
+function assignLegacyLabs(room, storage, LabsInRoom) {
+    let layout = legacyLabLayout(room, storage);
+    if(!layout) {
+        return false;
+    }
+    let slots = ["inputLab1", "inputLab2", "outputLab1"];
+    if(room.controller.level >= 7 && LabsInRoom.length >= 6) {
+        slots.push("outputLab2", "outputLab3", "outputLab4");
+    }
+    if(room.controller.level == 8 && LabsInRoom.length == 10) {
+        slots.push("outputLab5", "outputLab6", "outputLab7", "outputLab8");
+    }
+    for(let slot of slots) {
+        let lab = labAt(room, layout[slot].x, layout[slot].y);
+        if(lab) {
+            room.memory.labs[slot] = lab.id;
+        }
+    }
+    return room.memory.labs.inputLab1 != undefined && room.memory.labs.inputLab2 != undefined;
+}
+
+function labsInRangeCount(lab, LabsInRoom, range) {
+    let count = 0;
+    for(let other of LabsInRoom) {
+        if(other.id == lab.id) {
+            continue;
+        }
+        if(lab.pos.getRangeTo(other) <= range) {
+            count++;
+        }
+    }
+    return count;
+}
+
+// geometry agnostic detection: the input labs are the ones that reach every other lab (range <= 2),
+// everything else becomes an output lab. works for any stamp the planner produces.
+function assignDynamicLabs(room, storage, LabsInRoom) {
+    let scored = [];
+    for(let lab of LabsInRoom) {
+        scored.push({
+            lab: lab,
+            reach: labsInRangeCount(lab, LabsInRoom, 2),
+            adjacent: labsInRangeCount(lab, LabsInRoom, 1),
+            distance: storage ? lab.pos.getRangeTo(storage) : 0
+        });
+    }
+
+    let candidates = scored.filter(function(entry) {return entry.reach == LabsInRoom.length - 1;});
+    if(candidates.length < 2) {
+        // degenerate geometry, take whatever reaches the most labs
+        candidates = scored;
+    }
+    // more than 2 qualify -> the pair glued to the rest of the cluster wins, then the pair nearest storage
+    let byInputFitness = function(a, b) {
+        if(a.reach != b.reach) {
+            return b.reach - a.reach;
+        }
+        if(a.adjacent != b.adjacent) {
+            return b.adjacent - a.adjacent;
+        }
+        if(a.distance != b.distance) {
+            return a.distance - b.distance;
+        }
+        return a.lab.id < b.lab.id ? -1 : 1;
+    };
+    candidates.sort(byInputFitness);
+
+    let inputLab1 = candidates[0];
+    let inputLab2 = candidates[1];
+    if(!inputLab1 || !inputLab2) {
+        return false;
+    }
+
+    let outputs = scored.filter(function(entry) {return entry.lab.id != inputLab1.lab.id && entry.lab.id != inputLab2.lab.id;});
+    // stable order so the boost slots (lab1..lab8) do not shuffle on every re-detection
+    outputs.sort(function(a, b) {
+        if(a.distance != b.distance) {
+            return a.distance - b.distance;
+        }
+        if(a.lab.pos.x != b.lab.pos.x) {
+            return a.lab.pos.x - b.lab.pos.x;
+        }
+        if(a.lab.pos.y != b.lab.pos.y) {
+            return a.lab.pos.y - b.lab.pos.y;
+        }
+        return a.lab.id < b.lab.id ? -1 : 1;
+    });
+
+    room.memory.labs.inputLab1 = inputLab1.lab.id;
+    room.memory.labs.inputLab2 = inputLab2.lab.id;
+
+    let slot = 1;
+    for(let entry of outputs) {
+        if(slot > 8) {
+            break;
+        }
+        room.memory.labs["outputLab" + slot] = entry.lab.id;
+        slot++;
+    }
+    for(let empty = slot; empty <= 8; empty++) {
+        delete room.memory.labs["outputLab" + empty];
+    }
+    return true;
+}
+
 function labs(room) {
     if(!room.memory.labs || Game.time % 120 == 0) {
 
@@ -10,259 +234,20 @@ function labs(room) {
 
         if(room.controller.level >= 6 && LabsInRoom.length >= 3) {
 
-
-            if(!storage || storage.pos.x < 4 || storage.pos.y > 48) return;
-            let inputLab1Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 1, room.name);
-            let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForInputLab1Position.length > 0) {
-                for(let building of lookForInputLab1Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.inputLab1 = building.id;
-                        break;
-                    }
-                }
+            let assigned = false;
+            if(room.memory.planV2) {
+                // plan wins outright; adjacency only covers the partial-diamond
+                // interim. The legacy offsets are never consulted here.
+                assigned = assignPlanV2Labs(room, storage, LabsInRoom);
             }
-            if(room.memory.labs.inputLab1 == undefined) {
-                let inputLab1Position = new RoomPosition(storage.pos.x + 4, storage.pos.y + 4, room.name);
-                let lookForInputLab1Position = inputLab1Position.lookFor(LOOK_STRUCTURES);
-                if(lookForInputLab1Position.length > 0) {
-                    for(let building of lookForInputLab1Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.inputLab1 = building.id;
-                            break;
-                        }
-                    }
-                }
+            else if(storage) {
+                assigned = assignLegacyLabs(room, storage, LabsInRoom);
             }
-
-
-            let inputLab2Position = new RoomPosition(storage.pos.x - 4, storage.pos.y + 2, room.name);
-            let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForInputLab2Position.length) {
-                for(let building of lookForInputLab2Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.inputLab2 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.inputLab2 == undefined) {
-                let inputLab2Position = new RoomPosition(storage.pos.x + 4, storage.pos.y + 5, room.name);
-                let lookForInputLab2Position = inputLab2Position.lookFor(LOOK_STRUCTURES);
-                if(lookForInputLab2Position.length > 0) {
-                    for(let building of lookForInputLab2Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.inputLab2 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-            let outputLab1Position = new RoomPosition(storage.pos.x - 3, storage.pos.y, room.name);
-            let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab1Position.length) {
-                for(let building of lookForOutputLab1Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab1 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab1 == undefined) {
-                let outputLab1Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 3, room.name);
-                let lookForOutputLab1Position = outputLab1Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab1Position.length) {
-                    for(let building of lookForOutputLab1Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab1 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-
-        }
-
-        if(room.controller.level >= 7 && LabsInRoom.length >= 6) {
-
-            let outputLab2Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 1, room.name);
-            let lookForOutputLab2Position = outputLab2Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab2Position.length) {
-                for(let building of lookForOutputLab2Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab2 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab2 == undefined) {
-                let outputLab2Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 4, room.name);
-                let lookForOutputLab2Position = outputLab2Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab2Position.length) {
-                    for(let building of lookForOutputLab2Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab2 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-
-            let outputLab3Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 2, room.name);
-            let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab3Position.length) {
-                for(let building of lookForOutputLab3Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab3 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab3 == undefined) {
-                let outputLab3Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 5, room.name);
-                let lookForOutputLab3Position = outputLab3Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab3Position.length) {
-                    for(let building of lookForOutputLab3Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab3 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-
-            let outputLab4Position = new RoomPosition(storage.pos.x - 3, storage.pos.y + 3, room.name);
-            let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab4Position.length) {
-                for(let building of lookForOutputLab4Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab4 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab4 == undefined) {
-                let outputLab4Position = new RoomPosition(storage.pos.x + 3, storage.pos.y + 6, room.name);
-                let lookForOutputLab4Position = outputLab4Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab4Position.length) {
-                    for(let building of lookForOutputLab4Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab4 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-        }
-
-        if(room.controller.level == 8 && LabsInRoom.length == 10) {
-
-            let outputLab5Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 3, room.name);
-            let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab5Position.length) {
-                for(let building of lookForOutputLab5Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab5 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab5 == undefined) {
-                let outputLab5Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 3, room.name);
-                let lookForOutputLab5Position = outputLab5Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab5Position.length) {
-                    for(let building of lookForOutputLab5Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab5 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-            let outputLab6Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 2, room.name);
-            let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab6Position.length) {
-                for(let building of lookForOutputLab6Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab6 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab6 == undefined) {
-                let outputLab6Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 4, room.name);
-                let lookForOutputLab6Position = outputLab6Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab6Position.length) {
-                    for(let building of lookForOutputLab6Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab6 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-
-            let outputLab7Position = new RoomPosition(storage.pos.x - 5, storage.pos.y + 1, room.name);
-            let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab7Position.length) {
-                for(let building of lookForOutputLab7Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab7 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab7 == undefined) {
-                let outputLab7Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 5, room.name);
-                let lookForOutputLab7Position = outputLab7Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab7Position.length) {
-                    for(let building of lookForOutputLab7Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab7 = building.id;
-                            break;
-                        }
-                    }
-                }
-            }
-
-
-            let outputLab8Position = new RoomPosition(storage.pos.x - 5, storage.pos.y, room.name);
-            let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
-            if(lookForOutputLab8Position.length) {
-                for(let building of lookForOutputLab8Position) {
-                    if(building.structureType == STRUCTURE_LAB) {
-                        room.memory.labs.outputLab8 = building.id;
-                        break;
-                    }
-                }
-            }
-            if(room.memory.labs.outputLab8 == undefined) {
-                let outputLab8Position = new RoomPosition(storage.pos.x + 5, storage.pos.y + 6, room.name);
-                let lookForOutputLab8Position = outputLab8Position.lookFor(LOOK_STRUCTURES);
-                if(lookForOutputLab8Position.length) {
-                    for(let building of lookForOutputLab8Position) {
-                        if(building.structureType == STRUCTURE_LAB) {
-                            room.memory.labs.outputLab8 = building.id;
-                            break;
-                        }
-                    }
-                }
+            if(!assigned) {
+                assignDynamicLabs(room, storage, LabsInRoom);
             }
         }
+
     }
 
 

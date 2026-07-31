@@ -8,6 +8,9 @@ import { getCpuPolicy } from "utils/CpuPolicy";
 import { getOpts, recordTick } from "utils/Bench";
 import { powerDisabled, getFeatures } from "utils/Features";
 import { trackRoomRcl } from "utils/Speedrun";
+import { runPlanAnimator } from "utils/PlanAnimator";
+import { runPlanV2Adoption } from "utils/PlanV2";
+import { runAutoExpand } from "Managers/AutoExpand";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -197,6 +200,11 @@ export const loop = ErrorMapper.wrapLoop(() => {
   }
 
   ExecuteCommandsInNTicks();
+
+  // Planner replay overlay — no-op unless Memory.planAnim.active
+  runPlanAnimator();
+  runPlanV2Adoption();
+  runAutoExpand();
 
   decrementTempBadRooms();
 

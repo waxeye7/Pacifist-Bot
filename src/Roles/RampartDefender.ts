@@ -16,15 +16,31 @@ const run = function (creep:any) {
         global.SMDP(creep.memory.homeRoom, creep.memory.targetRoom);
     }
 
-    if(creep.room.storage ) {
-        if(creep.room.memory.danger && creep.pos.getRangeTo(creep.room.storage) > 12) {
-            creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(creep.room.storage, 10)
-        }
-        else if(creep.room.memory.danger && creep.pos.getRangeTo(creep.room.storage) > 10) {
-            creep.MoveCostMatrixRoadPrio(creep.room.storage, 10);
-        }
-        else if(!creep.room.memory.danger && creep.pos.getRangeTo(creep.room.storage) > 8) {
-            creep.MoveCostMatrixRoadPrio(creep.room.storage, 8);
+    // Stay near planned shell (hub), not magic range-from-storage square
+    const hubPos =
+        creep.room.memory.basePlan && creep.room.memory.basePlan.hub
+            ? new RoomPosition(
+                  creep.room.memory.basePlan.hub.x,
+                  creep.room.memory.basePlan.hub.y,
+                  creep.room.name,
+              )
+            : creep.room.storage
+              ? creep.room.storage.pos
+              : null;
+    if (hubPos) {
+        // Leash width follows the planned shell: a flat 14 is too tight for a
+        // big min-cut ring (the defender would be dragged home off the very
+        // rampart it is meant to man). PlanV2 writes basePlan.leash =
+        // max(14, farthest shell tile from the hub + 2).
+        const leash =
+            (creep.room.memory.basePlan && creep.room.memory.basePlan.leash) || 14;
+        const d = creep.pos.getRangeTo(hubPos);
+        if (creep.room.memory.danger && d > leash) {
+            creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(hubPos, 10);
+        } else if (creep.room.memory.danger && d > leash - 2) {
+            creep.MoveCostMatrixRoadPrio(hubPos, 10);
+        } else if (!creep.room.memory.danger && d > leash - 4) {
+            creep.MoveCostMatrixRoadPrio(hubPos, 8);
         }
     }
 
@@ -58,7 +74,8 @@ const run = function (creep:any) {
                     }
                 }
                 if(rangeFromCreepToCreep && rangeFromRampartToCreep) {
-                    if (rangeFromCreepToCreep > rangeFromRampartToCreep && storage && (closestEnemyCreep.pos.getRangeTo(storage) === 11 || rangeFromCreepToCreep > 4)) {
+                    // Switch if assigned shell rampart is closer to the fight than we are
+                    if (rangeFromCreepToCreep > rangeFromRampartToCreep && rangeFromCreepToCreep > 4) {
                         creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
                     }
 

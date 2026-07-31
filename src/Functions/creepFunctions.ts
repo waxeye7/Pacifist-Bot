@@ -541,16 +541,15 @@ Creep.prototype.findClosestLink = function() {
 
 Creep.prototype.findClosestLinkToStorage = function():any {
     let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    if(storage && storage.pos.x >= 2) {
-        let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.room.name);
-        let lookForBuildingsOnStorageLinkPosition = storageLinkPosition.lookFor(LOOK_STRUCTURES);
-        if(lookForBuildingsOnStorageLinkPosition.length > 0) {
-            for(let building of lookForBuildingsOnStorageLinkPosition) {
-                if(building.structureType == STRUCTURE_LINK) {
-                    this.memory.closestLink = building.id;
-                    return building;
-                }
-            }
+    if(storage) {
+        // hub link: legacy stamps sit at storage.x-2 (range 2), the v2
+        // planner glues it to the storage (range 1). Take the closest link
+        // within range 2 rather than one hardcoded offset.
+        let links = this.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK && storage.pos.getRangeTo(s) <= 2});
+        if(links.length > 0) {
+            links.sort((a, b) => storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b));
+            this.memory.closestLink = links[0].id;
+            return links[0];
         }
     }
 
@@ -913,7 +912,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         this.memory.targetRoom !== this.memory.homeRoom
     ) {
         const home = Game.rooms[this.memory.homeRoom];
-        if (home && home.controller && home.controller.my && home.controller.level < 4) {
+        if (home && home.controller && home.controller.my && home.controller.level < 3) {
             this.memory.targetRoom = this.memory.homeRoom;
             delete this.memory.exit;
             delete this.memory.route;
@@ -961,6 +960,89 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
 
 // try here to make ignore creeps on home path but not ignore creeps on the way there because then can stay on road when full energy for best movement but it could be risky hm
 
+/* ------------------------------------------------------------------ *
+ * Energy pickup: per-creep target lock + heap reservation ledger.
+ *
+ * Problem: the legacy path re-scanned every tick, sorted candidates by
+ * AMOUNT, and had no reservations — so a pile shrinking mid-travel made
+ * every hauler re-pick, and all haulers converged on the same pile.
+ *
+ * Fix: lock a target in creep.memory.pickup for PICKUP_LOCK_TTL ticks and
+ * reserve the energy we intend to take, so other haulers see the pile as
+ * already spoken for and pick a different one. Selection is by DISTANCE,
+ * never by amount (amount is the thrash key).
+ *
+ * NOTE: this file is an ambient script (no import/export — the global
+ * `interface Creep` augmentation above depends on that), so the feature
+ * flag is read straight off Memory.features instead of utils/Features.
+ * ------------------------------------------------------------------ */
+
+/** Ticks a hauler sticks to a chosen pile before re-evaluating. */
+const PICKUP_LOCK_TTL = 25;
+
+/** Rebuilt lazily once per tick from Game.creeps — heap only, never Memory. */
+let _pickupLedger: { tick: number; claims: Map<string, number> } | null = null;
+
+/** Feature flag mirror of utils/Features.ts `pickupLock` (undefined = ON). */
+function _pickupLockEnabled(): boolean {
+    const f: any = (Memory as any).features;
+    return !f || f.pickupLock !== false;
+}
+
+/** Energy in a drop / ruin / tombstone / container. */
+function _pickupEnergyOf(o: any): number {
+    if (!o) return 0;
+    if (typeof o.amount === "number") {
+        return o.resourceType === RESOURCE_ENERGY ? o.amount : 0;
+    }
+    if (o.store) return o.store[RESOURCE_ENERGY] || 0;
+    return 0;
+}
+
+/** How much of a locked target a creep is actually going to take. */
+function _pickupClaimOf(creep: any): number {
+    const p = creep.memory && creep.memory.pickup;
+    if (!p || !p.id) return 0;
+    const free = creep.store.getFreeCapacity();
+    if (free <= 0) return 0;
+    return Math.min(free, p.amt != null ? p.amt : free);
+}
+
+/** id -> total energy claimed by live, unexpired locks. Rebuilt once/tick. */
+function _pickupClaims(): Map<string, number> {
+    if (_pickupLedger && _pickupLedger.tick === Game.time) return _pickupLedger.claims;
+    const claims = new Map<string, number>();
+    for (const name in Game.creeps) {
+        const c: any = Game.creeps[name];
+        const p = c.memory && c.memory.pickup;
+        if (!p || !p.id) continue;
+        if (p.t == null || Game.time - p.t > PICKUP_LOCK_TTL) continue;
+        const claim = _pickupClaimOf(c);
+        if (claim <= 0) continue;
+        claims.set(p.id, (claims.get(p.id) || 0) + claim);
+    }
+    _pickupLedger = { tick: Game.time, claims };
+    return claims;
+}
+
+/**
+ * Energy on a target that nobody has claimed yet.
+ * `ownClaim` is the asker's own reservation on this target — excluded so a
+ * creep re-validating (or re-picking after TTL) its own lock doesn't see its
+ * own reservation and bounce off a pile it already owns.
+ */
+function _pickupUnreserved(target: any, ownClaim: number): number {
+    if (!target) return 0;
+    let claimed = (_pickupClaims().get(target.id) || 0) - ownClaim;
+    if (claimed < 0) claimed = 0;
+    return _pickupEnergyOf(target) - claimed;
+}
+
+function _pickupBumpStat(field: string, n: number): void {
+    if (!Memory.stats) Memory.stats = {};
+    Memory.stats[field] = (Memory.stats[field] || 0) + n;
+}
+
 /**
  * Grab free energy from floor / ruins / tombstones / containers.
  * Used by carry, filler, upgrader, builder, etc. — including home room.
@@ -972,79 +1054,181 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     const room = this.room;
     if (!room.memory.Structures) room.memory.Structures = {};
 
+    _pickupBumpStat("pickupTicks", 1);
+
     const go = (target: any) => {
         if (this.memory.role === "carry") this.MoveCostMatrixSwampPrio(target, 1);
         else this.MoveCostMatrixRoadPrio(target, 1);
     };
 
-    // 1) Adjacent salvage first (instant tick)
+    /**
+     * Issue the collect intent and book the throughput. `pickupGot / pickupTicks`
+     * is energy collected per acquire call — the A/B throughput metric that is
+     * immune to hauler-count swings between measurement windows.
+     */
+    const take = (target: any) => {
+        _pickupBumpStat("pickupActs", 1);
+        _pickupBumpStat("pickupGot", Math.min(free, _pickupEnergyOf(target)));
+        return target.amount != null
+            ? this.pickup(target)
+            : this.withdraw(target, RESOURCE_ENERGY);
+    };
+
+    // Previous target, captured before any invalidation, so we can count
+    // real switches (and undo this creep's stale claim) accurately.
+    const prevLock: any = this.memory.pickup;
+    const prevId: string | null = prevLock && prevLock.id ? prevLock.id : null;
+    const prevClaim = _pickupClaimOf(this);
+
+    const locking = _pickupLockEnabled();
+
+    /** Unreserved energy, excluding this creep's own (possibly stale) claim. */
+    const unreserved = (o: any) =>
+        _pickupUnreserved(o, o && o.id === prevId ? prevClaim : 0);
+
+    /** Commit a selection: instrument the switch, write the lock, book the claim. */
+    const lockOn = (target: any, amount: number, queued?: boolean) => {
+        if (!target || !target.id) return;
+        if (target.id !== prevId) _pickupBumpStat("pickupSwitches", 1);
+        const amt = Math.max(0, Math.min(free, amount));
+        this.memory.pickup = { id: target.id, t: Game.time, amt: amt, q: queued ? 1 : 0 };
+        if (!locking) return;
+        // Keep the ledger honest for creeps that run later this tick.
+        const claims = _pickupClaims();
+        if (prevId && prevClaim > 0) {
+            const left = (claims.get(prevId) || 0) - prevClaim;
+            if (left > 0) claims.set(prevId, left);
+            else claims.delete(prevId);
+        }
+        if (amt > 0) claims.set(target.id, (claims.get(target.id) || 0) + amt);
+    };
+
+    // 1) Adjacent salvage first (instant tick, free profit, doesn't move us).
+    //    Runs in both modes and does NOT disturb an existing lock.
     const adjDrop = this.pos.findInRange(FIND_DROPPED_RESOURCES, 1, {
         filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount > 0,
     });
-    if (adjDrop.length) return this.pickup(adjDrop[0]);
+    if (adjDrop.length) return take(adjDrop[0]);
 
     const adjRuin = this.pos.findInRange(FIND_RUINS, 1, {
         filter: (r) => r.store[RESOURCE_ENERGY] > 0,
     });
-    if (adjRuin.length) return this.withdraw(adjRuin[0], RESOURCE_ENERGY);
+    if (adjRuin.length) return take(adjRuin[0]);
 
     const adjTomb = this.pos.findInRange(FIND_TOMBSTONES, 1, {
         filter: (t) => t.store[RESOURCE_ENERGY] > 0,
     });
-    if (adjTomb.length) return this.withdraw(adjTomb[0], RESOURCE_ENERGY);
+    if (adjTomb.length) return take(adjTomb[0]);
 
-    // 2) Room salvage: ruins → tombstones → drops (any meaningful pile)
-    //    Old filter required amount > freeCapacity + pathLen which often skipped real loot.
-    const ruins = room.find(FIND_RUINS, { filter: (r) => r.store[RESOURCE_ENERGY] > 0 });
-    if (ruins.length) {
-        ruins.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-        const target = this.pos.findClosestByRange(ruins) || ruins[0];
-        if (this.pos.isNearTo(target)) return this.withdraw(target, RESOURCE_ENERGY);
-        go(target);
-        return;
+    // 2) Locked fast path — no scanning at all while the lock holds.
+    if (locking && prevId) {
+        const locked: any = Game.getObjectById(prevId);
+        const expired = Game.time - (prevLock.t || 0) > PICKUP_LOCK_TTL;
+        // Hysteresis: keep threshold is half the select threshold so a pile
+        // shrinking a little doesn't bounce us straight back off it.
+        // A queued lock (picked when everything was reserved) only needs the
+        // pile to still exist — it never had a reservation to lose.
+        const keepMin = Math.min(25, free / 2);
+        const worthIt = prevLock.q
+            ? _pickupEnergyOf(locked) > 0
+            : unreserved(locked) >= keepMin;
+        const stillGood =
+            !!locked &&
+            !expired &&
+            locked.pos &&
+            locked.pos.roomName === this.pos.roomName &&
+            worthIt;
+
+        if (stillGood) {
+            if (this.pos.isNearTo(locked)) return take(locked);
+            go(locked);
+            return;
+        }
+        // Invalid (gone / other room / TTL / reserved away) → re-select below.
+        delete this.memory.pickup;
     }
 
-    const tombs = room.find(FIND_TOMBSTONES, { filter: (t) => t.store[RESOURCE_ENERGY] > 0 });
-    if (tombs.length) {
-        tombs.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-        const target = this.pos.findClosestByRange(tombs) || tombs[0];
-        if (this.pos.isNearTo(target)) return this.withdraw(target, RESOURCE_ENERGY);
-        go(target);
-        return;
-    }
+    // 3) Selection. Category order is unchanged (ruins → tombs → drops →
+    //    containers); within a category we take the CLOSEST candidate that
+    //    still has unreserved energy. Never sort by amount — amount is the
+    //    thrash key.
+    const selectMin = Math.min(25, free);
+    /** strict = respect other creeps' reservations. */
+    const hasRoom = (o: any, strict: boolean) =>
+        !locking || !strict || unreserved(o) >= selectMin;
+    const takeable = (o: any) =>
+        locking ? Math.min(free, unreserved(o)) : Math.min(free, _pickupEnergyOf(o));
 
-    // Nearby drops first (range 12, amount worth walking), then any pile
-    let drops = room.find(FIND_DROPPED_RESOURCES, {
-        filter: (r) =>
-            r.resourceType === RESOURCE_ENERGY &&
-            r.amount >= 25 &&
-            this.pos.getRangeTo(r) <= 12,
-    });
-    if (!drops.length) {
-        drops = room.find(FIND_DROPPED_RESOURCES, {
-            filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount > 0,
+    const pick = (strict: boolean): any => {
+        const ruins = room.find(FIND_RUINS, {
+            filter: (r) => r.store[RESOURCE_ENERGY] > 0 && hasRoom(r, strict),
         });
+        if (ruins.length) {
+            if (!locking) ruins.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+            return this.pos.findClosestByRange(ruins) || ruins[0];
+        }
+
+        const tombs = room.find(FIND_TOMBSTONES, {
+            filter: (t) => t.store[RESOURCE_ENERGY] > 0 && hasRoom(t, strict),
+        });
+        if (tombs.length) {
+            if (!locking) tombs.sort((a, b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+            return this.pos.findClosestByRange(tombs) || tombs[0];
+        }
+
+        // Nearby drops first (range 12, amount worth walking), then any pile
+        let drops = room.find(FIND_DROPPED_RESOURCES, {
+            filter: (r) =>
+                r.resourceType === RESOURCE_ENERGY &&
+                r.amount >= 25 &&
+                this.pos.getRangeTo(r) <= 12 &&
+                hasRoom(r, strict),
+        });
+        if (!drops.length) {
+            drops = room.find(FIND_DROPPED_RESOURCES, {
+                filter: (r) =>
+                    r.resourceType === RESOURCE_ENERGY && r.amount > 0 && hasRoom(r, strict),
+            });
+        }
+        if (drops.length) {
+            if (!locking) drops.sort((a, b) => b.amount - a.amount);
+            return this.pos.findClosestByRange(drops) || drops[0];
+        }
+
+        // Containers
+        let container: any =
+            Game.getObjectById(room.memory.Structures.container) || room.findContainers(free);
+        if (container && (container.store[RESOURCE_ENERGY] <= 0 || !hasRoom(container, strict))) {
+            container = room.findContainers(1);
+        }
+        if (container && container.store[RESOURCE_ENERGY] > 0 && hasRoom(container, strict)) {
+            return container;
+        }
+        return null;
+    };
+
+    let queued = false;
+    let target: any = pick(true);
+    if (!target && locking) {
+        // Everything within reach is already spoken for. Queueing behind
+        // another hauler still beats standing still — piles regenerate, and
+        // idling here is what leaves dropped energy on the floor. Take the
+        // closest pile regardless of reservations (still locked, still no
+        // thrash) and claim nothing.
+        target = pick(false);
+        if (target) {
+            queued = true;
+            _pickupBumpStat("pickupFallback", 1);
+        }
     }
-    if (drops.length) {
-        drops.sort((a, b) => b.amount - a.amount);
-        const target = this.pos.findClosestByRange(drops) || drops[0];
-        if (this.pos.isNearTo(target)) return this.pickup(target);
-        go(target);
+    if (!target) {
+        _pickupBumpStat("pickupIdle", 1);
         return;
     }
 
-    // 3) Containers
-    let container: any =
-        Game.getObjectById(room.memory.Structures.container) ||
-        room.findContainers(free);
-    if (container && container.store[RESOURCE_ENERGY] <= 0) {
-        container = room.findContainers(1);
-    }
-    if (container && container.store[RESOURCE_ENERGY] > 0) {
-        if (this.pos.isNearTo(container)) return this.withdraw(container, RESOURCE_ENERGY);
-        go(container);
-        return;
-    }
+    lockOn(target, queued ? 0 : takeable(target), queued);
+    if (this.pos.isNearTo(target)) return take(target);
+    go(target);
 }
 
 Creep.prototype.roadCheck = function roadCheck() {

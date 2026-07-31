@@ -1,4 +1,6 @@
-import { getBasePlan, placeFromBasePlan } from "utils/BasePlan";
+import { getBasePlan, placeFromBasePlan, visualizeBasePlan } from "utils/BasePlan";
+import { syncPerimeterToConstructionMemory } from "utils/Perimeter";
+import { placeFromPlanV2 } from "utils/PlanV2";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
 function vizCircle(roomName: string, x: number, y: number, style: any) {
@@ -413,15 +415,25 @@ function construction(room) {
         console.log(`Initialized construction memory for room ${room.name}`);
     }
 
-    // Dynamic hub plan (cached). Places storage/container/extensions/towers from scored hub.
-    // Legacy stamp logic below still runs for roads-to-sources / ramparts / links until fully migrated.
+    // v2-planned rooms build ONLY from the adopted plan — legacy stamps,
+    // basePlan and perimeter logic must never touch them
+    if (room.memory.planV2) {
+        placeFromPlanV2(room);
+        return;
+    }
+
+    // Dynamic plan: always compute/visualize. Only AUTO-PLACE sites on young rooms.
+    // Rooms that already have storage keep legacy construction (avoids dual-stamp site flood).
     if (room.controller && room.controller.my && !room.memory.danger) {
         getBasePlan(room);
-        placeFromBasePlan(room, 5);
-        // Hub visual when verbose
-        if (Memory.verbose && room.memory.basePlan && room.memory.basePlan.hub) {
-            const h = room.memory.basePlan.hub;
-            vizCircle(room.name, h.x, h.y, { fill: "transparent", radius: 0.55, stroke: "#00ff88", strokeWidth: 0.15 });
+        syncPerimeterToConstructionMemory(room);
+        const hasStorage = !!room.storage;
+        const young = room.controller.level < 4 || !hasStorage;
+        if (young) {
+            placeFromBasePlan(room, 8);
+        }
+        if (Memory.verbose || Memory.showPlan) {
+            visualizeBasePlan(room);
         }
     }
 
@@ -440,40 +452,10 @@ function construction(room) {
         }
     }
 
-    if(room.controller.level >= 3 && room.storage) {
-        console.log(`Room ${room.name} meets criteria for rampart calculation`);
-        let storage = room.storage;
-        let rampartLocations = [];
-        for(let i = -10; i <= 10; i++) {
-            for(let o = -10; o <= 10; o++) {
-                let combinedX = storage.pos.x + i;
-                let combinedY = storage.pos.y + o;
-
-                // Ensure combinedX is within the boundaries
-                if (combinedX < 2) combinedX = 2;
-                if (combinedX > 47) combinedX = 47;
-
-                // Ensure combinedY is within the boundaries
-                if (combinedY < 2) combinedY = 2;
-                if (combinedY > 47) combinedY = 47;
-
-                if (Math.abs(i) == 10 || Math.abs(o) == 10) {
-                    rampartLocations.push([combinedX, combinedY]);
-                }
-            }
-        }
-
-        console.log(`Calculated ${rampartLocations.length} rampart locations for room ${room.name}`);
-
-        // Store rampartLocations in memory
-        room.memory.construction.rampartLocations = rampartLocations;
-        console.log(`Stored rampart locations in memory for room ${room.name}`);
-    } else {
-        console.log(`Room ${room.name} does not meet criteria for rampart calculation`);
+    // Perimeter always from basePlan (min-cut) — square shell removed
+    if (room.memory.basePlan && room.memory.basePlan.perimeter) {
+        syncPerimeterToConstructionMemory(room);
     }
-
-    // Log the current state of rampartLocations in memory
-    console.log(`Current rampartLocations in memory for room ${room.name}:`, JSON.stringify(room.memory.construction.rampartLocations));
 
 
     if(room.controller.level == 1 && room.find(FIND_MY_SPAWNS).length == 0 && room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && Memory.target_colonise.room == room.name) {
@@ -1986,9 +1968,115 @@ const RampartBorderCallbackFunction = (roomName: string): boolean | CostMatrix =
 
 
 
+/** packed (x + y*50) set of the adopted plan's road tiles, or null */
+function planRoadSet(room): { [packed: number]: boolean } | null {
+    const plan = room.memory.planV2;
+    if (!plan || !plan.t || !plan.t.road) return null;
+    const set: { [packed: number]: boolean } = {};
+    for (const p of plan.t.road) set[p] = true;
+    return set;
+}
+
+/**
+ * Cost matrix for the storage -> remote-source line.
+ *
+ * Inside a v2-planned home room the plan owns the layout, so the line must
+ * ride the plan's own eco roads out to the exit rather than carve a second
+ * path across the base. Plan road tiles cost 1, everything else is expensive
+ * but passable (the path can still cross a gap — we simply won't pave it).
+ */
+function remoteRoadCostMatrix(roomName: string, homeRoom: any, planRoads: { [packed: number]: boolean } | null): boolean | CostMatrix {
+    if (!planRoads || roomName !== homeRoom.name) {
+        return makeStructuresCostMatrixModifiedTest(roomName);
+    }
+    const costs = new PathFinder.CostMatrix();
+    const terrain = new Room.Terrain(roomName);
+    for (let y = 0; y <= 49; y++) {
+        for (let x = 0; x <= 49; x++) {
+            const t = terrain.get(x, y);
+            costs.set(x, y, t === TERRAIN_MASK_WALL ? 255 : t === TERRAIN_MASK_SWAMP ? 25 : 10);
+        }
+    }
+    for (const packed of Object.keys(planRoads)) {
+        const p = Number(packed);
+        costs.set(p % 50, Math.floor(p / 50), 1);
+    }
+    for (const s of homeRoom.find(FIND_STRUCTURES)) {
+        if (s.structureType === STRUCTURE_ROAD) { costs.set(s.pos.x, s.pos.y, 1); continue; }
+        if (s.structureType === STRUCTURE_CONTAINER) continue;
+        if (s.structureType === STRUCTURE_RAMPART && s.my) continue;
+        costs.set(s.pos.x, s.pos.y, 255);
+    }
+    return costs;
+}
+
+/** how many open sites the home room may hold before we stop adding to it */
+const HOME_SITE_CEILING = 4;
+/** open sites we tolerate in ONE remote room (a remote line is 50-80 tiles;
+ *  paving it in one go buries the 100-site global cap) */
+const REMOTE_SITE_CEILING = 8;
+/** leave this much of the 100-site global cap for the base plans */
+const GLOBAL_SITE_CEILING = 70;
+
+/**
+ * Pave a remote line for a v2-planned room.
+ *
+ * Rules (owner's ask): roads OUTSIDE the home room freely; INSIDE the home
+ * room only on tiles the plan already calls road. If the in-room segment
+ * deviates from the plan, leave it — creeps just walk those tiles. This keeps
+ * the whole in-room budget with placeFromPlanV2 and stops the remote line from
+ * dual-stamping the base.
+ */
+function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: boolean }): void {
+    let remoteBudget = 4;
+    let homeBudget = 2;
+    const homeSites = homeRoom.find(FIND_MY_CONSTRUCTION_SITES).length;
+    const remoteSites: { [roomName: string]: number } = {};
+
+    for (const pos of path) {
+        if (remoteBudget <= 0 && homeBudget <= 0) break;
+        if (pos.x < 1 || pos.x > 48 || pos.y < 1 || pos.y > 48) continue;
+        const targetRoom = Game.rooms[pos.roomName];
+        if (!targetRoom) continue;
+
+        const inHome = pos.roomName === homeRoom.name;
+        if (inHome) {
+            if (homeBudget <= 0) continue;
+            if (homeSites >= HOME_SITE_CEILING) continue;
+            if (!planRoads[pos.x + pos.y * 50]) continue; // off-plan -> don't pave
+        } else {
+            if (remoteBudget <= 0) continue;
+            if (remoteSites[pos.roomName] === undefined) {
+                remoteSites[pos.roomName] = targetRoom.find(FIND_MY_CONSTRUCTION_SITES).length;
+            }
+            if (remoteSites[pos.roomName] >= REMOTE_SITE_CEILING) continue;
+        }
+
+        const terrainHere = targetRoom.getTerrain().get(pos.x, pos.y);
+        if (terrainHere === TERRAIN_MASK_WALL) continue;
+
+        let blocked = false;
+        for (const s of pos.lookFor(LOOK_STRUCTURES)) {
+            if (s.structureType === STRUCTURE_ROAD) { blocked = true; break; }
+            if (s.structureType !== STRUCTURE_RAMPART) { blocked = true; break; }
+        }
+        if (blocked) continue;
+        if (pos.lookFor(LOOK_CONSTRUCTION_SITES).length) continue;
+
+        if (targetRoom.createConstructionSite(pos.x, pos.y, STRUCTURE_ROAD) === OK) {
+            if (inHome) {
+                homeBudget--;
+            } else {
+                remoteBudget--;
+                remoteSites[pos.roomName]++;
+            }
+        }
+    }
+}
+
 function Build_Remote_Roads(room) {
     // Early RCL / no remotes: do not lay road sites to room edges
-    if (!room.controller || room.controller.level < 4) return;
+    if (!room.controller || room.controller.level < 3) return;
     if(room.memory.danger) {
         return;
     }
@@ -1996,48 +2084,67 @@ function Build_Remote_Roads(room) {
     if (!storage) {
         return;
     }
+    // Construction sites are capped at 100 GLOBALLY (MAX_CONSTRUCTION_SITES),
+    // not per room. A remote line is 50-80 tiles, so paving two remotes ate
+    // the whole allowance and left placeFromPlanV2 with zero slots in both
+    // communes. Remote roads are the lowest-priority builder there is.
+    if (Object.keys(Game.constructionSites).length >= GLOBAL_SITE_CEILING) {
+        return;
+    }
+
+    // v2-planned rooms are handled with a clipped placer instead of
+    // pathBuilder: pathBuilder paves the WHOLE path, which drops up to 12
+    // in-room road sites and starves placeFromPlanV2's 4-site budget.
+    const planRoads = planRoadSet(room);
 
     let resourceData = _.get(room.memory, ['resources']);
-    console.log(`Resource data for room ${room.name}:`, JSON.stringify(resourceData));
 
     _.forEach(resourceData, function(data, targetRoomName){
         // We want to build roads to remote rooms, not the current room
-        if(room.name !== targetRoomName) {
-            _.forEach(data.energy, function(values, sourceId:any) {
-                let source:any = Game.getObjectById(sourceId);
-                // Check if we have visibility of the source
-                if(source != null && storage) {
-                    let pathFromStorageToRemoteSource = PathFinder.search(
-                        storage.pos,
-                        {pos:source.pos, range:1},
-                        {
-                            plainCost: 1,
-                            swampCost: 3,
-                            roomCallback: (roomName) => makeStructuresCostMatrixModifiedTest(roomName),
-                            maxRooms: 16  // Allow cross-room pathing
-                        }
-                    );
+        if(room.name === targetRoomName) return;
+        // ...and only to remotes we actually decided to mine
+        if(!data || !data.active || !data.energy) return;
 
-                    if(!pathFromStorageToRemoteSource.incomplete) {
-                        let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
-                        values.pathLength = pathFromStorageToRemoteSource.path.length;
-
-                        if(containerSpot && Game.rooms[containerSpot.roomName]) {
-                            console.log(`Creating container construction site at (${containerSpot.x}, ${containerSpot.y}) in room ${containerSpot.roomName}`);
-                            Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
-                            console.log(`Building road from storage to remote source in room ${targetRoomName}`);
-                            pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
-                        } else {
-                            console.log(`No visibility in container room ${containerSpot?.roomName}`);
-                        }
-                    } else {
-                        console.log(`Could not find path to remote source in ${targetRoomName}`);
-                    }
-                } else {
-                    console.log(`No visibility of source ${sourceId} in room ${targetRoomName}`);
+        _.forEach(data.energy, function(values, sourceId:any) {
+            let source:any = Game.getObjectById(sourceId);
+            // Check if we have visibility of the source
+            if(source == null || !storage) {
+                return;
+            }
+            let pathFromStorageToRemoteSource = PathFinder.search(
+                storage.pos,
+                {pos:source.pos, range:1},
+                {
+                    plainCost: 1,
+                    swampCost: 3,
+                    roomCallback: (roomName) => remoteRoadCostMatrix(roomName, room, planRoads),
+                    maxRooms: 16,  // Allow cross-room pathing
+                    maxOps: 10000
                 }
-            });
-        }
+            );
+
+            if(pathFromStorageToRemoteSource.incomplete) {
+                console.log(`Could not find path to remote source in ${targetRoomName}`);
+                return;
+            }
+
+            let containerSpot = pathFromStorageToRemoteSource.path[pathFromStorageToRemoteSource.path.length - 1];
+            // carrier body sizing reads this; it is the only place it is
+            // computed for a remote source
+            values.pathLength = pathFromStorageToRemoteSource.path.length;
+
+            if(!containerSpot || !Game.rooms[containerSpot.roomName]) {
+                console.log(`No visibility in container room ${containerSpot?.roomName}`);
+                return;
+            }
+            Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
+            console.log(`Building road from ${room.name} storage to remote source in ${targetRoomName} (${values.pathLength} tiles)`);
+            if (planRoads) {
+                placeClippedRemoteRoads(room, pathFromStorageToRemoteSource.path, planRoads);
+            } else {
+                pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
+            }
+        });
     });
 }
 

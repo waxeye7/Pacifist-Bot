@@ -12,9 +12,26 @@ import {
 } from "utils/Bench";
 import { getFeatures } from "utils/Features";
 import { resetSpeedrun, speedrunStatus } from "utils/Speedrun";
-import { replanRoom, getBasePlan } from "utils/BasePlan";
+import { replanRoom, getBasePlan, visualizeBasePlan } from "utils/BasePlan";
+import { getPerimeterTiles } from "utils/Perimeter";
+import { animPlan, animStop } from "utils/PlanAnimator";
 
 const g = global as any;
+
+/**
+ * Replay the offline planner stage by stage: animPlan("E2S7") or
+ * animPlan("E2S7", 3) for 3 steps/tick. Loops forever by default; pass
+ * animPlan("E2S7", 1, false) for a single pass. Frames must already be in
+ * the memory segments — push them with tools/server/push-anim.mjs.
+ */
+g.animPlan = function (roomName: string, speed: number = 1, loop: boolean = true): string {
+  return animPlan(roomName, speed, loop);
+};
+
+/** Stop the planner replay: animStop() */
+g.animStop = function (): string {
+  return animStop();
+};
 
 /** Force dynamic base replan: replanBase("E2S7") */
 g.replanBase = function (roomName: string): string {
@@ -23,7 +40,7 @@ g.replanBase = function (roomName: string): string {
   return msg;
 };
 
-/** Show cached hub: basePlan("E2S7") */
+/** Show cached hub + perimeter: basePlan("E2S7") */
 g.basePlan = function (roomName: string) {
   const room = Game.rooms[roomName];
   if (!room) {
@@ -31,8 +48,66 @@ g.basePlan = function (roomName: string) {
     return null;
   }
   const plan = getBasePlan(room);
-  logAlways(plan ? JSON.stringify({ hub: plan.hub, score: plan.score, version: plan.version }) : "no plan");
+  if (!plan) {
+    logAlways("no plan");
+    return null;
+  }
+  const summary = {
+    hub: plan.hub,
+    score: plan.score,
+    version: plan.version,
+    perimeterMode: plan.perimeterMode,
+    perimeter: plan.perimeter.length,
+  };
+  logAlways(JSON.stringify(summary));
   return plan;
+};
+
+/** Draw hub + min-cut for a few ticks: showPlan(true) or showPlan("E2S7") */
+g.showPlan = function (arg: boolean | string = true): string {
+  if (typeof arg === "string") {
+    const room = Game.rooms[arg];
+    if (!room) return `no vision ${arg}`;
+    visualizeBasePlan(room);
+    Memory.showPlan = true;
+    return `drawing plan for ${arg} (Memory.showPlan=true)`;
+  }
+  Memory.showPlan = !!arg;
+  const msg = `Memory.showPlan=${Memory.showPlan}`;
+  logAlways(msg);
+  return msg;
+};
+
+g.showPerimeter = function (roomName: string): string {
+  const room = Game.rooms[roomName];
+  if (!room) return `no vision ${roomName}`;
+  const tiles = getPerimeterTiles(room);
+  const vis = new RoomVisual(roomName);
+  for (const t of tiles) {
+    vis.rect(t.x - 0.4, t.y - 0.4, 0.8, 0.8, {
+      fill: "transparent",
+      stroke: "#ff6666",
+      strokeWidth: 0.1,
+    });
+  }
+  const msg = `perimeter tiles=${tiles.length}`;
+  logAlways(msg);
+  return msg;
+};
+
+/** Enable live placement from plan (careful): enablePlaceFromPlan() */
+g.enablePlaceFromPlan = function (): string {
+  getFeatures().placeFromPlan = true;
+  const msg = "placeFromPlan ON — plan will create construction sites";
+  logAlways(msg);
+  return msg;
+};
+
+g.disablePlaceFromPlan = function (): string {
+  getFeatures().placeFromPlan = false;
+  const msg = "placeFromPlan OFF";
+  logAlways(msg);
+  return msg;
 };
 
 /** Console: setVerbose(true|false) — default silent for shard3 */
@@ -88,6 +163,57 @@ g.features = function () {
   const f = getFeatures();
   logAlways(JSON.stringify(f));
   return f;
+};
+
+// --- Hauler pickup target locking (A/B seam) ---
+
+/** Console: enablePickupLock() — lock pickup targets + reserve their energy */
+g.enablePickupLock = function (): string {
+  getFeatures().pickupLock = true;
+  const msg = "pickupLock ON — haulers lock a pile for 25t and reserve what they'll take";
+  logAlways(msg);
+  return msg;
+};
+
+/** Console: disablePickupLock() — legacy per-tick rescan sorted by amount */
+g.disablePickupLock = function (): string {
+  getFeatures().pickupLock = false;
+  const msg = "pickupLock OFF — legacy amount-sorted rescan every tick (baseline)";
+  logAlways(msg);
+  return msg;
+};
+
+/** Console: resetPickupStats() — zero the switch counters before an A/B window */
+g.resetPickupStats = function (): string {
+  if (!Memory.stats) Memory.stats = {};
+  Memory.stats.pickupSwitches = 0;
+  Memory.stats.pickupTicks = 0;
+  Memory.stats.pickupFallback = 0;
+  Memory.stats.pickupIdle = 0;
+  Memory.stats.pickupActs = 0;
+  Memory.stats.pickupGot = 0;
+  Memory.stats.pickupSince = Game.time;
+  const msg = `pickup counters reset at tick ${Game.time}`;
+  logAlways(msg);
+  return msg;
+};
+
+/** Console: pickupStats() — target switches per 100 acquire calls + mode */
+g.pickupStats = function (): string {
+  const s: any = Memory.stats || {};
+  const ticks = s.pickupTicks || 0;
+  const switches = s.pickupSwitches || 0;
+  const rate = ticks > 0 ? (switches / ticks) * 100 : 0;
+  const mode = getFeatures().pickupLock !== false ? "ON (lock+reserve)" : "OFF (legacy)";
+  const msg =
+    `pickupLock=${mode} | calls=${ticks} switches=${switches} ` +
+    `| ${rate.toFixed(1)} switches/100 calls` +
+    ` | queued=${s.pickupFallback || 0} idle=${s.pickupIdle || 0}` +
+    ` | throughput=${ticks ? ((s.pickupGot || 0) / ticks).toFixed(1) : 0} energy/call` +
+    ` (collect on ${ticks ? ((100 * (s.pickupActs || 0)) / ticks).toFixed(0) : 0}% of calls)` +
+    (s.pickupSince != null ? ` | window=${Game.time - s.pickupSince}t` : "");
+  logAlways(msg);
+  return msg;
 };
 
 /** Console: cpuStatus() — limit, bucket, remotes policy (always prints) */
@@ -830,7 +956,11 @@ global.SS = function (roomName, targetRoomName, backupTR = ""): any {
                 HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL];
 
             let newName = 'Solomon-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.push(body, newName, { memory: { role: 'Solomon', homeRoom: roomName, targetRoom: targetRoomName, backupTR: backupTR, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7] } });
+            // outputLab2/4/5/7 may be unset (fewer than 8 output labs built, or
+            // a v2 diamond that assigns different slots) — an undefined entry
+            // makes Creep.Boost() spin forever waiting on a lab that isn't there
+            let solomonBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
+            room.memory.spawn_list.push(body, newName, { memory: { role: 'Solomon', homeRoom: roomName, targetRoom: targetRoomName, backupTR: backupTR, boostlabs: solomonBoostLabs } });
             console.log('Adding Solomon to Spawn List: ' + newName + roomName, targetRoomName);
 
 

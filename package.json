@@ -20,8 +20,11 @@
     "test-integration": "echo 'See docs/in-depth/testing.md for instructions on enabling integration tests'",
     "watch-main": "rollup -cw --environment DEST:main",
     "watch-pserver": "rollup -cw --environment DEST:pserver",
+    "watch-waxeye": "rollup -cw --environment DEST:waxeye",
+    "push-waxeye": "rollup -c --environment DEST:waxeye",
     "watch-season": "rollup -cw --environment DEST:season",
-    "watch-sim": "rollup -cw --environment DEST:sim"
+    "watch-sim": "rollup -cw --environment DEST:sim",
+    "push-pacifist": "rollup -c --environment DEST:pacifist"
   },
   "repository": {
     "type": "git",

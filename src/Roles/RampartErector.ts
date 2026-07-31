@@ -43,8 +43,15 @@
         }
 
         if(!creep.memory.locked) {
-            if(creep.memory.rampartLocations.length > 0) {
-                let nextTarget = creep.room.memory.construction.rampartLocations.pop();
+            // the creep's own copy is only a spawn-time snapshot — the list it
+            // actually pops from is the room's, which may be missing entirely
+            // (planV2 rooms before the first sync) or already emptied by a
+            // sibling erector
+            const roomRampartLocations =
+                creep.room.memory.construction && creep.room.memory.construction.rampartLocations;
+            if(creep.memory.rampartLocations && creep.memory.rampartLocations.length > 0 &&
+               roomRampartLocations && roomRampartLocations.length > 0) {
+                let nextTarget = roomRampartLocations.pop();
                 if(nextTarget && nextTarget.length >= 2 && typeof nextTarget[0] === 'number' && typeof nextTarget[1] === 'number' && nextTarget[0] >= 0 && nextTarget[0] <= 49 && nextTarget[1] >= 0 && nextTarget[1] <= 49) {
                     let position = new RoomPosition(nextTarget[0], nextTarget[1], creep.room.name)
                     position.createConstructionSite(STRUCTURE_RAMPART);

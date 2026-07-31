@@ -26,7 +26,7 @@ function spawning(room: any) {
         return;
     }
 
-    if(room.controller.level >= 7 && spawn && spawn.effects && spawn.effects.length > 0 && room.danger && room.danger_timer > 30) {
+    if(room.controller.level >= 7 && spawn && spawn.effects && spawn.effects.length > 0 && room.memory.danger && room.memory.danger_timer > 30) {
         if(!room.memory.ram_coming) {
             for(let effect of spawn.effects) {
                 if(effect.effect === PWR_DISRUPT_SPAWN) {
@@ -182,8 +182,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     EnergyMiners ++;
                     break;
                 }
-
-            case "EnergyMiner":
+                // not in room: fall through to the plain count
                 EnergyMiners ++;
                 break;
 
@@ -193,8 +192,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     carriers ++;
                     break;
                 }
-
-            case "carry":
+                // not in room: fall through to the plain count
                 carriers ++;
                 break;
 
@@ -426,7 +424,14 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
-    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+    // Prefer the room's REAL storage. room.memory.Structures.storage is a
+    // cache that is never re-pointed, so a room that built its storage AFTER
+    // the hub container still had the CONTAINER's id in there — and a
+    // container caps at 2000, so every `storage.store[RESOURCE_ENERGY] > N`
+    // gate below (builders, repairers, upgraders, the colonise claimer) read
+    // 2000 while the room actually sat on 937k (live E11S5, RCL4, zero
+    // upgraders). findStorage() stays as the pre-storage fallback.
+    let storage = room.storage || Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
     let resourceData = _.get(room.memory, ['resources']);
 
@@ -835,12 +840,17 @@ function add_creeps_to_spawn_list(room, spawn) {
     const roomResources = room.memory.resources || {};
     let roomsToRemote = Object.keys(roomResources);
     let activeRemotes = [];
-    // Home room always counts. Remotes: not during low-RCL speedrun; else RCL>=4 only.
-    const speedrun = Memory.features && Memory.features.speedrun;
+    // Home room always counts. Remotes open at RCL3 (reserver bodies and the
+    // remote-road budget both exist from there).
+    //
+    // This used to also require `!Memory.features.speedrun` — and speedrun
+    // defaults to TRUE, so this branch silently reset every remote's `active`
+    // flag every tick on every room, which is why no remote ever started
+    // regardless of how much CPU was free. Speedrun now only suppresses
+    // remotes below RCL3 (see utils/Speedrun.applySpeedrunSpawnHints).
     const remotesAllowed =
         room.controller &&
-        room.controller.level >= 4 &&
-        !speedrun;
+        room.controller.level >= 3;
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);
@@ -848,13 +858,16 @@ function add_creeps_to_spawn_list(room, spawn) {
             if (remotesAllowed) {
                 activeRemotes.push(remoteRoom);
             } else {
-                // force off until RCL4+ and not mid-speedrun
+                // force off until RCL3+
                 roomResources[remoteRoom].active = false;
             }
         }
     }
     let constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES)
     let constructionSitesAmount = constructionSites.length;
+    // extra upgraders bought by a storage surplus — 0 below the tier
+    // thresholds, so every gate below keeps its old behaviour there
+    let surplusUpgraders = surplusUpgraderTier(room);
     switch(room.controller.level) {
         case 1:
             if((fillers < spawnrules[1].filler_creep.amount || fillers < spawnrules[1].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[1].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
@@ -979,7 +992,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(builders < spawnrules[4].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (!storage || storage && storage.store[RESOURCE_ENERGY] > 15000)) {
+            // `storage` here can be a CONTAINER (findStorage falls back to the
+            // hub container when the room has no real storage yet) and a
+            // container caps out at 2000 — so the 15000 gate was unsatisfiable
+            // and an RCL4 room without a storage got ZERO builders, forever.
+            // That is the soft-brick: no builders means the storage site never
+            // gets built, which means no storage, which means no builders.
+            if(builders < spawnrules[4].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 15000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -988,6 +1007,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            // Surplus tier: >60k banked at RCL4. Deliberately NOT gated on
+            // constructionSitesAmount — that gate is what froze E11S5 at 778k.
+            else if(surplusUpgraders > 0 && upgraders < spawnrules[4].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
             }
             if(maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
                 if(spawnMaintainer) {
@@ -1030,7 +1056,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(builders < spawnrules[5].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (storage && storage.store[RESOURCE_ENERGY] > 15000 || !storage)) {
+            // Was 15k — left sites unfinished while eco was still climbing
+            // same container-vs-storage trap as RCL4 above
+            if(builders < spawnrules[5].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1039,6 +1067,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            // Surplus tier: >60k banked at RCL5 buys one upgrader on top
+            else if(surplusUpgraders > 0 && upgraders < spawnrules[5].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
             }
             if(maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
                 if(spawnMaintainer) {
@@ -1091,21 +1125,25 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(builders < spawnrules[6].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 120000 || !storage)) {
+            // Was 120k — effectively blocked all building at early RCL6 (roads/labs never finished)
+            if(builders < spawnrules[6].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 8000 || !storage)) {
                 let allowSpawn = true;
                 let spawnSmall = false;
+                // Prefer building real structures (roads/ext/labs) over rampart-only spam
+                let hasUsefulSite = false;
                 for(let site of sites) {
-                    if(site.structureType == STRUCTURE_RAMPART) {
-                        allowSpawn = false;
-                        spawnSmall = true;
-                    }
-                    else {
+                    if(site.structureType !== STRUCTURE_RAMPART) {
+                        hasUsefulSite = true;
                         allowSpawn = true;
                         spawnSmall = false;
                         break;
                     }
+                    else {
+                        allowSpawn = false;
+                        spawnSmall = true;
+                    }
                 }
-                if(allowSpawn) {
+                if(allowSpawn || hasUsefulSite) {
                     let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[6].build_creep.body, name, {memory: {role: 'builder'}});
                     console.log('Adding Builder to Spawn List: ' + name);
@@ -1120,6 +1158,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            // Surplus tier: >120k banked at RCL6. The gate above waits for
+            // 400k, so everything between the two just piled up.
+            else if(surplusUpgraders > 0 && upgraders < spawnrules[6].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
             }
 
 
@@ -1175,7 +1220,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
             }
-            if(builders < spawnrules[7].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 100000 || !storage)) {
+            if(builders < spawnrules[7].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 15000 || !storage)) {
                 let allowSpawn = true;
                 let spawnSmall = false;
                 for(let site of sites) {
@@ -1209,6 +1254,16 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            // Surplus tier: >120k (+1) / >250k (+2) banked at RCL7. Below 400k
+            // the spend branch above never fires and the small upgrade_creep
+            // only comes out near a downgrade — so a room like live E2S7 sits
+            // on 384k with no upgrader at all. Use the SPEND body: at this RCL
+            // the point is to burn the bank, not to tick the controller over.
+            else if(surplusUpgraders > 0 && upgraders < spawnrules[7].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
             }
 
 
@@ -1974,6 +2029,16 @@ function add_creeps_to_spawn_list(room, spawn) {
         let closestRoom = null;
         let closestDistance = Infinity;
         let maxEnergy = 0;
+        // A colony is only as good as the room paying for it: BOTH gates below
+        // (claimer, ContainerBuilder) need >10k in storage, so a broke room
+        // winning the "closest" contest parks the whole colonisation with no
+        // log and no retry. Live: E9S2 was claimed, then its spawn site sat at
+        // 6240/15000 forever because supporter E11S2 was drained to 1.1k while
+        // E11S5 (one room further out) held 937k. Prefer rooms that can pay;
+        // fall back to the plain closest when nobody can.
+        const COLONY_FUND = 10000;
+        let fallbackRoom = null;
+        let fallbackDistance = Infinity;
         const targetRoomName = target_colonise; // Assuming target_colonise contains the target room name
 
         // Loop through all your rooms
@@ -1988,6 +2053,14 @@ function add_creeps_to_spawn_list(room, spawn) {
             // Get the amount of energy in the storage of the current room
             const energyInStorage = room.storage ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
 
+            if (distance < fallbackDistance) {
+                fallbackRoom = room;
+                fallbackDistance = distance;
+            }
+            if (energyInStorage <= COLONY_FUND) {
+                continue;
+            }
+
             // Update the closest room if this room is closer to the target room or has more energy
             if (distance < closestDistance || (distance === closestDistance && energyInStorage > maxEnergy)) {
             closestRoom = room;
@@ -1995,6 +2068,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             maxEnergy = energyInStorage;
             }
         }
+        }
+        if (!closestRoom) {
+            closestRoom = fallbackRoom;
         }
 
         if(closestRoom && closestRoom.name == room.name) {
@@ -2348,6 +2424,15 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("Ram")
                 && !room.memory.spawn_list[1].startsWith("Signifer")
 
+                // A reserver is [CLAIM,MOVE] x N, so from RCL5 up its body is
+                // >= 4 parts and this clause DISCARDED it on the first
+                // ERR_NOT_ENOUGH_ENERGY — a remote could never hold a
+                // reservation unless the room happened to be full at the exact
+                // tick it was queued. It waits for energy now, like a carrier
+                // or a miner; the energyCapacity clause below still throws out
+                // bodies the room can never afford.
+                && !room.memory.spawn_list[1].startsWith("Reserver")
+
                 && !room.memory.spawn_list[1].startsWith("PowerHeal")
                 && !room.memory.spawn_list[1].startsWith("Goblin")
 
@@ -2383,7 +2468,7 @@ function spawnFirstInLine(room, spawn) {
                 }
                 else if(room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
                 room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
-                room.memory.lastTimeSpawnUsed > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 1) {
+                room.memory.lastTimeSpawnUsed > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2) {
                     room.memory.spawn_list[0].shift();
                 }
             }
@@ -2407,12 +2492,51 @@ function isInRoom(creep, room) {
     return creep.room.name == room.name;
 }
 
+/**
+ * How many EXTRA upgraders a storage surplus pays for.
+ *
+ * A room that banks energy is a room that is not growing: live E11S5 sat on
+ * 778k at RCL4 with ZERO upgraders, because the normal RCL4 gate is blocked
+ * while ANY construction site is open — and a planV2 room always keeps 4
+ * sites open, so it never upgraded again. Same shape at RCL6/7, where the
+ * gate wants 400k before it spawns the big spend body.
+ *
+ * Reads room.storage, NOT the `storage` local every other gate here uses:
+ * that one is `Game.getObjectById(room.memory.Structures.storage) ||
+ * room.findStorage()`, and on live E11S5 the cached id still pointed at the
+ * hub CONTAINER built before the storage existed. A container caps at 2000,
+ * so every `> 100000` gate in the RCL4 block was reading 2000 while the real
+ * storage held 860k. Anything below the tier threshold returns 0, i.e.
+ * exactly the old behaviour.
+ *
+ * RCL8 is deliberately excluded: the controller only takes 15 energy/tick
+ * there, so more upgraders buy nothing — an RCL8 surplus wants ramparts /
+ * nuker / terminal, not creeps.
+ */
+function surplusUpgraderTier(room) {
+    let storage = room.storage;
+    if(!storage || !storage.my) return 0;
+    if(room.memory.danger) return 0;
+    let energy = storage.store[RESOURCE_ENERGY] || 0;
+    let level = room.controller.level;
+    if(level >= 8) return 0;
+    if(level >= 6) {
+        if(level == 7 && energy > 250000) return 2;
+        return energy > 120000 ? 1 : 0;
+    }
+    if(level >= 4) return energy > 60000 ? 1 : 0;
+    return 0;
+}
+
 function getBody(segment:string[], room, bodyMaxLength=50) {
     let body = [];
     let segmentCost = _.sum(segment, s => BODYPART_COST[s]);
     let energyAvailable = room.energyAvailable;
 
-    let maxSegments = Math.floor(energyAvailable / segmentCost);
+    // never 0 segments: an energy dip at queue time would emit an EMPTY body,
+    // and spawnCreep([]) fails -10 forever (the queue re-adds it each pass).
+    // With one segment minimum the spawner just waits -6 until affordable.
+    let maxSegments = Math.max(1, Math.floor(energyAvailable / segmentCost));
     _.times(maxSegments, function() {if(segment.length + body.length <= bodyMaxLength){_.forEach(segment, s => body.push(s));}});
 
     return body;
@@ -2854,12 +2978,48 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
 }
 
 function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
-    if(reservers > 0) {
+    // `reservers` is a GLOBAL count — rooms.spawning tallies Game.creeps
+    // without filtering by homeRoom — so `reservers > 0` meant exactly ONE
+    // reservation could exist across the whole empire. Scope it to this
+    // commune, and to one reserver per target room (the loop below runs once
+    // per SOURCE, so without this it queues one reserver per source).
+    const myReservers: any[] = _.filter(Game.creeps, (c: any) =>
+        c.memory.role === 'reserve' && c.memory.homeRoom === room.name) as any[];
+    const covered: { [roomName: string]: boolean } = {};
+    for(const c of myReservers) {
+        if(c.memory.targetRoom) covered[c.memory.targetRoom] = true;
+    }
+    // reservers already queued but not yet spawned (spawn_list is a flat
+    // [body, name, opts] x N array)
+    const queue = room.memory.spawn_list || [];
+    for(let i = 1; i < queue.length; i += 3) {
+        if(typeof queue[i] === 'string' && queue[i].indexOf('Reserver-') === 0) {
+            const opts = queue[i + 1];
+            if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
+        }
+    }
+    if(myReservers.length >= 2) {
         return;
+    }
+    if(Memory.debugReserver) {
+        console.log("[resvdbg]", room.name, "active=" + JSON.stringify(activeRemotes),
+            "covered=" + JSON.stringify(Object.keys(covered)), "mine=" + myReservers.length);
     }
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
+            if(covered[targetRoomName]) {
+                return;
+            }
+            const markSpawned = function() {
+                covered[targetRoomName] = true;
+                // stamp EVERY source of this remote so the next source in the
+                // loop doesn't queue a second reserver for the same room
+                _.forEach(data.energy, function(v: any) { v.lastSpawnReserver = Game.time; });
+            };
             _.forEach(data.energy, function(values, sourceId) {
+                if(covered[targetRoomName]) {
+                    return;
+                }
                 let newName = 'Reserver-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
 
                 if(Memory.CanClaimRemote >= 3 && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller && !Game.rooms[targetRoomName].controller.my && (Game.rooms[targetRoomName].controller.reservation && Game.rooms[targetRoomName].controller.reservation.ticksToEnd <= 750 || !Game.rooms[targetRoomName].controller.reservation)) {
@@ -2869,7 +3029,7 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                     room.memory.spawn_list.push([CLAIM,MOVE], newName,
                         {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name, claim: true}});
                     console.log('Adding Reserver to Spawn List: ' + newName);
-                    values.lastSpawnReserver = Game.time;
+                    markSpawned();
                     Memory.CanClaimRemote -= 1;
                     return;
                 }
@@ -2882,29 +3042,42 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                             return;
                         }
 
-                        if(room.controller.level == 5) {
+                        // RCL3/4 had NO branch at all here, so an RCL3-4 commune
+                        // could never reserve a remote no matter what else was
+                        // true. One CLAIM/MOVE pair is 650e — affordable from
+                        // RCL3 (800 cap) and enough to hold a reservation.
+                        if(room.controller.level <= 4) {
+                            if(room.energyCapacityAvailable < 650) {
+                                return;
+                            }
+                            room.memory.spawn_list.push([CLAIM,MOVE], newName,
+                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
+                            console.log('Adding Reserver to Spawn List: ' + newName);
+                            markSpawned();
+                        }
+                        else if(room.controller.level == 5) {
                             room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE], newName,
                                 {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Reserver to Spawn List: ' + newName);
-                            values.lastSpawnReserver = Game.time;
+                            markSpawned();
                         }
                         else if(room.controller.level == 6) {
                             room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
                                 {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Reserver to Spawn List: ' + newName);
-                            values.lastSpawnReserver = Game.time;
+                            markSpawned();
                         }
                         else if(room.controller.level == 7) {
                             room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
                                 {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Reserver to Spawn List: ' + newName);
-                            values.lastSpawnReserver = Game.time;
+                            markSpawned();
                         }
                         else if(room.controller.level == 8) {
                             room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
                                 {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Reserver to Spawn List: ' + newName);
-                            values.lastSpawnReserver = Game.time;
+                            markSpawned();
                         }
                     }
                 }

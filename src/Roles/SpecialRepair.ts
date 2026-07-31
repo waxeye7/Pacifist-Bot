@@ -21,62 +21,24 @@ const run = function (creep) {
 
 
     if(!creep.memory.rampart_to_repair) {
-        let rampartLocations = [];
-        if(creep.room.name === "E41N58") {
-            for(let i = -25; i<=25; i++) {
-                for(let o = -25; o <=25; o++) {
-                    if((i>=23 || i<=-23)) {
-                        rampartLocations.push([i,o]);
-                    }
-                    else if((o>=23 || o<=-23)) {
-                        rampartLocations.push([i,o]);
-                    }
+        // Plan perimeter walls (min-cut) — not legacy square stamp
+        let Ramparts: StructureRampart[] = [];
+        const perim =
+            (creep.room.memory.basePlan && creep.room.memory.basePlan.perimeter) ||
+            (creep.room.memory.defence && creep.room.memory.defence.perimeter) ||
+            [];
+        if (perim.length) {
+            for (const t of perim) {
+                const pos = new RoomPosition(t.x, t.y, creep.room.name);
+                for (const s of pos.lookFor(LOOK_STRUCTURES)) {
+                    if (s.structureType === STRUCTURE_RAMPART) Ramparts.push(s as StructureRampart);
                 }
             }
-        }
-        else {
-            for(let i = -10; i<=10; i++) {
-                for(let o = -10; o <=10; o++) {
-                    if((i>=8 || i<=-8)) {
-                        rampartLocations.push([i,o]);
-                    }
-                    else if((o>=8 || o<=-8)) {
-                        rampartLocations.push([i,o]);
-                    }
-                }
-            }
-        }
-
-
-        let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        let RampartPositions = getNeighbours(storage.pos, rampartLocations);
-
-        let Ramparts = [];
-
-        for(let rampartposition of RampartPositions) {
-            if(rampartposition.x <= 47 && rampartposition.x >= 2 && rampartposition.y <= 47 && rampartposition.y >= 2) {
-                let position = new RoomPosition(rampartposition.x, rampartposition.y, creep.room.name);
-                let lookForStructuresHere = position.lookFor(LOOK_STRUCTURES);
-
-                if(lookForStructuresHere.length > 0) {
-                    for(let building of lookForStructuresHere) {
-                        if(building.structureType == STRUCTURE_RAMPART) {
-                            Ramparts.push(building);
-                        }
-                        // else if(building.structureType == STRUCTURE_CONTAINER) {
-                        //     let buildingsHere = building.pos.lookFor(LOOK_STRUCTURES)
-                        //     for(let house of buildingsHere) {
-                        //         if(house.structureType == STRUCTURE_RAMPART) {
-                        //             creep.memory.rampart_to_repair = house.id;
-                        //         }
-                        //     }
-                        //     if(creep.memory.rampart_to_repair) {
-                        //         break;
-                        //     }
-                        // }
-                    }
-                }
-            }
+        } else {
+            // fallback: all my ramparts
+            Ramparts = creep.room.find(FIND_MY_STRUCTURES, {
+                filter: (s) => s.structureType === STRUCTURE_RAMPART,
+            }) as StructureRampart[];
         }
 
         if(Ramparts.length > 0) {
@@ -221,14 +183,20 @@ const roomCallbackSpecialRepair = (roomName: string): boolean | CostMatrix => {
         if(creep.getActiveBodyparts(RANGED_ATTACK) > 0) {
             for(let i = -3; i <= 3; i++) {
                 for(let o = -3; o <= 3; o++) {
-                    costs.set(creep.pos.x + i, creep.pos.y + o, 255);
+                    const x = creep.pos.x + i;
+                    const y = creep.pos.y + o;
+                    if(x < 0 || x > 49 || y < 0 || y > 49) continue;
+                    costs.set(x, y, 255);
                 }
             }
         }
         else if(creep.getActiveBodyparts(ATTACK)) {
             for(let i = -1; i <= 1; i++) {
                 for(let o = -1; o <= 1; o++) {
-                    costs.set(creep.pos.x + i, creep.pos.y + o, 255);
+                    const x = creep.pos.x + i;
+                    const y = creep.pos.y + o;
+                    if(x < 0 || x > 49 || y < 0 || y > 49) continue;
+                    costs.set(x, y, 255);
                 }
             }
         }

@@ -318,11 +318,17 @@ const run = function (creep) {
             if(targetLink == null || closestLink == null) {
                 if(!targetLink) {
                     creep.room.memory.Structures.StorageLink = undefined;
-                    if(creep.room.storage) {
+                    // Legacy self-heal: drop a hub link at the legacy offset.
+                    // NEVER for planV2 rooms — that tile is not the plan's hub
+                    // link, so this would build an off-plan link (and burn a
+                    // link slot) plus spam the console every tick.
+                    if(creep.room.storage && !creep.room.memory.planV2 && creep.room.storage.pos.x >= 2) {
                         new RoomPosition(creep.room.storage.pos.x-2,creep.room.storage.pos.y,creep.room.name).createConstructionSite(STRUCTURE_LINK);
                     }
                 }
-                console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
+                if(!creep.room.memory.planV2) {
+                    console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
+                }
                 return;
             }
 

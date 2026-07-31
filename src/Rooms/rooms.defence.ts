@@ -1,3 +1,5 @@
+import { findDamagedPerimeterRamparts, findPerimeterRamparts } from "utils/Perimeter";
+
 function roomDefence(room) {
     if(!room.memory.defence) {
         room.memory.defence = {
@@ -43,20 +45,16 @@ function roomDefence(room) {
                 towers.push(tower);
             }
         }
-        const damagedStructures = room.find(FIND_MY_STRUCTURES, {
-            filter: (structure) =>
-              (structure.structureType === STRUCTURE_RAMPART &&
-               structure.pos.getRangeTo(room.storage.pos) >= 8 && structure.pos.getRangeTo(room.storage.pos) <= 13)
-          });
-        damagedStructures.sort(function(a, b) {
-            return a.hits - b.hits;
-        });
+        // Perimeter ramparts (min-cut / plan) — not fixed range band from storage
+        const damagedStructures = findDamagedPerimeterRamparts(room, 2500000);
         let rampartToRepair = damagedStructures[0];
-
-        for(let tower of towers) {
-            if(rampartToRepair.hits < 2500000 || tower.pos.getRangeTo(rampartToRepair) <= 8 || tower.store[RESOURCE_ENERGY] >= 800) {
-                tower.repair(rampartToRepair);
-
+        if (!rampartToRepair) {
+            // no perimeter yet: skip specialized repair
+        } else {
+            for(let tower of towers) {
+                if(rampartToRepair.hits < 2500000 || tower.pos.getRangeTo(rampartToRepair) <= 8 || tower.store[RESOURCE_ENERGY] >= 800) {
+                    tower.repair(rampartToRepair);
+                }
             }
         }
     }
@@ -64,37 +62,10 @@ function roomDefence(room) {
     function hasDamagedRamparts(roomName) {
         const room = Game.rooms[roomName];
         if (!room) {
-          console.log(`Room ${roomName} not visible.`);
           return false;
         }
-
-        // Get your storage structure (assuming it's a single structure)
-        const storage = room.storage;
-
-        if (!storage) {
-          console.log(`Storage not found in ${roomName}.`);
-          return false;
-        }
-
-        // Define the minimum hits for damaged ramparts
         const minimumHits = 750000;
-
-        // Define the minimum distance from storage for ramparts and ruins
-        const minimumDistance = 8;
-
-        // Define the maximum distance from storage for ramparts and ruins
-        const maximumDistance = 13;
-
-        // Find ramparts and ruins within the room that are between 8 to 13 range away from storage and have less than 1 million hits
-        const damagedStructures = room.find(FIND_MY_STRUCTURES, {
-          filter: (structure) =>
-            (structure.structureType === STRUCTURE_RAMPART && structure.hits < minimumHits &&
-             structure.pos.getRangeTo(storage.pos) >= minimumDistance && structure.pos.getRangeTo(storage.pos) <= maximumDistance)
-        });
-
-
-
-        return damagedStructures.length > 0;
+        return findDamagedPerimeterRamparts(room, minimumHits).length > 0;
       }
 
 
@@ -255,14 +226,12 @@ function roomDefence(room) {
             }
 
 
-            let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: structure => structure.structureType == STRUCTURE_RAMPART});
-            if(storage) {
-                if(room.name === "E41N58") {
-                    MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 25});
-                }
-                else {
-                    MyRamparts = MyRamparts.filter(function(r) {return r.pos.getRangeTo(storage) <= 10});
-                }
+            // Man-able shell = planned perimeter (min-cut), not "range <= 10 from storage"
+            let MyRamparts: any[] = findPerimeterRamparts(room);
+            if (!MyRamparts.length) {
+                MyRamparts = room.find(FIND_MY_STRUCTURES, {
+                    filter: (structure) => structure.structureType == STRUCTURE_RAMPART,
+                });
             }
             let myCreeps = room.find(FIND_MY_CREEPS);
 

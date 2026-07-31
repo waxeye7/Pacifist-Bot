@@ -18,8 +18,41 @@ declare global {
       verbose?: boolean;
       /** A/B bench: setProfile / reportCpu / benchAuto — see utils/Bench.ts */
       bench?: any;
-      /** Feature flags: disablePower (default true), speedrun (default true) */
-      features?: { disablePower?: boolean; speedrun?: boolean; [key: string]: any };
+      /** Feature flags — see utils/Features.ts */
+      features?: {
+        disablePower?: boolean;
+        speedrun?: boolean;
+        dynamicLayout?: boolean;
+        placeFromPlan?: boolean;
+        minCutWalls?: boolean;
+        squareWalls?: boolean;
+        /** Hauler pickup target lock + reservation ledger (default ON) */
+        pickupLock?: boolean;
+        [key: string]: any;
+      };
+      /** Cheap counters. pickupSwitches/pickupTicks — see Functions/creepFunctions.ts */
+      stats?: {
+        pickupSwitches?: number;
+        pickupTicks?: number;
+        [key: string]: any;
+      };
+      /** Draw base plan overlay each tick */
+      showPlan?: boolean;
+      /** Planner replay cursor — see utils/PlanAnimator.ts (frames live in segments 89..99) */
+      planAnim?: {
+        room: string;
+        step: number;
+        speed: number;
+        active: boolean;
+        phase: "index" | "data" | "play";
+        segments?: number[];
+        held?: number;
+        acc?: number;
+        loop?: boolean;
+        loops?: number;
+      };
+      /** Pending plan adoption — see utils/PlanV2.ts (plan lives in segment 88) */
+      planV2Adopt?: { room: string; since: number };
       /** Tick-based RCL speedrun scoreboard — see utils/Speedrun.ts */
       speedrun?: {
         startTick: number;
@@ -29,6 +62,8 @@ declare global {
       };
       AvoidRooms: any;
       AvoidRoomsTemp: { [key: string]: number };
+      /** console: Memory.debugReserver = true — traces remote reserver gating */
+      debugReserver?: boolean;
       billtong_rooms: any;
       CanClaimRemote: number;
       DistressSignals: any;
@@ -86,6 +121,10 @@ declare global {
         speedrun?: { active?: boolean; rcl?: number; [key: string]: any };
         /** Dynamic layout cache — see utils/BasePlan.ts */
         basePlan?: any;
+        /** Adopted v2 plan (packed coords) — see utils/PlanV2.ts */
+        planV2?: { v: number; h?: string; s?: number; t: { [structureType: string]: number[] } };
+        construction?: { rampartLocations?: any; [key: string]: any };
+        defence?: { towerShotsInRow?: number; perimeter?: any; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;
@@ -148,6 +187,12 @@ declare global {
         path:any;
         boostlabs:Array<any>;
         line:number;
+        /**
+         * Locked energy-pickup target (drop / ruin / tombstone / container).
+         * id = object id, t = tick locked, amt = energy claimed in the ledger,
+         * q = 1 when queued behind other haulers (claims nothing).
+         */
+        pickup?: { id: string; t: number; amt: number; q?: number };
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

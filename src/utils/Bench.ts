@@ -36,7 +36,7 @@ const DEFAULT_BASELINE: OptFlags = {
 };
 
 /** Bump when bench schema / auto-measure defaults change */
-const BENCH_VERSION = 3;
+const BENCH_VERSION = 4;
 
 function ensureBench() {
   if (!Memory.bench || Memory.bench.v !== BENCH_VERSION) {
@@ -44,8 +44,9 @@ function ensureBench() {
       v: BENCH_VERSION,
       profile: "optimized",
       opts: { ...DEFAULT_OPTIMIZED },
-      // first boot of this version: auto A/B so we collect proof without console
-      auto: true,
+      // off by default: flipping profiles disables live optimizations half the time.
+      // enable on demand with benchAuto(true)
+      auto: false,
       period: 50,
       samples: {
         optimized: { n: 0, sum: 0, max: 0 },

@@ -82,22 +82,26 @@ const run = function (creep) {
 
 
     if(!creep.memory.full) {
+        // native getter is authoritative — the Structures cache can go stale
+        // when a storage is newly built (planV2 rooms), and a filler that
+        // loses its storage falls into the cross-map scavenge path while the
+        // spawn starves (E11S5: 774k banked, spawn at 92)
+        let storage = creep.room.storage || (creep.room.memory.Structures && Game.getObjectById(creep.room.memory.Structures.storage)) || creep.room.findStorage();
         let bin;
-        let storage;
         if(creep.room.memory.Structures) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
-            storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
         }
 
-        // Salvage free floor energy first (ruins / tombs / drops) even if storage has energy
+        // Salvage free floor energy first — but only NEARBY loot. A filler's
+        // job is the spawn; it must never cross the map for a pile.
         const freeLoot =
-            creep.room.find(FIND_DROPPED_RESOURCES, {
+            creep.pos.findInRange(FIND_DROPPED_RESOURCES, 10, {
                 filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= MaxStorage,
             }).length +
-            creep.room.find(FIND_TOMBSTONES, {
+            creep.pos.findInRange(FIND_TOMBSTONES, 10, {
                 filter: (t) => t.store[RESOURCE_ENERGY] >= MaxStorage,
             }).length +
-            creep.room.find(FIND_RUINS, {
+            creep.pos.findInRange(FIND_RUINS, 10, {
                 filter: (r) => r.store[RESOURCE_ENERGY] >= MaxStorage,
             }).length;
         if (freeLoot > 0 && !creep.room.memory.danger) {
@@ -142,7 +146,7 @@ const run = function (creep) {
                     if(result == 0) {
                         let indexOfTargetId = creep.room.memory.reserveFill.indexOf(target.id);
                         if(indexOfTargetId !== -1) {
-                            creep.room.memory.reserveFill = creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
+                            creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
                         }
                     }
                     if(creep.store[RESOURCE_ENERGY] > target.store.getFreeCapacity(RESOURCE_ENERGY)) {

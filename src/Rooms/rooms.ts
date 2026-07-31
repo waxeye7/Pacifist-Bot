@@ -6,12 +6,13 @@ import labs from "./rooms.labs";
 import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
-import remotes from "./rooms.remotes";
+import remotes, { manageRemotes } from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
 import { getCpuPolicy } from "utils/CpuPolicy";
 import { powerDisabled, speedrunEnabled } from "utils/Features";
 import { applySpeedrunSpawnHints } from "utils/Speedrun";
+import { placeFromPlanV2 } from "utils/PlanV2";
 
 function rooms() {
   /* */
@@ -121,6 +122,15 @@ function rooms() {
         room.memory.Structures = {};
       }
 
+      // Structures.storage can hold the pre-storage CONTAINER id forever:
+      // the container keeps existing after the real storage is built, so
+      // every `getObjectById(cache) || findStorage()` caller short-circuits
+      // on it (bit fillers, spawn gates, and links). Re-point when stale.
+      if (room.storage && room.memory.Structures.storage !== room.storage.id) {
+        room.memory.Structures.storage = room.storage.id;
+        delete room.memory.Structures.bin; // re-derive next to the real storage
+      }
+
       if (!room.memory.reserveFill) {
         room.memory.reserveFill = [];
       }
@@ -143,7 +153,7 @@ function rooms() {
         }
       }
 
-      if (Game.time % 1000) {
+      if (Game.time % 1000 === 0) {
         if (Memory.AvoidRooms) {
           if (Memory.AvoidRooms.includes(room.name)) {
             Memory.AvoidRooms = Memory.AvoidRooms.filter(function (roomname) {
@@ -235,7 +245,7 @@ function rooms() {
       }
       data(room);
 
-      if (Game.time % 1 == 0 && room.terminal && room.controller.level >= 6) {
+      if (Game.time % 10 === 0 && room.terminal && room.controller.level >= 6) {
         const start = Game.cpu.getUsed();
         market(room);
         if (Game.time % 10 == 0) {
@@ -271,6 +281,16 @@ function rooms() {
         });
       }
       let bucket = Game.cpu.bucket;
+
+      // v2-planned rooms: keep the 4 site slots recycling. placeFromPlanV2 is
+      // cheap (one FIND_STRUCTURES + one FIND_MY_CONSTRUCTION_SITES, no
+      // PathFinder), so it does not need the 100/1000-tick construction
+      // cadence — at RCL4+ that cadence meant ~4 structures per 1000 ticks.
+      // construction() still calls it too; the function is idempotent.
+      if (room.memory.planV2 && Game.time % 15 === 0) {
+        placeFromPlanV2(room);
+      }
+
       // Low RCL: build more often so extensions/containers aren't stuck waiting 1000 ticks.
       // High RCL keeps the old expensive cadence.
       const constructionInterval = room.controller.level < 4 ? 100 : 1000;
@@ -284,11 +304,15 @@ function rooms() {
         console.log("BASE Construction Ran in", Game.cpu.getUsed() - start, "ms");
       }
 
+      // Which neighbours this commune remotes. Cheap, self-throttling
+      // (per-room stagger inside), owns room.memory.resources[*].active.
+      manageRemotes(room);
+
       // Remote roads paint site-lines to exits — only when RCL is ready + remotes allowed
       if (
-        Game.time % 2000 == 0 &&
+        Game.time % 500 == 0 &&
         bucket > 5000 &&
-        room.controller.level >= 4 &&
+        room.controller.level >= 3 &&
         getCpuPolicy().allowRemotes
       ) {
         const start = Game.cpu.getUsed();
@@ -348,34 +372,11 @@ function rooms() {
     const policy = getCpuPolicy();
     const avg = Number(Memory.CPU && Memory.CPU.fiveHundredTickAvg && Memory.CPU.fiveHundredTickAvg.avg) || 0;
 
-    if (policy.allowRemotes && avg < Game.cpu.limit - (policy.limit <= 30 ? 4 : 10) && Game.cpu.bucket > (policy.limit <= 30 ? 5000 : 9000)) {
-      let room = Game.rooms[myRooms[Math.floor(Math.random() * myRooms.length)]];
-
-      if (room && room.controller && room.controller.level >= 2 && room.memory.resources) {
-        // count active remotes vs policy.maxRemotes
-        let activeCount = 0;
-        for (const rn of Object.keys(room.memory.resources)) {
-          if (rn !== room.name && room.memory.resources[rn] && room.memory.resources[rn].active) activeCount++;
-        }
-        if (activeCount < policy.maxRemotes) {
-          for (let remoteRoom of Object.keys(room.memory.resources)) {
-            if (remoteRoom !== room.name) {
-              if (Object.keys(room.memory.resources[remoteRoom]).length == 0) {
-                let newName = "Scout-" + "-" + room.name;
-                room.memory.spawn_list.push([MOVE], newName, {
-                  memory: { role: "scout", homeRoom: room.name, targetRoom: remoteRoom }
-                });
-                console.log("Adding Scout to Spawn List: " + newName);
-                break;
-              } else if (!room.memory.resources[remoteRoom].active) {
-                room.memory.resources[remoteRoom].active = true;
-                break;
-              }
-            }
-          }
-        }
-      }
-    } else if (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3)) {
+    // NOTE: opening remotes now lives in manageRemotes() (rooms.remotes.ts),
+    // which runs per-room every 25 ticks instead of flipping one flag on one
+    // randomly-picked commune every 500 ticks. What stays here is the CPU
+    // panic valve: when the bot is over budget, shut every remote down.
+    if (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3)) {
       for (let roomName of myRooms) {
         let room = Game.rooms[roomName];
         if (!room || !room.memory.resources) continue;

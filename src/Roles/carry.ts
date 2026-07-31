@@ -206,7 +206,7 @@ function findLocked(creep) {
             creep.memory.targetRoom !== creep.memory.homeRoom
         ) {
             const home = Game.rooms[creep.memory.homeRoom];
-            if (home && home.controller && home.controller.my && home.controller.level < 4) {
+            if (home && home.controller && home.controller.my && home.controller.level < 3) {
                 creep.memory.targetRoom = creep.memory.homeRoom;
                 delete creep.memory.exit;
                 delete creep.memory.route;

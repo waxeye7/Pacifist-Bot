@@ -1,3 +1,5 @@
+import { logAlways } from "utils/Logger";
+
 function RunCreepManager(name) {
     try {
         let creep = Game.creeps[name];
@@ -22,8 +24,12 @@ function RunCreepManager(name) {
         if(global.profiler) {
           console.log(creep.memory.role, "used", (Game.cpu.getUsed() - creepUsed).toFixed(2))
         }
-    } catch (error) {
-        console.log(`Error running creep ${name}:`, error);
+    } catch (error: any) {
+        // include the top stack frames — a bare message ("Invalid arguments in
+        // RoomPosition constructor") is undiagnosable once the creep dies
+        const stack = error && error.stack ? String(error.stack).split("\n").slice(0, 4).join(" | ") : String(error);
+        const role = (Memory.creeps && Memory.creeps[name] && (Memory.creeps[name] as any).role) || "?";
+        logAlways(`Error running creep ${name} (role ${role}): ${stack}`);
     }
 }
 

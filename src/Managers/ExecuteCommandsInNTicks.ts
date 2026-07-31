@@ -7,8 +7,9 @@ function ExecuteCommandsInNTicks() {
     // Memory.commandsToExecute.push({delay:40, bucketNeeded:9500, formation:"Duo", homeRoom:"E33N59", Boosted:true, targetRoom:"E29N55"})
     let commands = Memory.commandsToExecute;
 
-    let index = 0;
-    for(let command of commands) {
+    // iterate backwards so splicing doesn't skip the next command
+    for(let index = commands.length - 1; index >= 0; index --) {
+        let command = commands[index];
         if(command.delay > 0) {
             command.delay --;
             console.log(JSON.stringify(command))
@@ -47,7 +48,6 @@ function ExecuteCommandsInNTicks() {
             }
 
         }
-        index ++;
     }
 
     Memory.commandsToExecute = commands;

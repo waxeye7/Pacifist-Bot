@@ -1,9 +1,12 @@
 /**
  * Dynamic base layout planner.
- * Scores a hub, caches stamps in room.memory.basePlan, construction places sites from that.
+ * Scores a hub, caches stamps + min-cut perimeter in room.memory.basePlan.
  *
- * See docs/DYNAMIC-LAYOUT.md
+ * See docs/DYNAMIC-LAYOUT.md, docs/LAYOUT-MIGRATION.md
  */
+
+import { getCutTiles, rectAround } from "utils/MinCut";
+import { syncPerimeterToConstructionMemory } from "utils/Perimeter";
 
 export interface BasePlanPos {
   x: number;
@@ -19,11 +22,17 @@ export interface RoomBasePlan {
   structures: {
     [structureType: string]: BasePlanPos[];
   };
+  /** Min-cut wall tiles (excludes ramp openings) */
+  perimeter: BasePlanPos[];
+  /** Open rampart openings for RA lines of fire / controlled entry */
+  ramps: BasePlanPos[];
+  /** How perimeter was computed */
+  perimeterMode: "mincut" | "square" | "none";
   scoredAt: number;
   score: number;
 }
 
-const PLAN_VERSION = 1;
+const PLAN_VERSION = 3;
 
 /** How far from edges hub must stay (exits + edge clutter). */
 const EDGE_MARGIN = 5;
@@ -221,35 +230,168 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
   const extOff = extensionRingOffsets(8);
   structures[STRUCTURE_EXTENSION] = placeRelative(hub, room.name, extOff, 60, blocked);
 
-  // Roads: adjacent to hub (filler ring)
-  const roadRing: BasePlanPos[] = [];
+  // --- Perimeter: min-cut around core ---
+  let fullCut: BasePlanPos[] = [];
+  let perimeterMode: RoomBasePlan["perimeterMode"] = "none";
+
+  const corePoints: BasePlanPos[] = [hub];
+  if (spawn) corePoints.push({ x: spawn.pos.x, y: spawn.pos.y });
+  for (const st of [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_SPAWN, STRUCTURE_TOWER]) {
+    for (const p of structures[st] || []) corePoints.push(p);
+  }
+  if (room.storage) corePoints.push({ x: room.storage.pos.x, y: room.storage.pos.y });
+
+  const rect = rectAround(corePoints, 2);
+  if (rect && rect.x2 - rect.x1 >= 2 && rect.y2 - rect.y1 >= 2) {
+    try {
+      const cut = getCutTiles(room.name, [rect]);
+      if (cut.length > 0) {
+        fullCut = cut;
+        perimeterMode = "mincut";
+      }
+    } catch (_e) {
+      /* ignore */
+    }
+  }
+
+  // Ramps: 2 openings on perimeter (angular spread) + adjacent tiles for RA fire lanes
+  const ramps = pickRamps(fullCut, hub, 2);
+  const rampSet = new Set(ramps.map((r) => `${r.x},${r.y}`));
+  const perimeter = fullCut.filter((p) => !rampSet.has(`${p.x},${p.y}`));
+
+  // Roads: hub ring + every perimeter/ramp tile + paths hub→ramp
+  const roadSet = new Set<string>();
+  const roads: BasePlanPos[] = [];
+  const addRoad = (x: number, y: number) => {
+    const k = `${x},${y}`;
+    if (roadSet.has(k) || !isBuildable(room.name, x, y)) return;
+    roadSet.add(k);
+    roads.push({ x, y });
+  };
   for (let dx = -1; dx <= 1; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
       if (dx === 0 && dy === 0) continue;
-      const x = hub.x + dx;
-      const y = hub.y + dy;
-      if (isBuildable(room.name, x, y) && !blocked.has(`${x},${y}`)) {
-        roadRing.push({ x, y });
-      }
+      addRoad(hub.x + dx, hub.y + dy);
     }
   }
-  structures[STRUCTURE_ROAD] = roadRing;
+  for (const p of fullCut) addRoad(p.x, p.y);
+  for (const r of ramps) {
+    const path = greedyPath(room.name, hub, r);
+    for (const p of path) addRoad(p.x, p.y);
+  }
+  structures[STRUCTURE_ROAD] = roads;
 
   return {
     version: PLAN_VERSION,
     roomName: room.name,
     hub,
     structures,
+    perimeter,
+    ramps,
+    perimeterMode,
     scoredAt: Game.time,
     score: best.score,
   };
 }
 
+/** Angular ramps on perimeter for RA fire + controlled entry */
+function pickRamps(perimeter: BasePlanPos[], hub: BasePlanPos, count: number): BasePlanPos[] {
+  if (!perimeter.length) return [];
+  const scored = perimeter.map((t) => ({
+    t,
+    ang: Math.atan2(t.y - hub.y, t.x - hub.x),
+    dist: Math.abs(t.x - hub.x) + Math.abs(t.y - hub.y),
+  }));
+  const ramps: BasePlanPos[] = [];
+  const step = (2 * Math.PI) / count;
+  for (let i = 0; i < count; i++) {
+    const target = -Math.PI + step * i + step / 2;
+    let best: BasePlanPos | null = null;
+    let bestScore = 99;
+    for (const s of scored) {
+      let d = Math.abs(s.ang - target);
+      if (d > Math.PI) d = 2 * Math.PI - d;
+      const sc = d - s.dist * 0.02;
+      if (sc < bestScore) {
+        bestScore = sc;
+        best = s.t;
+      }
+    }
+    if (best && !ramps.some((r) => r.x === best!.x && r.y === best!.y)) ramps.push(best);
+  }
+  // open adjacent perimeter tiles for a wider ramp lane
+  const open = new Set(ramps.map((r) => `${r.x},${r.y}`));
+  for (const r of [...ramps]) {
+    for (const p of perimeter) {
+      if (Math.abs(p.x - r.x) + Math.abs(p.y - r.y) === 1) open.add(`${p.x},${p.y}`);
+    }
+  }
+  return [...open].map((k) => {
+    const [x, y] = k.split(",").map(Number);
+    return { x, y };
+  });
+}
+
+function greedyPath(roomName: string, from: BasePlanPos, to: BasePlanPos): BasePlanPos[] {
+  const key = (x: number, y: number) => `${x},${y}`;
+  type N = { x: number; y: number; g: number; f: number; parent: N | null };
+  const open: N[] = [{ x: from.x, y: from.y, g: 0, f: 0, parent: null }];
+  open[0].f = Math.abs(from.x - to.x) + Math.abs(from.y - to.y);
+  const closed = new Set<string>();
+  let guard = 0;
+  while (open.length && guard++ < 2500) {
+    open.sort((a, b) => a.f - b.f);
+    const cur = open.shift()!;
+    const ck = key(cur.x, cur.y);
+    if (closed.has(ck)) continue;
+    closed.add(ck);
+    if (cur.x === to.x && cur.y === to.y) {
+      const path: BasePlanPos[] = [];
+      let p: N | null = cur;
+      while (p) {
+        path.push({ x: p.x, y: p.y });
+        p = p.parent;
+      }
+      return path.reverse();
+    }
+    for (const [dx, dy] of [
+      [0, 1],
+      [0, -1],
+      [1, 0],
+      [-1, 0],
+    ]) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (!isBuildable(roomName, nx, ny)) continue;
+      const g = cur.g + 1;
+      open.push({
+        x: nx,
+        y: ny,
+        g,
+        f: g + Math.abs(nx - to.x) + Math.abs(ny - to.y),
+        parent: cur,
+      });
+    }
+  }
+  return [];
+}
+
 /** Get or recompute plan. Replans if version mismatch or force. */
 export function getBasePlan(room: Room, force = false): RoomBasePlan | null {
+  // v2-planned rooms: room.memory.basePlan is a MIRROR of the adopted plan
+  // (hub / perimeter / leash, written by utils/PlanV2.syncPlanV2Memory). It
+  // carries no `version`, so an un-guarded call here would replan the v1
+  // dynamic layout straight over the defence perimeter and the
+  // RampartDefender anchor. Use dropPlan(room) first if you want v1 back.
+  if (room.memory.planV2 && !force) {
+    return (room.memory.basePlan as RoomBasePlan) || null;
+  }
   if (!room.memory.basePlan || force || room.memory.basePlan.version !== PLAN_VERSION) {
     const plan = computeBasePlan(room);
-    if (plan) room.memory.basePlan = plan;
+    if (plan) {
+      room.memory.basePlan = plan;
+      syncPerimeterToConstructionMemory(room);
+    }
   }
   return (room.memory.basePlan as RoomBasePlan) || null;
 }
@@ -274,7 +416,7 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
   if (existingSites >= 10) return 0;
 
   let created = 0;
-  // Build priority: storage/container core, extensions, tower, terminal, extra spawns, roads
+  // Build priority: core economy, then perimeter ramparts, then roads
   const order: BuildableStructureConstant[] = [
     STRUCTURE_STORAGE,
     STRUCTURE_CONTAINER,
@@ -282,6 +424,7 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     STRUCTURE_TOWER,
     STRUCTURE_SPAWN,
     STRUCTURE_TERMINAL,
+    STRUCTURE_RAMPART,
     STRUCTURE_ROAD,
   ];
 
@@ -296,8 +439,10 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     if (st === STRUCTURE_TERMINAL && rcl < 6) continue;
     if (st === STRUCTURE_SPAWN && rcl < 7) continue; // extra spawns only
     if (st === STRUCTURE_ROAD && rcl < 3) continue;
+    if (st === STRUCTURE_RAMPART && rcl < 3) continue;
 
-    const maxAllowed = maxStructuresAtRcl(st, rcl);
+    const maxAllowed =
+      st === STRUCTURE_RAMPART ? 2500 : maxStructuresAtRcl(st, rcl);
     if (maxAllowed <= 0) continue;
 
     const have =
@@ -308,7 +453,8 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     let remaining = maxAllowed - have;
     if (remaining <= 0) continue;
 
-    const slots = plan.structures[st] || [];
+    const slots =
+      st === STRUCTURE_RAMPART ? plan.perimeter || [] : plan.structures[st] || [];
     for (const slot of slots) {
       if (remaining <= 0 || created >= maxSites) break;
       if (!isBuildable(room.name, slot.x, slot.y)) continue;
@@ -359,5 +505,45 @@ export function replanRoom(roomName: string): string {
   delete room.memory.basePlan;
   const plan = getBasePlan(room, true);
   if (!plan) return `failed plan ${roomName}`;
-  return `planned ${roomName} hub=${plan.hub.x},${plan.hub.y} score=${plan.score.toFixed(1)} ext=${(plan.structures[STRUCTURE_EXTENSION] || []).length}`;
+  return (
+    `planned ${roomName} hub=${plan.hub.x},${plan.hub.y} score=${plan.score.toFixed(1)}` +
+    ` ext=${(plan.structures[STRUCTURE_EXTENSION] || []).length}` +
+    ` walls=${plan.perimeter.length} ramps=${(plan.ramps || []).length} (${plan.perimeterMode})`
+  );
+}
+
+/** RoomVisual overlay: hub + perimeter (no placement). */
+export function visualizeBasePlan(room: Room): void {
+  const plan = getBasePlan(room);
+  if (!plan) return;
+  const vis = new RoomVisual(room.name);
+  vis.circle(plan.hub.x, plan.hub.y, {
+    radius: 0.55,
+    fill: "transparent",
+    stroke: "#00ff88",
+    strokeWidth: 0.15,
+  });
+  vis.text("HUB", plan.hub.x, plan.hub.y - 0.6, { font: 0.4, color: "#00ff88" });
+  for (const t of plan.perimeter) {
+    vis.rect(t.x - 0.45, t.y - 0.45, 0.9, 0.9, {
+      fill: "transparent",
+      stroke: "#ff4444",
+      strokeWidth: 0.08,
+      opacity: 0.85,
+    });
+  }
+  for (const t of plan.ramps || []) {
+    vis.rect(t.x - 0.45, t.y - 0.45, 0.9, 0.9, {
+      fill: "#4488ff",
+      opacity: 0.45,
+      stroke: "#88aaff",
+      strokeWidth: 0.08,
+    });
+  }
+  vis.text(
+    `${plan.perimeterMode} walls=${plan.perimeter.length} ramps=${(plan.ramps || []).length}`,
+    1,
+    1,
+    { align: "left", font: 0.5, color: "#ffffff" },
+  );
 }

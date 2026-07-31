@@ -113,20 +113,18 @@ Room.prototype.findStorageLink = function(): object | void {
     if(links.length > 0) {
         let storage = Game.getObjectById(this.memory.Structures.storage) || this.findStorage();
         if(!storage) return;
-        if(storage.pos.x < 2) return; // Would go out of bounds
-        let storageLinkPosition = new RoomPosition(storage.pos.x - 2, storage.pos.y, this.name);
-        let lookStructuresHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
-        if(lookStructuresHere.length > 0) {
-            for(let building of lookStructuresHere) {
-                if(building.structureType == STRUCTURE_LINK) {
-                    this.memory.Structures.StorageLink = building.id;
-                    return building;
-                }
-            }
+        // The hub link is wherever the layout put it: legacy stamps use
+        // storage.x-2 (chebyshev 2), the v2 planner glues it to the storage
+        // (chebyshev 1). Search the neighbourhood and take the closest link
+        // instead of hardcoding one offset — v2 wins at 1, legacy still
+        // resolves at 2.
+        let nearby = links.filter(function(link) {return storage.pos.getRangeTo(link) <= 2;});
+        if(nearby.length > 0) {
+            nearby.sort((a, b) => storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b));
+            this.memory.Structures.StorageLink = nearby[0].id;
+            return nearby[0];
         }
-        else {
-            this.memory.Structures.storageLink = undefined;
-        }
+        this.memory.Structures.storageLink = undefined;
     }
 }
 
@@ -217,12 +215,26 @@ Room.prototype.findMineral = function() {
 }
 
 Room.prototype.findBin = function(storage): object | void {
-    if(storage && storage.pos.y < 49) {
-        let binPosition = new RoomPosition(storage.pos.x, storage.pos.y + 1, this.name);
-        let binPositionStructures = binPosition.lookFor(LOOK_STRUCTURES);
-        if(binPositionStructures.length > 0) {
-            for(let building of binPositionStructures) {
-                if(building.structureType == STRUCTURE_CONTAINER) {
+    // Prefer plan-adjacent open container south/any of hub, not hard-coded only y+1
+    if (storage) {
+        const offsets = [
+            [0, 1],
+            [0, -1],
+            [1, 0],
+            [-1, 0],
+            [1, 1],
+            [-1, 1],
+            [1, -1],
+            [-1, -1],
+        ];
+        for (const [ox, oy] of offsets) {
+            const x = storage.pos.x + ox;
+            const y = storage.pos.y + oy;
+            if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+            const binPosition = new RoomPosition(x, y, this.name);
+            const binPositionStructures = binPosition.lookFor(LOOK_STRUCTURES);
+            for (const building of binPositionStructures) {
+                if (building.structureType == STRUCTURE_CONTAINER) {
                     this.memory.Structures.bin = building.id;
                     return building;
                 }
