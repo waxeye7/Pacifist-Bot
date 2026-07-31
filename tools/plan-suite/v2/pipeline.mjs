@@ -17,7 +17,7 @@
  *                so they never steal a tile from the 60 extensions
  */
 import { planHub } from "./layer-hub.mjs";
-import { planShell, RADII_WIDE } from "./layer-shell.mjs";
+import { builtMobility, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
@@ -171,6 +171,14 @@ export function composePlan(d, shellOpts = {}) {
 
   plan.meta.counts.road = plan.structures.road.length;
   plan.meta.counts.rampart = plan.structures.rampart ? plan.structures.rampart.length : 0;
+
+  // DEFENDER MOBILITY, RE-MEASURED ON THE FINISHED BASE. The shell negotiated
+  // against an empty interior because that is all that existed at layer 2; this
+  // is the lap the garrison will actually walk at RCL8, with the whole program
+  // standing in it. It decides nothing — it is the honest number, and the gap
+  // between it and meta.shell.mobility is exactly how much of the room's
+  // mobility problem belongs to the layers that place the mass.
+  if (plan.shell) plan.meta.shell.mobilityBuilt = builtMobility(d.terrain, plan);
   return plan;
 }
 
@@ -279,6 +287,11 @@ const ESCALATE_MIN = 3;
 const rampartsOf = (p) => p?.meta?.counts?.rampart ?? 1e9;
 const roadsOf = (p) => p?.meta?.counts?.road ?? 1e9;
 const cutOf = (p) => p?.shell?.cut?.length ?? 1e9;
+const mobOf = (p) => p?.shell?.mobility?.max ?? 0;
+const mobCauseOf = (p) => p?.shell?.mobility?.cause ?? "none";
+// layer-shell's own target, restated here so the ladder can read it without
+// importing a constant that means something slightly different one day
+const MOBILITY_TARGET = 1.2;
 
 /**
  * Ladder-local comparator: total forever-upkeep first. When two shells cost
@@ -298,6 +311,9 @@ function cheaperUpkeep(a, b) {
   if (!b) return true;
   if (rampartsOf(a) !== rampartsOf(b)) return rampartsOf(a) < rampartsOf(b);
   if (cutOf(a) !== cutOf(b)) return cutOf(a) < cutOf(b);
+  // same wall, same length: take the one the garrison can lap faster. Free —
+  // by this point the upkeep question is settled and nothing else is at stake.
+  if (mobOf(a) !== mobOf(b)) return mobOf(a) < mobOf(b);
   return roadsOf(a) < roadsOf(b);
 }
 
@@ -311,7 +327,23 @@ function minUpkeepShell(d, first, firstIdx, ecoCap) {
   let win = first;
   let winIdx = firstIdx;
   let steps = firstIdx + 1;
-  if ((first.meta?.extensions?.shallow ?? 0) >= ESCALATE_MIN) {
+  // A SECOND REASON TO WALK THE LADDER: defender mobility.
+  //
+  // The shell layer already tried every protect radius on this rung and every
+  // enclosure within +2 ramparts of the cheapest, so by the time a room is
+  // still over the mobility target the only thing left to vary is the rung
+  // itself. That is only worth a compose when a WIDER bubble could plausibly
+  // help — i.e. when the detour is the enclosure's own SHAPE (the attacker
+  // cutting across a bay a wider wall might swallow). When the cause is
+  // terrain (a mountain inside the ring) no bubble of any size shortens the
+  // walk, and when it is the planner's own mass the fix belongs to the layers
+  // that place that mass. Restricting the walk to 'shape' keeps this at ~9
+  // rooms instead of ~90, which is the difference between +3s and +30s on the
+  // fleet — and the declaration below can still say, truthfully, that the
+  // rungs were tried wherever they could have mattered.
+  const mobilityWalk = mobOf(first) > MOBILITY_TARGET && mobCauseOf(first) === "shape";
+  const shallowWalk = (first.meta?.extensions?.shallow ?? 0) >= ESCALATE_MIN;
+  if (shallowWalk || mobilityWalk) {
     for (let si = firstIdx + 1; si < SHELL_ESCALATION.length; si++) {
       const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip: 0 });
       steps++;
@@ -319,11 +351,22 @@ function minUpkeepShell(d, first, firstIdx, ecoCap) {
       if (!grade(p).complete) break; // a wider bubble that loses pieces is not a bargain
       if (ecoCap !== null && ecoCost(p) > ecoCap) break;
       const noGain = rampartsOf(p) >= rampartsOf(win);
-      if (cheaperUpkeep(p, win)) {
+      // a rung that shortens the lap without adding a single rampart is bought
+      // on mobility grounds alone; anything that costs wall still has to be
+      // cheaper upkeep, because upkeep is the first objective and mobility the
+      // tiebreak — never the other way round
+      const freeMobilityWin = rampartsOf(p) <= rampartsOf(win) && mobOf(p) < mobOf(win);
+      // A WALK THAT ONLY EXISTS TO SHORTEN THE LAP MAY NOT LENGTHEN IT. Without
+      // this the rampart-first comparator turns a mobility search into a wall
+      // sale: E17S9 walked for mobility, found a rung one rampart cheaper and
+      // took it at 1.25 -> 2.0. A room walking for shallow structures is a
+      // different trade and keeps the old comparator untouched.
+      const mobilityRegression = !shallowWalk && mobOf(p) > mobOf(win);
+      if ((cheaperUpkeep(p, win) || freeMobilityWin) && !mobilityRegression) {
         win = p;
         winIdx = si;
       }
-      if (noGain) break; // convex: the bill has started climbing again
+      if (noGain && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break; // convex: the bill has started climbing again
     }
   }
   win.meta.shellEscalation = {

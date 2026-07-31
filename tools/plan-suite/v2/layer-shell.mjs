@@ -19,7 +19,10 @@
  *      depth ≥ 4 to be out of ranged-attacker (range 3) reach.
  *   5. NEGOTIATION: try protect radii 8..12; prefer the smallest cut that
  *      still leaves enough deep interior for the full RCL8 program. Size
- *      is negotiated BEFORE placement — never repaired after.
+ *      is negotiated BEFORE placement — never repaired after. Candidates
+ *      carry their reachability AND their defender-mobility ratio, so a
+ *      wall the garrison cannot lap loses to an equally cheap one that it
+ *      can (at most +2 ramparts — upkeep is still the first objective).
  *   6. Bubbles: individual ramparts on the controller link + upgrader
  *      parks + source containers/links (harassment cover outside the wall).
  *   7. Battlements: cut tiles facing wide approach lanes — where the
@@ -97,8 +100,43 @@ export const RADII_WIDE = [6, 7, 8, 9, 10, 11, 12, 13, 14];
 const ENCLOSE_CTRL_BUDGET = 4;
 const ENCLOSE_SRC_BUDGET = 3;
 const MAX_PARKS = 8;
-const MOBILITY_PAIRS = 20;
-const MOBILITY_MIN_SEP = 8;
+
+// ------------------------------------------------------------------
+// DEFENDER MOBILITY — the owner's rule, in numbers.
+//
+// "attacker walks 10, I refuse to walk 20": for a pair of wall tiles, the
+// path a defender walks INSIDE must not be much longer than the path the
+// attacker walks OUTSIDE between the same two tiles. Target ratio 1.2.
+const MOBILITY_TARGET = 1.2;
+// Pairs closer than this need no repositioning at all: a RampartDefender's
+// ranged attack reaches 3, so a defender standing on one of them is already
+// shooting whatever is hitting the other. Excluding them is an operational
+// statement, not a way to hide a number — every pair a defender would
+// actually have to WALK between is measured.
+const MOBILITY_NEAR = 3;
+// Endpoint budget. The metric is exact all-pairs over the reachable cut when
+// the cut is small; beyond this many tiles we measure a deterministic
+// farthest-point subset (greedy, seeded by the farthest pair) so the sample
+// still spans the whole ring. Measured against the exact all-pairs metric on
+// the fleet: identical room counts at every threshold (>1.0 / >1.2 / >1.5),
+// 13/159 rooms differ on the value itself. Same budget is used for the
+// candidate probe and for the reported number, so the negotiation can never
+// pick a shell that then measures worse under a different rule.
+const MOBILITY_ENDPOINTS = 32;
+// Ramparts stay the primary currency. Mobility breaks ties and justifies at
+// most this many extra wall tiles — never more.
+const MOBILITY_TIEBREAK_BUDGET = 2;
+// The eco-enclosure mobility guard (below) only fires for a room that has deep
+// space to spare — needDeep is a FLOOR, and a room sitting on it needs every
+// tile the eco lobe brings with it more than it needs a short lap. Swept over
+// the fleet (guard margin -> rooms over the 1.2 target / shallow structures /
+// road median / source enclosures):
+//    off ->  99 / 97 / 86 / 174      +20 ->  92 / 97 / 86 / 172
+//     +0 ->  86 /114 / 88 / 169      +40 ->  94 / 97 / 86 / 173
+// At +0 the guard starves four rooms of interior and the extension layer pays
+// it back in shallow structures, personal ramparts and corridor roads (one
+// room even loses its 60th extension); at +20 the same guard is free.
+const MOBILITY_GUARD_DEEP_MARGIN = 20;
 
 function idx(x, y) {
   return x + y * 50;
@@ -422,71 +460,260 @@ function depthFromExterior(ext) {
   return depth;
 }
 
-/**
- * D8 walk distance between two tiles over an arbitrary allowed-tile
- * predicate. `from`/`to` are always allowed (they are the endpoints even
- * when they sit on a blocked tile — e.g. a rampart in the exterior graph).
- */
-function walkDistWhere(terrain, from, to, allowed) {
+/** D8 BFS distance field over a boolean tile mask. The seed is always allowed. */
+function bfsField(mask, from) {
+  const dist = new Int16Array(2500).fill(-1);
+  const q = new Int32Array(2500);
+  let head = 0,
+    tail = 0;
   const fi = idx(from.x, from.y);
-  const ti = idx(to.x, to.y);
-  if (fi === ti) return 0;
-  const seen = new Uint8Array(2500);
-  seen[fi] = 1;
-  let layer = [fi];
-  let d = 0;
-  while (layer.length) {
-    const next = [];
-    d++;
-    for (const i of layer) {
-      const x = i % 50,
-        y = (i / 50) | 0;
-      for (const [dx, dy] of D8) {
-        const nx = x + dx,
-          ny = y + dy;
-        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-        const ni = nx + ny * 50;
-        if (seen[ni] || !walkable(terrain, nx, ny)) continue;
-        if (ni === ti) return d;
-        if (!allowed(ni)) continue;
-        seen[ni] = 1;
-        next.push(ni);
-      }
+  dist[fi] = 0;
+  q[tail++] = fi;
+  while (head < tail) {
+    const i = q[head++];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    const d = dist[i] + 1;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (dist[ni] >= 0 || !mask[ni]) continue;
+      dist[ni] = d;
+      q[tail++] = ni;
     }
-    layer = next;
   }
-  return Infinity;
+  return dist;
 }
 
 /**
- * Defender mobility ratio (owner's requirement: a defender walking the
- * INSIDE of the wall must never be out-manoeuvred by an attacker walking
- * the outside). For sampled pairs of cut tiles, ratio = interior path /
- * exterior path. >1 means the attacker can reposition faster than we can.
- * Reported, never enforced — some rooms are shaped like that.
+ * Distance from a BFS field to a tile that may itself be off-mask — which is
+ * exactly the attacker's case: he cannot STAND on our rampart, he stands next
+ * to it and hits it. Both endpoints of every measured pair are wall tiles, so
+ * both graphs pay the same "step off / step on" tax and the ratio stays a like
+ * for like comparison.
  */
-function mobilityStats(terrain, cut, ext) {
-  const n = cut.length;
-  if (n < 2) return { max: 0, mean: 0, pairs: 0 };
-  const inside = (i) => !ext[i];
-  const outside = (i) => !!ext[i];
-  const step = Math.max(1, Math.floor(n / MOBILITY_PAIRS));
-  const ratios = [];
-  for (let s = 0; s < n && ratios.length < MOBILITY_PAIRS; s += step) {
-    const a = cut[s];
-    const b = cut[(s + ((n / 2) | 0)) % n];
-    if (chebyshev(a, b) < MOBILITY_MIN_SEP) continue;
-    const din = walkDistWhere(terrain, a, b, inside);
-    const dout = walkDistWhere(terrain, a, b, outside);
-    if (!isFinite(din) || !isFinite(dout) || dout === 0) continue;
-    ratios.push(din / dout);
+function arriveAt(f, t) {
+  const ti = idx(t.x, t.y);
+  if (f[ti] >= 0) return f[ti];
+  let best = Infinity;
+  for (const [dx, dy] of D8) {
+    const nx = t.x + dx,
+      ny = t.y + dy;
+    if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+    const v = f[nx + ny * 50];
+    if (v >= 0 && v + 1 < best) best = v + 1;
   }
-  if (!ratios.length) return { max: 0, mean: 0, pairs: 0 };
-  const mean = ratios.reduce((p, c) => p + c, 0) / ratios.length;
+  return best;
+}
+
+/** Uint8Array tile mask from a set of "x,y" keys. */
+function maskFromKeys(set) {
+  const m = new Uint8Array(2500);
+  for (const k of set) {
+    const [x, y] = k.split(",").map(Number);
+    m[idx(x, y)] = 1;
+  }
+  return m;
+}
+
+/**
+ * Deterministic farthest-point subset: seed with the farthest pair, then
+ * repeatedly take the tile furthest from everything already chosen. No RNG,
+ * no dependence on the order the cut was scanned in — ties are broken by
+ * (x,y), and the result is re-sorted by (x,y) so the pair loop below is
+ * order-stable too.
+ */
+function sampleEndpoints(ends, cap) {
+  if (ends.length <= cap) return ends.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const sorted = ends.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  let bi = 0,
+    bj = 1,
+    bd = -1;
+  for (let i = 0; i < sorted.length; i++) {
+    for (let j = i + 1; j < sorted.length; j++) {
+      const d = chebyshev(sorted[i], sorted[j]);
+      if (d > bd) {
+        bd = d;
+        bi = i;
+        bj = j;
+      }
+    }
+  }
+  const chosen = [sorted[bi], sorted[bj]];
+  const used = new Set([bi, bj]);
+  while (chosen.length < cap) {
+    let best = -1,
+      bestD = -1;
+    for (let i = 0; i < sorted.length; i++) {
+      if (used.has(i)) continue;
+      let m = Infinity;
+      for (const c of chosen) m = Math.min(m, chebyshev(sorted[i], c));
+      if (m > bestD) {
+        bestD = m;
+        best = i;
+      }
+    }
+    if (best < 0) break;
+    used.add(best);
+    chosen.push(sorted[best]);
+  }
+  return chosen.sort((a, b) => a.x - b.x || a.y - b.y);
+}
+
+const round2 = (v) => Math.round(v * 100) / 100;
+
+/**
+ * DEFENDER MOBILITY — interior lap ÷ exterior lap, over pairs of wall tiles.
+ *
+ * The old version of this function was measuring something else entirely and
+ * flattered the fleet by a factor of two:
+ *   - it paired cut[s] with cut[s + n/2], but `cut` is scanned in column-major
+ *     order, so that is NOT the antipodal tile — it is an arbitrary one, and
+ *     the pairs were neither a lap nor a worst case;
+ *   - it SKIPPED every pair closer than chebyshev 8, which is where almost
+ *     every real failure lives (two wall plugs four tiles apart on either side
+ *     of an interior mountain: attacker walks 4, defender walks 27);
+ *   - it walked the whole non-exterior region, including wall segments the
+ *     interior cannot actually reach and tiles occupied by the hub.
+ * Fleet effect of the fix: rooms over the 1.2 target went 18 -> 105.
+ *
+ * The corrected metric:
+ *   endpoints  cut tiles the interior walk region can reach (an unreachable
+ *              rampart is already a declared battlement shortfall; measuring
+ *              a lap to a tile no defender can stand on is double counting);
+ *   defender   the interior walk region — ramparts included (own creeps walk
+ *              their own ramparts), hub structures excluded (nobody walks
+ *              through a spawn);
+ *   attacker   the exterior region only — ramparts have no openings, so he
+ *              cannot cut through the wall, and he cannot cut a corner that
+ *              the defender cannot cut either (both graphs are plain D8,
+ *              which is what the engine does: Screeps has no corner rule).
+ */
+function mobilityStats(cut, extMask, walkMask, cap = MOBILITY_ENDPOINTS) {
+  const reachable = cut.filter((c) => walkMask[idx(c.x, c.y)]);
+  const ends = sampleEndpoints(reachable, cap);
+  const n = ends.length;
+  const empty = { max: 0, mean: 0, p90: 0, pairs: 0, over: 0, endpoints: n, worst: null };
+  if (n < 2) return empty;
+  const inF = ends.map((e) => bfsField(walkMask, e));
+  const outF = ends.map((e) => bfsField(extMask, e));
+  const ratios = [];
+  let max = 0;
+  let worst = null;
+  for (let a = 0; a < n; a++) {
+    for (let b = a + 1; b < n; b++) {
+      if (chebyshev(ends[a], ends[b]) <= MOBILITY_NEAR) continue;
+      const din = arriveAt(inF[a], ends[b]);
+      const dout = arriveAt(outF[a], ends[b]);
+      if (!isFinite(din) || !isFinite(dout) || dout === 0) continue;
+      const r = din / dout;
+      ratios.push(r);
+      if (r > max) {
+        max = r;
+        worst = { a: ends[a], b: ends[b], din, dout };
+      }
+    }
+  }
+  if (!ratios.length) return empty;
+  ratios.sort((x, y) => x - y);
   return {
-    max: Math.round(Math.max(...ratios) * 100) / 100,
-    mean: Math.round(mean * 100) / 100,
+    max: round2(max),
+    mean: round2(ratios.reduce((p, c) => p + c, 0) / ratios.length),
+    // the max is a tail statistic — one terrain accident owns it. p90 says
+    // whether the WHOLE wall is slow or just one corner of it.
+    p90: round2(ratios[Math.min(ratios.length - 1, Math.floor(ratios.length * 0.9))]),
     pairs: ratios.length,
+    over: ratios.filter((r) => r > MOBILITY_TARGET).length,
+    endpoints: n,
+    worst,
+  };
+}
+
+/**
+ * WHY is the worst pair slow? Three answers, and only one of them is the
+ * shell's to fix:
+ *   structures  the hub mass is in the way — re-walk with it removed and the
+ *               detour disappears. The shell does not own the extension mass,
+ *               so this is a report to the orchestrator, not a repair here.
+ *   terrain     a natural wall INSIDE the enclosure (the classic ring-shaped
+ *               basin around a mountain) — re-walk letting the defender pass
+ *               through interior walls and the detour disappears.
+ *   shape       neither: the enclosure itself is concave, and the attacker is
+ *               simply cutting across a bay the defender has to walk around.
+ *               This one the negotiation CAN sometimes beat, by buying a
+ *               different cut.
+ */
+function mobilityCause(terrain, cut, extMask, worst) {
+  if (!worst) return "none";
+  const { a, b, din, dout } = worst;
+  const noStructMask = new Uint8Array(2500);
+  const noWallMask = new Uint8Array(2500);
+  for (let x = 0; x < 50; x++) {
+    for (let y = 0; y < 50; y++) {
+      const i = idx(x, y);
+      if (extMask[i]) continue;
+      noWallMask[i] = 1;
+      if (walkable(terrain, x, y)) noStructMask[i] = 1;
+    }
+  }
+  for (const c of cut) {
+    noStructMask[idx(c.x, c.y)] = 1;
+    noWallMask[idx(c.x, c.y)] = 1;
+  }
+  const dStruct = arriveAt(bfsField(noStructMask, a), b);
+  if (dStruct <= MOBILITY_TARGET * dout || dStruct * 1.15 <= din) return "structures";
+  const dFree = arriveAt(bfsField(noWallMask, a), b);
+  if (dFree <= MOBILITY_TARGET * dout || dFree * 1.15 <= dStruct) return "terrain";
+  return "shape";
+}
+
+/**
+ * THE SAME METRIC, MEASURED ON THE FINISHED BASE.
+ *
+ * planShell runs before the mass exists, so the number it negotiates against
+ * only knows the hub trio and the object tiles. That is the right input for
+ * the NEGOTIATION — the shell cannot choose a cut against structures that do
+ * not exist yet — but it is not what the defender will walk at RCL8. So the
+ * pipeline calls this once on the finished plan and files the answer next to
+ * the negotiated one. Nothing reads it back; it exists so the difference
+ * between "the shell the room allows" and "the base we actually built" is a
+ * measured number instead of an argument.
+ *
+ * Obstacles per @screeps/engine OBSTACLE_OBJECT_TYPES: roads, containers and
+ * our own ramparts are walkable, everything else is not.
+ */
+const BUILT_OBSTACLES = [
+  "spawn",
+  "extension",
+  "link",
+  "storage",
+  "tower",
+  "observer",
+  "lab",
+  "terminal",
+  "nuker",
+];
+export function builtMobility(terrain, plan) {
+  if (!plan.shell || !plan.exterior) return null;
+  const cut = plan.shell.cut;
+  const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  const walk = interiorWalk(terrain, cutSet, plan.exterior, blocked, plan.sitter);
+  const stats = mobilityStats(cut, plan.exterior, maskFromKeys(walk));
+  return {
+    max: stats.max,
+    p90: stats.p90,
+    mean: stats.mean,
+    over: stats.over,
+    pairs: stats.pairs,
+    // a cut tile the FINISHED base cannot walk to — the mass sealed it off
+    walled: cut.length - cut.filter((c) => walk.has(key(c.x, c.y))).length,
+    cause: stats.max > MOBILITY_TARGET ? mobilityCause(terrain, cut, plan.exterior, stats.worst) : "none",
   };
 }
 
@@ -639,10 +866,19 @@ export function planShell(terrain, plan, opts = {}) {
     const depth = depthFromExterior(ext);
     const deep = countDeep(terrain, ext, depth, cutSet, occupied, roadSet);
     // every candidate is judged on whether the base can WALK its own wall
-    const unreach = unreachableCut(res.cut, interiorWalk(terrain, cutSet, ext, occupied, plan.sitter));
-    attempts.push({ r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach });
+    const walk = interiorWalk(terrain, cutSet, ext, occupied, plan.sitter);
+    const unreach = unreachableCut(res.cut, walk);
+    attempts.push({ r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach, walk, mob: null });
   }
   if (!attempts.length) return { error: "no viable cut at any radius" };
+
+  // Candidates carry their own defender-mobility number, computed on demand:
+  // the negotiation below only asks for it when it is about to matter, so a
+  // room that is already inside the target pays for exactly one measurement.
+  const mobilityOf = (a) => {
+    if (!a.mob) a.mob = mobilityStats(a.cut, a.ext, maskFromKeys(a.walk));
+    return a.mob;
+  };
 
   // pick: cheapest wall that still fits the program; the maxCut cap is a
   // quality flag, not a hard gate — open rooms are legitimately pricier
@@ -682,6 +918,60 @@ export function planShell(terrain, plan, opts = {}) {
   if (pick.unreach.length && swapAlt && swapAlt.cut.length <= pick.cut.length + REACH_SWAP_BUDGET) {
     pick = swapAlt;
   }
+
+  // ------------------------------------------------------------------
+  // MOBILITY TIEBREAK — same wall bill, shorter lap.
+  //
+  // The candidates already carry their cut and their reachability; adding
+  // their mobility costs one BFS pair per wall tile and lets the negotiation
+  // answer a question it could not answer before: of the enclosures this room
+  // can afford, which one can the garrison actually walk? Ramparts stay the
+  // primary currency — an alternative is only eligible if it costs at most
+  // MOBILITY_TIEBREAK_BUDGET extra wall tiles and is no worse on reachability
+  // — so this can never buy a mobile shell by paying for a fat one.
+  //
+  // Skipped entirely when the incumbent is already inside the target: nothing
+  // to win, and the whole fleet would pay the measurement.
+  //
+  // A swap must also EARN the churn. Two ways to earn it, and nothing else:
+  //   - it reaches the target (the room stops being a mobility problem), or
+  //   - it improves the lap without costing deep interior.
+  // Anything looser measured worse: an "any improvement" rule bought 3 more
+  // rooms a shorter lap and paid for it with 18 extra ramparts and a road
+  // median that moved the wrong way, because a same-price cut of a different
+  // SHAPE re-routes the whole extension corridor behind it. Mobility is worth
+  // a tile of wall; it is not worth reshaping a base that already works.
+  // ------------------------------------------------------------------
+  let mobilityBandBest = null;
+  let mobilityBandSize = 0;
+  if (mobilityOf(pick).max > MOBILITY_TARGET) {
+    const band = poolForSwap.filter(
+      (a) =>
+        a.cut.length <= pick.cut.length + MOBILITY_TIEBREAK_BUDGET &&
+        a.unreach.length <= pick.unreach.length &&
+        // when NO candidate holds the program, deep space is the scarce thing
+        // in this room and mobility does not get to spend it
+        (fits.length || a.deep >= pick.deep),
+    );
+    mobilityBandSize = band.length;
+    let best = pick;
+    for (const a of band) {
+      if (a === pick) continue;
+      const m = mobilityOf(a);
+      const bm = mobilityOf(best);
+      const earned = m.max <= bm.max - 0.001 && (m.max <= MOBILITY_TARGET || a.deep >= pick.deep);
+      if (
+        earned ||
+        (m.max === bm.max && a.cut.length < best.cut.length) ||
+        (m.max === bm.max && a.cut.length === best.cut.length && a.deep > best.deep) ||
+        (m.max === bm.max && a.cut.length === best.cut.length && a.deep === best.deep && a.r < best.r)
+      ) {
+        best = a;
+      }
+    }
+    mobilityBandBest = mobilityOf(best).max;
+    pick = best;
+  }
   const priceyWall = pick.cut.length > maxCut; // open room, expensive to enclose
 
   // ------------------------------------------------------------------
@@ -698,7 +988,12 @@ export function planShell(terrain, plan, opts = {}) {
   let extF = pick.ext;
   let depthF = pick.depth;
   let unreachF = pick.unreach;
+  let walkF = pick.walk;
+  let mobF = mobilityOf(pick);
   const baseCut = pick.cut.length;
+  // whether the eco-enclosure mobility guard below is allowed to veto at all —
+  // see the note on it. Fixed here because `pick` is settled from this point on.
+  const guardIsFree = pick.deep >= needDeep + MOBILITY_GUARD_DEEP_MARGIN;
 
   const tryExpand = (tiles, budget) => {
     const cand = new Set(protect);
@@ -732,14 +1027,47 @@ export function planShell(terrain, plan, opts = {}) {
     // no defender can hold it and no battlement can cover it. An enclosure the
     // garrison cannot walk to is not an enclosure; refuse to buy it and let the
     // eco works take personal bubbles instead.
-    const u = unreachableCut(res.cut, interiorWalk(terrain, cs, e, occupied, plan.sitter));
+    const w = interiorWalk(terrain, cs, e, occupied, plan.sitter);
+    const u = unreachableCut(res.cut, w);
     if (u.length > unreachF.length) return false;
+    // ...AND AN ENCLOSURE THE GARRISON CANNOT LAP IS NOT AN ENCLOSURE EITHER.
+    // An eco lobe that doubles the defender's walk is rent, not value: the
+    // source inside saves a few hauler steps forever and costs the wall its
+    // one real advantage — interior lines. So an expansion that pushes the
+    // room out of the mobility target when it was inside it is refused, and
+    // the eco works take personal bubbles instead (which is what they would
+    // have had anyway).
+    //
+    // The bar is "no worse than the shell we already negotiated, and not over
+    // the target": an eco lobe may not push a compliant room over the line NOR
+    // lengthen the lap of a room that is already struggling. The second half
+    // matters more than it looks — the negotiation measures candidates BEFORE
+    // the eco lobes are bid for, so without it a room could be handed the most
+    // mobile enclosure available and then have that enclosure dragged out of
+    // shape by a source ring three tiles later (E17S9 went 1.25 -> 2.0 exactly
+    // that way).
+    //
+    // The veto is only allowed where it is FREE: the base enclosure must
+    // already hold the program with MOBILITY_GUARD_DEEP_MARGIN tiles to spare.
+    // In a room living on the floor, the lobe is not decoration — it is the
+    // interior the extension layer is about to need, and refusing it buys a
+    // short lap with shallow structures, personal ramparts and longer roads.
+    let m = null;
+    if (guardIsFree) {
+      m = mobilityStats(res.cut, e, maskFromKeys(w));
+      if (m.max > MOBILITY_TARGET && m.max > mobF.max + 0.001) return false;
+    }
     protect = cand;
     cut = res.cut;
     cutSet = cs;
     extF = e;
     depthF = depthFromExterior(e);
     unreachF = u;
+    walkF = w;
+    // the incumbent ratio moves with the enclosure, so the next expansion is
+    // judged against what this one actually left behind. Only measured when the
+    // guard was armed; in a space-starved room nothing reads it.
+    if (m) mobF = m;
     return true;
   };
 
@@ -881,7 +1209,7 @@ export function planShell(terrain, plan, opts = {}) {
   // interior walk region actually touches may be marked. This is the SAME
   // region the cut was chosen against — one definition of "reachable", used by
   // the pick, the expansion guard and the marks alike.
-  const walkFinal = interiorWalk(terrain, cutSet, extF, occupied, plan.sitter);
+  const walkFinal = walkF;
   const standable = cut.filter((c) => walkFinal.has(key(c.x, c.y)));
   const pool = standable.length ? standable : cut;
 
@@ -962,6 +1290,66 @@ export function planShell(terrain, plan, opts = {}) {
     });
   }
 
+  // ------------------------------------------------------------------
+  // DEFENDER MOBILITY — measure the shell we are actually shipping, name the
+  // cause, and declare the miss when the room has beaten every enclosure we
+  // are allowed to buy.
+  //
+  // What was tried before this declaration is written: every protect radius on
+  // the ladder (the whole `attempts` set), the reachability swap, and — when
+  // the incumbent was over target — an explicit mobility tiebreak across every
+  // candidate within MOBILITY_TIEBREAK_BUDGET wall tiles of the cheapest. The
+  // pipeline's needDeep rungs re-enter this function with wider radii on top of
+  // that. What is NOT tried: paying more than +2 ramparts, because the fleet's
+  // first objective is minimising forever-upkeep and a mobile shell bought with
+  // twenty extra decaying walls is a worse base, not a better one.
+  // ------------------------------------------------------------------
+  const walkMaskFinal = maskFromKeys(walkFinal);
+  const mobility = mobilityStats(cut, extF, walkMaskFinal);
+  mobility.target = MOBILITY_TARGET;
+  mobility.cause = mobility.max > MOBILITY_TARGET ? mobilityCause(terrain, cut, extF, mobility.worst) : "none";
+  // The floor we PROVED: the best ratio any affordable enclosure of this hub
+  // measured. It is taken BEFORE the eco lobes are bid for, so in a room too
+  // short of interior to refuse a lobe (see guardIsFree) the shipped number can
+  // be worse than the floor — that gap is not a rounding error, it is the price
+  // of the enclosure, and the declaration below spells it out.
+  mobility.floor = mobilityBandBest === null ? mobility.max : Math.min(mobilityBandBest, mobility.max);
+  mobility.candidates = mobilityBandSize;
+  mobility.ecoCost = round2(Math.max(0, mobility.max - mobility.floor));
+  if (mobility.max > MOBILITY_TARGET && mobility.worst) {
+    const { a, b, din, dout } = mobility.worst;
+    const why = {
+      terrain:
+        `a natural wall inside the enclosure forces the detour — with interior walls ignored the same ` +
+        `walk is short, so no cut of this basin can shorten it; the room is a ring around a mountain`,
+      shape:
+        `the enclosure is concave here and the attacker is cutting across a bay the defender must walk ` +
+        `around; no candidate enclosure within the wall budget closes that bay`,
+      structures:
+        `the planner's own mass is in the way — the same walk is short with structures removed. The ` +
+        `shell does not own the extension/road layers, so this one is a lead for them, not a shell miss`,
+    }[mobility.cause];
+    shortfalls.push({
+      gate: "mobility",
+      detail:
+        `defender mobility max ${mobility.max} (target ${MOBILITY_TARGET}): between wall tiles ${a.x},${a.y} ` +
+        `and ${b.x},${b.y} the defender walks ${din} inside while the attacker walks ${dout} outside. ` +
+        `Cause: ${mobility.cause} — ${why}. Measured floor ${mobility.floor} over ${mobilityBandSize || 1} ` +
+        `enclosure(s) within +${MOBILITY_TIEBREAK_BUDGET} ramparts of the cheapest cut this room admits` +
+        (mobility.ecoCost > 0
+          ? `; the negotiation reached ${mobility.floor} before the eco enclosures were bid in, but the ` +
+            `bare enclosure held only ${pick.deep} deep tiles against a floor of ${needDeep} — too little ` +
+            `to refuse a lobe that brings interior with it (the room ends up with ${deepTiles}), so it was ` +
+            `bought and the lap grew by ${mobility.ecoCost}`
+          : "") +
+        `. ${mobility.over}/${mobility.pairs} measured wall pairs exceed the target (p90 ${mobility.p90}).`,
+      tiles: [
+        { x: a.x, y: a.y },
+        { x: b.x, y: b.y },
+      ],
+    });
+  }
+
   // m7: a bubble tile that the cut already covers is a duplicate rampart —
   // it renders twice, is counted twice and inflates the upkeep quote. The
   // emitted rampart list is deduped by tile, and every count reads off it.
@@ -1009,7 +1397,11 @@ export function planShell(terrain, plan, opts = {}) {
       enclosedController,
       enclosedSources,
       srcEnclosed,
-      mobility: mobilityStats(terrain, cut, extF),
+      // interior lap ÷ exterior lap over pairs of wall tiles. max is the
+      // owner's gate (<= 1.2); p90/mean say whether the whole wall is slow or
+      // one corner is; cause says whose fault it is; floor is what the
+      // negotiation proved it could not beat.
+      mobility,
       upkeepPerTick: upkeep,
     },
     // exported fields for later layers (towers/labs/extensions)
