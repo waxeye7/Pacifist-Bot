@@ -122,6 +122,13 @@ function idx(x, y) {
  * the base can reach today; any breach that does not buy back BREACH_RESTORE
  * of the detour. And it stops the moment the room is inside the target — this
  * is a mobility pass, not a rearrangement hobby.
+ *
+ * THE ONE ROAD IT MAY DELETE (tier 2, see homesFor). A deep tile is a legal
+ * home even with a road on it, PROVIDED that road serves nothing and carries
+ * nothing — the exact tile the removability fixpoint further down would take on
+ * its own. The road goes with the rehousing, the stitch and filler-face passes
+ * re-settle the net, and the room ends up with one fewer road tile rather than
+ * one more. This is what turned "no legal deep slot left" from 21 rooms into 5.
  */
 function breachCorridors(terrain, plan) {
   const cut = plan.shell.cut || [];
@@ -159,6 +166,71 @@ function breachCorridors(terrain, plan) {
   }
   for (const c of plan.structures.container || []) facedFixed.push(c);
 
+  /**
+   * WHAT EACH ROAD IS FOR — the same question the removability fixpoint at the
+   * bottom of this file asks, asked early enough to be useful.
+   *
+   * A road earns its upkeep by SERVING something adjacent (hub kit, labs,
+   * towers, containers, the eco objects, the sitter) or by CARRYING the way to
+   * something that does. A road that does neither is deleted down there anyway.
+   * Extensions are deliberately NOT on this list: an extension's claim on a
+   * road is its D4 filler face, which is checked per tile below, and treating
+   * all eight neighbours as sacred is what made every corridor untouchable.
+   */
+  const roadServes = new Set();
+  {
+    const servedBy = [];
+    for (const t of BUILT_OBSTACLES.concat(["container", "extractor"])) {
+      if (t === "extension") continue;
+      for (const p of plan.structures[t] || []) servedBy.push(p);
+    }
+    for (const k of objTiles) {
+      const [x, y] = k.split(",").map(Number);
+      servedBy.push({ x, y });
+    }
+    servedBy.push(plan.sitter);
+    for (const p of servedBy) {
+      roadServes.add(key(p.x, p.y));
+      for (const [dx, dy] of D8) roadServes.add(key(p.x + dx, p.y + dy));
+    }
+  }
+  /** road tiles this pass deleted to make room for a rehousing */
+  const droppedRoads = new Set();
+  /**
+   * Does the sitter's road+container component survive losing `drop`?
+   *
+   * Measured against ITSELF, not against the whole road list: earlier layers
+   * can leave stranded fragments that the stitch pass below joins later, and
+   * judging against those would refuse every drop in a room that has one. The
+   * rule is simply that the component must lose the dropped tile and nothing
+   * else — this tile is not the way through.
+   */
+  const netHolds = (drop) => {
+    const nodes = new Set([...roadSetLive, ...containerKeys, key(plan.sitter.x, plan.sitter.y)]);
+    const comp = (skip) => {
+      const start = key(plan.sitter.x, plan.sitter.y);
+      if (start === skip) return null;
+      const seen = new Set([start]);
+      const st = [plan.sitter];
+      while (st.length) {
+        const cur = st.pop();
+        for (const [dx, dy] of D8) {
+          const x = cur.x + dx,
+            y = cur.y + dy;
+          const k = key(x, y);
+          if (seen.has(k) || k === skip || !nodes.has(k)) continue;
+          seen.add(k);
+          st.push({ x, y });
+        }
+      }
+      return seen;
+    };
+    const before = comp(null);
+    if (!before || !before.has(drop)) return false;
+    const after = comp(drop);
+    return after !== null && after.size === before.size - 1;
+  };
+
   // ---- the baseline promise: whatever the base can walk to today, it keeps
   const walk0 = walkNow();
   const keepCut = cut.filter((c) => walk0.has(key(c.x, c.y))).map((c) => key(c.x, c.y));
@@ -191,12 +263,21 @@ function breachCorridors(terrain, plan) {
   // mass is packed to its own cap has literally nowhere legal to put anything.
   const hubCap = Math.min((plan.meta?.extensions?.maxHubDist ?? 9999) + 2, HUB_REACH_HARD);
 
-  /** does a trial mass keep every promise above? */
-  const promisesHold = (trialExtKeys) => {
+  /**
+   * Does a trial mass keep every promise above?
+   *
+   * `goneRoad` is the road tile a road-slot rehousing is about to delete: a
+   * tile that will not exist cannot be held to the "stays reachable" promise,
+   * and the extension standing on it is precisely why it is going.
+   */
+  const promisesHold = (trialExtKeys, goneRoad) => {
     const blocked = new Set([...fixedBlocked, ...trialExtKeys]);
     const walk = interiorWalk(terrain, cutSet, ext, blocked, plan.sitter);
     for (const k of keepCut) if (!walk.has(k)) return null;
-    for (const k of keepRoad) if (!walk.has(k)) return null;
+    for (const k of keepRoad) {
+      if (k === goneRoad || droppedRoads.has(k)) continue;
+      if (!walk.has(k)) return null;
+    }
     for (const p of keepFace) {
       if (!D8.some(([dx, dy]) => walk.has(key(p.x + dx, p.y + dy)))) return null;
     }
@@ -243,7 +324,24 @@ function breachCorridors(terrain, plan) {
    * BREACH_ROAD_BUDGET tiles across all its breaches. Counting homes instead of
    * tiles let E9S6 buy twelve road tiles with three "cheap" rehousings.
    *
-   * Deterministic: row-major scan, sorted by (cost, hub distance, y, x).
+   * TIER 2 — A DEEP TILE UNDER A ROAD THE PRUNE WOULD TAKE ANYWAY. The dense
+   * rooms are dense in ROADS as much as in structures, and "no legal deep slot
+   * left" was in large part this pass refusing to look at ~90 tiles per room
+   * that are covered by nothing but pavement. A road that serves nothing (see
+   * roadServes) and carries nothing (netHolds) is a tile the removability
+   * fixpoint at the bottom of this file deletes on its own the moment it stops
+   * being adjacent to a corridor; taking it for an extension only brings that
+   * forward. The road is deleted from the plan on the spot — a road under an
+   * extension is an UNDECLARABLE stack failure, not a cosmetic overlap — and the
+   * stitch and filler-face passes below re-settle the net, which is exactly what
+   * they are for.
+   *
+   * It ranks LAST, behind even a priced tier-1 slot. Tier 2 is the only tier
+   * that edits the road network rather than adding to it, and a pass whose
+   * charter is "one to four extensions relocated" does not get to redraw
+   * corridors while a slot that changes nothing is still on the table.
+   *
+   * Deterministic: row-major scan, sorted by (tier, cost, hub distance, y, x).
    */
   let roadSpent = 0;
   /** tiles that must be paved to reach t from the live network, t included */
@@ -304,6 +402,33 @@ function breachCorridors(terrain, plan) {
     }
     return d;
   };
+  /**
+   * TIER 2 GATE — may this road tile become an extension?
+   *
+   * Four questions, and every one of them is a promise the rest of the plan is
+   * already making:
+   *   SERVES   nothing (hub kit, labs, towers, containers, eco objects, sitter)
+   *   CARRIES  nothing — the sitter's component loses this tile and no other
+   *   FACE     the incoming extension keeps a D4 road/container face without the
+   *            tile it is standing on, so the rehousing still costs zero road
+   *   NEIGHBOURS every extension that touches this tile D4 keeps a road face of
+   *            its own; the net is allowed to re-settle, not to strand a filler
+   */
+  const roadSlotFree = (x, y, k) => {
+    if (roadServes.has(k)) return false;
+    const roadish = (px, py) => {
+      const pk = key(px, py);
+      return pk !== k && (roadSetLive.has(pk) || containerKeys.includes(pk));
+    };
+    if (!D4.some(([dx, dy]) => roadish(x + dx, y + dy))) return false;
+    for (const [dx, dy] of D4) {
+      const nk = key(x + dx, y + dy);
+      if (!extKeys.has(nk)) continue;
+      if (!D4.some(([ex, ey]) => roadish(x + dx + ex, y + dy + ey))) return false;
+    }
+    return netHolds(k);
+  };
+
   const homesFor = (forbidden) => {
     const pave = paveField();
     const out = [];
@@ -314,8 +439,10 @@ function breachCorridors(terrain, plan) {
         if (ext[i] || depth[i] < DEPTH_SAFE) continue; // outside, or shallow
         if (!buildable(terrain, x, y) || !engineBuildable(terrain, x, y, "extension")) continue;
         if (extKeys.has(k) || fixedBlocked.has(k) || cutSet.has(k)) continue;
-        if (roadSetLive.has(k) || forbidden.has(k)) continue;
+        if (forbidden.has(k)) continue;
         if (hubField[i] > hubCap) continue; // never past the room's own reach
+        const onRoad = roadSetLive.has(k);
+        if (onRoad && !roadSlotFree(x, y, k)) continue; // tier 2, or nothing
         let cost = Infinity;
         for (const [dx, dy] of D4) {
           const fx = x + dx,
@@ -329,10 +456,17 @@ function breachCorridors(terrain, plan) {
           if (fd >= 0 && fd < cost) cost = fd;
         }
         if (!isFinite(cost) || roadSpent + cost > BREACH_ROAD_BUDGET) continue;
-        out.push({ x, y, d: hubField[i], cost });
+        out.push({ x, y, d: hubField[i], cost, road: onRoad ? k : null });
       }
     }
-    out.sort((a, b) => a.cost - b.cost || a.d - b.d || a.y - b.y || a.x - b.x);
+    out.sort(
+      (a, b) =>
+        (a.road ? 1 : 0) - (b.road ? 1 : 0) ||
+        a.cost - b.cost ||
+        a.d - b.d ||
+        a.y - b.y ||
+        a.x - b.x,
+    );
     return out;
   };
 
@@ -477,13 +611,24 @@ function breachCorridors(terrain, plan) {
           trial.delete(from);
           if (makesSquare(h.x, h.y, trial) && !allowSquare) continue;
           trial.add(to);
-          if (!promisesHold(trial)) continue;
+          if (!promisesHold(trial, h.road)) continue;
           extKeys.delete(from);
           extKeys.add(to);
+          // tier 2: the road under the new extension goes NOW. Leaving it for
+          // the prune below is not an option — that pass protects every road
+          // within D8 of an extension, so it would protect this one, and the
+          // plan would ship a road and an extension on one tile.
+          let ri = -1;
+          if (h.road) {
+            droppedRoads.add(h.road);
+            roadSetLive.delete(h.road);
+            ri = plan.structures.road.findIndex((r) => key(r.x, r.y) === h.road);
+            if (ri >= 0) plan.structures.road.splice(ri, 1);
+          }
           roadSpent += h.cost;
           vacated.add(from);
           vacated.delete(to);
-          undo.push([from, to]);
+          undo.push([from, to, h.road, ri]);
           const slot = extensions.findIndex((q) => q.x === e.x && q.y === e.y);
           extensions[slot] = { x: h.x, y: h.y };
           landed = true;
@@ -500,10 +645,19 @@ function breachCorridors(terrain, plan) {
       }
     }
     if (!ok) {
-      for (const [from, to] of undo.reverse()) {
+      for (const [from, to, gone, ri] of undo.reverse()) {
         extKeys.delete(to);
         extKeys.add(from);
         vacated.delete(from);
+        // a rolled-back road goes back at its OWN index: the road list is the
+        // build order, and a tile that reappears at the end of it is a
+        // different plan from the one we started the round with
+        if (gone && ri >= 0) {
+          droppedRoads.delete(gone);
+          roadSetLive.add(gone);
+          const [gx, gy] = gone.split(",").map(Number);
+          plan.structures.road.splice(ri, 0, { x: gx, y: gy });
+        }
         const [fx, fy] = from.split(",").map(Number);
         const [tx, ty] = to.split(",").map(Number);
         const slot = extensions.findIndex((q) => q.x === tx && q.y === ty);

@@ -533,6 +533,95 @@ export function fieldFrom(terrain, origin, impassable) {
 }
 
 /**
+ * IS THIS TILE THE WAY IN? — the chokepoint test.
+ *
+ * A link is an OBSTACLE. Drop one on the single free tile that joins a pocket
+ * to the basin and everything behind it is gone for good: the min-cut works on
+ * geometry, not on walks, so the shell still rings that pocket, and the finished
+ * base can never stand on those ramparts. E19S1 paid exactly this bill — the
+ * source link at 31,26 sealed a source pocket and ten cut tiles had to be
+ * DECLARED unreachable, at zero rampart saving, while a legal alternative link
+ * tile on the same seat sealed nothing.
+ *
+ * Plain articulation is NOT the test. Layer 1 runs before the wall exists, so
+ * the graph it can see still has the whole exterior in it: 31,26 is not a cut
+ * vertex of the room, only of the base. What survives that blindness is the
+ * DETOUR — with the tile blocked, how much further does the sitter have to walk
+ * to reach everything it could reach before? A corner costs a tile or two. A way
+ * in costs the trip around the outside, and that trip is precisely what the wall
+ * is about to delete.
+ *
+ * Two stages, so the honest-but-expensive question is asked almost never:
+ *   RING SPLIT  a tile can only be a separator if the free tiles of its own 3x3
+ *               ring fall into two or more arcs. O(8), and it clears the field.
+ *   DETOUR      one BFS with the tile blocked, compared against the field we
+ *               already have. Memoised per tile.
+ */
+const CHOKE_DETOUR = 6;
+/** the 3x3 ring in cyclic order — consecutive entries are D8-adjacent */
+const RING = [
+  [1, 0],
+  [1, 1],
+  [0, 1],
+  [-1, 1],
+  [-1, 0],
+  [-1, -1],
+  [0, -1],
+  [1, -1],
+];
+function ringSplit(terrain, impassable, x, y) {
+  let free = 0;
+  let arcs = 0;
+  for (let i = 0; i < 8; i++) {
+    const [dx, dy] = RING[i];
+    const ok = walkable(terrain, x + dx, y + dy) && !impassable.has(key(x + dx, y + dy));
+    if (!ok) continue;
+    free++;
+    const [px, py] = RING[(i + 7) % 8];
+    if (!walkable(terrain, x + px, y + py) || impassable.has(key(x + px, y + py))) arcs++;
+  }
+  return free < 8 && arcs >= 2; // a full ring is one arc and no separator
+}
+/**
+ * Its OWN baseline field, deliberately: the callers' hubField is frozen on raw
+ * terrain for the whole eco pass (moving it would re-score every seat), while
+ * the graph this test measures gains a tile with every link committed.
+ */
+export function chokeTest(terrain, sitter, impassable) {
+  const hubField = fieldFrom(terrain, sitter, impassable);
+  const memo = new Map();
+  return (x, y) => {
+    const k = key(x, y);
+    const hit = memo.get(k);
+    if (hit !== undefined) return hit;
+    let seals = false;
+    if (ringSplit(terrain, impassable, x, y)) {
+      const blocked = new Set(impassable);
+      blocked.add(k);
+      const f = fieldFrom(terrain, sitter, blocked);
+      const self = idx(x, y);
+      for (let i = 0; i < 2500; i++) {
+        if (i === self || hubField[i] >= INF) continue;
+        if (f[i] >= INF || f[i] - hubField[i] > CHOKE_DETOUR) {
+          seals = true;
+          break;
+        }
+      }
+    }
+    memo.set(k, seals);
+    return seals;
+  };
+}
+
+/**
+ * A link that seals a pocket loses to one that does not, always — but it is
+ * still taken when it is the only link tile on offer. Refusing outright would
+ * trade a declared BATTLEMENT shortfall for a declared LINK shortfall, and a
+ * room that ships three links forever is the worse of the two.
+ */
+const STRAND_PENALTY = 1000;
+
+/**
  * Source works: container on the source's walkable ring (miner sits here),
  * closest to the hub by walk; link on a container neighbor, preferring
  * tiles OFF the mining ring so it doesn't eat a harvest spot.
@@ -560,8 +649,15 @@ const rampartPenalty = (terrain, x, y) =>
  * in a one-tile pocket and lost its link exactly this way. Cheap local test:
  * the seat must keep at least one hub-reachable walkable neighbour that is
  * not the link.
+ *
+ * The seat is not the only thing a link can seal. `seals` (chokeTest, above)
+ * asks the same question about the REST of the room: a candidate that cuts a
+ * pocket off the basin loses to any candidate that does not, by a margin no
+ * distance term can close. It is passed only on the FINAL pricing of the
+ * winning seat — the seat ladder below only needs to know whether a link
+ * exists at all, and that answer is the same either way.
  */
-function bestLinkFor(terrain, source, seat, hubField, impassable) {
+function bestLinkFor(terrain, source, seat, hubField, impassable, seals) {
   const keepsSeatOpen = (lx, ly) =>
     D8.some(([dx, dy]) => {
       const x = seat.x + dx,
@@ -578,7 +674,8 @@ function bestLinkFor(terrain, source, seat, hubField, impassable) {
     if (!buildable(terrain, x, y) || impassable.has(key(x, y))) continue;
     if (!keepsSeatOpen(x, y)) continue;
     const offRing = chebyshev({ x, y }, source) > 1 ? 10 : 0;
-    const sc = offRing - hubField[idx(x, y)] * 0.1;
+    const choke = seals && seals(x, y) ? STRAND_PENALTY : 0;
+    const sc = offRing - hubField[idx(x, y)] * 0.1 - choke;
     if (sc > linkSc) {
       linkSc = sc;
       link = { x, y };
@@ -599,7 +696,7 @@ function bestLinkFor(terrain, source, seat, hubField, impassable) {
  */
 const NO_LINK_PENALTY = 30;
 
-function claimSourceWorks(terrain, source, hubField, impassable) {
+function claimSourceWorks(terrain, source, hubField, impassable, seals) {
   const seats = [];
   for (const [dx, dy] of D8) {
     const x = source.x + dx,
@@ -608,7 +705,7 @@ function claimSourceWorks(terrain, source, hubField, impassable) {
     if (!walkable(terrain, x, y) || impassable.has(key(x, y))) continue;
     const d = hubField[idx(x, y)];
     if (d >= INF) continue;
-    const link = bestLinkFor(terrain, source, { x, y }, hubField, impassable);
+    const link = bestLinkFor(terrain, source, { x, y }, hubField, impassable, null);
     seats.push({
       x,
       y,
@@ -619,7 +716,12 @@ function claimSourceWorks(terrain, source, hubField, impassable) {
   if (!seats.length) return null;
   seats.sort((a, b) => a.sc - b.sc || a.x - b.x || a.y - b.y);
   const seat = seats[0];
-  return { container: { x: seat.x, y: seat.y }, link: seat.link };
+  // The seat is settled; NOW re-price its link with the chokepoint test. The
+  // ladder above ran without it on purpose — it only reads "link or no link",
+  // which the penalty cannot change, and paying for the test on all eight seats
+  // to answer a question about one of them is not a trade worth making.
+  const link = seat.link ? bestLinkFor(terrain, source, seat, hubField, impassable, seals) : null;
+  return { container: { x: seat.x, y: seat.y }, link };
 }
 
 /**
@@ -633,7 +735,7 @@ function claimSourceWorks(terrain, source, hubField, impassable) {
  * a genuinely cramped controller is visible rather than silently accepted.
  */
 const MIN_PARKS = 4;
-function claimControllerWorks(terrain, controller, hubField, impassable, objectTiles) {
+function claimControllerWorks(terrain, controller, hubField, impassable, objectTiles, seals) {
   const cands = [];
   for (let dx = -3; dx <= 3; dx++) {
     for (let dy = -3; dy <= 3; dy++) {
@@ -658,10 +760,16 @@ function claimControllerWorks(terrain, controller, hubField, impassable, objectT
   }
   if (!cands.length) return null;
   cands.sort((a, b) => b.sc - a.sc);
-  const roomy = cands.find((c) => c.park >= MIN_PARKS);
+  // SAME RULE AS THE SOURCE LINKS, applied as a partition rather than a score:
+  // the park/roominess ladder below has two independent tie-breaks and a score
+  // penalty would only reach one of them. A controller link that seals a pocket
+  // is considered only when the controller offers nothing else.
+  const clean = cands.filter((c) => !(seals && seals(c.x, c.y)));
+  const pool = clean.length ? clean : cands;
+  const roomy = pool.find((c) => c.park >= MIN_PARKS);
   if (roomy) return { x: roomy.x, y: roomy.y, parks: roomy.park };
-  let best = cands[0];
-  for (const c of cands) if (c.park > best.park) best = c;
+  let best = pool[0];
+  for (const c of pool) if (c.park > best.park) best = c;
   return { x: best.x, y: best.y, parks: best.park };
 }
 
@@ -982,14 +1090,22 @@ export function planHub(terrain, objects, opts = {}) {
   // hub distance on raw terrain for endpoint selection
   let hubField = fieldFrom(terrain, sitter, impassable);
 
+  // Whether a tile is the way into a pocket, re-asked after every link we
+  // commit — the links go down one at a time and each one narrows the graph the
+  // next one is judged against. The memo is per-graph for the same reason.
+  let seals = chokeTest(terrain, sitter, impassable);
+
   const sourceWorks = [];
   for (const src of sources) {
-    const works = claimSourceWorks(terrain, src, hubField, impassable);
+    const works = claimSourceWorks(terrain, src, hubField, impassable, seals);
     if (!works) return { error: `no container spot at source (${src.x},${src.y})`, seed };
     sourceWorks.push(works);
-    if (works.link) impassable.add(key(works.link.x, works.link.y));
+    if (works.link) {
+      impassable.add(key(works.link.x, works.link.y));
+      seals = chokeTest(terrain, sitter, impassable);
+    }
   }
-  const ctrlLink = claimControllerWorks(terrain, controller, hubField, impassable, objectTiles);
+  const ctrlLink = claimControllerWorks(terrain, controller, hubField, impassable, objectTiles, seals);
   if (!ctrlLink) return { error: "no controller link spot", seed };
   impassable.add(key(ctrlLink.x, ctrlLink.y));
 
