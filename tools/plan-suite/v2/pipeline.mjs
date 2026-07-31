@@ -71,6 +71,9 @@ export function composePlan(d, shellOpts = {}) {
     plan.structures.road.push(...tw.roads);
     plan.meta.counts.tower = tw.tower.length;
     plan.meta.towers = tw.towersMeta;
+    // a shell whose far lobe no legal deep tile can reach is the room beating
+    // the planner, not the planner being sloppy — declare it, loudly
+    plan.meta.shortfalls.push(...(tw.shortfalls || []));
   }
 
   const lb = planLabs(d.terrain, plan);
