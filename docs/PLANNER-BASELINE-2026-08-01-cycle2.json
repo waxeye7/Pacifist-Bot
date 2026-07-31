@@ -1,0 +1,25 @@
+{
+  "date": "2026-08-01",
+  "cycle": 2,
+  "rooms": 159,
+  "ext60": 159,
+  "shallowExtTotal": 97,
+  "rampartsTotal": 7200,
+  "rampartsMedian": 46,
+  "roadsMedian": 86,
+  "cutMedian": 40,
+  "ecoMedian": 40,
+  "ctrlParksMin": 5,
+  "mobilityOver1": 26,
+  "minShellDmgMedian": 2520,
+  "minShellDmgP10": 2010,
+  "adjacentTowerPairs": 0,
+  "engineRejects": 0,
+  "openCores": 0,
+  "declaredShortfalls": [
+    "E5S9",
+    "E6S2",
+    "E19S10:towerCoverage",
+    "E20S10:battlements"
+  ]
+}
