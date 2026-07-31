@@ -45,10 +45,85 @@ interface GoToOpts {
     maxRooms?: number;
 }
 
-// CREEP PROTOTYPES
-Creep.prototype.findFillerTarget = function findFillerTarget():any {
+/**
+ * ---------------------------------------------------------------------------
+ * Fill reservations (room.memory.reserveFill)
+ *
+ * findFillerTarget() used to push the bare id of whatever it picked onto
+ * room.memory.reserveFill, and ONLY a successful transfer ever took one off
+ * again. Nothing else released: not the creep dying on the way there, not the
+ * creep changing its mind, and not the callers that ask the question
+ * speculatively (a loaded filler asks up to twice a tick - once for the thing
+ * it is filling, once for the look-ahead). So with a handful of fillers alive
+ * the list covered every extension in the room within a few ticks,
+ * findFillerTarget() returned false for all of them at once, and the room sat
+ * on full stores until filler.ts wiped the list on its 40-tick timer - after
+ * which the whole cycle repeated.
+ *
+ * Reservations are now ATTRIBUTED - {id, creep, t} instead of a bare id - which
+ * makes all three missing releases possible:
+ *   - the owner died          -> dropped, the name is no longer in Game.creeps
+ *   - the owner retargeted    -> taking a reservation drops that creep's
+ *                                previous one, so a creep holds at most ONE
+ *   - nobody ever delivered   -> dropped after RESERVE_FILL_TTL ticks
+ * and a creep is never blocked by its OWN reservation, so re-asking for the
+ * target it is already walking to gives the same answer instead of churning.
+ *
+ * Callers that only want to look ahead pass {reserve: false} and take nothing.
+ * ---------------------------------------------------------------------------
+ */
+const RESERVE_FILL_TTL = 25;
 
-    let reserveFill = this.room.memory.reserveFill;
+/** prune dead/expired/legacy entries, and return the live list. */
+const liveReserveFill = (room:any):any[] => {
+    let list = room.memory.reserveFill;
+    if(!Array.isArray(list)) {
+        room.memory.reserveFill = [];
+        return room.memory.reserveFill;
+    }
+    let kept:any[] = [];
+    for(let entry of list) {
+        // bare-id entries from before this change carry neither an owner nor a
+        // timestamp, so there is no way to tell a live one from a leaked one
+        if(!entry || typeof entry !== "object" || !entry.id || !entry.creep) continue;
+        if(!Game.creeps[entry.creep]) continue;
+        if(Game.time - (entry.t || 0) >= RESERVE_FILL_TTL) continue;
+        kept.push(entry);
+    }
+    if(kept.length !== list.length) {
+        room.memory.reserveFill = kept;
+    }
+    return room.memory.reserveFill;
+}
+
+/** ids reserved by SOMEONE ELSE - the ones this creep must not pick. */
+const reserveFillIdsOfOthers = (creep:any):string[] => {
+    let ids:string[] = [];
+    for(let entry of liveReserveFill(creep.room)) {
+        if(entry.creep !== creep.name) {
+            ids.push(entry.id);
+        }
+    }
+    return ids;
+}
+
+/** claim id for this creep, releasing whatever it held before. */
+const takeReserveFill = (creep:any, id:string):void => {
+    let list = liveReserveFill(creep.room);
+    for(let i = list.length - 1; i >= 0; i--) {
+        if(list[i].creep === creep.name) {
+            list.splice(i, 1);
+        }
+    }
+    list.push({id: id, creep: creep.name, t: Game.time});
+}
+
+// CREEP PROTOTYPES
+Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
+
+    // speculative/look-ahead callers pass {reserve:false} and claim nothing
+    let reserve = !(opts && opts.reserve === false);
+    let reserveFill = reserveFillIdsOfOthers(this);
 
 
     if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
@@ -149,8 +224,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
 
         for(let lab of Labs) {
             if(lab && (lab.store[RESOURCE_ENERGY] <= 2000 - this.memory.MaxStorage*2 || lab.store[RESOURCE_ENERGY] < 1200) && !reserveFill.includes(lab.id)) {
-                if(!this.room.memory.reserveFill.includes(lab.id)) {
-                    this.room.memory.reserveFill.push(lab.id);
+                if(reserve) {
+                    takeReserveFill(this, lab.id);
                 }
                 this.memory.t = lab.id;
                 return lab;
@@ -162,8 +237,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
         let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
         if(spawnAndExtensions.length > 0) {
             let t = this.pos.findClosestByRange(spawnAndExtensions);
-            if(!this.room.memory.reserveFill.includes(t.id)) {
-                this.room.memory.reserveFill.push(t.id);
+            if(reserve) {
+                takeReserveFill(this, t.id);
             }
             this.memory.t = t.id;
             return t;
@@ -175,9 +250,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id))});
     if(towers2.length > 0) {
         let t = this.pos.findClosestByRange(towers2);
-        if(!this.room.memory.reserveFill.includes(t.id)) {
-            this.room.memory.reserveFill.push(t.id);
-        }        this.memory.t = t.id;
+        if(reserve) {
+            takeReserveFill(this, t.id);
+        }
+        this.memory.t = t.id;
         return t;
     }
 
@@ -185,9 +261,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     if(this.room.memory.Structures.factory) {
         let factory:any = Game.getObjectById(this.room.memory.Structures.factory);
         if(factory && factory.store[RESOURCE_ENERGY] < 20000 && storage && storage.store[RESOURCE_ENERGY] > 450000 && storage.store[RESOURCE_BATTERY] < 200 && !reserveFill.includes(factory.id)) {
-            if(!this.room.memory.reserveFill.includes(factory.id)) {
-                this.room.memory.reserveFill.push(factory.id);
-            }            this.memory.t = factory.id;
+            if(reserve) {
+                takeReserveFill(this, factory.id);
+            }
+            this.memory.t = factory.id;
             return factory;
         }
     }
@@ -196,9 +273,10 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
         for(let linkID of this.room.memory.Structures.extraLinks) {
             let extraLink:any = Game.getObjectById(linkID);
             if(extraLink && extraLink.store[RESOURCE_ENERGY] < 800 && storage && storage.store[RESOURCE_ENERGY] > 100000 && !reserveFill.includes(extraLink.id)) {
-                if(!this.room.memory.reserveFill.includes(extraLink.id)) {
-                    this.room.memory.reserveFill.push(extraLink.id);
-                }                this.memory.t = extraLink.id;
+                if(reserve) {
+                    takeReserveFill(this, extraLink.id);
+                }
+                this.memory.t = extraLink.id;
                 return extraLink;
             }
         }
@@ -208,8 +286,8 @@ Creep.prototype.findFillerTarget = function findFillerTarget():any {
     if(this.room.memory.Structures.powerSpawn) {
         let powerSpawn:any = Game.getObjectById(this.room.memory.Structures.powerSpawn);
         if(powerSpawn && powerSpawn.store[RESOURCE_ENERGY] < 2500 && storage && storage.store[RESOURCE_ENERGY] > 280000 && !reserveFill.includes(powerSpawn.id)) {
-            if(!this.room.memory.reserveFill.includes(powerSpawn.id)) {
-                this.room.memory.reserveFill.push(powerSpawn.id);
+            if(reserve) {
+                takeReserveFill(this, powerSpawn.id);
             }
             this.memory.t = powerSpawn.id;
             return powerSpawn;
@@ -2031,6 +2109,143 @@ Creep.prototype.SwapPositionWithCreep = function SwapPositionWithCreep(direction
 
 
 
+/**
+ * ---------------------------------------------------------------------------
+ * PathFinder stall-breaker, shared by every move primitive below.
+ *
+ * Every one of those primitives has the same shape: re-run PathFinder whenever
+ * the cached path is missing/exhausted/for another target, store path.path,
+ * then step onto path.path[0]. When the search comes back with NO first step -
+ * PathFinder answers with an empty path both for "no route exists" and for
+ * "maxOps ran out before I found one" - the old code stored the empty array,
+ * called this.move(undefined), and then re-ran the identical failing search on
+ * every following tick. The creep never moves, never times out, never
+ * complains: live E14S9/E11S5 had loaded fillers parked at range 2 from
+ * half-empty extensions with memory.path = [] for 650+ ticks. filler.ts grew a
+ * local advanceTo() around it; every other role (carry, builder, upgrader,
+ * EnergyMiner, RampartDefender...) still walked straight into it.
+ *
+ * The recovery mirrors filler.ts advanceTo() so both behave the same:
+ *   1. throw the useless path away instead of caching it,
+ *   2. hand this tick's step to the engine's own moveTo(), which has neither
+ *      the maxOps 1000 budget nor the maxRooms 1 leash,
+ *   3. and if the creep is STILL on the same tile after ~8 such ticks it is
+ *      wedged, not merely jammed (two creeps in a hub pocket blocking each
+ *      other's only exit - both pathfinders answer "no route" and neither
+ *      yields), so take one greedy step by hand onto whichever legal
+ *      neighbouring tile is closest to the target, shoving whoever stands
+ *      there. Free tiles win; if every exit is held the pick ROTATES on the
+ *      stuck counter, because SwapPositionWithCreep only shoves a neighbour
+ *      that has not already moved this tick and retrying the same neighbour
+ *      forever is a guaranteed livelock.
+ *
+ * A path that came back INCOMPLETE but with steps in it is still used as
+ * before: it walks the creep as close as the search got, which is progress and
+ * costs nothing extra. Once the creep stands on that closest reachable tile the
+ * next search returns empty and the recovery above takes over from there.
+ *
+ * The counter lives on its own memory keys (pfStuckAt/pfStuckFor) so that it
+ * cannot interfere with the stuckAt/stuckFor pair filler.ts advanceTo() keeps -
+ * advanceTo() calls these primitives, and a shared counter would be
+ * double-incremented on every stuck tick.
+ * ---------------------------------------------------------------------------
+ */
+const PF_WEDGED_AFTER = 8;
+
+/** true when the search gave us no first step to take - the stall case. */
+const pathHasNoStep = (path:any):boolean => {
+    return !path || !path.path || path.path.length == 0;
+}
+
+/** one greedy step towards targetPos through a legal neighbouring tile. */
+const stepTowardsByHand = (creep:any, targetPos:any, rotation:number):void => {
+    let terrain = creep.room.getTerrain();
+    let free:any[] = [];
+    let occupied:any[] = [];
+    for(let dx = -1; dx <= 1; dx++) {
+        for(let dy = -1; dy <= 1; dy++) {
+            if(dx == 0 && dy == 0) continue;
+            let x = creep.pos.x + dx;
+            let y = creep.pos.y + dy;
+            if(x < 1 || x > 48 || y < 1 || y > 48) continue;
+            if(terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+            let blocked = false;
+            for(let structure of creep.room.lookForAt(LOOK_STRUCTURES, x, y)) {
+                if((OBSTACLE_OBJECT_TYPES as any).indexOf(structure.structureType) !== -1) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if(blocked) continue;
+            let step:any = {pos: new RoomPosition(x, y, creep.room.name), range: targetPos.getRangeTo(x, y)};
+            if(creep.room.lookForAt(LOOK_CREEPS, x, y).length > 0) {
+                occupied.push(step);
+            }
+            else {
+                free.push(step);
+            }
+        }
+    }
+    free.sort((a:any, b:any) => a.range - b.range);
+    occupied.sort((a:any, b:any) => a.range - b.range);
+
+    let step:any = null;
+    if(free.length > 0) {
+        step = free[0];
+    }
+    else if(occupied.length > 0) {
+        step = occupied[rotation % occupied.length];
+    }
+    if(step) {
+        let direction = creep.pos.getDirectionTo(step.pos);
+        creep.SwapPositionWithCreep(direction);
+        creep.move(direction);
+        creep.memory.moving = true;
+    }
+}
+
+/**
+ * Called INSTEAD of caching a path that has no first step. Drops the cache,
+ * ticks the per-creep stuck counter (reset as soon as the creep is on a
+ * different tile than last time it failed) and moves for this tick.
+ */
+const movePathFallback = (creep:any, target:any, range:number):void => {
+    creep.memory.path = false;
+    delete creep.memory.MoveTargetId;
+
+    let here = creep.pos.x + "," + creep.pos.y;
+    if(creep.memory.pfStuckAt === here) {
+        creep.memory.pfStuckFor = (creep.memory.pfStuckFor || 0) + 1;
+    }
+    else {
+        creep.memory.pfStuckAt = here;
+        creep.memory.pfStuckFor = 0;
+    }
+
+    let targetPos = (target && target.pos) ? target.pos : target;
+    // some callers keep a target position in memory, where it survives as a
+    // plain {x,y,roomName} object with none of RoomPosition's methods on it
+    if(targetPos && typeof targetPos.getRangeTo !== "function" && typeof targetPos.x === "number") {
+        targetPos = new RoomPosition(targetPos.x, targetPos.y, targetPos.roomName || creep.room.name);
+    }
+
+    if(creep.memory.pfStuckFor >= PF_WEDGED_AFTER && targetPos && targetPos.roomName === creep.room.name) {
+        // a wedge the greedy step below does NOT clear is worth a line: creeps
+        // walled in by their own hub (live E11S5 26,23 - eight neighbours of
+        // extension/lab/spawn, whatever spawns into that pocket never leaves)
+        // are invisible otherwise
+        if(creep.memory.pfStuckFor >= 50 && creep.memory.pfStuckFor % 50 == 8) {
+            console.log(creep.memory.role, creep.name, "wedged at", creep.pos.x + "," + creep.pos.y, "for", creep.memory.pfStuckFor, "ticks in", creep.room.name);
+        }
+        stepTowardsByHand(creep, targetPos, creep.memory.pfStuckFor);
+        return;
+    }
+
+    creep.moveTo(targetPos || target, {range: range, reusePath: 5});
+    creep.memory.moving = true;
+}
+
+
 Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
@@ -2050,6 +2265,11 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
                     roomCallback: (roomName) => costMatrix(roomName)
                 }
             );
+
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
 
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
@@ -2268,6 +2488,11 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
                 }
                 );
 
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
+
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
 
@@ -2456,6 +2681,11 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function roomCallbackRo
                 }
                 );
 
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
+
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
 
@@ -2613,6 +2843,11 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
                 }
                 );
 
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
+
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
 
@@ -2743,6 +2978,11 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
                     roomCallback: (roomName) => roomCallbackIgnoreRoads(roomName)
                 }
                 );
+
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
 
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
@@ -3036,6 +3276,10 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
                     roomCallback: (roomName) => costMatrix(roomName)
                 }
             );
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
             this.SwapPositionWithCreep(direction);
@@ -3516,6 +3760,11 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
                     roomCallback: (roomName) => costMatrix(roomName)
                 }
                 );
+
+            if(pathHasNoStep(path)) {
+                movePathFallback(this, target, range);
+                return;
+            }
 
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
