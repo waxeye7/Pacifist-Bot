@@ -31,12 +31,61 @@ const INF_FLOW = 1 << 28;
 const EXIT_T = 5001;
 const SRC_S = 5000;
 
-// deep-interior tiles needed beyond the shell: 60 ext + 10 labs + 6 towers
-// + misc/spare. Placed hub structures already sit on deep tiles and are
-// excluded from the count, as are roads (extensions can't sit on roads).
-const NEED_DEEP = 85;
+// ------------------------------------------------------------------
+// DEEP-SPACE DEMAND — derived from the program, not a magic floor.
+//
+// The old NEED_DEEP=85 was a static guess and it sat on a knife edge: real
+// demand is ~115 deep tiles, so a room that cleared 85 with 91 deep tiles ran
+// out of space in the extension layer, shipped a pile of shallow extensions
+// and only got rescued by the pipeline's minUpkeepShell ladder. Worse, every
+// unrelated layout change flipped rooms back and forth across the 85 edge —
+// that edge was the dominant source of shallow-count noise between batches.
+//
+// So the floor is COUNTED instead. These are the pieces the LATER layers still
+// have to put on deep interior; the hub trio, the hub link, the three spawns
+// and the sitter are already standing when the shell negotiates and countDeep()
+// has already excluded their tiles, so counting them again would buy wall we
+// do not need.
+const PROGRAM_EXTENSIONS = 60;
+const PROGRAM_LABS = 10;
+const PROGRAM_TOWERS = 6;
+const PROGRAM_NUKER = 1;
+const PROGRAM_OBSERVER = 1;
+export const PROGRAM_TILES =
+  PROGRAM_EXTENSIONS + PROGRAM_LABS + PROGRAM_TOWERS + PROGRAM_NUKER + PROGRAM_OBSERVER; // 78
+
+// ...plus the corridor the program is fed through. Extensions flank ROADS, and
+// every road tile the later layers dig comes out of the same deep pool. Measured
+// over the fleet (159 rooms, roads placed after the shell that land on deep
+// interior): min 14 · p10 26 · median 36 · mean 37 · p90 51 · max 60. A flat
+// constant beat every per-room estimator tried — a swamp-fraction model
+// (a + b·swampFrac) fits WORSE (MAE 9.5 vs 8.0 for a constant), because the
+// road bill is driven by the 60-extension corridor pattern, not by terrain
+// cost. The constant sits above the mean on purpose: needDeep is a FLOOR on a
+// negotiation that usually over-delivers, and a floor that is a little generous
+// costs a wider bubble in a handful of rooms while a floor that is short costs
+// twenty personal ramparts in the extension layer.
+// 45, and that is a swept number rather than a rounded mean. Fleet sweep of the
+// constant (159 rooms, ramparts / shallow-extensions / rooms still walking the
+// upkeep ladder / road median):
+//   30 -> 7162 / 203 / 42 / 86      40 -> 7187 / 124 / 22 / 88
+//   35 -> 7171 / 156 / 30 / 88      45 -> 7200 /  97 / 16 / 86
+//   50 -> 7230 /  84 / 13 / 86      55 -> 7314 /  75 / 11 / 84
+// Shallow structures fall monotonically and ramparts climb monotonically, so
+// this is a straight trade; 45 is the last rung that still clears BOTH standing
+// fleet gates (ramparts <= 7222, road median <= 87) — 50 breaks the rampart
+// gate, 40 and 35 break the road gate.
+const CORRIDOR_OVERHEAD = 45;
+const NEED_DEEP = PROGRAM_TILES + CORRIDOR_OVERHEAD;
+
 const MAX_CUT = 45;
 const DEPTH_SAFE = 4; // ranged attacker reach is 3
+
+// A rampart the interior cannot WALK to is a rampart no defender can hold, no
+// repairer can stand on and no battlement can cover. We will pay this many
+// extra wall tiles for a cut whose every tile is reachable; past that the room
+// has genuinely beaten us and the shortfall gets declared instead of hidden.
+const REACH_SWAP_BUDGET = 1;
 
 // negotiation ladder. 13/14 exist so a room that cannot fit 60 extensions
 // at the tight radii can buy more deep space by walling a bigger bubble.
@@ -469,6 +518,58 @@ function boundaryWalls(terrain, ext) {
   return out;
 }
 
+/**
+ * THE INTERIOR WALK REGION — everything the owner can stand on inside its own
+ * shell, flooded from the sitter.
+ *
+ * Ramparts are walkable by their owner, so the flood walks ALONG the cut (a
+ * wall segment reached only by walking the wall is still reached — E11S4's
+ * north lobe hangs off exactly one such isthmus) but it never steps past the
+ * cut into the exterior. Hub structures block, because a creep cannot stand on
+ * a spawn.
+ *
+ * This is the single definition of "reachable" the shell uses: for choosing
+ * which cut to buy, for deciding where a defender may be told to stand, and
+ * for declaring the shortfall when neither is possible.
+ */
+function interiorWalk(terrain, cutSet, ext, occupied, sitter) {
+  const seen = new Set([key(sitter.x, sitter.y)]);
+  const q = [sitter];
+  let qi = 0;
+  while (qi < q.length) {
+    const cur = q[qi++];
+    for (const [dx, dy] of D8) {
+      const x = cur.x + dx,
+        y = cur.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const k = key(x, y);
+      if (seen.has(k) || !walkable(terrain, x, y)) continue;
+      // the flood stops AT the cut rather than before it, and never crosses it
+      if (!cutSet.has(k) && ext[idx(x, y)]) continue;
+      if (occupied.has(k)) continue;
+      seen.add(k);
+      q.push({ x, y });
+    }
+  }
+  return seen;
+}
+
+/**
+ * Cut tiles the interior walk region cannot reach.
+ *
+ * ROOT CAUSE these exist at all: the min-cut only knows S-side / T-side, not
+ * "one connected castle". When the protect mask contains a lobe that is walk-
+ * separated from the basin — which is exactly what the eco-enclosure expansions
+ * below build, since a controller box and a source ring are GEOMETRIC sets, not
+ * walk-connected ones — Dinic happily buys two disjoint enclosures and seals
+ * each one. The second enclosure's rampart ring is on the source side of the
+ * cut and is therefore "inside", but the base can only get to it by walking
+ * OUT through its own wall and back in. That is not a defended perimeter.
+ */
+function unreachableCut(cut, walkSet) {
+  return cut.filter((c) => !walkSet.has(key(c.x, c.y)));
+}
+
 /** deep, buildable, unoccupied interior tiles left for the RCL8 program */
 function countDeep(terrain, ext, depth, cutSet, occupied, roadSet) {
   let deep = 0;
@@ -486,7 +587,10 @@ function countDeep(terrain, ext, depth, cutSet, occupied, roadSet) {
 
 export function planShell(terrain, plan, opts = {}) {
   const maxCut = opts.maxCut ?? MAX_CUT;
-  const needDeep = opts.needDeep ?? NEED_DEEP;
+  // needDeep: absolute override wins, otherwise the derived program demand plus
+  // whatever rung of the pipeline's escalation ladder we are on. The ladder
+  // passes an OFFSET, not an absolute, so it stays anchored to real demand.
+  const needDeep = opts.needDeep ?? NEED_DEEP + (opts.needDeepBonus ?? 0);
   const radii = opts.radii ?? RADII;
 
   // hub structures the shell must always contain
@@ -534,7 +638,9 @@ export function planShell(terrain, plan, opts = {}) {
     if (leak) continue;
     const depth = depthFromExterior(ext);
     const deep = countDeep(terrain, ext, depth, cutSet, occupied, roadSet);
-    attempts.push({ r, protect, cut: res.cut, cutSet, ext, depth, deep });
+    // every candidate is judged on whether the base can WALK its own wall
+    const unreach = unreachableCut(res.cut, interiorWalk(terrain, cutSet, ext, occupied, plan.sitter));
+    attempts.push({ r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach });
   }
   if (!attempts.length) return { error: "no viable cut at any radius" };
 
@@ -542,12 +648,39 @@ export function planShell(terrain, plan, opts = {}) {
   // quality flag, not a hard gate — open rooms are legitimately pricier
   const fits = attempts.filter((a) => a.deep >= needDeep);
   let pick;
+  let poolForSwap;
   if (fits.length) {
     fits.sort((a, b) => a.cut.length - b.cut.length || b.deep - a.deep);
     pick = fits[0];
+    poolForSwap = fits;
   } else {
     attempts.sort((a, b) => b.deep - a.deep || a.cut.length - b.cut.length);
     pick = attempts[0];
+    poolForSwap = attempts;
+  }
+  // PREFER A CUT THE BASE CAN WALK. If the cheapest candidate rings a lobe the
+  // interior cannot reach, and another candidate of comparable price has no
+  // such lobe, buy that one instead — a rampart a defender cannot stand on is
+  // not cheaper wall, it is wall that does not defend. The swap budget is one
+  // tile: past that the alternative is a real bill and the honest answer is a
+  // declared shortfall, not a silently pricier shell.
+  //
+  // The alternative is remembered either way — when we cannot afford the swap
+  // it is the MEASURED substitute cost that goes into the shortfall detail.
+  const cheapestOf = (list) =>
+    list.length ? list.reduce((best, a) => (a.cut.length < best.cut.length ? a : best)) : null;
+  // the swap may only consider candidates that still hold the program...
+  const swapAlt = cheapestOf(poolForSwap.filter((a) => !a.unreach.length));
+  // ...but the shortfall reports the whole truth, including a reachable cut we
+  // had to refuse because it starves the extension layer. That report wants the
+  // CLOSEST substitute — the roomiest fully-reachable enclosure — not the
+  // cheapest one, or the measured trade reads as far worse than it is.
+  const reachableAll = attempts.filter((a) => !a.unreach.length);
+  const reachAlt = reachableAll.length
+    ? reachableAll.reduce((best, a) => (a.deep > best.deep || (a.deep === best.deep && a.cut.length < best.cut.length) ? a : best))
+    : null;
+  if (pick.unreach.length && swapAlt && swapAlt.cut.length <= pick.cut.length + REACH_SWAP_BUDGET) {
+    pick = swapAlt;
   }
   const priceyWall = pick.cut.length > maxCut; // open room, expensive to enclose
 
@@ -564,6 +697,7 @@ export function planShell(terrain, plan, opts = {}) {
   let cutSet = pick.cutSet;
   let extF = pick.ext;
   let depthF = pick.depth;
+  let unreachF = pick.unreach;
   const baseCut = pick.cut.length;
 
   const tryExpand = (tiles, budget) => {
@@ -590,11 +724,22 @@ export function planShell(terrain, plan, opts = {}) {
       const [x, y] = k.split(",").map(Number);
       if (e[idx(x, y)]) return false; // leaked — reject
     }
+    // NOT-LEAKED IS NOT THE SAME AS ENCLOSED. A controller box and a source
+    // ring are geometric sets; when the lobe they sit in is walk-separated from
+    // the basin, the min-cut answers by building a SECOND castle around it. The
+    // leak test above passes that happily — the tiles are on the source side —
+    // but the base can only reach that ring by walking out through its own wall,
+    // no defender can hold it and no battlement can cover it. An enclosure the
+    // garrison cannot walk to is not an enclosure; refuse to buy it and let the
+    // eco works take personal bubbles instead.
+    const u = unreachableCut(res.cut, interiorWalk(terrain, cs, e, occupied, plan.sitter));
+    if (u.length > unreachF.length) return false;
     protect = cand;
     cut = res.cut;
     cutSet = cs;
     extF = e;
     depthF = depthFromExterior(e);
+    unreachF = u;
     return true;
   };
 
@@ -733,34 +878,11 @@ export function planShell(terrain, plan, opts = {}) {
     return lanes;
   };
   // a stand a defender cannot walk to is decoration: only cut tiles the
-  // interior walk region actually touches may be marked
-  const interiorStand = new Set();
-  {
-    const seen = new Set([key(plan.sitter.x, plan.sitter.y)]);
-    const q = [plan.sitter];
-    let qi = 0;
-    while (qi < q.length) {
-      const cur = q[qi++];
-      for (const [dx, dy] of D8) {
-        const x = cur.x + dx,
-          y = cur.y + dy;
-        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
-        const k = key(x, y);
-        if (seen.has(k) || !walkable(terrain, x, y)) continue;
-        // ramparts are walkable for the owner, so the flood stops AT the cut
-        // rather than before it — but never crosses into the exterior
-        if (!cutSet.has(k) && extF[idx(x, y)]) continue;
-        if (occupied.has(k)) continue;
-        seen.add(k);
-        // the flood walks ALONG the cut too — a rampart is walkable for its
-        // owner, and a wall segment reached only by walking the wall is still
-        // reached (E11S4's north lobe hangs off exactly one such isthmus)
-        q.push({ x, y });
-      }
-    }
-    for (const c of cut) if (seen.has(key(c.x, c.y))) interiorStand.add(key(c.x, c.y));
-  }
-  const standable = cut.filter((c) => interiorStand.has(key(c.x, c.y)));
+  // interior walk region actually touches may be marked. This is the SAME
+  // region the cut was chosen against — one definition of "reachable", used by
+  // the pick, the expansion guard and the marks alike.
+  const walkFinal = interiorWalk(terrain, cutSet, extF, occupied, plan.sitter);
+  const standable = cut.filter((c) => walkFinal.has(key(c.x, c.y)));
   const pool = standable.length ? standable : cut;
 
   const battlements = [];
@@ -806,6 +928,40 @@ export function planShell(terrain, plan, opts = {}) {
   const battlementGap = battlementGapTiles.length;
   const battlementUnreachable = cut.length - standable.length;
 
+  // ------------------------------------------------------------------
+  // DECLARE WHAT WE COULD NOT BUY
+  //
+  // The pick above prefers a fully-reachable cut whenever one costs at most
+  // REACH_SWAP_BUDGET more, and the expansion guard refuses to build a second
+  // castle. If unreachable tiles survive BOTH, the room genuinely offers no
+  // affordable alternative — so say so, with the substitute price we actually
+  // measured, and let the reviewer judge it rather than infer it from a count.
+  // ------------------------------------------------------------------
+  const shortfalls = [];
+  if (unreachF.length) {
+    const where = unreachF.map((t) => `${t.x},${t.y}`).join(" ");
+    const substitute = swapAlt
+      ? `the cheapest fully-reachable cut that still holds the program is ${swapAlt.cut.length} tiles ` +
+        `against this radius's ${pick.cut.length} (+${swapAlt.cut.length - pick.cut.length} ramparts), ` +
+        `over the ${REACH_SWAP_BUDGET}-tile swap budget`
+      : reachAlt
+        ? `every fully-reachable enclosure of this hub is too small for the program — the best is ` +
+          `radius ${reachAlt.r} at ${reachAlt.cut.length} cut tiles enclosing only ${reachAlt.deep} deep ` +
+          `tiles against a floor of ${needDeep}, so buying it would trade ${unreachF.length} unreachable ` +
+          `wall tiles for roughly ${needDeep - reachAlt.deep} structures pushed into the shallow band, ` +
+          `each of which rents a personal rampart forever`
+        : `no protect radius in this room produces a fully-reachable cut at all — every enclosure ` +
+          `of this hub rings a lobe the basin cannot walk to`;
+    shortfalls.push({
+      gate: "battlements",
+      detail:
+        `${unreachF.length}/${cut.length} cut tiles sit on a wall segment the interior walk region ` +
+        `cannot reach (${where}); no defender can stand there and no battlement can cover them. ` +
+        `${substitute}.`,
+      tiles: unreachF.map((t) => ({ x: t.x, y: t.y })),
+    });
+  }
+
   // m7: a bubble tile that the cut already covers is a duplicate rampart —
   // it renders twice, is counted twice and inflates the upkeep quote. The
   // emitted rampart list is deduped by tile, and every count reads off it.
@@ -826,6 +982,10 @@ export function planShell(terrain, plan, opts = {}) {
     // tiles that wanted a personal rampart and cannot legally have one —
     // the pipeline turns these into meta.shortfalls entries
     bubbleRejected,
+    // declared shortfalls from this layer (unreachable wall segments). The
+    // pipeline forwards these into plan.meta.shortfalls, same channel the
+    // tower layer already uses.
+    shortfalls,
     shell: {
       cut,
       bubble: bubbleOnly,

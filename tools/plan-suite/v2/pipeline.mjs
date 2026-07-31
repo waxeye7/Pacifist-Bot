@@ -53,6 +53,9 @@ export function composePlan(d, shellOpts = {}) {
   plan.depth = shell.depth;
   plan.meta.counts.rampart = shell.rampart.length;
   plan.meta.shell = shell.shell;
+  // a wall segment the interior cannot walk to is the room beating the planner,
+  // the same way a far lobe no tower can cover is — same channel, same rules
+  plan.meta.shortfalls.push(...(shell.shortfalls || []));
   for (const b of shell.bubbleRejected || []) {
     plan.meta.shortfalls.push({
       gate: "rampart",
@@ -209,11 +212,23 @@ function grade(p) {
  * Almost every room settles on the first try; the ladder exists for the
  * handful of rooms whose best-scoring confluence sits in a dead end.
  */
+/**
+ * The rungs are OFFSETS on top of the shell's own demand estimate, never
+ * absolutes. layer-shell derives its base floor from the program it still has
+ * to place (78 tiles) plus the measured corridor overhead (~45); an absolute
+ * rung would silently become a DOWNGRADE the moment that estimate moved, which
+ * is exactly what happened when the base floor was the static 85 and the first
+ * rung was 110. Offsets keep the ladder monotone by construction.
+ *
+ * The spacing (+25 / +55 / +85) is the spacing the old absolute ladder had and
+ * it was measured, not guessed — see the note below on why an intermediate rung
+ * buys nothing.
+ */
 const SHELL_ESCALATION = [
   {},
-  { radii: RADII_WIDE, needDeep: 110 },
-  { radii: RADII_WIDE, needDeep: 140 },
-  { radii: [10, 11, 12, 13, 14], needDeep: 170 },
+  { radii: RADII_WIDE, needDeepBonus: 25 },
+  { radii: RADII_WIDE, needDeepBonus: 55 },
+  { radii: [10, 11, 12, 13, 14], needDeepBonus: 85 },
 ];
 const MAX_SEED_SKIP = 8;
 
@@ -224,11 +239,14 @@ const MAX_SEED_SKIP = 8;
  * The ladder above was written to answer one question: "can this room fit
  * the program at all?" A room that fits 60 extensions at the tightest shell
  * therefore stopped on the first try — and looked finished. It wasn't. The
- * default shell only guarantees NEED_DEEP=85 deep tiles, while the real
- * program wants ~129 (74 structures plus the road net that feeds them), so
- * around 35 rooms enclosed literally zero spare deep space and paid for the
- * shortfall in PERSONAL RAMPARTS: every extension, lab or tower forced onto
- * a depth<=3 tile buys its own rampart and repairs it forever.
+ * default shell used to guarantee a static 85 deep tiles while real demand is
+ * ~115 (78 structures plus the road net that feeds them), so around 35 rooms
+ * enclosed literally zero spare deep space and paid for the shortfall in
+ * PERSONAL RAMPARTS: every extension, lab or tower forced onto a depth<=3 tile
+ * buys its own rampart and repairs it forever. That floor is now COUNTED from
+ * the program (layer-shell PROGRAM_TILES + measured corridor overhead), so the
+ * FIRST composition is already the right one in most rooms and this ladder is
+ * back to being what it was meant to be: a safety net, not the main mechanism.
  *
  * A personal rampart and a cut tile are the same currency. Ten extra cut
  * tiles that delete twenty personal ramparts is a net win — the wall is
@@ -245,16 +263,16 @@ const MAX_SEED_SKIP = 8;
  *                 ramparts fall, so the total is near-convex — the first
  *                 step that does not improve is the last one worth trying.
  *
- * The ladder itself is UNCHANGED, and that was measured rather than assumed.
- * Demand is ~129 deep tiles, so an intermediate { needDeep: 130 } rung looked
- * obvious — it isn't. Inserted, it wins 7 rooms off the 140 rung and buys the
- * fleet 2 ramparts (7523 -> 7521) and 7 shallow extensions, while adding 4 cut
- * tiles and pushing one more room's defender-mobility ratio over 1.0. That is
- * noise bought with a compose per escalating room. The reason 110 already
- * suffices: needDeep is a FLOOR on the negotiation, not a target — the shell
- * picks the smallest cut clearing it, and the cut that clears 110 in a real
- * room usually encloses 120-160 anyway. The rungs only have to be far enough
- * apart to change which cut wins.
+ * The ladder SPACING is unchanged, and that was measured rather than assumed:
+ * back when the rungs were absolute, an intermediate rung between them looked
+ * obvious and wasn't — inserted, it won 7 rooms off the next rung and bought
+ * the fleet 2 ramparts and 7 shallow extensions while adding 4 cut tiles and
+ * pushing one more room's defender-mobility ratio over 1.0. That is noise
+ * bought with a compose per escalating room. The reason coarse rungs suffice:
+ * needDeep is a FLOOR on the negotiation, not a target — the shell picks the
+ * smallest cut clearing it, and the cut that clears the floor in a real room
+ * usually encloses far more anyway. The rungs only have to be far enough apart
+ * to change which cut wins.
  */
 const ESCALATE_MIN = 3;
 
@@ -310,7 +328,9 @@ function minUpkeepShell(d, first, firstIdx, ecoCap) {
   }
   win.meta.shellEscalation = {
     steps,
-    pickedNeedDeep: SHELL_ESCALATION[winIdx].needDeep ?? null,
+    // the rung, reported as the offset it is (0 = the demand-aware base floor)
+    pickedNeedDeepBonus: SHELL_ESCALATION[winIdx].needDeepBonus ?? 0,
+    pickedNeedDeep: win.meta?.shell?.needDeep ?? null,
     saved: rampartsOf(first) - rampartsOf(win),
   };
   return win;
