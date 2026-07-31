@@ -1,0 +1,17 @@
+{
+  "date": "2026-08-01",
+  "rooms": 159,
+  "ext60": 159,
+  "roadsMedian": 81,
+  "rampartsTotal": 8704,
+  "rampartsMedian": 55,
+  "shallowExtTotal": 1793,
+  "cutMedian": 38,
+  "upkeepMedian": 1.65,
+  "ecoMedian": 39,
+  "enclosedCtrl": 88,
+  "enclosedSrc": 170,
+  "mobilityOver1": 18,
+  "mobilityMeanOfMeans": 0.598,
+  "ctrlParksMin": 5
+}

@@ -1,3 +1,8 @@
+--BASE PLANNER V2 IDEAS (parked)--
+citadel / inner keep: second tiny min-cut around hub trio + spawns (~6-10 ramparts), layered defense for near-zero upkeep
+kill-box chokes: pull the cut 2 tiles inward at narrow terrain chokes so attackers stand in a pocket covered by 3+ towers at range <=5 (needs tower-aware cut scoring)
+(battlement hopping = wall roads + mobility metric — already being implemented, not parked)
+
 4 corner room mineral miner
 make spawn more carry based on if the carry function made the full amount of parts
 
