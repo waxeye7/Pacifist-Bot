@@ -180,6 +180,105 @@ const SHELL_ESCALATION = [
 const MAX_SEED_SKIP = 8;
 
 /**
+ * M6 — the escalation also has to pay for itself in UPKEEP, not just in
+ * checkboxes.
+ *
+ * The ladder above was written to answer one question: "can this room fit
+ * the program at all?" A room that fits 60 extensions at the tightest shell
+ * therefore stopped on the first try — and looked finished. It wasn't. The
+ * default shell only guarantees NEED_DEEP=85 deep tiles, while the real
+ * program wants ~129 (74 structures plus the road net that feeds them), so
+ * around 35 rooms enclosed literally zero spare deep space and paid for the
+ * shortfall in PERSONAL RAMPARTS: every extension, lab or tower forced onto
+ * a depth<=3 tile buys its own rampart and repairs it forever.
+ *
+ * A personal rampart and a cut tile are the same currency. Ten extra cut
+ * tiles that delete twenty personal ramparts is a net win — the wall is
+ * longer, the bill is smaller, and the extensions sit in deep space where a
+ * ranged attacker cannot reach them at all. So once a room is known to be
+ * buildable we keep walking the ladder and buy the shell with the SMALLEST
+ * TOTAL rampart count, cut plus personal, rather than the smallest cut.
+ *
+ * Two guards keep this from becoming a fleet-wide re-plan:
+ *   ESCALATE_MIN  a room with almost no shallow structures has nothing to
+ *                 win; it returns on the first complete plan as before.
+ *                 Most rooms take this exit and never pay a second compose.
+ *   the prune     the cut grows monotonically with needDeep while personal
+ *                 ramparts fall, so the total is near-convex — the first
+ *                 step that does not improve is the last one worth trying.
+ *
+ * The ladder itself is UNCHANGED, and that was measured rather than assumed.
+ * Demand is ~129 deep tiles, so an intermediate { needDeep: 130 } rung looked
+ * obvious — it isn't. Inserted, it wins 7 rooms off the 140 rung and buys the
+ * fleet 2 ramparts (7523 -> 7521) and 7 shallow extensions, while adding 4 cut
+ * tiles and pushing one more room's defender-mobility ratio over 1.0. That is
+ * noise bought with a compose per escalating room. The reason 110 already
+ * suffices: needDeep is a FLOOR on the negotiation, not a target — the shell
+ * picks the smallest cut clearing it, and the cut that clears 110 in a real
+ * room usually encloses 120-160 anyway. The rungs only have to be far enough
+ * apart to change which cut wins.
+ */
+const ESCALATE_MIN = 3;
+
+const rampartsOf = (p) => p?.meta?.counts?.rampart ?? 1e9;
+const roadsOf = (p) => p?.meta?.counts?.road ?? 1e9;
+const cutOf = (p) => p?.shell?.cut?.length ?? 1e9;
+
+/**
+ * Ladder-local comparator: total forever-upkeep first. When two shells cost
+ * the same number of ramparts the upkeep question is already settled — every
+ * cut tile the wider bubble added, it took back off the personal pile — so
+ * what is left to decide is build cost and defender mobility, and both track
+ * WALL LENGTH. Hence cut before roads here: a swap that buys six cut tiles to
+ * shed four road tiles is churn, and it was measurably worse (E15S2 went
+ * 33->39 cut and its mobility ratio crossed 1.0 for nothing). Roads still
+ * break the remaining tie, and an exact tie keeps the incumbent — the tighter
+ * shell, since this walk only ever moves outward.
+ *
+ * Deliberately NOT better(): that one arbitrates across seeds and must keep
+ * maximising the program.
+ */
+function cheaperUpkeep(a, b) {
+  if (!b) return true;
+  if (rampartsOf(a) !== rampartsOf(b)) return rampartsOf(a) < rampartsOf(b);
+  if (cutOf(a) !== cutOf(b)) return cutOf(a) < cutOf(b);
+  return roadsOf(a) < roadsOf(b);
+}
+
+/**
+ * Given the plan the pipeline would have shipped today, walk what is left of
+ * the ladder and keep the cheapest. The hub is untouched (planHub reads only
+ * seedSkip), so every candidate here has the exact same economy — this trades
+ * wall for personal ramparts and nothing else.
+ */
+function minUpkeepShell(d, first, firstIdx, ecoCap) {
+  let win = first;
+  let winIdx = firstIdx;
+  let steps = firstIdx + 1;
+  if ((first.meta?.extensions?.shallow ?? 0) >= ESCALATE_MIN) {
+    for (let si = firstIdx + 1; si < SHELL_ESCALATION.length; si++) {
+      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip: 0 });
+      steps++;
+      if (p.error || !p.shell) break; // nothing wider will conjure a shell here
+      if (!grade(p).complete) break; // a wider bubble that loses pieces is not a bargain
+      if (ecoCap !== null && ecoCost(p) > ecoCap) break;
+      const noGain = rampartsOf(p) >= rampartsOf(win);
+      if (cheaperUpkeep(p, win)) {
+        win = p;
+        winIdx = si;
+      }
+      if (noGain) break; // convex: the bill has started climbing again
+    }
+  }
+  win.meta.shellEscalation = {
+    steps,
+    pickedNeedDeep: SHELL_ESCALATION[winIdx].needDeep ?? null,
+    saved: rampartsOf(first) - rampartsOf(win),
+  };
+  return win;
+}
+
+/**
  * M5 — the escalation's price ceiling.
  *
  * Walking down the seed list moves the WHOLE hub, and the seeds below the
@@ -221,8 +320,8 @@ export function planRoom(d) {
   let lastError = null;
   let ecoCap = null; // set from the skip-0 hub, if it produced one at all
   for (let seedSkip = 0; seedSkip <= MAX_SEED_SKIP; seedSkip++) {
-    for (const opts of SHELL_ESCALATION) {
-      const p = composePlan(d, { ...opts, seedSkip });
+    for (let si = 0; si < SHELL_ESCALATION.length; si++) {
+      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip });
       if (p.error) {
         lastError = p;
         break; // this seed is unusable — try the next one
@@ -231,7 +330,12 @@ export function planRoom(d) {
       if (better(p, best, ecoCap)) best = p;
       // a complete plan only short-circuits if it is affordable; an
       // over-budget complete plan is not allowed to end the search either
-      if (grade(p).complete && (ecoCap === null || ecoCost(p) <= ecoCap)) return p;
+      if (grade(p).complete && (ecoCap === null || ecoCost(p) <= ecoCap)) {
+        // seedSkip > 0 runs exist to rescue 60/60 from a hub that already
+        // cost us economy — take the first plan that clears and stop paying.
+        // Only the top seed, which every room reaches, is worth optimising.
+        return seedSkip === 0 ? minUpkeepShell(d, p, si, ecoCap) : p;
+      }
       if (!p.shell) break; // no shell here — wider radii won't conjure one
     }
   }
