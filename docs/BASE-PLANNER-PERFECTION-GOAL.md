@@ -103,6 +103,50 @@ per room. Rise to the bar; do not lower it.
 - Repair-loop architecture: a layer that "fixes" a previous layer's output instead of
   the previous layer being corrected at the source.
 
+## Baseline + known weaknesses (attack these first)
+
+Frozen fleet metrics: `docs/PLANNER-BASELINE-2026-08-01.json`
+(159 rooms · ext60 159/159 · roads median 81 · ramparts total 8704 / median 55 ·
+**shallow-rampart extensions 1793** · cut median 38 · eco median 39 ·
+enclosed ctrl 88 / sources 170 · mobility>1 in 18 rooms · parks min 5).
+Every cycle must move at least one number the right way without regressing others.
+
+Known open criticisms, in priority order:
+1. **1793 extensions sit shallow and buy personal ramparts** — the owner's top new
+   criterion: placement should avoid the depth≤3 band so those ramparts vanish.
+   Corridor growth currently trades depth for road-adjacency too eagerly.
+2. 18 rooms with defender-mobility max > 1.0 (worst ~3.2) — attacker out-walks
+   defender somewhere on the wall.
+3. Escalated rooms (seed-skip) accept worse eco; the 1.6x cap is loose.
+4. Controller parks min 5 (want comfortable ≥6 where terrain allows).
+5. Rampart total should fall overall (8704 → meaningfully less) via deeper packing,
+   not via weaker shells.
+
+## Environment bootstrap (context gets compacted — everything you need)
+
+- Repo: `C:\Users\stemm\Documents\GitHub\screeps\Pacifist-Bot`. Planner code:
+  `tools/plan-suite/v2/` (plain .mjs ES modules). Live bot: `src/` (TypeScript,
+  `npx tsc --noEmit` must pass).
+- Node: repo default resolves to fnm v12 — use `fnm exec --using 22 node` for
+  planner scripts and `"C:/Program Files/nodejs/node.exe"` for fetch-based scripts.
+- Local server: docker `local-screeps-server-*`, API http://127.0.0.1:23025,
+  mongo has all terrain. Bot users: pacifist (token in redis key
+  `auth_local-pacifist-user-token-001`), pacifist-race, waxeye.
+  Push code: `npm run push-pserver && npm run push-pacifist && npm run push-waxeye`.
+- Live rooms E11S2/E11S5 are HYBRIDS (legacy structures hold some caps — storage/
+  tower positions can't match plan there; that is known, not a planner bug).
+  Rooms claimed by auto-expand (E9S2, E17S4, ...) are pure-plan rooms.
+- Gallery served by `python -m http.server 8766` from `tools/plan-suite/out-v2/`
+  (run detached if dead). Delegate implementation/review to Opus subagents with
+  tightly curated specs; run adversarial reviewers as separate fresh agents.
+
+## Process addendum
+
+- **Commit after every clean cycle** (small conventional commits) — never let more
+  than one cycle of work sit uncommitted.
+- Update `docs/PLANNER-BASELINE-*.json` snapshots as metrics improve; keep the old
+  ones for the trend line.
+
 ## Tooling (already built — use it)
 
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
