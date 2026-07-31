@@ -21,6 +21,10 @@ screeps.json
 # ScreepsServer data from integration tests
 /server
 
+# Generated planner galleries
+/tools/plan-suite/out/
+/tools/plan-suite/out-v2/
+
 # Numerous always-ignore extensions
 *.diff
 *.err
