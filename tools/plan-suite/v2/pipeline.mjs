@@ -179,7 +179,77 @@ export function composePlan(d, shellOpts = {}) {
   // between it and meta.shell.mobility is exactly how much of the room's
   // mobility problem belongs to the layers that place the mass.
   if (plan.shell) plan.meta.shell.mobilityBuilt = builtMobility(d.terrain, plan);
+  declareEcoTax(plan);
   return plan;
+}
+
+// ------------------------------------------------------------------
+// ECO SHORTFALLS ARE SHORTFALLS TOO.
+//
+// The escalation ladder has always had a price ceiling (ECO_TOLERANCE) and it
+// has always been enforced silently: a room whose hub ends up 27 tiles from its
+// controller, or 84 tiles of round trip from its sources, or three seeds down
+// the ranked list, simply shipped that plan and said nothing. "Silent capping"
+// is on the anti-pattern list by name, and this is the last place doing it.
+//
+// The thresholds are read off the fleet, not invented: pathController runs
+// min 4 / median 10 / p90 25 / max 75, and pathSourcesSum min 8 / median 27 /
+// p90 46 / max 84. So >25 and >60 each mark roughly the worst decile — the
+// rooms where the hauler bill is a terrain verdict rather than a planner
+// choice — and any seedSkip at all means the top-ranked confluence was rejected
+// outright. The wording below is generated from the room's own numbers.
+const FLEET_CTRL_WALK_MEDIAN = 10;
+const FLEET_SRC_SUM_MEDIAN = 27;
+const ECO_CTRL_WALK_GATE = 25;
+const ECO_SRC_SUM_GATE = 60;
+
+const OCTANT = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+function bearing(from, to) {
+  const a = Math.atan2(to.y - from.y, to.x - from.x); // screeps y grows south
+  return OCTANT[(Math.round((a * 4) / Math.PI) + 8) % 8];
+}
+
+function declareEcoTax(plan) {
+  const pc = plan.meta?.pathController ?? 0;
+  const ps = plan.meta?.pathSourcesSum ?? 0;
+  const skip = plan.meta?.seedSkip ?? 0;
+  if (pc <= ECO_CTRL_WALK_GATE && ps <= ECO_SRC_SUM_GATE && skip <= 0) return;
+  const hub = plan.hub;
+  const bits = [];
+  if (pc > ECO_CTRL_WALK_GATE) {
+    bits.push(
+      `the controller is a ${pc}-tile walk ${bearing(hub, plan.controller)} of the hub, ` +
+        `${pc - FLEET_CTRL_WALK_MEDIAN} over the fleet median of ${FLEET_CTRL_WALK_MEDIAN} — every upgrader ` +
+        `trip and every controller-link haul pays it`,
+    );
+  }
+  if (ps > ECO_SRC_SUM_GATE) {
+    bits.push(
+      `the source paths sum to ${ps} (${plan.sources
+        .map((s) => bearing(hub, s))
+        .join(" + ")}), ${ps - FLEET_SRC_SUM_MEDIAN} over the fleet median of ${FLEET_SRC_SUM_MEDIAN} — ` +
+        `paid on every miner rotation and every container haul`,
+    );
+  }
+  if (skip > 0) {
+    bits.push(
+      `the hub sits on seed rank ${skip}: the ${skip} better-scoring confluence(s) in this room could not ` +
+        `hold the RCL8 program at any rung of the shell ladder, so the planner walked down the list and ` +
+        `bought the distance instead of shipping a room short on extensions`,
+    );
+  }
+  const basin = plan.basin?.length ?? 0;
+  plan.meta.shortfalls.push({
+    gate: "eco",
+    detail:
+      `hauler distances in this room are a terrain verdict, not a preference: ${bits.join("; ")}. ` +
+      `The hub sits at ${hub.x},${hub.y} on the only basin that holds the program — ${basin} tiles reachable ` +
+      `from the seed, core pocket ${plan.meta.coreSize ?? "?"} — and the closer seats were rejected by the ` +
+      `space budget or by the enclosure, not by the eco score. Capping this silently is the anti-pattern; ` +
+      `the numbers are here so the trade can be argued with.`,
+    tiles: [{ x: hub.x, y: hub.y }],
+    eco: { pathController: pc, pathSourcesSum: ps, seedSkip: skip, basin },
+  });
 }
 
 export const extCount = (p) => p?.structures?.extension?.length ?? 0;
@@ -323,31 +393,121 @@ function cheaperUpkeep(a, b) {
  * seedSkip), so every candidate here has the exact same economy — this trades
  * wall for personal ramparts and nothing else.
  */
-function minUpkeepShell(d, first, firstIdx, ecoCap) {
+/**
+ * How many extra ramparts a rung may cost when it is the rung that finally
+ * brings the room inside the mobility target.
+ *
+ * Upkeep is still the first objective and a strictly-cheaper rung still wins on
+ * its own merits — this is the ONLY way mobility is allowed to spend wall, and
+ * it may only be spent to CLEAR the target, never to shave a ratio that stays
+ * over it. Two tiles is the same premium layer 2 already pays internally
+ * (MOBILITY_TIEBREAK_BUDGET), for the same reason: a garrison that can lap its
+ * own wall is worth a couple of ramparts and is not worth twenty.
+ */
+const MOBILITY_PREMIUM = 2;
+
+const rungRecord = (p, seedSkip, si) => ({
+  seedSkip,
+  rung: si,
+  needDeepBonus: SHELL_ESCALATION[si].needDeepBonus ?? 0,
+  needDeep: p?.meta?.shell?.needDeep ?? null,
+  mobility: mobOf(p),
+  ramparts: rampartsOf(p),
+  cut: cutOf(p),
+  complete: p?.shell ? grade(p).complete : false,
+  ecoCost: ecoCost(p),
+});
+
+/**
+ * PROOF-CARRYING MOBILITY DECLARATIONS.
+ *
+ * "No enclosure this room admits is faster" is a claim about a search, and a
+ * claim about a search that does not show the search is just an assertion. It
+ * was also, for 30 rooms, FALSE: the ladder only walked when the room was short
+ * on deep space or when the shell layer happened to blame the detour on the
+ * enclosure's shape, so rooms like E11S4 shipped a 2.4 lap while rung 1 of the
+ * very same seed reached 1.0 with FEWER ramparts and nobody ever composed it.
+ *
+ * So: layer 2 files the declaration, and the pipeline — which owns the ladder —
+ * staples the rung table to it. Every rung this room actually composed, with the
+ * mobility and the rampart bill it measured. A shell-mobility declaration that
+ * reaches the plan without `rungs` is a bug, not a shortfall.
+ */
+function attachRungProof(plan, trail) {
+  if (!plan?.meta?.shortfalls) return plan;
+  for (const s of plan.meta.shortfalls) {
+    if (s.gate !== "mobility" || s.source !== "shell" || s.rungs) continue;
+    s.rungs = trail.map((r) => ({
+      rung: r.rung,
+      needDeepBonus: r.needDeepBonus,
+      seedSkip: r.seedSkip,
+      mobility: r.mobility,
+      ramparts: r.ramparts,
+      complete: r.complete,
+    }));
+    // the prose spells out the rungs of the seed we SHIPPED (the ones that were
+    // a real alternative); `s.rungs` above carries every composition including
+    // the rejected seeds, so nothing is lost by keeping the sentence readable
+    const skip = plan.meta.seedSkip ?? 0;
+    const mine = trail.filter((r) => r.seedSkip === skip);
+    const best = (mine.length ? mine : trail).reduce((b, r) => (r.mobility < b.mobility ? r : b));
+    s.detail +=
+      ` LADDER WALKED: ${mine.length} rung(s) of this seed` +
+      (trail.length > mine.length ? ` (plus ${trail.length - mine.length} composition(s) on rejected seeds)` : "") +
+      ` — ` +
+      mine
+        .map(
+          (r) =>
+            `rung ${r.rung} (needDeep+${r.needDeepBonus}): ` +
+            `mobility ${r.mobility}, ${r.ramparts} ramparts${r.complete ? "" : ", INCOMPLETE"}`,
+        )
+        .join(" · ") +
+      `. The best lap any of them measured is ${best.mobility} at ${best.ramparts} ramparts; ` +
+      (best.mobility > MOBILITY_TARGET
+        ? `no rung reaches the ${MOBILITY_TARGET} target at any price this room can pay`
+        : `it was refused because clearing the target there costs more than the ` +
+          `+${MOBILITY_PREMIUM}-rampart premium mobility is allowed to spend`) +
+      `.`;
+  }
+  return plan;
+}
+
+function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache) {
   let win = first;
   let winIdx = firstIdx;
   let steps = firstIdx + 1;
-  // A SECOND REASON TO WALK THE LADDER: defender mobility.
+  // WHY THE LADDER IS WALKED. Three reasons, and the first one used to be
+  // wrong.
   //
-  // The shell layer already tried every protect radius on this rung and every
-  // enclosure within +2 ramparts of the cheapest, so by the time a room is
-  // still over the mobility target the only thing left to vary is the rung
-  // itself. That is only worth a compose when a WIDER bubble could plausibly
-  // help — i.e. when the detour is the enclosure's own SHAPE (the attacker
-  // cutting across a bay a wider wall might swallow). When the cause is
-  // terrain (a mountain inside the ring) no bubble of any size shortens the
-  // walk, and when it is the planner's own mass the fix belongs to the layers
-  // that place that mass. Restricting the walk to 'shape' keeps this at ~9
-  // rooms instead of ~90, which is the difference between +3s and +30s on the
-  // fleet — and the declaration below can still say, truthfully, that the
-  // rungs were tried wherever they could have mattered.
-  const mobilityWalk = mobOf(first) > MOBILITY_TARGET && mobCauseOf(first) === "shape";
+  //   mobility  the shipped lap is over target. The old rule additionally
+  //             demanded mobilityCause === "shape", on the theory that a wider
+  //             bubble can only swallow a bay. That theory is false: the cause
+  //             is diagnosed on the CURRENT enclosure, and a different rung is
+  //             a different enclosure with a different diagnosis. E11S4 was
+  //             labelled "terrain — no cut of this basin can shorten it" and
+  //             rung 1 of the same seed shortened it to 1.0 with one rampart
+  //             LESS. E8S7's own meta recorded the rung-0 mobility, escalated
+  //             for ramparts, and still declared "no cut can shorten it".
+  //             The cause now colours the declaration; it no longer gates the
+  //             search.
+  //   shallow   structures pushed into the depth<=3 band, each renting a
+  //             personal rampart forever (the original reason this exists).
+  //   demand    layer 6 ran out of deep interior (deepExhausted) or had to
+  //             place extensions road-blind (corridorFallback) — both mean the
+  //             shell's demand estimate under-counted what the mass needed, and
+  //             both are invisible to the shallow counter when the mass papers
+  //             over it with tail placements. E16S7 ships 29 depth-4
+  //             extensions this way and never walked.
+  const mobilityWalk = mobOf(first) > MOBILITY_TARGET;
   const shallowWalk = (first.meta?.extensions?.shallow ?? 0) >= ESCALATE_MIN;
-  if (shallowWalk || mobilityWalk) {
+  const demandWalk =
+    !!first.meta?.extensions?.deepExhausted || (first.meta?.extensions?.corridorFallback ?? 0) > 0;
+  if (shallowWalk || mobilityWalk || demandWalk) {
     for (let si = firstIdx + 1; si < SHELL_ESCALATION.length; si++) {
-      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip: 0 });
+      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip, shellCache });
       steps++;
       if (p.error || !p.shell) break; // nothing wider will conjure a shell here
+      trail.push(rungRecord(p, seedSkip, si));
       if (!grade(p).complete) break; // a wider bubble that loses pieces is not a bargain
       if (ecoCap !== null && ecoCost(p) > ecoCap) break;
       const noGain = rampartsOf(p) >= rampartsOf(win);
@@ -356,25 +516,44 @@ function minUpkeepShell(d, first, firstIdx, ecoCap) {
       // cheaper upkeep, because upkeep is the first objective and mobility the
       // tiebreak — never the other way round
       const freeMobilityWin = rampartsOf(p) <= rampartsOf(win) && mobOf(p) < mobOf(win);
+      // ...with one bounded exception: the rung that actually CLEARS the target
+      // may cost up to MOBILITY_PREMIUM extra ramparts. A wall the garrison can
+      // lap is the difference between a defended perimeter and a decorated one,
+      // and two tiles of it is a price the fleet can pay. Note this can only
+      // fire while the incumbent is still failing — once a room is inside the
+      // target, nothing here will pay a single rampart for a prettier ratio.
+      const buysTheTarget =
+        mobOf(win) > MOBILITY_TARGET &&
+        mobOf(p) <= MOBILITY_TARGET &&
+        rampartsOf(p) <= rampartsOf(win) + MOBILITY_PREMIUM;
       // A WALK THAT ONLY EXISTS TO SHORTEN THE LAP MAY NOT LENGTHEN IT. Without
       // this the rampart-first comparator turns a mobility search into a wall
       // sale: E17S9 walked for mobility, found a rung one rampart cheaper and
-      // took it at 1.25 -> 2.0. A room walking for shallow structures is a
-      // different trade and keeps the old comparator untouched.
-      const mobilityRegression = !shallowWalk && mobOf(p) > mobOf(win);
-      if ((cheaperUpkeep(p, win) || freeMobilityWin) && !mobilityRegression) {
+      // took it at 1.25 -> 2.0. A room walking for shallow structures or for
+      // exhausted deep space is a different trade and keeps the old comparator.
+      const mobilityRegression = !shallowWalk && !demandWalk && mobOf(p) > mobOf(win);
+      if ((buysTheTarget || cheaperUpkeep(p, win) || freeMobilityWin) && !mobilityRegression) {
         win = p;
         winIdx = si;
       }
-      if (noGain && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break; // convex: the bill has started climbing again
+      // convex: the bill has started climbing again. A room still outside the
+      // mobility target keeps walking anyway — the premium above can only be
+      // spent by a rung we bothered to compose.
+      if (noGain && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break;
     }
   }
   win.meta.shellEscalation = {
     steps,
+    walked: shallowWalk || mobilityWalk || demandWalk,
+    why: { mobility: mobilityWalk, shallow: shallowWalk, demand: demandWalk },
     // the rung, reported as the offset it is (0 = the demand-aware base floor)
     pickedNeedDeepBonus: SHELL_ESCALATION[winIdx].needDeepBonus ?? 0,
     pickedNeedDeep: win.meta?.shell?.needDeep ?? null,
     saved: rampartsOf(first) - rampartsOf(win),
+    mobilityFirst: mobOf(first),
+    mobilityPicked: mobOf(win),
+    // kept as colour on the report, never as a gate on the search — see above
+    causeFirst: mobCauseOf(first),
   };
   return win;
 }
@@ -417,29 +596,54 @@ function better(a, b, ecoCap) {
 }
 
 export function planRoom(d) {
+  const t0 = performance.now();
   let best = null;
   let lastError = null;
   let ecoCap = null; // set from the skip-0 hub, if it produced one at all
+  // every composition this room paid for, in order — the evidence a mobility
+  // declaration has to carry (see attachRungProof)
+  const trail = [];
+  // one shell-negotiation memo per SEED. Every rung of the escalation ladder
+  // re-asks layer 2 for the same candidates off the same layer-1 plan (see the
+  // note on opts.shellCache); the memo is what stops the ladder from paying for
+  // the same min-cut four times. Keyed by seed because a different seed is a
+  // different hub, protect mask and basin.
+  const shellCaches = new Map();
+  const cacheFor = (seedSkip) => {
+    let c = shellCaches.get(seedSkip);
+    if (!c) shellCaches.set(seedSkip, (c = new Map()));
+    return c;
+  };
+  const done = (p) => {
+    if (p && p.meta) {
+      attachRungProof(p, trail);
+      p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
+    }
+    return p;
+  };
   for (let seedSkip = 0; seedSkip <= MAX_SEED_SKIP; seedSkip++) {
     for (let si = 0; si < SHELL_ESCALATION.length; si++) {
-      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip });
+      const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip, shellCache: cacheFor(seedSkip) });
       if (p.error) {
         lastError = p;
         break; // this seed is unusable — try the next one
       }
+      trail.push(rungRecord(p, seedSkip, si));
       if (ecoCap === null && seedSkip === 0) ecoCap = ecoCost(p) * ECO_TOLERANCE;
       if (better(p, best, ecoCap)) best = p;
       // a complete plan only short-circuits if it is affordable; an
       // over-budget complete plan is not allowed to end the search either
       if (grade(p).complete && (ecoCap === null || ecoCost(p) <= ecoCap)) {
-        // seedSkip > 0 runs exist to rescue 60/60 from a hub that already
-        // cost us economy — take the first plan that clears and stop paying.
-        // Only the top seed, which every room reaches, is worth optimising.
-        return seedSkip === 0 ? minUpkeepShell(d, p, si, ecoCap) : p;
+        // seedSkip > 0 runs exist to rescue 60/60 from a hub that already cost
+        // us economy, so they do not go shopping for a cheaper wall — but they
+        // DO owe the same proof as everybody else when they want to declare a
+        // mobility miss, and minUpkeepShell is what walks the rungs. Its own
+        // triggers decide whether anything is actually composed.
+        return done(minUpkeepShell(d, p, si, ecoCap, seedSkip, trail, cacheFor(seedSkip)));
       }
       if (!p.shell) break; // no shell here — wider radii won't conjure one
     }
   }
   if (best) best.meta.ecoBudget = { cost: ecoCost(best), cap: ecoCap === null ? null : Math.round(ecoCap) };
-  return best || lastError;
+  return done(best) || lastError;
 }

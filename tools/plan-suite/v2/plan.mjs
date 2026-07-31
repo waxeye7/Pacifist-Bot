@@ -621,6 +621,24 @@ ${full}</div>`;
     `extractor + mineral seat: ${ok.length - noExtractor.length}/${ok.length}` +
       (noExtractor.length ? ` — missing: ${noExtractor.map((p) => p.room).join(" ")}` : ""),
   );
+  // RUNTIME IS MEASURED, NOT GUESSED. planRoom stamps its own wall time into
+  // meta.planMs; a room that walks the whole escalation ladder composes the
+  // full layer stack four times, so this is the number that says whether a
+  // search got greedy — and it is a fleet distribution, because the mean of a
+  // fleet with one 2-second room in it says nothing useful.
+  const msAll = ok.map((p) => p.meta.planMs ?? 0).sort((a, b) => a - b);
+  const qm = (f) => msAll[Math.min(msAll.length - 1, Math.floor(msAll.length * f))];
+  const slowest = ok
+    .slice()
+    .sort((a, b) => (b.meta.planMs ?? 0) - (a.meta.planMs ?? 0))
+    .slice(0, 3);
+  console.log(
+    `planRoom wall time: p50 ${qm(0.5)}ms · p90 ${qm(0.9)}ms · max ${msAll[msAll.length - 1]}ms · ` +
+      `total ${(msAll.reduce((s, v) => s + v, 0) / 1000).toFixed(1)}s — slowest ` +
+      slowest
+        .map((p) => `${p.room}:${p.meta.planMs}ms(${p.meta.shellEscalation?.steps ?? 1} composes)`)
+        .join(" "),
+  );
   const escalated = ok.filter((p) => p.meta.seedSkip > 0);
   console.log(
     `seed escalation: ${escalated.length}/${ok.length} rooms left the top seed` +

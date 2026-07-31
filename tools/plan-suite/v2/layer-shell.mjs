@@ -100,6 +100,10 @@ export const RADII_WIDE = [6, 7, 8, 9, 10, 11, 12, 13, 14];
 const ENCLOSE_CTRL_BUDGET = 4;
 const ENCLOSE_SRC_BUDGET = 3;
 const MAX_PARKS = 8;
+// ...but a FAR controller may only be pulled inside when doing so does not pull
+// the wall out of tower reach with it — see the note at the tryExpand call site.
+const CTRL_ENCLOSE_MAX_WALK = 15;
+const CTRL_ENCLOSE_MAX_REACH = 25;
 
 // ------------------------------------------------------------------
 // DEFENDER MOBILITY — the owner's rule, in numbers.
@@ -108,21 +112,48 @@ const MAX_PARKS = 8;
 // path a defender walks INSIDE must not be much longer than the path the
 // attacker walks OUTSIDE between the same two tiles. Target ratio 1.2.
 export const MOBILITY_TARGET = 1.2;
-// Pairs closer than this need no repositioning at all: a RampartDefender's
-// ranged attack reaches 3, so a defender standing on one of them is already
-// shooting whatever is hitting the other. Excluding them is an operational
-// statement, not a way to hide a number — every pair a defender would
-// actually have to WALK between is measured.
-const MOBILITY_NEAR = 3;
-// Endpoint budget. The metric is exact all-pairs over the reachable cut when
-// the cut is small; beyond this many tiles we measure a deterministic
-// farthest-point subset (greedy, seeded by the farthest pair) so the sample
-// still spans the whole ring. Measured against the exact all-pairs metric on
-// the fleet: identical room counts at every threshold (>1.0 / >1.2 / >1.5),
-// 13/159 rooms differ on the value itself. Same budget is used for the
-// candidate probe and for the reported number, so the negotiation can never
-// pick a shell that then measures worse under a different rule.
+// A RampartDefender's ranged attack reaches 3. A pair of wall tiles needs no
+// repositioning at all when a defender standing on either one already covers
+// every tile an attacker could stand on to grind the other — then he shoots
+// without walking and the lap is irrelevant.
+//
+// THE OLD RULE WAS UNSOUND. It skipped every pair within chebyshev 3, which
+// silently forgave the exact case it was supposed to describe: an attacker
+// grinding rampart B stands ADJACENT to B, i.e. up to chebyshev 4 from A, out
+// of a range-3 defender's reach. Those pairs are real repositioning work and
+// they were hidden. The test below is the operational statement spelled out:
+// exclude a pair only when the exterior STANDS of each tile are covered from
+// the other. (Chebyshev <= 2 always satisfies it — a stand is within 1 of its
+// wall tile — so this is strictly the old rule minus the unsound cheb-3 band,
+// plus the cheb-3 pairs whose terrain leaves no stand out of reach.)
+const RANGED_RANGE = 3;
+// Endpoint budget. The metric is EXACT all-pairs over every reachable cut tile
+// up to this many endpoints — which covers the entire fleet (largest cut 75).
+// The farthest-point sampler survives only as a fallback for a hypothetical
+// monster shell, and any result that used it is labelled `sampled: true` so it
+// can never be mistaken for the exact number. The old 32-endpoint sample was
+// not merely imprecise: it MISSED the true worst pair in 17 rooms (E20S4 read
+// 4.5 against a true 6.0) and let E19S8 slip under the 1.2 gate undeclared.
+const MOBILITY_EXACT_MAX = 90;
 const MOBILITY_ENDPOINTS = 32;
+// THE EXTERIOR ARRIVAL BIAS.
+//
+// Both laps are measured tile-a-to-tile-b. The defender OCCUPIES both wall
+// tiles, so `arriveAt` finds b in his own field and charges him nothing extra.
+// The attacker occupies neither — he stands on the exterior tile beside each —
+// so `arriveAt` fell through to the neighbour scan and charged him a phantom
+// final step onto a tile he never sets foot on. That step inflated every
+// exterior lap by one tile and flattered every ratio in the fleet (E20S3 read
+// 7.5 against 10.0).
+//
+// Charging him NOTHING at either end is the fully symmetric model (his true
+// work is stand-to-stand, i.e. raw - 2); it is reported as `maxStrict` on every
+// measurement so the stricter truth is on the record. The gate deliberately
+// uses raw - 1, the conservative half: at raw - 2 a pair of wall tiles four
+// apart can measure an exterior lap of 1 and the ratio stops describing
+// anything. So the shipped number is a LOWER BOUND on the defender's real
+// disadvantage, never an over-statement.
+const MOBILITY_ARRIVE_BIAS = 1;
 // Ramparts stay the primary currency. Mobility breaks ties and justifies at
 // most this many extra wall tiles — never more.
 const MOBILITY_TIEBREAK_BUDGET = 2;
@@ -342,6 +373,15 @@ export function computeCut(terrain, protectSet, opts = {}) {
   const k = opts.distWeight ?? 1;
   const swampBias = opts.swampBias ?? 2;
   const SCALE = 4;
+  // TILES THE WALL MAY NOT USE. A rampart is a fighting position: the garrison
+  // stands on it, the repairer stands on it, a battlement marks it. A tile that
+  // already carries an OBSTACLE_OBJECT_TYPE structure — a link — can hold none
+  // of that, so a cut through it is a hole in the perimeter dressed up as wall.
+  // Giving those tiles infinite capacity (exactly like the unwallable exit band)
+  // makes the min-cut route around them instead, at whatever the detour costs.
+  // Containers and roads are NOT here on purpose: the engine lets creeps walk
+  // over both, so a rampart on one is a perfectly good fighting position.
+  const uncuttable = opts.uncuttable;
 
   const dP = fieldFromSet(terrain, protectSet);
   const unwallable = computeUnwallable(terrain);
@@ -354,7 +394,7 @@ export function computeCut(terrain, protectSet, opts = {}) {
       const isProtect = protectSet.has(key(x, y));
       const isExit = x === 0 || y === 0 || x === 49 || y === 49;
       let w;
-      if (isProtect || unwallable[i]) w = INF_FLOW;
+      if (isProtect || unwallable[i] || (uncuttable && uncuttable.has(key(x, y)))) w = INF_FLOW;
       else {
         const d = dP[i] >= 9999 ? 20 : dP[i];
         w = Math.round(SCALE * (1 + k * d * d));
@@ -460,10 +500,23 @@ function depthFromExterior(ext) {
   return depth;
 }
 
-/** D8 BFS distance field over a boolean tile mask. The seed is always allowed. */
+/**
+ * D8 BFS distance field over a boolean tile mask. The seed is always allowed.
+ *
+ * This is the single hottest function in the planner — the exact all-pairs
+ * mobility metric runs two of them per reachable cut tile, on every candidate
+ * enclosure, on every rung of the escalation ladder. Hence the hand-rolled
+ * shape: a module-scoped queue (the walk is synchronous and finishes before it
+ * returns, so one buffer is safe and re-entrancy is impossible) and flat
+ * neighbour deltas instead of destructuring D8's array-of-arrays 2500 times.
+ * The returned field is freshly allocated because callers keep several alive.
+ */
+const BFS_Q = new Int32Array(2500);
+const DX8 = Int8Array.from(D8.map((d) => d[0]));
+const DY8 = Int8Array.from(D8.map((d) => d[1]));
 export function bfsField(mask, from) {
   const dist = new Int16Array(2500).fill(-1);
-  const q = new Int32Array(2500);
+  const q = BFS_Q;
   let head = 0,
     tail = 0;
   const fi = idx(from.x, from.y);
@@ -474,9 +527,9 @@ export function bfsField(mask, from) {
     const x = i % 50,
       y = (i / 50) | 0;
     const d = dist[i] + 1;
-    for (const [dx, dy] of D8) {
-      const nx = x + dx,
-        ny = y + dy;
+    for (let k = 0; k < 8; k++) {
+      const nx = x + DX8[k],
+        ny = y + DY8[k];
       if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
       const ni = nx + ny * 50;
       if (dist[ni] >= 0 || !mask[ni]) continue;
@@ -591,25 +644,75 @@ const round2 = (v) => Math.round(v * 100) / 100;
  *              the defender cannot cut either (both graphs are plain D8,
  *              which is what the engine does: Screeps has no corner rule).
  */
-export function mobilityStats(cut, extMask, walkMask, cap = MOBILITY_ENDPOINTS) {
+/** exterior tiles an attacker can stand on to grind the wall tile `t` */
+function exteriorStands(extMask, t) {
+  const out = [];
+  for (const [dx, dy] of D8) {
+    const x = t.x + dx,
+      y = t.y + dy;
+    if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+    if (extMask[x + y * 50]) out.push({ x, y });
+  }
+  return out;
+}
+/** can a defender standing on `from` shoot anything grinding those stands? */
+function coversStands(from, stands) {
+  for (const s of stands) if (chebyshev(from, s) > RANGED_RANGE) return false;
+  return true;
+}
+
+export function mobilityStats(cut, extMask, walkMask) {
   const reachable = cut.filter((c) => walkMask[idx(c.x, c.y)]);
-  const ends = sampleEndpoints(reachable, cap);
+  const sampled = reachable.length > MOBILITY_EXACT_MAX;
+  const ends = sampled
+    ? sampleEndpoints(reachable, MOBILITY_ENDPOINTS)
+    : reachable.slice().sort((a, b) => a.x - b.x || a.y - b.y);
   const n = ends.length;
-  const empty = { max: 0, mean: 0, p90: 0, pairs: 0, over: 0, endpoints: n, worst: null };
+  const empty = {
+    max: 0,
+    mean: 0,
+    p90: 0,
+    pairs: 0,
+    over: 0,
+    endpoints: n,
+    reachable: reachable.length,
+    sampled,
+    maxStrict: 0,
+    worst: null,
+  };
   if (n < 2) return empty;
+  const stands = ends.map((e) => exteriorStands(extMask, e));
   const inF = ends.map((e) => bfsField(walkMask, e));
   const outF = ends.map((e) => bfsField(extMask, e));
   const ratios = [];
   let max = 0;
+  let maxStrict = 0;
   let worst = null;
+  // ...and the worst pair by ABSOLUTE detour. Now that cheb-3 pairs are
+  // measured (they used to be skipped), the ratio's maximum is frequently owned
+  // by a pair where the defender walks 3 and the attacker walks 2 — arithmetic
+  // that reads 1.5 and costs the garrison one tick. That is a true reading and
+  // it stays the gate, but a reader triaging the fleet needs to tell it apart
+  // from "the defender walks 25 while the attacker walks 2", so both are
+  // reported and the declaration prints the raw walks either way.
+  let maxDetour = 0;
+  let worstDetour = null;
   for (let a = 0; a < n; a++) {
     for (let b = a + 1; b < n; b++) {
-      if (chebyshev(ends[a], ends[b]) <= MOBILITY_NEAR) continue;
+      // covered from BOTH sides: neither defender would have to move
+      if (coversStands(ends[a], stands[b]) && coversStands(ends[b], stands[a])) continue;
       const din = arriveAt(inF[a], ends[b]);
-      const dout = arriveAt(outF[a], ends[b]);
-      if (!isFinite(din) || !isFinite(dout) || dout === 0) continue;
+      const raw = arriveAt(outF[a], ends[b]);
+      if (!isFinite(din) || !isFinite(raw)) continue;
+      const dout = raw - MOBILITY_ARRIVE_BIAS;
+      if (dout <= 0) continue;
       const r = din / dout;
       ratios.push(r);
+      if (raw - 2 > 0 && din / (raw - 2) > maxStrict) maxStrict = din / (raw - 2);
+      if (din - dout > maxDetour) {
+        maxDetour = din - dout;
+        worstDetour = { a: ends[a], b: ends[b], din, dout, ratio: round2(r) };
+      }
       if (r > max) {
         max = r;
         worst = { a: ends[a], b: ends[b], din, dout };
@@ -627,6 +730,17 @@ export function mobilityStats(cut, extMask, walkMask, cap = MOBILITY_ENDPOINTS) 
     pairs: ratios.length,
     over: ratios.filter((r) => r > MOBILITY_TARGET).length,
     endpoints: n,
+    // how many cut tiles were eligible at all — endpoints < reachable means the
+    // sampler ran and the number is a floor, not the measurement
+    reachable: reachable.length,
+    sampled,
+    // the fully symmetric stand-to-stand ratio (see MOBILITY_ARRIVE_BIAS): what
+    // the number would be if the attacker were charged nothing at either end
+    maxStrict: round2(maxStrict),
+    // the longest extra walk on the wall, in tiles — the number that says
+    // whether a failing ratio is a real detour or a rounding accident
+    maxDetour,
+    worstDetour,
     worst,
   };
 }
@@ -857,33 +971,71 @@ export function planShell(terrain, plan, opts = {}) {
   }
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
+  // A GARRISON CANNOT STAND ON A LINK. Every link layer 1 placed — hub, per
+  // source, controller — is fed to computeCut as an uncuttable tile, so the
+  // min-cut routes the wall around it rather than through it. See the note on
+  // `uncuttable` in computeCut.
+  const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
+
   // --- negotiation: smallest cut that still holds the RCL8 program ---
-  const attempts = [];
-  for (const r of radii) {
+  //
+  // A CANDIDATE IS A FUNCTION OF (seed, radius, link rule) AND NOTHING ELSE.
+  // planHub reads only seedSkip, so for one seed every rung of the pipeline's
+  // escalation ladder hands this function an identical layer-1 plan and asks it
+  // to re-solve the identical max-flow at the identical radii — the rungs differ
+  // only in `needDeep`, which is applied AFTER the candidates exist. That made
+  // the escalation ladder cost four full min-cut sweeps per room for three
+  // identical answers. `opts.shellCache` is a per-room, per-seed memo the
+  // pipeline threads through; the entries are read-only (only the lazy `.mob`
+  // field is filled in, and it is the same measurement either way).
+  const cache = opts.shellCache;
+  const buildAttempt = (r, cutOpts) => {
     const protect = new Set(hubKeys);
     for (const b of plan.basin) {
       if (b.d <= r && !unprotectable[idx(b.x, b.y)]) protect.add(key(b.x, b.y));
     }
-    const res = computeCut(terrain, protect, opts);
-    if (res.error) continue;
+    const res = computeCut(terrain, protect, cutOpts);
+    if (res.error) return null;
     const cutSet = new Set(res.cut.map((c) => key(c.x, c.y)));
     const ext = exteriorFlood(terrain, cutSet);
     // sanity: protect must be sealed
-    let leak = false;
     for (const k of protect) {
       const [x, y] = k.split(",").map(Number);
-      if (ext[idx(x, y)]) {
-        leak = true;
-        break;
-      }
+      if (ext[idx(x, y)]) return null;
     }
-    if (leak) continue;
     const depth = depthFromExterior(ext);
     const deep = countDeep(terrain, ext, depth, cutSet, occupied, roadSet);
     // every candidate is judged on whether the base can WALK its own wall
     const walk = interiorWalk(terrain, cutSet, ext, occupied, plan.sitter);
     const unreach = unreachableCut(res.cut, walk);
-    attempts.push({ r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach, walk, mob: null });
+    return { r, protect, cut: res.cut, cutSet, ext, depth, deep, unreach, walk, mob: null };
+  };
+  const negotiate = (cutOpts, tag) => {
+    const out = [];
+    for (const r of radii) {
+      const ck = `${tag}|${r}`;
+      let a;
+      if (cache && cache.has(ck)) a = cache.get(ck);
+      else {
+        a = buildAttempt(r, cutOpts);
+        if (cache) cache.set(ck, a);
+      }
+      if (a) out.push(a);
+    }
+    return out;
+  };
+
+  let cutOpts = { ...opts, uncuttable: linkKeys };
+  let attempts = negotiate(cutOpts, "link-safe");
+  // ...and if forbidding the link tiles leaves the room with no enclosure at
+  // all, the link genuinely sits on the only isthmus this basin has. Then the
+  // wall goes through it and the shortfall is DECLARED by name at the bottom —
+  // never silently swapped for a fighting position no creep can occupy.
+  let linkCutForced = false;
+  if (!attempts.length) {
+    cutOpts = { ...opts };
+    attempts = negotiate(cutOpts, "link-through");
+    linkCutForced = attempts.length > 0;
   }
   if (!attempts.length) return { error: "no viable cut at any radius" };
 
@@ -1018,7 +1170,7 @@ export function planShell(terrain, plan, opts = {}) {
   // see the note on it. Fixed here because `pick` is settled from this point on.
   const guardIsFree = pick.deep >= needDeep + MOBILITY_GUARD_DEEP_MARGIN;
 
-  const tryExpand = (tiles, budget) => {
+  const tryExpand = (tiles, budget, veto) => {
     const cand = new Set(protect);
     let added = 0;
     for (const t of tiles) {
@@ -1033,9 +1185,10 @@ export function planShell(terrain, plan, opts = {}) {
       }
     }
     if (!added) return true; // already inside
-    const res = computeCut(terrain, cand, opts);
+    const res = computeCut(terrain, cand, cutOpts);
     if (res.error) return false;
     if (res.cut.length > cut.length + budget) return false;
+    if (veto && veto(res.cut)) return false;
     const cs = new Set(res.cut.map((c) => key(c.x, c.y)));
     const e = exteriorFlood(terrain, cs);
     for (const k of cand) {
@@ -1117,7 +1270,38 @@ export function planShell(terrain, plan, opts = {}) {
     }
   }
   ctrlArea.push(ctrlLink, ...parkTiles);
-  tryExpand(ctrlArea, ENCLOSE_CTRL_BUDGET);
+  // A DISTANT CONTROLLER DOES NOT GET THE WALL DRAGGED OUT TO IT.
+  //
+  // ENCLOSE_CTRL_BUDGET caps how many extra CUT TILES the expansion may cost,
+  // and that turned out to be the wrong currency. E19S10's controller is a
+  // 29-tile walk from the hub; the expansion bought its enclosure for under 4
+  // extra cut tiles by stretching the shell 28 tiles west into a long finger —
+  // same wall bill, completely different SHAPE, and the shape is what the
+  // towers have to cover. It shipped the fleet's only sub-1500 wall face (900
+  // damage, next worst 1440) and the fleet's only towerCoverage declaration.
+  // The goal document already says what a far controller gets instead:
+  // "rampart ONLY its adjacent ring (denies claim-attack stands) + link +
+  // container. Nothing wider."
+  //
+  // So the currency is REACH, and the gate has both limbs the failure had:
+  //   walk   how far the controller is. 88 of the 90 rooms that enclose their
+  //          controller do it at pathController <= 15 (p50 6, p90 13); only
+  //          E21S0 (19) and E19S10 (29) are past it. Under the line nothing is
+  //          checked at all — a near controller cannot stretch anything.
+  //   reach  chebyshev from the sitter to the furthest tile of the RESULTING
+  //          cut, which is what tower falloff actually cares about (a tower
+  //          does 150 damage past chebyshev 20). Across the fleet this runs
+  //          p50 12 / p90 15, and the largest shell no expansion stretched is
+  //          25 — so 25 is "no further out than this room shape reaches on its
+  //          own". E19S10's controller lobe takes it to 31 and is refused;
+  //          E21S0's takes it to 21, keeps its enclosure, and keeps a healthy
+  //          1890-damage weakest face.
+  const ctrlWalk = plan.meta?.pathController ?? 0;
+  const reachOf = (tiles) => tiles.reduce((m, c) => Math.max(m, chebyshev(c, plan.sitter)), 0);
+  const ctrlVeto =
+    ctrlWalk > CTRL_ENCLOSE_MAX_WALK ? (trialCut) => reachOf(trialCut) > CTRL_ENCLOSE_MAX_REACH : null;
+  const ctrlEnclosed = tryExpand(ctrlArea, ENCLOSE_CTRL_BUDGET, ctrlVeto);
+  const ctrlEncloseRefused = !!ctrlVeto && !ctrlEnclosed;
 
   // (b) each source's walkable ring + its container/link
   const srcLinks = plan.structures.link.slice(1, plan.structures.link.length - 1);
@@ -1131,6 +1315,85 @@ export function planShell(terrain, plan, opts = {}) {
     for (const c of plan.structures.container) if (chebyshev(c, s) <= 1) ring.push(c);
     for (const l of srcLinks) if (chebyshev(l, s) <= 2) ring.push(l);
     tryExpand(ring, ENCLOSE_SRC_BUDGET);
+  }
+
+  // ------------------------------------------------------------------
+  // WALL THAT PROTECTS NOTHING — an exact removal test, not a heuristic.
+  //
+  // Dinic returns a MINIMUM-CAPACITY cut, which is not the same thing as a
+  // minimal SET: when a lobe is sealed twice over (an outer ring plus a second
+  // ring behind it, or a ring around a pocket the base cannot walk to anyway)
+  // the inner tiles are in the cut, cost 3 e/tick each forever, and defend
+  // nothing. E20S10 shipped six of them and then DECLARED them as a battlement
+  // shortfall — "no defender can stand there" — when the honest answer was to
+  // stop buying them.
+  //
+  // The test is exact and it is the only one that means anything: delete the
+  // tile, re-flood the exterior, and keep the deletion only if NOTHING MOVES —
+  // every tile the base can walk, every hub structure and every eco structure
+  // keeps exactly the exterior flag and the chebyshev depth it had. Safety,
+  // tower cover and bubble decisions are all functions of those two numbers, so
+  // if neither moved, none of them can. A rampart the garrison can actually
+  // reach fails this immediately (delete it and it becomes exterior itself), so
+  // only doubled wall and rings around pockets we never owned can go.
+  //
+  // Deliberately NOT part of the guard: the protect mask. plan.basin is flooded
+  // over raw terrain at layer 1, so it happily contains pockets that the layer-1
+  // links then seal off from the base — and demanding those stay walled is
+  // exactly how E20S10 came to buy six ramparts around a lobe no creep of ours
+  // can enter. The walk region is the honest statement of what we own.
+  // Bubbles are untouched: they are not part of the cut.
+  const uselessCut = [];
+  {
+    const mustHold = new Set(walkF);
+    for (const k of hubKeys) mustHold.add(k);
+    for (const t of ["link", "container"]) {
+      for (const p of plan.structures[t] || []) mustHold.add(key(p.x, p.y));
+    }
+    // fast reject: a reachable cut tile that faces the exterior turns INTO
+    // exterior the moment it is deleted, so it can never pass the test
+    const facesExterior = (c) => {
+      for (const [dx, dy] of D8) {
+        const x = c.x + dx,
+          y = c.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        if (extF[idx(x, y)]) return true;
+      }
+      return false;
+    };
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const c of cut) {
+        if (walkF.has(key(c.x, c.y)) && facesExterior(c)) continue;
+        const trial = new Set(cutSet);
+        trial.delete(key(c.x, c.y));
+        const e = exteriorFlood(terrain, trial);
+        const d = depthFromExterior(e);
+        let ok = true;
+        for (const k of mustHold) {
+          const [x, y] = k.split(",").map(Number);
+          const i = idx(x, y);
+          if (e[i] !== extF[i] || d[i] !== depthF[i]) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) continue;
+        cut = cut.filter((o) => o !== c);
+        cutSet = trial;
+        extF = e;
+        depthF = d;
+        walkF = interiorWalk(terrain, cutSet, extF, occupied, plan.sitter);
+        for (const k of walkF) mustHold.add(k);
+        unreachF = unreachableCut(cut, walkF);
+        uselessCut.push({ x: c.x, y: c.y });
+        changed = true;
+        break;
+      }
+    }
+    // the incumbent mobility number belongs to the cut we are actually holding
+    if (uselessCut.length) mobF = mobilityStats(cut, extF, maskFromKeys(walkF));
   }
 
   const deepTiles = countDeep(terrain, extF, depthF, cutSet, occupied, roadSet);
@@ -1289,6 +1552,30 @@ export function planShell(terrain, plan, opts = {}) {
   // measured, and let the reviewer judge it rather than infer it from a count.
   // ------------------------------------------------------------------
   const shortfalls = [];
+
+  // A LINK ON THE WALL, NAMED. computeCut is told to route around every link
+  // tile; the only way one can still end up in the cut is the fallback above,
+  // where forbidding them left this basin with no enclosure at all. Say which
+  // link and say why, so the reviewer judges a stated trade instead of finding
+  // an unstated one.
+  const linkOnCut = cut.filter((c) => linkKeys.has(key(c.x, c.y)));
+  if (linkOnCut.length) {
+    const where = linkOnCut.map((t) => `${t.x},${t.y}`).join(" ");
+    shortfalls.push({
+      gate: "shell",
+      detail:
+        `${linkOnCut.length}/${cut.length} cut tiles carry a link (${where}) — a link is an ` +
+        `OBSTACLE_OBJECT_TYPE, so no defender, repairer or battlement can occupy those ramparts. ` +
+        `The min-cut was run with every link tile at infinite capacity first and ${
+          linkCutForced
+            ? `no protect radius in this room produced an enclosure at all under that rule: the link ` +
+              `sits on the only isthmus this basin has, and the wall has to go through it`
+            : `this cut still came back through one, which should be impossible — treat it as a bug`
+        }.`,
+      tiles: linkOnCut.map((t) => ({ x: t.x, y: t.y })),
+    });
+  }
+
   if (unreachF.length) {
     const where = unreachF.map((t) => `${t.x},${t.y}`).join(" ");
     const substitute = swapAlt
@@ -1354,8 +1641,21 @@ export function planShell(terrain, plan, opts = {}) {
     }[mobility.cause];
     shortfalls.push({
       gate: "mobility",
+      // the pipeline owns the escalation ladder, so it is the pipeline that
+      // staples the per-rung evidence onto this entry (see attachRungProof).
+      // A shell-mobility declaration without `rungs` has not been proved and
+      // must not ship.
+      source: "shell",
+      metric: {
+        exact: !mobility.sampled,
+        endpoints: mobility.endpoints,
+        reachable: mobility.reachable,
+        maxStrict: mobility.maxStrict,
+      },
       detail:
-        `defender mobility max ${mobility.max} (target ${MOBILITY_TARGET}): between wall tiles ${a.x},${a.y} ` +
+        `defender mobility max ${mobility.max} (target ${MOBILITY_TARGET}, ` +
+        `${mobility.sampled ? `SAMPLED over ${mobility.endpoints}/${mobility.reachable}` : `exact all-pairs over ${mobility.endpoints}`} ` +
+        `reachable wall tiles; stand-to-stand it is ${mobility.maxStrict}): between wall tiles ${a.x},${a.y} ` +
         `and ${b.x},${b.y} the defender walks ${din} inside while the attacker walks ${dout} outside. ` +
         `Cause: ${mobility.cause} — ${why}. Measured floor ${mobility.floor} over ${mobilityBandSize || 1} ` +
         `enclosure(s) within +${MOBILITY_TIEBREAK_BUDGET} ramparts of the cheapest cut this room admits` +
@@ -1365,7 +1665,14 @@ export function planShell(terrain, plan, opts = {}) {
             `to refuse a lobe that brings interior with it (the room ends up with ${deepTiles}), so it was ` +
             `bought and the lap grew by ${mobility.ecoCost}`
           : "") +
-        `. ${mobility.over}/${mobility.pairs} measured wall pairs exceed the target (p90 ${mobility.p90}).`,
+        `. ${mobility.over}/${mobility.pairs} measured wall pairs exceed the target (p90 ${mobility.p90}); ` +
+        `the longest extra walk anywhere on this wall is ${mobility.maxDetour} tile(s)` +
+        (mobility.worstDetour
+          ? ` (${mobility.worstDetour.a.x},${mobility.worstDetour.a.y} to ${mobility.worstDetour.b.x},` +
+            `${mobility.worstDetour.b.y}: ${mobility.worstDetour.din} in / ${mobility.worstDetour.dout} out, ` +
+            `ratio ${mobility.worstDetour.ratio})`
+          : "") +
+        `.`,
       tiles: [
         { x: a.x, y: a.y },
         { x: b.x, y: b.y },
@@ -1412,6 +1719,16 @@ export function planShell(terrain, plan, opts = {}) {
       // fully closed enclosure LOOKS closed (see render.mjs)
       boundary: boundaryWalls(terrain, extF),
       protectRadius: pick.r,
+      // cut tiles deleted because deleting them changed nothing measurable —
+      // doubled wall and rings around pockets the base cannot walk to
+      uselessCut,
+      // links the wall had to go through anyway (declared above), and whether
+      // the "route around every link" rule had to be dropped to find a cut
+      linkOnCut: linkOnCut.map((t) => ({ x: t.x, y: t.y })),
+      linkCutForced,
+      // the controller enclosure was refused on walk distance, not on price
+      ctrlEncloseRefused,
+      ctrlWalk,
       deepTiles,
       needDeep,
       budgetPass,
