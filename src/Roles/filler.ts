@@ -92,16 +92,26 @@ const run = function (creep) {
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
         }
 
-        // Salvage free floor energy first — but only NEARBY loot. A filler's
-        // job is the spawn; it must never cross the map for a pile.
+        // Salvage free floor energy — but the hub outranks it. A range-10 leash
+        // is still wide enough to reach a source pile from the hub itself
+        // (E17S4: storage 41,34 -> miner drop 33,42 is range 8), and once
+        // acquireEnergy...() locks that pile the filler walks the base for it
+        // every trip: the room sat at RCL5 with 26k banked and 64 in the spawn.
+        // While the bin/storage can supply us, the only loot worth an intent is
+        // loot we are already standing next to — that costs no movement, and
+        // acquireEnergy...() takes adjacent salvage before it locks anything.
+        const hubSupplies =
+            (bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) ||
+            (storage && storage.store[RESOURCE_ENERGY] > 0);
+        const lootRange = hubSupplies ? 1 : 10;
         const freeLoot =
-            creep.pos.findInRange(FIND_DROPPED_RESOURCES, 10, {
+            creep.pos.findInRange(FIND_DROPPED_RESOURCES, lootRange, {
                 filter: (r) => r.resourceType === RESOURCE_ENERGY && r.amount >= MaxStorage,
             }).length +
-            creep.pos.findInRange(FIND_TOMBSTONES, 10, {
+            creep.pos.findInRange(FIND_TOMBSTONES, lootRange, {
                 filter: (t) => t.store[RESOURCE_ENERGY] >= MaxStorage,
             }).length +
-            creep.pos.findInRange(FIND_RUINS, 10, {
+            creep.pos.findInRange(FIND_RUINS, lootRange, {
                 filter: (r) => r.store[RESOURCE_ENERGY] >= MaxStorage,
             }).length;
         if (freeLoot > 0 && !creep.room.memory.danger) {

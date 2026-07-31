@@ -2344,40 +2344,43 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 function spawnFirstInLine(room, spawn) {
-    // Emergency energy manager check - run this BEFORE checking spawn list
+    // Emergency energy check - run this BEFORE checking spawn list.
+    // The cure for a starved spawn is a FILLER (storage -> spawn/extensions).
+    // An EnergyManager only shuttles storage <-> terminal/labs/links/factory and
+    // has no spawn-filling branch at all, so the old version of this block sat a
+    // fresh EnergyManager next to a full storage doing literally nothing while
+    // the spawn stayed empty (E17S4, RCL5, 26k banked, spawn on 64).
     let storage = Game.getObjectById(room.memory.Structures.storage);
-    let energyManagers = _.filter(Game.creeps, (creep) => creep.memory.role == 'EnergyManager' && creep.room.name == room.name).length;
+    let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
 
-    // Check if room is energy starved and has no energy managers
-    if(room.controller.level >= 4 && storage && energyManagers === 0) {
+    // Check if room is energy starved and has nobody to fill the spawn
+    if(room.controller.level >= 4 && storage && fillersInRoom === 0) {
         console.log(`Room ${room.name} energy: ${room.energyAvailable}/${room.energyCapacityAvailable}, checking for emergency spawn`);
 
-        // Clear the spawn queue if we're in emergency mode
         if(room.energyAvailable < room.energyCapacityAvailable * 0.5) {
-            if(room.memory.spawn_list.length > 0) {
-                console.log(`Clearing spawn queue in ${room.name} for emergency EnergyManager`);
-                room.memory.spawn_list = [];
-            }
-
-            let name = 'EmergencyEnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+            // NOTE: the queue is deliberately NOT wiped here. This block runs
+            // before queue processing, so it already wins the spawn every tick
+            // it can afford a body; clearing the list only threw away the
+            // miners/carriers the room needs to refill in the first place.
+            let name = 'EmergencyFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             let body;
 
             // Ultra small body for extreme emergencies
-            if(room.energyAvailable < 200) {
+            if(room.energyAvailable < 300) {
                 body = [CARRY, CARRY, MOVE]; // 150 energy
                 console.log(`Using ultra small emergency body in ${room.name}, energy: ${room.energyAvailable}`);
             } else {
                 body = [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE]; // 300 energy
             }
 
-            let spawnAttempt = spawn.spawnCreep(body, name, {memory: {role: 'EnergyManager'}});
+            let spawnAttempt = spawn.spawnCreep(body, name, {memory: {role: 'filler'}});
 
             if(spawnAttempt === 0) {
-                console.log(`SUCCESS: Spawning emergency energy manager in ${room.name}`);
+                console.log(`SUCCESS: Spawning emergency filler in ${room.name}`);
                 room.memory.data.c_spawned++;
                 return "spawning";
             } else {
-                console.log(`FAILED to spawn emergency energy manager in ${room.name}, error: ${spawnAttempt}`);
+                console.log(`FAILED to spawn emergency filler in ${room.name}, error: ${spawnAttempt}`);
             }
         }
     }
