@@ -965,6 +965,17 @@ export function planExtensions(terrain, plan) {
     }
   }
 
+  // BUILD ORDER. The live bot sites the plan array's first N extensions at
+  // each RCL cap (5/10/20/30/40/50/60) — the array order IS the growth story
+  // of the room. Placement order is depth-first (a safety concern); the young
+  // room's concern is the filler tour. So the FINAL array walks outward from
+  // the hub: the 5 you own at RCL2 are the 5 closest, and every later cap
+  // prefix stays the tightest cluster. Shallow tiles are pushed back a little
+  // (+3) — early eras have no spare rampart sites to spend on them.
+  const shallowSet = new Set(shallow.map((s) => key(s.x, s.y)));
+  const buildCost = (e) => hubField[idx(e.x, e.y)] + (shallowSet.has(key(e.x, e.y)) ? 3 : 0);
+  extensions.sort((a, b) => buildCost(a) - buildCost(b) || a.y - b.y || a.x - b.x);
+
   return {
     layer: "extensions",
     extension: extensions,
