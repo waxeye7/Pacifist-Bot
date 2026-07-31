@@ -147,6 +147,16 @@ Known open criticisms, in priority order:
 - Update `docs/PLANNER-BASELINE-*.json` snapshots as metrics improve; keep the old
   ones for the trend line.
 
+## After termination: the next campaign chains automatically
+
+When THIS goal terminates (2 consecutive all-clean adversarial rounds + gates +
+golden visual pass), do not stop. The owner has chained the next long-running
+goal: **the early-game speedrun campaign** — `docs/EARLY-GAME-SPEEDRUN-CAMPAIGN.md`.
+Read that document and begin it immediately, with the same process discipline
+(Fable curates, Opus implements, adversarial verification, commit every clean
+cycle). It is expected to take far longer than this goal; that is intended.
+The owner's words: "keep going for ages … until nothing left to improve."
+
 ## Tooling (already built — use it)
 
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`

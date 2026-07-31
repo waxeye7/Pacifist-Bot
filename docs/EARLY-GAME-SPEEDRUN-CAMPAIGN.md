@@ -1,46 +1,101 @@
-# EARLY-GAME SPEEDRUN CAMPAIGN (documented want — not yet started)
+# EARLY-GAME SPEEDRUN CAMPAIGN
 
-Owner's ask: a long-running goal/campaign to drive the **average time to reach RCL4
-(first milestone), then RCL6** down as far as it will go — iterate until *extremely*
-diminishing returns. "Improve the early game of the bot super much."
+**Chained goal.** This campaign starts automatically when the base-planner
+perfection goal (docs/BASE-PLANNER-PERFECTION-GOAL.md) terminates. It is
+deliberately the LONG one — the owner's ask, verbatim in spirit: *keep going for
+ages, make it really take ages, polish it in every way, until extremely
+diminishing returns.* Do not rush it. Do not declare it done early.
 
-## Metric
+## Mission
 
-- Primary: mean game-ticks from spawn-placement to RCL4, measured across a fixed
-  benchmark set of rooms (mix of easy/median/hard terrain, both sources enclosed and
-  not). Then the same to RCL6.
-- Secondary (guardrails): CPU per tick stays within shard3-style limits (~20/tick,
-  bucket-friendly); no regression in survival (tower up by RCL3, ramparts seeded);
-  remote income may be used, but the benchmark must also pass with remotes disabled.
-- Measure with the existing A/B harness: spawn-in tooling (`tools/server/spawn-in.mjs`),
-  `pacifist-race` user for control-vs-candidate runs on identical rooms, watchdog
-  RCL-timestamp lines as the clock (it already logs "reached RCLn!").
+Drive the **average time (game ticks) from spawn placement to RCL4** down as far
+as it will physically go, then do the same **to RCL6**. Each milestone runs its
+own full campaign of hypothesis → implement → A/B benchmark → keep-or-revert
+cycles, and only closes at a strict diminishing-returns bar.
 
-## Known starting points (from live observation, to be re-verified at campaign start)
+## Termination bar (per milestone — this is what "ages" means)
 
-- RCL2→3 and 3→4 are spawn-throughput-bound: rooms sit with full spawns and few
-  upgraders; the RCL5 upgrader gate (`storage > 30000`) freezes progress entirely
-  (task #4 item 2 — fix lands before the campaign or as its first move).
-- Early rooms overspawn tiny creeps (2-work miners long past the point bigger bodies
-  are affordable); body-tier ladders are conservative.
-- Builder/upgrader balance during construction phases starves the controller
-  (E17S4: 4 builders / 0 upgraders while sites existed).
-- Colonisation supporters and the early-carrier pipeline recently improved — the
-  campaign should baseline AFTER those fixes.
-- Plan-v2 adoption at low RCL: check that the build order (spawn→ext→tower→storage)
-  and MAX_SITES=4 budget aren't the bottleneck; consider RCL-aware site priorities.
+- A milestone (RCL4 first, then RCL6) closes only when **4 consecutive cycles
+  each improve the benchmark mean by < 1%** (noise-adjusted — see measurement),
+  AND a final adversarial review agrees no known hypothesis remains untried
+  that a reasonable player would expect to pay.
+- Between milestones, re-baseline: RCL6 work starts from the RCL4-optimized bot.
+- Regressions are never acceptable trades: a change that speeds RCL4 but slows
+  RCL6, survival, or CPU beyond guardrails is reverted, not averaged away.
 
-## Shape of the campaign (when started)
+## Metric + guardrails
 
-1. Freeze a benchmark: ~6 rooms × N seeded runs, record ticks-to-RCL2/3/4 as baseline.
-2. Cycle: hypothesis → change → A/B on the benchmark → keep only wins ≥ noise floor.
-3. Stop when the last 3 cycles each bought < ~2% — that is the diminishing-returns
-   line the owner called.
-4. Then repeat with the RCL6 target (storage/link/tower-2 era; upgrader tiering and
-   hauling economy dominate there).
+- **Primary**: mean ticks spawn-placement → RCL4 (later RCL6) across the fixed
+  benchmark set. Report median and worst-room too; a win that only helps easy
+  rooms is a partial win.
+- **Guardrails (hard)**: CPU stays shard3-viable (~20/tick avg, bucket-friendly,
+  no tick spikes > 100); tower up by RCL3; no safety regression (base plan
+  adoption unharmed); benchmark must ALSO pass with remotes disabled (remote
+  income is a lever, not a crutch); no regression of the perfected base planner
+  (its validator stays green — the speedrun must not bend the base).
+- **Statistical honesty**: every A/B uses the same rooms, same seeds/conditions,
+  N ≥ 3 runs per side (more when the delta is near noise); report the spread,
+  not just the mean. A "win" inside the noise band is not a win.
+
+## Benchmark harness
+
+- Fixed set: ~8 rooms spanning easy/median/hard terrain, enclosed and open
+  sources, near and far controllers — chosen once at campaign start, frozen,
+  documented in a BENCHMARK-ROOMS.json with the reasons for each pick.
+- Control vs candidate: `pacifist-race` user runs the frozen control build,
+  `pacifist` runs the candidate, same rooms, simultaneously — same server,
+  same tick rate, eliminating machine variance.
+- Clock: watchdog RCL-timestamp lines ("reached RCLn!") plus a small
+  ticks-at-RCL recorder in room memory (RCL-progress tick tracking already
+  exists from the b6603d1 work — verify and reuse).
+- Tooling: `tools/server/spawn-in.mjs` for seeding, expansion-pack segments for
+  plans, a campaign runner script (to be built, `tools/server/race.mjs`) that
+  seeds both users, waits, harvests times, and appends to a results ledger
+  (`docs/speedrun-ledger/*.json` — the trend line is part of the deliverable).
+
+## Hypothesis backlog (seed list — the campaign grows it; try broadly before closing)
+
+Spawning & bodies:
+- Body-tier ladders per RCL/energy curve (miners, carriers, upgraders) — the bot
+  overspawns tiny creeps past their era; derive tiers from energyCapacity, not
+  snapshots of energyAvailable.
+- Spawn-queue priority as a function of era (miner → carrier → upgrader vs
+  builder weighting); eliminate head-of-line blocking losses.
+- The RCL4-5 upgrader gates (storage floors) — tie to downgrade timers and era,
+  not one number (first fix already landed; tune it with data).
+Construction:
+- RCL-aware plan build order (which 5 extensions first? tower timing vs eco?);
+  MAX_SITES budget per era; builder counts vs sites remaining; avoid building
+  roads before they pay for themselves.
+- Container-before-storage era: is the first container placed at the right
+  moment and place?
+Energy flow:
+- First-100-ticks choreography (harvest-to-spawn direct vs container-first);
+  when the first dedicated filler pays for itself; loot/scavenge behavior in
+  the pre-storage era.
+- Carrier pathing/handoff efficiency in the pre-road era; pickup-lock tuning.
+Macro:
+- When remote mining starts paying at low RCL (with the remotes-disabled
+  guardrail keeping the core honest); reserver timing.
+- Colonisation-supporter sizing for freshly claimed rooms (auto-expand rooms
+  ARE the early game, repeatedly — every claim is a fresh benchmark sample).
+Each cycle: pick the highest-expected-value hypothesis, implement via Opus with
+a tight spec, A/B it, keep or revert, commit, log the ledger entry, repeat.
+
+## Process (same discipline as the planner goal)
+
+- Fable curates every cycle; Opus implements and independently REVIEWS (fresh
+  adversarial eyes on both the change and the measurement methodology — a biased
+  benchmark is the failure mode to fear most here).
+- Commit every kept cycle; ledger entry every cycle including reverted ones
+  (a documented dead end is progress).
+- Keep the live fleet healthy throughout (watchdog stays on; live bugs found
+  along the way get fixed — they are usually speedrun findings in disguise).
+- Periodically (every ~5 cycles) re-run the base-planner validator suite to
+  prove the planner stayed perfect while the bot around it evolved.
 
 ## Status
 
-- **Documented only. Not started.** Current active goal is the base-planner
-  perfection cycle (docs/BASE-PLANNER-PERFECTION-GOAL.md); this campaign queues
-  behind it (or behind explicit owner reprioritization).
+- **Waiting on the base-planner perfection goal.** Preparation allowed early:
+  building `race.mjs`, choosing benchmark rooms, and fixing already-known
+  early-game bugs (task list #4) do not need to wait.
