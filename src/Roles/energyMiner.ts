@@ -4,6 +4,41 @@
  **/
 
 
+/**
+ * Does this room's link network actually END at storage?
+ *
+ * The miner's link path only makes sense if something drains the far end.
+ * "3 or more links exist" does not establish that: a HYBRID room (legacy
+ * structures + a v2 plan) can own its full link quota with the hub link parked
+ * three tiles from storage, where no creep hands it over. The miner then fills
+ * the source link to 800, the source link has nowhere to forward to, and the
+ * miner - which only ever unloads into that link - sits at the source FULL and
+ * stops harvesting. Live E11S2: 1600 energy frozen in two full links, storage
+ * 0, extensions 0, controller progress pinned at 34742.
+ *
+ * Range 2 to storage is the same bar sourceLinkHaulWorks() in
+ * Rooms/rooms.spawning.ts uses to decide whether links have really replaced
+ * hauling; a link that far out still has a tile adjacent to both itself and
+ * storage, so a creep can move the energy across. Below that bar the room mines
+ * into its container like an RCL5 room and the carriers do the hauling, which
+ * is slower than links but is not zero.
+ *
+ * Cached per room for 500 ticks - link layouts change on the timescale of
+ * construction, and this is called by every miner every tick.
+ */
+function linkNetworkDelivers(room):boolean {
+    if(!room.storage) return false;
+    if(room.memory.linkHaulWorks !== undefined && Game.time - (room.memory.linkHaulWorksAt || 0) < 500) {
+        return room.memory.linkHaulWorks;
+    }
+    const links = room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK});
+    const works = links.length >= 3
+        && _.some(links, (l:any) => l.pos.inRangeTo(room.storage.pos, 2));
+    room.memory.linkHaulWorks = works;
+    room.memory.linkHaulWorksAt = Game.time;
+    return works;
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
 	if(creep.evacuate()) {
@@ -47,7 +82,27 @@ const run = function (creep) {
     //     creep.moveTo(25,25)
     // }
 
-    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.room.find(FIND_MY_STRUCTURES, {filter: building => building.structureType == STRUCTURE_LINK}).length < 3) {
+    // A miner with NO CARRY part must take the simple harvest-and-drop path.
+    //
+    // The link path below is written entirely in terms of
+    // `creep.store.getFreeCapacity()`, which is 0 for a body with no CARRY - so
+    // both of its gates invert: "am I full, go deliver" (< potential) is true
+    // every tick and "may I harvest" (>= potential) is false every tick. The
+    // creep walks to the hub link and stands there for its whole life without
+    // ever calling harvest once.
+    //
+    // Miners lose their CARRY parts routinely: the RCL6 550-energy rung queues
+    // [WORK x5, MOVE], and every shrink rung sheds CARRY before WORK. On live
+    // E11S2 (RCL6, 3 links) that produced 3 "miners" parked on the hub link at
+    // (18,39)/(18,41) with an empty container, empty storage and controller
+    // progress frozen at 34742 - a room that looked fully staffed and had zero
+    // income. Dropping the energy at the source is worth strictly more than
+    // standing next to a link that will never be handed anything.
+    //
+    // Tested with getActiveBodyparts, NOT store.getCapacity(): a creep with no
+    // CARRY answers `null` there on this engine, and `null == 0` is false, so a
+    // capacity test silently does nothing.
+    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.getActiveBodyparts(CARRY) == 0 || !linkNetworkDelivers(creep.room)) {
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();
         // }

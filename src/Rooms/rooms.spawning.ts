@@ -118,6 +118,13 @@ function spawning(room: any) {
  */
 function clampSpawnListToCapacity(room) {
     let hardCap = room.energyCapacityAvailable;
+    // What the room can actually PAY right now: the bank plus whatever is
+    // already sitting in the spawn and extensions. energyCapacityAvailable is
+    // only what it could pay ONCE THE EXTENSIONS ARE FULL, and filling them
+    // takes income.
+    let clampStorage:any = Game.getObjectById(room.memory.Structures && room.memory.Structures.storage);
+    let payable = room.energyAvailable
+        + (clampStorage && clampStorage.store ? (clampStorage.store[RESOURCE_ENERGY] || 0) : 0);
     for(let i = 0; i + 2 < room.memory.spawn_list.length; i += 3) {
         let body:string[] = room.memory.spawn_list[i];
         if(!body || !body.length) continue;
@@ -133,6 +140,37 @@ function clampSpawnListToCapacity(room) {
         // full capacity budget: they are sized deliberately for a fight and a
         // shrunk war creep is worse than a late one.
         let budget = isRoutineSpawn(name) ? Math.floor(hardCap * 0.85) : hardCap;
+        // BOOTSTRAP budget. Everything above assumes the room can eventually
+        // fill its extensions - but filling them is exactly what a miner pays
+        // for, so an UNWORKED source plus an empty bank is a body the room can
+        // never buy. It then queues an RCL6-sized 1500 energy miner, sits at
+        // ~200 energy forever, and the generic relief rungs cannot save it: the
+        // shrink rung in spawnFirstInLine walks the body down one part per 40
+        // ticks but only while the spawn reads idle, and every CREEP_LIFE_TIME
+        // the producer unshifts a fresh full-size miner in front of the one it
+        // had nearly finished shrinking. Live E11S2: RCL6, storage 0, container
+        // empty, 2 fillers + 1 EnergyManager and nothing else, controller
+        // frozen, for hours.
+        //
+        // So a miner/carrier for a source that has NOBODY on it, in a room whose
+        // bank cannot cover the ideal body, is priced at what the room can
+        // actually pay - a 250 energy miner mining now beats a 1500 energy miner
+        // that never hatches, and the next one is sized normally the moment the
+        // bank recovers. Sources that are already staffed keep their full body
+        // (they are a throughput upgrade, not a rescue), and so does everything
+        // else in the queue: a bootstrap-sized war creep or upgrader is a
+        // donation, not a creep.
+        if(name && (name.startsWith("EnergyMiner") || name.startsWith("Carrier")) && payable < bodyCost(body)) {
+            let opts:any = room.memory.spawn_list[i+2];
+            let sourceId = opts && opts.memory ? opts.memory.sourceId : undefined;
+            let wantedRole = name.startsWith("EnergyMiner") ? 'EnergyMiner' : 'carry';
+            // "FakeFiller" is a carrier mid-dropoff at home (see carry.ts)
+            if(sourceId && !_.some(Game.creeps, (creep:any) => creep.memory.sourceId == sourceId
+                && (creep.memory.role == wantedRole
+                    || (wantedRole == 'carry' && creep.memory.role == 'FakeFiller')))) {
+                budget = Math.min(budget, Math.max(payable, SPAWN_ENERGY_CAPACITY));
+            }
+        }
         let cost = bodyCost(body);
         if(cost <= budget) continue;
 
@@ -221,8 +259,16 @@ function shrinkQueuedBody(body:string[], name:string):boolean {
         // A miner is WORK-heavy on purpose; the WORK parts past the first two
         // are the expendable ones. 3 parts is the floor - 2 WORK + 1 MOVE still
         // mines 4 energy/tick, anything less is not worth the walk.
+        //
+        // The LAST CARRY is kept though: in an RCL6+ room with 3+ links the
+        // miner delivers into a link, and that whole path is written in terms of
+        // store.getFreeCapacity(), which a CARRY-less body reports as 0 (see the
+        // comment at the top of Roles/energyMiner.ts). Such a miner still works
+        // now - it falls back to drop-mining - but a miner that can fill a
+        // container or a link is worth much more than one that drops on the
+        // floor for a hauler to chase, and one CARRY only costs 50.
         if(body.length <= 3) return false;
-        if((counts[CARRY] || 0) > 0) counts[CARRY] --;
+        if((counts[CARRY] || 0) > 1) counts[CARRY] --;
         else if(moves > 1 && moves > Math.ceil(others / 2)) counts[MOVE] --;
         else if((counts[WORK] || 0) > 2) counts[WORK] --;
         else if(moves > 1) counts[MOVE] --;
@@ -2991,6 +3037,34 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
 
 
+/**
+ * Is a creep whose name starts with `prefix` already QUEUED for this source?
+ *
+ * spawn_list is a flat [body, name, opts] x N array (same walk as
+ * spawn_reserver's coverage scan).
+ */
+function queuedForSource(room, prefix:string, sourceId):boolean {
+    const queue = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < queue.length; i += 3) {
+        if(typeof queue[i] !== 'string' || queue[i].indexOf(prefix) !== 0) continue;
+        const opts = queue[i + 1];
+        if(opts && opts.memory && opts.memory.sourceId == sourceId) return true;
+    }
+    return false;
+}
+
+/**
+ * Is anything actually working, hatching or waiting for this source?
+ *
+ * Creeps under construction are already in Game.creeps (creep.spawning), so a
+ * miner mid-hatch counts and cannot be double-queued.
+ */
+function minerOnTheWay(room, sourceId):boolean {
+    return _.some(Game.creeps, (creep:any) =>
+            creep.memory.role == 'EnergyMiner' && creep.memory.sourceId == sourceId)
+        || queuedForSource(room, 'EnergyMiner', sourceId);
+}
+
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
@@ -3015,6 +3089,41 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                     console.log('Adding Sweeper to Spawn List: ' + newName);
                 }
 
+
+                // ---- poisoned lastSpawn self-heal ------------------------
+                // `values.lastSpawn` is stamped when a miner is QUEUED, not when
+                // it hatches, and it silences this producer for a full
+                // CREEP_LIFE_TIME. That is only sound while the queued entry
+                // survives, and it does not always: the idle-queue wipe at the
+                // top of spawning(), the capacity drop in
+                // clampSpawnListToCapacity and the -3/-14/-10 clear in
+                // spawnFirstInLine all throw entries away. The stamp then keeps
+                // insisting a miner is on the way while the source sits unmined
+                // for 1500 ticks - and for a room whose income IS that source
+                // that is a total blackout, followed by another one, forever.
+                // Live E11S2: RCL6, storage 0, container empty, spawn queue
+                // EMPTY, lastSpawn 1496 ticks old, zero miners, zero carriers.
+                //
+                // Same shape as the lastSpawnCarrier heal in spawn_carrier: if
+                // nothing is working, hatching or waiting for this source then
+                // the stamp is a lie, so drop it and let the rungs below re-queue
+                // this tick instead of ~1500 ticks from now.
+                let onTheWay = minerOnTheWay(room, sourceId);
+                if(!onTheWay && (values.lastSpawn || 0) > Game.time - CREEP_LIFE_TIME) {
+                    console.log("clearing stale lastSpawn for source", sourceId, "in", room.name,
+                        "- no miner alive or queued");
+                    values.lastSpawn = 0;
+                }
+                // Never stack a second miner on a source that already has one
+                // waiting. The duplicate is unshifted, so it JUMPS the queue,
+                // resets spawnStall/spawnStallName and throws away the
+                // head-of-line shrink progress in spawnFirstInLine - which is
+                // exactly how E11S2 kept losing a body it had almost walked down
+                // to something it could afford.
+                else if(onTheWay && queuedForSource(room, 'EnergyMiner', sourceId)) {
+                    index++;
+                    return;
+                }
 
                 if (Game.time - (values.lastSpawn || 0) > CREEP_LIFE_TIME) {
                     let newName = 'EnergyMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -3215,6 +3324,24 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                 // self-heal rooms already parked on the forever-cutoff while
                 // their links do not actually haul (set before this guard existed)
                 if((values.lastSpawnCarrier || 0) > Game.time && targetRoomName == room.name && !sourceLinkHaulWorks(room, sourceId)) {
+                    values.lastSpawnCarrier = 0;
+                }
+                // ...and the same poisoned-stamp heal spawn_energy_miner does:
+                // the stamp is written when the carrier is QUEUED, so any rung
+                // that later drops the entry (idle-queue wipe, capacity drop,
+                // -3/-14/-10 clear) leaves the source with no hauler and this
+                // producer convinced one is on the way for CREEP_LIFE_TIME.
+                // "FakeFiller" is a carrier mid-dropoff (see carry.ts), so it
+                // counts as one already on the job.
+                // The check is bounded at Game.time on purpose: a stamp in the
+                // FUTURE is the deliberate RCL6 link cutoff above, not a lie.
+                if((values.lastSpawnCarrier || 0) > Game.time - CREEP_LIFE_TIME
+                    && (values.lastSpawnCarrier || 0) <= Game.time
+                    && !_.some(Game.creeps, (creep:any) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller')
+                        && creep.memory.sourceId == sourceId)
+                    && !queuedForSource(room, 'Carrier', sourceId)) {
+                    console.log("clearing stale lastSpawnCarrier for source", sourceId, "in", room.name,
+                        "- no carrier alive or queued");
                     values.lastSpawnCarrier = 0;
                 }
                 if (Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME) {
