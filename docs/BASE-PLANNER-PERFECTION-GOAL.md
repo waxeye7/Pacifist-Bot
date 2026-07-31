@@ -40,6 +40,9 @@ per room. Rise to the bar; do not lower it.
   Protect region sealed — zero leaks (re-derived exterior flood, not trusted meta).
 - Safety re-derived: every eco structure at chebyshev depth ≥ 4 from the exterior
   region **or** carrying a personal rampart. Towers depth ≥ 4, no exceptions.
+  One declared physics exemption: the extractor is built ON the mineral by rule and
+  therefore cannot be moved deep — it is exempt (nothing is stored in it and it is
+  trivially rebuilt), while its container must be bubbled or declared.
 - Every extension has a **road on an orthogonal (D4) face** — easily accessible,
   corridor pattern, never a maze, never diagonal-only.
 - One connected road network touching every structure. No roads ON ramparts. Spur

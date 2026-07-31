@@ -301,29 +301,61 @@ function claimHubTrio(terrain, storage, dir, objectTiles) {
 
 const octant = (from, to) => Math.round((Math.atan2(to.y - from.y, to.x - from.x) / Math.PI) * 4) & 7;
 
+/** signed bearing of `to` seen from `from`, in degrees [-180,180). */
+const bearing = (from, to) => (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+/** smallest absolute angle between two bearings, in degrees [0,180]. */
+function angleGap(a, b) {
+  let d = Math.abs(a - b) % 360;
+  if (d > 180) d = 360 - d;
+  return d;
+}
+
+// A spawn's only mechanical requirements are: a creep can leave it, and a
+// filler can reach it. Adjacency between spawns buys NOTHING — three spawns
+// in one corner is three eggs in one basket, one nuke, one breach, one
+// stalled respawn. So the fan is scored, not hoped for: SECTOR_TARGET is the
+// pairwise angular separation around storage the fan aims for, and the reward
+// SATURATES there. Chasing a wider fan than that is score-chasing: it drags
+// spawns to the rim of the pocket, which widens the shell and pushes the
+// extension mass into the shallow band, and a 120° fan defends nothing a 60°
+// fan does not. Past the target, tile quality decides.
+const SECTOR_TARGET = 60;
+const SECTOR_WEIGHT = 0.4; // 0..24 pts — sized against the tile-quality sum
+// Weight on hugging the pocket edge. Sized so the distance transform leads
+// and exit count breaks its ties, not the other way round: at 2.0 the fleet
+// keeps 335/477 spawns on full-8-exit tiles while the shallow-extension
+// count falls below the pre-fan baseline. Higher starts crowding spawns into
+// rock pockets for no further gain.
+const HUG_WEIGHT = 2.0;
+// A filler tours storage → spawns → storage every generation. Five walk steps
+// from storage is already a long leash; past that the fan costs more than the
+// spread is worth, so it is a hard bound, not a penalty.
+const SPAWN_WALK_MAX = 5;
+// Bounded search: keep the best few tiles per 30° sector so the candidate set
+// stays angularly diverse instead of collapsing onto the one hot corner, then
+// enumerate triples exhaustively. ~50 candidates ⇒ ~20k triples ⇒ single-digit ms.
+const SECTOR_BINS = 12;
+const PER_BIN = 4;
+const TOP_OVERALL = 8;
+
 /**
- * Spawns spread into DIFFERENT angular sectors of the pocket — they don't
- * need to touch each other, they need exit tiles and fill access. The fan
- * shape follows the room, which is where per-room character comes from.
+ * Spawns fanned into DIFFERENT angular sectors around storage — they don't
+ * need to touch each other, they need exit tiles, fill access, and daylight
+ * between them. The fan shape follows the room, which is where per-room
+ * character comes from.
+ *
+ * Greedy placement cannot do this: the first spawn takes the best tile, the
+ * second takes the best tile that is merely not-adjacent, and by the third
+ * the good sectors are gone. So the triple is chosen jointly — every
+ * candidate set is scored on its WORST pairwise gap, and the hub's own
+ * invariants (storage keeps ≥2 free D4 faces, every spawn keeps ≥3 exits)
+ * are checked against the FINAL layout rather than the partial one.
+ *
+ * Terrain-cramped rooms degrade gracefully: if no triple satisfies the joint
+ * test, the old sequential growth runs as a fallback so the room still ships
+ * three spawns, and the achieved minimum angle is reported either way.
  */
-function growSpawnsSpread(terrain, core, coreSet, blocked, storage, n = 3) {
-  const spawns = [];
-
-  const scoreTile = (p) => {
-    if (chebyshev(p, storage) < 2) return null; // keep the hub ring clear
-    const trial = new Set(blocked);
-    trial.add(key(p.x, p.y));
-    if (freeNeighbors4(terrain, storage, trial).length < 2) return null;
-    const exits = freeNeighbors8(terrain, p, trial).length;
-    if (exits < 3) return null; // creeps must be able to leave the spawn
-    let sc = exits + (coreSet.has(key(p.x, p.y)) ? 2 : 0) - chebyshev(p, storage) * 0.4;
-    for (const s of spawns) {
-      if (chebyshev(s, p) <= 1) return null; // never adjacent to each other
-      if (octant(storage, s) === octant(storage, p)) sc -= 4; // fan out
-    }
-    return sc;
-  };
-
+function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
   // core first, then one ring outside it
   const pool = [...core];
   for (const c of core) {
@@ -335,19 +367,139 @@ function growSpawnsSpread(terrain, core, coreSet, blocked, storage, n = 3) {
     }
   }
 
+  // walk distance from storage over bare terrain minus the hub trio — the
+  // real filler leash, not a chebyshev guess that a wall makes a lie of
+  const walk = fieldFrom(terrain, storage, blocked);
+
+  const viable = [];
+  for (const p of pool) {
+    const k = key(p.x, p.y);
+    if (blocked.has(k)) continue;
+    if (chebyshev(p, storage) < 2) continue; // keep the hub ring clear
+    if (walk[idx(p.x, p.y)] > SPAWN_WALK_MAX) continue;
+    const trial = new Set(blocked);
+    trial.add(k);
+    if (freeNeighbors4(terrain, storage, trial).length < 2) continue;
+    const exits = freeNeighbors8(terrain, p, trial).length;
+    if (exits < 3) continue; // creeps must be able to leave the spawn
+    viable.push({
+      x: p.x,
+      y: p.y,
+      exits,
+      ang: bearing(storage, p),
+      // A spawn wants access, not elbow room. The open middle of the pocket
+      // is the only place the extension mass can sit at depth ≥ 4, so a
+      // spawn parked there is paid for later in personal ramparts — the
+      // owner's top standing criticism. Hug the pocket's edge: low distance
+      // transform, still ≥3 exits.
+      base:
+        exits +
+        (coreSet.has(k) ? 2 : 0) -
+        chebyshev(p, storage) * 0.4 -
+        dt[idx(p.x, p.y)] * HUG_WEIGHT,
+    });
+  }
+  // deterministic order for every downstream tie-break
+  viable.sort((a, b) => b.base - a.base || a.x - b.x || a.y - b.y);
+
+  // sector-stratified shortlist
+  const bins = new Map();
+  const shortlist = [];
+  const take = (c) => {
+    if (!shortlist.includes(c)) shortlist.push(c);
+  };
+  for (const c of viable.slice(0, TOP_OVERALL)) take(c);
+  for (const c of viable) {
+    const b = Math.floor(((c.ang + 360) % 360) / (360 / SECTOR_BINS));
+    const cnt = bins.get(b) || 0;
+    if (cnt >= PER_BIN) continue;
+    bins.set(b, cnt + 1);
+    take(c);
+  }
+  shortlist.sort((a, b) => a.x - b.x || a.y - b.y);
+
+  const jointOk = (set) => {
+    const trial = new Set(blocked);
+    for (const s of set) trial.add(key(s.x, s.y));
+    if (freeNeighbors4(terrain, storage, trial).length < 2) return false;
+    for (const s of set) {
+      if (freeNeighbors8(terrain, s, trial).length < 3) return false;
+    }
+    return true;
+  };
+
+  // enumerate triples, cheap score first, joint feasibility only on the ones
+  // worth building — the expensive test runs a handful of times, not 20k
+  const triples = [];
+  const L = shortlist.length;
+  for (let i = 0; i < L; i++) {
+    for (let j = i + 1; j < L; j++) {
+      if (chebyshev(shortlist[i], shortlist[j]) <= 1) continue; // never adjacent
+      for (let k2 = j + 1; k2 < L; k2++) {
+        if (chebyshev(shortlist[i], shortlist[k2]) <= 1) continue;
+        if (chebyshev(shortlist[j], shortlist[k2]) <= 1) continue;
+        const a = shortlist[i],
+          b = shortlist[j],
+          c = shortlist[k2];
+        const minAng = Math.min(
+          angleGap(a.ang, b.ang),
+          angleGap(a.ang, c.ang),
+          angleGap(b.ang, c.ang),
+        );
+        const sc =
+          Math.min(minAng, SECTOR_TARGET) * SECTOR_WEIGHT + a.base + b.base + c.base;
+        triples.push({ i, j, k: k2, minAng, sc });
+      }
+    }
+  }
+  triples.sort(
+    (p, q) => q.sc - p.sc || q.minAng - p.minAng || p.i - q.i || p.j - q.j || p.k - q.k,
+  );
+  for (const t of triples) {
+    const set = [shortlist[t.i], shortlist[t.j], shortlist[t.k]];
+    if (!jointOk(set)) continue;
+    for (const s of set) blocked.add(key(s.x, s.y));
+    return {
+      spawns: set.map((s) => ({ x: s.x, y: s.y })),
+      minAngle: Math.round(t.minAng),
+      walkMax: Math.max(...set.map((s) => walk[idx(s.x, s.y)])),
+      fanned: t.minAng >= SECTOR_TARGET,
+    };
+  }
+
+  // FALLBACK — the pocket is too tight for any legal fan. Grow sequentially
+  // the way the old code did so the room still gets three spawns, and let the
+  // meta say how thin the fan came out.
+  const spawns = [];
   while (spawns.length < n) {
     let best = null;
-    for (const p of pool) {
-      if (blocked.has(key(p.x, p.y))) continue;
-      const sc = scoreTile(p);
-      if (sc === null) continue;
-      if (!best || sc > best.sc) best = { x: p.x, y: p.y, sc };
+    for (const p of viable) {
+      const k = key(p.x, p.y);
+      if (blocked.has(k)) continue;
+      if (spawns.some((s) => chebyshev(s, p) <= 1)) continue;
+      const trial = new Set(blocked);
+      trial.add(k);
+      if (freeNeighbors4(terrain, storage, trial).length < 2) continue;
+      let sc = p.base;
+      for (const s of spawns) if (octant(storage, s) === octant(storage, p)) sc -= 4;
+      if (!best || sc > best.sc) best = { ...p, sc };
     }
     if (!best) break;
     spawns.push({ x: best.x, y: best.y });
     blocked.add(key(best.x, best.y));
   }
-  return spawns;
+  let minAngle = 180;
+  for (let i = 0; i < spawns.length; i++) {
+    for (let j = i + 1; j < spawns.length; j++) {
+      minAngle = Math.min(minAngle, angleGap(bearing(storage, spawns[i]), bearing(storage, spawns[j])));
+    }
+  }
+  return {
+    spawns,
+    minAngle: spawns.length > 1 ? Math.round(minAngle) : 180,
+    walkMax: spawns.length ? Math.max(...spawns.map((s) => walk[idx(s.x, s.y)])) : 0,
+    fanned: false,
+  };
 }
 
 /** Roads may sit anywhere walkable off the exit band. */
@@ -810,7 +962,8 @@ export function planHub(terrain, objects, opts = {}) {
   const accessAfter = freeNeighbors4(terrain, storage, blocked).length;
   if (accessAfter < 1) return { error: "hub trio sealed storage", seed };
 
-  const spawn = growSpawnsSpread(terrain, core, coreSet, blocked, storage, 3);
+  const spawnFan = growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, 3);
+  const spawn = spawnFan.spawns;
   if (spawn.length < 3) {
     return { error: `spawns only grew ${spawn.length}/3`, seed, coreSize: core.length };
   }
@@ -932,6 +1085,15 @@ export function planHub(terrain, objects, opts = {}) {
         radius: BUDGET_RADIUS,
       },
       storageAccessD4: freeNeighbors4(terrain, storage, blocked).length + 1, // + sitter road face
+      // the fan, measured — worst pairwise angular gap between spawns around
+      // storage, the filler's longest leash, and whether the room had room
+      // for the SECTOR_TARGET fan at all
+      spawnFan: {
+        minAngle: spawnFan.minAngle,
+        walkMax: spawnFan.walkMax,
+        fanned: spawnFan.fanned,
+        target: SECTOR_TARGET,
+      },
       pathController: pCtrl,
       pathSourcesSum: pSrc,
       ctrlParks: ctrlLink.parks ?? 0,
