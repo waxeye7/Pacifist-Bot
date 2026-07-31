@@ -3,9 +3,165 @@
  * @param {Creep} creep
  **/
 
+/**
+ * The room's real, un-reserved fill need, nearest first.
+ *
+ * creep.findFillerTarget() hands out RESERVATIONS (room.memory.reserveFill) and
+ * only ever releases one again on a successful transfer. A loaded filler asks
+ * it for a target up to TWICE per tick - once for the structure it is filling
+ * and once for the look-ahead it walks to next - so with a few fillers alive the
+ * reserve list covers every extension in the room within a handful of ticks.
+ * From then on findFillerTarget() returns FALSE for every filler at once and
+ * they all sit on full stores doing nothing until the 40-tick reset below wipes
+ * the list. Live E14S9: 4 fillers, 34k banked in storage, room energy
+ * 119/1300, extensions climbing +1 a tick off spawn regeneration alone.
+ *
+ * This function ignores reservations entirely and is the delivery guarantee:
+ * while anything in the room still wants energy, a carrying filler has
+ * somewhere to go. Priority is the one the room actually needs - spawn and
+ * extensions first (they are what blocks spawning), then any tower below half.
+ */
+function fillNeed(creep, excludeId?) {
+    let targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+        (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION)
+        && s.id !== excludeId
+        && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+    if(targets.length == 0) {
+        targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+            s.structureType == STRUCTURE_TOWER
+            && s.id !== excludeId
+            && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) / 2});
+    }
+    if(targets.length == 0) {
+        return null;
+    }
+    return creep.pos.findClosestByRange(targets);
+}
+
+/**
+ * Move one step towards a fill target, and GUARANTEE the step happens.
+ *
+ * creep.MoveCostMatrixRoadPrio() drives PathFinder with a road-priority cost
+ * matrix at maxRooms 1 / maxOps 1000. When that search comes back EMPTY it
+ * still stores the empty path and calls move(undefined), so the creep silently
+ * stays where it is - and because the stored path is empty it re-runs the same
+ * failing search every tick forever. Live E14S9 after the reservation fix: two
+ * LOADED fillers parked at range 2 from half-empty extensions, fatigue 0,
+ * memory.path = [], for 130+ ticks, while the room ran on 42 of 1300 energy.
+ *
+ * So: if the creep has not left its tile for three ticks running, drop the
+ * cached path and hand the step to the engine's own moveTo, which has no such
+ * failure mode. Normal traffic jams resolve inside those three ticks and never
+ * reach the fallback.
+ */
+function advanceTo(creep, target, swampPrio = false) {
+    if(creep.pos.isNearTo(target)) {
+        delete creep.memory.stuckAt;
+        delete creep.memory.stuckFor;
+        return;
+    }
+    if(creep.fatigue > 0) {
+        return;
+    }
+
+    let here = creep.pos.x + "," + creep.pos.y;
+    if(creep.memory.stuckAt === here) {
+        creep.memory.stuckFor = (creep.memory.stuckFor || 0) + 1;
+    }
+    else {
+        creep.memory.stuckAt = here;
+        creep.memory.stuckFor = 0;
+    }
+
+    // Wedged, not merely jammed. Two loaded fillers fit in the pocket a v2 hub
+    // leaves around its storage and then block each other's only exit, so BOTH
+    // pathfinders answer "no path" and neither ever yields: live E14S9 had a
+    // pair standing two tiles from a half-empty extension with stuckFor past
+    // 400, holding 345 energy between them, until they died of old age. Shove
+    // whatever is in the way and take its tile.
+    if(creep.memory.stuckFor >= 8) {
+        // only a wedge the shove below did NOT clear is worth a line; a hub as
+        // busy as E14S9 produces a few dozen one-tick jams every 100 ticks
+        if(creep.memory.stuckFor >= 50 && creep.memory.stuckFor % 50 == 8) {
+            console.log("filler", creep.name, "wedged at", creep.pos.x + "," + creep.pos.y, "for", creep.memory.stuckFor, "ticks in", creep.room.name);
+        }
+        // Step onto a NEIGHBOURING tile by hand. Aiming straight at the target
+        // is useless here - inside a hub the tile between the filler and the
+        // extension it wants is usually another extension - so walk the 8
+        // neighbours and drop the ones terrain or an obstacle structure rules
+        // out. Live E14S9 has a filler parked on 23,25, whose only four exits
+        // are diagonal road tiles (storage, spawn, tower and an extension take
+        // the other four) and all four were held by other hub traffic.
+        //
+        // Free tiles win. If every exit is held by a creep the pick ROTATES on
+        // the stuck counter: SwapPositionWithCreep only shoves a neighbour that
+        // has not already moved this tick, so retrying the same neighbour every
+        // tick is a guaranteed livelock while cycling through them is not.
+        let terrain = creep.room.getTerrain();
+        let free = [];
+        let occupied = [];
+        for(let dx = -1; dx <= 1; dx++) {
+            for(let dy = -1; dy <= 1; dy++) {
+                if(dx == 0 && dy == 0) continue;
+                let x = creep.pos.x + dx;
+                let y = creep.pos.y + dy;
+                if(x < 1 || x > 48 || y < 1 || y > 48) continue;
+                if(terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+                let blocked = false;
+                for(let structure of creep.room.lookForAt(LOOK_STRUCTURES, x, y)) {
+                    if(OBSTACLE_OBJECT_TYPES.indexOf(structure.structureType) !== -1) {
+                        blocked = true;
+                        break;
+                    }
+                }
+                if(blocked) continue;
+                let step:any = {pos: new RoomPosition(x, y, creep.room.name), range: target.pos.getRangeTo(x, y)};
+                if(creep.room.lookForAt(LOOK_CREEPS, x, y).length > 0) {
+                    occupied.push(step);
+                }
+                else {
+                    free.push(step);
+                }
+            }
+        }
+        free.sort((a:any, b:any) => a.range - b.range);
+        occupied.sort((a:any, b:any) => a.range - b.range);
+
+        let step:any = null;
+        if(free.length > 0) {
+            step = free[0];
+        }
+        else if(occupied.length > 0) {
+            step = occupied[creep.memory.stuckFor % occupied.length];
+        }
+        if(step) {
+            let direction = creep.pos.getDirectionTo(step.pos);
+            creep.SwapPositionWithCreep(direction);
+            creep.move(direction);
+            creep.memory.moving = true;
+        }
+        return;
+    }
+
+    if(creep.memory.stuckFor >= 3) {
+        creep.memory.path = false;
+        delete creep.memory.MoveTargetId;
+        creep.moveTo(target, {range: 1, reusePath: 3});
+        creep.memory.moving = true;
+        return;
+    }
+
+    if(swampPrio) {
+        creep.MoveCostMatrixSwampPrio(target, 1);
+    }
+    else {
+        creep.MoveCostMatrixRoadPrio(target, 1);
+    }
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
-    if(creep.ticksToLive == 1499 || Game.time % 40 == 0) {
+    if(creep.ticksToLive == 1499 || Game.time % 40 == 0 || !creep.room.memory.reserveFill) {
         creep.room.memory.reserveFill = [];
     }
     if(creep.evacuate()) {
@@ -124,7 +280,7 @@ const run = function (creep) {
                 }
             }
             else {
-                creep.MoveCostMatrixSwampPrio(bin, 1);
+                advanceTo(creep, bin, true);
             }
         }
         else if(storage && storage.store[RESOURCE_ENERGY] > 0) {
@@ -146,39 +302,54 @@ const run = function (creep) {
 
 
         let target = Game.getObjectById(creep.memory.t) || creep.findFillerTarget();
-        if(target) {
-            if(target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
-                target = creep.findFillerTarget();
-            }
+        if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+            target = creep.findFillerTarget();
+        }
+        // findFillerTarget() returns false as soon as everything it would pick
+        // is already reserved by another filler (or by this one, a tick ago) -
+        // and the old code then simply did nothing for the rest of the tick.
+        // A filler holding energy is never allowed to idle while the room is
+        // hungry, so fall back to the reservation-free scan.
+        if(!target) {
+            target = fillNeed(creep);
             if(target) {
-                if(creep.pos.isNearTo(target)) {
-                    let result = creep.transfer(target, RESOURCE_ENERGY);
-                    if(result == 0) {
-                        let indexOfTargetId = creep.room.memory.reserveFill.indexOf(target.id);
-                        if(indexOfTargetId !== -1) {
-                            creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
-                        }
+                creep.memory.t = target.id;
+            }
+        }
+        if(target) {
+            if(creep.pos.isNearTo(target)) {
+                let result = creep.transfer(target, RESOURCE_ENERGY);
+                if(result == 0) {
+                    let indexOfTargetId = creep.room.memory.reserveFill.indexOf(target.id);
+                    if(indexOfTargetId !== -1) {
+                        creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
                     }
-                    if(creep.store[RESOURCE_ENERGY] > target.store.getFreeCapacity(RESOURCE_ENERGY)) {
-                        let newTarget = creep.findFillerTarget();
-                        if(newTarget && creep.pos.getRangeTo(newTarget) > 1) {
-                            creep.MoveCostMatrixRoadPrio(newTarget, 1);
-                        }
-                    }
-                    else {
-                        creep.memory.full = false;
-                        if(storage) {
-                            creep.MoveCostMatrixRoadPrio(storage, 1);
-                        }
+                }
+                if(creep.store[RESOURCE_ENERGY] > target.store.getFreeCapacity(RESOURCE_ENERGY)) {
+                    // look-ahead for the leftover in the store. Deliberately
+                    // fillNeed() and not findFillerTarget(): the look-ahead used
+                    // to burn a SECOND reservation every tick on top of the one
+                    // above, which is what let a handful of fillers reserve the
+                    // whole extension network and then starve it.
+                    let newTarget = fillNeed(creep, target.id) || creep.findFillerTarget();
+                    if(newTarget) {
+                        creep.memory.t = newTarget.id;
+                        advanceTo(creep, newTarget);
                     }
                 }
                 else {
-                    if(creep.room.memory.danger) {
-                        creep.moveToSafePositionToRepairRampart(target, 1);
-                    }else {
-                        creep.MoveCostMatrixRoadPrio(target, 1)
-
+                    creep.memory.full = false;
+                    creep.memory.t = false;
+                    if(storage) {
+                        creep.MoveCostMatrixRoadPrio(storage, 1);
                     }
+                }
+            }
+            else {
+                if(creep.room.memory.danger) {
+                    creep.moveToSafePositionToRepairRampart(target, 1);
+                }else {
+                    advanceTo(creep, target);
                 }
             }
         }

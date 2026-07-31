@@ -117,42 +117,157 @@ function spawning(room: any) {
  * useful creep is dropped. Both paths log.
  */
 function clampSpawnListToCapacity(room) {
-    let cap = room.energyCapacityAvailable;
+    let hardCap = room.energyCapacityAvailable;
     for(let i = 0; i + 2 < room.memory.spawn_list.length; i += 3) {
         let body:string[] = room.memory.spawn_list[i];
         if(!body || !body.length) continue;
-        let cost = _.sum(body, (part:any) => BODYPART_COST[part]);
-        if(cost <= cap) continue;
+        let name:string = room.memory.spawn_list[i+1];
 
-        let name = room.memory.spawn_list[i+1];
+        // ROUTINE creeps are budgeted at 85% of capacity, not 100%. A body
+        // priced at exactly energyCapacityAvailable is only ever buyable in a
+        // room whose extension network is 100% topped up - and a room that is
+        // spending on creeps basically never is, so such a body answers -6
+        // forever and (before the interleave rung) held the whole queue behind
+        // it. Live E17S4: RCL5, capacity 1800, spawnrules[5].maintain_creep is
+        // 12 WORK + 8 MOVE + 4 CARRY = exactly 1800. Military bodies keep the
+        // full capacity budget: they are sized deliberately for a fight and a
+        // shrunk war creep is worse than a late one.
+        let budget = isRoutineSpawn(name) ? Math.floor(hardCap * 0.85) : hardCap;
+        let cost = bodyCost(body);
+        if(cost <= budget) continue;
+
         let originalLength = body.length;
         let originalCost = cost;
-        while(cost > cap && body.length > 1) {
-            let moves = _.filter(body, (part:any) => part == MOVE).length;
-            let cut = -1;
-            for(let j = body.length - 1; j >= 0; j--) {
-                if(body[j] == MOVE && moves <= 1) continue;
-                cut = j;
-                break;
-            }
-            if(cut < 0) break;
-            cost -= BODYPART_COST[body[cut]];
-            body.splice(cut, 1);
+        let shrunk = body.slice();
+        while(cost > budget && shrinkQueuedBody(shrunk, name)) {
+            cost = bodyCost(shrunk);
         }
 
-        // A body that only just missed (a miner sized for a capacity the room
-        // lost) is worth shrinking. A body that needs a third of itself cut off
-        // is a boosted war creep queued by a Command against the wrong room -
-        // half of one of those is not a creep, it is a donation, so it gets
-        // dropped exactly like the head rung in spawnFirstInLine drops it.
-        if(cost > cap || body.length < 2 || body.length < originalLength * 0.7 || !_.some(body, (part:any) => part != MOVE)) {
-            console.log("dropping", name, "from spawn list:", originalCost, "energy body does not fit capacity", cap, "in", room.name);
+        // Over the SOFT cap is never fatal - an 88% body still spawns, it just
+        // takes a fuller room - so only a body still over the HARD cap gets
+        // thrown away. A body that only just missed (a miner sized for a
+        // capacity the room lost) is worth shrinking; one that needs a third of
+        // itself cut off is a boosted war creep queued by a Command against the
+        // wrong room - half of one of those is not a creep, it is a donation,
+        // so it gets dropped exactly like the head rung in spawnFirstInLine
+        // drops it.
+        if(cost > hardCap || shrunk.length < 2 || !_.some(shrunk, (part:any) => part != MOVE)
+            || (originalCost > hardCap && shrunk.length < originalLength * 0.7)) {
+            console.log("dropping", name, "from spawn list:", originalCost, "energy body does not fit capacity", hardCap, "in", room.name);
             room.memory.spawn_list.splice(i, 3);
             i -= 3;
             continue;
         }
-        console.log("clamped", name, "from", originalLength, "to", body.length, "parts to fit capacity", cap, "in", room.name);
+        if(shrunk.length !== originalLength) {
+            room.memory.spawn_list[i] = shrunk;
+            console.log("clamped", name, "from", originalCost, "to", cost, "energy to fit budget", budget, "of capacity", hardCap, "in", room.name);
+        }
     }
+}
+
+function bodyCost(body:string[]):number {
+    return _.sum(body, (part:any) => BODYPART_COST[part]);
+}
+
+/**
+ * Names of the economy roles this room re-queues on its own every cycle. These
+ * are the ones that must always stay buyable; everything else (war creeps,
+ * squads, boosted specialists) is deliberately sized and gets the full budget.
+ */
+const ROUTINE_SPAWN_PREFIXES = ["Filler", "filler", "EmergencyFiller", "emergencyFILLER",
+    "Builder", "Upgrader", "Repair", "Maintainer", "EnergyManager", "Carrier",
+    "EnergyMiner", "MineralMiner", "Sweeper", "Reserver", "RemoteRepair", "Scout",
+    "ContainerBuilder", "SneakyControllerUpgrader"];
+
+function isRoutineSpawn(name:string):boolean {
+    if(!name) return false;
+    return _.some(ROUTINE_SPAWN_PREFIXES, (prefix:any) => name.startsWith(prefix));
+}
+
+/**
+ * Take ONE part off a queued body while keeping it a creep that can still do
+ * its job, and return whether anything was removed.
+ *
+ * This replaces `spawn_list[0].shift()`, which stripped parts off the FRONT of
+ * the array: a miner queued as [WORK,WORK,WORK,WORK,WORK,MOVE,MOVE] shrank into
+ * [WORK,MOVE,MOVE] and then into [MOVE,MOVE] - a 100 energy creep with no WORK
+ * that walks to a source and stares at it. A reserver ([CLAIM,MOVE] x N) lost
+ * its CLAIM the same way.
+ *
+ * The body is rebuilt from part COUNTS rather than spliced, so the result keeps
+ * a sane part order (WORK first so it survives damage longest, MOVE last) no
+ * matter what order the producer emitted.
+ */
+function shrinkQueuedBody(body:string[], name:string):boolean {
+    if(!body || body.length <= 2) return false;
+
+    let counts = {};
+    for(let part of body) {
+        counts[part] = (counts[part] || 0) + 1;
+    }
+    let moves = counts[MOVE] || 0;
+    let others = body.length - moves;
+
+    if(name && name.startsWith("Reserver")) {
+        // [CLAIM,MOVE] x N. Drop a whole pair off the end; a reserver with no
+        // CLAIM is a 50 energy creep that walks to a remote and does nothing,
+        // so [CLAIM,MOVE] is the floor and below it the entry just waits for
+        // energy (it is deliberately exempt from the clear rungs).
+        if((counts[CLAIM] || 0) <= 1) return false;
+        counts[CLAIM] --;
+        if(moves > 1) counts[MOVE] --;
+    }
+    else if(name && name.startsWith("EnergyMiner")) {
+        // A miner is WORK-heavy on purpose; the WORK parts past the first two
+        // are the expendable ones. 3 parts is the floor - 2 WORK + 1 MOVE still
+        // mines 4 energy/tick, anything less is not worth the walk.
+        if(body.length <= 3) return false;
+        if((counts[CARRY] || 0) > 0) counts[CARRY] --;
+        else if(moves > 1 && moves > Math.ceil(others / 2)) counts[MOVE] --;
+        else if((counts[WORK] || 0) > 2) counts[WORK] --;
+        else if(moves > 1) counts[MOVE] --;
+        else return false;
+    }
+    else {
+        // Generic: shed whatever is most over-provisioned, so the body shrinks
+        // in PROPORTION instead of losing one part type entirely. MOVE beyond
+        // one per two other parts is road-speed padding and goes first; CARRY
+        // only while there is still more than one CARRY per three WORK (a 12
+        // WORK maintainer with a single CARRY empties itself in half a tick),
+        // otherwise WORK.
+        if(moves > 1 && moves > Math.ceil(others / 2)) counts[MOVE] --;
+        else if((counts[CARRY] || 0) > 1 && (counts[CARRY] || 0) * 3 > (counts[WORK] || 0)) counts[CARRY] --;
+        else if((counts[WORK] || 0) > 1) counts[WORK] --;
+        else if((counts[CARRY] || 0) > 1) counts[CARRY] --;
+        else {
+            let shed = null;
+            for(let part of [TOUGH, RANGED_ATTACK, ATTACK, HEAL, CARRY, WORK]) {
+                if((counts[part] || 0) > 0) { shed = part; break; }
+            }
+            if(shed && body.length - moves > 1) counts[shed] --;
+            else if(moves > 1) counts[MOVE] --;
+            else return false;
+        }
+    }
+
+    let rebuilt:string[] = [];
+    for(let part of [TOUGH, WORK, CARRY, CLAIM, ATTACK, RANGED_ATTACK, HEAL, MOVE]) {
+        for(let n = 0; n < (counts[part] || 0); n++) {
+            rebuilt.push(part);
+        }
+    }
+    // never hand back something that cannot move or has nothing but MOVE
+    if(rebuilt.length < 2
+        || !_.some(rebuilt, (part:any) => part == MOVE)
+        || !_.some(rebuilt, (part:any) => part != MOVE)) {
+        return false;
+    }
+
+    body.length = 0;
+    for(let part of rebuilt) {
+        body.push(part);
+    }
+    return true;
 }
 
 
@@ -928,6 +1043,39 @@ function add_creeps_to_spawn_list(room, spawn) {
     // extra upgraders bought by a storage surplus — 0 below the tier
     // thresholds, so every gate below keeps its old behaviour there
     let surplusUpgraders = surplusUpgraderTier(room);
+
+    // Open construction sites must NEVER veto the baseline upgraders.
+    //
+    // The `constructionSitesAmount == 0` clause in the RCL2/3/4 upgrader gates
+    // was written when sites were transient: finish the site, then upgrade. The
+    // v2 base planner tops the site budget back up to ~4 every 15 ticks, so a
+    // planned room has open sites PERMANENTLY and those gates never opened
+    // again. Live E14S9 sat at RCL4, 34k banked, ticksToDowngrade 39k, 4 sites,
+    // ZERO upgraders, controller progress pinned at 8034 for over an hour.
+    //
+    // Builders still get first claim on the spawn - every builder rung below is
+    // pushed onto the queue BEFORE its upgrader rung - this only stops the
+    // sites from zeroing the upgrader roster while the room is rich enough to
+    // pay for both. 10k is the same storage floor the RCL4/5 gates already use;
+    // a room with no storage yet (or only a hub container) is judged on the
+    // sites as before below the floor - EXCEPT at RCL2/3, where there is no
+    // storage to read at all and the same permanent sites would otherwise pin a
+    // young room at its current level forever. Those rosters are 2-4 upgraders
+    // off a 300-550 energy spawn, which is exactly how a room is meant to climb
+    // to RCL4 in the first place.
+    let upgraderEnergyFloor = storage && storage.store[RESOURCE_ENERGY] > 10000;
+
+    // A REMOTE miner stands in the REMOTE room, so EnergyMinersInRoom reads 0
+    // while mining is fully staffed - and every builder rung from RCL4 up
+    // requires it to be non-zero, so a room whose sources are worked by remote
+    // miners (or whose in-room miners happen to be walking home) silently
+    // stopped building with a full storage and open sites. A room sitting on a
+    // real bank can pay for construction wherever its miners are standing.
+    let bankCanBuild = storage && storage.structureType === STRUCTURE_STORAGE && storage.store[RESOURCE_ENERGY] > 15000;
+    let sitesMayNotVetoUpgraders =
+        constructionSitesAmount == 0
+        || upgraderEnergyFloor
+        || room.controller.level <= 3;
     switch(room.controller.level) {
         case 1:
             if((fillers < spawnrules[1].filler_creep.amount || fillers < spawnrules[1].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[1].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
@@ -975,7 +1123,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[2].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[2].upgrade_creep.amount && !room.memory.danger && (constructionSitesAmount == 0 || room.controller.ticksToDowngrade < 1500)) {
+            if(upgraders < spawnrules[2].upgrade_creep.amount && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1005,7 +1153,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[3].upgrade_creep.amount && !room.memory.danger && (constructionSitesAmount == 0 || room.controller.ticksToDowngrade < 1500)) {
+            if(upgraders < spawnrules[3].upgrade_creep.amount && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1058,7 +1206,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // and an RCL4 room without a storage got ZERO builders, forever.
             // That is the soft-brick: no builders means the storage site never
             // gets built, which means no storage, which means no builders.
-            if(builders < spawnrules[4].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 15000)) {
+            if(builders < spawnrules[4].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 15000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1067,7 +1215,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // spawns no upgrader at all and controller progress freezes outright.
             // 10k feeds one upgrader comfortably; the surplus tier below is what
             // scales with real surplus.
-            if(upgraders < spawnrules[4].upgrade_creep.amount && (!storage || storage.store[RESOURCE_ENERGY] > 100000 || storage.store[RESOURCE_ENERGY] > 10000 && !rampartsInRoom.filter(function(s) {return s.hits < 900000}).length || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2) && !room.memory.danger && (constructionSitesAmount == 0 || room.controller.ticksToDowngrade < 21000)) {
+            if(upgraders < spawnrules[4].upgrade_creep.amount && (!storage || storage.store[RESOURCE_ENERGY] > 100000 || storage.store[RESOURCE_ENERGY] > 10000 && !rampartsInRoom.filter(function(s) {return s.hits < 900000}).length || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1122,7 +1270,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             // Was 15k — left sites unfinished while eco was still climbing
             // same container-vs-storage trap as RCL4 above
-            if(builders < spawnrules[5].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 0 && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
+            if(builders < spawnrules[5].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 0 || bankCanBuild) && (!storage || storage.structureType !== STRUCTURE_STORAGE || storage.store[RESOURCE_ENERGY] > 5000)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1197,7 +1345,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 console.log('Adding Repair to Spawn List: ' + name);
             }
             // Was 120k — effectively blocked all building at early RCL6 (roads/labs never finished)
-            if(builders < spawnrules[6].build_creep.amount && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 8000 || !storage)) {
+            if(builders < spawnrules[6].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 1 || bankCanBuild) && (storage && storage.store[RESOURCE_ENERGY] > 8000 || !storage)) {
                 let allowSpawn = true;
                 let spawnSmall = false;
                 // Prefer building real structures (roads/ext/labs) over rampart-only spam
@@ -1291,7 +1439,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
             }
-            if(builders < spawnrules[7].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && EnergyMinersInRoom > 1 && (storage && storage.store[RESOURCE_ENERGY] > 15000 || !storage)) {
+            if(builders < spawnrules[7].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && (EnergyMinersInRoom > 1 || bankCanBuild) && (storage && storage.store[RESOURCE_ENERGY] > 15000 || !storage)) {
                 let allowSpawn = true;
                 let spawnSmall = false;
                 for(let site of sites) {
@@ -2508,6 +2656,25 @@ function spawnFirstInLine(room, spawn) {
                 console.log("spawning", headName, "creep error", spawnAttempt, room.name);
             }
             let segment:string[] = room.memory.spawn_list[0]
+            // How long the spawn has sat IDLE. room.memory.lastTimeSpawnUsed is
+            // a Game.time STAMP (see the top of spawning()), so the shrink rungs
+            // below used to compare ~2.09 MILLION against 305 and were therefore
+            // permanently true: every carrier/miner/reserver that answered -6
+            // once got shrunk on the spot, whatever the room's real situation.
+            let spawnIdleFor = Game.time - (room.memory.lastTimeSpawnUsed || Game.time);
+
+            // ...but that stamp is COARSE: it only advances when the spawn
+            // finishes a creep with an EMPTY queue, so any room whose queue
+            // stays busy reads "idle" forever and every unaffordable
+            // carrier/miner head would collapse to its floor in six consecutive
+            // ticks. Two more conditions make the rung mean what it says. The
+            // head must actually be the thing that is stuck - 40 consecutive
+            // -6 answers, the same bar the interleave rung uses, though this
+            // deliberately does NOT touch spawnStall itself - and a body walks
+            // DOWN one step per 40 ticks, so the room gets a fair chance to
+            // afford each smaller version before the next step is taken.
+            let mayShrinkHead = room.memory.spawnStall > 40
+                && Game.time - (room.memory.lastShrink || 0) > 40;
             if(spawnAttempt == -6) {
 
                 let storage = Game.getObjectById(room.memory.Structures.storage);
@@ -2578,10 +2745,17 @@ function spawnFirstInLine(room, spawn) {
                     console.log("clearing spawn queue because too high energy cost or is defender/wallclearer")
 
                 }
-                else if(room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
-                room.memory.lastTimeSpawnUsed > 305 && room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
-                room.memory.lastTimeSpawnUsed > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2) {
-                    room.memory.spawn_list[0].shift();
+                else if(mayShrinkHead && (
+                spawnIdleFor > 305 && room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
+                spawnIdleFor > 305 && room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
+                spawnIdleFor > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2)) {
+                    // NOT .shift(): that stripped parts off the FRONT of the
+                    // body and produced miners with no WORK and reservers with
+                    // no CLAIM (see shrinkQueuedBody).
+                    if(shrinkQueuedBody(room.memory.spawn_list[0], room.memory.spawn_list[1])) {
+                        room.memory.lastShrink = Game.time;
+                        console.log("shrinking stalled head", room.memory.spawn_list[1], "to", bodyCost(room.memory.spawn_list[0]), "energy in", room.name);
+                    }
                 }
 
                 // ---- head-of-line relief ---------------------------------
