@@ -2862,6 +2862,21 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
 }
 
 
+/**
+ * The RCL6 carrier cutoff assumes links replaced hauling for this source.
+ * Only true when BOTH ends exist: a link within 2 of the source and a link
+ * within 2 of storage (hub-link discovery range). Hybrid rooms where legacy
+ * links squat the cap in useless spots must keep their carriers or the
+ * whole energy flow collapses (E11S2: storage 0, containers full, RCL frozen).
+ */
+function sourceLinkHaulWorks(room, sourceId) {
+    const source: any = Game.getObjectById(sourceId);
+    if (!source || !room.storage) return false;
+    const links = room.find(FIND_MY_STRUCTURES, { filter: (s) => s.structureType == STRUCTURE_LINK });
+    return links.some((l: any) => l.pos.inRangeTo(source.pos, 2))
+        && links.some((l: any) => l.pos.inRangeTo(room.storage.pos, 2));
+}
+
 function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
@@ -2869,13 +2884,19 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                 if(!Game.rooms[targetRoomName] || room.name != targetRoomName && room.memory.danger || Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData && Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps) {
                     return;
                 }
+                // self-heal rooms already parked on the forever-cutoff while
+                // their links do not actually haul (set before this guard existed)
+                if((values.lastSpawnCarrier || 0) > Game.time && targetRoomName == room.name && !sourceLinkHaulWorks(room, sourceId)) {
+                    values.lastSpawnCarrier = 0;
+                }
                 if (Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME) {
                     let newName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     let bodyForCarrier = getCarrierBody(sourceId, values, storage, spawn, room);
                     room.memory.spawn_list.push(bodyForCarrier, newName,
                         {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
                     console.log('Adding Carrier to Spawn List: ' + newName);
-                    if(Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller != undefined && Game.rooms[targetRoomName].controller.level >= 6 && targetRoomName == room.name) {
+                    if(Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller != undefined && Game.rooms[targetRoomName].controller.level >= 6 && targetRoomName == room.name
+                    && sourceLinkHaulWorks(room, sourceId)) {
                         values.lastSpawnCarrier = 5000000000;
                     }
                     else if(bodyForCarrier && bodyForCarrier.length > 0) {
