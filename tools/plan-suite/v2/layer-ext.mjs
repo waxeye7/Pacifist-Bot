@@ -52,12 +52,15 @@ const DEPTH_SAFE = 4;
 /** how long a corridor stub may reach before it has to justify itself */
 const MAX_STUB = 3;
 /**
- * hard ceiling on stub paving — corridors are cheap, sprawl is not. 48 rather
- * than 40 because the directed dig below spends a burst of tiles crossing dead
- * floor to reach a deep pocket; layer 7 prunes any corridor tile that ends up
- * serving nothing, and the fleet roads-median is the gate that actually bites.
+ * Hard ceiling on stub paving — corridors are cheap, sprawl is not. The budget
+ * came down from 48 once the cohesion ceiling landed: a skeleton that may only
+ * reach HUB_CAP_LADDER[0] tiles out does not need the extra tiles it used to
+ * spend crossing dead floor toward a distant pocket, and measured on the fleet
+ * the last few tiles of budget bought 84 road tiles for 14 deep slots. Layer 7
+ * prunes any corridor tile that ends up serving nothing, and the fleet
+ * roads-median is the gate that actually bites.
  */
-const MAX_STUB_ROADS = 48;
+const MAX_STUB_ROADS = 43;
 /** consecutive stubs allowed to yield no extension before we give up */
 const MAX_STALLS = 6;
 /**
@@ -74,7 +77,7 @@ const DIG_MAX = 8;
  */
 const RICH_RATIO = 1.5;
 /** paving budget for a room that still has somewhere worth reaching */
-const MAX_STUB_ROADS_RICH = 56;
+const MAX_STUB_ROADS_RICH = 51;
 /**
  * PAVEMENT COSTS, in the same units the stub scorer values an opened slot
  * (one deep flank = 3). That scale is the point: charging 0.8 against a term
@@ -107,6 +110,78 @@ const NEED_DEEP_MUL = 1.1;
 /** stubs allowed to add no NET deep capacity before the dig takes over */
 const P1_STALL = 2;
 
+/**
+ * COHESION — the mass is a NEIGHBOURHOOD, not a catchment area.
+ *
+ * Everything above prices a corridor tile by what it opens and what the floor
+ * was worth. Nothing priced how far away it opened it, beyond a token 0.05/tile
+ * tie-break, and a token is not a price: a deep pocket 20 tiles out scored the
+ * same per flank as one 6 tiles out, so the skeleton would happily grow a
+ * second lobe joined to the base by a single corridor. The plan still passed
+ * every structural gate — one road component, every extension on a D4 face,
+ * every invariant intact — and was still wrong, because the thing that pays
+ * for it is the FILLER, which walks the whole tour every refill cycle and eats
+ * the round trip to the lobe on each one.
+ *
+ * Two mechanisms, deliberately different in kind:
+ *
+ *   HUB_COMFORT/COHESION_W  a soft, superlinear price on distance. Inside the
+ *     comfort radius it is free; beyond it the cost grows as the square, so a
+ *     remote pocket has to open several times the capacity of nearby floor
+ *     before it wins. This is what makes "only when nearby space is genuinely
+ *     exhausted" fall out of the scoring instead of being special-cased.
+ *   HUB_CAP_LADDER  a hard ceiling on the walk distance an extension may sit
+ *     at, because a soft price can always be outvoted by a big enough pocket.
+ *
+ * The ceiling has to degrade, not fail: 60/60 outranks cohesion, and the
+ * pipeline's shell escalation cannot rescue a room here (it escalates on
+ * SHALLOW counts, never on hub distance, so it will not fire for a room whose
+ * only problem is reach). So the ladder is walked outward until the room is
+ * full and the rung that worked is recorded in extMeta.hubDistCap — a room
+ * that needed 23 says so rather than quietly shipping a lobe.
+ *
+ * What the ceiling costs is real and is paid on purpose: rooms whose deep
+ * floor lies past it take shallow tiles instead, at a personal rampart each.
+ * Fleet-wide that is +25 shallow extensions against the uncapped layer, and it
+ * buys every room a filler lap that stays inside one neighbourhood.
+ */
+const HUB_COMFORT = 12;
+const COHESION_W = 0.06;
+/**
+ * The rungs are not a smooth ramp on purpose. 14 was measured and rejected:
+ * 158 of 159 rooms "fit" inside it, so it looked free, and it cost 120 extra
+ * SHALLOW extensions — 120 personal ramparts, forever — because a room that
+ * cannot reach the deep pocket at 16 does not go without, it takes a near
+ * tile in the shallow band instead and bolts a rampart to it. A ceiling that
+ * converts deep floor into upkeep is not a tidier plan, it is a worse one.
+ */
+const HUB_CAP_LADDER = [16, 19, 23, 999];
+/**
+ * The ladder climbs for REACH only — never to shave a personal rampart.
+ *
+ * Letting it widen on upkeep as well was built and measured: it saved 15
+ * ramparts across four rooms and pushed those four rooms' extensions out to a
+ * walk distance of 19-21, which is the exact shape this ceiling exists to
+ * prevent. Fifteen ramparts is not worth reintroducing the far lobe in the
+ * rooms most prone to it, so a room that fills at the first rung ships there
+ * and its remaining shallow tiles are declared, not hidden.
+ */
+/**
+ * CLUSTERING. An extension with no orthogonal extension neighbour is confetti:
+ * the filler pays a stop for it and gets one extension's worth of transfer.
+ * The corridor-flank pattern the layer is built around naturally produces runs
+ * — a rib of extensions down one side of a road — so when a run is available
+ * it should always beat starting a new speck somewhere else at the same depth.
+ * Implemented as a frontier walk off each landed tile rather than a score,
+ * because the score would have to be recomputed after every single placement.
+ */
+const D4_OFFS = [
+  [0, 0],
+  [-1, 0],
+  [0, -1],
+  [-1, -1],
+];
+
 function idx(x, y) {
   return x + y * 50;
 }
@@ -132,14 +207,16 @@ export function planExtensions(terrain, plan) {
   // the wall line: a corridor may never be paved ON a rampart (owner: roads
   // TO ramparts, never on them) and never THROUGH one
   const cutSet = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
-  // every paved tile, live or stranded — nothing may be built on one
-  const pavedTiles = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
+  // every paved tile, live or stranded — nothing may be built on one.
+  // A FACTORY, not a value: the cohesion ladder below may run the whole
+  // placement several times, and each run has to start from the same board.
+  const freshPaved = () => new Set(plan.structures.road.map((r) => key(r.x, r.y)));
   // MUTABLE, and deliberately only the LIVE network: the road component that
   // actually contains the sitter. Earlier layers can leave a stranded road
   // fragment behind (a lab face, an observer stub) — flanking THAT with
   // extensions would put them off-network, so it does not count as a road
   // here. Layer 7 stitches those fragments back in afterwards.
-  const roadSet = (() => {
+  const freshRoadSet = () => {
     const roads = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
     const conduct = new Set([...roads, ...(plan.structures.container || []).map((c) => key(c.x, c.y))]);
     conduct.add(key(sitter.x, sitter.y));
@@ -157,16 +234,9 @@ export function planExtensions(terrain, plan) {
       }
     }
     return new Set([...comp].filter((k) => roads.has(k)));
-  })();
+  };
 
   const hubField = fieldFrom(terrain, sitter, occupied);
-
-  const blockedNow = new Set(occupied);
-  const extensions = [];
-  const stubRoads = [];
-  let faces = faced; // reassigned to the interior-reachable subset below
-  let wallKeep = []; // cut tiles that must stay walk-reachable (M4)
-  let roadKeep = []; // road tiles that must stay walk-reachable (C3)
 
   /** depth tier: 0 = free, 1/2 = needs a personal rampart, -1 = unusable */
   const tierOf = (i) => {
@@ -177,11 +247,71 @@ export function planExtensions(terrain, plan) {
     return -1;
   };
 
+  // baseline: eco works OUTSIDE the shell (source containers, controller
+  // link) are unreachable by the interior BFS by construction — the
+  // invariant only preserves faces that are interior-reachable NOW.
+  // Derived from the untouched board, so it is the same for every rung of the
+  // cohesion ladder and is computed exactly once.
+  let faces, wallKeep, roadKeep;
+  {
+    const seen = new Uint8Array(2500);
+    const si = idx(sitter.x, sitter.y);
+    seen[si] = 1;
+    const q = [si];
+    let qi = 0;
+    while (qi < q.length) {
+      const i = q[qi++];
+      const x = i % 50,
+        y = (i / 50) | 0;
+      for (const [dx, dy] of D8) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const ni = nx + ny * 50;
+        if (seen[ni] || !walkable(terrain, nx, ny) || ext[ni]) continue;
+        if (occupied.has(key(nx, ny))) continue;
+        seen[ni] = 1;
+        q.push(ni);
+      }
+    }
+    faces = faced.filter((f) => {
+      for (const [dx, dy] of D8) {
+        const x = f.x + dx,
+          y = f.y + dy;
+        if (x >= 0 && y >= 0 && x <= 49 && y <= 49 && seen[idx(x, y)]) return true;
+      }
+      return false;
+    });
+    // baseline wall reachability — segments already cut off by the hub/labs/
+    // towers are not the extension layer's fault and are not its problem
+    wallKeep = (plan.shell?.cut || []).filter((c) => seen[idx(c.x, c.y)]);
+    // same rule for the roads that exist today (stubs grown below are always
+    // attached to the live network, so they need no separate guard)
+    roadKeep = plan.structures.road.filter((r) => seen[idx(r.x, r.y)]);
+  }
+
+  /**
+   * ONE full placement run under a hard cohesion ceiling: no extension may sit
+   * further than `hubCap` interior walk steps from the sitter, and no corridor
+   * may be paved past it either (a road nothing inside the ceiling can flank
+   * is a road that serves nothing). Pure — it touches no state outside itself,
+   * so the ladder can re-run it.
+   */
+  function attempt(hubCap) {
+  const pavedTiles = freshPaved();
+  const roadSet = freshRoadSet();
+  const blockedNow = new Set(occupied);
+  const extensions = [];
+  /** the same tiles as `extensions`, for the O(1) 2x2 test below */
+  const extSet = new Set();
+  const stubRoads = [];
+
   /** a tile an extension could legally occupy (ignoring road adjacency) */
   const extCapable = (x, y) => {
     if (!buildable(terrain, x, y)) return false;
     const i = idx(x, y);
     if (ext[i] || hubField[i] >= 9999) return false;
+    if (hubField[i] > hubCap) return false; // cohesion ceiling
     if (tierOf(i) < 0) return false;
     const k = key(x, y);
     return !blockedNow.has(k) && !pavedTiles.has(k);
@@ -239,59 +369,53 @@ export function planExtensions(terrain, plan) {
     return true;
   };
 
-  // baseline: eco works OUTSIDE the shell (source containers, controller
-  // link) are unreachable by the interior BFS by construction — the
-  // invariant only preserves faces that are interior-reachable NOW.
-  {
-    const seen = new Uint8Array(2500);
-    const si = idx(sitter.x, sitter.y);
-    seen[si] = 1;
-    const q = [si];
-    let qi = 0;
-    while (qi < q.length) {
-      const i = q[qi++];
-      const x = i % 50,
-        y = (i / 50) | 0;
-      for (const [dx, dy] of D8) {
-        const nx = x + dx,
-          ny = y + dy;
-        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-        const ni = nx + ny * 50;
-        if (seen[ni] || !walkable(terrain, nx, ny) || ext[ni]) continue;
-        if (blockedNow.has(key(nx, ny))) continue;
-        seen[ni] = 1;
-        q.push(ni);
-      }
-    }
-    faces = faced.filter((f) => {
-      for (const [dx, dy] of D8) {
-        const x = f.x + dx,
-          y = f.y + dy;
-        if (x >= 0 && y >= 0 && x <= 49 && y <= 49 && seen[idx(x, y)]) return true;
-      }
-      return false;
-    });
-    // baseline wall reachability — segments already cut off by the hub/labs/
-    // towers are not the extension layer's fault and are not its problem
-    wallKeep = (plan.shell?.cut || []).filter((c) => seen[idx(c.x, c.y)]);
-    // same rule for the roads that exist today (stubs grown below are always
-    // attached to the live network, so they need no separate guard)
-    roadKeep = plan.structures.road.filter((r) => seen[idx(r.x, r.y)]);
-  }
-
   const shallow = [];
   // A tile the invariant rejected stays rejected: blockedNow only ever grows,
   // so the free region only ever shrinks. Memoising this is what keeps the
   // place/stub/place loop from re-running the BFS over the same losers every
   // round (the loop runs once per corridor stub, not once per room).
   const rejected = new Set();
-  /** one candidate, invariant-checked, with the rollback. true = it landed */
-  const tryPlace = (c) => {
+  /**
+   * SOLID BLOCKS ARE NOT DENSITY. Four extensions in a 2x2 square have no
+   * interior face between them, so the filler cannot service the block from
+   * one lane — it has to run both flanking rows to reach all four, and the two
+   * inner tiles are permanently one step further from every road than the
+   * corridor pattern would have put them. A rib two tiles wide is a brick.
+   *
+   * Cheap and local: the candidate can only close a square as one of the four
+   * corners of the four squares it belongs to.
+   */
+  const makesSquare = (x, y) => {
+    for (const [ox, oy] of D4_OFFS) {
+      let n = 0;
+      for (let dx = 0; dx < 2; dx++) {
+        for (let dy = 0; dy < 2; dy++) {
+          const px = x + ox + dx,
+            py = y + oy + dy;
+          if ((px === x && py === y) || extSet.has(key(px, py))) n++;
+        }
+      }
+      if (n === 4) return true;
+    }
+    return false;
+  };
+  /**
+   * one candidate, invariant-checked, with the rollback. true = it landed.
+   * `allowSquare` is the fallback's escape hatch: 60/60 outranks the shape of
+   * the mass, so the one-at-a-time tail may brick if that is all the room has.
+   */
+  const tryPlace = (c, allowSquare = false) => {
+    // TARGET is a CAP, not just a goal: CONTROLLER_STRUCTURES allows 60
+    // extensions at RCL8 and the 61st is a site the engine refuses. Enforced
+    // here rather than at each caller — the fill walks a frontier, and every
+    // loop that would otherwise have to re-check is one that can miss.
+    if (extensions.length >= TARGET) return false;
     const ck = key(c.x, c.y);
     if (rejected.has(ck)) return false;
     // a candidate can go stale inside a pass (an earlier placement took its
     // tile or a stub paved it — cheap re-check)
     if (!extCapable(c.x, c.y)) return false;
+    if (!allowSquare && makesSquare(c.x, c.y)) return false;
     const trial = new Set(blockedNow);
     trial.add(ck);
     if (!invariantHolds(trial)) {
@@ -299,12 +423,14 @@ export function planExtensions(terrain, plan) {
       return false;
     }
     extensions.push({ x: c.x, y: c.y });
+    extSet.add(ck);
     blockedNow.add(ck);
     // the pre-check can't see the candidate's OWN face (it isn't in the faces
     // list yet) — re-verify with it included, roll back if sealed. Without
     // this, one face-less extension poisons every later trial.
     if (!invariantHolds(blockedNow)) {
       blockedNow.delete(ck);
+      extSet.delete(ck);
       extensions.pop();
       rejected.add(ck);
       return false;
@@ -320,13 +446,74 @@ export function planExtensions(terrain, plan) {
     const si = shallow.findIndex((e) => e.x === c.x && e.y === c.y);
     if (si >= 0) shallow.splice(si, 1);
     blockedNow.delete(ck);
+    extSet.delete(ck);
     rejected.add(ck);
   };
+  /** land c, then grow the rib it started */
+  const placeRun = (c, allowSquare) => {
+    if (!tryPlace(c, allowSquare)) return false;
+      // GROW THE RIB, don't scatter specks. A global sort by (tier, distance)
+      // is blind to what it just placed, so it fills a whole distance band
+      // before it comes back for the tile next door — and a band is a
+      // checkerboard once the invariant has refused every other tile in it.
+      // The tile that just landed makes its own orthogonal neighbours the
+      // obvious next pick, so take them now, breadth-first off the new tile.
+      //
+      // NEVER at a worse depth tier: a shallow slot is a personal rampart
+      // forever, and cohesion is not worth buying one. That keeps the sweep
+      // order (deep everywhere, then shallow) exactly as it was.
+    const frontier = [c];
+    for (let fi = 0; fi < frontier.length && extensions.length < TARGET; fi++) {
+      const f = frontier[fi];
+      for (const [dx, dy] of D4) {
+        const nx = f.x + dx,
+          ny = f.y + dy;
+        if (!extCapable(nx, ny) || !onRoad(nx, ny)) continue;
+        const nt = tierOf(idx(nx, ny));
+        if (nt < 0 || nt > c.tier) continue;
+        const n = { x: nx, y: ny, tier: nt };
+        if (tryPlace(n, allowSquare)) frontier.push(n);
+      }
+    }
+    return true;
+  };
+  /**
+   * A BRICK IS ONLY WORSE THAN A RIB — it is much better than a personal
+   * rampart. Forbidding 2x2 blocks outright was measured on the fleet: it
+   * deleted all 316 of them and cost 79 extensions their deep tile, which is
+   * 79 ramparts to build, decay and repair forever. That is a cosmetic win
+   * paid for with permanent upkeep, and the upkeep is the thing the owner
+   * actually asked to minimise.
+   *
+   * So the block is DEFERRED, never forbidden: within each depth tier, take
+   * every candidate that does not brick first, and only then come back for the
+   * ones that do — before dropping to the next tier down. A square therefore
+   * forms only where the room had no other tile at that depth, which is the
+   * one case where it is the right answer.
+   */
   const place = (cands) => {
+    let deferred = [];
+    let curTier = -1;
+    const flush = () => {
+      for (const c of deferred) {
+        if (extensions.length >= TARGET) break;
+        placeRun(c, true);
+      }
+      deferred = [];
+    };
     for (const c of cands) {
       if (extensions.length >= TARGET) break;
-      tryPlace(c);
+      if (c.tier !== curTier) {
+        flush();
+        curTier = c.tier;
+      }
+      if (makesSquare(c.x, c.y)) {
+        deferred.push(c);
+        continue;
+      }
+      placeRun(c, false);
     }
+    flush();
   };
 
   /**
@@ -433,8 +620,21 @@ export function planExtensions(terrain, plan) {
     if (x < 2 || y < 2 || x > 47 || y > 47) return false;
     const i = idx(x, y);
     if (!walkable(terrain, x, y) || ext[i] || hubField[i] >= 9999) return false;
+    // the ceiling binds the corridor too: past it there is nothing legal left
+    // to flank, so any tile out there is pavement that serves nothing
+    if (hubField[i] > hubCap) return false;
     const k = key(x, y);
     return !blockedNow.has(k) && !pavedTiles.has(k) && !cutSet.has(k);
+  };
+  /**
+   * What reaching this far costs the filler, every cycle, forever. Free inside
+   * the comfort radius and quadratic outside it — so nearby floor is taken
+   * first as a matter of arithmetic, and a distant pocket has to be worth
+   * several flanks before the walker will stretch for it.
+   */
+  const reachCost = (i) => {
+    const over = hubField[i] - HUB_COMFORT;
+    return hubField[i] * 0.05 + (over > 0 ? over * over * COHESION_W : 0);
   };
 
   /**
@@ -480,7 +680,7 @@ export function planExtensions(terrain, plan) {
         // corridor hugs the shallow band and reaches in from the side.
         const st = tierOf(idx(s.x, s.y));
         const cost = st === 0 ? COST_DEEP : st > 0 ? COST_SHALLOW : COST_DEAD;
-        const sc = now * 3 + pot(s.x, s.y) - hubField[idx(s.x, s.y)] * 0.05 - cost;
+        const sc = now * 3 + pot(s.x, s.y) - reachCost(idx(s.x, s.y)) - cost;
         if (sc > bestSc) {
           bestSc = sc;
           best = s;
@@ -727,7 +927,9 @@ export function planExtensions(terrain, plan) {
       rest.sort((a, b) => a.tier - b.tier || a.d - b.d);
       let landed = false;
       for (const c of rest) {
-        if (!tryPlace(c)) continue;
+        // the tail may brick: this runs only when the corridors are out of
+        // ideas and the alternative is shipping 59
+        if (!tryPlace(c, true)) continue;
         // The pre-field was derived with c's tile still FREE, so its parent
         // chain is allowed to run straight through the tile we just built on
         // (that is how an extension once ended up with a road stacked on it).
@@ -779,6 +981,36 @@ export function planExtensions(terrain, plan) {
       corridorPlaced,
       corridorFallback: extensions.length - corridorPlaced,
       maxHubDist: extensions.length ? Math.max(...extensions.map((e) => hubField[idx(e.x, e.y)])) : 0,
+      hubDistCap: hubCap,
     },
   };
+  } // end attempt
+
+  /**
+   * THE COHESION LADDER. Take the tightest ceiling that fills the room.
+   *
+   * 60/60 is not negotiable and the shell escalation cannot rescue this axis —
+   * it re-composes on SHALLOW counts, so a room whose only problem is reach
+   * never triggers it and would silently ship 57 extensions. So the ceiling
+   * relaxes on its own, and only ever for reach: the first rung that fills the
+   * room wins, and `hubDistCap` records which one it was. A room sitting on a
+   * wide rung is saying in its own meta that its floor is genuinely strung
+   * out, rather than a lobe having appeared without anyone noticing.
+   *
+   * `betterRun` only decides what to keep if NO rung fills the room — the
+   * fullest, then the cheapest in personal ramparts, then the most compact.
+   * Shipping short is the one outcome worse than shipping wide.
+   */
+  const betterRun = (a, b) => {
+    if (a.extension.length !== b.extension.length) return a.extension.length > b.extension.length;
+    if (a.extMeta.shallow !== b.extMeta.shallow) return a.extMeta.shallow < b.extMeta.shallow;
+    return a.extMeta.maxHubDist < b.extMeta.maxHubDist;
+  };
+  let out = null;
+  for (const cap of HUB_CAP_LADDER) {
+    const run = attempt(cap);
+    if (!out || betterRun(run, out)) out = run;
+    if (run.extension.length >= TARGET) break;
+  }
+  return out;
 }
