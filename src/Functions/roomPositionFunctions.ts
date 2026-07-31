@@ -8,8 +8,10 @@ interface RoomPosition {
 RoomPosition.prototype.getNearbyPositions = function getNearbyPositions() {
     let positions = [];
 
-    let startX = this.x - 1 || 1;
-    let startY = this.y - 1 || 1;
+    // clamp to 1..48: `this.x - 1 || 1` only guarded x=1 — standing ON an
+    // exit tile (x=0) produced startX=-1 and a constructor throw every tick
+    let startX = Math.max(1, this.x - 1);
+    let startY = Math.max(1, this.y - 1);
 
     for(let x = startX; x <= this.x + 1 && x < 49; x++) {
 
