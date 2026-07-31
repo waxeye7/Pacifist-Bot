@@ -95,9 +95,64 @@ function spawning(room: any) {
         room.memory.danger && (Game.time - room.memory.lastTimeSpawnUsed) % 7 == 0 && room.memory.spawn_list.length == 0) {
 
             add_creeps_to_spawn_list(room, spawn);
+            clampSpawnListToCapacity(room);
     }
 
 
+}
+
+/**
+ * Nothing may sit in the queue that the room could never build.
+ *
+ * Most producers size their bodies off room.energyCapacityAvailable, so a body
+ * that is over capacity means the room shrank (extensions destroyed, downgrade)
+ * or a producer guessed wrong. The -6 handling in spawnFirstInLine already
+ * throws such a body away, but only once it has reached the HEAD - until then
+ * it is dead weight everything behind it has to wait for. Catching it at queue
+ * time keeps the queue to things the room can at least eventually pay for.
+ *
+ * Clamping trims from the tail rather than dropping outright, because a smaller
+ * creep of the right role now beats the right creep never; the last MOVE is
+ * never trimmed, and a body that cannot be trimmed into budget while staying a
+ * useful creep is dropped. Both paths log.
+ */
+function clampSpawnListToCapacity(room) {
+    let cap = room.energyCapacityAvailable;
+    for(let i = 0; i + 2 < room.memory.spawn_list.length; i += 3) {
+        let body:string[] = room.memory.spawn_list[i];
+        if(!body || !body.length) continue;
+        let cost = _.sum(body, (part:any) => BODYPART_COST[part]);
+        if(cost <= cap) continue;
+
+        let name = room.memory.spawn_list[i+1];
+        let originalLength = body.length;
+        let originalCost = cost;
+        while(cost > cap && body.length > 1) {
+            let moves = _.filter(body, (part:any) => part == MOVE).length;
+            let cut = -1;
+            for(let j = body.length - 1; j >= 0; j--) {
+                if(body[j] == MOVE && moves <= 1) continue;
+                cut = j;
+                break;
+            }
+            if(cut < 0) break;
+            cost -= BODYPART_COST[body[cut]];
+            body.splice(cut, 1);
+        }
+
+        // A body that only just missed (a miner sized for a capacity the room
+        // lost) is worth shrinking. A body that needs a third of itself cut off
+        // is a boosted war creep queued by a Command against the wrong room -
+        // half of one of those is not a creep, it is a donation, so it gets
+        // dropped exactly like the head rung in spawnFirstInLine drops it.
+        if(cost > cap || body.length < 2 || body.length < originalLength * 0.7 || !_.some(body, (part:any) => part != MOVE)) {
+            console.log("dropping", name, "from spawn list:", originalCost, "energy body does not fit capacity", cap, "in", room.name);
+            room.memory.spawn_list.splice(i, 3);
+            i -= 3;
+            continue;
+        }
+        console.log("clamped", name, "from", originalLength, "to", body.length, "parts to fit capacity", cap, "in", room.name);
+    }
 }
 
 
@@ -2427,10 +2482,31 @@ function spawnFirstInLine(room, spawn) {
             room.memory.spawn_list.shift();
             room.memory.spawn_list.shift();
             room.memory.data.c_spawned++;
+            room.memory.spawnStall = 0;
+            delete room.memory.spawnStallName;
             return "spawning";
         }
         else {
-            console.log("spawning", room.memory.spawn_list[1], "creep error", spawnAttempt, room.name);
+            let headName:string = room.memory.spawn_list[1];
+
+            // How many ticks IN A ROW this exact head has answered -6. Keyed on
+            // the name so a clear/shrink rung swapping the head starts the count
+            // over; queued names are stable for as long as the entry is queued.
+            if(spawnAttempt == -6) {
+                if(room.memory.spawnStallName !== headName) {
+                    room.memory.spawnStallName = headName;
+                    room.memory.spawnStall = 0;
+                }
+                room.memory.spawnStall = (room.memory.spawnStall || 0) + 1;
+            }
+
+            // A head the room cannot buy answers -6 EVERY tick, and logging that
+            // every tick buried the console (59 identical lines in a 12s sample
+            // of E14S9). The first one and then one every 50 ticks is enough to
+            // see a room is stuck; every other error code still logs as before.
+            if(spawnAttempt != -6 || room.memory.spawnStall <= 1 || room.memory.spawnStall % 50 == 0) {
+                console.log("spawning", headName, "creep error", spawnAttempt, room.name);
+            }
             let segment:string[] = room.memory.spawn_list[0]
             if(spawnAttempt == -6) {
 
@@ -2507,6 +2583,45 @@ function spawnFirstInLine(room, spawn) {
                 room.memory.lastTimeSpawnUsed > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2) {
                     room.memory.spawn_list[0].shift();
                 }
+
+                // ---- head-of-line relief ---------------------------------
+                // Some heads can neither be bought nor thrown away: a Reserver
+                // is [CLAIM,MOVE] = 650, it is deliberately exempt from every
+                // clear rung above (a remote must be able to wait for energy),
+                // its cost is under energyCapacityAvailable so the capacity
+                // clause does not catch it, and the shrink rung below it needs
+                // length > 2 so a two part body can never shrink either. The
+                // result on live E14S9: RCL4, 47k in storage, 4 open sites,
+                // ZERO builders and ZERO upgraders for ~40 minutes while the
+                // room trickled back up towards 650 at ~1 energy/tick. The
+                // 300 energy Builder sitting second in line was affordable that
+                // entire time and never once got a spawnCreep() call.
+                //
+                // So after the head has answered -6 for 40 ticks straight, walk
+                // a few entries down and spawn the first one the room can
+                // actually pay for. Memory is NOT reordered - the head keeps
+                // its first claim on the spawn every following tick, it just
+                // stops holding the whole room hostage while it waits. The scan
+                // is capped at 5 entries so a long war queue cannot make this
+                // expensive.
+                if(room.memory.spawnStall > 40
+                && room.memory.spawn_list.length >= 6
+                && room.memory.spawn_list[1] === headName) {
+                    let scanned = 0;
+                    for(let i = 3; i + 2 < room.memory.spawn_list.length && scanned < 5; i += 3) {
+                        scanned++;
+                        let candidate:string[] = room.memory.spawn_list[i];
+                        if(!candidate || !candidate.length) continue;
+                        let cost = _.sum(candidate, (part:any) => BODYPART_COST[part]);
+                        if(cost > room.energyAvailable || cost > room.energyCapacityAvailable) continue;
+                        if(spawn.spawnCreep(candidate, room.memory.spawn_list[i+1], room.memory.spawn_list[i+2]) == 0) {
+                            console.log("spawn head", headName, "unaffordable for", room.memory.spawnStall, "ticks - interleaving", room.memory.spawn_list[i+1], room.name);
+                            room.memory.spawn_list.splice(i, 3);
+                            room.memory.data.c_spawned++;
+                            return "spawning";
+                        }
+                    }
+                }
             }
             if(spawnAttempt == -3 || spawnAttempt == -14 || spawnAttempt == -10) {
                 room.memory.spawn_list.shift();
@@ -2519,6 +2634,8 @@ function spawnFirstInLine(room, spawn) {
         }
     }
     else {
+        room.memory.spawnStall = 0;
+        delete room.memory.spawnStallName;
         return "list empty";
     }
 
