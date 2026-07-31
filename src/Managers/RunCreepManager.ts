@@ -30,6 +30,12 @@ function RunCreepManager(name) {
         const stack = error && error.stack ? String(error.stack).split("\n").slice(0, 4).join(" | ") : String(error);
         const role = (Memory.creeps && Memory.creeps[name] && (Memory.creeps[name] as any).role) || "?";
         logAlways(`Error running creep ${name} (role ${role}): ${stack}`);
+        // a poisoned movement cache (dest with a bad room name) re-throws every
+        // tick until the creep dies — wipe it so the next tick starts clean
+        if (/Invalid room name|Invalid arguments in RoomPosition/.test(String(error)) && Memory.creeps && Memory.creeps[name]) {
+            delete (Memory.creeps[name] as any)._move;
+            delete (Memory.creeps[name] as any)._trav;
+        }
     }
 }
 
