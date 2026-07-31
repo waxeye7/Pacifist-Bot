@@ -46,6 +46,14 @@
  */
 import { D4, D8, buildable, key, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
+import {
+  MOBILITY_TARGET,
+  arriveAt,
+  bfsField,
+  interiorWalk,
+  maskFromKeys,
+  mobilityStats,
+} from "./layer-shell.mjs";
 
 const TARGET = 60;
 const DEPTH_SAFE = 4;
@@ -182,8 +190,168 @@ const D4_OFFS = [
   [-1, -1],
 ];
 
+/**
+ * DEFENDER LANES — the mass is grown AROUND the garrison's route, not over it.
+ *
+ * THE DEFECT THIS REPLACES. Layer 7 used to fix defender mobility by RELOCATING
+ * extensions this layer had already placed: measure the finished base, find the
+ * wall pair the mass had walled off, pull one to four extensions out of the lane
+ * and rehouse them. It worked (fleet as-built max mean 3.61 -> 2.92) and it was
+ * the "repair-loop architecture" anti-pattern by name — a layer fixing a
+ * previous layer's output. The reason given was that the lap is a property of
+ * the FINISHED base and cannot be known while the mass is being placed.
+ *
+ * That reason is false, and this is the proof. The lap cannot be KNOWN in
+ * advance, but it can be BOUNDED: whatever the mass does, it can only ever take
+ * tiles that an extension is allowed to stand on. So walk the interior with
+ * EVERY extension-capable tile blocked at once — the worst base this layer could
+ * possibly build — and measure the mobility of that. Any pair that survives THAT
+ * walk inside the target survives every real placement too.
+ *
+ * The reservation is then a straightforward greedy on the bound: while the
+ * worst-case lap is worse than the lap the shell itself measured with no mass at
+ * all (the floor — this layer cannot beat the room's own geometry, and pretending
+ * to would be score-chasing), take the worst pair, walk its SHORTEST mass-free
+ * lane, and reserve the capable tiles along it. Reserved tiles behave exactly
+ * like cut tiles for placement: no extension may take one. Corridors may still
+ * pave them — a road does not block a creep, so a paved lane is still a lane, and
+ * in practice the corridor layer is delighted to run down a reserved lane and
+ * flank it on both sides.
+ *
+ * Measured on the fleet: 159/159 rooms reach the mass-free floor, at a median of
+ * 6 reserved tiles (1 of them deep) per room. That is the whole repair loop,
+ * bought for less than one extension's worth of deep floor in the median room —
+ * and bought as a GUARANTEE rather than a measurement after the fact.
+ */
+const LANE_ROUNDS = 10;
+/**
+ * DEEP FLOOR IS THE ONE THING A LANE MAY NOT SPEND FREELY.
+ *
+ * A deep tile is an extension slot that does not rent a personal rampart; a
+ * shallow tile is the same slot with a rampart bolted to it forever. So a lane
+ * laid across the deep core in a room that is already rationing deep floor does
+ * not cost "a tile", it costs an upkeep bill — measured, an unrationed 20-tile
+ * allowance took the fleet from 86 shallow extensions to 124 and pushed the
+ * rampart total over its gate. Two rules, both derived from that:
+ *
+ *   SURPLUS ONLY  the allowance is what the room has left over after the mass
+ *                 is fed (LANE_DEEP_KEEP deep slots), clamped to LANE_DEEP_MAX.
+ *                 A room with no surplus reserves only dead and shallow floor,
+ *                 and if that is not enough to move the lap it says so.
+ *   WORTH IT      a reservation must buy back at least LANE_MIN_GAIN tiles of
+ *                 detour against the mass-free walk. Most rooms' floor is
+ *                 already over the 1.2 target for reasons of terrain, and
+ *                 spending permanent upkeep to shave one tick off a lap that
+ *                 misses anyway is score-chasing.
+ *
+ * ...and then the ladder at the bottom of the file CHECKS, per room, that the
+ * reservation was actually free: measured across the fleet, roughly nine in ten
+ * reserved deep tiles cost nothing at all (the displaced extension simply takes
+ * the next deep tile along), and it is only the tenth that turns into a
+ * permanent rampart. A budget cannot tell those apart in advance; re-running the
+ * room without the reservation can, and does.
+ */
+const LANE_DEEP_MAX = 24;
+const LANE_DEEP_KEEP = 60;
+const LANE_MIN_GAIN = 1;
+/** what a lane step is charged for the tile it consumes, in path tie-breaks */
+const LANE_PEN_DEEP = 4;
+const LANE_PEN_SHALLOW = 2;
+/**
+ * FLANK COMPLETION. A corridor with extensions down only one side is half a
+ * corridor: the tiles on its other face are already served by a road we are
+ * already paying for, and taking them costs nothing but the ceiling. When the
+ * mass would otherwise fall through to the one-at-a-time tail — the pass that
+ * grows diagonal staircases of single extensions with private dead-pocket roads
+ * — completing an existing corridor's second flank is strictly better, so the
+ * cohesion ceiling is relaxed by this much for THAT and nothing else.
+ */
+const FLANK_RELAX = 2;
+/** and never past the fleet's hard reach gate, whatever rung the ladder is on */
+const FLANK_HARD_CAP = 18;
+
 function idx(x, y) {
   return x + y * 50;
+}
+const round2 = (v) => Math.round(v * 100) / 100;
+
+/**
+ * Shortest D8 lane from a to b over `mask`, breaking ties toward the tiles the
+ * mass would miss least.
+ *
+ * LENGTH IS NOT NEGOTIABLE — a lane one step longer is a lap one step longer,
+ * which is the thing being bought — so the primary cost is the step count,
+ * scaled far above any tile penalty a path this size can accumulate. Underneath
+ * that the walk prefers dead and shallow floor to deep floor, because a deep
+ * tile is an extension that would not have rented a personal rampart. Same
+ * length, cheaper floor: a lane that runs along the shallow band instead of
+ * straight through the deep core, for free.
+ */
+const LANE_STEP = 10;
+function shortestLane(mask, a, b, penalty) {
+  const dist = new Int32Array(2500).fill(0x7fffffff);
+  const prev = new Int32Array(2500).fill(-2);
+  const si = idx(a.x, a.y),
+    ti = idx(b.x, b.y);
+  if (!mask[si] || !mask[ti]) return null;
+  // binary heap over (cost, tile) — costs are tiny integers, the room is 2500
+  // tiles, and a bucket queue would need one bucket per distinct cost
+  const heap = [];
+  const push = (c, i) => {
+    heap.push([c, i]);
+    let k = heap.length - 1;
+    while (k > 0) {
+      const p = (k - 1) >> 1;
+      if (heap[p][0] <= heap[k][0]) break;
+      [heap[p], heap[k]] = [heap[k], heap[p]];
+      k = p;
+    }
+  };
+  const pop = () => {
+    const top = heap[0];
+    const last = heap.pop();
+    if (heap.length) {
+      heap[0] = last;
+      let k = 0;
+      for (;;) {
+        const l = k * 2 + 1,
+          r = l + 1;
+        let s = k;
+        if (l < heap.length && heap[l][0] < heap[s][0]) s = l;
+        if (r < heap.length && heap[r][0] < heap[s][0]) s = r;
+        if (s === k) break;
+        [heap[s], heap[k]] = [heap[k], heap[s]];
+        k = s;
+      }
+    }
+    return top;
+  };
+  dist[si] = 0;
+  prev[si] = -1;
+  push(0, si);
+  while (heap.length) {
+    const [c, i] = pop();
+    if (c > dist[i]) continue;
+    if (i === ti) break;
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (!mask[ni]) continue;
+      const nc = c + LANE_STEP + penalty(nx, ny);
+      if (nc >= dist[ni]) continue;
+      dist[ni] = nc;
+      prev[ni] = i;
+      push(nc, ni);
+    }
+  }
+  if (prev[ti] === -2) return null;
+  const out = [];
+  for (let i = ti; i >= 0; i = prev[i]) out.push(i);
+  return out;
 }
 
 export function planExtensions(terrain, plan) {
@@ -290,32 +458,93 @@ export function planExtensions(terrain, plan) {
     roadKeep = plan.structures.road.filter((r) => seen[idx(r.x, r.y)]);
   }
 
+  // ------------------------------------------------------------------
+  // THE MOBILITY FLOOR — the lap this room has with NO mass in it at all.
+  //
+  // Board-independent (roads never block a creep), so it is derived once and
+  // every rung of every ladder measures against the same number. This layer is
+  // not allowed to claim credit for beating the room's own geometry, and a
+  // reservation that tried would grind the whole interior into lane chasing a
+  // target the enclosure cannot reach.
+  // ------------------------------------------------------------------
+  /** movement obstacles as the ENGINE sees them: containers/roads are not */
+  const walkBlocked = new Set(occupied);
+  for (const c of plan.structures.container || []) walkBlocked.delete(key(c.x, c.y));
+  const shellCut = plan.shell?.cut || [];
+  const freeMask = maskFromKeys(interiorWalk(terrain, cutSet, ext, walkBlocked, sitter));
+  const mFree = shellCut.length ? mobilityStats(shellCut, ext, freeMask) : { max: 0 };
+  const laneFloor = Math.max(MOBILITY_TARGET, mFree.max);
+
   /**
    * ONE full placement run under a hard cohesion ceiling: no extension may sit
    * further than `hubCap` interior walk steps from the sitter, and no corridor
    * may be paved past it either (a road nothing inside the ceiling can flank
    * is a road that serves nothing). Pure — it touches no state outside itself,
    * so the ladder can re-run it.
+   *
+   * `useLanes` off is the honest escape hatch for a room so tight that the
+   * reservation costs it its 60th extension (see the ladder at the bottom) —
+   * 60/60 outranks the lap, always.
    */
-  function attempt(hubCap) {
+  function attempt(hubCap, useLanes) {
   const pavedTiles = freshPaved();
   const roadSet = freshRoadSet();
   const blockedNow = new Set(occupied);
+  /**
+   * The defender lanes, filled in below once the corridor SKELETON is grown and
+   * before a single extension lands. Empty until then, which is exactly right:
+   * the reservation is a statement about where the MASS may go, and the skeleton
+   * is not mass.
+   */
+  const laneSet = new Set();
+  const laneInfo = {
+    tiles: 0,
+    deep: 0,
+    rounds: 0,
+    floor: round2(mFree.max),
+    worstCase: 0,
+    bounded: 0,
+    capped: false,
+    used: !!useLanes,
+  };
   const extensions = [];
   /** the same tiles as `extensions`, for the O(1) 2x2 test below */
   const extSet = new Set();
   const stubRoads = [];
 
-  /** a tile an extension could legally occupy (ignoring road adjacency) */
-  const extCapable = (x, y) => {
+  /**
+   * A tile an extension could legally occupy (ignoring road adjacency), under
+   * a cohesion ceiling of `cap` — the ceiling is a parameter because the flank
+   * completion pass below is allowed to reach FLANK_RELAX further, and nothing
+   * else is.
+   */
+  const extCapableAt = (x, y, cap) => {
     if (!buildable(terrain, x, y)) return false;
     const i = idx(x, y);
     if (ext[i] || hubField[i] >= 9999) return false;
-    if (hubField[i] > hubCap) return false; // cohesion ceiling
+    if (hubField[i] > cap) return false; // cohesion ceiling
     if (tierOf(i) < 0) return false;
     const k = key(x, y);
+    // a reserved defender lane is a cut tile as far as the mass is concerned
+    if (laneSet.has(k)) return false;
     return !blockedNow.has(k) && !pavedTiles.has(k);
   };
+  /**
+   * THE CEILING IS +FLANK_RELAX MORE GENEROUS FOR DEEP FLOOR — and for nothing
+   * else.
+   *
+   * A corridor may only be paved inside `hubCap`, so a tile flanking one is at
+   * most hubCap+1 out: this admits precisely the SECOND FLANK of a corridor the
+   * room already owns and already walks. What it is bought with is the thing the
+   * ceiling's own header warns about — "a room that cannot reach the deep pocket
+   * at 16 does not go without, it takes a near tile in the shallow band instead
+   * and bolts a rampart to it". One extra step of filler walk against one
+   * personal rampart repaired forever is not a close call, and it is only ever
+   * offered to depth>=4 tiles, so the relaxation can never buy a rampart itself.
+   */
+  const deepReach = Math.min(hubCap + FLANK_RELAX, FLANK_HARD_CAP);
+  const extCapable = (x, y) =>
+    extCapableAt(x, y, tierOf(idx(x, y)) === 0 ? deepReach : hubCap);
 
   const onRoad = (x, y) => D4.some(([dx, dy]) => roadSet.has(key(x + dx, y + dy)));
 
@@ -404,7 +633,7 @@ export function planExtensions(terrain, plan) {
    * `allowSquare` is the fallback's escape hatch: 60/60 outranks the shape of
    * the mass, so the one-at-a-time tail may brick if that is all the room has.
    */
-  const tryPlace = (c, allowSquare = false) => {
+  const tryPlace = (c, allowSquare = false, cap = null) => {
     // TARGET is a CAP, not just a goal: CONTROLLER_STRUCTURES allows 60
     // extensions at RCL8 and the 61st is a site the engine refuses. Enforced
     // here rather than at each caller — the fill walks a frontier, and every
@@ -414,7 +643,7 @@ export function planExtensions(terrain, plan) {
     if (rejected.has(ck)) return false;
     // a candidate can go stale inside a pass (an earlier placement took its
     // tile or a stub paved it — cheap re-check)
-    if (!extCapable(c.x, c.y)) return false;
+    if (cap === null ? !extCapable(c.x, c.y) : !extCapableAt(c.x, c.y, cap)) return false;
     if (!allowSquare && makesSquare(c.x, c.y)) return false;
     const trial = new Set(blockedNow);
     trial.add(ck);
@@ -853,6 +1082,150 @@ export function planExtensions(terrain, plan) {
     if (!growStub()) break;
   }
 
+  // ------------------------------------------------------------------
+  // DEFENDER LANES — reserved here, between the skeleton and the mass.
+  //
+  // WHY EXACTLY HERE. The lane reservation is a statement about where the MASS
+  // may not go, so it has to be made after the skeleton (which is not mass, and
+  // whose corridors are permanently walkable — a road is not an obstacle) and
+  // before the first extension (which is the whole point: nothing is ever moved
+  // afterwards). Everything the placement loop does from here on only ADDS
+  // walkable tiles or takes tiles this pass has already priced.
+  //
+  // WHAT THE MASS IS MODELLED AS. Not "every tile an extension could stand on":
+  // that was tried and it is not conservative, it is BLIND. Blocking every
+  // capable tile severs the band just inside the wall (depth 2-3 tiles are
+  // capable), which does not lengthen the garrison's lap in the model — it
+  // deletes the wall tiles from the measurement altogether, and 27 rooms
+  // reported a serene 0 while their real base walked 13.
+  //
+  // So the model is the mass this run is actually about to grow: the placement
+  // loop takes road-flanking candidates deepest-tier-first and closest-to-hub
+  // first, so the first TARGET of exactly that list is what will be standing
+  // there. It is re-derived after every reservation, because taking a tile out
+  // of the pool changes which tile is 60th. Cheap, and it describes the room
+  // that gets built rather than one that never could.
+  // ------------------------------------------------------------------
+  if (useLanes && shellCut.length) {
+    /** the mass as it will land: the first TARGET road-flanking candidates */
+    let massKeys = new Set();
+    const massWalk = () => {
+      massKeys = new Set(roadCandidates().slice(0, TARGET).map((c) => key(c.x, c.y)));
+      const b = new Set(walkBlocked);
+      for (const k of massKeys) b.add(k);
+      return maskFromKeys(interiorWalk(terrain, cutSet, ext, b, sitter));
+    };
+    let m = mobilityStats(shellCut, ext, massWalk());
+    laneInfo.worstCase = m.max;
+    // Surplus deep floor only — see LANE_DEEP_MAX. The pool is counted LIVE
+    // (the skeleton has already paved some of it) and over the whole interior,
+    // not just what currently flanks a road: a deep tile the corridors have not
+    // reached yet is still an extension slot this room owns, and the loop below
+    // will go and reach it.
+    let deepFree = 0;
+    for (let x = 2; x <= 47; x++) {
+      for (let y = 2; y <= 47; y++) if (extCapable(x, y) && tierOf(idx(x, y)) === 0) deepFree++;
+    }
+    const deepBudget = Math.max(0, Math.min(LANE_DEEP_MAX, deepFree - LANE_DEEP_KEEP));
+    laneInfo.deepBudget = deepBudget;
+    let deepSpent = 0;
+    for (let round = 0; round < LANE_ROUNDS; round++) {
+      if (m.max <= laneFloor || !m.worst) break;
+      // WHICH PAIR TO OPEN. The max-RATIO pair is the gate, but it is a tail
+      // statistic and it is frequently owned by two wall tiles four apart where
+      // the garrison walks 3 and the attacker walks 2 — arithmetic that reads
+      // 1.5 and that no lane can improve, because the mass is not what is in the
+      // way. Aiming only at that pair aborted the whole search on its first
+      // round in most rooms. So both candidates the metric reports are priced by
+      // what the MASS is actually costing them — the same walk with no mass in
+      // the room — and the dearer one is opened. A lap that is long because the
+      // room is a ring around a mountain scores zero here and is left alone.
+      const priced = [m.worst, m.worstDetour]
+        .filter(Boolean)
+        .map((p) => ({ p, gain: p.din - arriveAt(bfsField(freeMask, p.a), p.b) }))
+        .sort((u, v) => v.gain - u.gain || u.p.a.x - v.p.a.x || u.p.a.y - v.p.a.y);
+      if (!priced.length || !(priced[0].gain >= LANE_MIN_GAIN)) break;
+      const { a, b } = priced[0].p;
+      const path = shortestLane(freeMask, a, b, (x, y) => {
+        const k = key(x, y);
+        if (laneSet.has(k) || !massKeys.has(k)) return 0; // nothing given up
+        return tierOf(idx(x, y)) === 0 ? LANE_PEN_DEEP : LANE_PEN_SHALLOW;
+      });
+      if (!path) break; // no mass-free lane between them either — not ours
+      // RESERVE ONLY WHAT IS IN THE WAY. The lane is a route, not a corridor we
+      // own: every tile of it that the mass was never going to take is already
+      // walkable and reserving it would cost an extension slot for nothing. So
+      // the reservation is the INTERSECTION of the route with the predicted
+      // mass — one to four tiles, the same footprint the relocation pass used
+      // to move, taken before anything is built instead of after. The
+      // prediction is re-derived every round, so the tile promoted into the
+      // mass by this round's reservation is caught by the next one.
+      const add = [];
+      let deepAdd = 0;
+      for (const i of path) {
+        const k = key(i % 50, (i / 50) | 0);
+        if (laneSet.has(k) || !massKeys.has(k)) continue;
+        add.push(k);
+        if (tierOf(i) === 0) deepAdd++;
+      }
+      if (!add.length) break; // the route is already clear of the mass
+      if (deepSpent + deepAdd > deepBudget) {
+        laneInfo.capped = true;
+        break;
+      }
+      for (const k of add) laneSet.add(k);
+      deepSpent += deepAdd;
+      laneInfo.rounds++;
+      m = mobilityStats(shellCut, ext, massWalk());
+    }
+    laneInfo.bounded = m.max;
+    laneInfo.tiles = laneSet.size;
+    laneInfo.deep = deepSpent;
+
+    // ---- PAVE THE LANE. A reserved tile is floor the mass may not build on;
+    //      left bare that is a slot spent on nothing. Paved, it is CORRIDOR —
+    //      the tile still carries the garrison (a road is not an obstacle, so
+    //      the lane is unchanged) and it now hands its own D4 neighbours a road
+    //      face they did not have, which is how a lateral defence lane pays for
+    //      itself in extension slots instead of costing them. It is also what
+    //      the plan should look like: a corridor across the base with the mass
+    //      flanking it, rather than an invisible no-build stripe.
+    //
+    //      Only tiles that join the LIVE network are paved, and only while the
+    //      room's paving budget lasts; the rest stay bare and walkable, which
+    //      is all the lane strictly needs. Layer 7's removability fixpoint
+    //      deletes any of these that ends up serving nothing.
+    for (let guard = 0; guard < 4; guard++) {
+      let progress = false;
+      for (const k of [...laneSet].sort()) {
+        if (pavedTiles.has(k) || stubRoads.length >= stubCap) continue;
+        const [x, y] = k.split(",").map(Number);
+        if (!stubTile(x, y)) continue;
+        if (!D8.some(([dx, dy]) => roadSet.has(key(x + dx, y + dy)))) continue;
+        pavedTiles.add(k);
+        roadSet.add(k);
+        stubRoads.push({ x, y });
+        laneInfo.paved = (laneInfo.paved || 0) + 1;
+        progress = true;
+      }
+      if (!progress) break;
+    }
+
+    // ---- and put the deep capacity back. The reservation takes road-flanking
+    //      DEEP slots off the table, and the skeleton stopped growing the
+    //      moment it had NEED_DEEP_SLOTS of them — so a two-tile lane can leave
+    //      the room one deep slot short of the mass and the 60th extension goes
+    //      into the shallow band with a personal rampart bolted to it, which is
+    //      the exact upkeep this planner is trying to delete. Same loop phase 1
+    //      used, same net-progress rule: only deep-hunting stubs, and only while
+    //      they actually raise the count.
+    for (;;) {
+      const capd = capacityDeep();
+      if (capd >= NEED_DEEP_SLOTS || stubRoads.length >= stubCap) break;
+      if (!growDeepStub() || capacityDeep() <= capd) break;
+    }
+  }
+
   let stalls = 0;
   for (let guard = 0; guard < 300 && extensions.length < TARGET; guard++) {
     const before = extensions.length;
@@ -965,15 +1338,47 @@ export function planExtensions(terrain, plan) {
     }
   }
 
-  // BUILD ORDER. The live bot sites the plan array's first N extensions at
-  // each RCL cap (5/10/20/30/40/50/60) — the array order IS the growth story
-  // of the room. Placement order is depth-first (a safety concern); the young
-  // room's concern is the filler tour. So the FINAL array walks outward from
-  // the hub: the 5 you own at RCL2 are the 5 closest, and every later cap
-  // prefix stays the tightest cluster. Shallow tiles are pushed back a little
-  // (+3) — early eras have no spare rampart sites to spend on them.
+  // BUILD ORDER, ON THE BASE WE ACTUALLY BUILT.
+  //
+  // The live bot sites the plan array's first N extensions at each RCL cap
+  // (5/10/20/30/40/50/60) — the array order IS the growth story of the room.
+  // Placement order is depth-first (a safety concern); the young room's concern
+  // is the filler tour, so the final array walks outward from the sitter.
+  //
+  // WHAT WAS WRONG WITH IT. "Outward" was measured on `hubField`, which is the
+  // walk field of the board as it stood when this layer STARTED — the hub kit
+  // and the eco works, and nothing else. By the time the room is finished there
+  // are sixty extensions standing in that field, and the tile that was 8 steps
+  // out across open floor is 14 steps out around the mass. Fleet-wide that put
+  // 2306 extensions in a cap prefix ahead of a strictly closer one (E16S7 had
+  // walk-8 tiles in its first twenty while 35 closer entries waited; E20S7 had
+  // four walk-17/18 tiles inside its first twenty). The +3 shallow penalty then
+  // reordered a field that was already wrong.
+  //
+  // So the field is re-derived HERE, after the last placement, over the finished
+  // interior: every structure blocks (including every other extension), roads
+  // and floor are walkable, and an extension's distance is one step off the
+  // nearest walkable D4 face — the tile the filler actually stands on. The +3
+  // shallow penalty is kept: early eras have no spare rampart sites to spend.
   const shallowSet = new Set(shallow.map((s) => key(s.x, s.y)));
-  const buildCost = (e) => hubField[idx(e.x, e.y)] + (shallowSet.has(key(e.x, e.y)) ? 3 : 0);
+  const builtField = (() => {
+    const blocked = new Set(walkBlocked);
+    for (const e of extensions) blocked.add(key(e.x, e.y));
+    return bfsField(maskFromKeys(interiorWalk(terrain, cutSet, ext, blocked, sitter)), sitter);
+  })();
+  const buildCost = (e) => {
+    let best = 9999;
+    for (const [dx, dy] of D4) {
+      const x = e.x + dx,
+        y = e.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const d = builtField[idx(x, y)];
+      if (d >= 0 && d + 1 < best) best = d + 1;
+    }
+    // an extension with no walkable D4 face cannot exist (the invariant refuses
+    // it), so this is the unreachable-pocket guard, not a real case
+    return best + (shallowSet.has(key(e.x, e.y)) ? 3 : 0);
+  };
   extensions.sort((a, b) => buildCost(a) - buildCost(b) || a.y - b.y || a.x - b.x);
 
   return {
@@ -991,8 +1396,13 @@ export function planExtensions(terrain, plan) {
       digRoads,
       corridorPlaced,
       corridorFallback: extensions.length - corridorPlaced,
+      deepReach,
       maxHubDist: extensions.length ? Math.max(...extensions.map((e) => hubField[idx(e.x, e.y)])) : 0,
       hubDistCap: hubCap,
+      // the reservation this run honoured (see the lane header). `used: false`
+      // means the ladder had to drop it to reach 60 — declared, never silent.
+      lanes: laneSet.size,
+      laneMeta: laneInfo,
     },
   };
   } // end attempt
@@ -1017,11 +1427,64 @@ export function planExtensions(terrain, plan) {
     if (a.extMeta.shallow !== b.extMeta.shallow) return a.extMeta.shallow < b.extMeta.shallow;
     return a.extMeta.maxHubDist < b.extMeta.maxHubDist;
   };
-  let out = null;
-  for (const cap of HUB_CAP_LADDER) {
-    const run = attempt(cap);
-    if (!out || betterRun(run, out)) out = run;
-    if (run.extension.length >= TARGET) break;
+  const walkLadder = (useLanes) => {
+    let out = null;
+    for (const cap of HUB_CAP_LADDER) {
+      const run = attempt(cap, useLanes);
+      if (!out || betterRun(run, out)) out = run;
+      if (run.extension.length >= TARGET) break;
+    }
+    return out;
+  };
+  let out = walkLadder(true);
+  /**
+   * THE RESERVATION HAS TO BE FREE, AND THE ONLY WAY TO KNOW IS TO ASK.
+   *
+   * Two things outrank a short defender lap, and both are checked by re-walking
+   * the whole ladder with no reservation at all and comparing the two rooms:
+   *
+   *   60/60          an extension short is permanent spawn-throughput loss.
+   *   PERSONAL RAMPARTS  a lane that pushes an extension out of the deep band
+   *                  buys a rampart that decays and is repaired forever. Nine
+   *                  in ten reserved deep tiles cost nothing (the displaced
+   *                  extension takes the next deep tile along) — this is how
+   *                  the tenth is caught.
+   *
+   * The bare walk is only paid for by the rooms that might fail one of those
+   * tests, so most of the fleet never composes it. Whatever is refused is
+   * recorded in laneMeta, and layer 7's verification pass then measures the lap
+   * the refusal cost — loudly, rather than papering over it.
+   */
+  const lm = out.extMeta.laneMeta;
+  if (lm.tiles && (out.extension.length < TARGET || (lm.deep > 0 && out.extMeta.shallow > 0))) {
+    const bare = walkLadder(false);
+    const shorter = bare.extension.length > out.extension.length;
+    // WHAT A LAP IS WORTH IN RAMPARTS. Upkeep is the first objective, so the
+    // default answer is "nothing" — but a room whose garrison lap halves is not
+    // the same trade as one that shaves a rounding error, and pricing them the
+    // same refuses both. The premium is the same shape the pipeline's own
+    // mobility rung uses: bounded, spendable only to buy a measured improvement,
+    // and never spendable to make an already-fine room prettier.
+    const gain = lm.worstCase - lm.bounded;
+    const premium = gain >= 2 ? 3 : gain >= 1 ? 2 : gain >= 0.5 ? 1 : 0;
+    const dearer =
+      bare.extension.length >= out.extension.length &&
+      out.extMeta.shallow - bare.extMeta.shallow > premium;
+    if (shorter || dearer) {
+      bare.extMeta.laneMeta = {
+        ...lm,
+        tiles: 0,
+        deep: 0,
+        dropped: true,
+        droppedFor: shorter ? "extensions" : "ramparts",
+        wanted: lm.tiles,
+        gain: round2(lm.worstCase - lm.bounded),
+        cost: shorter
+          ? out.extension.length - bare.extension.length
+          : out.extMeta.shallow - bare.extMeta.shallow,
+      };
+      out = bare;
+    }
   }
   return out;
 }

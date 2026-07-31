@@ -38,19 +38,16 @@
  * going to cross anyway; our haulers pay that tick on every single trip for
  * the life of the room.
  *
- *   (0) CORRIDOR BREACH — the one pass that MOVES a structure. See the header
- *       on breachCorridors below: the extension mass is grown for density and
- *       filler-tour length, and in ~60 rooms it closes the last lateral lane
- *       across the base, so the garrison walks in to the hub and back out
- *       while the attacker cuts straight across outside. This pass reopens the
- *       lane by relocating the one or two extensions standing in it. It runs
- *       FIRST, so the spur/face/prune passes below see the final mass.
+ *   (0) MOBILITY VERIFICATION — measures the finished base's defender lap and
+ *       reports it. It moves NOTHING. See the header on verifyMobility below
+ *       for what used to live here and why it is gone.
  */
-import { D4, D8, buildable, engineBuildable, isSwamp, key, walkable } from "./shared.mjs";
-import { fieldFrom } from "./layer-hub.mjs";
+import { D4, D8, isSwamp, key, walkable } from "./shared.mjs";
 import {
   BUILT_OBSTACLES,
   MOBILITY_TARGET,
+  arriveAt,
+  bfsField,
   interiorWalk,
   maskFromKeys,
   mobilityStats,
@@ -60,27 +57,6 @@ import {
 const MIN_CLUSTER = 2;
 /** a spur longer than this is a hike, not an approach — leave it unpaved */
 const MAX_SPUR = 14;
-/** shell doctrine: depth < 4 is inside ranged-attacker reach */
-const DEPTH_SAFE = 4;
-/** how many extensions one breach may move. Past this it is a redesign. */
-const BREACH_MAX_EXT = 4;
-/** worst-pair fixes attempted per room */
-const BREACH_ROUNDS = 8;
-/** a breach must buy back this share of the detour or it is not worth moving */
-const BREACH_RESTORE = 0.6;
-/**
- * Road tiles one room's breaches may spend in total (see homesFor).
- *
- * Deliberately BELOW the 6-tile ceiling this pass is allowed. The price is an
- * estimate — the filler-face net lays the actual chain later, after the spur
- * pass has moved the network, and when two rehousings share a corridor it can
- * come out a few tiles longer than either was quoted (E11S7: quoted 4, paved
- * 7). Budgeting 3 keeps the MEASURED fleet-worst at +3 road tiles per room,
- * which is what the gate is really about; the ceiling is not a target.
- */
-const BREACH_ROAD_BUDGET = 3;
-/** fleet gate: no extension may sit further than this from the hub by walk */
-const HUB_REACH_HARD = 16;
 
 function idx(x, y) {
   return x + y * 50;
@@ -88,663 +64,114 @@ function idx(x, y) {
 
 /**
  * ------------------------------------------------------------------------
- * CORRIDOR BREACH — "the attacker walks 10, I refuse to walk 20."
+ * MOBILITY VERIFICATION — "the attacker walks 10, I refuse to walk 20."
  * ------------------------------------------------------------------------
  *
- * THE DEFECT. The shell negotiates its cut against an EMPTY interior, so the
- * ratio it ships is the lap of the room, not the lap of the base. Re-measured
- * on the finished plan (meta.shell.mobilityBuilt), 70 rooms' worst wall pair
- * is slower because of our own mass. The reason is structural, not sloppy:
- * the extension layer grows ribs off the road network out of the hub, so the
- * corridor topology it produces is a STAR. Crossing the base laterally means
- * walking in to the storage and back out again, while the attacker walks the
- * chord outside. Measured worst case: E20S7, attacker 5, defender 24.
+ * WHAT USED TO BE HERE, AND WHY IT IS GONE. This was `breachCorridors`: it
+ * measured the finished base's defender lap, found the wall pair the extension
+ * mass had walled off, and RELOCATED one to four extensions out of the lane.
+ * It worked — fleet as-built worst-pair mean 3.61 -> 2.92, 178 extensions moved
+ * across 67 rooms — and it was the "repair-loop architecture" anti-pattern by
+ * name: a layer fixing a previous layer's output instead of the previous layer
+ * being corrected at the source. Its own header argued the fix was impossible
+ * anywhere else, because the lap is a property of the FINISHED base.
  *
- * WHY IT IS FIXED HERE AND NOT THERE. The extension layer cannot see this. It
- * places one tile at a time under a connectivity invariant that only asks "is
- * everything still reachable", and every single tile it lays passes that test —
- * the lane closes on the last one, and by then the mass is a fait accompli.
- * The lap is a property of the FINISHED base, so it can only be measured once
- * the base is finished. This is not a repair-loop layer patching layer 6's
- * mistakes: layer 6 made no mistake, it optimised a different objective, and
- * this pass is the one place where both objectives are on the table at once.
+ * That argument was wrong. The lap cannot be KNOWN before the mass lands, but
+ * it can be BOUNDED: the mass can only ever take tiles an extension is allowed
+ * to stand on, so walking the interior with every one of those blocked at once
+ * gives the worst base layer 6 could possibly build. Layer 6 now measures that
+ * bound BEFORE it grows anything and reserves the defender's shortest lanes
+ * until the bound is no worse than the lap the shell itself measured with no
+ * mass in the room at all (see the lane header in layer-ext). Reserved tiles
+ * are cut tiles as far as the mass is concerned; corridors may still pave them,
+ * because a road does not block a creep.
  *
- * WHAT IT SPENDS. One to four extensions RELOCATED — never deleted, never
- * demoted: 60/60 is untouchable, the destination must be deep (a personal
- * rampart is forever upkeep and mobility does not get to buy one), it must
- * already have a road on a D4 face (so the breach costs ZERO road tiles), and
- * it may not sit further from the hub than the room's own worst extension
- * already does. The vacated tile is left bare — a road there would buy
- * nothing the metric counts and cost decay forever.
- *
- * WHAT IT REFUSES. Anything that touches the hub kit, the labs, the towers or
- * the eco works; any move that strands a wall tile, a road or a structure face
- * the base can reach today; any breach that does not buy back BREACH_RESTORE
- * of the detour. And it stops the moment the room is inside the target — this
- * is a mobility pass, not a rearrangement hobby.
- *
- * THE ONE ROAD IT MAY DELETE (tier 2, see homesFor). A deep tile is a legal
- * home even with a road on it, PROVIDED that road serves nothing and carries
- * nothing — the exact tile the removability fixpoint further down would take on
- * its own. The road goes with the rehousing, the stitch and filler-face passes
- * re-settle the net, and the room ends up with one fewer road tile rather than
- * one more. This is what turned "no legal deep slot left" from 21 rooms into 5.
+ * So there is nothing left to repair, and this pass does not repair. It
+ * MEASURES: the mass-free lap (the floor this room's geometry allows), the
+ * as-built lap, and how much of the gap between them our own mass owns. When
+ * the as-built lap misses the target it declares — with both numbers, so a
+ * reader can tell a shell/terrain verdict apart from a mass we chose to grow.
+ * It relocates nothing, deletes nothing and re-sorts nothing.
  */
-function breachCorridors(terrain, plan) {
+function verifyMobility(terrain, plan) {
   const cut = plan.shell.cut || [];
-  const extensions = plan.structures.extension || [];
-  const meta = { rounds: 0, moved: 0, bricked: 0, before: 0, after: 0, stop: "target", pairs: [] };
-  if (!cut.length || !extensions.length || !plan.depth) return meta;
+  const meta = {
+    floor: 0,
+    built: 0,
+    over: 0,
+    floorOver: 0,
+    caused: 0,
+    worstCaused: false,
+    walled: 0,
+    worst: null,
+    lanes: plan.meta?.extensions?.laneMeta ?? null,
+  };
+  if (!cut.length || !plan.depth) return meta;
 
   const ext = plan.exterior;
-  const depth = plan.depth;
   const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
-  const objTiles = new Set(plan.objectTiles || []);
-  /** everything the finished base blocks EXCEPT the extension mass */
-  const fixedBlocked = new Set(objTiles);
+  /** obstacles as the engine sees them; roads/containers/ramparts are not */
+  const blockedBuilt = new Set(plan.objectTiles || []);
+  const blockedFree = new Set(plan.objectTiles || []);
   for (const t of BUILT_OBSTACLES) {
-    if (t === "extension") continue;
-    for (const p of plan.structures[t] || []) fixedBlocked.add(key(p.x, p.y));
-  }
-  /** live, mutable: the extension tiles as they stand right now */
-  const extKeys = new Set(extensions.map((e) => key(e.x, e.y)));
-  /** tiles this pass emptied — the only ones allowed to shed a rampart */
-  const vacated = new Set();
-  const blockedNow = () => new Set([...fixedBlocked, ...extKeys]);
-  const walkNow = () => interiorWalk(terrain, cutSet, ext, blockedNow(), plan.sitter);
-
-  // roads and containers never block, but they do have to stay REACHABLE —
-  // a road inside a pocket is a road nothing can build or repair
-  const roadKeys = plan.structures.road.map((r) => key(r.x, r.y));
-  const containerKeys = (plan.structures.container || []).map((c) => key(c.x, c.y));
-  const roadSetLive = new Set(roadKeys);
-  /** structures that are not extensions and want a walkable D8 face */
-  const facedFixed = [];
-  for (const t of BUILT_OBSTACLES) {
-    if (t === "extension") continue;
-    for (const p of plan.structures[t] || []) facedFixed.push(p);
-  }
-  for (const c of plan.structures.container || []) facedFixed.push(c);
-
-  /**
-   * WHAT EACH ROAD IS FOR — the same question the removability fixpoint at the
-   * bottom of this file asks, asked early enough to be useful.
-   *
-   * A road earns its upkeep by SERVING something adjacent (hub kit, labs,
-   * towers, containers, the eco objects, the sitter) or by CARRYING the way to
-   * something that does. A road that does neither is deleted down there anyway.
-   * Extensions are deliberately NOT on this list: an extension's claim on a
-   * road is its D4 filler face, which is checked per tile below, and treating
-   * all eight neighbours as sacred is what made every corridor untouchable.
-   */
-  const roadServes = new Set();
-  {
-    const servedBy = [];
-    for (const t of BUILT_OBSTACLES.concat(["container", "extractor"])) {
-      if (t === "extension") continue;
-      for (const p of plan.structures[t] || []) servedBy.push(p);
-    }
-    for (const k of objTiles) {
-      const [x, y] = k.split(",").map(Number);
-      servedBy.push({ x, y });
-    }
-    servedBy.push(plan.sitter);
-    for (const p of servedBy) {
-      roadServes.add(key(p.x, p.y));
-      for (const [dx, dy] of D8) roadServes.add(key(p.x + dx, p.y + dy));
+    for (const p of plan.structures[t] || []) {
+      blockedBuilt.add(key(p.x, p.y));
+      if (t !== "extension") blockedFree.add(key(p.x, p.y));
     }
   }
-  /** road tiles this pass deleted to make room for a rehousing */
-  const droppedRoads = new Set();
-  /**
-   * Does the sitter's road+container component survive losing `drop`?
-   *
-   * Measured against ITSELF, not against the whole road list: earlier layers
-   * can leave stranded fragments that the stitch pass below joins later, and
-   * judging against those would refuse every drop in a room that has one. The
-   * rule is simply that the component must lose the dropped tile and nothing
-   * else — this tile is not the way through.
-   */
-  const netHolds = (drop) => {
-    const nodes = new Set([...roadSetLive, ...containerKeys, key(plan.sitter.x, plan.sitter.y)]);
-    const comp = (skip) => {
-      const start = key(plan.sitter.x, plan.sitter.y);
-      if (start === skip) return null;
-      const seen = new Set([start]);
-      const st = [plan.sitter];
-      while (st.length) {
-        const cur = st.pop();
-        for (const [dx, dy] of D8) {
-          const x = cur.x + dx,
-            y = cur.y + dy;
-          const k = key(x, y);
-          if (seen.has(k) || k === skip || !nodes.has(k)) continue;
-          seen.add(k);
-          st.push({ x, y });
-        }
-      }
-      return seen;
-    };
-    const before = comp(null);
-    if (!before || !before.has(drop)) return false;
-    const after = comp(drop);
-    return after !== null && after.size === before.size - 1;
-  };
+  const wFree = interiorWalk(terrain, cutSet, ext, blockedFree, plan.sitter);
+  const wBuilt = interiorWalk(terrain, cutSet, ext, blockedBuilt, plan.sitter);
+  const freeMask = maskFromKeys(wFree);
+  const mFree = mobilityStats(cut, ext, freeMask);
+  const mBuilt = mobilityStats(cut, ext, maskFromKeys(wBuilt));
 
-  // ---- the baseline promise: whatever the base can walk to today, it keeps
-  const walk0 = walkNow();
-  const keepCut = cut.filter((c) => walk0.has(key(c.x, c.y))).map((c) => key(c.x, c.y));
-  const keepRoad = [...roadKeys, ...containerKeys].filter((k) => walk0.has(k));
-  const keepFace = facedFixed.filter((p) =>
-    D8.some(([dx, dy]) => walk0.has(key(p.x + dx, p.y + dy))),
-  );
-
-  // ---- build-order field, reproduced exactly as layer 6 derived it, so a
-  //      room this pass does not touch re-sorts to the identical array
-  const orderBlocked = new Set(objTiles);
-  for (const t of [
-    "storage",
-    "terminal",
-    "link",
-    "spawn",
-    "container",
-    "tower",
-    "lab",
-    "nuker",
-    "observer",
-  ]) {
-    for (const p of plan.structures[t] || []) orderBlocked.add(key(p.x, p.y));
-  }
-  const hubField = fieldFrom(terrain, plan.sitter, orderBlocked);
-  // A rehousing may sit two steps further out than the room's own furthest
-  // extension already does, and never past HUB_REACH_HARD — that number is the
-  // fleet gate, and a filler tour is measured by its longest leg. Two steps is
-  // the smallest slack that unlocks the dense rooms; without it a room whose
-  // mass is packed to its own cap has literally nowhere legal to put anything.
-  const hubCap = Math.min((plan.meta?.extensions?.maxHubDist ?? 9999) + 2, HUB_REACH_HARD);
-
-  /**
-   * Does a trial mass keep every promise above?
-   *
-   * `goneRoad` is the road tile a road-slot rehousing is about to delete: a
-   * tile that will not exist cannot be held to the "stays reachable" promise,
-   * and the extension standing on it is precisely why it is going.
-   */
-  const promisesHold = (trialExtKeys, goneRoad) => {
-    const blocked = new Set([...fixedBlocked, ...trialExtKeys]);
-    const walk = interiorWalk(terrain, cutSet, ext, blocked, plan.sitter);
-    for (const k of keepCut) if (!walk.has(k)) return null;
-    for (const k of keepRoad) {
-      if (k === goneRoad || droppedRoads.has(k)) continue;
-      if (!walk.has(k)) return null;
-    }
-    for (const p of keepFace) {
-      if (!D8.some(([dx, dy]) => walk.has(key(p.x + dx, p.y + dy)))) return null;
-    }
-    // every extension keeps a walkable D4 face — the filler stands on it
-    for (const k of trialExtKeys) {
-      const [x, y] = k.split(",").map(Number);
-      if (!D4.some(([dx, dy]) => walk.has(key(x + dx, y + dy)))) return null;
-    }
-    return walk;
-  };
-
-  /** 2x2 of extensions has no interior face — a brick, not density */
-  const makesSquare = (x, y, set) => {
-    for (const [ox, oy] of [
-      [0, 0],
-      [-1, 0],
-      [0, -1],
-      [-1, -1],
-    ]) {
-      let n = 0;
-      for (let dx = 0; dx < 2; dx++) {
-        for (let dy = 0; dy < 2; dy++) {
-          const px = x + ox + dx,
-            py = y + oy + dy;
-          if ((px === x && py === y) || set.has(key(px, py))) n++;
-        }
-      }
-      if (n === 4) return true;
-    }
-    return false;
-  };
-
-  /**
-   * Legal homes for a displaced extension, cheapest hub distance first.
-   *
-   * TWO TIERS, and the order between them is the whole economy of this pass.
-   * Tier 0 already has a road on a D4 face, so rehousing there costs NOTHING —
-   * no road tile, no upkeep, the filler tour absorbs it. Tier 1 does not, and
-   * the filler-face net below will have to pave one in. Tier 1 is what the
-   * dense rooms actually need (28 of the 45 rooms an earlier cut of this pass
-   * could not help had no tier-0 slot left at all), so it is allowed — but
-   * PRICED, not merely counted. `paveCost` is the length of the chain the net
-   * will lay, derived the same way the net derives it, and the room may spend
-   * BREACH_ROAD_BUDGET tiles across all its breaches. Counting homes instead of
-   * tiles let E9S6 buy twelve road tiles with three "cheap" rehousings.
-   *
-   * TIER 2 — A DEEP TILE UNDER A ROAD THE PRUNE WOULD TAKE ANYWAY. The dense
-   * rooms are dense in ROADS as much as in structures, and "no legal deep slot
-   * left" was in large part this pass refusing to look at ~90 tiles per room
-   * that are covered by nothing but pavement. A road that serves nothing (see
-   * roadServes) and carries nothing (netHolds) is a tile the removability
-   * fixpoint at the bottom of this file deletes on its own the moment it stops
-   * being adjacent to a corridor; taking it for an extension only brings that
-   * forward. The road is deleted from the plan on the spot — a road under an
-   * extension is an UNDECLARABLE stack failure, not a cosmetic overlap — and the
-   * stitch and filler-face passes below re-settle the net, which is exactly what
-   * they are for.
-   *
-   * It ranks LAST, behind even a priced tier-1 slot. Tier 2 is the only tier
-   * that edits the road network rather than adding to it, and a pass whose
-   * charter is "one to four extensions relocated" does not get to redraw
-   * corridors while a slot that changes nothing is still on the table.
-   *
-   * Deterministic: row-major scan, sorted by (tier, cost, hub distance, y, x).
-   */
-  let roadSpent = 0;
-  /** tiles that must be paved to reach t from the live network, t included */
-  const paveField = () => {
-    const d = new Int32Array(2500).fill(-1);
-    const q = [];
-    const free = (x, y) => {
-      if (x < 1 || y < 1 || x > 48 || y > 48) return false;
-      if (!walkable(terrain, x, y) || ext[idx(x, y)]) return false;
-      const k = key(x, y);
-      return !fixedBlocked.has(k) && !extKeys.has(k) && !cutSet.has(k) && !roadSetLive.has(k);
-    };
-    // seed from the LIVE network only — the component that actually contains
-    // the sitter. A stranded road fragment is not somewhere the filler net will
-    // pave from, and pricing against one understates the chain (E11S7 bought
-    // seven road tiles on a five-tile budget that way).
-    const live = new Set([key(plan.sitter.x, plan.sitter.y)]);
-    {
-      const conduct = new Set([...roadSetLive, ...containerKeys, key(plan.sitter.x, plan.sitter.y)]);
-      const q = [plan.sitter];
-      for (let qi = 0; qi < q.length; qi++) {
-        const cur = q[qi];
-        for (const [dx, dy] of D8) {
-          const nx = cur.x + dx,
-            ny = cur.y + dy;
-          const k = key(nx, ny);
-          if (live.has(k) || !conduct.has(k)) continue;
-          live.add(k);
-          q.push({ x: nx, y: ny });
-        }
-      }
-    }
-    for (const k of live) {
-      const [rx, ry] = k.split(",").map(Number);
-      for (const [dx, dy] of D8) {
-        const nx = rx + dx,
-          ny = ry + dy;
-        if (!free(nx, ny)) continue;
-        const ni = nx + ny * 50;
-        if (d[ni] >= 0) continue;
-        d[ni] = 1;
-        q.push(ni);
-      }
-    }
-    for (let qi = 0; qi < q.length; qi++) {
-      const i = q[qi];
-      const x = i % 50,
-        y = (i / 50) | 0;
-      for (const [dx, dy] of D8) {
-        const nx = x + dx,
-          ny = y + dy;
-        if (!free(nx, ny)) continue;
-        const ni = nx + ny * 50;
-        if (d[ni] >= 0) continue;
-        d[ni] = d[i] + 1;
-        q.push(ni);
-      }
-    }
-    return d;
-  };
-  /**
-   * TIER 2 GATE — may this road tile become an extension?
-   *
-   * Four questions, and every one of them is a promise the rest of the plan is
-   * already making:
-   *   SERVES   nothing (hub kit, labs, towers, containers, eco objects, sitter)
-   *   CARRIES  nothing — the sitter's component loses this tile and no other
-   *   FACE     the incoming extension keeps a D4 road/container face without the
-   *            tile it is standing on, so the rehousing still costs zero road
-   *   NEIGHBOURS every extension that touches this tile D4 keeps a road face of
-   *            its own; the net is allowed to re-settle, not to strand a filler
-   */
-  const roadSlotFree = (x, y, k) => {
-    if (roadServes.has(k)) return false;
-    const roadish = (px, py) => {
-      const pk = key(px, py);
-      return pk !== k && (roadSetLive.has(pk) || containerKeys.includes(pk));
-    };
-    if (!D4.some(([dx, dy]) => roadish(x + dx, y + dy))) return false;
-    for (const [dx, dy] of D4) {
-      const nk = key(x + dx, y + dy);
-      if (!extKeys.has(nk)) continue;
-      if (!D4.some(([ex, ey]) => roadish(x + dx + ex, y + dy + ey))) return false;
-    }
-    return netHolds(k);
-  };
-
-  const homesFor = (forbidden) => {
-    const pave = paveField();
-    const out = [];
-    for (let y = 2; y <= 47; y++) {
-      for (let x = 2; x <= 47; x++) {
-        const i = idx(x, y);
-        const k = key(x, y);
-        if (ext[i] || depth[i] < DEPTH_SAFE) continue; // outside, or shallow
-        if (!buildable(terrain, x, y) || !engineBuildable(terrain, x, y, "extension")) continue;
-        if (extKeys.has(k) || fixedBlocked.has(k) || cutSet.has(k)) continue;
-        if (forbidden.has(k)) continue;
-        if (hubField[i] > hubCap) continue; // never past the room's own reach
-        const onRoad = roadSetLive.has(k);
-        if (onRoad && !roadSlotFree(x, y, k)) continue; // tier 2, or nothing
-        let cost = Infinity;
-        for (const [dx, dy] of D4) {
-          const fx = x + dx,
-            fy = y + dy;
-          if (fx < 1 || fy < 1 || fx > 48 || fy > 48) continue;
-          if (roadSetLive.has(key(fx, fy))) {
-            cost = 0;
-            break;
-          }
-          const fd = pave[idx(fx, fy)];
-          if (fd >= 0 && fd < cost) cost = fd;
-        }
-        if (!isFinite(cost) || roadSpent + cost > BREACH_ROAD_BUDGET) continue;
-        out.push({ x, y, d: hubField[i], cost, road: onRoad ? k : null });
-      }
-    }
-    out.sort(
-      (a, b) =>
-        (a.road ? 1 : 0) - (b.road ? 1 : 0) ||
-        a.cost - b.cost ||
-        a.d - b.d ||
-        a.y - b.y ||
-        a.x - b.x,
-    );
-    return out;
-  };
-
-  /**
-   * Shortest lane from a to b that crosses at most `cap` extensions, as a
-   * layered BFS over (tile, extensions spent). Uniform edge cost, so plain
-   * BFS is exact; the layer index is what makes "one more extension buys a
-   * shorter walk" answerable at all.
-   */
-  const lane = (a, b, cap) => {
-    const W = 2500;
-    const dist = new Int32Array(W * (cap + 1)).fill(-1);
-    const prev = new Int32Array(W * (cap + 1)).fill(-1);
-    const passable = (x, y) => {
-      const k = key(x, y);
-      if (!walkable(terrain, x, y)) return 0;
-      if (!cutSet.has(k) && ext[idx(x, y)]) return 0;
-      if (fixedBlocked.has(k)) return 0;
-      return extKeys.has(k) ? 2 : 1; // 2 = costs one extension
-    };
-    const s = idx(a.x, a.y);
-    if (!passable(a.x, a.y)) return null;
-    dist[s] = 0;
-    const q = [s];
-    for (let qi = 0; qi < q.length; qi++) {
-      const cur = q[qi];
-      const u = (cur / W) | 0,
-        i = cur % W;
-      const x = i % 50,
-        y = (i / 50) | 0;
-      for (const [dx, dy] of D8) {
-        const nx = x + dx,
-          ny = y + dy;
-        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-        const p = passable(nx, ny);
-        if (!p) continue;
-        const nu = u + (p === 2 ? 1 : 0);
-        if (nu > cap) continue;
-        const ns = nu * W + nx + ny * 50;
-        if (dist[ns] >= 0) continue;
-        dist[ns] = dist[cur] + 1;
-        prev[ns] = cur;
-        q.push(ns);
-      }
-    }
-    // best over every layer, fewest extensions winning ties
-    const bi = idx(b.x, b.y);
-    let bestS = -1;
-    for (let u = 0; u <= cap; u++) {
-      const s2 = u * W + bi;
-      if (dist[s2] < 0) continue;
-      if (bestS < 0 || dist[s2] < dist[bestS]) bestS = s2;
-    }
-    if (bestS < 0) return null;
-    const tiles = [];
-    for (let s2 = bestS; s2 >= 0; s2 = prev[s2]) tiles.push(s2 % W);
-    tiles.reverse();
-    return {
-      steps: dist[bestS],
-      tiles,
-      exts: tiles
-        .filter((i) => extKeys.has(key(i % 50, (i / 50) | 0)))
-        .map((i) => ({ x: i % 50, y: (i / 50) | 0 })),
-    };
-  };
-
-  // ------------------------------------------------------------------
-  // THE LOOP: fix the worst pair, re-measure, repeat.
-  //
-  // It does NOT stop the first time the room's max fails to fall. Breaching
-  // the worst pair often hands the title to a different pair at the same
-  // ratio, and that one is frequently breachable too — stopping there left
-  // half the fleet's structure detours on the table. What it stops on is a
-  // pair it has already tried and failed to shorten (chasing its own tail)
-  // and, of course, the target.
-  // ------------------------------------------------------------------
-  const extMask = ext;
-  let m = mobilityStats(cut, extMask, maskFromKeys(walk0));
-  meta.before = m.max;
-  meta.after = m.max;
-  const tried = new Set();
-  /** every tile of every lane this pass has already bought */
-  const openLanes = new Set();
-  for (let round = 0; round < BREACH_ROUNDS; round++) {
-    if (m.max <= MOBILITY_TARGET || !m.worst) {
-      meta.stop = "target";
-      break;
-    }
-    meta.stop = "rounds-spent";
-    const { a, b, din } = m.worst;
-    const pairK = `${a.x},${a.y}|${b.x},${b.y}|${din}`;
-    if (tried.has(pairK)) {
-      meta.stop = "same-pair"; // this walk is as short as the mass allows
-      break;
-    }
-    tried.add(pairK);
-    meta.rounds++;
-    const free = lane(a, b, BREACH_MAX_EXT);
-    if (!free || free.steps >= din) {
-      meta.stop = "not-the-mass"; // no lane through the mass is shorter
-      break;
-    }
-    // the cheapest breach that buys back BREACH_RESTORE of the detour
-    const want = din - BREACH_RESTORE * (din - free.steps);
-    let chosen = null;
-    for (let cap = 1; cap <= BREACH_MAX_EXT; cap++) {
-      const L = lane(a, b, cap);
-      if (L && L.steps <= want) {
-        chosen = L;
-        break;
-      }
-    }
-    if (!chosen || !chosen.exts.length) {
-      meta.stop = "breach-too-dear"; // no lane within the extension cap earns it
-      break;
-    }
-
-    // relocate, one extension at a time, rolling the whole breach back if any
-    // single move cannot be housed legally. Every lane opened so far stays
-    // forbidden for the rest of the room: without that, round 3 can rehouse an
-    // extension into the lane round 1 paid for and hand the detour straight
-    // back.
-    for (const i of chosen.tiles) openLanes.add(key(i % 50, (i / 50) | 0));
-    const forbidden = openLanes;
-    const undo = [];
-    let ok = true;
-    for (const e of chosen.exts) {
-      const from = key(e.x, e.y);
-      let landed = false;
-      const homes = homesFor(forbidden);
-      // TWO SWEEPS, and the second one is the same escape hatch layer 6 keeps
-      // for its own last extensions. A 2x2 of extensions has no face between
-      // its inner tiles, which is why neither layer builds one by choice — but
-      // the objection is about SERVICING, and every home here carries a road on
-      // a D4 face (tier 0 already has one, tier 1 gets one from the filler-face
-      // net below), so the filler still works the block from a lane. Rule:
-      // never brick while a non-brick slot exists anywhere in the room.
-      for (const allowSquare of [false, true]) {
-        for (const h of homes) {
-          const to = key(h.x, h.y);
-          const trial = new Set(extKeys);
-          trial.delete(from);
-          if (makesSquare(h.x, h.y, trial) && !allowSquare) continue;
-          trial.add(to);
-          if (!promisesHold(trial, h.road)) continue;
-          extKeys.delete(from);
-          extKeys.add(to);
-          // tier 2: the road under the new extension goes NOW. Leaving it for
-          // the prune below is not an option — that pass protects every road
-          // within D8 of an extension, so it would protect this one, and the
-          // plan would ship a road and an extension on one tile.
-          let ri = -1;
-          if (h.road) {
-            droppedRoads.add(h.road);
-            roadSetLive.delete(h.road);
-            ri = plan.structures.road.findIndex((r) => key(r.x, r.y) === h.road);
-            if (ri >= 0) plan.structures.road.splice(ri, 1);
-          }
-          roadSpent += h.cost;
-          vacated.add(from);
-          vacated.delete(to);
-          undo.push([from, to, h.road, ri]);
-          const slot = extensions.findIndex((q) => q.x === e.x && q.y === e.y);
-          extensions[slot] = { x: h.x, y: h.y };
-          landed = true;
-          meta.moved++;
-          meta.bricked += allowSquare ? 1 : 0;
-          break;
-        }
-        if (landed) break;
-      }
-      if (!landed) {
-        ok = false;
-        meta.stop = "no-home"; // nowhere legal and deep to rehouse it
-        break;
-      }
-    }
-    if (!ok) {
-      for (const [from, to, gone, ri] of undo.reverse()) {
-        extKeys.delete(to);
-        extKeys.add(from);
-        vacated.delete(from);
-        // a rolled-back road goes back at its OWN index: the road list is the
-        // build order, and a tile that reappears at the end of it is a
-        // different plan from the one we started the round with
-        if (gone && ri >= 0) {
-          droppedRoads.delete(gone);
-          roadSetLive.add(gone);
-          const [gx, gy] = gone.split(",").map(Number);
-          plan.structures.road.splice(ri, 0, { x: gx, y: gy });
-        }
-        const [fx, fy] = from.split(",").map(Number);
-        const [tx, ty] = to.split(",").map(Number);
-        const slot = extensions.findIndex((q) => q.x === tx && q.y === ty);
-        extensions[slot] = { x: fx, y: fy };
-        meta.moved--;
-      }
-      break;
-    }
-    meta.pairs.push({
-      a: { x: a.x, y: a.y },
-      b: { x: b.x, y: b.y },
-      din,
-      breach: chosen.steps,
-      moved: chosen.exts.length,
-    });
-    const w = walkNow();
-    m = mobilityStats(cut, extMask, maskFromKeys(w));
-    meta.after = m.max;
+  meta.floor = mFree.max;
+  meta.built = mBuilt.max;
+  meta.over = mBuilt.over;
+  meta.floorOver = mFree.over;
+  // wall pairs the MASS pushed over the target — the only ones layers 6/7 own
+  meta.caused = Math.max(0, mBuilt.over - mFree.over);
+  meta.walled = cut.length - cut.filter((c) => wBuilt.has(key(c.x, c.y))).length;
+  if (mBuilt.worst) {
+    const { a, b, din, dout } = mBuilt.worst;
+    // the same pair, walked with no mass at all: if THAT is inside the target
+    // the detour is ours, and the reservation did not hold it
+    const freeDin = arriveAt(bfsField(freeMask, a), b);
+    meta.worst = { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, din, dout, freeDin };
+    meta.worstCaused = mBuilt.max > MOBILITY_TARGET && isFinite(freeDin) && freeDin / dout <= MOBILITY_TARGET;
   }
 
-  meta.roadSpent = roadSpent;
-
-  // ---- DECLARE WHAT IS LEFT. The shell already files a mobility shortfall
-  //      against the lap it NEGOTIATED; this one is about the lap we actually
-  //      built, and it only speaks when the mass is still the reason and this
-  //      pass could not take it away. Silent capping is the anti-pattern; a
-  //      number the reader can check against meta.walls.breach is not.
-  if (m.max > MOBILITY_TARGET && m.worst && plan.meta) {
-    const why = {
-      "no-home":
-        `every lane through the mass needs an extension moved and the room has no legal deep ` +
-        `slot left to move it to (60/60 is not negotiable and mobility may not buy a personal rampart)`,
-      "not-the-mass":
-        `no lane through the extension mass is shorter — what is in the way is the hub kit, the lab ` +
-        `diamond or a tower, and none of those may be relocated for a lap`,
-      "breach-too-dear": `no lane crossing ${BREACH_MAX_EXT} extensions or fewer buys back ${Math.round(
-        BREACH_RESTORE * 100,
-      )}% of the detour`,
-      "same-pair": `the lane is already as short as the mass allows`,
-      "rounds-spent": `the ${BREACH_ROUNDS}-fix budget for one room ran out`,
-      target: `inside the target`,
-    }[meta.stop];
+  if (mBuilt.max > MOBILITY_TARGET && mBuilt.worst && plan.meta) {
+    const { a, b, din, dout } = mBuilt.worst;
+    const lane = plan.meta?.extensions?.laneMeta;
+    const laneNote = !lane
+      ? ""
+      : lane.dropped
+        ? ` The lane reservation layer 6 wanted (${lane.tiles} tile(s)) was DROPPED: honouring it cost this room its 60th extension, and 60/60 outranks the lap.`
+        : ` Layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ${lane.rounds} round(s), which bounds the worst mass this room could grow at ${lane.bounded} against an unreserved ${lane.worstCase}.`;
     plan.meta.shortfalls = plan.meta.shortfalls || [];
     plan.meta.shortfalls.push({
       gate: "mobility",
+      source: "built",
       detail:
-        `AS BUILT the defender lap is ${m.max} (target ${MOBILITY_TARGET}): between wall tiles ` +
-        `${m.worst.a.x},${m.worst.a.y} and ${m.worst.b.x},${m.worst.b.y} the garrison walks ` +
-        `${m.worst.din} inside while the attacker walks ${m.worst.dout} outside. The corridor-breach ` +
-        `pass relocated ${meta.moved} extension(s) over ${meta.rounds} round(s) and got the room from ` +
-        `${meta.before} to ${m.max}; it stopped because ${why}.`,
+        `AS BUILT the defender lap is ${mBuilt.max} (target ${MOBILITY_TARGET}): between wall tiles ` +
+        `${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while the attacker walks ` +
+        `${dout} outside. With the extension mass removed entirely the same room measures ` +
+        `${mFree.max} (that pair: ${meta.worst.freeDin} inside), so ` +
+        (meta.worstCaused
+          ? `this pair IS our mass and the reservation did not hold it`
+          : `the lap is the enclosure and the terrain, not the mass — no arrangement of 60 extensions ` +
+            `shortens it`) +
+        `. ${mBuilt.over}/${mBuilt.pairs} wall pairs are over target against ${mFree.over} with no mass ` +
+        `in the room.${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
+        `defender's lanes before it grows, and a pass that moved finished structures to patch the ` +
+        `result would be the repair loop this planner is not allowed to have.`,
       tiles: [
-        { x: m.worst.a.x, y: m.worst.a.y },
-        { x: m.worst.b.x, y: m.worst.b.y },
+        { x: a.x, y: a.y },
+        { x: b.x, y: b.y },
       ],
     });
   }
-
-  if (!meta.moved) return meta;
-
-  // ---- personal ramparts. The destination is deep by construction, so a move
-  //      never BUYS one; a vacated shallow tile stops renting the one it had.
-  //      NARROW ON PURPOSE: only a tile this pass emptied is a candidate, and
-  //      only if nothing else stands on it. Ramparts also sit on bare ground by
-  //      design — the controller ring is a ring of them — so a general "no
-  //      structure here, drop it" sweep would quietly disarm the plan.
-  if (plan.structures.rampart && vacated.size) {
-    const occupiedNow = new Set(objTiles);
-    for (const t of BUILT_OBSTACLES.concat(["container", "extractor"])) {
-      for (const p of plan.structures[t] || []) occupiedNow.add(key(p.x, p.y));
-    }
-    plan.structures.rampart = plan.structures.rampart.filter((r) => {
-      const k = key(r.x, r.y);
-      return !vacated.has(k) || cutSet.has(k) || occupiedNow.has(k);
-    });
-    if (plan.meta?.extensions) {
-      plan.meta.extensions.shallow = extensions.filter(
-        (e) => depth[idx(e.x, e.y)] < DEPTH_SAFE,
-      ).length;
-    }
-  }
-
-  // ---- BUILD ORDER, re-derived with layer 6's own recipe (see its footer):
-  //      outward from the hub, shallow tiles pushed back a little.
-  const buildCost = (e) =>
-    hubField[idx(e.x, e.y)] + (depth[idx(e.x, e.y)] < DEPTH_SAFE ? 3 : 0);
-  extensions.sort((a, b) => buildCost(a) - buildCost(b) || a.y - b.y || a.x - b.x);
   return meta;
 }
 
@@ -754,9 +181,9 @@ export function planWallRoads(terrain, plan) {
   if (!cut.length) return { error: "shell has no cut tiles" };
   const ext = plan.exterior;
 
-  // (0) reopen the lateral lanes the mass closed — MUST precede everything
-  //     below, which all read the extension list as final
-  const breach = breachCorridors(terrain, plan);
+  // (0) MEASURE the lap the finished mass leaves the garrison. Read-only —
+  //     it changes no structure, no road and no array order.
+  const mobility = verifyMobility(terrain, plan);
 
   // every real structure blocks; roads/ramparts/containers do not
   const occupied = new Set();
@@ -920,8 +347,12 @@ export function planWallRoads(terrain, plan) {
     }
   }
 
-  // road tiles that exist BECAUSE a wall cluster needs an approach — the
-  // prune pass below must not eat them (they are dead ends by design)
+  // Road tiles that exist BECAUSE a wall cluster needs an approach. The prune
+  // below no longer reads this list — it re-derives the same protection from
+  // the clusters themselves ("every cluster keeps ONE road touching it"), which
+  // is the honest form: a spur that a later eco road made redundant is not a
+  // spur any more, and a cluster an eco road happens to serve never needed one.
+  // Kept as reporting only.
   const spurEnds = new Set();
   const servingRoad = (cl) => {
     for (const c of cl) {
@@ -999,17 +430,52 @@ export function planWallRoads(terrain, plan) {
   const fillerTiles = newRoads.length - beforeFiller;
 
   // ------------------------------------------------------------------
-  // (3) dead-end prune. A degree-1 road tile that touches no structure, no
-  //     room object and no wall spur is a tile we pay decay on for nothing.
-  //     Iterate to fixpoint — pruning a tail exposes the tail behind it.
-  //     Degree-1 removal can never split the network, so the one-component
-  //     invariant survives by construction.
+  // (3) THE STRICT REMOVABILITY FIXPOINT.
+  //
+  // THE DEFECT THIS REPLACES. The old rule protected every road within D8 of
+  // any structure — extensions included. Since the extension mass is grown
+  // FLANKING corridors, that protected essentially every corridor tile in the
+  // room by construction, and the "removability" test underneath it never got
+  // a chance to fire. Measured with an independent re-derivation, 1774 of the
+  // fleet's 14288 road tiles were removable without touching a single promise
+  // the plan makes: whole parallel corridors survived (E18S8 ran twin
+  // hub-to-controller lanes at y=18 AND y=19, 38 removable tiles in one room),
+  // each of them decaying and being repaired forever for nothing.
+  //
+  // THE HONEST DEFINITION. A road tile may go when, after it goes:
+  //   ONE NET    the road+container+sitter graph is still ONE D8 component
+  //              containing the sitter, and has lost exactly this tile;
+  //   STRUCTURES every structure still has a road in D8 (the validator's
+  //              "no structure off the network" rule, verbatim);
+  //   FILLERS    every extension still has a road on a D4 FACE (the
+  //              validator's EXTROAD rule, verbatim);
+  //   HAULERS    the sitter-to-container network distances are UNCHANGED —
+  //              the eco lanes may not get one tile longer to save upkeep;
+  //   and it is none of the four things that exist to be dead ends:
+  //   swamp paving inside a corridor (a toll booth otherwise), the last road
+  //   approaching a rampart cluster (the defenders' spur), the roads around
+  //   the room objects (the controller ring and the eco lane ends) and the
+  //   sitter's own seat.
+  //
+  // Everything else is upkeep with no claimant. The test repeats to fixpoint,
+  // because deleting a redundant strand exposes the strand behind it, and each
+  // removal re-baselines the hauler distances so the guarantee composes.
+  // Deterministic row-major scan: among equally removable tiles the choice is
+  // stable run to run.
   // ------------------------------------------------------------------
-  const protectedRoads = new Set(spurEnds);
-  protectedRoads.add(key(plan.sitter.x, plan.sitter.y));
-  const protectAround = (p) => {
-    for (const [dx, dy] of D8) protectedRoads.add(key(p.x + dx, p.y + dy));
-  };
+  const sitterK = key(plan.sitter.x, plan.sitter.y);
+  const pruned = new Set();
+  let nodes = new Set();
+
+  /** the four dead-ends-by-design that are not derived from the live net */
+  const staticProt = new Set([sitterK]);
+  for (const [dx, dy] of D8) staticProt.add(key(plan.sitter.x + dx, plan.sitter.y + dy));
+  for (const k of plan.objectTiles || []) {
+    const [x, y] = k.split(",").map(Number);
+    for (const [dx, dy] of D8) staticProt.add(key(x + dx, y + dy));
+  }
+
+  const facedD8 = [];
   for (const t of [
     "storage",
     "terminal",
@@ -1017,98 +483,123 @@ export function planWallRoads(terrain, plan) {
     "spawn",
     "tower",
     "lab",
-    "extension",
     "nuker",
     "observer",
     "container",
     "extractor",
   ]) {
-    for (const p of plan.structures[t] || []) protectAround(p);
+    for (const p of plan.structures[t] || []) facedD8.push(p);
   }
-  // sources / controller / mineral: the eco lanes END next to these, and the
-  // thing they serve is an object, not a structure
-  for (const k of plan.objectTiles || []) {
-    const [x, y] = k.split(",").map(Number);
-    protectAround({ x, y });
-  }
+  const extList = plan.structures.extension || [];
 
-  const allRoads = plan.structures.road.concat(newRoads);
-  const nodes = new Set(allRoads.map((r) => key(r.x, r.y)));
-  for (const k of containerSet) nodes.add(k);
-  nodes.add(key(plan.sitter.x, plan.sitter.y));
-  const sitterK = key(plan.sitter.x, plan.sitter.y);
-  const pruned = new Set();
-
-  /**
-   * REMOVABILITY, not dead-ends.
-   *
-   * The old rule only ever deleted degree-1 tiles, which is the one case where
-   * removal provably cannot split the network — safe, and far too weak. It
-   * cannot see the two shapes that actually accumulate: a corridor grown
-   * alongside an existing lane (every tile has two neighbours, so nothing is a
-   * dead end, and the whole strand is redundant), and a loop that closes back
-   * on the network (same story, in a circle). Both survive to be repaired and
-   * walked around forever.
-   *
-   * The honest question is not "is this a tail" but "does anything need this
-   * tile": a road earns its upkeep only by serving something adjacent or by
-   * being the way to something that does. So:
-   *
-   *   SERVES   a non-road structure or a room object in D8, or a rampart-spur
-   *            head (defenders' approach — a dead end on purpose).
-   *   CARRIES  removing it would strand a serving road, a container or the
-   *            sitter from the rest of the network.
-   *
-   * A tile that does neither is deleted, and the test repeats to fixpoint
-   * because deleting a redundant strand can expose the strand behind it.
-   * Deterministic scan order (row-major) so the choice among equally
-   * removable tiles is stable run to run.
-   *
-   * This SUPERSEDES the degree rule rather than extending it — degree-1
-   * unprotected tiles are removable under this definition too — except for the
-   * degree-0 case, which is kept: a tile walled in by structures conducts
-   * nothing and no creep can stand on it, so it goes even when it "serves".
-   */
-  const connectedWithout = (drop) => {
-    const seen = new Set([sitterK]);
-    const st = [sitterK];
+  /** is this swamp tile the only way across between its own road neighbours? */
+  const isTollBooth = (r, liveRoads) => {
+    if (!isSwamp(terrain, r.x, r.y)) return false;
+    const nb = [];
+    for (const [dx, dy] of D8) {
+      const k = key(r.x + dx, r.y + dy);
+      if (liveRoads.has(k)) nb.push([r.x + dx, r.y + dy]);
+    }
+    if (nb.length < 2) return false;
+    const seen = new Set([0]);
+    const st = [0];
     while (st.length) {
-      const cur = st.pop();
-      const [x, y] = cur.split(",").map(Number);
-      for (const [dx, dy] of D8) {
-        const k = key(x + dx, y + dy);
-        if (k === drop || seen.has(k) || !nodes.has(k)) continue;
-        seen.add(k);
-        st.push(k);
+      const c = st.pop();
+      for (let j = 0; j < nb.length; j++) {
+        if (seen.has(j)) continue;
+        if (Math.max(Math.abs(nb[c][0] - nb[j][0]), Math.abs(nb[c][1] - nb[j][1])) === 1) {
+          seen.add(j);
+          st.push(j);
+        }
       }
     }
-    return seen;
+    return seen.size < nb.length;
   };
-  const scan = allRoads.slice().sort((a, b) => a.y - b.y || a.x - b.x);
+
   const prunePass = (extraRoads) => {
-    const all = extraRoads ? scan.concat(extraRoads) : scan;
+    const roadList = plan.structures.road
+      .concat(newRoads, extraRoads || [])
+      .filter((r) => !pruned.has(key(r.x, r.y)));
+    const liveRoads = new Set(roadList.map((r) => key(r.x, r.y)));
+    nodes = new Set([...liveRoads, ...containerSet, sitterK]);
+
+    // CLAIMS on the network, maintained incrementally: each claim is the set
+    // of live road tiles that currently satisfy it, and a tile that is the
+    // LAST member of any claim is not removable.
+    const claims = [];
+    const claimants = new Map(); // roadKey -> claim indices
+    const claim = (keys) => {
+      const s = new Set(keys.filter((k) => liveRoads.has(k)));
+      const i = claims.push(s) - 1;
+      for (const k of s) {
+        if (!claimants.has(k)) claimants.set(k, []);
+        claimants.get(k).push(i);
+      }
+    };
+    for (const p of facedD8) claim(D8.map(([dx, dy]) => key(p.x + dx, p.y + dy)));
+    for (const e of extList) claim(D4.map(([dx, dy]) => key(e.x + dx, e.y + dy)));
+    // the defenders' approach: every rampart cluster keeps ONE road touching it
+    for (const cl of clusters) {
+      const t = new Set();
+      for (const c of cl) for (const [dx, dy] of D8) t.add(key(c.x + dx, c.y + dy));
+      claim([...t]);
+    }
+
+    /** hauler distances on the road graph, sitter-rooted */
+    const netDist = (skip) => {
+      const d = new Map([[sitterK, 0]]);
+      const q = [sitterK];
+      for (let qi = 0; qi < q.length; qi++) {
+        const cur = q[qi];
+        const [x, y] = cur.split(",").map(Number);
+        for (const [dx, dy] of D8) {
+          const k = key(x + dx, y + dy);
+          if (k === skip || d.has(k) || !nodes.has(k)) continue;
+          d.set(k, d.get(cur) + 1);
+          q.push(k);
+        }
+      }
+      return d;
+    };
+    let base = netDist(null);
+
+    const drop = (k) => {
+      pruned.add(k);
+      nodes.delete(k);
+      liveRoads.delete(k);
+      for (const i of claimants.get(k) || []) claims[i].delete(k);
+    };
+
+    const scan = roadList.slice().sort((a, b) => a.y - b.y || a.x - b.x);
     for (let pass = 0; pass < 60; pass++) {
       let changed = false;
-      for (const r of all) {
+      for (const r of scan) {
         const k = key(r.x, r.y);
-        if (pruned.has(k) || !nodes.has(k)) continue;
+        if (!liveRoads.has(k)) continue;
+        // degree 0: walled in by structures. No creep can stand on it, it
+        // conducts nothing and it claims nothing — it goes even if it "serves".
         let deg = 0;
         for (const [dx, dy] of D8) if (nodes.has(key(r.x + dx, r.y + dy))) deg++;
         if (deg === 0) {
-          pruned.add(k);
-          nodes.delete(k);
+          drop(k);
           changed = true;
           continue;
         }
-        if (protectedRoads.has(k)) continue; // serves something
-        // everything that must stay on one network once k is gone
-        const need = [sitterK];
-        for (const c of containerSet) if (nodes.has(c)) need.push(c);
-        for (const n of nodes) if (n !== k && protectedRoads.has(n)) need.push(n);
-        const seen = connectedWithout(k);
-        if (!need.every((n) => seen.has(n))) continue; // it is the way through
-        pruned.add(k);
-        nodes.delete(k);
+        if (staticProt.has(k)) continue;
+        if ((claimants.get(k) || []).some((i) => claims[i].size === 1)) continue;
+        if (isTollBooth(r, liveRoads)) continue;
+        const after = netDist(k);
+        if (after.size !== (base.has(k) ? base.size - 1 : base.size)) continue;
+        let same = true;
+        for (const c of containerSet) {
+          if (after.get(c) !== base.get(c)) {
+            same = false;
+            break;
+          }
+        }
+        if (!same) continue; // a hauler would walk further — not worth the tile
+        drop(k);
+        base = after;
         changed = true;
       }
       if (!changed) break;
@@ -1137,7 +628,9 @@ export function planWallRoads(terrain, plan) {
   let swampPaved = 0;
   {
     const live = new Set();
-    for (const r of allRoads) if (!pruned.has(key(r.x, r.y))) live.add(key(r.x, r.y));
+    for (const r of plan.structures.road.concat(newRoads)) {
+      if (!pruned.has(key(r.x, r.y))) live.add(key(r.x, r.y));
+    }
     /**
      * A hole is judged by the corridor, not by the wall. The eco lanes to the
      * source containers and the controller run OUTSIDE the shell by design
@@ -1213,21 +706,11 @@ export function planWallRoads(terrain, plan) {
   // (5) PRUNE AGAIN. A paved swamp hole is a new short way across, and the
   //     road that used to be the long way round it is now redundant — the
   //     first prune could not know that because the shortcut did not exist
-  //     yet. The holes themselves are protected: they were paved precisely
-  //     because something has to cross there.
+  //     yet. The holes protect themselves: `isTollBooth` is evaluated against
+  //     the live net on every candidate, and a tile paved because something has
+  //     to cross there is a toll booth by that test's own definition.
   // ------------------------------------------------------------------
-  if (swampPaved) {
-    const holes = [];
-    for (const r of newRoads) {
-      const k = key(r.x, r.y);
-      if (!pruned.has(k) && !nodes.has(k)) {
-        nodes.add(k);
-        holes.push(r);
-        protectedRoads.add(k);
-      }
-    }
-    prunePass(holes);
-  }
+  if (swampPaved) prunePass(null);
 
   const keptNew = newRoads.filter((r) => !pruned.has(key(r.x, r.y)));
   const removeRoads = plan.structures.road.filter((r) => pruned.has(key(r.x, r.y)));
@@ -1250,7 +733,7 @@ export function planWallRoads(terrain, plan) {
       pruned: pruned.size,
       swampPaved,
       unreachableExts,
-      breach,
+      mobility,
     },
   };
 }
