@@ -107,7 +107,7 @@ const MAX_PARKS = 8;
 // "attacker walks 10, I refuse to walk 20": for a pair of wall tiles, the
 // path a defender walks INSIDE must not be much longer than the path the
 // attacker walks OUTSIDE between the same two tiles. Target ratio 1.2.
-const MOBILITY_TARGET = 1.2;
+export const MOBILITY_TARGET = 1.2;
 // Pairs closer than this need no repositioning at all: a RampartDefender's
 // ranged attack reaches 3, so a defender standing on one of them is already
 // shooting whatever is hitting the other. Excluding them is an operational
@@ -461,7 +461,7 @@ function depthFromExterior(ext) {
 }
 
 /** D8 BFS distance field over a boolean tile mask. The seed is always allowed. */
-function bfsField(mask, from) {
+export function bfsField(mask, from) {
   const dist = new Int16Array(2500).fill(-1);
   const q = new Int32Array(2500);
   let head = 0,
@@ -494,7 +494,7 @@ function bfsField(mask, from) {
  * both graphs pay the same "step off / step on" tax and the ratio stays a like
  * for like comparison.
  */
-function arriveAt(f, t) {
+export function arriveAt(f, t) {
   const ti = idx(t.x, t.y);
   if (f[ti] >= 0) return f[ti];
   let best = Infinity;
@@ -509,7 +509,7 @@ function arriveAt(f, t) {
 }
 
 /** Uint8Array tile mask from a set of "x,y" keys. */
-function maskFromKeys(set) {
+export function maskFromKeys(set) {
   const m = new Uint8Array(2500);
   for (const k of set) {
     const [x, y] = k.split(",").map(Number);
@@ -591,7 +591,7 @@ const round2 = (v) => Math.round(v * 100) / 100;
  *              the defender cannot cut either (both graphs are plain D8,
  *              which is what the engine does: Screeps has no corner rule).
  */
-function mobilityStats(cut, extMask, walkMask, cap = MOBILITY_ENDPOINTS) {
+export function mobilityStats(cut, extMask, walkMask, cap = MOBILITY_ENDPOINTS) {
   const reachable = cut.filter((c) => walkMask[idx(c.x, c.y)]);
   const ends = sampleEndpoints(reachable, cap);
   const n = ends.length;
@@ -684,7 +684,7 @@ function mobilityCause(terrain, cut, extMask, worst) {
  * Obstacles per @screeps/engine OBSTACLE_OBJECT_TYPES: roads, containers and
  * our own ramparts are walkable, everything else is not.
  */
-const BUILT_OBSTACLES = [
+export const BUILT_OBSTACLES = [
   "spawn",
   "extension",
   "link",
@@ -759,7 +759,7 @@ function boundaryWalls(terrain, ext) {
  * which cut to buy, for deciding where a defender may be told to stand, and
  * for declaring the shortfall when neither is possible.
  */
-function interiorWalk(terrain, cutSet, ext, occupied, sitter) {
+export function interiorWalk(terrain, cutSet, ext, occupied, sitter) {
   const seen = new Set([key(sitter.x, sitter.y)]);
   const q = [sitter];
   let qi = 0;
@@ -839,7 +839,22 @@ export function planShell(terrain, plan, opts = {}) {
   // C1: source/controller/mineral tiles can never hold a structure, so they
   // must not be counted as deep interior the RCL8 program could use either
   const objectTiles = plan.objectTiles || new Set();
+  // WHAT THE SHELL MUST ENCLOSE IS NOT WHAT BLOCKS THE WALK. hubKeys is the
+  // protect set; `occupied` is the obstacle set (and the "tile is spoken for"
+  // set the space budget counts against), so it has to name every structure
+  // already standing when layer 2 runs. Layer 1 places the per-source and
+  // controller links as well as the hub trio, and a link is an
+  // OBSTACLE_OBJECT_TYPE — leaving them out made the negotiation measure a walk
+  // no creep will ever take. E19S1: the source link at 31,26 is the single free
+  // tile between the basin and a source pocket, so the shell believed it could
+  // walk that pocket, bought the eco ring around it, and the finished base
+  // could not reach ten of those ramparts. Containers and roads stay OUT on
+  // purpose — the engine lets creeps walk over both, and builtMobility models
+  // them the same way.
   const occupied = new Set([...hubKeys, ...objectTiles]);
+  for (const t of ["storage", "terminal", "spawn", "link"]) {
+    for (const p of plan.structures[t] || []) occupied.add(key(p.x, p.y));
+  }
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
   // --- negotiation: smallest cut that still holds the RCL8 program ---
@@ -905,8 +920,16 @@ export function planShell(terrain, plan, opts = {}) {
   // it is the MEASURED substitute cost that goes into the shortfall detail.
   const cheapestOf = (list) =>
     list.length ? list.reduce((best, a) => (a.cut.length < best.cut.length ? a : best)) : null;
-  // the swap may only consider candidates that still hold the program...
-  const swapAlt = cheapestOf(poolForSwap.filter((a) => !a.unreach.length));
+  // the swap may only consider candidates that still hold the program — and
+  // when NO candidate holds it, `pick` is the roomiest enclosure this room
+  // offers and reachability does not get to spend that. The same guard the
+  // mobility tiebreak below uses, for the same reason: in a deep-starved room
+  // every tile of interior the swap gives away comes back as an extension in
+  // the shallow band renting a personal rampart forever. E20S5 traded 17 deep
+  // tiles for one reachable rampart exactly this way.
+  const swapAlt = cheapestOf(
+    poolForSwap.filter((a) => !a.unreach.length && (fits.length || a.deep >= pick.deep)),
+  );
   // ...but the shortfall reports the whole truth, including a reachable cut we
   // had to refuse because it starves the extension layer. That report wants the
   // CLOSEST substitute — the roomiest fully-reachable enclosure — not the

@@ -71,7 +71,65 @@ export function planLabs(terrain, plan) {
 
   const hauls = fieldFrom(terrain, plan.sitter, occupied);
 
+  // ------------------------------------------------------------------
+  // THE DIAMOND IS A 4x4 PLUG, AND A PLUG CAN SEAL A DOORWAY.
+  //
+  // This layer used to place on hauler distance alone. In E18S2 the winning
+  // anchor closed the last gap into a west-side alcove, and the two cut tiles
+  // at 18,23 / 18,24 — ramparts the interior could walk to before the labs
+  // landed — became wall no defender can ever stand on. Nothing downstream
+  // catches it: the extension layer's M4 invariant takes its wall-reachability
+  // baseline AFTER this layer runs, so a segment the labs already killed reads
+  // to it as "not my problem, it was dead when I got here".
+  //
+  // So the diamond carries the same promise the extension mass does: every cut
+  // tile the base could walk to before the stamp lands, it can walk to after.
+  // Measured with the FINISHED-BASE walk (`builtMobility`'s rules): containers
+  // and roads are walkable, obstacles are not, and the flood walks along the
+  // cut but never through it.
+  // ------------------------------------------------------------------
+  const cut = plan.shell?.cut || [];
+  const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
+  const walkBlocked = new Set(plan.objectTiles || []);
+  for (const t of ["storage", "terminal", "link", "spawn", "tower"]) {
+    for (const p of plan.structures[t] || []) walkBlocked.add(key(p.x, p.y));
+  }
+  const interiorWalk = (extraBlocked) => {
+    const seen = new Set([key(plan.sitter.x, plan.sitter.y)]);
+    const q = [plan.sitter];
+    for (let qi = 0; qi < q.length; qi++) {
+      const cur = q[qi];
+      for (const [dx, dy] of D8) {
+        const x = cur.x + dx,
+          y = cur.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        const k = key(x, y);
+        if (seen.has(k) || !walkable(terrain, x, y)) continue;
+        if (!cutSet.has(k) && ext[idx(x, y)]) continue;
+        if (walkBlocked.has(k) || (extraBlocked && extraBlocked.has(k))) continue;
+        seen.add(k);
+        q.push({ x, y });
+      }
+    }
+    return seen;
+  };
+  const baseWalk = interiorWalk(null);
+  const wallKeep = cut.filter((c) => baseWalk.has(key(c.x, c.y)));
+  /** true when this anchor strands no wall segment the base can reach today */
+  const keepsTheWall = (ax, ay, variant) => {
+    if (!wallKeep.length) return true;
+    const stamp = new Set(variant.labs.map(([dx, dy]) => key(ax + dx, ay + dy)));
+    const after = interiorWalk(stamp);
+    for (const w of wallKeep) if (!after.has(key(w.x, w.y))) return false;
+    return true;
+  };
+
   let best = null;
+  let fallback = null;
+  // Candidates in strict scan order, best-first by hauler distance; the
+  // connectivity check runs on the winner and only walks down the list when it
+  // fails, so a normal room pays exactly one extra BFS.
+  const candidates = [];
   // pass 1: fully deep. pass 2 (cramped rooms): depth 3 allowed, shallow
   // lab tiles get personal ramparts — same rule as the eco bubbles.
   for (const minDepth of [DEPTH_SAFE, DEPTH_SAFE - 1]) {
@@ -105,11 +163,27 @@ export function planLabs(terrain, plan) {
         const ends = [variant.road[0], variant.road[3]].map(([dx, dy]) => hauls[idx(ax + dx, ay + dy)]);
         const d = Math.min(...ends);
         if (d >= 9999) continue;
-        if (!best || d < best.d) best = { ax, ay, variant, d };
+        candidates.push({ ax, ay, variant, d, seq: candidates.length });
       }
     }
     }
+    // stable, explicit: hauler distance decides, scan order breaks every tie
+    candidates.sort((a, b) => a.d - b.d || a.seq - b.seq);
+    for (const c of candidates) {
+      if (keepsTheWall(c.ax, c.ay, c.variant)) {
+        best = c;
+        break;
+      }
+    }
+    // A room whose every deep diamond seals a wall segment has beaten the
+    // stamp, not the check. Remember the deepest pass's plain winner and fall
+    // through to depth 3; if that pass has nothing either, take the remembered
+    // anchor back — 10 labs beat no labs, and a wall tile nobody can stand on
+    // already has an honest channel in the shell's battlement shortfall.
+    if (!best && !fallback && candidates.length) fallback = candidates[0];
+    candidates.length = 0;
   }
+  if (!best) best = fallback;
   if (!best) return { error: "no 4x4 pocket for the lab diamond even at depth 3" };
 
   const { ax, ay, variant } = best;
