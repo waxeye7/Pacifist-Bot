@@ -28,6 +28,15 @@ function RunAllCreepsManager() {
       }
     }
 
+    // A creep with NO Memory.creeps entry is invisible to the loop above, so
+    // RunCreepManager's `role == undefined -> suicide()` guard can never fire for
+    // the exact case it exists for: the creep idles forever as an obstacle
+    // (live: Filler-1014650-E17S4). Sweep Game.creeps for names the loop missed.
+    for(const name of Object.keys(Game.creeps)) {
+      if(name in Memory.creeps) continue;
+      RunCreepManager(name);
+    }
+
     QuadSquadRunManager(executeCreepScriptsLaterList);
     // gated by Memory.verbose via Logger
     console.log('Creeps Ran in', Game.cpu.getUsed() - start, 'ms');

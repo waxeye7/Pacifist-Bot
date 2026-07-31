@@ -215,7 +215,11 @@ Room.prototype.findMineral = function() {
 }
 
 Room.prototype.findBin = function(storage): object | void {
-    // Prefer plan-adjacent open container south/any of hub, not hard-coded only y+1
+    // Prefer plan-adjacent open container south/any of hub, not hard-coded only y+1.
+    // Range 2, nearest ring first: a plan-v2 hub can place the bin one tile further
+    // out than the old adjacent-only scan allowed, which left Structures.bin unset
+    // and every bin-reading code path blind. Deliberately capped at 2 — a wider
+    // scan starts picking up SOURCE containers, which are not bins.
     if (storage) {
         const offsets = [
             [0, 1],
@@ -226,6 +230,22 @@ Room.prototype.findBin = function(storage): object | void {
             [-1, 1],
             [1, -1],
             [-1, -1],
+            [0, 2],
+            [0, -2],
+            [2, 0],
+            [-2, 0],
+            [1, 2],
+            [-1, 2],
+            [1, -2],
+            [-1, -2],
+            [2, 1],
+            [2, -1],
+            [-2, 1],
+            [-2, -1],
+            [2, 2],
+            [-2, 2],
+            [2, -2],
+            [-2, -2],
         ];
         for (const [ox, oy] of offsets) {
             const x = storage.pos.x + ox;

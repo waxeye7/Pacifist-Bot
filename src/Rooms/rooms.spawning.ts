@@ -186,6 +186,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 EnergyMiners ++;
                 break;
 
+            // carry.ts flips a carrier to "FakeFiller" while it drops its load at
+            // home and flips it back on empty. It is still a carrier for every
+            // roster purpose, so it must be counted as one — otherwise the room
+            // reads carriers=0 every time its haulers are home and re-queues them.
+            case "FakeFiller":
             case "carry":
                 if(isInRoom(creep, room)) {
                     carriersInRoom ++;
@@ -1003,7 +1008,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[4].upgrade_creep.amount && (!storage || storage.store[RESOURCE_ENERGY] > 100000 || storage.store[RESOURCE_ENERGY] > 20000 && !rampartsInRoom.filter(function(s) {return s.hits < 900000}).length || upgraders < 1 && room.controller.ticksToDowngrade < 21000) && !room.memory.danger && (constructionSitesAmount == 0 || room.controller.ticksToDowngrade < 21000)) {
+            // Storage floor is 10k, not 20k: a room that hovers in the 10-20k band
+            // spawns no upgrader at all and controller progress freezes outright.
+            // 10k feeds one upgrader comfortably; the surplus tier below is what
+            // scales with real surplus.
+            if(upgraders < spawnrules[4].upgrade_creep.amount && (!storage || storage.store[RESOURCE_ENERGY] > 100000 || storage.store[RESOURCE_ENERGY] > 10000 && !rampartsInRoom.filter(function(s) {return s.hits < 900000}).length || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2) && !room.memory.danger && (constructionSitesAmount == 0 || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1063,7 +1072,14 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 30000 || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger) {
+            // Storage floor is 10k, not 30k: live E17S4 sat at 20-29k banked for
+            // 20+ minutes with ZERO upgraders because nothing satisfied the 30k
+            // gate, so controller progress stopped completely. The last clause is
+            // a hard floor — one upgrader regardless of storage once the
+            // controller is below half its downgrade timer for this level.
+            if(upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 10000
+                || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger
+                || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -2352,6 +2368,10 @@ function spawnFirstInLine(room, spawn) {
     // the spawn stayed empty (E17S4, RCL5, 26k banked, spawn on 64).
     let storage = Game.getObjectById(room.memory.Structures.storage);
     let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
+    // a carrier can drop into storage/spawn too, so it counts as "something can
+    // still move energy" for the last-resort rung below ("FakeFiller" is a
+    // carrier mid-dropoff, see carry.ts)
+    let haulersInRoom = _.filter(Game.creeps, (creep:any) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller') && creep.room.name == room.name).length;
 
     // Check if room is energy starved and has nobody to fill the spawn
     if(room.controller.level >= 4 && storage && fillersInRoom === 0) {
@@ -2363,24 +2383,37 @@ function spawnFirstInLine(room, spawn) {
             // it can afford a body; clearing the list only threw away the
             // miners/carriers the room needs to refill in the first place.
             let name = 'EmergencyFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            let body;
+            let body = null;
 
-            // Ultra small body for extreme emergencies
-            if(room.energyAvailable < 300) {
+            // Body ladder keyed at what the room can actually afford RIGHT NOW.
+            // The bottom rung is the constraint: with no filler AND no carrier
+            // alive nothing can ever put energy back into spawn/extensions, and a
+            // lone spawn only regenerates to 300 — so the room must be able to buy
+            // the cheapest possible hauler ([CARRY,MOVE] = 100) the moment
+            // energyAvailable reaches 100. Keying the bottom rung at 150 stranded
+            // rooms sitting between 100 and 149 forever.
+            if(room.energyAvailable >= 300) {
+                body = [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE]; // 300 energy
+            } else if(room.energyAvailable >= 150) {
                 body = [CARRY, CARRY, MOVE]; // 150 energy
                 console.log(`Using ultra small emergency body in ${room.name}, energy: ${room.energyAvailable}`);
-            } else {
-                body = [CARRY, CARRY, CARRY, CARRY, MOVE, MOVE]; // 300 energy
+            } else if(room.energyAvailable >= 100 && haulersInRoom === 0) {
+                body = [CARRY, MOVE]; // 100 energy - cheapest hauler that exists
+                console.log(`Using last-resort hauler body in ${room.name}, energy: ${room.energyAvailable}`);
             }
 
-            let spawnAttempt = spawn.spawnCreep(body, name, {memory: {role: 'filler'}});
+            // below 100 nothing haul-shaped is buyable; fall through to the queue
+            // rather than returning, so its own -6 handling still runs this tick
+            if(body) {
+                let spawnAttempt = spawn.spawnCreep(body, name, {memory: {role: 'filler'}});
 
-            if(spawnAttempt === 0) {
-                console.log(`SUCCESS: Spawning emergency filler in ${room.name}`);
-                room.memory.data.c_spawned++;
-                return "spawning";
-            } else {
-                console.log(`FAILED to spawn emergency filler in ${room.name}, error: ${spawnAttempt}`);
+                if(spawnAttempt === 0) {
+                    console.log(`SUCCESS: Spawning emergency filler in ${room.name}`);
+                    room.memory.data.c_spawned++;
+                    return "spawning";
+                } else {
+                    console.log(`FAILED to spawn emergency filler in ${room.name}, error: ${spawnAttempt}`);
+                }
             }
         }
     }
@@ -2555,7 +2588,8 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
         }
     }
     let pathFromHomeToSource;
-    let carriersInRoom = _.filter(Game.creeps, (creep) => creep.memory.role == 'carry' && creep.room.name == room.name);
+    // "FakeFiller" is a carrier mid-dropoff at home (see carry.ts), not a filler
+    let carriersInRoom = _.filter(Game.creeps, (creep) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller') && creep.room.name == room.name);
 
     if(storage != undefined && !values.pathLength) {
         pathFromHomeToSource = storage.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
