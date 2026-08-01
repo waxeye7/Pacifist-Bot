@@ -134,6 +134,14 @@ declare global {
         badFill?: { [id: string]: number };
         /** tick of the last at-cap off-plan reclaim pass — see utils/PlanV2. */
         planCapReclaim?: number;
+        /** per-class tick of the last migration pass — see utils/PlanV2. */
+        planMigrate?: { [structureClass: string]: number };
+        /** one-shot migration notes already printed for this room (key -> tick) */
+        planMigrateLog?: { [key: string]: number };
+        /** tick the plan-position spawn was first seen built + active (RCL7+) */
+        planSpawnReady?: number;
+        /** id of a legacy storage/terminal waiting to be drained before retirement */
+        planDrain?: string;
         defence?: { towerShotsInRow?: number; perimeter?: any; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;

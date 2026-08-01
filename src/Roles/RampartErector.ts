@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { interiorMove } from "utils/Interior";
+
  const run = function (creep) {
     creep.memory.moving = false;
 
@@ -24,7 +26,7 @@
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
         else {
-            creep.MoveCostMatrixRoadPrio(storage, 1)
+            if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)
         }
     }
     if(creep.memory.full) {
@@ -32,7 +34,7 @@
             let target:any = Game.getObjectById(creep.memory.locked_repair);
             if(target && target.hits < 500000) {
                 if(creep.repair(target) == ERR_NOT_IN_RANGE) {
-                    creep.MoveCostMatrixRoadPrio(target, 3)
+                    if (!interiorMove(creep, target, 3)) creep.MoveCostMatrixRoadPrio(target, 3)
                 }
                 return;
             }
@@ -77,7 +79,7 @@
                         creep.build(target)
                     }
                     else {
-                        creep.MoveCostMatrixRoadPrio(target, 3)
+                        if (!interiorMove(creep, target, 3)) creep.MoveCostMatrixRoadPrio(target, 3)
                     }
                 }
                 else if(lookForConstructionSites.length == 0) {

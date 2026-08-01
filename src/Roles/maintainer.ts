@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { interiorMove, filterOutposts, dangerNow, interiorReady } from "utils/Interior";
+
 const run = function (creep) {
     ;
     creep.memory.moving = false;
@@ -74,19 +76,36 @@ const run = function (creep) {
             buildingsToRepair = buildingsToRepair.filter(function(b) {return storage.pos.getRangeTo(b) <= 10;});
         }
 
+        // Outpost work is DEFERRED, not abandoned: the maintainer's whole
+        // target list is roads and containers, most of which are the source /
+        // controller / mineral lines OUTSIDE the min-cut shell. While the room
+        // is under attack those are dropped, and — critically — an empty list
+        // for that reason must NOT set suicide, or every siege would recycle
+        // the room's maintainers and leave the roads to decay afterwards.
+        const outposted = interiorReady(creep.room) && dangerNow(creep.room);
+        if (outposted) buildingsToRepair = filterOutposts(creep.room, buildingsToRepair);
+
         if(buildingsToRepair.length > 0) {
             let closeByBuildings = creep.pos.findInRange(buildingsToRepair, 3);
             if(closeByBuildings.length > 0) {
                 creep.repair(closeByBuildings[closeByBuildings.length - 1])
                 if(closeByBuildings[closeByBuildings.length - 1].hits !== closeByBuildings[closeByBuildings.length - 1].hitsMax) {
-                    creep.MoveCostMatrixRoadPrio(closeByBuildings[closeByBuildings.length - 1], 1)
+                    const t = closeByBuildings[closeByBuildings.length - 1];
+                    if (!interiorMove(creep, t, 1)) creep.MoveCostMatrixRoadPrio(t, 1)
                 }
                 else {
-                    creep.MoveCostMatrixRoadPrio(closeByBuildings[0], 0)
+                    if (!interiorMove(creep, closeByBuildings[0], 0)) creep.MoveCostMatrixRoadPrio(closeByBuildings[0], 0)
                 }
             }
             else {
-                creep.MoveCostMatrixRoadPrio(creep.pos.findClosestByRange(buildingsToRepair), 3)
+                const t = creep.pos.findClosestByRange(buildingsToRepair);
+                if (!interiorMove(creep, t, 3)) creep.MoveCostMatrixRoadPrio(t, 3)
+            }
+        }
+        else if (outposted) {
+            // nothing left inside the wall to fix — sit tight behind it
+            if (storage && !creep.pos.isNearTo(storage)) {
+                if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)
             }
         }
         else {
@@ -99,7 +118,7 @@ const run = function (creep) {
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
         else {
-            creep.MoveCostMatrixRoadPrio(storage, 1)
+            if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)
         }
     }
 

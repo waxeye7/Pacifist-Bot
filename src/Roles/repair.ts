@@ -2,6 +2,8 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
+
 function findLocked(creep, storage) {
     let nukes = creep.room.find(FIND_NUKES);
     let nukeBOOL = false;
@@ -90,6 +92,12 @@ function findLocked(creep, storage) {
     }
 
 
+    // Outpost repair is DEFERRED entirely while the room is under attack:
+    // anything the min-cut shell does not enclose (remote road spurs, source
+    // containers past the wall, the mineral line) is not worth walking a
+    // repairer out of the ramparts for. Peacetime is unaffected.
+    buildingsToRepair300mil = filterOutposts(creep.room, buildingsToRepair300mil);
+
     if(buildingsToRepair300mil.length > 0) {
         if(creep.room.controller && creep.room.controller.level <= 3) {
             let closestToRepair = creep.pos.findClosestByRange(buildingsToRepair300mil);
@@ -106,7 +114,10 @@ function findLocked(creep, storage) {
 
     }
     else {
-        buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000});
+        buildingsToRepair300mil = filterOutposts(
+            creep.room,
+            creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000}),
+        );
         if(buildingsToRepair300mil.length > 0) {
             buildingsToRepair300mil.sort((a,b) => a.hits - b.hits);
             creep.say("🎯", true);
@@ -238,26 +249,20 @@ function findLocked(creep, storage) {
 
         if(creep.memory.locked) {
             let repairTarget = Game.getObjectById(creep.memory.locked);
-            let result = creep.repair(repairTarget)
+            // a target locked before the siege started may now be an outpost
+            if(outpostDeferred(creep.room, repairTarget)) {
+                creep.memory.locked = false;
+                repairTarget = null;
+            }
+            let result = repairTarget ? creep.repair(repairTarget) : ERR_INVALID_TARGET;
             if(result == ERR_NOT_IN_RANGE) {
-                if(creep.room.memory.danger) {
+                if (!interiorMove(creep, repairTarget, 3)) {
                     if(creep.memory.boosted) {
                         creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
                     }
                     else {
                         creep.MoveCostMatrixRoadPrio(repairTarget, 3)
-
                     }
-                }
-                else {
-                    if(creep.memory.boosted) {
-                        creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
-                    }
-                    else {
-                        creep.MoveCostMatrixRoadPrio(repairTarget, 3)
-
-                    }
-
                 }
                 creep.memory.moving = false;
             }
@@ -344,12 +349,13 @@ function findLocked(creep, storage) {
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);
-                if(creep.memory.boosted) {
-                    creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(repairTarget, 3)
-
+                if (!interiorMove(creep, repairTarget, 3)) {
+                    if(creep.memory.boosted) {
+                        creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
+                    }
+                    else {
+                        creep.MoveCostMatrixRoadPrio(repairTarget, 3)
+                    }
                 }
 			}
 		}
@@ -363,12 +369,13 @@ function findLocked(creep, storage) {
 			}
 			if(creep.memory.locked) {
 				let repairTarget = Game.getObjectById(creep.memory.locked);
-                if(creep.memory.boosted) {
-                    creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(repairTarget, 3)
-
+                if (!interiorMove(creep, repairTarget, 3)) {
+                    if(creep.memory.boosted) {
+                        creep.MoveCostMatrixIgnoreRoads(repairTarget, 3)
+                    }
+                    else {
+                        creep.MoveCostMatrixRoadPrio(repairTarget, 3)
+                    }
                 }
 			}
 		}

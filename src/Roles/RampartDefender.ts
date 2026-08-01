@@ -1,3 +1,5 @@
+import { interiorMove } from "utils/Interior";
+
 const run = function (creep:any) {
 
     creep.memory.moving = false;
@@ -35,12 +37,18 @@ const run = function (creep:any) {
         const leash =
             (creep.room.memory.basePlan && creep.room.memory.basePlan.leash) || 14;
         const d = creep.pos.getRangeTo(hubPos);
+        // interiorMove owns the move when the room has a usable shell: under
+        // danger it refuses to path through the exterior, and a defender that
+        // is ALREADY outside is walked to the nearest gate first rather than
+        // dragged home along the outside of its own wall.
         if (creep.room.memory.danger && d > leash) {
-            creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(hubPos, 10);
+            if (!interiorMove(creep, hubPos, 10)) {
+                creep.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(hubPos, 10);
+            }
         } else if (creep.room.memory.danger && d > leash - 2) {
-            creep.MoveCostMatrixRoadPrio(hubPos, 10);
+            if (!interiorMove(creep, hubPos, 10)) creep.MoveCostMatrixRoadPrio(hubPos, 10);
         } else if (!creep.room.memory.danger && d > leash - 4) {
-            creep.MoveCostMatrixRoadPrio(hubPos, 8);
+            if (!interiorMove(creep, hubPos, 8)) creep.MoveCostMatrixRoadPrio(hubPos, 8);
         }
     }
 
@@ -129,7 +137,9 @@ const run = function (creep:any) {
             if(rampart) {
 
                 if(!creep.pos.isEqualTo(rampart)) {
-                    creep.moveToSafePositionToRepairRampart(rampart, 0);
+                    if (!interiorMove(creep, rampart, 0)) {
+                        creep.moveToSafePositionToRepairRampart(rampart, 0);
+                    }
                 }
 
             }

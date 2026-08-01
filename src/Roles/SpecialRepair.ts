@@ -2,6 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
 
 const run = function (creep) {
     creep.memory.moving = false;
@@ -41,6 +42,11 @@ const run = function (creep) {
             }) as StructureRampart[];
         }
 
+        // Outposts (anything the min-cut shell does not enclose) are dropped
+        // entirely while the room is under attack — a wall repairer stepping
+        // outside to top up a remote rampart is a free kill.
+        Ramparts = filterOutposts(creep.room, Ramparts);
+
         if(Ramparts.length > 0) {
             if(!creep.memory.rampart_to_repair) {
                 Ramparts.sort((a,b) => a.hits - b.hits);
@@ -58,10 +64,19 @@ const run = function (creep) {
             lookForCreepsAtTarget = target.pos.lookFor(LOOK_CREEPS);
         }
 
+        // a target locked before the attack started may now be an outpost
+        if(target && outpostDeferred(creep.room, target)) {
+            creep.memory.rampart_to_repair = false;
+            creep.memory.targets = false;
+            return;
+        }
+
         if(target) {
 
             if(creep.pos.getRangeTo(target) > 3) {
-                creep.moveToSafePositionToRepairRampart(target, 3);
+                if (!interiorMove(creep, target, 3)) {
+                    creep.moveToSafePositionToRepairRampart(target, 3);
+                }
             }
             else if(creep.pos.getRangeTo(target) == 1 && storage && creep.pos.getRangeTo(storage) == 10 && lookForCreepsAtTarget.length == 1 && lookForCreepsAtTarget[0].my && lookForCreepsAtTarget[0].memory.role == "RampartDefender") {
                 let lookForBuildingsOnCreep = creep.pos.lookFor(LOOK_STRUCTURES);
@@ -77,7 +92,9 @@ const run = function (creep) {
             }
             else if(creep.pos.getRangeTo(target) <= 3 && creep.pos.getRangeTo(target) >= 1 && storage && creep.pos.getRangeTo(storage) !== 7 && target.pos.lookFor(LOOK_CREEPS).length == 0) {
 
-                creep.moveToSafePositionToRepairRampart(target, 0);
+                if (!interiorMove(creep, target, 0)) {
+                    creep.moveToSafePositionToRepairRampart(target, 0);
+                }
 
             }
             else {

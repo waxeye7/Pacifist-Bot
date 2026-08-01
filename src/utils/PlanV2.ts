@@ -22,6 +22,7 @@
  */
 import { logAlways } from "utils/Logger";
 import { isUnreachableTile } from "utils/Reachability";
+import { isExteriorTile, interiorReady } from "utils/Interior";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -393,6 +394,12 @@ function reclaimTile(
     break;
   }
   if (!squatter) return; // terrain / exit band / transient — nothing to reclaim
+  // A spawn standing on a planned tile is NOT an error and must not be logged
+  // as one. Below RCL7 it is the room's only spawn and it stays, full stop;
+  // from RCL7 the migration protocol below owns it and speaks for itself.
+  // This used to print "needs owner attention" every 100 ticks, forever, in
+  // every hybrid room — the exact "error spam" the protocol is meant to end.
+  if (squatter.structureType === STRUCTURE_SPAWN) return;
   const cheap = RECLAIMABLE.indexOf(squatter.structureType) >= 0;
   if (!cheap) {
     // throttled: a permanent blocker would otherwise log every 15 ticks
@@ -414,8 +421,11 @@ function reclaimTile(
 
 /**
  * ---------------------------------------------------------------------------
- * At-cap reclaim — the reason off-plan extensions were immortal.
+ * MIGRATION — how a hybrid room converges on the plan without ever losing the
+ * ability to spawn.
  *
+ * THE ORIGINAL PROBLEM (off-plan extensions were immortal)
+ * -------------------------------------------------------
  * The placement loop below skips a type entirely once `existing >= cap`, and
  * `existing` counts EVERY built structure of that type, on-plan or not. The
  * plan was re-pushed many times while the rooms were already built, so every
@@ -431,14 +441,50 @@ function reclaimTile(
  * a planned tile, so ERR_INVALID_TARGET never comes back, so reclaimTile() is
  * never reached. The plan can never converge, and worse: the off-plan
  * extensions wall other extensions in (E9S2 has a five-extension pocket with
- * no walkable approach at all, E11S2 has extension@18,36, E14S9 has
- * extension@23,22) which parks the room's whole fill layer on a dead target.
+ * no walkable approach at all) which parks the room's whole fill layer on a
+ * dead target.
  *
- * So when a type is AT cap and the plan still wants tiles it does not have,
- * demolish OFF-PLAN structures of that type to make room. Only extensions and
- * containers — cheap, rebuildable, and the ones the plan actually moves.
- * Bounded by construction: on-plan structures are never touched, so the
- * off-plan count strictly decreases and the process always terminates.
+ * THE PROTOCOL
+ * ------------
+ * Every class converges at its own pace, and every class is gated on the room
+ * being able to PAY for the replacement, because the failure mode of getting
+ * this wrong is a room that cannot spawn:
+ *
+ *   extension / container / road   free replacement, 3 per pass, 60 ticks
+ *                                  apart, once storage energy > 20k. Below
+ *                                  that (or with no storage at all) only the
+ *                                  two actively HARMFUL kinds of squatter are
+ *                                  touched — unreachable ones and ones sitting
+ *                                  on a planned tile — and only under cap
+ *                                  pressure. Roads outside the shell are never
+ *                                  touched: those are the remote lines.
+ *
+ *   tower                          ONE at a time, N-1 always live. Below cap
+ *                                  nothing is destroyed at all — the placement
+ *                                  loop builds the plan's tower first and the
+ *                                  room is briefly N+1. At cap exactly one
+ *                                  off-plan tower is retired per pass, and
+ *                                  never the last one.
+ *
+ *   storage / terminal             build-new-then-drain from RCL6 "where caps
+ *                                  permit" — and they never do:
+ *                                  CONTROLLER_STRUCTURES caps both at 1 at
+ *                                  every level, so the replacement cannot be
+ *                                  built before the original comes down and
+ *                                  destroy() would spill the contents. So the
+ *                                  room DEFERS and says so, once. The
+ *                                  build-drain-retire path below is written
+ *                                  out anyway for the day a cap allows two.
+ *
+ *   spawn                          see migrateSpawns. ABSOLUTE: a room's only
+ *                                  spawn is never destroyed.
+ *
+ * And nothing migrates at all while room.memory.danger is set. Migration is a
+ * tidy-up; spawning defenders is not, and every action here temporarily costs
+ * the room either energy capacity or a tower.
+ *
+ * Bounded by construction: on-plan structures are never candidates, so the
+ * off-plan count strictly decreases and the process terminates.
  *
  * Ranking, worst squatter first:
  *   1. unreachable — dead weight AND the thing sealing a pocket shut
@@ -446,70 +492,417 @@ function reclaimTile(
  *   3. everything else, farthest from the hub first, so the base compacts
  * ---------------------------------------------------------------------------
  */
-const CAP_RECLAIM_TYPES: { [k: string]: number } = {
-  [STRUCTURE_EXTENSION]: 3,
-  [STRUCTURE_CONTAINER]: 1,
-};
-/** ticks between at-cap passes — build time for what the last pass freed */
-const CAP_RECLAIM_EVERY = 60;
 
-function reclaimAtCap(
+/** storage energy a room must hold before it may demolish something it will
+ *  then have to pay to rebuild */
+const MIGRATE_ENERGY = 20000;
+/** ticks between passes, PER CLASS — build time for what the last pass freed */
+const MIGRATE_EVERY = 60;
+/** how many off-plan structures one pass of a class may retire */
+const MIGRATE_PER_PASS: { [k: string]: number } = {
+  [STRUCTURE_EXTENSION]: 3,
+  [STRUCTURE_CONTAINER]: 3,
+  [STRUCTURE_ROAD]: 3,
+  [STRUCTURE_TOWER]: 1,
+};
+/** cheap + rebuildable: replaced freely once the room can pay for it */
+const FREE_REPLACE: { [k: string]: boolean } = {
+  [STRUCTURE_EXTENSION]: true,
+  [STRUCTURE_CONTAINER]: true,
+  [STRUCTURE_ROAD]: true,
+};
+const MIGRATE_CLASSES: string[] = [
+  STRUCTURE_EXTENSION,
+  STRUCTURE_CONTAINER,
+  STRUCTURE_TOWER,
+  STRUCTURE_ROAD,
+];
+/** storage/terminal migration is a hub rebuild — not before the hub exists */
+const HUB_MIGRATE_RCL = 6;
+
+function migrationEnergy(room: Room): number {
+  return room.storage ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+}
+
+/**
+ * "Log each migration action once." Destroys log as they happen (that IS once
+ * per action). Deferrals are a standing state, so they would otherwise repeat
+ * every 60 ticks forever — which is exactly the error spam the spawn rule is
+ * meant to end. One line per room per condition, then silence.
+ */
+function noteOnce(room: Room, key: string, msg: string): void {
+  const log = room.memory.planMigrateLog || (room.memory.planMigrateLog = {});
+  if (log[key]) return;
+  log[key] = Game.time;
+  logAlways(msg);
+}
+
+function migrateTimerDue(room: Room, cls: string): boolean {
+  const t = room.memory.planMigrate || (room.memory.planMigrate = {});
+  return Game.time - (t[cls] || 0) >= MIGRATE_EVERY;
+}
+
+function migrateTimerStamp(room: Room, cls: string): void {
+  const t = room.memory.planMigrate || (room.memory.planMigrate = {});
+  t[cls] = Game.time;
+}
+
+type Candidate = { s: Structure; rank: number; d: number };
+
+function rankOffPlan(
   room: Room,
   type: string,
-  planned: number[],
-  cap: number,
-  placedSet: { [packed: number]: boolean },
+  planTile: { [p: number]: boolean },
   plan: PackedPlan,
   structures: Structure[],
-): void {
-  const perPass = CAP_RECLAIM_TYPES[type];
-  if (!perPass) return;
-  if (Game.time - (room.memory.planCapReclaim || 0) < CAP_RECLAIM_EVERY) return;
-
-  // Does the plan actually still want a tile we do not have? Only the first
-  // `cap` planned tiles can ever be built, so only those count as a want.
-  const wantLimit = Math.min(cap, planned.length);
-  let wanted = 0;
-  for (let i = 0; i < wantLimit; i++) if (!placedSet[planned[i]]) wanted++;
-  if (!wanted) return;
-
-  const plannedTiles: { [packed: number]: boolean } = {};
-  for (let i = 0; i < wantLimit; i++) plannedTiles[planned[i]] = true;
+): { built: number; onPlan: number; off: Candidate[] } {
   // any tile the plan wants for any type — an off-plan extension standing on
   // the storage tile is a worse squatter than one standing on open ground
   const anyPlanTile: { [packed: number]: boolean } = {};
   for (const k of Object.keys(plan.t)) {
-    if (k === "shellCut" || k === "road" || k === "rampart") continue;
+    if (k === "shellCut" || k === "labInput" || k === "road" || k === "rampart") continue;
     for (const p of plan.t[k]) anyPlanTile[p] = true;
   }
   const hubPacked = plan.t.storage && plan.t.storage.length ? plan.t.storage[0] : undefined;
   const hub = hubPacked === undefined ? null : unpack(hubPacked);
 
-  const candidates: Array<{ s: Structure; rank: number; d: number }> = [];
+  let built = 0;
+  let onPlan = 0;
+  const off: Candidate[] = [];
   for (const s of structures) {
     if (s.structureType !== type) continue;
+    built++;
     const packed = s.pos.x + s.pos.y * 50;
-    if (plannedTiles[packed]) continue; // on-plan — never touched
+    if (planTile[packed]) {
+      onPlan++;
+      continue; // on-plan — never touched
+    }
     let rank = 2;
     if (isUnreachableTile(room, s.pos.x, s.pos.y)) rank = 0;
     else if (anyPlanTile[packed]) rank = 1;
     const d = hub ? Math.max(Math.abs(s.pos.x - hub.x), Math.abs(s.pos.y - hub.y)) : 0;
-    candidates.push({ s, rank, d });
+    off.push({ s: s, rank: rank, d: d });
   }
-  if (!candidates.length) return;
-  candidates.sort((a, b) => a.rank - b.rank || b.d - a.d);
+  off.sort((a, b) => a.rank - b.rank || b.d - a.d);
+  return { built: built, onPlan: onPlan, off: off };
+}
 
-  room.memory.planCapReclaim = Game.time;
-  const take = Math.min(perPass, candidates.length, wanted);
+function migrateClass(
+  room: Room,
+  plan: PackedPlan,
+  lvl: number,
+  type: string,
+  structures: Structure[],
+  have: { [type: string]: { [packed: number]: boolean } },
+): void {
+  const perPass = MIGRATE_PER_PASS[type];
+  if (!perPass) return;
+  if (!typeAllowedAtRcl(type, lvl)) return;
+  const planned = plannedTilesFor(plan, type, lvl);
+  if (!planned || !planned.length) return;
+  if (!migrateTimerDue(room, type)) return;
+
+  const isRoad = type === STRUCTURE_ROAD;
+  const cap = isRoad
+    ? planned.length
+    : (CONTROLLER_STRUCTURES as any)[type]
+      ? (CONTROLLER_STRUCTURES as any)[type][lvl] || 0
+      : planned.length;
+  if (!cap) return;
+
+  // Only the first `cap` planned tiles can ever exist, so only those count as
+  // a "want". Roads are the exception: the whole array is planned and the RCL
+  // budget only says which prefix gets built FIRST, so a road at index 90 is
+  // on-plan and must never be read as a squatter.
+  const limit = isRoad ? planned.length : Math.min(cap, planned.length);
+  const planTile: { [p: number]: boolean } = {};
+  for (let i = 0; i < limit; i++) planTile[planned[i]] = true;
+
+  const placed = have[type] || {};
+  const wantLimit = Math.min(cap, planned.length);
+  let wanted = 0;
+  for (let i = 0; i < wantLimit; i++) if (!placed[planned[i]]) wanted++;
+
+  const ranked = rankOffPlan(room, type, planTile, plan, structures);
+  if (!ranked.off.length) return;
+
+  const rich = migrationEnergy(room) > MIGRATE_ENERGY;
+  let candidates = ranked.off;
+  let reason = "";
+
+  if (type === STRUCTURE_TOWER) {
+    if (!rich) return;
+    // below cap we destroy NOTHING — the placement loop builds the plan's
+    // tower first, which is the "new one up before the old one goes" the
+    // owner asked for. At cap the only way forward is to free one slot.
+    if (ranked.built < cap) return;
+    if (ranked.built < 2) {
+      noteOnce(
+        room,
+        "tower:solo",
+        `planV2 ${room.name}: off-plan tower@${ranked.off[0].s.pos.x},${ranked.off[0].s.pos.y} kept — ` +
+          `it is the room's only tower, so N-1 would be zero. It migrates once the RCL allows a second.`,
+      );
+      return;
+    }
+    if (!wanted) return;
+    candidates = ranked.off.slice(0, 1);
+    reason = "tower swap, N-1 stays live";
+  } else if (FREE_REPLACE[type] && rich) {
+    if (isRoad) {
+      // Off-plan roads OUTSIDE the shell are the remote/approach lines, not
+      // legacy stamp litter. Retiring those would unpave every hauler route
+      // the room owns, so the plan only claims responsibility for the roads
+      // it actually encloses.
+      candidates = interiorReady(room)
+        ? ranked.off.filter((c) => !isExteriorTile(room, c.s.pos.x, c.s.pos.y))
+        : [];
+      if (!candidates.length) return;
+    }
+    reason = `free replace, storage > ${MIGRATE_ENERGY}`;
+  } else {
+    // Poor room, or no storage at all. Still clear the two kinds of off-plan
+    // structure that are actively HARMFUL rather than merely surplus — an
+    // unreachable extension is a permanent dead fill target, and a squatter on
+    // a planned tile is what stalls the whole type — but only under cap
+    // pressure, never just to tidy up. This is the pre-existing behaviour that
+    // unwedged E9S2/E11S2/E14S9 and it must survive the new energy gate.
+    if (ranked.built < cap) return;
+    if (!wanted) return;
+    candidates = ranked.off.filter((c) => c.rank <= 1);
+    if (!candidates.length) return;
+    reason = "at cap, storage below the gate — harmful squatters only";
+  }
+
+  let take = Math.min(perPass, candidates.length);
+  if (wanted > 0) take = Math.min(take, wanted);
+  if (take <= 0) return;
+
+  migrateTimerStamp(room, type);
   for (let i = 0; i < take; i++) {
     const c = candidates[i];
     const res = c.s.destroy();
     logAlways(
-      `planV2 ${room.name}: at cap (${cap}) — off-plan ${type}@${c.s.pos.x},${c.s.pos.y} ` +
-        `(${c.rank === 0 ? "unreachable" : c.rank === 1 ? "on a planned tile" : "surplus"}) ` +
-        `destroy() ${res}; ${wanted} planned ${type} tile(s) still unbuilt`,
+      `planV2 ${room.name}: migrate ${type}@${c.s.pos.x},${c.s.pos.y} ` +
+        `(${c.rank === 0 ? "unreachable" : c.rank === 1 ? "on a planned tile" : "surplus"}; ${reason}) ` +
+        `destroy() ${res}; built ${ranked.built}/${cap}, on-plan ${ranked.onPlan}, ` +
+        `${wanted} planned ${type} tile(s) still unbuilt`,
     );
   }
+}
+
+/**
+ * THE SPAWN RULE — the one absolute in this file.
+ *
+ * A room's only spawn is NEVER destroyed. Not to satisfy the plan, not at
+ * RCL8, not ever: destroy() on the last spawn ends the room, and no layout
+ * improvement is worth that.
+ *
+ * Below RCL7 CONTROLLER_STRUCTURES caps spawns at 1, so there is physically no
+ * way to stand the replacement up first. An off-plan spawn therefore just
+ * STAYS. Adoption tolerates it — the placement loop already skips the type at
+ * cap, and reclaimTile() no longer logs a spawn squatter as an error, which is
+ * where the every-100-tick "needs owner attention" spam came from.
+ *
+ * From RCL7 the cap is 2, so the protocol is: the placement loop sites the
+ * plan's spawn, it finishes, we VERIFY it (mine, active, a real spawn store)
+ * and keep verifying for a full migration window rather than trusting one
+ * tick's look, and only then does the legacy spawn come down — and only if it
+ * is not mid-spawn, because destroying a spawning spawn kills the creep.
+ */
+function migrateSpawns(
+  room: Room,
+  plan: PackedPlan,
+  lvl: number,
+  structures: Structure[],
+): void {
+  const planned = plan.t.spawn || [];
+  if (!planned.length) return;
+  const planTile: { [p: number]: boolean } = {};
+  for (const p of planned) planTile[p] = true;
+
+  const spawns: StructureSpawn[] = [];
+  for (const s of structures) {
+    if (s.structureType === STRUCTURE_SPAWN) spawns.push(s as StructureSpawn);
+  }
+  if (!spawns.length) return;
+
+  const off: StructureSpawn[] = [];
+  const onPlan: StructureSpawn[] = [];
+  for (const s of spawns) {
+    if (planTile[s.pos.x + s.pos.y * 50]) onPlan.push(s);
+    else off.push(s);
+  }
+  if (!off.length) {
+    delete room.memory.planSpawnReady;
+    return;
+  }
+
+  if (spawns.length <= 1) {
+    noteOnce(
+      room,
+      "spawn:solo",
+      `planV2 ${room.name}: spawn@${off[0].pos.x},${off[0].pos.y} is off-plan and is the room's ` +
+        `ONLY spawn — kept, permanently, by rule. The plan tolerates it; from RCL7 (spawn cap 2) ` +
+        `the plan's spawn is built first and this one is retired then.`,
+    );
+    return;
+  }
+
+  if (lvl < 7) {
+    // reachable after a downgrade: 2 spawns standing at RCL6
+    noteOnce(
+      room,
+      "spawn:rcl",
+      `planV2 ${room.name}: off-plan spawn@${off[0].pos.x},${off[0].pos.y} deferred — RCL${lvl} ` +
+        `caps spawns at 1, so the plan's spawn cannot be built before this one comes down.`,
+    );
+    return;
+  }
+
+  let working: StructureSpawn | null = null;
+  for (const s of onPlan) {
+    if (s.my && s.isActive() && s.store.getCapacity(RESOURCE_ENERGY) > 0) {
+      working = s;
+      break;
+    }
+  }
+  if (!working) {
+    // the replacement is not up (or not functioning) yet — placement builds it
+    delete room.memory.planSpawnReady;
+    return;
+  }
+
+  if (!room.memory.planSpawnReady) {
+    room.memory.planSpawnReady = Game.time;
+    logAlways(
+      `planV2 ${room.name}: plan spawn ${working.name}@${working.pos.x},${working.pos.y} is built ` +
+        `and active — verifying for ${MIGRATE_EVERY} ticks before the legacy spawn is retired`,
+    );
+    return;
+  }
+  if (Game.time - room.memory.planSpawnReady < MIGRATE_EVERY) return;
+  if (migrationEnergy(room) <= MIGRATE_ENERGY) return;
+
+  let legacy: StructureSpawn | null = null;
+  for (const s of off) {
+    if (!s.spawning) {
+      legacy = s;
+      break;
+    }
+  }
+  if (!legacy) return; // mid-spawn: destroying it would kill the creep inside
+  if (spawns.length - 1 < 1) return; // belt and braces on the absolute rule
+
+  const res = legacy.destroy();
+  logAlways(
+    `planV2 ${room.name}: migrate spawn — legacy ${legacy.name}@${legacy.pos.x},${legacy.pos.y} ` +
+      `destroy() ${res}; ${spawns.length - 1} spawn(s) remain, plan spawn ${working.name} active`,
+  );
+  delete room.memory.planSpawnReady;
+}
+
+/**
+ * Storage / terminal. Build-new-then-drain from RCL6 "where caps permit".
+ *
+ * They do not permit, and that is the finding rather than a limitation of this
+ * code: CONTROLLER_STRUCTURES caps storage at 1 from RCL4 and terminal at 1
+ * from RCL6, at EVERY level including 8. So a room can never hold the plan's
+ * storage and its legacy storage at the same time, the replacement can never
+ * be built first, and destroy() on a full storage spills its contents. There
+ * is no safe automatic move, so the room defers and says so exactly once.
+ *
+ * The build-drain-retire path is written out below regardless: it is the
+ * correct protocol, it costs three lines, and it is what should run the day a
+ * cap allows two (or the day this file is reused on a server that changes it).
+ */
+function migrateHub(
+  room: Room,
+  plan: PackedPlan,
+  lvl: number,
+  structures: Structure[],
+): void {
+  const classes = [STRUCTURE_STORAGE, STRUCTURE_TERMINAL];
+  for (const cls of classes) {
+    const planned = plan.t[cls] || [];
+    if (!planned.length) continue;
+    const cap = (CONTROLLER_STRUCTURES as any)[cls]
+      ? (CONTROLLER_STRUCTURES as any)[cls][lvl] || 0
+      : 0;
+    if (!cap) continue;
+    const planTile: { [p: number]: boolean } = {};
+    for (const p of planned) planTile[p] = true;
+
+    let onPlan = 0;
+    const off: any[] = [];
+    for (const s of structures) {
+      if (s.structureType !== cls) continue;
+      if (planTile[s.pos.x + s.pos.y * 50]) onPlan++;
+      else off.push(s);
+    }
+    if (!off.length) continue;
+    const legacy = off[0];
+    const used = legacy.store ? legacy.store.getUsedCapacity() || 0 : 0;
+
+    if (lvl < HUB_MIGRATE_RCL) {
+      noteOnce(
+        room,
+        `hub:${cls}:rcl`,
+        `planV2 ${room.name}: off-plan ${cls}@${legacy.pos.x},${legacy.pos.y} — migration deferred ` +
+          `below RCL${HUB_MIGRATE_RCL}; a room this young cannot afford to rebuild its hub.`,
+      );
+      continue;
+    }
+
+    if (cap < 2) {
+      noteOnce(
+        room,
+        `hub:${cls}`,
+        `planV2 ${room.name}: off-plan ${cls}@${legacy.pos.x},${legacy.pos.y} — MIGRATION DEFERRED. ` +
+          `CONTROLLER_STRUCTURES caps ${cls} at ${cap} at every RCL, so the plan's tile cannot be ` +
+          `built before this one comes down, and destroy() would spill ${used} resources on the ` +
+          `floor. Owner action: drain it by hand, destroy it, and the next placement pass sites ` +
+          `the plan tile.`,
+      );
+      continue;
+    }
+
+    // caps permit a second one: build new (placement does that), drain, retire
+    if (!onPlan) continue;
+    if (used > 0) {
+      room.memory.planDrain = legacy.id;
+      noteOnce(
+        room,
+        `hub:${cls}:drain`,
+        `planV2 ${room.name}: plan ${cls} is up — draining legacy ${cls}@${legacy.pos.x},` +
+          `${legacy.pos.y} (${used} held) before retiring it`,
+      );
+      continue;
+    }
+    delete room.memory.planDrain;
+    const res = legacy.destroy();
+    logAlways(
+      `planV2 ${room.name}: migrate ${cls} — legacy @${legacy.pos.x},${legacy.pos.y} drained, ` +
+        `destroy() ${res}`,
+    );
+  }
+}
+
+/** One migration pass over every class. See the protocol comment above. */
+function runMigration(
+  room: Room,
+  plan: PackedPlan,
+  lvl: number,
+  structures: Structure[],
+  have: { [type: string]: { [packed: number]: boolean } },
+): void {
+  // NEVER while the room is being attacked. Every action here costs the room
+  // either energy capacity or a tower, and a room under siege needs both to
+  // spawn and man its defence. Migration is a tidy-up; it can wait.
+  if (room.memory.danger) return;
+  for (const cls of MIGRATE_CLASSES) migrateClass(room, plan, lvl, cls, structures, have);
+  migrateSpawns(room, plan, lvl, structures);
+  migrateHub(room, plan, lvl, structures);
 }
 
 /**
@@ -611,21 +1004,12 @@ export function placeFromPlanV2(room: Room): void {
   for (const s of structures) note(s.structureType, s.pos.x, s.pos.y);
   for (const s of sites) note(s.structureType, s.pos.x, s.pos.y);
 
-  // At-cap reclaim runs BEFORE the site budget gate, deliberately. A starved
-  // room cannot finish the sites it already has — E11S2 sat on four sites
-  // nothing was building for thousands of ticks — so gating the reclaim on a
-  // free site slot means the rooms that need it most are exactly the rooms
-  // that never get it. Demolition does not consume a site slot anyway.
-  for (const type of Object.keys(CAP_RECLAIM_TYPES)) {
-    const planned = plannedTilesFor(plan, type, lvl);
-    if (!planned || !planned.length) continue;
-    if (!typeAllowedAtRcl(type, lvl)) continue;
-    const cap = (CONTROLLER_STRUCTURES as any)[type]
-      ? (CONTROLLER_STRUCTURES as any)[type][lvl] || 0
-      : planned.length;
-    if ((count[type] || 0) < cap) continue;
-    reclaimAtCap(room, type, planned, cap, have[type] || {}, plan, structures);
-  }
+  // Migration runs BEFORE the site budget gate, deliberately. A starved room
+  // cannot finish the sites it already has — E11S2 sat on four sites nothing
+  // was building for thousands of ticks — so gating it on a free site slot
+  // means the rooms that need it most are exactly the rooms that never get it.
+  // Demolition does not consume a site slot anyway.
+  runMigration(room, plan, lvl, structures, have);
 
   if (budget <= 0) return;
 
