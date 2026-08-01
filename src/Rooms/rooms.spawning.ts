@@ -413,6 +413,8 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let SafeModers = 0;
 
+    let ControllerLinkFillers = 0;
+
     _.forEach(Game.creeps, function(creep) {
         // console.log(creep.memory.role)
         switch(creep.memory.role) {
@@ -444,6 +446,14 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             case "reserve":
                 reservers ++;
+                break;
+
+            // Was never counted at all, which is why the gate below could stack
+            // 4-5 of them (16 CARRY / 4 MOVE, ~1,200 energy each) in one room.
+            case "ControllerLinkFiller":
+                if(isInRoom(creep, room)) {
+                    ControllerLinkFillers ++;
+                }
                 break;
 
             case "RemoteRepair":
@@ -1114,6 +1124,10 @@ function add_creeps_to_spawn_list(room, spawn) {
     // extra upgraders bought by a storage surplus — 0 below the tier
     // thresholds, so every gate below keeps its old behaviour there
     let surplusUpgraders = surplusUpgraderTier(room);
+    // Energy already on this room's floor is energy we have already paid to
+    // mine; burning it into the controller costs nothing extra. See
+    // drainPressure() for the measurement this is based on.
+    let pressure = drainPressure(room);
 
     // Open construction sites must NEVER veto the baseline upgraders.
     //
@@ -1194,7 +1208,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[2].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[2].upgrade_creep.amount && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
+            if(upgraders < spawnrules[2].upgrade_creep.amount + pressure.burn && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1224,7 +1238,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(upgraders < spawnrules[3].upgrade_creep.amount && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
+            // + pressure.burn: E2S7 (RCL3) sat on a 14,470-energy floor pile
+            // in steady state, destroying 18.7 energy/tick to decay while its
+            // controller took 2.19/tick. Upgraders are the only sink that
+            // scales, so the roster grows with the pile.
+            if(upgraders < spawnrules[3].upgrade_creep.amount + pressure.burn && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 1500)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1282,21 +1300,19 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            // Storage floor is 10k, not 20k: a room that hovers in the 10-20k band
-            // spawns no upgrader at all and controller progress freezes outright.
-            // 10k feeds one upgrader comfortably; the surplus tier below is what
-            // scales with real surplus.
-            if(upgraders < spawnrules[4].upgrade_creep.amount && (!storage || storage.store[RESOURCE_ENERGY] > 100000 || storage.store[RESOURCE_ENERGY] > 10000 && !rampartsInRoom.filter(function(s) {return s.hits < 900000}).length || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
-                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name);
-            }
-            // Surplus tier: >60k banked at RCL4. Deliberately NOT gated on
+            // One gate, one number. The old pair of gates were
+            //   storage > 100000 || storage > 10000 && no rampart under 900k
+            // and an RCL4 rampart caps at 300,000 hits, so the second arm could
+            // never pass and the effective floor was 100k — E18S3 froze its
+            // controller for 3,392 ticks at 60k banked with zero upgraders.
+            // upgraderTarget() owns the floor, the middle band, the surge and
+            // the hysteresis that stops the 0-upgrader cycle; the surplus tier
+            // is folded into it. Deliberately NOT gated on
             // constructionSitesAmount — that gate is what froze E11S5 at 778k.
-            else if(surplusUpgraders > 0 && upgraders < spawnrules[4].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
+            if(upgraders < upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
             if(maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
                 if(spawnMaintainer) {
@@ -1346,23 +1362,18 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            // Storage floor is 10k, not 30k: live E17S4 sat at 20-29k banked for
-            // 20+ minutes with ZERO upgraders because nothing satisfied the 30k
-            // gate, so controller progress stopped completely. The last clause is
-            // a hard floor — one upgrader regardless of storage once the
-            // controller is below half its downgrade timer for this level.
-            if(upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 10000
+            // Same single hysteretic gate as RCL4 (see upgraderTarget). The old
+            // `storage.store > 10000` read the hub CONTAINER in rooms whose
+            // Structures.storage cache was never re-pointed, and a container
+            // caps at 2,000 — unsatisfiable. The downgrade clause is kept as a
+            // hard floor: one upgrader regardless of the bank once the
+            // controller is below half its downgrade timer.
+            if(upgraders < upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn) && !room.memory.danger
                 || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger
                 || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name);
-            }
-            // Surplus tier: >60k banked at RCL5 buys one upgrader on top
-            else if(surplusUpgraders > 0 && upgraders < spawnrules[5].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
-                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Surplus Upgrader to Spawn List: ' + name);
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
             if(maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
                 if(spawnMaintainer) {
@@ -1774,12 +1785,61 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.memory.Structures?.controllerLink && room.controller.level !== 8 && room.controller.level >= 3) {
-        let controllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
-        if(Game.time % 70 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 100 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
+    /*
+     * ControllerLinkFiller: only for an actual LINK, only from RCL5, only one.
+     *
+     * The old gate was `room.memory.Structures.controllerLink && level >= 3`.
+     * That memory key is written by creepFunctions.findFillerTarget, whose
+     * `level < 7` branch deliberately stores a CONTAINER under it — so the name
+     * was a lie and the gate never checked for a link. Links unlock at RCL5, so
+     * every ControllerLinkFiller in an RCL3/4 room was a 1,200-energy hauler
+     * built for a structure that could not exist. Measured: E11S8 (RCL4, zero
+     * links in every snapshot) ran 4-5 of them simultaneously, each parked full
+     * with 800 energy, during the exact 2,725 ticks the room made zero
+     * controller progress; E3S3 ran 1-2 continuously.
+     *
+     * Resolve the link from the room instead of the memory key (the key can
+     * only be refreshed by a filler that already exists, which is a deadlock),
+     * and cap the roster.
+     */
+    if(room.controller.level !== 8 && ControllerLinkFillers < 1) {
+        // The RCL5+ case: an actual LINK. The RCL3/4 case: the controller-side
+        // CONTAINER, which upgrader.ts drinks from (it reads the same
+        // Structures.controllerLink key) — killing this outright would cut the
+        // controller's supply line in exactly the rooms that need it most. Live
+        // E1S4 has its controller at 20,30 and both sources at 44,10 / 41,16, so
+        // its 1-CARRY RCL3 upgraders spend ~25 tiles each way per 50 energy; the
+        // near container is what makes them productive at all.
+        //
+        // The waste finding #9 measured was FIVE of these at once for a
+        // structure that did not exist, in a room with zero upgraders. Requiring
+        // a real target, an upgrader to serve, and a roster of one keeps the
+        // supply line and removes the pile-up.
+        let ctrlTarget: any = null;
+        if(room.controller.level >= 5) {
+            const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+                s.structureType == STRUCTURE_LINK && s.pos.getRangeTo(room.controller) <= 3});
+            if(ctrlLinks.length) ctrlTarget = room.controller.pos.findClosestByRange(ctrlLinks);
+        }
+        if(!ctrlTarget && room.controller.level >= 3 && upgraders > 0) {
+            const ctrlConts = room.find(FIND_STRUCTURES, {filter: (s:any) =>
+                s.structureType == STRUCTURE_CONTAINER &&
+                s.id !== room.memory.Structures?.bin &&
+                s.id !== room.memory.Structures?.storage &&
+                s.pos.getRangeTo(room.controller) <= 3 &&
+                s.pos.findInRange(FIND_SOURCES, 1).length === 0});
+            if(ctrlConts.length) ctrlTarget = room.controller.pos.findClosestByRange(ctrlConts);
+        }
+        const feedable = ctrlTarget && (storage && storage.store[RESOURCE_ENERGY] > 1000 ||
+            room.find(FIND_DROPPED_RESOURCES, {filter: (r:any) => r.resourceType == RESOURCE_ENERGY && r.amount > 500}).length > 0);
+        if(Game.time % 70 < 12 && feedable && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
+            room.memory.Structures.controllerLink = ctrlTarget.id;
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 20), name, {memory: {role: 'ControllerLinkFiller'}});
-            console.log('Adding ControllerLinkFiller to Spawn List: ' + name);
+            // Below RCL5 this is a 550-energy room: 8 CARRY is plenty and the
+            // 20-part cap would otherwise buy a 1,200-energy creep.
+            const cap = room.controller.level >= 5 ? 20 : 10;
+            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, cap), name, {memory: {role: 'ControllerLinkFiller'}});
+            console.log('Adding ControllerLinkFiller to Spawn List: ' + name + ' -> ' + ctrlTarget.structureType);
         }
     }
 
@@ -2967,17 +3027,188 @@ function isInRoom(creep, room) {
  */
 function surplusUpgraderTier(room) {
     let storage = room.storage;
-    if(!storage || !storage.my) return 0;
+    if(!storage || !storage.my) {
+        room.memory.upLatch = false;
+        return 0;
+    }
     if(room.memory.danger) return 0;
     let energy = storage.store[RESOURCE_ENERGY] || 0;
     let level = room.controller.level;
+    // Always evaluated so the latch tracks the bank even at levels that do not
+    // read it — a stale latch is worse than no latch.
+    const latched = upgradeLatch(room);
     if(level >= 8) return 0;
     if(level >= 6) {
         if(level == 7 && energy > 250000) return 2;
         return energy > 120000 ? 1 : 0;
     }
-    if(level >= 4) return energy > 60000 ? 1 : 0;
+    // WAS a bare `energy > 60000`, i.e. a one-sided threshold that the RCL4/5
+    // baseline gate did not share. See upgraderTarget() below.
+    if(level >= 4) return latched ? 1 : 0;
     return 0;
+}
+
+/* -------------------------------------------------------------------------
+ * Upgrade budget: a real floor, and hysteresis instead of bang-bang.
+ *
+ * Measured (5,448-tick window, three RCL4 rooms simultaneously):
+ *   E18S3  controller progress frozen at 24682 for 3,392 consecutive ticks,
+ *          ZERO upgraders alive, while storage climbed 37,628 -> 60,129. At 60k
+ *          it spawned exactly ONE upgrader, drained to 39,104, and went back to
+ *          zero. 34 of 49 snapshots had no upgrader at all.
+ *   E11S8  frozen at 35742 for 2,725 ticks, storage 46,276 -> 59,502.
+ *   E3S3   6 -> 4 -> 2 -> 1 -> 0 upgraders as storage fell 60,700 -> 37,768,
+ *          then stalled 1,425 ticks while it rebuilt to 52,647.
+ *
+ * Cause: the RCL4 gate was
+ *   storage > 100000 || storage > 10000 && !ramparts.filter(hits < 900000).length
+ * and an RCL4 rampart caps at 300,000 hits, so the second arm can NEVER be
+ * satisfied in a room that has ramparts — the effective floor was 100k, not the
+ * 10k the comment claimed. The only other source of upgraders,
+ * surplusUpgraderTier, fired on a bare `> 60000` with no shared hysteresis, so
+ * the room oscillated between "one upgrader" and "none" forever.
+ *
+ * Now:
+ *   >= 10k banked  -> at least ONE upgrader, always (the real floor)
+ *   >= 30k banked  -> up to three
+ *   >= 60k banked  -> the full roster + the surplus tier, and it STAYS there
+ *                     until the bank falls below 15k (the latch)
+ * The latch is what stops the bang-bang: draining 60k -> 39k no longer switches
+ * the room back off, so a room whose storage is growing never sits at zero
+ * upgraders.
+ * ------------------------------------------------------------------------- */
+/** one upgrader from here up — a room with this much banked is not poor */
+const UPGRADE_FLOOR = 10000;
+/** full roster + surplus from here up */
+const UPGRADE_SURGE_ON = 60000;
+/** ...and keep it until the bank falls below this (hysteresis) */
+const UPGRADE_SUSTAIN_OFF = 15000;
+/** middle band: enough to keep a real roster, not enough for the surge */
+const UPGRADE_MID = 30000;
+
+/**
+ * Energy in the room's REAL storage. Deliberately not the `storage` local the
+ * gates use — that one falls back to the hub CONTAINER, which caps at 2,000, so
+ * every `> 10000` test against it is unsatisfiable by construction.
+ */
+function bankEnergy(room): number {
+    const s = room.storage;
+    if(!s || !s.my) return 0;
+    return s.store[RESOURCE_ENERGY] || 0;
+}
+
+/** Sticky surge flag: on at UPGRADE_SURGE_ON, off only below UPGRADE_SUSTAIN_OFF. */
+function upgradeLatch(room): boolean {
+    const e = bankEnergy(room);
+    if(e >= UPGRADE_SURGE_ON) room.memory.upLatch = true;
+    else if(e < UPGRADE_SUSTAIN_OFF) room.memory.upLatch = false;
+    return !!room.memory.upLatch;
+}
+
+/**
+ * How many upgraders this room should be running right now.
+ *
+ * `burn` is drain-side pressure (see drainPressure): energy already rotting on
+ * this room's floor is energy the room has ALREADY paid to mine, so burning it
+ * into the controller is free progress no matter what the bank says.
+ */
+function upgraderTarget(room, base:number, surplus:number, burn:number): number {
+    const emergency =
+        room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 ? 1 : 0;
+    const latched = upgradeLatch(room);
+    // No real storage: there is no bank to protect and the income has nowhere
+    // else to go, so run the roster and let the energy supply throttle it.
+    if(!room.storage || !room.storage.my) return Math.max(base + burn, emergency);
+    const bank = bankEnergy(room);
+    // Full roster while the surge is latched AND there is still a real bank to
+    // spend. Below the middle band the latch only guarantees that the roster
+    // never reaches zero — draining a room to 15k at 48 energy/tick would starve
+    // the other things that read a storage floor (reservers want 25k).
+    if(latched && bank >= UPGRADE_MID) return Math.max(base + surplus + burn, emergency);
+    if(bank >= UPGRADE_MID) return Math.max(Math.min(base, 3) + burn, emergency);
+    if(bank >= UPGRADE_FLOOR) return Math.max((latched ? 2 : 1) + burn, emergency);
+    return Math.max(burn, emergency);
+}
+
+/* -------------------------------------------------------------------------
+ * Drain-side pressure.
+ *
+ * Measured: 319,440 energy destroyed by decay in 5,133 ticks across six rooms.
+ * E2S7 held an average of 14,470 energy on the ground (18.7/tick of decay) and
+ * put 11,241 into its controller in the same window — it burned 8.5x more on
+ * the floor than it delivered. The piles are in STEADY STATE on top of FULL
+ * source containers, which means the room's problem is not mining, it is that
+ * nothing downstream consumes what it mines.
+ *
+ * Two different bottlenecks look identical from the pile alone, so separate
+ * them by looking at the haulers:
+ *   - haulers mostly FULL and parked  -> the SINKS are the bottleneck (E2S7:
+ *     ~30% of all carrier-samples were full and stationary). More carriers make
+ *     it strictly worse; more upgraders fix it.
+ *   - haulers mostly empty/moving     -> haul capacity is the bottleneck; one
+ *     more carrier per source is warranted.
+ * ------------------------------------------------------------------------- */
+/** a floor pile this big is a standing loss, not transient spillage */
+const FLOOR_PILE_SMALL = 3000;
+/** one extra upgrader per this much standing floor energy, capped at 4 */
+const FLOOR_PILE_PER_UPGRADER = 3500;
+
+let _pressureTick = -1;
+let _pressureCache: { [roomName: string]: any } = {};
+
+function drainPressure(room): any {
+    if(_pressureTick !== Game.time) {
+        _pressureTick = Game.time;
+        _pressureCache = {};
+    }
+    if(_pressureCache[room.name]) return _pressureCache[room.name];
+
+    let onFloor = 0;
+    for(const d of room.find(FIND_DROPPED_RESOURCES)) {
+        if((d as any).resourceType === RESOURCE_ENERGY) onFloor += (d as any).amount;
+    }
+    // "Full" alone is NOT evidence of a jam — a healthy hauler is loaded for
+    // half of every round trip. The measurable symptom is full AND NOT MOVING
+    // (E2S7: 18.2% of all carrier-samples, against 5.7-6.2% in the two rooms
+    // that had a storage). `_phT` is the tick RunCreepManager.preRun last saw
+    // this creep change tile, so it is a free stationarity test.
+    let parked = 0;
+    let total = 0;
+    for(const name in Game.creeps) {
+        const c: any = Game.creeps[name];
+        if(c.memory.role !== "carry" && c.memory.role !== "FakeFiller") continue;
+        if(c.memory.homeRoom !== room.name && c.room.name !== room.name) continue;
+        total++;
+        if(c.store.getFreeCapacity() === 0 && Game.time - (c.memory._phT || 0) >= 5) parked++;
+    }
+    const prev = typeof room.memory._floorE === "number" ? room.memory._floorE : onFloor;
+    room.memory._floorE = onFloor;
+
+    const sinkLimited = total > 0 && parked * 3 >= total;
+    const out = {
+        onFloor,
+        growing: onFloor > prev,
+        sinkLimited,
+        /*
+         * Extra upgraders bought purely by energy that is already rotting.
+         *
+         * Scales with the pile, because the pile is what has to be consumed:
+         * an RCL3 upgrader is body-capped at 4 WORK (4 energy/tick) off a 550
+         * energy spawn, so clearing E2S7's measured 18.7/tick of decay needs
+         * FOUR of them, not one. Measured after the first cut of this (which
+         * capped burn at 2): E2S7 and E1S4 still held ~18,000 on the floor with
+         * their containers full and every extension topped up — the roster was
+         * simply too small to be the sink.
+         *
+         * The bodies are cheap against the loss: 550 energy amortised over a
+         * 1,500-tick life is 0.37/tick each.
+         */
+        burn: onFloor < FLOOR_PILE_SMALL ? 0 : Math.min(4, Math.max(1, Math.floor(onFloor / FLOOR_PILE_PER_UPGRADER))),
+        /** one more hauler per source, but never while the haulers sit full */
+        haul: onFloor >= FLOOR_PILE_SMALL && !sinkLimited ? 1 : 0,
+    };
+    _pressureCache[room.name] = out;
+    return out;
 }
 
 function getBody(segment:string[], room, bodyMaxLength=50) {
@@ -3172,6 +3403,62 @@ function carriersWantedForSource(room, values, demand):number {
 }
 
 
+
+/** MAX bodies we will ever put on one HOME source (the remote cap is 3 too) */
+const MAX_HOME_CARRIERS_PER_SOURCE = 3;
+
+/**
+ * How many carriers one OWNED source needs.
+ *
+ * An owned source regenerates 3,000 per 300 ticks = 10 energy/tick, and a
+ * carrier ties up `2L + slack` ticks per round trip, so the capacity that has
+ * to be in flight is `10 * (2L + 6)`. getCarrierBody() already sizes ONE body
+ * for that trip; this decides how many of them the room actually needs when its
+ * spawn budget cannot build a single body big enough.
+ *
+ * Drain pressure adds at most one more, and only when the haulers are NOT
+ * already sitting full — a room whose carriers are parked loaded is
+ * sink-limited, and more carriers there make the jam worse (see drainPressure).
+ */
+function homeCarriersWanted(room, values, body): number {
+    const L = values && values.pathLength ? values.pathLength : 15;
+    let carry = 0;
+    let move = 0;
+    for(const p of body) {
+        if(p === CARRY) carry++;
+        else if(p === MOVE) move++;
+    }
+    /*
+     * The loaded leg is NOT one tick per tile.
+     *
+     * getCarrierBody emits ~2 CARRY : 1 MOVE, and a loaded CARRY generates 2
+     * fatigue per plain tile against 2 removed per MOVE — so a 7C/4M body needs
+     * ceil(7/4) = 2 ticks per tile on the way home. An EMPTY carrier generates
+     * no fatigue at all, so the outbound leg is always full speed. Modelling the
+     * round trip as a flat 2L (which is what the first cut of this did)
+     * under-counts by ~50% and leaves the room short of haul capacity — measured
+     * live: E1S4 11,843 -> 17,767 and E15S6 3,020 -> 7,819 on the floor within
+     * 1,800 ticks of the carrier cap going in.
+     */
+    const loadedTicksPerTile = move > 0 ? Math.max(1, Math.ceil(carry / move)) : 3;
+    const roundTrip = L + L * loadedTicksPerTile + 6;
+    /*
+     * HEADROOM, same idea as remoteCarrierDemand's. A home carrier does not do
+     * a clean source -> storage shuttle: without a storage it delivers to a
+     * dozen extensions and a spawn scattered around the hub, and it fills from
+     * whatever pile is nearest rather than one container. The clean figure is a
+     * floor, and a room sized exactly to its floor can never clear a backlog.
+     */
+    const headroom = room.storage && room.storage.my ? 1.15 : 1.35;
+    const capacityNeeded = 10 * roundTrip * headroom;
+    const per = Math.max(50, carry * 50);
+    let want = Math.ceil(capacityNeeded / per);
+    if(want < 1) want = 1;
+    if(want > MAX_HOME_CARRIERS_PER_SOURCE) want = MAX_HOME_CARRIERS_PER_SOURCE;
+    const pressure = drainPressure(room);
+    if(pressure.haul > 0) want = Math.min(MAX_HOME_CARRIERS_PER_SOURCE + 1, want + pressure.haul);
+    return want;
+}
 
 /**
  * Is a creep whose name starts with `prefix` already QUEUED for this source?
@@ -3588,100 +3875,52 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                         ' (' + (have+1) + '/' + want + ', need ' + demand.capacityNeeded + 'e, roaded=' + demand.roaded + ', resv=' + demand.reserved + ')');
                     return;
                 }
-                if(!Game.rooms[targetRoomName] || room.name != targetRoomName && room.memory.danger || Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData && Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps) {
-                    return;
-                }
-                // self-heal rooms already parked on the forever-cutoff while
-                // their links do not actually haul (set before this guard existed)
-                if((values.lastSpawnCarrier || 0) > Game.time && targetRoomName == room.name && !sourceLinkHaulWorks(room, sourceId)) {
-                    values.lastSpawnCarrier = 0;
-                }
-                // ...and the same poisoned-stamp heal spawn_energy_miner does:
-                // the stamp is written when the carrier is QUEUED, so any rung
-                // that later drops the entry (idle-queue wipe, capacity drop,
-                // -3/-14/-10 clear) leaves the source with no hauler and this
-                // producer convinced one is on the way for CREEP_LIFE_TIME.
-                // "FakeFiller" is a carrier mid-dropoff (see carry.ts), so it
-                // counts as one already on the job.
-                // The check is bounded at Game.time on purpose: a stamp in the
-                // FUTURE is the deliberate RCL6 link cutoff above, not a lie.
-                if((values.lastSpawnCarrier || 0) > Game.time - CREEP_LIFE_TIME
-                    && (values.lastSpawnCarrier || 0) <= Game.time
-                    && !_.some(Game.creeps, (creep:any) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller')
-                        && creep.memory.sourceId == sourceId)
-                    && !queuedForSource(room, 'Carrier', sourceId)) {
-                    console.log("clearing stale lastSpawnCarrier for source", sourceId, "in", room.name,
-                        "- no carrier alive or queued");
-                    values.lastSpawnCarrier = 0;
-                }
-                /*
-                 * REMOTE carriers are count-driven, not stamp-driven.
+                /* ---------------- HOME sources ----------------------------
+                 * Count-driven, exactly like the remote branch above.
                  *
-                 * The stamp scheme below (one spawn per CREEP_LIFE_TIME per
-                 * source) was the intent, but it was defeated by the hub-container
-                 * rung at the bottom of this function, which subtracted 200 from
-                 * `lastSpawnCarrier` on EVERY producer pass while the hub container
-                 * was full — an unbounded feedback loop, and it applied to remote
-                 * sources too. Measured result: 76 live carriers for 16 sources
-                 * (7.8 simultaneously on a single 2-source remote that the code
-                 * believed had 2), each one costing spawn time and CPU while the
-                 * remote ran at a net energy LOSS.
+                 * What this replaces had NO live-count check at all: it was
+                 * purely stamp-driven, one rung re-armed the stamp at
+                 * `Game.time - 750` for small bodies (double rate), another
+                 * added a rung at -700, and the hub-container rung at the bottom
+                 * pulled the stamp back a further 200 on every producer pass
+                 * while the container was full — so a permanently-full container
+                 * ACCELERATED carrier spawning, which is exactly backwards.
                  *
-                 * Replace it for remotes with an explicit target count derived
-                 * from haul demand, enforced against live creeps.
-                 */
-                if (Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME) {
-                    let newName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    let bodyForCarrier = getCarrierBody(sourceId, values, storage, spawn, room);
-                    room.memory.spawn_list.push(bodyForCarrier, newName,
-                        {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
-                    console.log('Adding Carrier to Spawn List: ' + newName);
-                    if(Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller != undefined && Game.rooms[targetRoomName].controller.level >= 6 && targetRoomName == room.name
-                    && sourceLinkHaulWorks(room, sourceId)) {
-                        values.lastSpawnCarrier = 5000000000;
-                    }
-                    else if(bodyForCarrier && bodyForCarrier.length > 0) {
-                        if(bodyForCarrier.length <= 5) {
-                            values.lastSpawnCarrier = Game.time-750;
-                        }
-                        else {
-                            values.lastSpawnCarrier = Game.time;
-                        }
+                 * Measured on pacifist1 (the bot's own census): 20 miners against
+                 * 55 carriers; E1S4 held 16 carriers for a whole 12,396-tick
+                 * window, E15S6 22, E19S7 17, E2S8 16, E2S7 15. In E2S7 ~30% of
+                 * all carrier-samples were full AND stationary, and the room
+                 * spent 18,500 energy on new bodies in 2,482 ticks (7.45/tick)
+                 * to deliver 2.19/tick to its controller.
+                 * ---------------------------------------------------------- */
+                if(!Game.rooms[targetRoomName]) return;
+                const homeVis:any = Game.rooms[targetRoomName];
+                if(homeVis.memory.roomData && homeVis.memory.roomData.has_hostile_creeps) return;
 
-                    }
-                }
+                // A stamp in the FUTURE is the old RCL6 link cutoff
+                // (5000000000). Under a count-driven scheme it would silence
+                // this source forever, so heal it here.
+                if((values.lastSpawnCarrier || 0) > Game.time) values.lastSpawnCarrier = 0;
 
-                if(Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME*2) {
-                    let newName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([MOVE,CARRY,CARRY], newName,
-                        {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
-                    console.log('Adding Carrier to Spawn List: ' + newName);
-                    values.lastSpawnCarrier = Game.time-700;
-                }
+                // RCL6+ with a link at BOTH ends: the link hauls this source and
+                // the existing carriers are allowed to die off.
+                if(room.controller.level >= 6 && sourceLinkHaulWorks(room, sourceId)) return;
 
-                if(!values.lastSpawnCarrier && Game.time < CREEP_LIFE_TIME) {
-                    let newName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([MOVE,CARRY,CARRY], newName,
-                        {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
-                    console.log('Adding Carrier to Spawn List: ' + newName);
-                    values.lastSpawnCarrier = Game.time-600;
-                }
-                // "Hub container is full -> we are under-hauling, bring the next
-                // carrier forward." Sound idea, but it subtracted 200 on EVERY
-                // producer pass with no floor, so `lastSpawnCarrier` ran away to
-                // -infinity and the rung above fired every single pass. That is
-                // where the 76-carrier fleet came from.
-                //
-                // Clamp it: it may pull the next spawn forward to "due now" and
-                // no further, and only if we do not already have a carrier in
-                // flight for this source.
-                if(room.controller.level <= 5 && room.memory.Structures && room.memory.Structures.container) {
-                    let container:any = Game.getObjectById(room.memory.Structures.container);
-                    if(container && container.store.getFreeCapacity() == 0 && !queuedForSource(room, 'Carrier', sourceId)) {
-                        const floor = Game.time - CREEP_LIFE_TIME;
-                        values.lastSpawnCarrier = Math.max(floor, (values.lastSpawnCarrier || 0) - 200);
-                    }
-                }
+                if(queuedForSource(room, 'Carrier', sourceId)) return;
+                const haveHome = liveCarriersForSource(room, sourceId);
+                const homeBody = getCarrierBody(sourceId, values, storage, spawn, room);
+                if(!homeBody || homeBody.length === 0) return;
+                const wantHome = homeCarriersWanted(room, values, homeBody);
+                if(haveHome >= wantHome) return;
+                // One per source per 25 ticks. A hatching creep is already in
+                // Game.creeps so it is counted above; this only stops a burst of
+                // producer passes in the same handful of ticks from stacking.
+                if(Game.time - (values.lastSpawnCarrier || 0) < 25) return;
+                const homeName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(homeBody, homeName,
+                    {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
+                values.lastSpawnCarrier = Game.time;
+                console.log('Adding Carrier to Spawn List: ' + homeName + ' (' + (haveHome+1) + '/' + wantHome + ')');
             });
         }
 

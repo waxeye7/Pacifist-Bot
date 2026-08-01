@@ -86,7 +86,7 @@ const packPos = (creep: any): number => creep.pos.x + creep.pos.y * 50;
  * Maintainer-1032589 / RampartErector-1687804 pair swapped 18,39 <-> 19,38 for
  * 114 ticks with the damper installed and never tripped it.
  */
-function isOscillating(trail: number[]): boolean {
+function isStrictPingPong(trail: number[]): boolean {
   if (!trail || trail.length < OSC_WINDOW) return false;
   const w = trail.slice(trail.length - OSC_WINDOW);
   const a = w[0];
@@ -96,6 +96,57 @@ function isOscillating(trail: number[]): boolean {
     if (w[i] !== (i % 2 === 0 ? a : b)) return false;
   }
   return true;
+}
+
+/**
+ * Ping-pong detection that survives an INTERLOPER tile.
+ *
+ * isStrictPingPong() above requires the window to be A-B-A-B-A-B-A-B with no
+ * exceptions, so a single third tile anywhere in the eight samples hides the
+ * livelock completely. That is not a corner case — it is the common case. Read
+ * straight out of the bot's own `_ph` buffers during the measurement window:
+ *
+ *   Carrier-51199-E1S4  [1133,1084,1135,1084,1135,1084,1135,1136]
+ *   Carrier-44090-E2S8  [757,708,709,708,709,708,709,659]
+ *   Carrier-98457-E1S4  [1031,1032,1031,1032,1031,1082,1083,1084]
+ *
+ * All three are two-tile shuffles bracketed by one or two stray tiles, and the
+ * strict test rejects every one of them. 54% of creeps with a full history
+ * buffer showed an A-B-A reversal; 36 of 67 creeps were doing it at once.
+ *
+ * So: take the two most-visited tiles in the window, allow up to two samples
+ * that are neither, drop those, compress the consecutive duplicates that
+ * removing them creates, and require what is left to be a real alternation. The
+ * trail itself is already compressed on push (a position is only appended when
+ * it differs from the previous one), so the compression here only has to undo
+ * the joins made by dropping the interlopers.
+ */
+const OSC_MAX_INTERLOPERS = 2;
+const OSC_MIN_ALTERNATION = 5;
+
+function isOscillating(trail: number[]): boolean {
+  if (!trail || trail.length < OSC_WINDOW) return false;
+  const w = trail.slice(trail.length - OSC_WINDOW);
+
+  const counts: { [pos: number]: number } = {};
+  for (const p of w) counts[p] = (counts[p] || 0) + 1;
+  const ranked = Object.keys(counts)
+    .map((k) => ({ pos: Number(k), n: counts[Number(k)] }))
+    .sort((x, y) => y.n - x.n);
+  if (ranked.length < 2) return false;
+
+  const a = ranked[0];
+  const b = ranked[1];
+  // both tiles have to be visited repeatedly, or this is just a walk
+  if (a.n < 3 || b.n < 2) return false;
+  if (w.length - (a.n + b.n) > OSC_MAX_INTERLOPERS) return false;
+
+  const comp: number[] = [];
+  for (const p of w) {
+    if (p !== a.pos && p !== b.pos) continue;
+    if (!comp.length || comp[comp.length - 1] !== p) comp.push(p);
+  }
+  return comp.length >= OSC_MIN_ALTERNATION;
 }
 
 /** the id this creep is currently walking to, whatever the role calls it */
@@ -194,12 +245,29 @@ function preRun(creep: any): boolean {
 
   if (OSC_EXEMPT_ROLES[m.role]) return false;
   if (creep.room.memory && creep.room.memory.danger) return false;
-  // Exit band. Creeps shuffling on x/y 0-1 or 48-49 are being handed back and
-  // forth by the room-transition code, which is a different subsystem with a
-  // different fix; dropping their (usually cross-room) target is pure harm.
+  /*
+   * Exit band. Creeps shuffling on x/y 0-1 or 48-49 are being handed back and
+   * forth by the room-transition code, so dropping their (usually cross-room)
+   * target is pure harm — but excluding them from the damper ENTIRELY meant the
+   * 13% of the fleet measured wedged on border tiles got no help at all from
+   * either subsystem. moveToRoomAvoidEnemyRooms now steps such a creep off the
+   * border itself (see stepOffExit); this is the backstop for the creeps that
+   * are not in a room-travel state at all.
+   *
+   * Stricter window rather than no window: a border creep must be in a PURE
+   * two-tile shuffle, and its target is never blamed.
+   */
   const p = creep.pos;
-  if (p.x <= 1 || p.x >= 48 || p.y <= 1 || p.y >= 48) return false;
+  const onBorder = p.x <= 1 || p.x >= 48 || p.y <= 1 || p.y >= 48;
   if (Game.time - (m._oscT || 0) < OSC_COOLDOWN) return false;
+  const strict = isStrictPingPong(ph);
+  if (onBorder) {
+    if (!strict) return false;
+    m._oscT = Game.time;
+    m._ph = [];
+    clearMovement(creep);
+    return true;
+  }
   if (!isOscillating(ph)) return false;
 
   const targetId = currentTargetId(creep);
@@ -217,7 +285,12 @@ function preRun(creep: any): boolean {
 
   const contention =
     !target || !target.pos || creep.pos.getRangeTo(target) <= OSC_CONTENTION_RANGE;
-  if (targetId && !contention && blacklistFillTarget(creep.room, targetId)) {
+  // Only a PURE two-tile shuffle is evidence about the target. The
+  // interloper-tolerant test also matches a creep that shuffled for a few ticks
+  // and then walked on, and writing that room's storage/controller off on that
+  // basis is far worse than the oscillation — such a creep gets the repath and
+  // the sidestep, never the blacklist.
+  if (targetId && strict && !contention && blacklistFillTarget(creep.room, targetId)) {
     // far from the target and going nowhere: the target is the problem.
     // blacklistFillTarget() vetoes the room backbone, and when it does there
     // is nothing to retarget to either — leave the creep its storage.

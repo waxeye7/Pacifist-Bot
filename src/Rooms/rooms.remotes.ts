@@ -238,9 +238,29 @@ export function manageRemotes(room: any): void {
             }
             const rsv = seen.controller.reservation;
             if (rsv && myName && rsv.username !== myName) {
-                e.active = false; // someone else's remote, retry later
+                // Someone else's remote. Park it STICKILY: `seen` only exists
+                // while we have a creep standing there, so closing on sight and
+                // re-opening the moment we lose vision is a spawn-churn loop —
+                // send a miner, see the rival reservation, close, lose vision,
+                // re-open, send another miner. Measured on E3S3->E3S4: 6 remote
+                // creeps born, 2,000 energy spent, ZERO energy delivered.
+                // Park for the life of their reservation plus a margin.
+                e.foreignUntil = Game.time + Math.max(200, (rsv.ticksToEnd || 0) + 100);
+                if (e.active) {
+                    e.active = false;
+                    console.log(`[remotes] ${room.name} close ${name} (reserved by ${rsv.username} for ${rsv.ticksToEnd}t)`);
+                }
                 continue;
             }
+            if (e.foreignUntil) delete e.foreignUntil; // visibly free again
+        }
+        // No vision: honour the parked verdict instead of re-opening blind.
+        if (e.foreignUntil) {
+            if (Game.time < e.foreignUntil) {
+                e.active = false;
+                continue;
+            }
+            delete e.foreignUntil;
         }
 
         if (!e.energy) {

@@ -80,9 +80,43 @@ const run = function (creep) {
 
 
         let target = Game.getObjectById(creep.memory.t) || creep.findFillerTarget();
+        if(!target) {
+            /*
+             * Nothing to fill. Measured: E11S8 (RCL4, no links in the room at
+             * all) ran 4-5 ControllerLinkFillers at once, each parked holding a
+             * full 800 energy at 12,31 / 16,31 / 17,30 / 17,31, during the exact
+             * 2,725 ticks the room made zero controller progress. Hand the load
+             * back to storage instead of sitting on it, and stop existing if
+             * there is still nothing to do once it is delivered.
+             */
+            creep.memory._noSink = (creep.memory._noSink || 0) + 1;
+            if(storage) {
+                if(creep.pos.isNearTo(storage)) {
+                    if(creep.transfer(storage, RESOURCE_ENERGY) == 0) {
+                        creep.memory.full = false;
+                    }
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+            }
+            if(creep.memory._noSink > 150) {
+                creep.memory.suicide = true;
+            }
+            return;
+        }
+        creep.memory._noSink = 0;
         if(target) {
             if(target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
                 target = creep.findFillerTarget();
+                // findFillerTarget only writes memory.t when it FOUND something,
+                // so a null here would otherwise leave the creep re-resolving the
+                // same full target forever. Clear it and let the no-sink path
+                // above take over next tick.
+                if(!target) {
+                    creep.memory.t = false;
+                    return;
+                }
             }
             if(target) {
                 if(creep.pos.isNearTo(target)) {

@@ -835,6 +835,52 @@ Creep.prototype.moveToRoom = function moveToRoom(roomName, travelTarget_x = 25, 
     });
 }
 
+/**
+ * One legal step OFF the border band, for a creep the transition code has
+ * wedged on an exit tile.
+ *
+ * Prefers tiles further from the edge (that is the whole point), prefers empty
+ * tiles, and shoves a neighbour only when every candidate is occupied — a
+ * border pile-up is by definition a place where everything is occupied, so
+ * "only step somewhere empty" is exactly the rule that would leave the creep
+ * where it is.
+ */
+function stepOffExit(creep: any): boolean {
+    const terrain = creep.room.getTerrain();
+    const free: Array<{ dir: number; depth: number }> = [];
+    const occupied: Array<{ dir: number; depth: number }> = [];
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (!dx && !dy) continue;
+            const x = creep.pos.x + dx;
+            const y = creep.pos.y + dy;
+            if (x < 1 || x > 48 || y < 1 || y > 48) continue;
+            if (terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+            let blocked = false;
+            for (const s of creep.room.lookForAt(LOOK_STRUCTURES, x, y)) {
+                if ((OBSTACLE_OBJECT_TYPES as any).indexOf(s.structureType) !== -1) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked) continue;
+            const dir = creep.pos.getDirectionTo(new RoomPosition(x, y, creep.room.name));
+            // how far off the edge this candidate is — bigger is better
+            const depth = Math.min(x, 49 - x, y, 49 - y);
+            if (creep.room.lookForAt(LOOK_CREEPS, x, y).length > 0) occupied.push({ dir, depth });
+            else free.push({ dir, depth });
+        }
+    }
+    const options = free.length ? free : occupied;
+    if (!options.length) return false;
+    options.sort((a, b) => b.depth - a.depth);
+    const dir = options[0].dir as DirectionConstant;
+    if (!free.length) creep.SwapPositionWithCreep(dir);
+    creep.move(dir);
+    creep.memory.moving = true;
+    return true;
+}
+
 Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
     function isValidRoomName(roomName) {
@@ -950,8 +996,25 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
             this.memory._exitStuckPos = this.pos.x + "," + this.pos.y;
         }
         if (this.memory._exitStuck >= 5) {
+            /*
+             * A wedged creep has to MOVE.
+             *
+             * This used to do exactly one thing — `delete this.memory.exit` —
+             * which leaves the creep standing on the same border tile, where the
+             * room-transition code hands it straight back. Measured: 14 of 105
+             * creeps were sitting on an exit tile at a single instant (13% of the
+             * fleet), including pairs stacked on the same tile
+             * (EnergyMiner-99651/90986-E2S7 both at 5,1;
+             * RemoteRepairer-21961/43696-E3S3 both at 49,21 with _exitStuck 3 and
+             * 2), and remote miner seat-time of 57-65% is largely this.
+             */
             delete this.memory.exit;
             this.memory._exitStuck = 0;
+            this.memory.path = false;
+            delete this.memory._move;
+            delete this.memory.MoveTargetId;
+            stepOffExit(this);
+            return;
         }
 
         if(!this.memory.exit || this.memory.exit.roomName !== this.room.name) {
@@ -1240,17 +1303,35 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     });
     if (adjTomb.length) return take(adjTomb[0]);
 
+    /*
+     * How much energy is worth walking for, scaled to the body.
+     *
+     * Measured: 32 of 67 live carriers held a `pickup` target with less than 50
+     * energy in it, 20 of those <= 4, several at exactly amt:1 — including two
+     * 300-capacity carriers in E1S4 each crossing the room for ONE energy while
+     * 4,796 sat in a single pile at (44,10) in the same room. The bot's own
+     * counters read pickupSwitches 155,046 / pickupActs 466,452, i.e. a third of
+     * all pickup actions were a re-target.
+     *
+     * A crumb next to us is still free (the adjacent-salvage rungs above take it
+     * without moving); what has to stop is TRAVELLING for one.
+     */
+    const minWorth = Math.max(50, Math.min(200, Math.floor(free * 0.25)));
+    /** near piles may be smaller — the walk is short */
+    const nearWorth = Math.max(25, Math.floor(minWorth / 2));
+
     // 2) Locked fast path — no scanning at all while the lock holds.
     if (locking && prevId) {
         const locked: any = Game.getObjectById(prevId);
         const expired = Game.time - (prevLock.t || 0) > PICKUP_LOCK_TTL;
         // Hysteresis: keep threshold is half the select threshold so a pile
         // shrinking a little doesn't bounce us straight back off it.
-        // A queued lock (picked when everything was reserved) only needs the
-        // pile to still exist — it never had a reservation to lose.
-        const keepMin = Math.min(25, free / 2);
+        // A queued lock (picked when everything was reserved) still needs a real
+        // floor — `> 0` kept a lock alive on a single crumb for the creep's
+        // whole life, which is the other half of the measurement above.
+        const keepMin = Math.max(25, Math.min(nearWorth, Math.floor(free / 2)));
         const worthIt = prevLock.q
-            ? _pickupEnergyOf(locked) > 0
+            ? _pickupEnergyOf(locked) >= Math.min(50, free)
             : unreserved(locked) >= keepMin;
         const stillGood =
             !!locked &&
@@ -1272,7 +1353,7 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
     //    containers); within a category we take the CLOSEST candidate that
     //    still has unreserved energy. Never sort by amount — amount is the
     //    thrash key.
-    const selectMin = Math.min(25, free);
+    const selectMin = Math.min(nearWorth, free);
     /** strict = respect other creeps' reservations. */
     const hasRoom = (o: any, strict: boolean) =>
         !locking || !strict || unreserved(o) >= selectMin;
@@ -1296,18 +1377,22 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
             return this.pos.findClosestByRange(tombs) || tombs[0];
         }
 
-        // Nearby drops first (range 12, amount worth walking), then any pile
+        // Nearby drops first (range 12, amount worth walking), then any pile.
+        // The far fallback was `r.amount > 0` — no minimum at all — which is
+        // what put 300-capacity carriers on cross-room walks for 1 energy.
         let drops = room.find(FIND_DROPPED_RESOURCES, {
             filter: (r) =>
                 r.resourceType === RESOURCE_ENERGY &&
-                r.amount >= 25 &&
+                r.amount >= nearWorth &&
                 this.pos.getRangeTo(r) <= 12 &&
                 hasRoom(r, strict),
         });
         if (!drops.length) {
             drops = room.find(FIND_DROPPED_RESOURCES, {
                 filter: (r) =>
-                    r.resourceType === RESOURCE_ENERGY && r.amount > 0 && hasRoom(r, strict),
+                    r.resourceType === RESOURCE_ENERGY &&
+                    r.amount >= minWorth &&
+                    hasRoom(r, strict),
             });
         }
         if (drops.length) {
@@ -2705,7 +2790,24 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
 
 
 
-Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function roomCallbackRoadPrioUpgraderInPosition(target, range) {
+/*
+ * NOTE THE NAME. This function expression used to be called
+ * `roomCallbackRoadPrioUpgraderInPosition` — the same name as the cost-matrix
+ * arrow function further down the file. A named function expression binds its
+ * own name inside its own scope, so `let costMatrix = roomCallbackRoadPrio-
+ * UpgraderInPosition` below resolved to THIS METHOD, not the matrix builder:
+ * PathFinder then called it as `costMatrix(roomName)`, i.e. with `this`
+ * undefined and a string for `target`, and it threw on `this.fatigue` every
+ * single time.
+ *
+ * Live for the whole measurement window, once per upgrader per move attempt:
+ *   Error running creep Upgrader-29130-E2S7 (role upgrader): TypeError:
+ *   Cannot read properties of undefined (reading 'fatigue')
+ *     at roomCallbackRoadPrioUpgraderInPosition
+ * 974 of them in a ten-minute capture across all three users — which is a large
+ * part of why upgraders delivered so little even when they existed.
+ */
+Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUpgraderInPosition(target, range) {
     if(target && this.fatigue == 0 && this.pos.getRangeTo(target) > range) {
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
