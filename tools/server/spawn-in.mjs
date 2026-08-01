@@ -39,8 +39,10 @@ const PLANS_FILE =
   process.env.SCREEPS_PLANS ||
   path.join(__dirname, "..", "plan-suite", "out-v2", "plans-hub.json");
 
-/** usernames we will never spawn as */
-const FORBIDDEN_USERS = ["invader", "source keeper", "screeps", "waxeye"];
+/** NPC accounts — never spawn as these, not even with an explicit --user */
+const NPC_USERS = ["invader", "source keeper", "screeps"];
+/** never AUTO-DETECTED, but allowed when named explicitly with --user */
+const FORBIDDEN_USERS = [...NPC_USERS, "waxeye"];
 /** preference order when auto-detecting the pacifist bot account */
 const USER_PREFERENCE = [/^pacifist$/i, /^pacifistbot$/i, /pacifist/i];
 
@@ -187,7 +189,7 @@ if (flags.user) {
     );
   }
 }
-if (FORBIDDEN_USERS.includes(user.username.toLowerCase())) die(`refusing to use user "${user.username}"`);
+if (NPC_USERS.includes(user.username.toLowerCase())) die(`refusing to use NPC account "${user.username}"`);
 
 // -- ownership / safety checks
 const controller = info.objects.find((o) => o.type === "controller");

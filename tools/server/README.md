@@ -12,6 +12,32 @@ Mods: `screepsmod-mongo`, `screepsmod-auth`, `screepsmod-admin-utils`, `screepsm
 
 ---
 
+## 0. Accounts, tokens and push targets
+
+| user | `_id` in `db.users` | API token (redis `auth_<token>`) | `screeps.json` dest | npm script |
+| --- | --- | --- | --- | --- |
+| `pacifist` | `pacifist1` | `local-pacifist-user-token-001` | `pacifist`, `pserver` | `npm run push-pacifist` |
+| `pacifist2` | `pacifist2` | `local-pacifist2-user-token-001` | `pacifist2` | `npm run push-pacifist2` |
+| `waxeye` | `waxeye1` | `local-waxeye-token-001` | `waxeye` | `npm run push-waxeye` |
+
+`pacifist` and `pacifist2` are two instances of **this** bot (same `src/`), which is what
+makes an A/B run possible; `waxeye` is a third account that also runs this repo from its
+own dest, so a different branch/build can be parked there.
+
+Auth on this server is redis-only: `redis-cli set auth_<token> <userId>`. `db.users.tokens`
+carries the same mapping for the web UI. `tools/server/push-expansion-pack.mjs --user <name>`
+looks the token up in redis and mints a permanent one if the user has none.
+
+A `rollup -c --environment DEST:<x>` push writes `users.code` but does **not** set
+`activeWorld` on a brand-new account — after the first push of a fresh user run:
+
+```bash
+docker exec local-screeps-server-mongo-1 mongosh screeps --quiet --eval '
+db["users.code"].updateMany({branch:"main"},{$set:{activeWorld:true,activeSim:true}})'
+```
+
+---
+
 ## 1. Getting a server CLI
 
 `docker exec ... screeps-launcher cli` **only works interactively** — it uses a TTY prompt
@@ -65,16 +91,18 @@ db["rooms.objects"].find({type:"controller",user:{$ne:null}},{room:1,user:1,leve
 ```
 
 World layout of this server: playable grid **E0S0 – E21S10** (a solid 22 × 11 rectangle,
-242 rooms) plus the one-off `W0S5`, wrapped in a ring of `status: "out of borders"` all-wall
-rooms (`W0*`, `*N0`, `*S11`, `E22*`). Every playable room chains exits to its neighbours; the
-north (`*S0` top), south (`*S10` bottom) and far-east (`E21` right) edges are sealed against
-the ring.
+242 rooms) plus the one-off `W0S5` — 243 normal rooms — wrapped in a ring of 70
+`status: "out of borders"` all-wall rooms (`W0*`, `W1S5`, `*N0`, `*S11`, `E22*`). Every
+playable room chains exits to its neighbours; every boundary edge is sealed against the ring.
 
-`bus: true` marks highway rooms — the rule is `roomX % 10 == 0 || roomY % 10 == 0`, and the
-*original* highway rooms (`E0*`, `E10*`, `*S0`, `*S10` of the first grid) have **no sources
-and no controller**. Rooms added later (`E11`–`E21`, `W0S5`) deliberately break that: they all
-carry 2 sources + controller + mineral for planner testing, so they are stored with
-`bus: false` regardless of position.
+`bus: true` marks highway rooms — the rule is `roomX % 10 == 0 || roomY % 10 == 0`, i.e.
+`E0*`, `E10*`, `E20*`, `*S0`, `*S10` (71 rooms). Highways carry **no sources, no controller
+and no mineral**. The other **172 rooms all carry 2 sources + controller + mineral**
+(`bus: false`) — that is the planner's test surface and the number `plan.mjs --all-claimable`
+should report.
+
+Sector spread (a sector is 10 × 10): `E0S0` 100 · `E1S0` 100 · `E2S0` 20 · `E0S1` 10 ·
+`E1S1` 10 · `E2S1` 2 · `W0S0` 1.
 
 ## 3. Generating rooms
 
@@ -166,6 +194,45 @@ db.rooms.updateOne({_id:"E11S0"},{$set:{name:"E11S0"}})'
 Other useful map commands: `map.openRoom(name)`, `map.closeRoom(name)`,
 `map.removeRoom(name)`, `map.updateTerrainData()`.
 
+### Full world reset (rebuild everything from scratch)
+
+Back up first — `resetAllData()` drops every collection **and flushes redis**, so all auth
+tokens, memory segments and the game clock go with it:
+
+```bash
+docker exec local-screeps-server-mongo-1 sh -c \
+  'mongodump --db=screeps --archive=/data/screeps-backup-$(date +%Y%m%d-%H%M%S).gz --gzip'
+docker cp local-screeps-server-mongo-1:/data/screeps-backup-<stamp>.gz .
+```
+
+Then, in order — every step matters:
+
+1. `system.resetAllData()` — screepsmod-mongo re-imports `db.original.json`, which is **not**
+   an empty world: it restores the stock 121-room `W0N0–W10N10` map, four demo bots
+   (`MichaelBot`, `EmmaBot`, `AliceBot`, `JackBot`) **and `mainLoopPaused = 1`**.
+2. `utils.removeBots()` to drop the demo accounts, then
+   `docker restart local-screeps-server-screeps-1`.
+3. Wipe the stock map and lay the ring: delete `rooms`, `rooms.terrain`, `rooms.objects`,
+   `rooms.flags`, then insert the 70 out-of-borders docs + 2500-char all-wall terrain
+   (see §3 "Growing the world into virgin space").
+4. Generate the 243 playable rooms **inside the ring**, column by column, west to east and
+   north to south, so each room's already-existing neighbours are the ring or an earlier
+   room. `W0S5` must be generated *before* `E0S5`. Highways get
+   `{sources: 0, controller: false, mineral: false}`, everything else `{sources: 2}`.
+   243 rooms take about **35 seconds** at ~11 rooms per CLI POST.
+5. Verify `sources == 2` on every non-highway room (the generator drops both sources on one
+   tile every ~200 rooms) and regenerate the misses with another `terrainType`.
+6. Back-fill `name`, `bus`, `openTime`, `novice`, `respawnArea`, `depositType` — `generateRoom`
+   only writes `_id`/`status`/`sourceKeepers`.
+7. `docker restart local-screeps-server-screeps-1` (terrain cache).
+8. Recreate the users + redis `auth_` tokens (§0), push code, set `activeWorld`.
+9. **`system.resumeSimulation()`** — the clock is still paused from step 1. Confirm with
+   `curl -s http://127.0.0.1:23025/api/game/time` twice.
+10. `system.setTickDuration(50)` if it is not already 50 ms (that is this server's setting;
+    `utils.getTickRate()` is deprecated and returns only a warning — use
+    `system.getTickDuration().then(d => d)`, since the CLI helper does not await a bare
+    string-concatenated promise).
+
 ## 4. `spawn-in.mjs` — drop the bot into a room at its planned spawn
 
 ```bash
@@ -177,7 +244,9 @@ fnm exec --using 22 node tools/server/spawn-in.mjs E11S5 --dry-run
 fnm exec --using 22 node tools/server/spawn-in.mjs E11S5
 ```
 
-Options: `--user <username>` (default: auto-detect the `pacifist` account),
+Options: `--user <username>` (default: auto-detect the `pacifist` account; `waxeye` is never
+auto-detected but **is** allowed when named explicitly — only the NPC accounts `Invader`,
+`Source Keeper` and `Screeps` are refused outright),
 `--spawn-index <n>` (which planned spawn, default `0`), `--spawn-name <name>` (default
 `Spawn1`), `--downgrade-ticks <n>` (default `200000`), `--dry-run`.
 
