@@ -12,6 +12,42 @@ Mods: `screepsmod-mongo`, `screepsmod-auth`, `screepsmod-admin-utils`, `screepsm
 
 ---
 
+## Deploy targets
+
+The scripts in this folder only ever touch the **local** server, but the repo pushes code to
+three different servers. Every `npm run push-*` is `rollup -c --environment DEST:<dest>` and
+reads the matching entry from the gitignored `screeps.json`.
+
+| Target | `screeps.json` dest | Server | Command | Who owns it |
+| --- | --- | --- | --- | --- |
+| **local** | `pacifist` / `pserver` / `pacifist2` / `waxeye` | `http://127.0.0.1:23025` (docker compose, this machine) | `npm run push-pacifist` | this repo — disposable, reset freely |
+| **vps** | `vps` (fallback `vps-ip`) | `http://screeps.marlyman123.com`, fallback `http://100.67.41.31:21025` | `npm run push-vps` / `npm run push-vps-ip` | the `big_vps` repo — **hands off** |
+| **live** | `main` | `https://screeps.com` (official MMO) | `npm run push-main` | the owner — never push unattended |
+
+### VPS test server
+
+* Screeps **v4.3.0**, tick duration **300 ms** (set via `system.setTickDuration(300)` on that
+  box, persisted in its `db.json`) — much faster than the 1 s local server, so ~3x more ticks
+  per wall-clock minute for long-horizon tests.
+* **Tailnet-only.** It is reachable exclusively over the owner's Tailscale tailnet
+  (`http://screeps.marlyman123.com`, fallback `http://100.67.41.31:21025`); the public IP
+  refuses `:21025` and firewalld only allows 22/80/443. Nothing here works off the tailnet.
+* **Managed by a separate Claude via the `big_vps` repo**
+  (`C:/Users/stemm/Documents/GitHub/big_vps`, see `logs/2026-08-01-screeps.md` there).
+  From this repo: **do not SSH to the box, do not run its CLI, do not change mods, systemd
+  units, tick rate or world state.** The only allowed interaction is uploading code with
+  `npm run push-vps`. Server-side changes go through the big_vps Claude.
+* As of `big_vps/logs/2026-08-01-screeps.md`, `screeps.marlyman123.com` still resolves to the
+  public IP and the nginx proxy is not deployed, so **`npm run push-vps-ip` is the one that
+  works today**.
+* **Token is pending.** `screeps.json` carries `PASTE-VPS-TOKEN-HERE` in both the `vps` and
+  `vps-ip` entries; the owner replaces it with the output of `auth.createAuthToken('<user>')`
+  run in that server's CLI. Until then `push-vps` will 401.
+* None of the tooling in this folder (`live-view.mjs`, `race.mjs`, `spawn-in.mjs`,
+  `push-*.mjs`) targets the VPS — they all hardcode the local docker/mongo/redis stack.
+
+---
+
 ## 0. Accounts, tokens and push targets
 
 | user | `_id` in `db.users` | API token (redis `auth_<token>`) | `screeps.json` dest | npm script |
