@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
+import { sanctionedRampartKeys, isSanctionedRampart } from "utils/PlanV2";
 
 const run = function (creep) {
     creep.memory.moving = false;
@@ -22,25 +23,20 @@ const run = function (creep) {
 
 
     if(!creep.memory.rampart_to_repair) {
-        // Plan perimeter walls (min-cut) — not legacy square stamp
-        let Ramparts: StructureRampart[] = [];
-        const perim =
-            (creep.room.memory.basePlan && creep.room.memory.basePlan.perimeter) ||
-            (creep.room.memory.defence && creep.room.memory.defence.perimeter) ||
-            [];
-        if (perim.length) {
-            for (const t of perim) {
-                const pos = new RoomPosition(t.x, t.y, creep.room.name);
-                for (const s of pos.lookFor(LOOK_STRUCTURES)) {
-                    if (s.structureType === STRUCTURE_RAMPART) Ramparts.push(s as StructureRampart);
-                }
-            }
-        } else {
-            // fallback: all my ramparts
-            Ramparts = creep.room.find(FIND_MY_STRUCTURES, {
-                filter: (s) => s.structureType === STRUCTURE_RAMPART,
-            }) as StructureRampart[];
-        }
+        // ONLY the ramparts the room sanctions: the adopted plan's rampart /
+        // shell-cut tiles, else the legacy perimeter. The old code read the
+        // perimeter directly and — when there was none — fell back to "every
+        // rampart I own", which in a plan-v2 room is how the abandoned
+        // off-plan stamp ramparts got nursed back to full instead of decaying
+        // away. sanctionedRampartKeys returns null ONLY for a room with no
+        // plan and no perimeter at all, where repairing everything is still
+        // the right answer.
+        const sanctioned = sanctionedRampartKeys(creep.room);
+        let Ramparts: StructureRampart[] = creep.room.find(FIND_MY_STRUCTURES, {
+            filter: (s) =>
+                s.structureType === STRUCTURE_RAMPART &&
+                (!sanctioned || sanctioned.has(`${s.pos.x},${s.pos.y}`)),
+        }) as StructureRampart[];
 
         // Outposts (anything the min-cut shell does not enclose) are dropped
         // entirely while the room is under attack — a wall repairer stepping
@@ -66,6 +62,13 @@ const run = function (creep) {
 
         // a target locked before the attack started may now be an outpost
         if(target && outpostDeferred(creep.room, target)) {
+            creep.memory.rampart_to_repair = false;
+            creep.memory.targets = false;
+            return;
+        }
+
+        // a target locked before the room adopted its plan may now be off-plan
+        if(target && target.pos.roomName === creep.room.name && !isSanctionedRampart(creep.room, target.pos)) {
             creep.memory.rampart_to_repair = false;
             creep.memory.targets = false;
             return;
@@ -101,7 +104,9 @@ const run = function (creep) {
 
                 if(!creep.memory.targets || creep.ticksToLive % 44 == 0) {
                     let rampartIDS = [];
-                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART}), 3);
+                    // same sanction rule as the target pick above: standing next
+                    // to an off-plan rampart must not turn into topping it up
+                    let rampartsInRange = creep.pos.findInRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && isSanctionedRampart(creep.room, s.pos)}), 3);
                     if(storage) {
                         rampartsInRange = rampartsInRange.filter(function(building) {return building.pos.getRangeTo(storage) > 4;});
                     }

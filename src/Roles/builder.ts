@@ -2,6 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { isSanctionedRampart } from "utils/PlanV2";
 
  function findLocked(creep) {
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
@@ -155,7 +156,12 @@ else if(!creep.memory.danger) {
 	// 	creep.memory.suicide = true;
 	// }
 	if(creep.memory.suicide == true) {
-		let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART && (s.hits < 450000 && creep.room.memory.danger || s.hits < 10000)});
+		// idle builders point the towers at a weak rampart instead of recycling —
+		// but ONLY at a rampart the plan/perimeter sanctions. Unfiltered, this
+		// aimed tower energy at abandoned off-plan stamp ramparts, which is the
+		// most expensive way there is to defeat decay. See PlanV2
+		// sanctionedRampartKeys.
+		let myRamparts = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_RAMPART && (s.hits < 450000 && creep.room.memory.danger || s.hits < 10000) && isSanctionedRampart(creep.room, s.pos)});
 		if(myRamparts.length) {
 			myRamparts.sort((a,b) => a.hits - b.hits);
 			creep.room.roomTowersRepairTarget(myRamparts[0]);

@@ -23,6 +23,7 @@
 import { logAlways } from "utils/Logger";
 import { isUnreachableTile } from "utils/Reachability";
 import { isExteriorTile, interiorReady } from "utils/Interior";
+import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -41,6 +42,78 @@ export type PackedPlan = {
 };
 
 const unpack = (p: number) => ({ x: p % 50, y: Math.floor(p / 50) });
+
+/**
+ * ---------------------------------------------------------------------------
+ * SANCTIONED RAMPARTS — the only ramparts a repair role may ever nurse.
+ *
+ * Every repair role used to hunt ramparts with `find(FIND_MY_STRUCTURES,
+ * rampart && hits < X)` and nothing else: maintainer (<500k), SpecialRepair
+ * (its whole-room fallback and its 3-tile rescan) and builder (<10k on the
+ * idle path). In a legacy square-stamp room that was harmless — every rampart
+ * in the room WAS the wall.
+ *
+ * In a plan-v2 / min-cut room it is actively destructive. Those rooms are
+ * migrating off an old square stamp, so they carry ramparts the current plan
+ * does not want, sitting nowhere near the min-cut shell. Decay is the ONLY
+ * mechanism that ever removes them (ramparts are never destroy()ed by
+ * migration — they share a tile, so they are not squatters), and the roles
+ * were topping them up faster than they decayed. The room paid a permanent
+ * energy tax to keep a wall it had already abandoned, and the shell it does
+ * want competed for that same energy.
+ *
+ * The sanctioned set is, in order of authority:
+ *   1. the adopted plan — `t.rampart` (every planned rampart, shell + the few
+ *      hub/controller bubbles) UNION `t.shellCut` (the min-cut ring). Verified
+ *      over the shipped plans: rampart[] is a superset of shell.cut, so the
+ *      union is just belt-and-braces against a payload that ever ships a cut
+ *      tile with no matching rampart entry.
+ *   2. utils/Perimeter getPerimeterTiles — basePlan.perimeter, then legacy
+ *      construction.rampartLocations. This is the legacy-room path.
+ *
+ * null means "this room has no sanctioned set at all" (no plan, no perimeter,
+ * nothing) — callers then keep their old repair-anything behaviour, because a
+ * room with no notion of a wall must not be left with no wall repair at all.
+ *
+ * Memoised per tick: three roles ask, once per creep, and the answer cannot
+ * change inside a tick.
+ * ---------------------------------------------------------------------------
+ */
+let sancTick = -1;
+let sancCache: { [roomName: string]: Set<string> | null } = {};
+
+export function sanctionedRampartKeys(room: Room): Set<string> | null {
+  if (sancTick !== Game.time) {
+    sancTick = Game.time;
+    sancCache = {};
+  }
+  const cached = sancCache[room.name];
+  if (cached !== undefined) return cached;
+
+  const set = new Set<string>();
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  if (plan && plan.t) {
+    for (const key of ["rampart", "shellCut"]) {
+      for (const p of plan.t[key] || []) {
+        const u = unpack(p);
+        set.add(`${u.x},${u.y}`);
+      }
+    }
+  }
+  if (!set.size) {
+    for (const t of getPerimeterTiles(room)) set.add(`${t.x},${t.y}`);
+  }
+  const out = set.size ? set : null;
+  sancCache[room.name] = out;
+  return out;
+}
+
+/** True if this tile is one the room's plan/perimeter actually wants ramparted. */
+export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): boolean {
+  const set = sanctionedRampartKeys(room);
+  if (!set) return true; // no plan and no perimeter — legacy behaviour
+  return set.has(`${pos.x},${pos.y}`);
+}
 
 /** Console: adoptPlan("E11S2") — requires push-plan.mjs to have run. */
 (global as any).adoptPlan = function (roomName: string) {
@@ -958,11 +1031,34 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
 
   if (!room.memory.construction) room.memory.construction = {};
   if (perimeter.length) {
+    // ---------------------------------------------------------------------
+    // rampartLocations is GATED AT RCL4, matching the rampart gate in
+    // typeAllowedAtRcl / BasePlan.placeFromBasePlan / Perimeter.SHELL_MIN_RCL.
+    //
+    // This mirror had no gate at all, while every PLACER does. That was
+    // survivable while planV2 was only ever adopted by hand into a grown
+    // room, and stopped being survivable the moment a freshly claimed RCL1-3
+    // room adopts its plan automatically (see Managers/AutoExpand
+    // runPackAdoption): rampartLocations is the RampartErector's spawn
+    // trigger AND its site list (rooms.spawning keys off
+    // "rampartLocations.length > 0"), so an adopted RCL3 room would erect a
+    // 50-tile shell it has no storage, no towers and no builder budget to
+    // maintain — while the placement layer, correctly, refuses to site a
+    // single rampart. Publish the empty list below RCL4 so the trigger reads
+    // false; the very next sync after the RCL4 tick fills it in.
+    //
+    // defence.perimeter is NOT gated: it is geometry, not a build order, and
+    // the interior/leash/RampartDefender logic wants to know where the wall
+    // WILL be from the start.
+    // ---------------------------------------------------------------------
+    const lvl = room.controller ? room.controller.level : 0;
     const todo: number[][] = [];
-    for (const p of shell) {
-      if (ramparted[p]) continue;
-      const u = unpack(p);
-      todo.push([u.x, u.y]);
+    if (lvl >= SHELL_MIN_RCL) {
+      for (const p of shell) {
+        if (ramparted[p]) continue;
+        const u = unpack(p);
+        todo.push([u.x, u.y]);
+      }
     }
     room.memory.construction.rampartLocations = todo;
     room.memory.defence = room.memory.defence || {};

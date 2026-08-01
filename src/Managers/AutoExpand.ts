@@ -30,13 +30,27 @@
  * or a lost creep cannot wedge it — the worst case is the 20k-tick phase
  * timeout, which logs loudly and resets.
  *
+ * SEPARATELY, and independent of all of the above, runPackAdoption() sweeps
+ * every 25 ticks for an owned room that has no planV2 and gives it its packed
+ * plan if segments 80-86 carry one. That is the path that survives a memory
+ * reset, a lost/aborted ExpandState, and a room claimed by anything other than
+ * this state machine — see its own comment block below.
+ *
  * Console: autoExpand() · autoExpandStatus() · stopExpand()
  */
 import { logAlways } from "utils/Logger";
 import { packPlanPayload } from "utils/PlanV2";
 
 const SEG_INDEX = 86;
+/** segments holding the pack's per-room plans (push-expansion-pack.mjs) */
+const SEG_PLANS = [80, 81, 82, 83, 84, 85];
 const CHECK_EVERY = 50;
+/** how often we ask "is an owned room still running without a plan?" */
+const ADOPT_SCAN_EVERY = 25;
+/** ticks one room's segment walk may take before we call it a miss */
+const ADOPT_TIMEOUT = 200;
+/** a room with no pack entry is not re-checked for this long */
+const ADOPT_MISS_BACKOFF = 3000;
 /** phases advance on world state; this is only the giving-up bound */
 const PHASE_TIMEOUT = 20000;
 const MIN_BUCKET = 5000;
@@ -92,13 +106,27 @@ function blockedReason(): string | null {
  * Memory.planAnim.active set, the first cut of this function sat in `picking`
  * for 400+ ticks because segment 86 was never activated.
  */
+let segTick = -1;
+let segWanted: number[] = [];
+
 function readSegment(seg: number): any | undefined {
+  // Two readers now live in this file (the ExpandState machine and
+  // runPackAdoption) and they want DIFFERENT segments in the same tick. The
+  // union must therefore include everything asked for THIS tick as well as
+  // what is already active — RawMemory.segments only reflects last tick's
+  // request, so the second caller would otherwise silently cancel the first's
+  // and the two would take turns starving each other.
+  if (segTick !== Game.time) {
+    segTick = Game.time;
+    segWanted = [];
+  }
+  if (segWanted.indexOf(seg) < 0) segWanted.push(seg);
   const active: number[] = [];
   for (const key in RawMemory.segments) {
     const n = Number(key);
-    if (n !== seg) active.push(n);
+    if (segWanted.indexOf(n) < 0) active.push(n);
   }
-  RawMemory.setActiveSegments([seg].concat(active).slice(0, 10));
+  RawMemory.setActiveSegments(segWanted.concat(active).slice(0, 10));
   const raw = RawMemory.segments[seg];
   if (raw === undefined) return undefined;
   try {
@@ -198,12 +226,25 @@ function pick(st: ExpandState): void {
   delete M().autoExpand;
 }
 
+/** Write a pack payload into room.memory.planV2 and say so. */
+function adoptPacked(room: Room, payload: any, from: string): void {
+  room.memory.planV2 = packPlanPayload(payload);
+  const t = (room.memory.planV2 as any).t;
+  delete (room.memory as any).planPackMiss;
+  logAlways(
+    `autoExpand: ${room.name} planV2 written from ${from} (${payload.planHash || "no-hash"}) — ` +
+      Object.keys(t)
+        .map((k) => `${k}:${t[k].length}`)
+        .join(" "),
+  );
+}
+
 /** Final phase: hand the layout to placeFromPlanV2 and stand down. */
 function adoptPlanForNewRoom(st: ExpandState): void {
   const room = Game.rooms[st.room];
   if (!room) return; // vision is guaranteed once we own a spawn there; wait
   if (st.seg === undefined) {
-    finish(st, "spawn up — no packed plan for this room, legacy construction takes over");
+    finish(st, "spawn up — no packed plan named for this room; runPackAdoption sweeps for one");
     return;
   }
   if (room.memory.planV2) {
@@ -218,15 +259,161 @@ function adoptPlanForNewRoom(st: ExpandState): void {
     finish(st, "spawn up — plan missing, legacy construction takes over");
     return;
   }
-  room.memory.planV2 = packPlanPayload(payload);
-  const t = (room.memory.planV2 as any).t;
-  logAlways(
-    `autoExpand: ${st.room} planV2 written (${payload.planHash}) — ` +
-      Object.keys(t)
-        .map((k) => `${k}:${t[k].length}`)
-        .join(" "),
-  );
+  adoptPacked(room, payload, `segment ${st.seg}`);
   finish(st, "EXPANSION COMPLETE — room claimed, spawn built, plan adopted");
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * PACK ADOPTION — every owned room finds its packed plan, by itself.
+ *
+ * THE BUG THIS REPLACES
+ * ---------------------
+ * Adoption used to exist in exactly ONE place: phase `spawned` of the
+ * ExpandState machine above. That made `Memory.autoExpand` — a single,
+ * single-room, deletable object — the only thing in the bot that could ever
+ * turn a claim into a layout. Every one of these loses the plan permanently:
+ *
+ *   · the state is deleted at PHASE_TIMEOUT (a colony that takes >20k ticks to
+ *     stand its spawn up is abandoned mid-flight, and the room keeps running
+ *     forever on legacy construction);
+ *   · `finish()` runs at the FIRST failure to read a payload — including the
+ *     `st.seg === undefined` case (targets ranked 13-20 carry no segment) —
+ *     and never retries;
+ *   · Memory is wiped / the state is cleared by hand / stopExpand() is called
+ *     while a claimed room is still waiting;
+ *   · the room was claimed by something OTHER than this state machine — the
+ *     legacy target_colonise flow, spawn-in.mjs, a re-claim after a downgrade.
+ *     Live proof on this server RIGHT NOW: waxeye owns E12S8 (RCL1, no
+ *     planV2, running on the legacy dynamic layout) while Memory.autoExpand
+ *     still points at E15S6 in phase `claiming` — 7900 ticks and counting.
+ *     Nothing was ever going to give E12S8 a plan.
+ *
+ * And because the arming lived in Memory, a memory reset disarmed it silently.
+ *
+ * THE FIX
+ * -------
+ * Adoption is now DERIVED, every 25 ticks, from two facts that both survive a
+ * memory wipe: "which rooms do I own" (world state) and "which rooms does the
+ * expansion pack carry a plan for" (segment state). The Memory object below is
+ * a cursor for the multi-tick segment read, not an arming flag — delete it and
+ * the next scan re-creates it.
+ *
+ * Walk, per candidate room:
+ *   1. segment 86 (the index) usually NAMES the segment holding its plan;
+ *   2. otherwise sweep 80-85 one per tick (the index drops a room from
+ *      `targets` as soon as it is owned, so a pack re-pushed between the claim
+ *      and the scan leaves the plan reachable only this way);
+ *   3. no entry anywhere -> mark the room and back off for 3000 ticks, so a
+ *      room the pack simply does not cover costs one segment sweep, not one
+ *      per scan, forever.
+ *
+ * Deliberately gated on ownership only, NOT on a spawn existing: at RCL1
+ * placeFromPlanV2 sites the plan's own spawn, which is the same tile
+ * ensureSpawnSite would have used. Worst case is ~7 ticks of segment walking
+ * after the claim — comfortably inside the 100-tick budget.
+ * ---------------------------------------------------------------------------
+ */
+interface AdoptCursor {
+  room: string;
+  /** segment named by the index; undefined once we fall back to the sweep */
+  seg?: number;
+  /** index into SEG_PLANS for the fallback sweep */
+  scan?: number;
+  since: number;
+}
+
+export function runPackAdoption(): void {
+  const m = M();
+  let cur = m.packAdopt as AdoptCursor | undefined;
+
+  if (!cur) {
+    if (Game.time % ADOPT_SCAN_EVERY !== 0) return;
+    for (const room of ownedRooms()) {
+      if (room.memory.planV2) continue;
+      const miss = (room.memory as any).planPackMiss;
+      if (miss && Game.time - miss < ADOPT_MISS_BACKOFF) continue;
+      cur = { room: room.name, since: Game.time };
+      m.packAdopt = cur;
+      logAlways(
+        `autoExpand: ${room.name} is owned (RCL${(room.controller as StructureController).level}) ` +
+          `with no planV2 — looking for a pack entry in segment ${SEG_INDEX} / ${SEG_PLANS[0]}-${SEG_PLANS[SEG_PLANS.length - 1]}`,
+      );
+      break;
+    }
+    if (!cur) return;
+  }
+
+  const room = Game.rooms[cur.room];
+  if (!room || !room.controller || !room.controller.my) {
+    delete m.packAdopt; // lost it, or lost vision — the next scan re-derives
+    return;
+  }
+  if (room.memory.planV2) {
+    delete m.packAdopt; // adopted by the state machine (or by hand) meanwhile
+    return;
+  }
+  if (Game.time - cur.since > ADOPT_TIMEOUT) {
+    (room.memory as any).planPackMiss = Game.time;
+    logAlways(
+      `autoExpand: ${cur.room} — segments never became active within ${ADOPT_TIMEOUT} ticks; ` +
+        `retrying in ${ADOPT_MISS_BACKOFF}t`,
+    );
+    delete m.packAdopt;
+    return;
+  }
+
+  // 1. the index names the segment holding this room's plan
+  if (cur.seg === undefined && cur.scan === undefined) {
+    const idx = readSegment(SEG_INDEX);
+    if (idx === undefined) return; // active next tick
+    let seg: number | undefined;
+    if (idx && idx.targets) {
+      for (const t of idx.targets) {
+        if (t.room === cur.room && t.seg !== undefined) seg = t.seg;
+      }
+    }
+    if (seg === undefined) cur.scan = 0;
+    else cur.seg = seg;
+    return;
+  }
+
+  // 2. read the named segment
+  if (cur.seg !== undefined) {
+    const data = readSegment(cur.seg);
+    if (data === undefined) return; // active next tick
+    const payload = data && data[cur.room];
+    if (payload) {
+      adoptPacked(room, payload, `pack segment ${cur.seg}`);
+      delete m.packAdopt;
+      return;
+    }
+    cur.seg = undefined; // index is stale — fall through to the sweep
+    cur.scan = 0;
+    return;
+  }
+
+  // 3. sweep 80-85, one segment per tick
+  const seg = SEG_PLANS[cur.scan as number];
+  if (seg === undefined) {
+    (room.memory as any).planPackMiss = Game.time;
+    logAlways(
+      `autoExpand: ${cur.room} has no entry in the expansion pack (segments ` +
+        `${SEG_PLANS.join(",")}) — legacy construction stays in charge. Owner action: ` +
+        `push-plan.mjs ${cur.room} then adoptPlan("${cur.room}"), or re-push the pack before claiming.`,
+    );
+    delete m.packAdopt;
+    return;
+  }
+  const data = readSegment(seg);
+  if (data === undefined) return; // active next tick
+  const payload = data && data[cur.room];
+  if (payload) {
+    adoptPacked(room, payload, `pack segment ${seg} (sweep)`);
+    delete m.packAdopt;
+    return;
+  }
+  cur.scan = (cur.scan as number) + 1;
 }
 
 function advance(st: ExpandState): void {
@@ -284,6 +471,11 @@ function advance(st: ExpandState): void {
 /** Called once per tick from main. */
 export function runAutoExpand(): void {
   const m = M();
+  // Runs even with the expansion feature off, and even with no expansion in
+  // flight: a room that is ALREADY claimed deserves its plan regardless of
+  // whether we currently want another one. This is the safety net described
+  // above, and the only adoption path that survives a memory reset.
+  runPackAdoption();
   if (m.features && m.features.autoExpand === false) return;
   const st = m.autoExpand as ExpandState | undefined;
   if (!st) {
@@ -326,9 +518,13 @@ export function runAutoExpand(): void {
   const m = M();
   const st = m.autoExpand as ExpandState | undefined;
   const owned = ownedRooms();
+  const noPlan = owned.filter((r) => !r.memory.planV2).map((r) => r.name);
+  const cur = m.packAdopt as AdoptCursor | undefined;
   const head =
-    `GCL ${Game.gcl.level} · rooms ${owned.length} (${owned.map((r) => `${r.name}:${(r.controller as StructureController).level}`).join(",")}) ` +
-    `· bucket ${Game.cpu.bucket} · feature ${m.features && m.features.autoExpand === false ? "OFF" : "on"}`;
+    `GCL ${Game.gcl.level} · rooms ${owned.length} (${owned.map((r) => `${r.name}:${(r.controller as StructureController).level}${r.memory.planV2 ? "" : "!"}`).join(",")}) ` +
+    `· bucket ${Game.cpu.bucket} · feature ${m.features && m.features.autoExpand === false ? "OFF" : "on"}` +
+    ` · unplanned [${noPlan.join(",") || "none"}]` +
+    ` · packAdopt ${cur ? `${cur.room} seg ${cur.seg} scan ${cur.scan} ${Game.time - cur.since}t` : "idle"}`;
   if (!st) return `${head} · idle · ${blockedReason() || "ready — next check within 50 ticks"}`;
   const room = Game.rooms[st.room];
   return (

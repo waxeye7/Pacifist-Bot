@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 import { interiorMove, filterOutposts, dangerNow, interiorReady } from "utils/Interior";
+import { isSanctionedRampart } from "utils/PlanV2";
 
 const run = function (creep) {
     ;
@@ -53,8 +54,13 @@ const run = function (creep) {
             }
         }
 
+        // Only ramparts the room's plan / perimeter actually sanctions. Without
+        // this the list is "every rampart under 500k", which in a plan-v2 room
+        // means the abandoned off-plan ramparts of the old square stamp get
+        // nursed forever and can never decay away. See PlanV2
+        // sanctionedRampartKeys.
         if(!creep.memory.rampartsToRepair) {
-            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000 && (!creep.room.storage || creep.room.storage.pos.getRangeTo(s) >= 9)});
+            let rampartsInRoom = creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.hits < 500000 && (!creep.room.storage || creep.room.storage.pos.getRangeTo(s) >= 9) && isSanctionedRampart(creep.room, s.pos)});
             let idsOfRamparts = [];
             for(let rampart of rampartsInRoom) {
                 idsOfRamparts.push(rampart.id);
@@ -66,7 +72,11 @@ const run = function (creep) {
         if(rampartsIDS.length > 0) {
             for(let rampart of rampartsIDS) {
                 let rampObj:any = Game.getObjectById(rampart);
-                if(rampObj && rampObj.hits <= 50000) {
+                // re-checked at use, not just at build: the list is cached in
+                // creep memory for the creep's whole life, so a creep that
+                // locked its list before the room adopted a plan must not keep
+                // feeding off-plan ramparts for another 1500 ticks
+                if(rampObj && rampObj.hits <= 50000 && isSanctionedRampart(creep.room, rampObj.pos)) {
                     buildingsToRepair.push(rampObj);
                 }
             }
