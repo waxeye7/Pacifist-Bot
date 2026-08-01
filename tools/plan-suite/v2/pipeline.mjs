@@ -16,6 +16,7 @@
  *   7 late roads  rampart spurs + extension-face net + dead-end prune, last
  *                so they never steal a tile from the 60 extensions
  */
+import { D8 } from "./shared.mjs";
 import { planHub } from "./layer-hub.mjs";
 import { builtMobility, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { planTowers } from "./layer-towers.mjs";
@@ -23,7 +24,9 @@ import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { planWallRoads } from "./layer-walls.mjs";
-import { MOBILITY_RAMPART_CAP, RAMPARTS_PER_RATIO } from "./layer-ext.mjs";
+// NOTE: layer-ext's RAMPARTS_PER_RATIO / MOBILITY_RAMPART_CAP are deliberately
+// NOT imported any more. They price a defender LANE; the enclosure trade below
+// has its own published price and its own reasons — see MOBILITY_ENCLOSURE_*.
 
 export const EXT_TARGET = 60;
 
@@ -42,6 +45,30 @@ export function composePlan(d, shellOpts = {}) {
   // validator PASSES a declared shortfall with a loud note and FAILS the same
   // violation when it is undeclared.
   plan.meta.shortfalls = [...(plan.meta.shortfalls || [])];
+
+  // ------------------------------------------------------------------
+  // WHICH LAYER LAID WHICH ROAD.
+  //
+  // The animation exporter drew every road in one "LAYER 1 — THE ROADS"
+  // stage, before the wall, the towers, the labs and the extensions. That is
+  // not when they happen: the eco kit's roads are layer 1, but the tower
+  // spurs are layer 3, the lab access is layer 4, the mineral run is layer 5,
+  // the extension corridors are layer 6 and the rampart spurs are layer 7.
+  // A reviewer trying to check E20S3's lab declaration ("0 dry anchors at any
+  // orientation", which is gated on labs being off the road network) could
+  // not recover the mid-pipeline road set from any published artifact,
+  // because the artifact asserted a road set that never existed at that
+  // moment.
+  //
+  // Provenance is recorded per TILE rather than as index ranges, because the
+  // array is re-sorted into network-BFS order at the end of this function
+  // (see the road-order block) and layer 7 deletes dead-end roads out of the
+  // middle of it. A tile key survives both; an index does not.
+  plan.meta.roadLayer = {};
+  const tagRoads = (layer, roads) => {
+    for (const r of roads || []) plan.meta.roadLayer[`${r.x},${r.y}`] = layer;
+  };
+  tagRoads(1, plan.structures.road); // the hub kit's own eco roads
 
   const shell = planShell(d.terrain, plan, shellOpts);
   if (shell.error) {
@@ -73,6 +100,7 @@ export function composePlan(d, shellOpts = {}) {
   else {
     plan.structures.tower = tw.tower;
     plan.structures.road.push(...tw.roads);
+    tagRoads(3, tw.roads);
     plan.meta.counts.tower = tw.tower.length;
     plan.meta.towers = tw.towersMeta;
     // a shell whose far lobe no legal deep tile can reach is the room beating
@@ -86,6 +114,7 @@ export function composePlan(d, shellOpts = {}) {
     plan.structures.lab = lb.lab;
     plan.labInputs = lb.labInputs;
     plan.structures.road.push(...lb.roads);
+    tagRoads(4, lb.roads);
     if (lb.shallowLabs.length) plan.structures.rampart.push(...lb.shallowLabs);
     plan.meta.counts.lab = lb.lab.length;
     plan.meta.labs = lb.labsMeta;
@@ -111,6 +140,7 @@ export function composePlan(d, shellOpts = {}) {
       });
     }
     plan.structures.road.push(...ms.roads);
+    tagRoads(5, ms.roads);
     plan.meta.counts.nuker = ms.nuker.length;
     plan.meta.counts.observer = ms.observer.length;
     plan.meta.counts.extractor = ms.extractor.length;
@@ -124,6 +154,7 @@ export function composePlan(d, shellOpts = {}) {
     plan.structures.extension = ex.extension;
     // corridor stubs: the roads the extension mass grew along
     if (ex.roads?.length) plan.structures.road.push(...ex.roads);
+    tagRoads(6, ex.roads);
     if (ex.shallowExts.length && plan.structures.rampart) {
       plan.structures.rampart.push(...ex.shallowExts);
     }
@@ -138,27 +169,61 @@ export function composePlan(d, shellOpts = {}) {
     // placement that simply chose badly. It is not — see the rescue block in
     // layer-ext. Both exits are named here, and where the budget is the cause
     // the rescue has already been tried and arbitrated.
-    if (ex.extMeta.shallow > 0) {
+    if (ex.extMeta.shallow > 0 || ex.extMeta.relocatedCount > 0) {
       plan.meta.notes = plan.meta.notes || [];
+      // ------------------------------------------------------------------
+      // THE CAUSE SENTENCE HAS TO SURVIVE BEING CHECKED.
+      //
+      // This note used to end "what survives is deep floor with no road face
+      // and no budget left to give it one" whenever phase 1 ran out of paving
+      // budget. In six rooms that was demonstrably false — E14S6 alone had
+      // NINE empty interior tiles at depth 4-8, each with one to three
+      // existing D4 road faces, while it rented nine forever-ramparts. The
+      // sentence was not a rounding error: it named a specific cause that the
+      // room's own shipped tiles disproved, which is worse than saying
+      // nothing at all.
+      //
+      // Layer 6 now ends with a relocation pass that goes looking for exactly
+      // that floor (see the relocation header in layer-ext), so the claim is
+      // no longer asserted from the budget state — it is REPORTED from what
+      // the search found. If the pass moved slots, it says how many and to
+      // where. If slots remain, the reason they remain is that this search
+      // came back empty, which is a statement about a measurement rather than
+      // an inference from a counter.
+      // ------------------------------------------------------------------
+      const moved = ex.extMeta.relocatedCount || 0;
+      const movedNote = moved
+        ? `The end-of-layer relocation pass moved ${moved} shallow slot(s) onto free deep floor whose road ` +
+          `face already existed (${(ex.extMeta.relocated || [])
+            .map((r) => `${r.from.x},${r.from.y}->${r.to.x},${r.to.y}`)
+            .join(" ")}), retiring ${moved} personal rampart(s). `
+        : "";
+      const cause = !ex.extMeta.shallow
+        ? `every shallow slot this room laid was relocated onto deep floor; it ships none`
+        : ex.extMeta.deepExhausted
+          ? `the deep skeleton ran out of diggable deep floor — digDeep() came back empty, which is ` +
+            `the ONE exit that sets deepExhausted. Note that this is a statement about phase 1; if ` +
+            `this room also carries a SEALED INTERIOR FLOOR note, some of that deep floor existed ` +
+            `then and was sealed off later by the mass itself`
+          : ex.extMeta.stubExhausted
+            ? `the corridor paving budget, not the floor. Phase 1 ended on stubUsed ` +
+              `${ex.extMeta.stubRoads}/${ex.extMeta.stubCap}, not on a failed dig, so deepExhausted is ` +
+              `false while the room still could not reach what deep floor is left. The ` +
+              `off-ladder deep rescue was run and ${
+                ex.extMeta.rescueSpent
+                  ? `spent ${ex.extMeta.rescueSpent} extra road tile(s) on it`
+                  : `found nothing to pave toward`
+              }, and the relocation pass then searched every deep tile in the room for one that is ` +
+              `free, inside the cohesion ceiling, off the defender lanes and ALREADY road-faced — for ` +
+              `these ${ex.extMeta.shallow} slot(s) there was none, so what survives is deep floor this ` +
+              `room cannot reach or cannot stand on, not deep floor it overlooked`
+            : `the placement invariant refused the remaining deep tiles (each would strand a ` +
+              `structure face, a road or the wall)`;
       plan.meta.notes.push(
         `SHALLOW EXTENSIONS: ${ex.extMeta.shallow} of ${ex.extension.length} sit at depth < 4 and rent a ` +
-          `personal rampart forever. Cause: ` +
-          (ex.extMeta.deepExhausted
-            ? `the deep skeleton ran out of diggable deep floor — digDeep() came back empty, which is `+
-              `the ONE exit that sets deepExhausted. Note that this is a statement about phase 1; if `+
-              `this room also carries a SEALED INTERIOR FLOOR note, some of that deep floor existed `+
-              `then and was sealed off later by the mass itself`
-            : ex.extMeta.stubExhausted
-              ? `the corridor paving budget, not the floor. Phase 1 ended on stubUsed ` +
-                `${ex.extMeta.stubRoads}/${ex.extMeta.stubCap}, not on a failed dig, so deepExhausted is ` +
-                `false while the room still could not reach what deep floor is left. The ` +
-                `off-ladder deep rescue was run and ${
-                  ex.extMeta.rescueSpent
-                    ? `spent ${ex.extMeta.rescueSpent} extra road tile(s) on it`
-                    : `found nothing to pave toward`
-                }; what survives is deep floor with no road face and no budget left to give it one`
-              : `the placement invariant refused the remaining deep tiles (each would strand a ` +
-                `structure face, a road or the wall)`) +
+          `personal rampart forever. ${movedNote}` +
+          (ex.extMeta.shallow ? `Cause of the ${ex.extMeta.shallow} that remain: ` : `Outcome: `) +
+          cause +
           `.`,
       );
     }
@@ -184,6 +249,7 @@ export function composePlan(d, shellOpts = {}) {
       plan.structures.road = plan.structures.road.filter((r) => !gone.has(`${r.x},${r.y}`));
     }
     plan.structures.road.push(...wr.roads);
+    tagRoads(7, wr.roads);
     plan.meta.walls = wr.wallMeta;
   }
 
@@ -201,6 +267,69 @@ export function composePlan(d, shellOpts = {}) {
     if (plan.shell) {
       plan.shell.upkeepPerTick = Math.round(plan.structures.rampart.length * 3) / 100;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // THE ROAD ARRAY IS A BUILD ORDER, SO IT HAS TO BE ONE.
+  // ------------------------------------------------------------------
+  // The live bot's roadBudget() takes the first N entries of this array at
+  // RCL3 and its doc-comment called the array "priority-ordered". It was not
+  // ordered at all — roads were pushed in whatever order the layers happened
+  // to generate them (hub kit, then tower spurs, then lab access, then the
+  // mineral run, then extension corridors, then layer 7's late roads), and
+  // generation order has nothing to do with what a young room can walk to.
+  //
+  // Measured on the shipped fleet: 1272 of the RCL3 road tiles were
+  // disconnected from the sitter in 148 of 159 rooms. E5S1's twenty included
+  // `9,10 8,11 8,12 7,13 6,14 5,15 4,16 3,17 3,18 3,19 3,20 3,21 3,22` — a
+  // thirteen-tile ribbon starting thirty tiles from the hub, with no path of
+  // built road joining any of it to the room. An RCL3 room spent its entire
+  // road allowance, and the builder trips to lay it, on pavement nothing
+  // could reach.
+  //
+  // The fix belongs here and not in the bot: the bot cannot re-sort 129 tiles
+  // every fifteen ticks, and a consumer working around its producer's broken
+  // contract is how the contract stays broken. So the array is emitted in
+  // BFS order outward from the sitter over the road network itself, which
+  // makes EVERY prefix a connected network — the property roadBudget always
+  // assumed and never had. Containers conduct, because creeps walk them and
+  // they are built at RCL2, one level before the first road.
+  //
+  // Ties break on reading order, so the emission is deterministic. Any road
+  // the network cannot reach at all (there are none, and layer 7 asserts it)
+  // sorts last rather than being dropped — this pass reorders, it never
+  // decides what exists.
+  if (plan.structures.road && plan.structures.road.length && plan.sitter) {
+    const roads = plan.structures.road;
+    const rk = (p) => `${p.x},${p.y}`;
+    const conduct = new Set(roads.map(rk));
+    for (const c of plan.structures.container || []) conduct.add(rk(c));
+    conduct.add(rk(plan.sitter));
+    const dist = new Map([[rk(plan.sitter), 0]]);
+    const q = [plan.sitter];
+    for (let qi = 0; qi < q.length; qi++) {
+      const cur = q[qi];
+      const d = dist.get(rk(cur));
+      for (const [dx, dy] of D8) {
+        const nx = cur.x + dx,
+          ny = cur.y + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const k = `${nx},${ny}`;
+        if (dist.has(k) || !conduct.has(k)) continue;
+        dist.set(k, d + 1);
+        q.push({ x: nx, y: ny });
+      }
+    }
+    const INF = 1 << 20;
+    plan.structures.road = roads
+      .map((r, i) => ({ r, i, d: dist.has(rk(r)) ? dist.get(rk(r)) : INF }))
+      .sort((a, b) => a.d - b.d || a.r.y - b.r.y || a.r.x - b.r.x || a.i - b.i)
+      .map((e) => e.r);
+    plan.meta.roadOrder = {
+      by: "network-BFS from the sitter, containers conducting",
+      unreachable: plan.structures.road.filter((r) => !dist.has(rk(r))).length,
+      maxDist: Math.max(0, ...plan.structures.road.map((r) => dist.get(rk(r)) ?? 0).filter((d) => d < INF)),
+    };
   }
 
   plan.meta.counts.road = plan.structures.road.length;
@@ -552,17 +681,53 @@ function cheaperUpkeep(a, b) {
  * example: rung 1 measures 1.5 against the shipped 7.5, three ramparts dearer,
  * and the ladder walked past it for a whole review cycle.
  *
- * The rule is now a price, and it is the fleet's ONE price for this trade — the
- * same constants layer 6 pays for a defender lane (layer-ext RAMPARTS_PER_RATIO
- * / MOBILITY_RAMPART_CAP): RAMPARTS_PER_RATIO permanent ramparts per 1.0 of
- * gated lap reclaimed, never more than MOBILITY_RAMPART_CAP in total, and only
- * ever while the incumbent is still failing the target. A room already inside
- * the target still cannot spend a single rampart on a prettier ratio.
+ * The rule is now a price: permanent ramparts per 1.0 of gated lap reclaimed,
+ * never more than a cap in total, and only ever while the incumbent is still
+ * badly over target.
+ *
+ * ------------------------------------------------------------------------
+ * ...AND THE PRICE WAS MIS-SET. THIS IS WHAT IT COST.
+ * ------------------------------------------------------------------------
+ * At 2-per-1.0 with a cap of 6, TWENTY-TWO rooms declared — correctly, in
+ * their own rung tables — that a wider cut composed the WHOLE RCL8 program at
+ * a materially shorter lap and was refused on price. The refusals were not
+ * marginal: E5S8 ships 11.5 and could ship 2.75 for +7 ramparts. E17S1 ships
+ * 8 and could ship 2.25 for +18. E20S4 ships 7 and could ship 0 for +8. E9S6
+ * ships 6 and could ship 0 for +14. E8S5 ships 2.67 and could ship 0 for +12.
+ *
+ * Put in the currency the cap is denominated in: at this planner's own quoted
+ * 0.03 e/tick per rampart, +12 ramparts is 0.36 e/tick against a room earning
+ * on the order of 20 e/tick — under 2% of income to erase the worst defensive
+ * geometry in the fleet. A cap of 6 was pricing the trade as if ramparts were
+ * the scarce thing; on a shard where the defender's lap decides whether a
+ * breach is contained or walked around, they are not.
+ *
+ * So the enclosure trade is repriced: 3 ramparts per 1.0 of gated lap, cap 12
+ * — and, in the other direction, the purchase is now reserved for rooms that
+ * are genuinely badly off. The old gate was "still over the 1.2 target", which
+ * let a room at 1.25 spend wall to reach 1.2; that is buying a prettier ratio,
+ * which is exactly what the header above says a room may not do. A lap has to
+ * be over MOBILITY_BUY_FLOOR before a single extra rampart is available to it.
+ *
+ * WHY THIS IS NO LONGER THE SAME NUMBER LAYER 6 PAYS. layer-ext prices a
+ * defender LANE at 2-per-1.0 / cap 6 and that stays, because the two are not
+ * the same purchase and pretending they were is what froze this one. A rung
+ * buys a lap MEASURED on the shell it is about to ship, for the whole
+ * garrison, permanently, in shell ramparts. A lane buys a BOUND on the worst
+ * mass layer 6 could grow, paid in PERSONAL ramparts over shallow structures
+ * — layer-ext's own header records that pricing lanes at the rung's rate put
+ * 40 extra personal ramparts on the fleet to tighten worst cases that never
+ * materialised. Two purchases, two prices, both published here and there.
  */
-const MOBILITY_PREMIUM = MOBILITY_RAMPART_CAP;
+const MOBILITY_ENCLOSURE_PER_RATIO = 3;
+const MOBILITY_ENCLOSURE_CAP = 12;
+/** a lap has to be at least this bad before wall may be spent shortening it */
+const MOBILITY_BUY_FLOOR = 2;
 /** what this rung may spend, given what it reclaims against the base rung */
 const mobilityAllowance = (reclaimed) =>
-  reclaimed <= 0 ? 0 : Math.min(MOBILITY_RAMPART_CAP, Math.floor(RAMPARTS_PER_RATIO * reclaimed));
+  reclaimed <= 0
+    ? 0
+    : Math.min(MOBILITY_ENCLOSURE_CAP, Math.floor(MOBILITY_ENCLOSURE_PER_RATIO * reclaimed));
 /**
  * How much shorter a rung's lap has to be before the declaration calls it an
  * alternative. Below this the two enclosures are the same wall with a rounding
@@ -637,8 +802,12 @@ function attachRungProof(plan, trail) {
         `(needDeep+${better.needDeepBonus}) composed the whole RCL8 program at a lap of ${better.mobility} for ` +
         `${better.ramparts} ramparts, ${better.ramparts - shippedRamparts} more than the ${shippedRamparts} this ` +
         `room ships. That is over the ${mobilityAllowance(shipped - better.mobility)} rampart(s) the ` +
-        `${RAMPARTS_PER_RATIO}-per-1.0 mobility price allows for the ${round2(shipped - better.mobility)} of lap ` +
-        `it reclaims (cap ${MOBILITY_RAMPART_CAP}), so it was refused on upkeep-first policy — not on ` +
+        `${MOBILITY_ENCLOSURE_PER_RATIO}-per-1.0 mobility price allows for the ${round2(shipped - better.mobility)} of lap ` +
+        `it reclaims (cap ${MOBILITY_ENCLOSURE_CAP}` +
+        (shipped <= MOBILITY_BUY_FLOOR
+          ? `, and this room's shipped lap of ${shipped} is not over the ${MOBILITY_BUY_FLOOR} floor below which wall may not be spent on lap at all`
+          : "") +
+        `), so it was refused on upkeep-first policy — not on ` +
         `impossibility. The trade is written down here so it can be argued with.`
       : best.mobility > MOBILITY_TARGET
         ? `No rung this room composed measured a materially shorter lap: the best of them is ${best.mobility} at ` +
@@ -646,7 +815,7 @@ function attachRungProof(plan, trail) {
           `admits at a price it can pay, the lap is what it is.`
         : `The best lap any of them measured is ${best.mobility} at ${best.ramparts} ramparts; it was refused ` +
           `because the ${best.ramparts - shippedRamparts} extra rampart(s) exceed the ` +
-          `${RAMPARTS_PER_RATIO}-per-1.0 price mobility is allowed to pay (cap ${MOBILITY_RAMPART_CAP}).`;
+          `${MOBILITY_ENCLOSURE_PER_RATIO}-per-1.0 price mobility is allowed to pay (cap ${MOBILITY_ENCLOSURE_CAP}).`;
     s.detail +=
       ` LADDER WALKED: ${mine.length} rung(s) of this seed` +
       (trail.length > mine.length ? ` (plus ${trail.length - mine.length} composition(s) on rejected seeds)` : "") +
@@ -768,8 +937,11 @@ function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache)
       // four times over. A room already inside the target buys nothing here.
       const reclaimed = mobOf(first) - mobOf(p);
       const spend = rampartsOf(p) - rampartsOf(first);
+      // ...and the incumbent has to be genuinely bad, not merely imperfect —
+      // see MOBILITY_BUY_FLOOR. A room at 1.25 buying its way to 1.2 is the
+      // "prettier ratio" purchase this premium is explicitly not for.
       const buysMobility =
-        mobOf(win) > MOBILITY_TARGET && mobOf(p) < mobOf(win) && spend <= mobilityAllowance(reclaimed);
+        mobOf(win) > MOBILITY_BUY_FLOOR && mobOf(p) < mobOf(win) && spend <= mobilityAllowance(reclaimed);
       // A WALK THAT ONLY EXISTS TO SHORTEN THE LAP MAY NOT LENGTHEN IT. Without
       // this the rampart-first comparator turns a mobility search into a wall
       // sale: E17S9 walked for mobility, found a rung one rampart cheaper and

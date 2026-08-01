@@ -95,6 +95,39 @@ const round2 = (v) => Math.round(v * 100) / 100;
  * the as-built lap misses the target it declares — with both numbers, so a
  * reader can tell a shell/terrain verdict apart from a mass we chose to grow.
  * It relocates nothing, deletes nothing and re-sorts nothing.
+ *
+ * ------------------------------------------------------------------------
+ * ...AND IT MEASURES THE WALL THE ROOM SHIPS, NOT THE WALL LAYER 2 BOUGHT.
+ * ------------------------------------------------------------------------
+ * This function used to flood against `plan.exterior` and walk with `cutSet`
+ * as the wall. Both are layer-2 artefacts and both go stale, in the same
+ * direction, for the same reason: layers 2-6 keep ADDING ramparts (eco
+ * bubbles, lab cover, the mineral seat, personal ramparts under shallow
+ * structures) and layer 7 both DELETES cut tiles (the inert prune) and ADOPTS
+ * bubbles into the cut (reconcileSeal). Every one of those moves the exterior
+ * flood and none of them moved `plan.exterior`.
+ *
+ * The consequence was not academic. E11S10's layer-7 prune took 7 inert tiles
+ * and adopted 44,35 / 45,35, and the room ships a gated lap of 1.71 with a
+ * 12-tile detour between 37,17 and 45,35. The planner MEASURED that itself
+ * into meta.shell.mobilityShipped — but the declaration below fires off
+ * `mBuilt.maxGated`, which was computed on the stale pair and read 0, so the
+ * room declared nothing at all. A shortfall the planner has already computed
+ * and then suppresses with its own stale metric is the "silent failure" the
+ * goal document calls an auto-fail, and it is worse than never measuring.
+ * Three more rooms (E1S8, E16S8, E9S5) disagreed with an independent
+ * re-derivation for the milder version of the same reason — bubbles alone,
+ * with no prune — and two of those declared a WORSE lap on a pair the shipped
+ * plan does not exhibit.
+ *
+ * So the as-built reading is taken against the shipped wall: the exterior
+ * flooded with EVERY rampart the room ships blocking it, and the interior
+ * walked over that same rampart set (ramparts are walkable by their owner, so
+ * a bubble is a tile the garrison may stand on exactly like a cut tile). The
+ * endpoints stay the cut — that is what the wall IS, post-reconciliation —
+ * and that is precisely the pairing remeasureShell already uses for
+ * meta.shell.mobilityShipped. The two now agree by construction instead of by
+ * luck, and `plan.shippedExterior` is computed once per room and shared.
  */
 function verifyMobility(terrain, plan) {
   const cut = plan.shell.cut || [];
@@ -111,8 +144,11 @@ function verifyMobility(terrain, plan) {
   };
   if (!cut.length || !plan.depth) return meta;
 
-  const ext = plan.exterior;
-  const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
+  // THE SHIPPED WALL, not layer 2's. See the header — `plan.exterior` and the
+  // bare `cut` are both stale by the time this runs. shippedFlood() is
+  // memoised on the plan, so the mass-free and as-built readings, the
+  // remeasure above and layer-shell's builtMobility all share one flood.
+  const { ext, rset: wallSet } = shippedFlood(terrain, plan);
   /** obstacles as the engine sees them; roads/containers/ramparts are not */
   const blockedBuilt = new Set(plan.objectTiles || []);
   const blockedFree = new Set(plan.objectTiles || []);
@@ -122,8 +158,8 @@ function verifyMobility(terrain, plan) {
       if (t !== "extension") blockedFree.add(key(p.x, p.y));
     }
   }
-  const wFree = interiorWalk(terrain, cutSet, ext, blockedFree, plan.sitter);
-  const wBuilt = interiorWalk(terrain, cutSet, ext, blockedBuilt, plan.sitter);
+  const wFree = interiorWalk(terrain, wallSet, ext, blockedFree, plan.sitter);
+  const wBuilt = interiorWalk(terrain, wallSet, ext, blockedBuilt, plan.sitter);
   const freeMask = maskFromKeys(wFree);
   const mFree = mobilityStats(cut, ext, freeMask);
   const mBuilt = mobilityStats(cut, ext, maskFromKeys(wBuilt));
@@ -153,7 +189,51 @@ function verifyMobility(terrain, plan) {
     // measures its own, and that is the one this room actually has to hold
     const b = lane ? lane.bounded : null;
     meta.bound = b;
-    meta.boundHeld = b === null || b === undefined ? null : mBuilt.maxGated <= b + 1e-9;
+    // ------------------------------------------------------------------
+    // THE BOUND IS AUDITED AGAINST THE WALL IT WAS PROMISED ABOUT.
+    //
+    // Layer 6's bound is a claim about THE MASS: "no arrangement of 60
+    // extensions inside this enclosure laps worse than b". It is measured on
+    // the enclosure layer 6 could see, which is layer 2's cut and layer 2's
+    // exterior — layer 6 runs before the inert prune and before the seal
+    // reconciliation, so it cannot be making a claim about a wall that does
+    // not exist yet.
+    //
+    // When the as-built reading moved onto the SHIPPED wall (see the header),
+    // this audit started comparing the two different walls and broke in four
+    // rooms — E13S2, E15S3, E17S7 and E8S7 — none of which had grown a worse
+    // mass. Layer 7 had moved their wall. Reporting that as "layer 6's model
+    // of the mass is wrong" would have been a false accusation, and silently
+    // widening the bound to make it pass would have been worse.
+    //
+    // So the audit is taken against the SHIPPED lap first, because that is the
+    // number of record and the strict reading. Only when the shipped lap
+    // exceeds the bound is the claim re-measured on layer 6's own enclosure,
+    // to attribute the miss: if the layer-6 reading holds, layer 6's model of
+    // the mass was right and layer 7 moved the wall underneath it, which is a
+    // different fact and is already declared by the adopted-seal and
+    // shipped-battery shortfalls. That lazy second measurement is also why
+    // this is affordable — an unconditional all-pairs re-derivation on every
+    // one of the 150 rooms that carry a bound cost the suite 20 seconds.
+    if (b === null || b === undefined) {
+      meta.boundHeld = null;
+    } else if (mBuilt.maxGated <= b + 1e-9) {
+      meta.boundHeld = true;
+      meta.boundLap = mBuilt.maxGated;
+    } else {
+      const laneWall = interiorWalk(
+        terrain,
+        new Set(cut.map((c) => key(c.x, c.y))),
+        plan.exterior,
+        blockedBuilt,
+        plan.sitter,
+      );
+      const mBuiltLane = mobilityStats(cut, plan.exterior, maskFromKeys(laneWall));
+      meta.boundLap = mBuiltLane.maxGated;
+      meta.boundHeld = mBuiltLane.maxGated <= b + 1e-9;
+      meta.boundWallMoved = meta.boundHeld === true;
+      meta.shippedVsBoundWall = round2(mBuilt.maxGated - mBuiltLane.maxGated);
+    }
   }
   if (mBuilt.worstGated || mBuilt.worst) {
     const { a, b, din, dout } = mBuilt.worstGated || mBuilt.worst;
@@ -406,6 +486,46 @@ function verifyMobility(terrain, plan) {
 const DEPTH_SAFE = 4;
 const idxOf = (x, y) => x + y * 50;
 
+/**
+ * ------------------------------------------------------------------------
+ * THE SHIPPED WALL — one flood, one definition, every consumer.
+ * ------------------------------------------------------------------------
+ * `plan.exterior` is layer 2's: the flood against the min-cut ring alone,
+ * before a single eco bubble, lab cover, mineral seat or personal rampart
+ * existed, and before layer 7's prune deleted cut tiles or reconcileSeal
+ * adopted bubbles into the cut. Every one of those changes the exterior, and
+ * none of them wrote it back. Four rooms shipped an as-built mobility reading
+ * taken on a wall they do not have, and one of them (E11S10) used that reading
+ * to suppress a shortfall it had already measured — see verifyMobility.
+ *
+ * This is the wall the room actually ships: EVERY rampart in plan.structures,
+ * flooded from the four edges. It is memoised on the plan and invalidated by
+ * hand whenever layer 7 changes the rampart list (the prune and the
+ * reconciliation are the only two things that can), so nothing downstream has
+ * to remember to recompute it and nothing recomputes it 159 times either.
+ *
+ * plan.exterior is deliberately NOT overwritten. It is what layer 2 decided
+ * against, several later measurements are legitimately attributed to it, and
+ * silently redefining a field half the pipeline reads is how this bug got
+ * here. The stale one keeps its name; the shipped one gets its own.
+ */
+function shippedFlood(terrain, plan) {
+  const ramp = plan.structures.rampart || [];
+  if (plan._shipped && plan._shipped.n === ramp.length && plan._shipped.stamp === plan._shippedStamp) {
+    return plan._shipped;
+  }
+  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
+  const ext = exteriorFlood(terrain, rset);
+  plan._shipped = { rset, ext, n: ramp.length, stamp: plan._shippedStamp };
+  plan.shippedExterior = ext;
+  return plan._shipped;
+}
+/** call after anything mutates plan.structures.rampart under layer 7 */
+function invalidateShippedFlood(plan) {
+  plan._shippedStamp = (plan._shippedStamp || 0) + 1;
+  plan._shipped = null;
+}
+
 function exteriorFlood(terrain, rampartSet) {
   const e = new Uint8Array(2500);
   const q = [];
@@ -581,7 +701,17 @@ function pruneInertRamparts(terrain, plan) {
   // be turned into wall by anything this pass does.
   const cutKeys = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
   let promoted = 0; // deletions that handed a piece of the seal to a bubble
+  // WHY EACH SURVIVOR SURVIVED. The reviewer's standing complaint about this
+  // pass was not that it kept the wrong tiles — it is that `uselessCut` was
+  // `[]` in all 159 rooms and NOTHING said why, so a reader had to re-derive
+  // the whole removal test to find out whether a redundant-looking rampart was
+  // load-bearing or just unexamined. Every refusal is recorded with the tile
+  // that caused it, the last round's verdict winning (the wall it was judged
+  // against is the wall the room ships). noteRedundantCut turns it into prose.
+  const refusals = new Map();
+  const refuse = (k, why) => refusals.set(k, why);
   for (let guard = 0; guard < 200; guard++) {
+    refusals.clear();
     const set0 = new Set(ramp.map((r) => key(r.x, r.y)));
     const ext0 = exteriorFlood(terrain, set0);
     const dep0 = depthFromExterior(ext0);
@@ -596,15 +726,106 @@ function pruneInertRamparts(terrain, plan) {
           y = r.y + dy;
         return x >= 0 && y >= 0 && x <= 49 && y <= 49 && ext0[idxOf(x, y)];
       });
+    // ------------------------------------------------------------------
+    // OUTER DOMINATED WALL — the class the fast reject above cannot see.
+    //
+    // The reject "a reachable rampart facing the exterior becomes exterior"
+    // is true, and for a whole class of wall it is also HARMLESS. A rampart
+    // whose every walkable D8 neighbour is already exterior-or-rampart is
+    // wall standing in front of other wall: delete it and the exterior gains
+    // exactly one tile — its own — and reaches nothing new, because there is
+    // nothing behind it that was not already outside or already walled.
+    //
+    // 23 such tiles shipped across 11 rooms (E21S8 32,11 32,12 33,12 34,12
+    // 34,13 · E8S5 31,4 32,2 32,3 32,4 · E16S4 47,24 47,25 47,26 · E20S5
+    // 13,3 14,3 15,3 · E20S0 17,6 18,7 · E16S0 38,31 · E18S8 12,20 · E13S10
+    // 32,37 · E17S0 30,47 · E17S1 38,19 · E21S2 34,5), every one of them a
+    // rampart of forever-upkeep defending nothing, and 17 of them carrying
+    // battlement metadata — defenders told to stand on wall that need not
+    // exist. Deleting all 23 at once was verified to hold the seal, hold
+    // every structure at depth >= 4 and hold the controller ring, and it
+    // DROPS the exposed wall face by 8 tiles / 29 adjacencies.
+    //
+    // The old test could never reach them for two independent reasons and
+    // both are relaxed here, precisely:
+    //   1. the fast reject fired first — so the screen below runs instead,
+    //      and it is EXACT rather than conservative: if T had a walkable
+    //      non-rampart interior neighbour, that neighbour would join the
+    //      exterior when T went, which the ext-equality test rejects anyway.
+    //      Screening on it costs eight lookups and skips the two floods.
+    //   2. the walk region shrank — by exactly one tile, T itself, which is
+    //      the definition of deleting a tile the garrison could stand on.
+    //      Demanding a byte-identical walk region made that structurally
+    //      impossible for every OUTER redundant rampart, which is why this
+    //      pass could only ever remove INNER doubled wall.
+    //
+    // What is NOT relaxed: the exterior may gain T and nothing else, no
+    // owned structure may drop below DEPTH_SAFE, and the keep-classes
+    // (controller ring, stand-denial, declared bubbles, personal cover)
+    // still hold unconditionally. A rampart that shares its tile with an
+    // owned structure is held outright in this class — deleting it would
+    // put that structure on the exterior at depth 0.
+    // ------------------------------------------------------------------
+    // The screen is a NECESSARY condition, never a sufficient one — the two
+    // floods below still have the final say. It only has to avoid rejecting
+    // anything they would accept, and there is exactly one way to know that
+    // cheaply: if T has a walkable, un-ramparted D8 neighbour that the base
+    // HOLDS (stands on, or owns a structure on) and that is not already
+    // exterior, then deleting T floods that tile and the ext-equality test
+    // below is guaranteed to refuse. Anything else — and in particular a
+    // neighbour that is interior but UNREACHABLE, a dead-end pocket the
+    // finished base sealed off from itself — gets the full test.
+    //
+    // That pocket case is half the finding. E16S4's 47,24/25/26 each sit in
+    // front of floor at 46,25; a screen that treated "not exterior" as
+    // "load-bearing" would refuse them without looking, which is the same
+    // over-strictness in a new place. So the screen asks the sharper question
+    // — is the tile behind it one the base actually HOLDS — and lets the
+    // floods decide everything else.
+    //
+    // WHAT THE SCREEN CORRECTLY REFUSES, and this is the other half of the
+    // finding. 46,25 turns out to be in the garrison's walk region, so
+    // deleting any of E16S4's three would put floor the defenders stand on
+    // OUTSIDE the wall. Re-derived independently against the shipped plan,
+    // the same is true of E21S8's 32,12/33,12/34,12/34,13 (they expose 33,13)
+    // and all four of E8S5's (they expose 30,3 and 31,3). Those 11 of the 23
+    // are not inert: the seal survives and no structure is exposed, but the
+    // walk region loses a tile that is not T, which is exactly the line the
+    // relaxation is drawn at. They are refused here and DECLARED instead —
+    // see noteRedundantCut. The other 12 delete cleanly and do.
+    const outerDominated = (r) => {
+      if (ownTiles.has(key(r.x, r.y))) return false; // would expose our own structure
+      for (const [dx, dy] of D8) {
+        const x = r.x + dx,
+          y = r.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        if (!walkable(terrain, x, y)) continue;
+        const nk = key(x, y);
+        if (set0.has(nk)) continue; // wall — blocks the flood either way
+        if (ext0[idxOf(x, y)]) continue; // already outside
+        if (hold.has(nk)) {
+          refuse(key(r.x, r.y), `deleting it would put ${nk} — interior floor the base ${walk0.has(nk) ? "walks on" : "owns"} — outside the wall`);
+          return false;
+        }
+      }
+      return true;
+    };
     let gone = null;
     for (const r of ramp) {
       const k = key(r.x, r.y);
       // a declared purpose this pass cannot measure — held whatever the flood says
-      if (keep.has(k)) continue;
+      if (keep.has(k)) {
+        refuse(k, "keep-class: the controller ring, a declared stand-denial tile or a declared bubble");
+        continue;
+      }
       // somebody's personal cover — held whatever the flood says
-      if (ownTiles.has(k) && dep0[idxOf(r.x, r.y)] < DEPTH_SAFE) continue;
+      if (ownTiles.has(k) && dep0[idxOf(r.x, r.y)] < DEPTH_SAFE) {
+        refuse(k, `personal cover for a structure at depth ${dep0[idxOf(r.x, r.y)]}`);
+        continue;
+      }
       const faces = facesExterior(r);
-      if (walk0.has(k) && faces) continue;
+      const outer = faces && walk0.has(k) && outerDominated(r);
+      if (walk0.has(k) && faces && !outer) continue;
       const set1 = new Set(set0);
       set1.delete(k);
       // THE FLOODS ARE ONLY RUN WHEN THEY CAN MOVE. Deleting a rampart makes its
@@ -617,6 +838,7 @@ function pruneInertRamparts(terrain, plan) {
       // The test is still exact; it is the arithmetic that is skipped.
       let ext1 = ext0;
       let dep1 = dep0;
+      const ik = idxOf(r.x, r.y);
       if (faces) {
         ext1 = exteriorFlood(terrain, set1);
         dep1 = depthFromExterior(ext1);
@@ -624,14 +846,60 @@ function pruneInertRamparts(terrain, plan) {
         for (const h of hold) {
           const [x, y] = h.split(",").map(Number);
           const i = idxOf(x, y);
-          if (ext1[i] !== ext0[i] || dep1[i] !== dep0[i]) {
+          // T ITSELF IS ALLOWED TO CHANGE, and only T. For the inner class it
+          // does not change at all (nothing about it was exterior before or
+          // after); for the outer class it goes exterior and its depth goes to
+          // 0, which is exactly what "delete this rampart" means. Every OTHER
+          // tile the base can stand on or owns must come back byte-identical.
+          if (i === ik) continue;
+          if (ext1[i] !== ext0[i]) {
+            refuse(k, `deleting it would put ${h} — interior floor the base holds — outside the wall`);
+            ok = false;
+            break;
+          }
+          // ...and depth may only be re-read where nothing of ours is standing.
+          // A structure is held to DEPTH_SAFE, not to an unchanged number: the
+          // exterior gaining one tile can legitimately shorten a chebyshev
+          // reading several tiles away without putting anything in reach.
+          if (dep1[i] === dep0[i]) continue;
+          if (ownTiles.has(h) && dep1[i] < DEPTH_SAFE && dep0[i] >= DEPTH_SAFE) {
+            refuse(k, `the structure at ${h} would drop from depth ${dep0[i]} to ${dep1[i]}, inside a ranged attacker's reach`);
             ok = false;
             break;
           }
         }
         if (!ok) continue;
       }
-      if (interiorWalk(terrain, set1, ext1, blocked, plan.sitter).size !== walk0.size) continue;
+      // THE WALK REGION MAY LOSE EXACTLY T, AND NOTHING ELSE, EVER.
+      //
+      // See the outer-dominated header. An outer rampart the garrison could
+      // stand on stops being standable when it is deleted — it becomes
+      // exterior — so demanding an identical region forbade the whole class on
+      // a technicality. An INNER deletion still leaves its tile walkable and
+      // therefore still in the region, which is why this is "may lose", not
+      // "must lose". The test is set containment plus a one-tile budget spent
+      // only on T: a region that gains a tile, loses two, or loses one that is
+      // not T is a different room and the deletion is refused.
+      const walk1 = interiorWalk(terrain, set1, ext1, blocked, plan.sitter);
+      if (walk1.size > walk0.size || walk0.size - walk1.size > 1) {
+        refuse(k, `deleting it moves the garrison's walk region from ${walk0.size} tile(s) to ${walk1.size} — the budget is one tile, and that one tile has to be this rampart`);
+        continue;
+      }
+      let sameRegion = true;
+      for (const w of walk1) {
+        if (!walk0.has(w)) {
+          sameRegion = false;
+          break;
+        }
+      }
+      if (!sameRegion) {
+        refuse(k, "deleting it opens floor the garrison could not previously stand on");
+        continue;
+      }
+      if (walk1.size !== walk0.size && !(walk0.has(k) && !walk1.has(k))) {
+        refuse(k, "the tile the walk region loses is not this rampart");
+        continue;
+      }
       // THE DELETION IS ALLOWED, AND IT IS RECORDED WHEN IT MOVES THE WALL.
       // Refusing here was tried and refused in turn: the only deletions that
       // promote an outsider are E11S10's seven inner double-wall tiles and
@@ -648,9 +916,13 @@ function pruneInertRamparts(terrain, plan) {
     ramp = ramp.filter((r) => key(r.x, r.y) !== gk);
     removed.push({ x: gone.x, y: gone.y });
   }
+  plan.shell.inertRefused = Object.fromEntries(refusals);
   if (!removed.length) return removed;
   const dead = new Set(removed.map((r) => key(r.x, r.y)));
   plan.structures.rampart = ramp;
+  // the rampart list just moved, so the shipped exterior every later
+  // measurement is taken against is no longer the one we may have cached
+  invalidateShippedFlood(plan);
   plan.shell.cut = (plan.shell.cut || []).filter((c) => !dead.has(key(c.x, c.y)));
   // plan.shell.bubble is NOT scrubbed: keep-class (c) means no bubble can be in
   // `dead`, and a declaration this pass may not act on is one it may not edit.
@@ -739,9 +1011,12 @@ function reconcileSeal(terrain, plan) {
 function remeasureShell(terrain, plan, reason) {
   const cut = plan.shell.cut || [];
   if (!cut.length) return;
-  const ramp = plan.structures.rampart || [];
-  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
-  const extFinal = exteriorFlood(terrain, rset);
+  // ONE definition of the shipped wall, shared with verifyMobility and with
+  // layer-shell's builtMobility. This function used to flood for itself, which
+  // is how meta.shell.mobilityShipped could read 1.71 while the field the
+  // declaration actually fires off read 0 — two measurements of the same room
+  // that were never made to agree. See shippedFlood().
+  const { rset, ext: extFinal } = shippedFlood(terrain, plan);
   const blocked = new Set(plan.objectTiles || []);
   for (const t of BUILT_OBSTACLES) {
     for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
@@ -782,6 +1057,82 @@ function remeasureShell(terrain, plan, reason) {
     plan.meta.towers.shippedCutTiles = dmg.tiles;
   }
   return dmg;
+}
+
+/**
+ * ------------------------------------------------------------------------
+ * WALL THAT IS NOT LOAD-BEARING, AND WHY IT IS STILL THERE.
+ * ------------------------------------------------------------------------
+ * "No double shell" is a hard gate, and a cut tile whose single removal does
+ * NOT let the exterior reach the sitter looks, to anyone reading the plan,
+ * exactly like double shell. 65 such tiles shipped across 23 rooms and the
+ * plan said nothing about any of them: `meta.shell.uselessCut` was `[]` in
+ * every single room — honest under its own narrow definition and useless to a
+ * reader, who had to re-derive the entire removal test to learn whether a
+ * given rampart was quietly load-bearing or simply never examined.
+ *
+ * Both classes are real and they are not the same thing:
+ *
+ *   PRUNED    the prune above deleted it. Nothing measurable moved, so it was
+ *             forever-upkeep defending nothing.
+ *   REFUSED   it is not singly load-bearing, and it still cannot go, and
+ *             there is a specific tile that says so. Overwhelmingly this is
+ *             the outer-dominated case failing on its one strict clause:
+ *             deleting the rampart would push a named tile of interior floor
+ *             — floor the garrison walks on, or floor carrying a structure —
+ *             outside the wall. That is not "double shell", it is wall doing
+ *             a job the single-removal seal test cannot see, and the tile it
+ *             protects is named here so the claim is falsifiable.
+ *
+ * This is a NOTE, not a shortfall. Nothing here is a violation: the room is
+ * sealed, legal and complete, and the ramparts in question are ones the room
+ * decided to keep for a reason it can state. The anti-pattern the planner is
+ * held to is silence, and silence is what this ends.
+ */
+function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
+  const cut = plan.shell?.cut || [];
+  // the raw refusal map is working state, never shipped — see below
+  const refused = plan.shell?.inertRefused || {};
+  if (plan.shell) delete plan.shell.inertRefused;
+  if (!cut.length) return null;
+  const sealSet = new Set((sealCritical || []).map((c) => key(c.x, c.y)));
+  const redundant = cut.filter((c) => !sealSet.has(key(c.x, c.y)));
+  // THE REASONS ARE KEPT ONLY FOR THE TILES THIS NOTE IS ABOUT. The prune
+  // records a refusal for every rampart it examined, which is most of the wall
+  // and 639 KB of near-duplicate prose across the fleet artifact. The tiles a
+  // reader needs a reason for are the ones that LOOK like double shell — the
+  // cut tiles that are not singly load-bearing — so the map is narrowed to
+  // those and the rest is dropped rather than shipped.
+  const reasons = {};
+  for (const c of redundant) {
+    const k = key(c.x, c.y);
+    if (refused[k]) reasons[k] = refused[k];
+  }
+  plan.shell.redundantCut = {
+    tiles: redundant.length,
+    pruned: inertPruned.length,
+    explained: Object.keys(reasons).length,
+    reasons,
+  };
+  if (!redundant.length && !inertPruned.length) return plan.shell.redundantCut;
+
+  const lines = redundant
+    .slice(0, 12)
+    .map((c) => {
+      const k = key(c.x, c.y);
+      return `${k} — ${refused[k] || "held by an earlier layer's declared purpose"}`;
+    });
+  plan.meta.notes = plan.meta.notes || [];
+  plan.meta.notes.push(
+    `CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: ${redundant.length} of this room's ${cut.length} cut ` +
+      `tile(s) can each be removed on their own without letting the exterior flood reach the sitter, and ` +
+      `${inertPruned.length} more already were — layer 7's inert prune deleted them this run. The ` +
+      `${redundant.length} that remain are NOT double shell and each one has a named reason: ` +
+      `${lines.join(" · ")}${redundant.length > lines.length ? ` · …and ${redundant.length - lines.length} more` : ""}. ` +
+      `At ${round2(redundant.length * 0.03)} e/tick of forever-upkeep this is the price of the wall that ` +
+      `holds floor the single-removal test cannot see it holding.`,
+  );
+  return plan.shell.redundantCut;
 }
 
 /**
@@ -961,6 +1312,9 @@ export function planWallRoads(terrain, plan) {
     : null;
   if (adopted.length) declareAdoptedSeal(plan, adopted, shipDmg);
   if (shipDmg) declareShippedBattery(plan, shipDmg);
+  // ...and say, in the room's own tiles, which cut ramparts are not singly
+  // load-bearing and why each of them is still standing. See noteRedundantCut.
+  noteRedundantCut(terrain, plan, rec?.sealCritical, inertPruned);
 
   const cut = plan.shell.cut || [];
   if (!cut.length) return { error: "shell has no cut tiles" };

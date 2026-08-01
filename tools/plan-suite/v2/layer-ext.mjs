@@ -303,15 +303,38 @@ const LANE_MIN_GAIN = 1;
  */
 const LANE_DEEP_MIN = 8;
 /**
+ * How many candidate deep tiles a shallow slot may be tried against before the
+ * relocation pass gives up on it. The list is sorted by walk distance from the
+ * sitter and the move exists to land CLOSER, so the useful candidates are all
+ * at the front; the tail is a long list of far tiles that will lose the sort
+ * even when they pass. Measured: unbounded trials cost E4S7 11 seconds on its
+ * own (6.8s -> 17.9s) and relocated exactly the same slots as a shortlist of
+ * 16, because the invariant almost never refuses a near tile that the cheap
+ * filters already accepted.
+ */
+const RELOC_TRIALS = 16;
+/**
  * THE FLEET'S EXCHANGE RATE BETWEEN WALL AND LAP, and the only one.
  *
  * Upkeep is the first objective, so mobility may only ever spend ramparts at a
  * published rate and never more than a cap: RAMPARTS_PER_RATIO permanent ramparts
  * for each 1.0 of gated defender ratio the spend reclaims, MOBILITY_RAMPART_CAP
- * total. pipeline.mjs imports these for the escalation ladder's own version of
- * exactly this trade — two places pricing one currency two different ways is how
- * a room ends up buying six ramparts for 0.29 of lap in one layer while another
- * refuses two for 6.0.
+ * total.
+ *
+ * THIS IS THE LANE PRICE, AND IT IS NOT THE ENCLOSURE PRICE. pipeline.mjs used
+ * to import these two constants for the escalation ladder, on the argument that
+ * one currency deserves one exchange rate. The argument was half right — a
+ * currency does — but it collapsed two different PURCHASES into one price, and
+ * the ladder's half of it was badly mis-set: 22 rooms declared a wider cut that
+ * composed the whole RCL8 program at a materially shorter lap and refused it,
+ * several for single-digit rampart counts against laps of 6, 7, 8 and 11.5.
+ *
+ * A rung buys a lap MEASURED on the shell it is about to ship, for the whole
+ * garrison, permanently, in SHELL ramparts. A lane buys a BOUND on the worst
+ * mass this layer could grow, paid in PERSONAL ramparts over shallow structures
+ * — see the half-rate note below, which exists precisely because a guarantee is
+ * worth less than a measurement. The two are now priced separately and each
+ * price is published where it is spent (pipeline.mjs MOBILITY_ENCLOSURE_*).
  *
  * Reattaching a STRANDED battlement has no ratio to multiply (the lap is
  * infinite), so it is quoted a fixed equivalent instead — see STRAND_GAIN.
@@ -1672,6 +1695,261 @@ export function planExtensions(terrain, plan) {
     }
   }
 
+  // ------------------------------------------------------------------
+  // SHALLOW RELOCATION — the last thing this layer does, and the only thing
+  // it does that moves a tile it already placed.
+  // ------------------------------------------------------------------
+  // A shallow extension is a personal rampart forever: 0.03 e/tick, a repair
+  // target inside a ranged attacker's envelope, and a tile the defenders have
+  // to care about. The fleet shipped 82 of them, and the rooms that shipped
+  // them said — in a note this planner generates — that "what survives is deep
+  // floor with no road face and no budget left to give it one."
+  //
+  // THAT SENTENCE WAS FALSE, and it was false in six rooms at once. E14S6
+  // shipped nine depth-3 extensions (9,29 9,31 9,32 10,24 12,22 12,34 16,38
+  // 17,39 21,39) while nine empty, interior, non-wall tiles at depth 4-8 stood
+  // there with one to three EXISTING D4 road faces each — 10,26 (roads 9,26
+  // 10,27 10,25), 11,29, 13,27, 15,21, 15,25, 16,29, 18,30, 19,31, 23,30. Not
+  // floor that needed a corridor built to it. Floor with the corridor already
+  // paid for, already next to it. The same wording and the same situation in
+  // E18S4 (4), E17S4 (3), E7S1 (2), E14S7 (1) and E9S6 (1), and across the 21
+  // shallow rooms 64 of the 82 turned out to be relocatable.
+  //
+  // The rescue above is aimed at the OTHER cause (deep floor that genuinely
+  // has no road face, which needs paving budget). It cannot see this one,
+  // because by the time the last extension lands the corridor that would have
+  // served the deep tile already exists — it was laid for a different tile.
+  // So this pass asks the one question nothing else asks: is there a free
+  // DEEP tile, with a road face that already exists, that this shallow
+  // extension could simply stand on instead?
+  //
+  // WHY THIS IS NOT THE REPAIR LOOP THE PLANNER IS NOT ALLOWED TO HAVE. The
+  // anti-pattern is a LATER layer reaching back to patch an EARLIER layer's
+  // output — layer 7 relocating extensions to flatter its own mobility number
+  // was deleted for exactly that reason (see verifyMobility in layer-walls).
+  // This is layer 6 finishing its own job, inside its own pass, against its
+  // own invariant, before it has published anything. It moves nothing that
+  // belongs to another layer, it changes no count, it paves no road and it
+  // buys no rampart — a relocation that cannot find a free deep road-faced
+  // tile simply does not happen, and the room keeps its shallow slot and its
+  // (now accurate) explanation.
+  //
+  // EVERY MOVE IS INVARIANT-CHECKED on the completed swap — the trial board
+  // has the shallow tile already freed and the deep tile already taken, so the
+  // one call sees the moved extension's own face (which is why tryPlace needs
+  // two calls and this needs one: tryPlace tests a board the candidate is not
+  // on yet). The board must keep the sitter's walk region connected to every
+  // structure face, every extension's D4 face, every wall tile the defenders
+  // stand on and every road. Two further guards are specific to this pass:
+  // nobody may lose their last D4 road face, and the road network may not
+  // fragment. A move that fails any of them is rolled back completely — the
+  // road it lifted included — and the shallow slot stands.
+  //
+  // Targets are shortlisted nearest-to-the-slot and then tried closest-to-hub
+  // first, so a relocation is a local move that still prefers to land inside.
+  // Measured on E14S6: 8 of its 9 shallow slots relocate, 7 of them to a tile
+  // at or nearer the hub (up to 6 steps nearer) and one to a tile one step
+  // farther out. The preference is a sort key, not a constraint — a slot that
+  // can only reach a slightly more distant deep tile still takes it, because
+  // one extra filler step per trip beats a rampart bill every tick forever.
+  // `relocated[].closer` records the delta per move so the trade is auditable
+  // rather than assumed.
+  const relocated = [];
+  if (shallow.length) {
+    for (let pass = 0; pass <= shallow.length; pass++) {
+      let moved = false;
+      // the loosest ceiling any slot in this round could justify — the
+      // per-slot test below is the one that actually binds
+      const farthestShallow = Math.max(...shallow.map((s) => hubField[idx(s.x, s.y)] || 0));
+      // THE TARGET LIST IS BUILT ONCE PER ROUND, NOT ONCE PER SHALLOW SLOT.
+      // It is a property of the board, and inside a round the board does not
+      // move — rebuilding it per slot re-scanned 2116 tiles for every one of
+      // them and bought nothing. Only the nearest RELOC_TRIALS candidates are
+      // ever tried: the list is sorted by walk distance from the sitter, the
+      // whole point of the move is to land closer, and an unbounded trial list
+      // is what took E4S7 from 6.8s to 17.9s on its own.
+      const targets = [];
+      for (let x = 2; x <= 47; x++) {
+        for (let y = 2; y <= 47; y++) {
+          const i = idx(x, y);
+          if (tierOf(i) !== 0) continue; // deep only — never a lateral shuffle
+          const tk = key(x, y);
+          if (blockedNow.has(tk)) continue; // carries a structure
+          // NOTE: `rejected` is deliberately NOT consulted here. It memoises
+          // tiles the invariant refused as fresh ADDITIONS, with the whole
+          // mass in place. A relocation is a SWAP: it frees a tile before it
+          // takes one, so the free region it is tested against is strictly
+          // larger and one face constraint is strictly gone. A refusal
+          // measured under the harder condition says nothing about the
+          // easier one, and honouring it here was hiding real moves — the
+          // invariant below is still run, twice, so nothing unsafe gets
+          // through by widening the candidate set.
+          if (!buildable(terrain, x, y) || ext[i]) continue;
+          // COHESION CEILING, RELAXED TO "NEVER WORSE THAN WHAT WE VACATE".
+          // The hard ceiling exists to stop the mass sprawling, and a fresh
+          // placement is rightly held to it. A relocation is not a fresh
+          // placement: it vacates a tile that is ALREADY in the mass at its
+          // own walk distance, so the honest ceiling for the target is the
+          // looser of the ceiling and the slot being given up.
+          //
+          // MEASURED: on the current fleet this relaxation changes nothing —
+          // the far deep tiles it admits (E13S0's 35,8 / 36,8 / 37,9 among
+          // them) are refused by the walk invariant below for an unrelated
+          // reason. It is kept because the strict form was wrong in principle,
+          // not because it bought anything here, and that distinction is
+          // recorded so the next reader does not go looking for the win.
+          if (hubField[i] >= 9999) continue;
+          if (hubField[i] > Math.max(deepReach, farthestShallow)) continue;
+          if (laneSet.has(tk)) continue; // a reserved defender lane is not ours to take
+          if (deferShape(x, y)) continue;
+          // THE ROAD FACE HAS TO ALREADY EXIST — this pass never paves. A
+          // stub road ON the tile does not count as its own face.
+          const faced = D4.some(([dx, dy]) => {
+            const fx = x + dx,
+              fy = y + dy;
+            return (fx !== x || fy !== y) && roadSet.has(key(fx, fy));
+          });
+          if (!faced) continue;
+          targets.push({ x, y, d: hubField[i], paved: pavedTiles.has(tk) });
+        }
+      }
+      if (!targets.length) break;
+      targets.sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
+      for (const s of shallow.slice()) {
+        const sk = key(s.x, s.y);
+        // ------------------------------------------------------------
+        // THE SHORTLIST IS LOCAL TO THE SLOT, AND THAT IS NOT AN
+        // OPTIMISATION DETAIL — IT IS THE DIFFERENCE BETWEEN 1 AND 7.
+        // ------------------------------------------------------------
+        // The obvious shortlist is "the RELOC_TRIALS tiles closest to the
+        // hub", since landing closer to the hub is the point. Measured on
+        // E14S6 it relocates ONE slot of nine, against seven for an
+        // uncapped list. The reason is not subtle once seen: the free deep
+        // road-faced tiles nearest the hub are the ones the mass has already
+        // grown around, so they fail the placement invariant one after
+        // another, and sixteen of them in a row is a shortlist that never
+        // reaches the tile that works.
+        //
+        // A relocation is a LOCAL move, so the candidate set is chosen
+        // locally — the RELOC_TRIALS tiles nearest THIS slot — and then
+        // tried in hub-distance order inside that set, which keeps the
+        // "lands closer to the hub" preference where it belongs. Tiles an
+        // earlier slot claimed this round are dropped before the cap
+        // applies rather than counted against it.
+        const slotDist = hubField[idx(s.x, s.y)] || 0;
+        const shortlist = targets
+          .filter((t) => !blockedNow.has(key(t.x, t.y)))
+          // ...and THIS slot's own ceiling: the move may not push the mass
+          // further out than the tile it is giving up (see the ceiling note
+          // on the scan above)
+          .filter((t) => t.d <= Math.max(deepReach, slotDist))
+          .map((t) => ({ t, near: Math.max(Math.abs(t.x - s.x), Math.abs(t.y - s.y)) }))
+          .sort((a, b) => a.near - b.near || a.t.d - b.t.d || a.t.x - b.t.x || a.t.y - b.t.y)
+          .slice(0, RELOC_TRIALS)
+          .sort((a, b) => a.t.d - b.t.d || a.near - b.near || a.t.x - b.t.x || a.t.y - b.t.y)
+          .map((e) => e.t);
+
+        for (const t of shortlist) {
+          const tk = key(t.x, t.y);
+          // --- trial: lift the shallow one, stand it on the deep one -----
+          const ei = extensions.findIndex((e) => e.x === s.x && e.y === s.y);
+          if (ei < 0) break;
+          const roadIdx = t.paved ? stubRoads.findIndex((r) => r.x === t.x && r.y === t.y) : -1;
+          const rollback = () => {
+            extensions.pop();
+            extSet.delete(tk);
+            blockedNow.delete(tk);
+            extensions.splice(ei, 0, { x: s.x, y: s.y });
+            extSet.add(sk);
+            blockedNow.add(sk);
+            if (t.paved) {
+              roadSet.add(tk);
+              pavedTiles.add(tk);
+              if (roadIdx >= 0) stubRoads.splice(roadIdx, 0, { x: t.x, y: t.y });
+            }
+          };
+          extensions.splice(ei, 1);
+          extSet.delete(sk);
+          blockedNow.delete(sk);
+          extensions.push({ x: t.x, y: t.y });
+          extSet.add(tk);
+          blockedNow.add(tk);
+          // A STUB ON THE TARGET IS LIFTED WITH IT. This is the case that
+          // makes the whole pass work and it took a while to see: the deep
+          // road-faced floor the fleet leaves empty is floor THIS LAYER
+          // PAVED as a corridor stub and then refused to build on, which
+          // layer 7 subsequently prunes as a dead end. So the tile reads
+          // "paved" here and ships empty. Standing an extension on it is
+          // therefore not taking a road away from anybody — it is taking
+          // back a stub whose only errand was to reach this tile. The two
+          // guards below are what make that safe rather than merely true.
+          if (t.paved) {
+            roadSet.delete(tk);
+            pavedTiles.delete(tk);
+            if (roadIdx >= 0) stubRoads.splice(roadIdx, 1);
+          }
+          // GUARD 1 — nobody loses their road face. The owner's bar is that
+          // the filler services the mass without leaving the network, so an
+          // extension whose only D4 road was the tile we just took is a
+          // regression even though every walk invariant still holds.
+          const keepsFaces = extensions.every((e) =>
+            D4.some(([dx, dy]) => roadSet.has(key(e.x + dx, e.y + dy))),
+          );
+          // GUARD 2 — the road network does not fragment. Removing a stub
+          // that happened to be a bridge would leave orphan road behind it,
+          // which is a gate of its own. Containers conduct, exactly as the
+          // road-network definition everywhere else in this suite has it.
+          const netWhole = (() => {
+            if (!t.paved) return true;
+            const net = new Set(roadSet);
+            for (const c of plan.structures.container || []) net.add(key(c.x, c.y));
+            net.add(key(sitter.x, sitter.y));
+            const seen = new Set([key(sitter.x, sitter.y)]);
+            const q = [sitter];
+            for (let qi = 0; qi < q.length; qi++) {
+              const cur = q[qi];
+              for (const [dx, dy] of D8) {
+                const nx = cur.x + dx,
+                  ny = cur.y + dy;
+                const nk = key(nx, ny);
+                if (seen.has(nk) || !net.has(nk)) continue;
+                seen.add(nk);
+                q.push({ x: nx, y: ny });
+              }
+            }
+            for (const rk of roadSet) if (!seen.has(rk)) return false;
+            return true;
+          })();
+          if (!keepsFaces || !netWhole || !invariantHolds(blockedNow)) {
+            rollback();
+            continue;
+          }
+          shallow.splice(
+            shallow.findIndex((e) => e.x === s.x && e.y === s.y),
+            1,
+          );
+          relocated.push({
+            from: { x: s.x, y: s.y },
+            to: { x: t.x, y: t.y },
+            closer: hubField[idx(s.x, s.y)] - t.d,
+            tookStub: !!t.paved,
+          });
+          moved = true;
+          break;
+        }
+        // NO "THIS SLOT IS HOPELESS" MEMO ACROSS ROUNDS, deliberately. A round
+        // only happens at all because the previous one MOVED something, and a
+        // move changes roadSet, pavedTiles and the free region — which is
+        // exactly what a slot's verdict is a function of. Caching the verdict
+        // across a move skipped eight of E14S6's nine slots on stale evidence
+        // and relocated one where seven were available. The loop's own "no
+        // move this round, stop" is the termination condition and it is the
+        // honest one.
+      }
+      if (!moved) break;
+    }
+  }
+
   // BUILD ORDER, ON THE BASE WE ACTUALLY BUILT.
   //
   // The live bot sites the plan array's first N extensions at each RCL cap
@@ -1755,6 +2033,11 @@ export function planExtensions(terrain, plan) {
       stubExhausted: stubUsed() >= stubCap,
       stubCap,
       rescueSpent,
+      // shallow slots this pass moved onto free deep floor whose road face
+      // ALREADY existed — see the relocation header. Each entry names both
+      // tiles and how many steps closer to the hub the move landed.
+      relocated,
+      relocatedCount: relocated.length,
       digRoads,
       corridorPlaced,
       corridorFallback: extensions.length - corridorPlaced,

@@ -21,6 +21,7 @@
  * triggers, the RampartDefender leash, RampartErectors and maintainers.
  */
 import { logAlways } from "utils/Logger";
+import { isUnreachableTile } from "utils/Reachability";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
@@ -62,10 +63,39 @@ export function packPlanPayload(data: any): PackedPlan {
   const t: { [k: string]: number[] } = {};
   const pack = (arr: Array<{ x: number; y: number }>) => arr.map((p) => p.x + p.y * 50);
   const s = data.structures || {};
-  // link order: hub link first, controller link second, source links after
+  // ---------------------------------------------------------------------
+  // Link order. The planner emits [hub, src1, src2, ctrl] (verified: all 159
+  // rooms in out-v2/plans-hub.json ship exactly 4 links in that order).
+  // CONTROLLER_STRUCTURES.link is {5:2, 6:3, 7:4, 8:6}, so whatever order we
+  // emit here IS the RCL schedule — index 0..1 land at RCL5, index 2 at RCL6,
+  // index 3 at RCL7.
+  //
+  // We re-emit as [hub, src1, ctrl, src2]:
+  //   [0] hub link         RCL5  — useless alone, but it is the other end of
+  //                               every link transfer, so it must be first
+  //   [1] source 1 link    RCL5  — pays for itself immediately: it retires a
+  //                               hauler round trip the tick it completes
+  //   [2] controller link  RCL6
+  //   [3] source 2 link    RCL7
+  //
+  // REJECTED — the previous order [hub, ctrl, src1, src2]: it spent the RCL5
+  // pair on hub+controller and pushed BOTH source links to RCL6/7. That reads
+  // as an upgrade-speed play, but at RCL5 the controller link has nothing to
+  // fill it — the hub link is fed by the source links, so with neither source
+  // linked the controller link is a 5k-energy ornament that a hauler still has
+  // to service by hand. Linking a source first feeds the hub, which is what
+  // makes the controller link worth building at RCL6.
+  //
+  // The slice arithmetic below is deliberately shape-agnostic (hub first,
+  // controller last, sources in between) so a room that ever ships a different
+  // link count still gets hub -> first source -> controller -> the rest,
+  // rather than a silently scrambled order.
+  // ---------------------------------------------------------------------
   const links = s.link || [];
   const linkOrder =
-    links.length > 2 ? [links[0], links[links.length - 1], ...links.slice(1, -1)] : links;
+    links.length > 2
+      ? [links[0], links[1], links[links.length - 1], ...links.slice(2, -1)]
+      : links;
   t.spawn = pack(s.spawn || []);
   t.extension = pack(s.extension || []);
   t.container = pack(s.container || []);
@@ -146,22 +176,174 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
   return true;
 }
 
-/** How many of the plan's roads to build at this RCL (array is priority-ordered). */
+/**
+ * How many of the plan's roads to build at this RCL.
+ *
+ * THE INVARIANT THIS RELIES ON: the planner emits `structures.road` ordered by
+ * a network BFS outward from the sitter, so EVERY PREFIX of the array is a
+ * connected network reachable on foot from the sitter. That is what makes a
+ * plain `slice(0, N)` a legitimate budget: take the first 20 and you get the
+ * 20 tiles of road nearest the base that actually join it up, not 20 tiles
+ * scattered across the room.
+ *
+ * The comment here used to claim the array was "priority-ordered", which was
+ * simply false — roads were pushed in generation order (source lines, then
+ * controller line, then the mineral spur, then hub filler), so the RCL3 prefix
+ * bought disconnected stubs in 148 of 159 rooms: 1272 of the RCL3 road tiles
+ * were unreachable from the sitter, E5S1 spending 13 of its 20 on a stub 30+
+ * tiles from the hub. The fix belongs in the planner (it has the terrain and
+ * the CPU to do a real BFS), NOT here — re-sorting 129 packed coords in the
+ * bot every 15 ticks would burn CPU on shard3 to recompute a constant. So this
+ * side only documents the contract and, at RCL3 where the prefix is the whole
+ * point, cheaply NOTICES if the contract is broken (see auditRoadPrefix).
+ */
 function roadBudget(planRoads: number[], lvl: number): number {
   if (lvl < 3) return 0;
   if (lvl === 3) return Math.min(20, planRoads.length);
   return planRoads.length;
 }
 
+/**
+ * DEFENSIVE, LOG-ONLY. Never places, skips or reorders anything.
+ *
+ * If a re-pushed plan ever regresses to generation-ordered roads, the symptom
+ * is silent and expensive: the room spends its entire RCL3 road allowance on
+ * tiles nothing can walk to, and nobody notices until someone re-derives it
+ * offline (which is exactly how M4 was found). One log line makes it visible.
+ *
+ * Only runs at RCL3 and only over the <=20-tile prefix, because that is the
+ * ONLY level where the prefix is a prioritisation decision — from RCL4 the
+ * budget is the whole array, so there is no prefix to get wrong. Bounded at
+ * ~26 tiles of 8-way BFS over a plain object, throttled to roughly one pass
+ * per 1000 ticks. Deliberately NOT PathFinder: this must never be a per-tick
+ * cost on shard3, and an approximate answer is enough for a warning.
+ *
+ * Containers and the hub structures conduct — the generous reading, matching
+ * how the finding was re-derived, so we only ever warn on a real break.
+ */
+function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[]): void {
+  if (!prefix.length) return;
+  const conduct: { [packed: number]: boolean } = {};
+  for (const p of prefix) conduct[p] = true;
+  for (const k of ["container", "storage", "spawn"]) {
+    for (const p of plan.t[k] || []) conduct[p] = true;
+  }
+  // seed from the hub (storage tile) — the sitter stands on/next to it
+  const seed = plan.t.storage && plan.t.storage.length ? plan.t.storage[0] : undefined;
+  if (seed === undefined) return;
+  const seen: { [packed: number]: boolean } = { [seed]: true };
+  const queue: number[] = [seed];
+  while (queue.length) {
+    const cur = queue.pop() as number;
+    const { x, y } = unpack(cur);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = nx + ny * 50;
+        if (seen[np] || !conduct[np]) continue;
+        seen[np] = true;
+        queue.push(np);
+      }
+    }
+  }
+  let orphans = 0;
+  for (const p of prefix) if (!seen[p]) orphans++;
+  if (orphans) {
+    logAlways(
+      `planV2 ${room.name}: ${orphans}/${prefix.length} RCL3 road tiles are not connected to ` +
+        `the hub — the plan's road array is not BFS-ordered (re-run the planner and re-push)`,
+    );
+  }
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * The mineral container is deferred to RCL6.
+ *
+ * The planner emits containers as [source, source, controller, mineral] and
+ * containers unlock at RCL2, so the mineral container was being sited FOUR
+ * RCLs before the extractor that gives it a reason to exist (extractor is
+ * RCL6). Median chebyshev 17 from the hub, max 38 (E17S4 plants it at 3,16
+ * against a hub at 41,34). It then decays from RCL2 to RCL6 with nothing ever
+ * putting a mineral in it — and because `container` sits ahead of `extension`
+ * in PLACE_ORDER it was eating one of the four RCL2 site slots ahead of the
+ * first extension, with no roads built yet to walk out there on.
+ *
+ * We cannot change the planner or the payload from here, so we identify it
+ * structurally: the extractor sits ON the mineral by design (the one planned
+ * structure sharing a tile with a room object), so the mineral container is
+ * the planned container adjacent to the extractor tile.
+ *
+ * Ties: take the LAST such container, not all of them. Audited over all 159
+ * shipped rooms — 158 have exactly one adjacent container and it is always
+ * container[3], the mineral one. E8S3 is the single room with two candidates,
+ * and they are NOT both mineral-side: its controller (21,29) happens to sit 3
+ * tiles from its mineral (23,26), so the genuine CONTROLLER container at 24,26
+ * is also mineral-adjacent. Deferring "all candidates" would have taken E8S3's
+ * controller container away from RCL2 through RCL5 and parked its upgraders on
+ * a hand-fed haul for four levels. Taking the last candidate picks
+ * container[3] — the mineral container, never a source or controller
+ * container — in 159/159 rooms.
+ *
+ * Removing the tile from the array (rather than skipping it at placement) is
+ * deliberate: it must not consume a site slot OR a `count` slot, and it must
+ * not make reclaimAtCap demolish a live container to free room for a tile the
+ * plan does not actually want yet.
+ * ---------------------------------------------------------------------------
+ */
+const EXTRACTOR_RCL = 6;
+
+function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] {
+  const planned = plan.t[type] || [];
+  if (type !== "container" || lvl >= EXTRACTOR_RCL || !planned.length) return planned;
+  const extractors = plan.t.extractor;
+  if (!extractors || !extractors.length) return planned; // no extractor planned — defer nothing
+  let drop = -1;
+  for (let i = 0; i < planned.length; i++) {
+    const c = unpack(planned[i]);
+    for (const e of extractors) {
+      const u = unpack(e);
+      if (Math.abs(c.x - u.x) <= 1 && Math.abs(c.y - u.y) <= 1) {
+        drop = i; // keep scanning: the LAST match is the mineral one (see above)
+        break;
+      }
+    }
+  }
+  if (drop < 0) return planned;
+  return planned.slice(0, drop).concat(planned.slice(drop + 1));
+}
+
 // Priority order, not build order per se: the first types in this list get
-// the 4 site slots whenever they are behind. Storage and the towers sit
-// AHEAD of the 60-extension mass — at RCL4 the extensions would otherwise
-// eat every site slot for thousands of ticks while the room has no storage
-// (the whole logistics layer keys off room.storage). Extensions still fill
-// quickly on the 15-tick cadence. Nuker sits after the labs (both RCL8, but
-// the labs feed boosts that keep the room alive); the observer is dead last
-// — it is the one structure nothing depends on.
+// the 4 site slots whenever they are behind.
 // No factory and no power spawn, by design: the planner never emits them.
+//
+// RAMPART SITS AHEAD OF ROAD. It used to be four places behind it (road at
+// index 7, rampart at index 11) over one shared 4-site budget, and from RCL4
+// the road "budget" is the ENTIRE array — roads median 81, max 129. The loop
+// below `break`s the moment the site budget is spent, so not one shell tile
+// was sited until every planned road already existed: E5S1 had 95 roads left
+// to build before the first of its 49 shell ramparts. The only other way a
+// shell got built was the RampartErector, gated at RCL6 + 12k storage energy.
+// Net effect: an RCL4-5 room ran with 129 roads and NO WALL AT ALL, in a bot
+// whose entire premise is "it's all about defence".
+//
+// Ramparts are RCL4+ and roads RCL3+, so the practical schedule is now:
+// RCL3 builds its 20-road prefix (connected, see roadBudget), and from RCL4
+// the shell goes up before roads 21..N. That is the right trade — road 21 of
+// 129 buys a few ticks of hauler fatigue; the shell is the difference between
+// being raided and not. The roads are not lost, just later, and the 15-tick
+// placement cadence chews through them steadily once the shell is sited.
+//
+// Storage and the towers still sit AHEAD of the 60-extension mass — at RCL4
+// the extensions would otherwise eat every site slot for thousands of ticks
+// while the room has no storage (the whole logistics layer keys off
+// room.storage). Extensions still fill quickly on the 15-tick cadence. Nuker
+// sits after the labs (both RCL8, but the labs feed boosts that keep the room
+// alive); the observer is dead last — it is the one structure nothing depends
+// on.
 const PLACE_ORDER = [
   "spawn",
   "storage",
@@ -170,11 +352,11 @@ const PLACE_ORDER = [
   "extension",
   "terminal",
   "link",
+  "rampart",
   "road",
   "lab",
   "nuker",
   "extractor",
-  "rampart",
   "observer",
 ];
 
@@ -228,6 +410,106 @@ function reclaimTile(
   logAlways(
     `planV2 ${room.name}: ${type}@${x},${y} squatted by ${squatter.structureType} — destroy() ${res}`,
   );
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * At-cap reclaim — the reason off-plan extensions were immortal.
+ *
+ * The placement loop below skips a type entirely once `existing >= cap`, and
+ * `existing` counts EVERY built structure of that type, on-plan or not. The
+ * plan was re-pushed many times while the rooms were already built, so every
+ * owned room sits at exactly CONTROLLER_STRUCTURES[extension][rcl] with a big
+ * minority of them on tiles the current plan does not want:
+ *
+ *   E9S2  RCL7  50/50 extensions, 20 off-plan
+ *   E11S2 RCL7  50/50 extensions, 14 off-plan
+ *   E17S4 RCL6  40/40 extensions, 16 off-plan
+ *   E14S9 RCL4  20/20 extensions, 15 off-plan
+ *
+ * At cap the loop `continue`s, so createConstructionSite() is never called on
+ * a planned tile, so ERR_INVALID_TARGET never comes back, so reclaimTile() is
+ * never reached. The plan can never converge, and worse: the off-plan
+ * extensions wall other extensions in (E9S2 has a five-extension pocket with
+ * no walkable approach at all, E11S2 has extension@18,36, E14S9 has
+ * extension@23,22) which parks the room's whole fill layer on a dead target.
+ *
+ * So when a type is AT cap and the plan still wants tiles it does not have,
+ * demolish OFF-PLAN structures of that type to make room. Only extensions and
+ * containers — cheap, rebuildable, and the ones the plan actually moves.
+ * Bounded by construction: on-plan structures are never touched, so the
+ * off-plan count strictly decreases and the process always terminates.
+ *
+ * Ranking, worst squatter first:
+ *   1. unreachable — dead weight AND the thing sealing a pocket shut
+ *   2. sitting on a tile the plan wants for SOMETHING (any type)
+ *   3. everything else, farthest from the hub first, so the base compacts
+ * ---------------------------------------------------------------------------
+ */
+const CAP_RECLAIM_TYPES: { [k: string]: number } = {
+  [STRUCTURE_EXTENSION]: 3,
+  [STRUCTURE_CONTAINER]: 1,
+};
+/** ticks between at-cap passes — build time for what the last pass freed */
+const CAP_RECLAIM_EVERY = 60;
+
+function reclaimAtCap(
+  room: Room,
+  type: string,
+  planned: number[],
+  cap: number,
+  placedSet: { [packed: number]: boolean },
+  plan: PackedPlan,
+  structures: Structure[],
+): void {
+  const perPass = CAP_RECLAIM_TYPES[type];
+  if (!perPass) return;
+  if (Game.time - (room.memory.planCapReclaim || 0) < CAP_RECLAIM_EVERY) return;
+
+  // Does the plan actually still want a tile we do not have? Only the first
+  // `cap` planned tiles can ever be built, so only those count as a want.
+  const wantLimit = Math.min(cap, planned.length);
+  let wanted = 0;
+  for (let i = 0; i < wantLimit; i++) if (!placedSet[planned[i]]) wanted++;
+  if (!wanted) return;
+
+  const plannedTiles: { [packed: number]: boolean } = {};
+  for (let i = 0; i < wantLimit; i++) plannedTiles[planned[i]] = true;
+  // any tile the plan wants for any type — an off-plan extension standing on
+  // the storage tile is a worse squatter than one standing on open ground
+  const anyPlanTile: { [packed: number]: boolean } = {};
+  for (const k of Object.keys(plan.t)) {
+    if (k === "shellCut" || k === "road" || k === "rampart") continue;
+    for (const p of plan.t[k]) anyPlanTile[p] = true;
+  }
+  const hubPacked = plan.t.storage && plan.t.storage.length ? plan.t.storage[0] : undefined;
+  const hub = hubPacked === undefined ? null : unpack(hubPacked);
+
+  const candidates: Array<{ s: Structure; rank: number; d: number }> = [];
+  for (const s of structures) {
+    if (s.structureType !== type) continue;
+    const packed = s.pos.x + s.pos.y * 50;
+    if (plannedTiles[packed]) continue; // on-plan — never touched
+    let rank = 2;
+    if (isUnreachableTile(room, s.pos.x, s.pos.y)) rank = 0;
+    else if (anyPlanTile[packed]) rank = 1;
+    const d = hub ? Math.max(Math.abs(s.pos.x - hub.x), Math.abs(s.pos.y - hub.y)) : 0;
+    candidates.push({ s, rank, d });
+  }
+  if (!candidates.length) return;
+  candidates.sort((a, b) => a.rank - b.rank || b.d - a.d);
+
+  room.memory.planCapReclaim = Game.time;
+  const take = Math.min(perPass, candidates.length, wanted);
+  for (let i = 0; i < take; i++) {
+    const c = candidates[i];
+    const res = c.s.destroy();
+    logAlways(
+      `planV2 ${room.name}: at cap (${cap}) — off-plan ${type}@${c.s.pos.x},${c.s.pos.y} ` +
+        `(${c.rank === 0 ? "unreachable" : c.rank === 1 ? "on a planned tile" : "surplus"}) ` +
+        `destroy() ${res}; ${wanted} planned ${type} tile(s) still unbuilt`,
+    );
+  }
 }
 
 /**
@@ -309,9 +591,16 @@ export function placeFromPlanV2(room: Room): void {
   // full, otherwise a room that is always building never gets a perimeter
   syncPlanV2Memory(room, plan, structures);
 
-  let budget = MAX_SITES - sites.length;
-  if (budget <= 0) return;
+  // Defensive road-prefix warning. Sits here, above the site-budget gate, for
+  // the same reason the memory mirror does: a room that is always building
+  // would otherwise never reach it — and a room whose roads go nowhere is
+  // exactly the room that stays busy building them.
+  if (lvl === 3 && Game.time % 1000 < 15) {
+    const roads = plan.t.road || [];
+    auditRoadPrefix(room, plan, roads.slice(0, roadBudget(roads, lvl)));
+  }
 
+  let budget = MAX_SITES - sites.length;
   // existing structures + sites by type (containers/roads are unowned)
   const have: { [type: string]: { [packed: number]: boolean } } = {};
   const count: { [type: string]: number } = {};
@@ -322,11 +611,29 @@ export function placeFromPlanV2(room: Room): void {
   for (const s of structures) note(s.structureType, s.pos.x, s.pos.y);
   for (const s of sites) note(s.structureType, s.pos.x, s.pos.y);
 
+  // At-cap reclaim runs BEFORE the site budget gate, deliberately. A starved
+  // room cannot finish the sites it already has — E11S2 sat on four sites
+  // nothing was building for thousands of ticks — so gating the reclaim on a
+  // free site slot means the rooms that need it most are exactly the rooms
+  // that never get it. Demolition does not consume a site slot anyway.
+  for (const type of Object.keys(CAP_RECLAIM_TYPES)) {
+    const planned = plannedTilesFor(plan, type, lvl);
+    if (!planned || !planned.length) continue;
+    if (!typeAllowedAtRcl(type, lvl)) continue;
+    const cap = (CONTROLLER_STRUCTURES as any)[type]
+      ? (CONTROLLER_STRUCTURES as any)[type][lvl] || 0
+      : planned.length;
+    if ((count[type] || 0) < cap) continue;
+    reclaimAtCap(room, type, planned, cap, have[type] || {}, plan, structures);
+  }
+
+  if (budget <= 0) return;
+
   const state = { destroyed: false };
 
   for (const type of PLACE_ORDER) {
     if (budget <= 0) break;
-    const planned = plan.t[type];
+    const planned = plannedTilesFor(plan, type, lvl);
     if (!planned || !planned.length) continue;
     if (!typeAllowedAtRcl(type, lvl)) continue;
     const cap =
@@ -346,6 +653,8 @@ export function placeFromPlanV2(room: Room): void {
       existing = 0;
       for (const p of planned) if (placedSet[p]) existing++;
     }
+    // at cap: nothing to place. The reclaim that makes room for the plan's own
+    // tiles already ran above, outside the site budget.
     if (existing >= cap) continue;
     for (let i = 0; i < planned.length && existing < cap && budget > 0; i++) {
       // roads are the one type whose array order IS a budget (RCL3 builds

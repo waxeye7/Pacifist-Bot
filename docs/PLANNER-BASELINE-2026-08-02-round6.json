@@ -1,0 +1,45 @@
+{
+  "date": "2026-08-02",
+  "cycle": "round-6 findings fixed",
+  "supersedes": "PLANNER-BASELINE-2026-08-01-cycle2.json",
+  "rooms": 159,
+  "ext60": 159,
+
+  "_shallow": "B1. Layer 6 now ends with a relocation pass that moves shallow slots onto free deep floor whose road face already exists. 78 slots relocated; 54 remain. The residual is a measured floor, not a budget: re-derived on the FINAL board (the most generous possible view, after layer 7's dead-end road prune) exactly ONE further slot can move. The reviewer's 64-relocatable estimate did not model that taking a tile must not strand a road or a cut tile out of the garrison's walk region.",
+  "shallowExtTotal": 54,
+  "shallowRelocated": 78,
+  "shallowFloorOnFinalBoard": 53,
+
+  "rampartsTotal": 7217,
+  "rampartsMedian": 46,
+  "_inert": "N1/m1. The inert prune now also removes OUTER dominated wall (the exterior may gain the deleted tile and nothing else; the walk region may lose exactly that tile). 12 of the 23 named tiles are deleted; the other 11 are provably NOT inert — deleting them pushes 1-2 tiles of held interior floor outside the wall — and are declared per tile.",
+  "inertPrunedTotal": 26,
+  "redundantCutTiles": 52,
+  "redundantCutRooms": 18,
+
+  "roadsMedian": 80,
+  "roadsMean": 82.6,
+  "roadsMax": 129,
+  "_roadOrder": "M4. structures.road is emitted in network-BFS order outward from the sitter (containers conducting), so EVERY prefix is a connected network. Verified: 0 disconnected tiles at the RCL3 prefix and at every other prefix length in all 159 rooms, against 1272 disconnected RCL3 tiles in 148 rooms before.",
+  "roadPrefixDisconnectedTiles": 0,
+
+  "cutMedian": 40,
+  "minShellDmgMin": 1440,
+  "minShellDmgMedian": 2490,
+  "_towerMin": "The 1380 reading some rooms publish is meta.towers.shippedMinShellDmg (E11S10's post-reconciliation seal), which is declared. The cut-wide minShellDmg floor is 1440 (E8S5).",
+
+  "_mobility": "M1/B2/m2/n2. The as-built lap is now measured against the SHIPPED wall (every rampart the room ships), not layer 2's cut and exterior. E11S10 1.71 (was a suppressed 0, and now declares), E1S8 0, E16S8 1.75 (was 2), E9S5 3.0 (was 3.8) — all four match an independent re-derivation exactly.",
+  "_mobilityPrice": "N5. The enclosure trade is repriced to 3 ramparts per 1.0 of gated lap, cap 12, and only for rooms whose lap exceeds 2.0. 5 of the 22 refused trades now buy: E17S10 9.5->3.14, E20S4 7->0, E5S8 9->2.75, E8S2 5->0, E8S7 6.5->2.75. The lane price in layer 6 stays at 2-per-1.0 cap 6 and the two prices are now published separately.",
+
+  "shortfallEntries": 208,
+  "shortfallRooms": 101,
+  "noteEntries": 104,
+  "noteRooms": 79,
+
+  "engineRejects": 0,
+  "validator": "159/159 pass · 0 fail · 85 declared-shortfall notes · leaks 2 (both declared impossible) · orphan roads 0 · structures off-network 0",
+  "_validatorHardening": "M2/M3. The weakest-sealing-face gate and the tower refill walk are re-derived unconditionally (no opt-in on producer-controlled meta). Declarations must quantify (>=2 distinct numeric tokens, or well-formed tiles/rungs); tile lists over 32 entries are inadmissible; tile-less declarations excuse at most `count` violations (default 1); and the exact-program count gates plus the forbidden-structure rule are undeclarable under every spelling.",
+
+  "deterministic": "identical across 2 fresh full runs on 3 hash points (whole artifact, structures only, declarations only)",
+  "declaredShortfalls": "see per-room meta.shortfalls and meta.notes"
+}

@@ -1761,10 +1761,57 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(RampartErectors < 1 && storage && room.controller.level >= 6 && storage.store[RESOURCE_ENERGY] > 12000 && room.memory.construction && room.memory.construction.rampartLocations && room.memory.construction.rampartLocations.length > 0) {
+    // -------------------------------------------------------------------------
+    // RampartErector gate.
+    //
+    // WAS: storage && RCL >= 6 && storage energy > 12000. Between them those
+    // three conditions meant the shell could not begin before RCL6, and the
+    // OTHER path to a shell — the planV2 placement loop — sat behind every
+    // planned road (roads median 81, max 129, one shared 4-site budget). So an
+    // RCL4-5 room had no wall at all, from either direction, in a bot whose
+    // stated premise is "it's all about defence". The placement loop now sites
+    // ramparts ahead of the road mass (see PLACE_ORDER in utils/PlanV2.ts);
+    // this is the other half of the same fix.
+    //
+    // NOW: RCL >= 3 and a modest energy check.
+    //   - RCL3 because that is when towers arrive and the room becomes worth
+    //     raiding, and it is comfortably below RCL4 where the shell ramparts
+    //     themselves unlock — the erector should already be alive and walking
+    //     the list the moment the first shell site appears.
+    //   - A room at RCL3 may have NO STORAGE AT ALL, which the old `storage &&`
+    //     silently excluded — the exact rooms that needed this most were the
+    //     ones the gate refused. So no-storage passes: getBody() sizes the body
+    //     off room.energyAvailable, never off storage, so a storage-less room
+    //     simply gets the smaller erector its spawn pool can afford.
+    //   - 2000 when storage DOES exist: deliberately modest, not a build budget.
+    //     Ramparts cost 1 energy per construction site to complete (the hits
+    //     come later, from towers and repairers), so the shell is nearly free
+    //     to erect and the only real spend is this one creep's body. 2000 is
+    //     about one full extension fill at RCL4 — low enough that any room with
+    //     a working economy clears it immediately, high enough that a room
+    //     genuinely starving mid-rebuild does not add another mouth.
+    //
+    // URGENCY SCALES WITH SAFE MODE, not with RCL. Safe mode is the thing that
+    // actually substitutes for a wall: with one banked and off cooldown, a
+    // breach is survivable and the erector is ordinary infrastructure, so it
+    // goes on the back of the queue. With none available or one still cooling
+    // down, the shell IS the defence and the room is one raid from losing the
+    // controller, so it jumps the queue via unshift() (same convention as the
+    // ControllerLinkFiller block above — the body/name/opts triple is unshifted
+    // together so the flat spawn_list stays aligned).
+    // -------------------------------------------------------------------------
+    if(RampartErectors < 1 && room.controller.level >= 3 && (!storage || storage.store[RESOURCE_ENERGY] > 2000) && room.memory.construction && room.memory.construction.rampartLocations && room.memory.construction.rampartLocations.length > 0) {
+        let safeModeReady = room.controller.safeModeAvailable > 0 && !room.controller.safeModeCooldown;
         let newName = 'RampartErector-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,CARRY,MOVE], room, 50), newName, {memory: {role: 'RampartErector', rampartLocations:room.memory.construction.rampartLocations}});
-        console.log('Adding RampartErector to Spawn List: ' + newName);
+        let erectorBody = getBody([WORK,CARRY,MOVE], room, 50);
+        let erectorOpts = {memory: {role: 'RampartErector', rampartLocations:room.memory.construction.rampartLocations}};
+        if(safeModeReady) {
+            room.memory.spawn_list.push(erectorBody, newName, erectorOpts);
+        }
+        else {
+            room.memory.spawn_list.unshift(erectorBody, newName, erectorOpts);
+        }
+        console.log('Adding RampartErector to Spawn List: ' + newName + (safeModeReady ? '' : ' (URGENT - no safe mode available)'));
     }
 
 

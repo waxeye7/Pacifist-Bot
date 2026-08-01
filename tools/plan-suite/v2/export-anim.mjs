@@ -47,11 +47,20 @@ const STAGE_RATES = {
   roads: 1.5,
   ramparts: 0.7,
   towers: 0.4,
+  roadsTwr: 1,
   labs: 0.7,
+  roadsLab: 1,
   nuker: 0.4,
   observer: 0.4,
   extractor: 0.4,
+  roadsMisc: 1,
+  roadsExt: 1.5,
   extensions: 1.2,
+  // the prune is 12 tiles in a typical room and it is the one moment the plan
+  // gets SMALLER — it has to be slow enough that the eye catches the deletion
+  roadsPrune: 0.5,
+  roadsLate: 1,
+  roadsResid: 0.6,
 };
 
 /**
@@ -69,11 +78,18 @@ const STAGE_SCAFFOLD = {
   roads: false,
   ramparts: false,
   towers: false,
+  roadsTwr: false,
   labs: false,
+  roadsLab: false,
   nuker: false,
   observer: false,
   extractor: false,
+  roadsMisc: false,
+  roadsExt: false,
   extensions: false,
+  roadsPrune: false,
+  roadsLate: false,
+  roadsResid: false,
 };
 
 // --- palette --------------------------------------------------------------
@@ -355,6 +371,97 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
   }
 }
 
+// --- road provenance ------------------------------------------------------
+/**
+ * ONE LUMP OF ROADS WAS A LIE ABOUT WHEN THEY EXISTED.
+ *
+ * Every road in the room used to be emitted in a single "LAYER 1 — THE ROADS"
+ * stage, before the wall, the towers, the labs and the extensions. The plan
+ * does not happen that way: the eco kit is layer 1, the tower spurs are layer
+ * 3, the lab access is layer 4, the mineral run is layer 5, the extension
+ * corridors are layer 6 and the rampart spurs are layer 7. The cost of the lie
+ * was concrete rather than cosmetic — layer 4 picks its lab anchor by
+ * requiring the diamond to be OFF the road network, so a reviewer checking
+ * E20S3's "0 dry anchors at any orientation" declaration needs the road set as
+ * it stood when the labs were placed, and the film asserted a road set that
+ * has never existed at any moment of the pipeline. 28 extension-corridor tiles
+ * were on screen before the extension layer had run.
+ *
+ * `plan.meta.roadLayer` (pipeline.mjs) tags every road tile with the layer
+ * that laid it, keyed by tile so it survives the end-of-pipeline BFS re-sort.
+ * Nothing here guesses: a tile the map does not carry goes to a residual stage
+ * that says so on the banner rather than being folded into whichever layer
+ * looks plausible.
+ *
+ * THE GHOSTS ARE THE POINT, NOT AN ACCIDENT. `roadLayer` also holds tiles that
+ * are no longer in `structures.road` — layer 7's dead-end prune is the one
+ * pass allowed to delete an earlier layer's road, and it deletes 1,659 tiles
+ * across the fleet (12 in E20S3, matching that room's `meta.walls.pruned`).
+ * Those tiles DID exist mid-pipeline, so the film draws them in the layer that
+ * laid them and then a layer-7 prune stage erases them. That is what makes the
+ * mid-pipeline road set recoverable from the film at every layer, which is the
+ * whole complaint; dropping the ghosts would have left layer 4's road set 12
+ * tiles short of what layer 4 actually saw. It is also the only reason a room
+ * like E20S3 — spurTiles 0, fillerTiles 0 — gets a LAYER 7 banner at all: the
+ * prune is the only layer-7 work it does, and it is real work.
+ */
+const ROAD_STAGE = {
+  1: ["roads", "the eco kit — hub, spawns, sources, controller"],
+  3: ["roadsTwr", "tower spurs"],
+  4: ["roadsLab", "lab access"],
+  5: ["roadsMisc", "the mineral run"],
+  6: ["roadsExt", "extension corridors"],
+  7: ["roadsLate", "rampart spurs and the ext-face net"],
+};
+
+function roadProvenance(plan) {
+  const map = plan.meta?.roadLayer || null;
+  const final = plan.structures.road || [];
+  const byLayer = new Map();
+  const residual = [];
+  const pruned = [];
+  const put = (layer, tile) => {
+    if (!byLayer.has(layer)) byLayer.set(layer, []);
+    byLayer.get(layer).push(tile);
+  };
+  if (!map) {
+    // No provenance in the plan (an older pipeline). Everything is residual
+    // and the banner says the attribution is missing — silently reverting to
+    // "they are all layer 1" is exactly the claim this whole block exists to
+    // stop making.
+    return { byLayer, residual: final.slice(), pruned, attributed: false };
+  }
+  // final roads first, in the array's own BFS build order — that order is a
+  // build order the live bot honours, and it makes the web grow outward
+  const alive = new Set();
+  for (const r of final) {
+    const k = `${r.x},${r.y}`;
+    alive.add(k);
+    const layer = map[k];
+    if (ROAD_STAGE[layer]) put(layer, r);
+    else residual.push(r);
+  }
+  // then the ghosts: tagged by a layer, absent from the shipped plan
+  for (const k of Object.keys(map)) {
+    if (alive.has(k)) continue;
+    const [x, y] = k.split(",").map(Number);
+    const layer = map[k];
+    const tile = { x, y };
+    pruned.push(tile);
+    if (ROAD_STAGE[layer]) put(layer, tile);
+    else residual.push(tile);
+  }
+  return { byLayer, residual, pruned, attributed: true };
+}
+
+/** emit one layer's roads, in place, at the moment that layer ran */
+function emitRoads(sb, rp, layer) {
+  const tiles = rp.byLayer.get(layer) || [];
+  if (!tiles.length) return;
+  const [stage, what] = ROAD_STAGE[layer];
+  chunked(sb, stage, tiles, ROAD_CHUNK, "#d8d8d8", (a, b, n) => `layer ${layer} roads ${b}/${n} — ${what}`);
+}
+
 // --- main -----------------------------------------------------------------
 
 /** Flatten a finished plan into the ordered step list. */
@@ -374,7 +481,12 @@ export function buildAnim(room, terrain, plan) {
   sb.push("core", `core — ${plan.core.length} pocket tiles`, sb.flat(plan.core, "#66ff88"));
   stageClaims(sb, plan);
 
-  chunked(sb, "roads", plan.structures.road || [], ROAD_CHUNK, "#d8d8d8", (a, b, n) => `roads ${b}/${n}`);
+  // Roads are now emitted BY THE LAYER THAT LAID THEM, interleaved with that
+  // layer's structures, rather than as one pre-wall lump. See roadProvenance.
+  const rp = roadProvenance(plan);
+
+  emitRoads(sb, rp, 1);
+
   const ramparts = plan.structures.rampart;
   if (ramparts && ramparts.length) {
     const sweep = sweepOrder(ramparts, plan.hub || plan.seed);
@@ -384,9 +496,20 @@ export function buildAnim(room, terrain, plan) {
     const t = plan.structures.tower[i];
     sb.push("towers", `tower ${i + 1}/${plan.structures.tower.length} — shell set-cover`, sb.flat([t], "#ff8844"));
   }
+  // AFTER the towers: planTowers returns the tower tiles and their refill
+  // spurs from one call, and a spur to a tower that is not there yet is not a
+  // thing that ever happened.
+  emitRoads(sb, rp, 3);
+
   if (plan.structures.lab?.length) {
     chunked(sb, "labs", plan.structures.lab, 2, "#cc66ff", (a, b, n) => `lab diamond ${b}/${n}`);
   }
+  // AFTER the labs, and this one is load-bearing: layer 4 rejects a lab anchor
+  // whose diamond touches the road network, so the frame in which the labs
+  // land must show the road set MINUS layer 4's own access road. That frame is
+  // the evidence for a "0 dry anchors" declaration.
+  emitRoads(sb, rp, 4);
+
   for (const n of plan.structures.nuker || []) {
     sb.push("nuker", "nuker — deep, hugging the hub (300k energy to haul)", sb.flat([n], "#ff5566"));
   }
@@ -396,6 +519,17 @@ export function buildAnim(room, terrain, plan) {
   for (const e of plan.structures.extractor || []) {
     sb.push("extractor", "extractor — built ON the mineral, the one object tile we may use", sb.flat([e], "#e0a6ff"));
   }
+  emitRoads(sb, rp, 5);
+
+  // BEFORE the extensions, unlike every other layer's roads. Layer 6 digs a
+  // corridor and then hangs extensions off its faces — "every one of them D4
+  // on a road" is the layer's own guarantee — so a corridor that appeared
+  // after its extensions would invert cause and effect. Within layer 6 the two
+  // passes actually interleave; splitting them into corridor-then-mass is an
+  // approximation, and it is contained inside one layer rather than spanning
+  // six, which is the difference between rounding and lying.
+  emitRoads(sb, rp, 6);
+
   if (plan.structures.extension?.length) {
     chunked(
       sb,
@@ -404,6 +538,33 @@ export function buildAnim(room, terrain, plan) {
       EXT_CHUNK,
       "#ffd24d",
       (a, b, n) => `extensions ${b}/${n} — fill the protected space`,
+    );
+  }
+
+  // LAYER 7, in pipeline order: the prune deletes first, then the late roads
+  // are pushed. The prune is drawn as an erase (the player clears the tile) so
+  // the last frame still equals the shipped plan exactly.
+  if (rp.pruned.length) {
+    chunked(
+      sb,
+      "roadsPrune",
+      rp.pruned,
+      ROAD_CHUNK,
+      "#ff4444",
+      (a, b, n) => `dead-end prune ${b}/${n} — road that led nowhere once every layer was in`,
+    );
+  }
+  emitRoads(sb, rp, 7);
+
+  if (rp.residual.length) {
+    chunked(
+      sb,
+      "roadsResid",
+      rp.residual,
+      ROAD_CHUNK,
+      "#d8d8d8",
+      (a, b, n) =>
+        `UNATTRIBUTED roads ${b}/${n} — ${rp.attributed ? "no meta.roadLayer entry for these tiles" : "this plan carries no meta.roadLayer at all"}`,
     );
   }
 

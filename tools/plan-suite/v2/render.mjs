@@ -281,6 +281,149 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${parts.join("")}</svg>`;
 }
 
+/**
+ * THE INDEX THUMBNAIL — WHY IT IS NOT `renderRoomSvg` AT A SMALLER CELL.
+ *
+ * The gallery index inlined `renderRoomSvg(p, 10)` once per room. That call
+ * emits one `<image href="data:image/svg+xml;base64,...">` PER STRUCTURE
+ * INSTANCE, so a room with 60 extensions carried the 2.4KB extension sprite
+ * sixty times over, on top of 2500 terrain rects and 2500 grid strokes. One
+ * room came to ~1MB and the 159-room index came to 159,056,753 bytes: 13.8s of
+ * transfer on localhost and 135 of 159 cards present at the 10-second mark. An
+ * index nobody can load is not an index.
+ *
+ * THINGS TRIED AND REJECTED, in order:
+ *
+ *   1. `<defs>`/`<use>` so each sprite's base64 appears once per file. Real
+ *      saving (the sprite bytes collapse ~20x) but the terrain grid alone is
+ *      still ~450KB at cell 10, so the index lands near 10MB inline. Better,
+ *      still a page that takes seconds before the first card paints.
+ *   2. Inline the small SVG but wrap it in a lazy container. `loading=lazy`
+ *      does not exist for inline SVG; the bytes are in the document whether
+ *      they are on screen or not, so the transfer cost is unchanged.
+ *   3. External thumbnail files that reuse the sprite stack via data: URIs.
+ *      An SVG loaded through `<img>` is a sandboxed document — data: URIs
+ *      happen to resolve in Chrome today, and quietly do not in other
+ *      engines. A thumbnail that renders blank in some browsers is worse than
+ *      one that never claimed to have sprites.
+ *
+ * So: a SPRITE-FREE thumbnail, written to its own file and lazy-loaded. Flat
+ * colour per structure type, terrain run-length-encoded per row, no grid
+ * strokes (invisible at 8px anyway). It carries no external or embedded
+ * resource of any kind, so it renders in an `<img>` everywhere. The card still
+ * links to the room page, and the room page still draws the real Screeps
+ * sprites at full size — the sprites are one click away, not gone.
+ *
+ * The colours are exported as THUMB_PAINT and the index prints a key built
+ * from that same table, so the reader can decode a thumbnail rather than
+ * guess: a legend typed out separately is a legend that drifts.
+ */
+export const THUMB_PAINT = [
+  ["extension", "#ffd24d", "Extension"],
+  ["spawn", "#44ff44", "Spawn"],
+  ["storage", "#ffaa00", "Storage"],
+  ["terminal", "#ff66dd", "Terminal"],
+  ["link", "#00e5ff", "Link"],
+  ["tower", "#ff8844", "Tower"],
+  ["lab", "#cc66ff", "Lab"],
+  ["container", "#ffd27f", "Container"],
+  ["nuker", "#ff5566", "Nuker"],
+  ["observer", "#66ddff", "Observer"],
+  ["extractor", "#e0a6ff", "Extractor"],
+  ["factory", "#9aa0a6", "Factory"],
+];
+const THUMB_COLOR = Object.fromEntries(THUMB_PAINT.map(([t, c]) => [t, c]));
+
+/** the same draw order renderRoomSvg uses, so a thumb and a room page agree */
+const THUMB_ORDER = THUMB_PAINT.map(([t]) => t);
+
+/**
+ * 50x50 room at `cell` px, no embedded resources. ~30KB instead of ~1MB.
+ */
+export function renderThumbSvg(plan, cell = 8) {
+  const W = 50 * cell;
+  const parts = [];
+
+  // TERRAIN, RUN-LENGTH ENCODED PER ROW. 2500 rects is 2500 rects whether or
+  // not 40 of them in a row are the same colour; rooms are mostly long bands
+  // of plain and long bands of wall, so the runs collapse the terrain to a few
+  // hundred rects. The grid strokes are dropped outright — at 8px a 0.5px
+  // stroke is a grey haze, not a grid.
+  for (let y = 0; y < 50; y++) {
+    let x = 0;
+    while (x < 50) {
+      const t = tileAt(plan.terrain, x, y);
+      const fill = t & WALL ? "#0e0e0e" : t & SWAMP ? "#16301a" : "#2c2c24";
+      let n = 1;
+      while (x + n < 50) {
+        const u = tileAt(plan.terrain, x + n, y);
+        const f2 = u & WALL ? "#0e0e0e" : u & SWAMP ? "#16301a" : "#2c2c24";
+        if (f2 !== fill) break;
+        n++;
+      }
+      parts.push(
+        `<rect x="${x * cell}" y="${y * cell}" width="${n * cell}" height="${cell}" fill="${fill}"/>`,
+      );
+      x += n;
+    }
+  }
+
+  const st = plan.structures || {};
+
+  // ramparts under everything, same translucent green the full render uses
+  for (const p of st.rampart || []) {
+    parts.push(
+      `<rect x="${p.x * cell}" y="${p.y * cell}" width="${cell}" height="${cell}" fill="${RAMPART_PAINT.fill}" fill-opacity="${RAMPART_PAINT.fillOpacity}"/>`,
+    );
+  }
+  // roads: the same two-tone the full render paints, minus the inset rect —
+  // at 8px the inner rect is 6px and the outline reads as noise
+  for (const p of st.road || []) {
+    parts.push(
+      `<rect x="${p.x * cell + cell * 0.2}" y="${p.y * cell + cell * 0.2}" width="${cell * 0.6}" height="${cell * 0.6}" fill="${ROAD_PAINT.top}"/>`,
+    );
+  }
+  for (const type of THUMB_ORDER) {
+    const c = THUMB_COLOR[type];
+    for (const p of st[type] || []) {
+      parts.push(
+        `<rect x="${p.x * cell + 0.5}" y="${p.y * cell + 0.5}" width="${cell - 1}" height="${cell - 1}" rx="${cell * 0.25}" fill="${c}"/>`,
+      );
+    }
+  }
+  const dot = (p, fill) => {
+    if (!p) return;
+    parts.push(
+      `<circle cx="${p.x * cell + cell / 2}" cy="${p.y * cell + cell / 2}" r="${cell * 0.45}" fill="${fill}"/>`,
+    );
+  };
+  for (const s of plan.sources || []) dot(s, "#ffe14d");
+  dot(plan.controller, "#66ccff");
+  dot(plan.mineral, "#e0a6ff");
+  if (plan.hub) {
+    parts.push(
+      `<circle cx="${plan.hub.x * cell + cell / 2}" cy="${plan.hub.y * cell + cell / 2}" r="${cell * 0.7}" fill="none" stroke="#00E676" stroke-width="1.2"/>`,
+    );
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W}" viewBox="0 0 ${W} ${W}"><rect width="${W}" height="${W}" fill="#0a0a0a"/>${parts.join("")}</svg>`;
+}
+
+/** the key that makes a sprite-free thumbnail readable — built from THUMB_PAINT */
+export function thumbLegendHtml() {
+  let html =
+    '<div class="legend" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0;font-size:12px;color:#8b949e">' +
+    '<span style="color:#667">thumbnail key —</span>';
+  const swatch = (c, label, extra = "") =>
+    `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:${c};border-radius:3px;display:inline-block;${extra}"></span>${label}</span>`;
+  for (const [, color, label] of THUMB_PAINT) html += swatch(color, label);
+  html += swatch(ROAD_PAINT.top, "Road");
+  html += swatch("#3f6633", "Rampart");
+  html += swatch("#ffe14d", "Source", "border-radius:50%");
+  html += swatch("#66ccff", "Controller", "border-radius:50%");
+  html += "</div>";
+  return html;
+}
+
 /** Crop around hub ± radius tiles */
 export function hubCrop(plan, radius = 6) {
   const h = plan.hub || { x: 25, y: 25 };

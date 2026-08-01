@@ -72,12 +72,15 @@
  * whole mechanism — the planner is allowed to be beaten by a room, it is not
  * allowed to be quiet about it.
  *
- * Two limits keep that mechanism from becoming a mute button. Some gates are
- * UNDECLARABLE outright (see below) — a shallow tower or a stacked structure
- * is wrong, not short. And every declaration must carry EVIDENCE: real detail
- * prose, the ladder it walked, or the tiles it lost. A bare {gate, kind} pair
- * is inadmissible and hard-fails the room on its own — a declaration with no
- * evidence is not a declaration, it is a suppression flag.
+ * Four limits keep that mechanism from becoming a mute button. Some gates and
+ * some (gate, kind) pairs are UNDECLARABLE outright (see below) — a shallow
+ * tower, a stacked structure, a missing spawn or a planted factory is wrong, not
+ * short. Every declaration must carry EVIDENCE that QUANTIFIES: prose with real
+ * numbers in it, the ladder it walked, or the tiles it lost — a bare {gate,
+ * kind} pair, or forty characters of filler, is inadmissible and hard-fails the
+ * room on its own. A tile-less declaration is BOUNDED: it excuses `count`
+ * violations of the class it names, or one. And a tile list is capped, because a
+ * declaration naming half the room is a wildcard, not an admission.
  *
  * Exits nonzero on any undeclared failure.
  */
@@ -337,8 +340,64 @@ function roadComponent(structures, sitter, blockedTiles) {
 }
 
 /**
+ * BFS walk-distance field from one tile, treating `impassable` as walls.
+ *
+ * A verbatim mirror of layer-hub.mjs's fieldFrom(), which is what the planner
+ * measures its tower refill walks with — same D8 steps, same "natural wall or
+ * blocked = impassable", same 9999 for unreachable. It is copied rather than
+ * imported for the reason every re-derivation in this file exists: importing the
+ * producer's own function would make the validator agree with the producer by
+ * construction, and the point of re-deriving maxRefill is that meta.towers is a
+ * field the producer controls and the validator used to believe.
+ *
+ * Copying does buy a drift risk, so it is MEASURED rather than asserted: the
+ * distances this produces reproduce meta.towers.refillDists in 159/159 rooms,
+ * exactly, every tower. That is the check that the mirror is still a mirror, and
+ * it is the number to re-run if this ever disagrees.
+ */
+function walkField(terrain, origin, impassable) {
+  const dist = new Int16Array(2500).fill(9999);
+  dist[idx(origin.x, origin.y)] = 0;
+  const q = [idx(origin.x, origin.y)];
+  let qi = 0;
+  while (qi < q.length) {
+    const i = q[qi++];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (isWall(terrain, nx, ny) || impassable.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (dist[ni] <= dist[i] + 1) continue;
+      dist[ni] = dist[i] + 1;
+      q.push(ni);
+    }
+  }
+  return dist;
+}
+
+/**
  * Gate names are normalised so a declaration written the obvious way still
  * matches: "link"/"links", "container"/"containers", "extension"/"extensions".
+ *
+ * THIS TABLE IS A SAFETY MECHANISM, NOT A CONVENIENCE. It is applied to the
+ * VIOLATION's gate as well as the declaration's — `fail()` runs every gate name
+ * through it — so the set of gates that can never be excused (below) is keyed on
+ * one spelling and one spelling only. The table used to cover three types, and
+ * the two spellings of everything else went their separate ways: the exact-count
+ * check raised `fail("tower", "count", ...)` while UNDECLARABLE held "towers",
+ * so a plan missing two towers was excused outright by
+ * `{gate:"tower", kind:"count"}` — a singular `r` away from the rule that was
+ * supposed to make that impossible. Same shape for spawn/spawns and lab/labs.
+ *
+ * The fix is not "add the missing string to the refusal set" — that just moves
+ * the typo one level up and the next gate name added to this file walks around
+ * it again. Every structure gate a `fail()` call site can name is collapsed here
+ * to a single canonical spelling FIRST, and the refusal rules are then written
+ * against canonical names, so no spelling of a declaration or of a call site can
+ * miss them. Singular and plural both map, in both directions, deliberately.
  */
 const GATE_ALIAS = {
   link: "links",
@@ -349,6 +408,39 @@ const GATE_ALIAS = {
   extensions: "extensions",
   rampart: "rampart",
   ramparts: "rampart",
+  // exact-program types. The count check names these singular; the shortfall
+  // channel and half of this file's prose name them plural. One canonical form.
+  spawn: "spawn",
+  spawns: "spawn",
+  tower: "towers",
+  towers: "towers",
+  lab: "labs",
+  labs: "labs",
+  storage: "storage",
+  storages: "storage",
+  terminal: "terminal",
+  terminals: "terminal",
+  nuker: "nuker",
+  nukers: "nuker",
+  observer: "observer",
+  observers: "observer",
+  extractor: "extractor",
+  extractors: "extractor",
+  // the trust gates, so their refusal cannot be walked around by a plural either
+  count: "count",
+  counts: "count",
+  engine: "engine",
+  engines: "engine",
+  stack: "stack",
+  stacks: "stack",
+  object: "object",
+  objects: "object",
+  bound: "bounds",
+  bounds: "bounds",
+  core: "core",
+  cores: "core",
+  road: "road",
+  roads: "road",
 };
 const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g || "").toLowerCase();
 
@@ -378,6 +470,58 @@ const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g ||
 const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "towers"]);
 
 /**
+ * ...and the same refusal at (gate, kind) resolution, for the gates that carry
+ * BOTH a wrong and a short.
+ *
+ * The gate-wide set above is blunt on purpose, and it can only be used where
+ * every kind on the gate is wrong-not-short. Several gates are mixed. "count"
+ * carries the forbidden-structure rule (a factory is not a shortfall, it is a
+ * structure this bot does not build) alongside over-cap and unknown-type.
+ * "labs" carries the reagent-range geometry alongside the exact 10. "storage",
+ * "terminal", "nuker", "observer", "extractor" each carry exactly one count and
+ * nothing else today, but naming the pair rather than the gate keeps the rule
+ * true when a second kind lands on them.
+ *
+ * WHAT THIS REFUSES, AND WHY EXACTLY THIS LIST. The program is 3 spawn, 6 tower,
+ * 10 lab, 1 storage, 1 terminal, 1 nuker, 1 observer, 1 extractor-on-mineral.
+ * Those are not capacities the room can be short of — the room does not "run out
+ * of space for the third spawn" in any sense a note could excuse, it either has
+ * the eight structures the bot's whole economy assumes or it is a different base
+ * than the one every other system in this repo is written against. A room that
+ * ships two spawns and says so in prose is still a room that respawns at
+ * two-thirds speed after a wipe, and the note does not spawn the creep.
+ *
+ * WHAT IS DELIBERATELY NOT HERE. extensions/count, links/count and
+ * containers/count stay declarable, and that is the point of the whole channel:
+ * those ARE capacities, a genuinely cramped room can fit 57 extensions and no
+ * more, and the honest declaration of that is the behaviour this mechanism
+ * exists to reward. EXT_SHORTFALL_OK above is the same judgement written as a
+ * list. Take those out and the planner's only options on a hard room become lie
+ * or fail, which is how a shortfall channel dies.
+ *
+ * The forbidden rule is unconditional. "No factory, no power spawn, never power"
+ * is a doctrine decision about what this bot IS, taken once; a room does not get
+ * to be beaten by it, so `{gate:"count", kind:"forbidden"}` — which the reviewer
+ * demonstrated laundering a planted factory — excuses nothing now.
+ *
+ * Note that labs/geometry stays declarable and still cannot hide a wrong lab
+ * count: `lab N!=10` is raised TWICE, once here as (labs, count) from the exact
+ * program and once inside the geometry bundle, and excusing the second does
+ * nothing about the first.
+ */
+const UNDECLARABLE_PAIRS = new Set([
+  "spawn|count",
+  "towers|count", // also covered gate-wide; spelled out so the rule reads whole
+  "labs|count",
+  "storage|count",
+  "terminal|count",
+  "nuker|count",
+  "observer|count",
+  "extractor|count",
+  "count|forbidden",
+]);
+
+/**
  * EVIDENCE. A declaration is a claim that a room beat the planner, and the
  * mechanism only works if the claim is auditable — the whole point of the
  * shortfall channel is that the planner may lose, loudly, in public. A bare
@@ -386,26 +530,236 @@ const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "to
  * suppression flag, and two fields of it would silently excuse a real hole.
  *
  * So a declaration is ADMISSIBLE only if it carries evidence:
- *   - `detail` is a string of >= 40 characters (real prose — which tile, why
- *     the room cannot do better, what was tried), OR
- *   - the entry carries a non-empty `rungs` (the ladder that was walked) or
- *     `tiles` (the exact tiles the room lost).
+ *   - `detail` is a string of >= 40 characters that QUANTIFIES something (real
+ *     prose — which tile, why the room cannot do better, what was tried), OR
+ *   - the entry carries a well-formed non-empty `rungs` (the ladder that was
+ *     walked) or `tiles` (the exact tiles the room lost).
  * Anything else is INADMISSIBLE: it excuses nothing, and its presence is
  * itself a hard fail for the room. A declaration with no evidence is not a
  * declaration.
+ *
+ * WHY A CHARACTER COUNT WAS NOT ENOUGH. The bar used to be exactly
+ * `detail.trim().length >= 40`, and forty `a` characters cleared it. So did
+ * `tiles: [null]` and `rungs: [null]` — the old test asked only whether the
+ * array had a length. That is not an evidence rule, it is a length rule, and a
+ * length rule is trivially satisfiable by a producer that wants to be quiet; the
+ * whole channel then costs a suppression flag plus a sentence of filler.
+ *
+ * The bar now is that the evidence QUANTIFIES. Every honest declaration this
+ * planner ships says a number out loud, because every one of them is the result
+ * of a measurement that lost: "the weakest wall face sees 1440 damage", "57 of
+ * 60 extensions fit", "the lap is 6 over 15 tiles of detour". So prose must
+ * carry at least two DISTINCT numeric tokens — one number can be a room name or
+ * an RCL, two are an argument — and the structured channels must actually be
+ * structured: tiles are objects with integer x/y on the board, rungs are objects
+ * with at least one numeric field in them. The fleet's own declarations clear
+ * this with nothing to spare in one place (E5S9's rampart note quantifies with
+ * exactly two distinct numbers) and comfortably everywhere else, which is the
+ * right place for a bar: it is the floor the honest producer already stands on.
+ *
+ * MALFORMED IS INADMISSIBLE, NOT MERELY UNCOUNTED. The three channels are
+ * sanitised independently, and a channel that is PRESENT but malformed fails the
+ * whole declaration rather than quietly falling back to another one. Two reasons.
+ * A `tiles` list of junk that silently degraded to "no tiles" would not just lose
+ * its evidence — it would turn a tiled declaration into a TILE-LESS one, and
+ * tile-less declarations speak for a whole class (see the arbitration below), so
+ * the malformed entry would come out WIDER than the well-formed one it was
+ * written as. And a producer whose tiles come out as junk has a bug that a
+ * validator should report, not absorb.
+ *
+ * THE TILE-LIST CAP. A declaration that names half the room is not a
+ * declaration. `tiles` is arbitration input — a tiled declaration excuses
+ * violations whose tiles are all inside its list — so a list of all 2500 tiles
+ * is a gate-wide wildcard written as evidence, and it would even pass the
+ * "structured" test above with flying colours. The largest tile list this
+ * planner actually ships across all 159 rooms is 6 (E11S2). The cap is 32:
+ * five times the real maximum, so no honest declaration can grow into it by
+ * accident, and two orders of magnitude short of "the room".
  */
 const MIN_DETAIL_CHARS = 40;
-function declarationEvidence(sf) {
-  if (typeof sf.detail === "string" && sf.detail.trim().length >= MIN_DETAIL_CHARS) return null;
-  if (Array.isArray(sf.rungs) ? sf.rungs.length : sf.rungs && Object.keys(sf.rungs).length) return null;
-  if (Array.isArray(sf.tiles) && sf.tiles.length) return null;
-  const n = typeof sf.detail === "string" ? sf.detail.trim().length : 0;
-  return (
-    `INADMISSIBLE DECLARATION on gate "${normGate(sf.gate)}"` +
-    (sf.kind ? `/kind "${sf.kind}"` : "") +
-    ` — no evidence (detail ${n} chars < ${MIN_DETAIL_CHARS}, no rungs, no tiles). ` +
-    `A declaration with no evidence is not a declaration; it excuses nothing.`
+/** two distinct numbers, not one: one number is a room name, two are an argument */
+const MIN_DETAIL_NUMS = 2;
+/** measured shipped maximum is 6 tiles; see the block comment above */
+const MAX_DECL_TILES = 32;
+
+const isTile = (t) =>
+  t !== null &&
+  typeof t === "object" &&
+  Number.isInteger(t.x) &&
+  Number.isInteger(t.y) &&
+  t.x >= 0 &&
+  t.x <= 49 &&
+  t.y >= 0 &&
+  t.y <= 49;
+
+/**
+ * Sanitise `sf.tiles`. Returns {present, tiles, bad}: `bad` is a reason string
+ * when the channel is present but malformed (which makes the whole declaration
+ * inadmissible), `tiles` is the sanitised list, and `present` says whether the
+ * channel carries evidence at all. An empty array is the planner's own way of
+ * writing "this is a class claim, I have no tiles for it" — 4 shipped
+ * declarations omit the key entirely and none ship it empty — so an empty array
+ * is NOT malformed, it is simply not evidence.
+ */
+function sanitiseTiles(sf) {
+  if (sf.tiles === undefined || sf.tiles === null) return { present: false, tiles: [], bad: null };
+  if (!Array.isArray(sf.tiles)) {
+    return { present: true, tiles: [], bad: `tiles is ${typeof sf.tiles}, not an array` };
+  }
+  if (!sf.tiles.length) return { present: false, tiles: [], bad: null };
+  if (sf.tiles.length > MAX_DECL_TILES) {
+    return {
+      present: true,
+      tiles: [],
+      bad:
+        `tiles names ${sf.tiles.length} tile(s), over the ${MAX_DECL_TILES} cap — a declaration that ` +
+        `names a large fraction of the room is not a declaration, it is a gate-wide wildcard wearing ` +
+        `evidence (the largest list this planner ships is 6)`,
+    };
+  }
+  const bad = sf.tiles.filter((t) => !isTile(t));
+  if (bad.length) {
+    return {
+      present: true,
+      tiles: [],
+      bad:
+        `${bad.length} of ${sf.tiles.length} tile entr(ies) are not {x,y} integers on the board ` +
+        `(first: ${JSON.stringify(bad[0])})`,
+    };
+  }
+  return { present: true, tiles: sf.tiles, bad: null };
+}
+
+/**
+ * Sanitise `sf.rungs` — the escalation ladder a layer walked before it gave up.
+ * Array or object-of-rungs both accepted (layers write both shapes). A rung has
+ * to be an object carrying at least one finite number, because a rung IS a
+ * measurement: `{rung:0, mobility:3.5, ramparts:54}`. `[null]` is not a ladder.
+ */
+function sanitiseRungs(sf) {
+  if (sf.rungs === undefined || sf.rungs === null) return { present: false, bad: null };
+  const arr = Array.isArray(sf.rungs)
+    ? sf.rungs
+    : typeof sf.rungs === "object"
+      ? Object.values(sf.rungs)
+      : null;
+  if (!arr) return { present: true, bad: `rungs is ${typeof sf.rungs}, not an array or object` };
+  if (!arr.length) return { present: false, bad: null };
+  const bad = arr.filter(
+    (r) =>
+      r === null ||
+      typeof r !== "object" ||
+      !Object.values(r).some((v) => typeof v === "number" && Number.isFinite(v)),
   );
+  if (bad.length) {
+    return {
+      present: true,
+      bad:
+        `${bad.length} of ${arr.length} rung(s) are not objects carrying a numeric field ` +
+        `(first: ${JSON.stringify(bad[0])}) — a rung with no measurement in it is not a ladder`,
+    };
+  }
+  return { present: true, bad: null };
+}
+
+/**
+ * @returns {{why: string|null, tiles: {x:number,y:number}[]}} `why` non-null =
+ * INADMISSIBLE (hard fail, excuses nothing); `tiles` is the sanitised tile list
+ * the arbitration below is allowed to use.
+ */
+function admitDeclaration(sf) {
+  const where = `on gate "${normGate(sf.gate)}"` + (sf.kind ? `/kind "${sf.kind}"` : "");
+  const t = sanitiseTiles(sf);
+  const r = sanitiseRungs(sf);
+  const malformed = [t.bad, r.bad].filter(Boolean);
+  if (malformed.length) {
+    return {
+      why:
+        `INADMISSIBLE DECLARATION ${where} — malformed evidence: ${malformed.join("; ")}. ` +
+        `Evidence that does not parse is not evidence; this declaration excuses nothing.`,
+      tiles: [],
+    };
+  }
+  const detail = typeof sf.detail === "string" ? sf.detail.trim() : "";
+  const nums = new Set(detail.match(/\d+(?:\.\d+)?/g) || []);
+  const detailOk = detail.length >= MIN_DETAIL_CHARS && nums.size >= MIN_DETAIL_NUMS;
+  if (detailOk || t.present || r.present) return { why: null, tiles: t.tiles };
+  return {
+    why:
+      `INADMISSIBLE DECLARATION ${where} — no evidence (detail ${detail.length} chars with ` +
+      `${nums.size} distinct number(s); the bar is ${MIN_DETAIL_CHARS} chars AND ` +
+      `${MIN_DETAIL_NUMS} numbers, or a well-formed non-empty rungs/tiles). ` +
+      `A declaration that quantifies nothing is not a declaration; it excuses nothing.`,
+    tiles: [],
+  };
+}
+
+/**
+ * Turn a plan's declaration list into an arbiter: the admissible declarations,
+ * the hard-fail messages for the inadmissible ones, and `excused(violation)`.
+ *
+ * WHY THIS IS A FUNCTION AND WHY IT IS EXPORTED. It used to be forty lines
+ * inline in checkRoom, closed over nothing but its own two locals, and that made
+ * one of its rules untestable in practice. The tile-less BUDGET below bounds how
+ * many violations of one (gate, kind) a single tile-less declaration may excuse —
+ * and no room in the fleet can exercise it, because every gate in this file
+ * raises at most ONE violation per (gate, kind), so end-to-end the budget of 1 is
+ * indistinguishable from the unbounded wildcard it replaced. A rule whose failure
+ * mode cannot be reproduced is a rule nobody can trust; pulled out here it takes
+ * a list of violations and can be handed five of one class directly. The budget
+ * is for the gate that gets added next, and this is how that gate's author finds
+ * out it works.
+ *
+ * `excused` is STATEFUL — it spends budget — so one arbiter serves one room and
+ * violations must be offered to it in the order they were raised.
+ *
+ * @param {{gate?:string,kind?:string,detail?:string,tiles?:any,rungs?:any,count?:number}[]} declared
+ */
+export function buildArbitration(declared) {
+  const inadmissible = [];
+  const decls = [];
+  for (const sf of declared || []) {
+    if (!sf || typeof sf !== "object") {
+      inadmissible.push(`INADMISSIBLE DECLARATION — entry is not an object (${JSON.stringify(sf)})`);
+      continue;
+    }
+    const { why, tiles: okTiles } = admitDeclaration(sf);
+    if (why) {
+      inadmissible.push(why);
+      continue; // dropped: an inadmissible declaration excuses nothing
+    }
+    const stated = typeof sf.count === "number" && Number.isFinite(sf.count) && sf.count >= 0;
+    decls.push({
+      gate: normGate(sf.gate),
+      kind: sf.kind ? String(sf.kind) : null,
+      // sanitised, never sf.tiles — a malformed list never reaches arbitration
+      tiles: new Set(okTiles.map((t) => key(t.x, t.y))),
+      budget: stated ? Math.floor(sf.count) : 1,
+      used: 0,
+    });
+  }
+  const excused = (f) => {
+    if (UNDECLARABLE.has(f.gate)) return false;
+    if (UNDECLARABLE_PAIRS.has(`${f.gate}|${f.kind}`)) return false;
+    for (const d of decls) {
+      if (d.gate !== f.gate) continue;
+      if (d.kind && d.kind !== f.kind) continue;
+      if (d.tiles.size) {
+        // a tiled declaration speaks for tiles, and only for the ones it lists
+        if (f.tiles.length && f.tiles.every((t) => d.tiles.has(t))) return true;
+        continue;
+      }
+      // tile-less: only a declaration that names the class can own it, and only
+      // as many violations of it as the declaration's budget pays for
+      if (d.kind === f.kind) {
+        if (d.used >= d.budget) continue;
+        d.used++;
+        return true;
+      }
+    }
+    return false;
+  };
+  return { decls, inadmissible, excused };
 }
 
 export function checkRoom(plan, terrain, objects) {
@@ -807,49 +1161,38 @@ export function checkRoom(plan, terrain, objects) {
   //   class  a tile-less declaration is a claim about a whole class, so it
   //          must NAME that class: gate + kind. There is no wildcard, and
   //          silence is not a declaration.
+  //   budget a tile-less declaration excuses a BOUNDED number of violations of
+  //          the class it names — see the block below. It is not a licence for
+  //          the class.
   //   evidence the entry must carry some. A declaration with no evidence is
   //          INADMISSIBLE: it is dropped before arbitration (so it excuses
   //          nothing at all) AND its presence is itself a hard fail for the
   //          room, naming the gate it tried to speak for. See
-  //          declarationEvidence() above for what counts as evidence.
+  //          admitDeclaration() above for what counts as evidence.
   //
   // Backwards compatible by construction: every declaration the planner
   // ships today carries tiles and is arbitrated against tiled violations.
+  //
+  // THE TILE-LESS BUDGET. "gate + kind names the class" bounded WHICH class a
+  // tile-less declaration could speak for and said nothing about HOW MUCH of it
+  // — one entry owned every violation of that class, forever, no matter how many
+  // were raised or where. That is a wildcard with a label on it: a room that
+  // honestly lost one extension to terrain would, written tile-lessly, excuse
+  // fifty. So a tile-less declaration now carries a BUDGET and spends it.
+  //
+  // N = the declaration's own `count` when it states one (a finite, non-negative
+  // number: the producer saying "I lost three of these" is exactly the quantified
+  // claim this whole section is trying to elicit, and it should be believed for
+  // three and no more). Otherwise N = 1 — the conservative reading of an
+  // unquantified claim, and the reading that matches what the planner actually
+  // ships, since every gate in this file raises at most one violation per
+  // (gate, kind) today. Spent in the order violations were RAISED, which is the
+  // order of `raw` followed by the late() checks: deterministic, so two runs
+  // excuse the same violations and the 160th room does not depend on iteration
+  // order somewhere else.
   // ------------------------------------------------------------------
   const declared = (plan.meta && plan.meta.shortfalls) || [];
-  const inadmissible = [];
-  const decls = [];
-  for (const sf of declared) {
-    if (!sf || typeof sf !== "object") {
-      inadmissible.push(`INADMISSIBLE DECLARATION — entry is not an object (${JSON.stringify(sf)})`);
-      continue;
-    }
-    const why = declarationEvidence(sf);
-    if (why) {
-      inadmissible.push(why);
-      continue; // dropped: an inadmissible declaration excuses nothing
-    }
-    decls.push({
-      gate: normGate(sf.gate),
-      kind: sf.kind ? String(sf.kind) : null,
-      tiles: new Set((sf.tiles || []).map((t) => key(t.x, t.y))),
-    });
-  }
-  const excused = (f) => {
-    if (UNDECLARABLE.has(f.gate)) return false;
-    for (const d of decls) {
-      if (d.gate !== f.gate) continue;
-      if (d.kind && d.kind !== f.kind) continue;
-      if (d.tiles.size) {
-        // a tiled declaration speaks for tiles, and only for the ones it lists
-        if (f.tiles.length && f.tiles.every((t) => d.tiles.has(t))) return true;
-        continue;
-      }
-      // tile-less: only a declaration that names the class can own it
-      if (d.kind === f.kind) return true;
-    }
-    return false;
-  };
+  const { decls, inadmissible, excused } = buildArbitration(declared);
   // An inadmissible declaration is a HARD FAIL in its own right — it cannot be
   // excused (there is nothing to excuse it with) and it never reaches excused().
   const fails = [...inadmissible];
@@ -945,24 +1288,35 @@ export function checkRoom(plan, terrain, objects) {
       }
     }
   }
+  // THE SEAL IS DERIVED UNCONDITIONALLY, the comparison to meta is not.
+  //
+  // This loop used to sit inside `if (plan.meta?.shell?.cut)`, which was
+  // harmless for the stale-cut check it was written for (with no declared cut
+  // there is nothing to call stale) and quietly load-bearing for the battery
+  // gate below, which scores the weakest SEALING tile and reads sealTiles to
+  // find them. Guarding the derivation on a meta key means deleting that key
+  // deletes the measurement: no seal tiles, nothing to score, gate skipped. The
+  // derivation itself needs nothing from meta — terrain, the rampart list and
+  // two floods — so it runs for every room, always, and only the comparison
+  // against the plan's own claim is conditional on the plan making one.
   const sealTiles = [];
-  if (plan.meta?.shell?.cut) {
-    for (const k of rampartSet) {
-      const [rx, ry] = k.split(",").map(Number);
-      if (!passable(rx, ry)) continue; // a rampart on rock opens nothing
-      let touchIn = false;
-      let touchOut = false;
-      for (const [dx, dy] of D8) {
-        const nx = rx + dx,
-          ny = ry + dy;
-        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-        const ni = idx(nx, ny);
-        if (insideNoRampart[ni]) touchIn = true;
-        else if (ext[ni]) touchOut = true;
-        if (touchIn && touchOut) break;
-      }
-      if (touchIn && touchOut) sealTiles.push({ x: rx, y: ry, k });
+  for (const k of rampartSet) {
+    const [rx, ry] = k.split(",").map(Number);
+    if (!passable(rx, ry)) continue; // a rampart on rock opens nothing
+    let touchIn = false;
+    let touchOut = false;
+    for (const [dx, dy] of D8) {
+      const nx = rx + dx,
+        ny = ry + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = idx(nx, ny);
+      if (insideNoRampart[ni]) touchIn = true;
+      else if (ext[ni]) touchOut = true;
+      if (touchIn && touchOut) break;
     }
+    if (touchIn && touchOut) sealTiles.push({ x: rx, y: ry, k });
+  }
+  if (plan.meta?.shell?.cut) {
     const stale = sealTiles.filter((t) => !declaredCut.has(t.k));
     if (stale.length) {
       // NOT via fail(): `raw` was drained into fails/notes above, so a late
@@ -1036,9 +1390,32 @@ export function checkRoom(plan, terrain, objects) {
   // validator found for itself, and the gate is applied to that. The planner's
   // own number is still reported when the two disagree, because the disagreement
   // is the interesting part.
+  //
+  // AND THE BLOCK RUNS FOR EVERY ROOM, WHATEVER meta.towers CONTAINS. It used to
+  // open with `if (tw && typeof tw.minShellDmg === "number")`, which made the
+  // re-derivation opt-in on a field the producer controls: deleting
+  // meta.towers.minShellDmg — or meta.towers wholesale — skipped the gate along
+  // with the measurement that was supposed to police it. That is not a
+  // hypothetical. E11S10's genuine weakest sealing tile is 1380, under the 1800
+  // floor, and with the field and the declaration both removed the room came out
+  // clean: the validator's own arithmetic was gated on the number it existed to
+  // disbelieve. A re-derivation that a producer can turn off by omitting a key
+  // is a re-derivation in name only. meta is now read for REPORTING and nothing
+  // else, and reads "absent" when it is not there.
+  //
+  // maxRefill is re-derived on the same principle. It was read straight out of
+  // meta and never checked, so `maxRefill: 1` on a room whose real furthest tower
+  // is a 10-step walk (E11S2) passed in silence. The walk is now measured here
+  // with walkField(), mirroring layer-towers.mjs: BFS from the sitter with the
+  // room's obstacles blocked — storage, terminal, link, spawn, and the source /
+  // controller / mineral tiles — which is exactly the field the planner scores
+  // its candidates against. It reproduces meta.towers.refillDists in 159/159
+  // rooms, tower for tower, so the gate loses nothing by trusting itself. Towers
+  // the filler cannot reach at all come back 9999 and are reported as such rather
+  // than as a very large number.
   // ------------------------------------------------------------------
   const tw = plan.meta?.towers;
-  if (tw && typeof tw.minShellDmg === "number") {
+  {
     const scored = sealTiles.length
       ? sealTiles
       : (plan.meta?.shell?.cut || []).map((c) => ({ x: c.x, y: c.y }));
@@ -1055,24 +1432,56 @@ export function checkRoom(plan, terrain, objects) {
         worst = c;
       }
     }
-    if (measured === null) measured = tw.minShellDmg;
-    const weak = measured < WEAK_SHELL_DMG;
-    const farRefill = (tw.maxRefill ?? 0) > REFILL_NOTE;
-    if (weak || farRefill) {
-      const declaredWeak = declared.some(
-        (sf) => sf && normGate(sf.gate) === "towers" && sf.kind === "weak-battery",
+    // The filler's walk to each tower, re-derived. Obstacle set mirrors
+    // layer-towers.mjs's `blockers`: the structures a creep cannot cross plus the
+    // room objects. Towers, labs and the rest are deliberately NOT in it — they
+    // are not in the planner's field either, because they did not exist when it
+    // was measured, and a tower does not block the walk to itself.
+    const refillBlocked = new Set(objectTiles);
+    for (const t of ["storage", "terminal", "link", "spawn"]) {
+      for (const p of s[t] || []) refillBlocked.add(key(p.x, p.y));
+    }
+    const refillField = walkField(terrain, sitter, refillBlocked);
+    const refillDists = (s.tower || []).map((t) => refillField[idx(t.x, t.y)]);
+    const maxRefill = refillDists.length ? Math.max(...refillDists) : 0;
+    const unreachable = refillDists.filter((d) => d >= 9999).length;
+
+    const planMin = typeof tw?.minShellDmg === "number" ? tw.minShellDmg : null;
+    const planRefill = typeof tw?.maxRefill === "number" ? tw.maxRefill : null;
+    const say = (v) => (v === null ? "absent" : String(v));
+
+    // Nothing to measure the battery against: no rampart carries the seal and the
+    // plan declares no cut either. Not a pass — an unmeasurable wall is reported,
+    // because the alternative is the silent skip this whole block just removed.
+    if (measured === null) {
+      fails.push(
+        `battery UNMEASURABLE — no rampart carries the seal and meta.shell.cut is empty or absent, ` +
+          `so the weakest-face gate has no tiles to score (the plan's own reading is ${say(planMin)})`,
       );
+    }
+    const weak = measured !== null && measured < WEAK_SHELL_DMG;
+    const farRefill = maxRefill > REFILL_NOTE;
+    if (weak || farRefill) {
+      // The declaration has to be an ADMISSIBLE one. `declared` is the raw list
+      // straight off the plan, so reading it here would let an evidence-free
+      // {gate:"towers", kind:"weak-battery"} excuse the battery through a door
+      // the arbitration above has already closed for every other gate.
+      const declaredWeak = decls.some((d) => d.gate === "towers" && d.kind === "weak-battery");
       const why = [
         weak
           ? `weakest SEALING tile ${measured} < ${WEAK_SHELL_DMG}` +
             (worst ? ` (${worst.x},${worst.y}` : "") +
-            (worst && measured !== tw.minShellDmg
-              ? `; the plan's own cut-wide reading is ${tw.minShellDmg})`
+            (worst && measured !== planMin
+              ? `; the plan's own cut-wide reading is ${say(planMin)})`
               : worst
                 ? ")"
                 : "")
           : null,
-        farRefill ? `furthest tower refill walk ${tw.maxRefill} > ${REFILL_NOTE}` : null,
+        farRefill
+          ? `furthest tower refill walk ${unreachable ? `UNREACHABLE (${unreachable} tower(s))` : maxRefill}` +
+            ` > ${REFILL_NOTE}` +
+            (planRefill !== maxRefill ? `; the plan's own reading is ${say(planRefill)}` : "")
+          : null,
       ]
         .filter(Boolean)
         .join(" · ");
@@ -1138,7 +1547,12 @@ export function checkRoom(plan, terrain, objects) {
 }
 
 function main() {
-  const f = path.join(OUT_V2, "plans-hub.json");
+  // PLANS_FILE — point the validator at a plan file other than the suite's own
+  // output. It exists for MUTATION TESTING: the only way to know a gate still
+  // bites is to break a plan on purpose and watch it fail, and doing that by
+  // editing out-v2/plans-hub.json in place risks leaving the fleet's real output
+  // corrupted. Read-only, one line, no other behaviour changes.
+  const f = process.env.PLANS_FILE || path.join(OUT_V2, "plans-hub.json");
   if (!fs.existsSync(f)) {
     console.error("missing", f, "\n  run: node tools/plan-suite/v2/plan.mjs --all-claimable");
     process.exit(2);

@@ -18,6 +18,8 @@ import {
 } from "./shared.mjs";
 import {
   renderRoomSvg,
+  renderThumbSvg,
+  thumbLegendHtml,
   hubCrop,
   legendHtml,
   iconLayers,
@@ -102,8 +104,54 @@ function animNotes(plan) {
   n.claims =
     `${c.spawn ?? 0} spawns · ${c.container ?? 0} containers · ${c.link ?? 0} links` +
     (m.storageAccessD4 != null ? ` · storage reachable from ${m.storageAccessD4} sides` : "");
-  if (c.road != null) {
-    n.roads = `${c.road} road tiles — hub, spawns, sources, controller, plus the layer-7 rampart spurs (drawn here so the web reads as one net)`;
+  // ------------------------------------------------------------------
+  // ROAD CAPTIONS ARE PER LAYER NOW, AND EACH ONE COUNTS ONLY ITS OWN TILES.
+  //
+  // There used to be exactly one road caption, and it read: "<total> road
+  // tiles — hub, spawns, sources, controller, plus the layer-7 rampart spurs
+  // (drawn here so the web reads as one net)". The parenthesis was an honest
+  // admission that the film was showing a frame that never existed, and it
+  // was attached to the frame a reviewer needs in order to check layer 4's lab
+  // declaration. The film now emits each layer's roads at that layer (see
+  // roadProvenance in export-anim.mjs), so each caption states what THAT layer
+  // laid, read off meta.roadLayer rather than asserted.
+  // ------------------------------------------------------------------
+  const rl = m.roadLayer || {};
+  const aliveRoads = new Set((plan.structures.road || []).map((r) => `${r.x},${r.y}`));
+  const perLayer = {};
+  let ghosts = 0;
+  for (const k of Object.keys(rl)) {
+    perLayer[rl[k]] = (perLayer[rl[k]] || 0) + 1;
+    if (!aliveRoads.has(k)) ghosts++;
+  }
+  const laid = (l) => perLayer[l] || 0;
+  const total = c.road ?? aliveRoads.size;
+  if (laid(1)) {
+    n.roads = `${laid(1)} tiles laid with the hub kit, before the wall exists — the finished room ships ${total} across every layer`;
+  } else if (c.road != null) {
+    n.roads = `${total} road tiles`;
+  }
+  if (laid(3)) n.roadsTwr = `${laid(3)} tiles — refill spurs to the towers layer 3 has just placed`;
+  if (laid(4)) {
+    n.roadsLab =
+      `${laid(4)} tiles — access to the lab diamond, laid AFTER it: the anchor scan rejects a diamond ` +
+      `that touches the road network, so this road cannot exist while the labs are being chosen`;
+  }
+  if (laid(5)) n.roadsMisc = `${laid(5)} tiles — the run out to the mineral seat`;
+  if (laid(6)) {
+    n.roadsExt =
+      `${laid(6)} corridor tiles — the extension mass grows off these faces` +
+      (m.extensions ? ` (${m.extensions.stubRoads} stub roads by layer 6's own count)` : "");
+  }
+  if (laid(7)) {
+    n.roadsLate =
+      `${laid(7)} tiles — rampart spurs and the extension-face safety net` +
+      (m.walls ? ` · ${m.walls.spurred}/${m.walls.clusters} wall clusters served` : "");
+  }
+  if (ghosts) {
+    n.roadsPrune =
+      `${ghosts} tiles deleted — laid by an earlier layer, dead ends once every layer was in` +
+      (m.walls ? ` · meta.walls.pruned = ${m.walls.pruned}` : "");
   }
 
   const bits = [];
@@ -152,14 +200,25 @@ function animNotes(plan) {
 /**
  * Browser replay of the planner stages — dependency-free vanilla JS.
  *
- * SIX stacked canvases, bottom to top:
+ * SEVEN stacked canvases, bottom to top:
  *   terrain    drawn once
  *   scaffoldA  dt + distance fields  — dimmed once the plan starts landing
  *   scaffoldB  basin + core          — dimmed once the wall goes up
- *   under      roads + ramparts      — BELOW the structures, the same order
+ *   under      ramparts
+ *   roads      roads                 — ABOVE the ramparts and BELOW the
+ *                                      structures, which is the order
  *                                      renderRoomSvg stacks them in
  *   cells      the structures themselves, as real Screeps sprites
  *   marks      sources / controller / mineral + transient FX
+ *
+ * WHY ROADS GOT THEIR OWN CANVAS. They used to share `under` with the
+ * ramparts, which cost two things. First the stacking was backwards: the film
+ * drew every road before the wall, so the wall painted over the roads, while
+ * the gallery SVG draws ramparts first and roads on top. Second, and the
+ * reason it had to change, layer 7's dead-end prune now ERASES road tiles in
+ * the film (see roadProvenance in export-anim.mjs) — clearing a tile on a
+ * shared canvas would take the rampart underneath it with it, and 4 pruned
+ * tiles across the fleet do carry a rampart.
  *
  * THE FRAMES ARE NOT TOUCHED HERE. Steps come from anim/<room>.json exactly as
  * export-anim.mjs wrote them; this file only decides how a tile is DRAWN, how
@@ -196,6 +255,7 @@ function animPlayerHtml(plan) {
   <canvas class="anim-layer" id="animScaffA"></canvas>
   <canvas class="anim-layer" id="animScaffB"></canvas>
   <canvas class="anim-layer" id="animUnder"></canvas>
+  <canvas class="anim-layer" id="animRoads"></canvas>
   <canvas class="anim-layer" id="animCells"></canvas>
   <canvas class="anim-layer" id="animMarks"></canvas>
   <div class="anim-title" id="animTitle"><div class="tt" id="animTitleName"></div><div class="te" id="animTitleWhy"></div></div>
@@ -235,6 +295,11 @@ function animPlayerHtml(plan) {
   var MARKS = ${marks};
   var SPR = ${sprites};
   var CLAIMK = ${claimKinds};
+  // THE SITTER IS A TILE THE PLAN RESERVES, NOT A STRUCTURE IT BUILDS. It is
+  // passed by coordinate rather than inferred from the claims palette, because
+  // a colour is not an identity — see paintSitter for what goes wrong when the
+  // player treats it as one.
+  var SITTER = ${JSON.stringify(plan.sitter || null)};
   var BATTL = ${battlements};
   var NOTES = ${notes};
   var RP = ${JSON.stringify(ROAD_PAINT)};
@@ -260,30 +325,44 @@ function animPlayerHtml(plan) {
     basin:      [1, 'the basin', 'grow out from the seed, cheapest walk first — is there actually room here?', 'tiles', '1 · basin'],
     core:       [1, 'the core pocket', 'the open pocket the hub trio has to fit inside', 'tiles', '1 · core'],
     claims:     [1, 'the hub', 'storage, terminal, link, spawns and miner seats — one deliberate tile at a time', 'tiles', '1 · hub'],
-    roads:      [1, 'the roads', 'one connected web: hub to spawns to sources to controller', 'tiles', '1 · roads'],
+    roads:      [1, 'the eco roads', 'one connected web: hub to spawns to sources to controller — this is the ONLY road set that exists before the wall', 'tiles', '1 · roads'],
     ramparts:   [2, 'the wall', 'the cheapest rampart line that seals the base (distance-weighted min-cut)', 'ramparts', '2 · wall'],
     towers:     [3, 'towers', 'set-cover the wall so no rampart tile is out of tower range', 'towers', '3 · towers'],
+    roadsTwr:   [3, 'tower spurs', 'the refill road to each tower, laid by the same pass that placed it', 'tiles', '3 · spurs'],
     labs:       [4, 'labs', 'the one stamp worth keeping — a diamond where every reagent pair is in reach', 'labs', '4 · labs'],
+    roadsLab:   [4, 'lab access', 'paved AFTER the diamond: the anchor scan rejects a lab site that touches an existing road, so this road cannot be on screen while the labs are chosen', 'tiles', '4 · lab road'],
     nuker:      [5, 'the nuker', 'one deep tile hugging the hub, because everything it eats has to be carried', 'nuker', '5 · nuker'],
     observer:   [5, 'the observer', 'needs no access at all, so it takes the far leftover tile', 'observer', '5 · observer'],
     extractor:  [5, 'the extractor', 'the one structure built ON a room object — it sits on the mineral', 'extractor', '5 · extractor'],
-    extensions: [6, 'extensions', 'growing corridors into deep, safe floor — 60 of them, every one on a road face', 'extensions', '6 · extensions']
+    roadsMisc:  [5, 'the mineral run', 'the haul road out to the mineral seat', 'tiles', '5 · mineral road'],
+    roadsExt:   [6, 'extension corridors', 'dig the corridor first — every extension has to land with a D4 face on a road', 'tiles', '6 · corridors'],
+    extensions: [6, 'extensions', 'growing corridors into deep, safe floor — 60 of them, every one on a road face', 'extensions', '6 · extensions'],
+    roadsPrune: [7, 'the dead-end prune', 'the one pass allowed to DELETE an earlier layer\\'s road — these led somewhere before the later layers filled it in', 'tiles', '7 · prune'],
+    roadsLate:  [7, 'rampart spurs', 'roads TO the wall so defenders can reach it, plus the extension-face safety net', 'tiles', '7 · spurs'],
+    roadsResid: [0, 'unattributed roads', 'these tiles carry no meta.roadLayer entry — the film will not guess which layer laid them', 'tiles', '? · unattributed']
   };
   function info(stage) {
     return STAGE_INFO[stage] ||
       [0, String(stage).replace(/_/g, ' '), '', 'steps', String(stage)];
   }
 
-  // stage -> what a tile of it IS. '#road' / '#rampart' are hand-painted (no
-  // sprite exists for either); claims is heterogeneous and uses CLAIMK instead.
+  // stage -> what a tile of it IS. '#road' / '#rampart' / '#unroad' / '#sitter'
+  // are hand-painted (no sprite exists for any of them); claims is
+  // heterogeneous and uses CLAIMK instead. SIX road stages, one per pipeline
+  // layer that lays road, plus the layer-7 prune which UNPAINTS.
   var STAGE_KIND = {
-    roads: '#road', ramparts: '#rampart', towers: 'tower', labs: 'lab',
+    roads: '#road', roadsTwr: '#road', roadsLab: '#road', roadsMisc: '#road',
+    roadsExt: '#road', roadsLate: '#road', roadsResid: '#road',
+    roadsPrune: '#unroad',
+    ramparts: '#rampart', towers: 'tower', labs: 'lab',
     nuker: 'nuker', observer: 'observer', extractor: 'extractor',
     extensions: 'extension'
   };
   // stages whose steps are expanded back into ONE PLACEMENT PER TILE
   var EXPAND = {
-    claims: 1, roads: 1, ramparts: 1, towers: 1, labs: 1,
+    claims: 1, roads: 1, roadsTwr: 1, roadsLab: 1, roadsMisc: 1, roadsExt: 1,
+    roadsPrune: 1, roadsLate: 1, roadsResid: 1,
+    ramparts: 1, towers: 1, labs: 1,
     nuker: 1, observer: 1, extractor: 1, extensions: 1
   };
   // scaffold stages that live on the LATE scaffold canvas (dimmed at the wall)
@@ -306,7 +385,8 @@ function animPlayerHtml(plan) {
   var elScaffA = document.getElementById('animScaffA');
   var elScaffB = document.getElementById('animScaffB');
   var gT = ctx2d('animTerrain'), gA = ctx2d('animScaffA'), gB = ctx2d('animScaffB'),
-      gU = ctx2d('animUnder'), gC = ctx2d('animCells'), gM = ctx2d('animMarks');
+      gU = ctx2d('animUnder'), gR = ctx2d('animRoads'), gC = ctx2d('animCells'),
+      gM = ctx2d('animMarks');
   var rr = typeof gC.roundRect === 'function';
 
   // --- terrain (once) ---
@@ -387,16 +467,63 @@ function animPlayerHtml(plan) {
     g.stroke();
     g.restore();
   }
+  /**
+   * THE SITTER IS NOT A STRUCTURE, SO IT MAY NOT PAINT LIKE ONE.
+   *
+   * The claims stage emits the sitter tile as a white cell. It has no entry in
+   * CLAIMK (there is no structure there — that is the entire point of the
+   * tile), so it fell through paintTile to paintRect, which fills opaquely
+   * with no globalAlpha. Nothing about that is visible until you notice WHERE
+   * the sitter goes: it is the tile the hub trio all touch, and in most rooms
+   * the hub roads run straight through it. E17S4 40,34 and E2S7 22,26 are
+   * roads in the shipped plan and were solid white squares in the last frame
+   * of the film — while the HUD underneath asserted "this last frame IS the
+   * shipped plan, tile for tile". One tile per room, forever, on the one
+   * claim the film makes about its own fidelity.
+   *
+   * Rejected: dropping the sitter beat entirely. It is a real decision the hub
+   * layer makes and it deserves its second on screen. Rejected: painting it on
+   * the marks canvas, which is cleared and redrawn every frame — the sitter
+   * would then be the one placement that a rewind could not take back.
+   *
+   * So it is drawn as a MARK rather than a fill: a dashed white ring inset
+   * into the tile over a 12%-alpha wash. The road underneath reads through it,
+   * the tile still reads as claimed, and the last frame matches the plan.
+   */
+  function paintSitter(g, x, y) {
+    var px = x * CELL + 2.5, py = y * CELL + 2.5, w = CELL - 5;
+    g.save();
+    g.globalAlpha = 0.12;
+    g.fillStyle = '#ffffff';
+    g.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+    g.globalAlpha = 0.95;
+    g.strokeStyle = '#ffffff';
+    g.lineWidth = 1.2;
+    if (g.setLineDash) g.setLineDash([2.5, 2]);
+    g.strokeRect(px, py, w, w);
+    g.restore();
+  }
+  /** layer 7's prune: the tile had a road, and now it does not */
+  function unpaintRoad(g, x, y) {
+    g.clearRect(x * CELL, y * CELL, CELL, CELL);
+  }
   function kindFor(stage, x, y) {
-    if (stage === 'claims') return CLAIMK[x + ',' + y] || null;
+    if (stage === 'claims') {
+      var ck = CLAIMK[x + ',' + y];
+      if (ck) return ck;
+      if (SITTER && x === SITTER.x && y === SITTER.y) return '#sitter';
+      return null;
+    }
     return STAGE_KIND[stage] || null;
   }
   function paintTile(g, stage, x, y, hex) {
     var k = kindFor(stage, x, y);
     if (k === '#road') { paintRoad(g, x, y); return; }
+    if (k === '#unroad') { unpaintRoad(g, x, y); return; }
     if (k === '#rampart') { paintRampart(g, x, y); return; }
+    if (k === '#sitter') { paintSitter(g, x, y); return; }
     if (k && SPRITE[k]) { g.drawImage(SPRITE[k], x * CELL, y * CELL, CELL, CELL); return; }
-    paintRect(g, x, y, hex);   // scaffolding, the sitter tile, anything unmapped
+    paintRect(g, x, y, hex);   // scaffolding, and anything unmapped
   }
 
   // --- markers + transient FX ----------------------------------------------
@@ -520,9 +647,20 @@ function animPlayerHtml(plan) {
   var elRate = document.getElementById('animRate');
   var elTrails = document.getElementById('animTrails');
 
-  /** roads and ramparts go UNDER the structures, exactly as the gallery stacks them */
+  /**
+   * Roads and ramparts go UNDER the structures, exactly as the gallery stacks
+   * them — ramparts on gU, roads on gR above it, structures on gC above that.
+   * The road stages are recognised by STAGE_KIND rather than by a name list,
+   * so adding a seventh road stage cannot silently put it on the wrong canvas
+   * (which, for the erase stage, would clear the ramparts).
+   */
+  function isRoadStage(stage) {
+    var k = STAGE_KIND[stage];
+    return k === '#road' || k === '#unroad';
+  }
   function ctxFor(stage) {
-    if (stage === 'roads' || stage === 'ramparts') return gU;
+    if (isRoadStage(stage)) return gR;
+    if (stage === 'ramparts') return gU;
     if (!scaff[stage]) return gC;
     return SCAFF_LATE[stage] ? gB : gA;
   }
@@ -540,7 +678,8 @@ function animPlayerHtml(plan) {
   }
   function clearCells() {
     gA.clearRect(0, 0, W, W); gB.clearRect(0, 0, W, W);
-    gU.clearRect(0, 0, W, W); gC.clearRect(0, 0, W, W);
+    gU.clearRect(0, 0, W, W); gR.clearRect(0, 0, W, W);
+    gC.clearRect(0, 0, W, W);
   }
   /** the thinking layers recede as the real base lands on top of them */
   function applyFades(i) {
@@ -557,8 +696,17 @@ function animPlayerHtml(plan) {
     idx = to; acc = 0; holdUntil = 0; pauseUntil = 0;
     cursor = to > 0 ? tileOf(plc[to - 1]) : null;
     applyFades(idx);
+    if (!plc.length) return;   // no steps: nothing to title, nothing to count
     curStage = steps[plc[Math.min(idx, plc.length - 1)].s].stage;
-    showTitle(curStage);
+    // THE END OF THE FILM IS A PLACE YOU CAN ARRIVE AT TWO WAYS.
+    //
+    // showTitle('__done') used to fire only from the play loop, at the moment
+    // idx crossed plc.length. Drag the scrubber to the end, or press
+    // "next stage" on the last stage, and you landed on the identical final
+    // frame with "LAYER 6 — EXTENSIONS" over it — the card claiming the film
+    // was still mid-extension while the finished plan sat underneath. The
+    // completion card belongs to the STATE, not to the route taken to it.
+    showTitle(idx >= plc.length ? '__done' : curStage);
     drawMarks();
     hud();
   }
@@ -798,6 +946,54 @@ measured miss the planner chose to publish rather than paper over.</p>
 ${items}</div>`;
 }
 
+/**
+ * PLANNER NOTES — THE CHANNEL THE GALLERY WAS THROWING AWAY.
+ *
+ * `meta.notes` is the planner's observation channel: layers write into it when
+ * they have measured something about the room that a reader needs in order to
+ * judge the plan, but which excuses nothing. 79 of the 159 rooms carry at least
+ * one. Not one of them was rendered anywhere. E8S5's page printed "Declared
+ * shortfalls · 3" and said nothing at all about its own
+ * "SEALED INTERIOR FLOOR: 2 tile(s) ... (24,35 24,36)" note — the strings
+ * SEALED, 24,35 and 24,36 appeared zero times in E8S5.html, and neither SEALED
+ * nor SHALLOW EXTENSIONS appeared anywhere in the index. validate.mjs read
+ * meta.notes and printed them; the gallery, which is the artifact anyone
+ * actually opens, did not. "Every shortfall must be loud and explained" is not
+ * a claim a page can make while dropping half of what the planner said.
+ *
+ * WHY THIS IS A SEPARATE CARD AND NOT MORE ROWS IN THE SHORTFALL CARD. The two
+ * channels mean opposite things to a reviewer, and the validator treats them as
+ * opposites: a SHORTFALL is a declaration that turns a would-be FAIL into a
+ * pass, and a NOTE excuses nothing and is printed regardless. Merging them
+ * would let a note read as an excuse, which is precisely the laundering the
+ * declaration channel exists to make visible. Different card, different colour,
+ * different lead paragraph, and each says in words which of the two it is.
+ *
+ * Notes are pre-composed prose from the layers, so they are escaped and printed
+ * verbatim; the gallery does not get to summarise a measurement it did not make.
+ */
+function notesHtml(plan) {
+  const list = (plan.meta?.notes || []).filter((n) => typeof n === "string" && n.length);
+  if (!list.length) {
+    return `<div class="card nt-card"><h3>Planner notes</h3>
+<p class="nt-none">No notes — no layer had an observation to record about this room.</p></div>`;
+  }
+  const items = list
+    .map((n) => {
+      // layers write "TOPIC: sentence." — split the shouted topic into its own
+      // line when there is one, and leave the note alone when there is not
+      const m = /^([A-Z][A-Z0-9 \-/]{3,60}):\s*([\s\S]+)$/.exec(n);
+      const topic = m ? `<div class="nt-topic">${esc(m[1])}</div>` : "";
+      return `<div class="nt-item">${topic}<div class="nt-detail">${esc(m ? m[2] : n)}</div></div>`;
+    })
+    .join("\n");
+  return `<div class="card nt-card"><h3>Planner notes · ${list.length}</h3>
+<p class="nt-lead">Observations the layers recorded about this room. <b>A note is not a shortfall.</b> It excuses
+nothing and it is not attached to a gate — nothing above passes because of anything below. These are measurements the
+planner thought a reader would need in order to judge the plan, printed whether or not the room met every gate.</p>
+${items}</div>`;
+}
+
 /** the defender-mobility row: as-built gated lap first, shell reading demoted */
 /**
  * "ROADS TO THE RAMPARTS, NEVER ON THEM" — AND THE TWO PLACES IT IS NOT TRUE.
@@ -908,6 +1104,17 @@ td,th{border:1px solid #333;padding:6px 10px}
 .sf-gate{color:#ffb454;font-size:12px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px}
 .sf-detail{color:#dcdcdc;font-size:13px;line-height:1.55}
 .sf-tiles{margin-top:6px;color:#9ab;font-size:12px;font-variant-numeric:tabular-nums}
+/* NOTES ARE NOT SHORTFALLS — the palette says so before the words do. Orange
+   left rail and orange headings are the declaration channel; notes get a cool
+   blue rail so the eye never reads one as the other from across the page. */
+.nt-card{margin-top:16px;max-width:1100px}
+.nt-card h3{color:#79c0ff}
+.nt-lead{margin:0 0 12px;color:#9ab;font-size:12.5px;line-height:1.5}
+.nt-lead b{color:#cfe6ff}
+.nt-none{margin:0;color:#7f96a3;font-size:13px}
+.nt-item{border-left:3px solid #2b6a86;background:#101820;border-radius:0 6px 6px 0;padding:9px 12px;margin-top:10px}
+.nt-topic{color:#79c0ff;font-size:12px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px}
+.nt-detail{color:#dcdcdc;font-size:13px;line-height:1.55}
 .mob-main{font-size:16px;font-weight:700;color:#6f6;font-variant-numeric:tabular-nums}
 .mob-main.mob-over{color:#ff6b6b}
 .mob-lab{color:#9ab;font-size:12px}
@@ -948,6 +1155,7 @@ ${legendHtml()}
 <tr><td>ext corridors</td><td>${plan.meta?.extensions ? plan.meta.extensions.stubRoads + " stub roads" : "—"}</td><td>extensions grow flanking the road network — ${plan.meta?.extensions?.corridorFallback ? plan.meta.extensions.corridorFallback + " placed road-blind (fallback)" : "every one of them D4 on a road"}</td></tr>
 </table>
 ${shortfallsHtml(plan)}
+${notesHtml(plan)}
 <p>seed (${plan.seed?.x},${plan.seed?.y}) → hub (${plan.hub.x},${plan.hub.y}) · core ${plan.meta?.coreSize} · storage D4 <b>${plan.meta?.storageAccessD4}</b> · pCtrl ${plan.meta?.pathController} · pSrc ${plan.meta?.pathSourcesSum}</p>
 <p><a href="index.html">← gallery</a></p>
 </body></html>`;
@@ -1033,38 +1241,82 @@ h1{margin-bottom:4px} .sub{color:#889;max-width:1100px;line-height:1.55}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:18px;margin-top:18px}
 .card{background:#101010;border:1px solid #222;border-radius:10px;padding:12px}
 .card h3{margin:0 0 8px;font-size:14px}
-.card svg{width:100%;height:auto;image-rendering:auto;background:#0a0a0a;border-radius:6px}
+.card img.thumb{display:block;width:100%;height:auto;image-rendering:auto;background:#0a0a0a;border-radius:6px}
 a{color:#6af} .tag{color:#6f6;font-size:12px;margin-left:8px}
 .mob{font-size:11px;margin-left:8px;border-radius:999px;padding:2px 8px;white-space:nowrap;
   background:#12220f;color:#8fd48f;border:1px solid #2f5c33}
 .mob.over{background:#3a1414;color:#ff8b8b;border-color:#7d2626}
+.mob i{font-style:normal;opacity:.72;font-weight:400}
+.mob b{font-variant-numeric:tabular-nums}
+/* the shell's ungated record is a DIFFERENT measure, so it is a different chip
+   in a different colour — see the badge comment below */
+.mobs{font-size:11px;margin-left:6px;border-radius:999px;padding:2px 8px;white-space:nowrap;
+  background:#141a22;color:#8fb4d4;border:1px solid #2b4a5c}
 .sfc{font-size:11px;margin-left:6px;color:#ffb454}
+.ntc{font-size:11px;margin-left:6px;color:#79c0ff}
 .watch{margin-left:8px;font-size:11px;color:#8cf;text-decoration:none;background:#12303f;border:1px solid #2b6a86;border-radius:999px;padding:2px 8px}
 .watch:hover{background:#17415a;color:#bfe6ff}
 </style></head><body>
 <h1>Plan v2 · Layer 1 — Hub</h1>
 <p class="sub">
 <b>Grow from the room</b>: eco anchors flood distance fields → confluence seed → grow core → claim hub tiles.<br/>
-Only hub layer: storage + terminal + 1 link + 3 spawns + need-based roads. Real Screeps SVGs.
+Only hub layer: storage + terminal + 1 link + 3 spawns + need-based roads.<br/>
+Cards below are lazy-loaded flat-colour thumbnails (key underneath); the real Screeps sprites, the animation and the
+declared shortfalls and notes are on each room's own page — click the thumbnail or the room name.
 </p>
 ${legendHtml()}
+${thumbLegendHtml()}
 <div class="grid">`;
+  // THUMBNAILS ON DISK, LAZY-LOADED. The index used to inline
+  // renderRoomSvg(p, 10) — a ~1MB sprite-heavy SVG — once per room, and came
+  // to 159,056,753 bytes: 13.8s of transfer and 17.2s to domComplete on
+  // localhost, with 24 of the 159 cards still missing at the 10-second mark.
+  // renderThumbSvg writes a ~30KB resource-free SVG per room (the WHY, and the
+  // three approaches rejected on the way there, are in render.mjs); the index
+  // references it with loading=lazy, so the browser fetches only the cards the
+  // reader has scrolled to. Every room still has a card and every card still
+  // links to its full-sprite room page.
+  const thumbDir = path.join(OUT_V2, "thumbs");
+  fs.mkdirSync(thumbDir, { recursive: true });
   for (const p of ok) {
-    const full = renderRoomSvg(p, 10);
+    fs.writeFileSync(path.join(thumbDir, `${p.room}.svg`), renderThumbSvg(p, 8));
     const sh = p.shell ? `cut ${p.shell.cut.length} · deep ${p.shell.deepTiles}` : "no shell";
     const lb = p.structures.lab?.length ? `${p.structures.lab.length} labs` : "NO LABS";
-    // as-built GATED lap — the same number the room page headlines, marked when over
+    // ------------------------------------------------------------------
+    // TWO NUMBERS, TWO CHIPS, EACH SAYING WHICH ONE IT IS.
+    //
+    // The badge read "mob 0" for E12S7 while that room's own page printed 1.5.
+    // Both are true and they are not the same quantity: 0 is the AS-BUILT
+    // GATED lap (extension mass in the room, and only pairs whose absolute
+    // detour clears the 4-tile floor are judged — E12S7 has one candidate pair
+    // and it is below the floor, so nothing is judged and the lap is 0), while
+    // 1.5 is the shell's UNGATED record, measured on the bare cut with no mass
+    // and no floor. Printed as a bare "mob" they looked like one number
+    // disagreeing with itself. No two published numbers about the same room
+    // may look like the same quantity while disagreeing — so both are here,
+    // both are named, and the verdict chip is the one the target applies to.
+    // ------------------------------------------------------------------
     const bg = builtGated(p);
     const mob =
       bg === null
         ? ""
-        : `<span class="mob${mobilityOver(p) ? " over" : ""}" title="as-built gated defender lap (target ${MOBILITY_TARGET}, ${MOBILITY_DETOUR_FLOOR}-tile detour floor)">mob ${bg}${mobilityOver(p) ? " over" : ""}</span>`;
+        : `<span class="mob${mobilityOver(p) ? " over" : ""}" title="as-built gated defender lap — interior walk ÷ exterior walk with the extension mass in place, judged only over pairs whose absolute detour exceeds ${MOBILITY_DETOUR_FLOOR} tiles (target ${MOBILITY_TARGET}). This is the reading the gate is applied to.">as-built gated lap <b>${bg}</b>${mobilityOver(p) ? ` <i>over ${MOBILITY_TARGET}</i>` : ""}</span>`;
+    const shellMob = p.shell
+      ? `<span class="mobs" title="the shell's own ungated record: same ratio measured on the bare cut, no extension mass and no detour floor. Not gated, not compared to the target — it is the raw worst pair.">shell ungated <b>${p.shell.mobility.max}</b></span>`
+      : "";
     const nsf = (p.meta.shortfalls || []).length;
-    const sfc = nsf ? `<span class="sfc" title="declared shortfalls">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
+    const sfc = nsf ? `<span class="sfc" title="declared shortfalls — gates this plan knowingly failed">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
+    // A NOTE IS DISCOVERABLE FROM THE INDEX OR IT MIGHT AS WELL NOT EXIST.
+    // 79 rooms carry one and nothing on this page said so, so a reviewer
+    // scanning the index had no way to find the room that had something to
+    // say. Deliberately a different colour and a different word from the
+    // shortfall count: they are different channels (see notesHtml).
+    const nnt = (p.meta.notes || []).length;
+    const ntc = nnt ? `<span class="ntc" title="planner notes — observations, not declarations; they excuse nothing">${nnt} note${nnt > 1 ? "s" : ""}</span>` : "";
     index += `<div class="card"><h3><a href="${p.room}.html">${p.room}</a>
 <a class="watch" href="${p.room}.html#anim" title="watch the planner build ${p.room} step by step">&#9654; watch</a>
-<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span>${mob}${sfc}</h3>
-${full}</div>`;
+<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span>${mob}${shellMob}${sfc}${ntc}</h3>
+<a href="${p.room}.html"><img class="thumb" loading="lazy" decoding="async" width="400" height="400" src="thumbs/${p.room}.svg" alt="${p.room} plan thumbnail"/></a></div>`;
   }
   index += `</div></body></html>`;
   fs.writeFileSync(path.join(OUT_V2, "index.html"), index);

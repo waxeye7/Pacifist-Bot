@@ -820,8 +820,20 @@ export function mobilityStats(cut, extMask, walkMask) {
  *               This one the negotiation CAN sometimes beat, by buying a
  *               different cut.
  */
-function mobilityCause(terrain, cut, extMask, worst) {
-  if (!worst) return "none";
+/**
+ * The cause, AND the two walks it was diagnosed from.
+ *
+ * This used to return a bare label, and the declaration it feeds then
+ * described those walks in words — "the same walk is short" — because the
+ * numbers were not in scope. That was the single unquantified quantity in an
+ * otherwise fully numeric declaration family, and in E18S0 it was also
+ * misleading: the wall-free walk there is 15 against the attacker's 10, which
+ * is a 5-tile detour at a ratio of 1.5 — over the room's own 4-tile floor and
+ * over the 1.2 target. "Short" is not a description of that. So both walks
+ * come back with the label and the prose quotes them.
+ */
+function mobilityCauseDetail(terrain, cut, extMask, worst) {
+  if (!worst) return { cause: "none", dStruct: null, dFree: null };
   const { a, b, din, dout } = worst;
   const noStructMask = new Uint8Array(2500);
   const noWallMask = new Uint8Array(2500);
@@ -838,10 +850,18 @@ function mobilityCause(terrain, cut, extMask, worst) {
     noWallMask[idx(c.x, c.y)] = 1;
   }
   const dStruct = arriveAt(bfsField(noStructMask, a), b);
-  if (dStruct <= MOBILITY_TARGET * dout || dStruct * 1.15 <= din) return "structures";
   const dFree = arriveAt(bfsField(noWallMask, a), b);
-  if (dFree <= MOBILITY_TARGET * dout || dFree * 1.15 <= dStruct) return "terrain";
-  return "shape";
+  if (dStruct <= MOBILITY_TARGET * dout || dStruct * 1.15 <= din) {
+    return { cause: "structures", dStruct, dFree, din, dout };
+  }
+  if (dFree <= MOBILITY_TARGET * dout || dFree * 1.15 <= dStruct) {
+    return { cause: "terrain", dStruct, dFree, din, dout };
+  }
+  return { cause: "shape", dStruct, dFree, din, dout };
+}
+/** the label alone, for the callers that only colour a report with it */
+function mobilityCause(terrain, cut, extMask, worst) {
+  return mobilityCauseDetail(terrain, cut, extMask, worst).cause;
 }
 
 /**
@@ -870,16 +890,34 @@ export const BUILT_OBSTACLES = [
   "terminal",
   "nuker",
 ];
+/**
+ * THE FINISHED BASE'S LAP — measured on the wall the room ships.
+ *
+ * This used to flood against `plan.exterior` (layer 2's, taken before a single
+ * bubble existed) and walk with the bare cut. Both are stale by the time the
+ * pipeline calls this, for the reasons spelled out over shippedFlood() in
+ * layer-walls: layers 3-6 add ramparts, layer 7 deletes cut tiles and adopts
+ * bubbles. E11S10 reported `maxGated: 0, cause: "none"` here while its shipped
+ * wall laps 1.71 with a 12-tile detour, and the room declared nothing.
+ *
+ * Layer 7 leaves the shipped flood on the plan as `plan.shippedExterior`, and
+ * the walk goes over the whole rampart list — a bubble is a tile the garrison
+ * may stand on exactly like a cut tile. The fallback to plan.exterior is for
+ * the shell-only callers that run before layer 7 exists.
+ */
 export function builtMobility(terrain, plan) {
-  if (!plan.shell || !plan.exterior) return null;
+  if (!plan.shell || !(plan.shippedExterior || plan.exterior)) return null;
   const cut = plan.shell.cut;
-  const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
+  const ext = plan.shippedExterior || plan.exterior;
+  const wallSet = plan.shippedExterior
+    ? new Set((plan.structures.rampart || []).map((r) => key(r.x, r.y)))
+    : new Set(cut.map((c) => key(c.x, c.y)));
   const blocked = new Set(plan.objectTiles || []);
   for (const t of BUILT_OBSTACLES) {
     for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
   }
-  const walk = interiorWalk(terrain, cutSet, plan.exterior, blocked, plan.sitter);
-  const stats = mobilityStats(cut, plan.exterior, maskFromKeys(walk));
+  const walk = interiorWalk(terrain, wallSet, ext, blocked, plan.sitter);
+  const stats = mobilityStats(cut, ext, maskFromKeys(walk));
   return {
     max: stats.max,
     p90: stats.p90,
@@ -893,7 +931,7 @@ export function builtMobility(terrain, plan) {
     walled: cut.length - cut.filter((c) => walk.has(key(c.x, c.y))).length,
     cause:
       stats.maxGated > MOBILITY_TARGET
-        ? mobilityCause(terrain, cut, plan.exterior, stats.worstGated)
+        ? mobilityCause(terrain, cut, ext, stats.worstGated)
         : "none",
   };
 }
@@ -1753,10 +1791,14 @@ export function planShell(terrain, plan, opts = {}) {
   const walkMaskFinal = maskFromKeys(walkFinal);
   const mobility = mobilityStats(cut, extF, walkMaskFinal);
   mobility.target = MOBILITY_TARGET;
-  mobility.cause =
+  const causeDetail =
     mobility.maxGated > MOBILITY_TARGET
-      ? mobilityCause(terrain, cut, extF, mobility.worstGated)
-      : "none";
+      ? mobilityCauseDetail(terrain, cut, extF, mobility.worstGated)
+      : { cause: "none", dStruct: null, dFree: null };
+  mobility.cause = causeDetail.cause;
+  // the two counterfactual walks the label was read off, kept so the
+  // declaration can quote them instead of calling one of them "short"
+  mobility.causeWalks = { noStructures: causeDetail.dStruct, noWalls: causeDetail.dFree };
   // The floor we PROVED: the best ratio any affordable enclosure of this hub
   // measured. It is taken BEFORE the eco lobes are bid for, so in a room too
   // short of interior to refuse a lobe (see guardIsFree) the shipped number can
@@ -1787,18 +1829,47 @@ export function planShell(terrain, plan, opts = {}) {
     // structures removed and then with interior walls removed — and the verdict
     // on alternatives is left to the layer that actually composed them.
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // THE COUNTERFACTUAL WALKS ARE QUOTED, NOT CHARACTERISED.
+    //
+    // Two of these three strings used to say "the same walk is short". It is
+    // the only unquantified quantity in a declaration family that otherwise
+    // prints every number it is made of, and in E18S0 it was wrong: the
+    // wall-free walk there is 15 against the attacker's 10 — a 5-tile detour
+    // at ratio 1.5, over the room's own 4-tile floor AND over the 1.2 target.
+    // "Short" described a walk that still misses the gate. The numbers are
+    // now printed, and the sentence says which side of the gate each one
+    // lands on rather than implying it.
+    // ------------------------------------------------------------------
+    const cw = mobility.causeWalks || {};
+    const verdictOf = (d) => {
+      if (!isFinite(d) || d === null) return "does not connect at all";
+      const detour = d - dout;
+      const ratio = round2(d / dout);
+      return detour <= MOBILITY_DETOUR_FLOOR
+        ? `${d} against the attacker's ${dout} — a ${detour}-tile detour, inside the ` +
+          `${MOBILITY_DETOUR_FLOOR}-tile floor, so it CLEARS the gate`
+        : ratio <= MOBILITY_TARGET
+          ? `${d} against the attacker's ${dout} — ratio ${ratio}, inside the ${MOBILITY_TARGET} ` +
+            `target, so it CLEARS the gate`
+          : `${d} against the attacker's ${dout} — a ${detour}-tile detour at ratio ${ratio}, ` +
+            `which is STILL OVER the ${MOBILITY_TARGET} target`;
+    };
     const why = {
       terrain:
         `a natural wall inside the enclosure forces the detour — with interior walls ignored the same ` +
-        `walk is short, so the length is the basin's shape and not the mass inside it; the room is a ` +
+        `walk is ${verdictOf(cw.noWalls)}. The length is therefore the basin's shape and not the mass ` +
+        `inside it (with structures removed alone it is ${verdictOf(cw.noStructures)}); the room is a ` +
         `ring around a mountain`,
       shape:
         `the enclosure is concave here and the attacker is cutting across a bay the defender must walk ` +
-        `around — with structures removed AND with interior walls removed the walk stays long, so it is ` +
-        `the outline of this cut, not its contents`,
+        `around — with structures removed the walk is ${verdictOf(cw.noStructures)} and with interior ` +
+        `walls removed as well it is ${verdictOf(cw.noWalls)}, so it is the outline of this cut, not ` +
+        `its contents`,
       structures:
-        `the planner's own mass is in the way — the same walk is short with structures removed. The ` +
-        `shell does not own the extension/road layers, so this one is a lead for them, not a shell miss`,
+        `the planner's own mass is in the way — with structures removed the same walk is ` +
+        `${verdictOf(cw.noStructures)}. The shell does not own the extension/road layers, so this one ` +
+        `is a lead for them, not a shell miss`,
     }[mobility.cause];
     shortfalls.push({
       gate: "mobility",

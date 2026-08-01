@@ -1175,17 +1175,33 @@ function ctrlParksDetail(controller, ctrl) {
 }
 
 /**
- * Controller CONTAINER — the pre-RCL7 upgrader bin.
+ * Controller CONTAINER — the pre-controller-link upgrader bin.
  *
- * Before RCL7 there is no controller link (links are RCL5+ but the third
- * link only lands at 7 in this bot's order), so without a container the
- * upgraders walk to storage every single trip: the whole upgrade fleet
- * spends most of its life in transit. v1 got one for free because it pathed
- * storage->controller and dropped a container on the last tile; v2 planned
- * only the link, which left Structures.controllerLink/bin unset forever.
+ * Until the controller link exists there is no way to feed the upgraders in
+ * place, so without a container they walk to storage every single trip and
+ * the whole upgrade fleet spends most of its life in transit. v1 got one for
+ * free because it pathed storage->controller and dropped a container on the
+ * last tile; v2 planned only the link, which left
+ * Structures.controllerLink/bin unset forever.
+ *
+ * WHEN THE CONTROLLER LINK ACTUALLY LANDS, and this paragraph used to be
+ * wrong about it. It said "the third link only lands at 7 in this bot's
+ * order", which was wrong twice over. CONTROLLER_STRUCTURES.link is
+ * {5:2, 6:3, 7:4, 8:6}, so the THIRD link lands at RCL6, not 7 — and the
+ * live bot's packPlanPayload was at the time re-ordering the array to
+ * [hub, ctrl, src...], which put the controller link SECOND and therefore at
+ * RCL5. The justification here was reasoning from an order the consumer did
+ * not implement, about a cap the engine does not have.
+ *
+ * The consumer now ships [hub, src1, ctrl, src2] (src/utils/PlanV2.ts), for
+ * the reason that at RCL5 a controller link has nothing feeding it — the hub
+ * link is fed BY the source links, so a source link has to exist first. That
+ * puts the controller link third, at RCL6. This container therefore covers
+ * RCL2 through RCL5, which is still four levels of the upgrade fleet's life
+ * and still the difference between upgrading and commuting.
  *
  * The tile: walkable, chebyshev <= 3 of the controller (upgraders reach the
- * controller from it), D8-adjacent to the controller link (so at RCL7+ the
+ * controller from it), D8-adjacent to the controller link (so from RCL6 the
  * link tops the same seat up), off the plan's structures. Range EXACTLY 3
  * is strongly preferred — the bot's own discovery (creepFunctions filler /
  * ControllerLinkFiller) looks for a container at range 3 pre-RCL7, so a
