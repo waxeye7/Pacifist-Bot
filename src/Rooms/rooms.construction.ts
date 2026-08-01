@@ -408,6 +408,82 @@ function rampartPerimeter(tile) {
 
 
 
+/**
+ * Where the legacy (non-planV2) bot thinks this room's spawn goes.
+ * Colonisation target first, then the dynamic base plan. Null = we do not know,
+ * which is worth a log line rather than silence.
+ */
+function legacySpawnTile(room): {x: number, y: number} | null {
+    const tc: any = Memory.target_colonise;
+    if (tc && tc.room == room.name && tc.spawn_pos &&
+        typeof tc.spawn_pos.x == 'number' && typeof tc.spawn_pos.y == 'number' &&
+        tc.spawn_pos.x >= 1 && tc.spawn_pos.x <= 48 &&
+        tc.spawn_pos.y >= 1 && tc.spawn_pos.y <= 48) {
+        return { x: tc.spawn_pos.x, y: tc.spawn_pos.y };
+    }
+    const bp: any = room.memory.basePlan;
+    const planned = bp && bp.structures && bp.structures[STRUCTURE_SPAWN];
+    if (planned && planned.length) return { x: planned[0].x, y: planned[0].y };
+    return null;
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * SPAWN FIRST — the legacy half of the rule in utils/PlanV2 spawnFirstLockdown.
+ *
+ * A room with no spawn standing may hold exactly one kind of construction site:
+ * a spawn. The legacy paths had the identical hole the plan path did, in two
+ * places, and between them they meant a spawnless room could build extensions
+ * for as long as it liked and never site a spawn at all:
+ *
+ *   · placeFromBasePlan (utils/BasePlan) orders STORAGE, CONTAINER, EXTENSION,
+ *     TOWER, SPAWN and then gates the spawn with `rcl < 7 -> continue`
+ *     ("extra spawns only"). So for a spawnless RCL1-3 room it happily sites
+ *     containers and extensions and NEVER a spawn. This is where E15S6's four
+ *     stray extension sites came from (35,22 / 35,24 / 35,26 / 36,27 — not one
+ *     of them on the v2 plan the room later adopted).
+ *
+ *   · the one block that DID site a spawn (the target_colonise block further
+ *     down) is gated on `controller.level == 1`. A fresh claim is upgraded to
+ *     RCL2 by its own colonisation builder within a few hundred ticks, and from
+ *     that moment the legacy bot has no spawn-site path whatsoever.
+ *
+ * Keyed on "no spawn structure", not on RCL: a room that loses its last spawn
+ * at RCL7 is in exactly the same position as a fresh claim, and the same answer
+ * is the right one.
+ * ---------------------------------------------------------------------------
+ */
+function ensureSpawnFirst(room): void {
+    let spawnSites = 0;
+    let removed = 0;
+    for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (site.structureType == STRUCTURE_SPAWN) { spawnSites++; continue; }
+        site.remove();
+        removed++;
+    }
+    if (removed) {
+        console.log(`${room.name}: SPAWN FIRST — removed ${removed} non-spawn construction site(s); ` +
+            `a room with no spawn standing builds nothing else`);
+    }
+    if (spawnSites) return;
+
+    // The dynamic planner may still have to run once so we know WHERE the spawn
+    // goes — but nothing is placed from it beyond that one tile.
+    if (!room.memory.basePlan) getBasePlan(room);
+    const tile = legacySpawnTile(room);
+    if (!tile) {
+        if (Game.time % 100 < 5) {
+            console.log(`${room.name}: SPAWN FIRST — no spawn position known ` +
+                `(no target_colonise entry, no basePlan spawn slot)`);
+        }
+        return;
+    }
+    const res = room.createConstructionSite(tile.x, tile.y, STRUCTURE_SPAWN);
+    if (res !== OK && res !== ERR_FULL) {
+        console.log(`${room.name}: SPAWN FIRST — spawn site ${tile.x},${tile.y} err ${res}`);
+    }
+}
+
 function construction(room) {
     console.log(`Construction function called for room ${room.name}`);
 
@@ -420,6 +496,16 @@ function construction(room) {
     // basePlan and perimeter logic must never touch them
     if (room.memory.planV2) {
         placeFromPlanV2(room);
+        return;
+    }
+
+    // SPAWN FIRST — legacy rooms. See ensureSpawnFirst. Nothing below this
+    // point may run for a room that has no spawn: every placer down there
+    // (placeFromBasePlan, the checkerboard extensions, the hub container, the
+    // road pathBuilders) sites something that is not a spawn, and several of
+    // them dereference the room's spawn and would throw anyway.
+    if (room.controller && room.controller.my && room.find(FIND_MY_SPAWNS).length == 0) {
+        ensureSpawnFirst(room);
         return;
     }
 

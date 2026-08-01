@@ -45,6 +45,64 @@ const unpack = (p: number) => ({ x: p % 50, y: Math.floor(p / 50) });
 
 /**
  * ---------------------------------------------------------------------------
+ * SPAWN FIRST — the rule for a room with no spawn standing.
+ *
+ * A freshly claimed room is not a base, it is a controller and a promise. Until
+ * a spawn is FINISHED the room cannot make a single creep of its own, so every
+ * tick of borrowed builder time and every one of the four construction-site
+ * slots that goes anywhere else is time the colony spends unable to exist.
+ *
+ * LIVE PROOF — E15S6 (pacifist2, tick 72220, RCL2, zero spawns):
+ *   spawn site   36,24   1135/15000        <- the only thing that mattered
+ *   extension    40,23   BUILT             <- plan extension[8], finished first
+ *   ext sites    35,22 / 35,24 / 35,26 / 36,27   (none of them on the v2 plan)
+ * one ContainerBuilder in the room, picking its target with findClosestByRange.
+ *
+ * Two independent holes fed that, and both are closed here and in the callers:
+ *
+ *   1. placeFromPlanV2 skips a type once `existing >= cap`, and `existing`
+ *      counts CONSTRUCTION SITES as well as built structures (see the `note()`
+ *      loop over `sites`). So on the very tick after the spawn SITE is placed,
+ *      spawn reads 1/1 = at cap, the loop falls straight through to
+ *      container/extension, and the moment RCL2 unlocks 5 extensions the other
+ *      three site slots fill with extensions the room has no spawn to fill and
+ *      no reason to own. The spawn site is then just one of four things a
+ *      builder might pick.
+ *
+ *   2. the room reaches RCL2 with no spawn at all, because the colonisation
+ *      builder unconditionally upgrades the controller at RCL1
+ *      (Roles/buildcontainer) — so hole 1 is not a corner case, it is the
+ *      normal path of every new claim.
+ *
+ * The rule is absolute and cheap: NO SPAWN STANDING -> the only construction
+ * site the room may hold is a spawn. Anything else already sited is REMOVED,
+ * which costs at most a few hundred ticks of misplaced build progress and buys
+ * back both the site budget and every builder's attention.
+ *
+ * Deliberately keyed on "no spawn STRUCTURE", not on RCL: a room that loses its
+ * last spawn at RCL7 is in exactly the same position as a fresh claim.
+ * ---------------------------------------------------------------------------
+ */
+export function spawnFirstLockdown(room: Room): boolean {
+  if (!room.controller || !room.controller.my) return false;
+  if (room.find(FIND_MY_SPAWNS).length) return false;
+  let removed = 0;
+  for (const site of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+    if (site.structureType === STRUCTURE_SPAWN) continue;
+    site.remove();
+    removed++;
+  }
+  if (removed) {
+    logAlways(
+      `${room.name}: SPAWN FIRST — removed ${removed} non-spawn construction site(s); ` +
+        `a room with no spawn standing builds nothing else`,
+    );
+  }
+  return true;
+}
+
+/**
+ * ---------------------------------------------------------------------------
  * SANCTIONED RAMPARTS — the only ramparts a repair role may ever nurse.
  *
  * Every repair role used to hunt ramparts with `find(FIND_MY_STRUCTURES,
@@ -1073,6 +1131,11 @@ export function placeFromPlanV2(room: Room): void {
   if (!plan || !room.controller || !room.controller.my) return;
   const lvl = room.controller.level;
 
+  // SPAWN FIRST (see spawnFirstLockdown). Runs before anything else in this
+  // function so the slots the stray sites were holding are handed straight back
+  // to the spawn on this same pass.
+  const spawnless = spawnFirstLockdown(room);
+
   const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
   const structures = room.find(FIND_STRUCTURES);
 
@@ -1089,7 +1152,15 @@ export function placeFromPlanV2(room: Room): void {
     auditRoadPrefix(room, plan, roads.slice(0, roadBudget(roads, lvl)));
   }
 
-  let budget = MAX_SITES - sites.length;
+  // ConstructionSite.remove() only lands at the end of the tick, so the sites
+  // the lockdown just removed are still in `sites` — do not let them hold the
+  // budget hostage for one more pass.
+  let liveSites = sites.length;
+  if (spawnless) {
+    liveSites = 0;
+    for (const s of sites) if (s.structureType === STRUCTURE_SPAWN) liveSites++;
+  }
+  let budget = MAX_SITES - liveSites;
   // existing structures + sites by type (containers/roads are unowned)
   const have: { [type: string]: { [packed: number]: boolean } } = {};
   const count: { [type: string]: number } = {};
@@ -1105,7 +1176,12 @@ export function placeFromPlanV2(room: Room): void {
   // was building for thousands of ticks — so gating it on a free site slot
   // means the rooms that need it most are exactly the rooms that never get it.
   // Demolition does not consume a site slot anyway.
-  runMigration(room, plan, lvl, structures, have);
+  //
+  // NOT while the room is spawnless: migration is a convergence tidy-up, and a
+  // room that cannot spawn has nothing to converge on. Every destroy() there
+  // only spends the one borrowed builder's time on a rebuild that is not the
+  // spawn.
+  if (!spawnless) runMigration(room, plan, lvl, structures, have);
 
   if (budget <= 0) return;
 
@@ -1113,6 +1189,12 @@ export function placeFromPlanV2(room: Room): void {
 
   for (const type of PLACE_ORDER) {
     if (budget <= 0) break;
+    // SPAWN FIRST: while no spawn is standing, no other type may take a slot —
+    // not the container/extension pair RCL2 unlocks, not anything. PLACE_ORDER
+    // opens with "spawn", so in practice this ends the loop after one type;
+    // it is written as a `continue` guard so a future reorder cannot reopen the
+    // hole silently.
+    if (spawnless && type !== "spawn") continue;
     const planned = plannedTilesFor(plan, type, lvl);
     if (!planned || !planned.length) continue;
     if (!typeAllowedAtRcl(type, lvl)) continue;

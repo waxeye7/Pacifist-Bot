@@ -7,10 +7,35 @@ import { isSanctionedRampart } from "utils/PlanV2";
  function findLocked(creep) {
 	let buildingsToBuild = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
 
+	// ------------------------------------------------------------------
+	// SPAWN FIRST — absolute, and ahead of every other rule in this function.
+	//
+	// A room with no spawn standing cannot make a creep, so nothing else in it
+	// is worth a build tick. The ordering below used to put EXTENSION second
+	// (before container, before the closest-site fallback), so in a spawnless
+	// room a builder would finish the extensions and leave the spawn site
+	// sitting — which is exactly what happened in E15S6.
+	//
+	// This also guards the RCL2 branch just below, which dereferences
+	// `spawn[0].pos` with no length check and throws outright in a spawnless
+	// RCL2 room (a fresh claim whose colonisation builder upgraded it to 2
+	// before the spawn was built — the normal case, not a corner one).
+	// ------------------------------------------------------------------
+	const mySpawns = creep.room.find(FIND_MY_SPAWNS);
+	if(buildingsToBuild.length > 0 && mySpawns.length == 0) {
+		const spawnSites = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_SPAWN;});
+		if(spawnSites.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🏗️", true);
+			spawnSites.sort((a,b) => b.progress - a.progress);
+			return spawnSites[0].id;
+		}
+	}
+
 	if(buildingsToBuild.length > 0) {
 		let buildings;
-		if(creep.room.controller.level == 2 ) {
-			let spawn = creep.room.find(FIND_MY_SPAWNS);
+		if(creep.room.controller.level == 2 && mySpawns.length > 0) {
+			let spawn = mySpawns;
 			buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_LINK || building.structureType == STRUCTURE_STORAGE || building.pos.x == spawn[0].pos.x && building.pos.y == spawn[0].pos.y -2;});
 		}
 		else {

@@ -47,6 +47,28 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     }
 
     let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);
+
+    // ------------------------------------------------------------------
+    // SPAWN FIRST. This creep exists for exactly one reason: to stand the new
+    // colony's spawn up. Until that spawn is FINISHED the room cannot make a
+    // creep, so nothing else in it is worth a single build tick.
+    //
+    // findClosestByRange over every site is what broke E15S6: the room sat at
+    // RCL2 with the spawn site at 1135/15000 while four extension sites (and
+    // one COMPLETED extension) surrounded it, and this creep simply built
+    // whichever happened to be nearest. Filter, do not sort — a spawn site
+    // must not merely outrank the extensions, it must be the only candidate.
+    // ------------------------------------------------------------------
+    const roomHasSpawn = creep.room.find(FIND_MY_SPAWNS).length > 0;
+    let buildTheSpawnFirst = false;
+    if(!roomHasSpawn) {
+        const spawnSites = targets.filter(s => s.structureType === STRUCTURE_SPAWN);
+        if(spawnSites.length) {
+            targets = spawnSites;
+            buildTheSpawnFirst = true;
+        }
+    }
+
     let closestTarget = creep.pos.findClosestByRange(targets);
     if(closestTarget && closestTarget.structureType === STRUCTURE_SPAWN && creep.pos.isEqualTo(closestTarget.pos)) {
         creep.move(TOP);creep.move(BOTTOM);creep.move(LEFT);creep.move(RIGHT);
@@ -63,10 +85,28 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     }
     if(creep.memory.building) {
         if(creep.room.controller && creep.room.controller.level !== 8) {
-            if(creep.pos.getRangeTo(creep.room.controller) <= 3) {
+            // opportunistic upgrade on the way past — but not while the spawn
+            // site is what we are here for: build() and upgradeController()
+            // compete for the same WORK action and the same carried energy.
+            if(!buildTheSpawnFirst && creep.pos.getRangeTo(creep.room.controller) <= 3) {
                 creep.upgradeController(creep.room.controller);
             }
-            if(!creep.room.controller.upgradeBlocked && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000)) {
+            // ----------------------------------------------------------
+            // The RCL1 clause below is UNCONDITIONAL — `level == 1` with no
+            // downgrade test — so in a fresh claim this creep walked to the
+            // controller and `return`ed every single tick, and never once
+            // touched the spawn site it was sent to build. The room therefore
+            // reached RCL2 with no spawn, which is what unlocked the five
+            // extensions that then out-competed the spawn for site slots and
+            // build ticks (see utils/PlanV2 spawnFirstLockdown).
+            //
+            // While a spawn site is standing unbuilt in a spawnless room, the
+            // spawn wins. Nothing is lost by waiting: RCL1 downgrades after
+            // CONTROLLER_DOWNGRADE[1] = 20000 ticks, and the spawn is 15000
+            // build energy — this creep will have finished it and the room
+            // will be upgrading itself long before that matters.
+            // ----------------------------------------------------------
+            if(!buildTheSpawnFirst && !creep.room.controller.upgradeBlocked && (creep.room.controller.level == 1 || creep.room.controller.level == 2 && creep.room.controller.ticksToDowngrade < 6000 || creep.room.controller.level == 3 && creep.room.controller.ticksToDowngrade < 9000 || creep.room.controller.level == 4 && creep.room.controller.ticksToDowngrade < 15000 || creep.room.controller.level == 5 && creep.room.controller.ticksToDowngrade < 16000 || creep.room.controller.level == 6 && creep.room.controller.ticksToDowngrade < 25000 || creep.room.controller.level == 7 && creep.room.controller.ticksToDowngrade < 34000 || creep.room.controller.level == 8 && creep.room.controller.ticksToDowngrade < 43000)) {
                 creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
                 return;
             }
