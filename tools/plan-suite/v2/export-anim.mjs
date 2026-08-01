@@ -55,7 +55,13 @@ const STAGE_RATES = {
   extractor: 0.4,
   roadsMisc: 1,
   roadsExt: 1.5,
+  // the shallow slots the fill takes before the relocation pass moves them —
+  // they are on screen for the whole extension mass, so they may skim
+  extGhost: 1.2,
   extensions: 1.2,
+  // same reason as roadsPrune below: the relocation is the other moment the
+  // plan takes something back, and 5 tiles vanishing at speed reads as a glitch
+  extMove: 0.5,
   // the prune is 12 tiles in a typical room and it is the one moment the plan
   // gets SMALLER — it has to be slow enough that the eye catches the deletion
   roadsPrune: 0.5,
@@ -86,7 +92,9 @@ const STAGE_SCAFFOLD = {
   extractor: false,
   roadsMisc: false,
   roadsExt: false,
+  extGhost: false,
   extensions: false,
+  extMove: false,
   roadsPrune: false,
   roadsLate: false,
   roadsResid: false,
@@ -530,6 +538,64 @@ export function buildAnim(room, terrain, plan) {
   // six, which is the difference between rounding and lying.
   emitRoads(sb, rp, 6);
 
+  // --- layer 6's relocation pass, drawn as MOVES ---------------------------
+  /**
+   * A MOVE THAT IS ONLY EVER SHOWN AT ITS DESTINATION IS NOT A MOVE.
+   *
+   * `meta.extensions.relocated` records every shallow slot layer 6's fill took
+   * and then vacated for a deep, road-faced tile: 78 moves across 25 rooms.
+   * The film painted every one of those extensions at its FINAL tile, first
+   * time, as if the pass had never run — E11S7 declares five moves (23,4->20,8
+   * · 17,21->19,21 · 11,5->17,9 · 11,10->16,9 · 12,14->13,12) and its own
+   * shortfall names that pass as the reason its lap went 11.5 -> 13.5, while
+   * the film showed no extension at any of the five origins at any frame. The
+   * one pass the room blames for its worst number was invisible in the record
+   * of what the room did.
+   *
+   * Same shape as the layer-7 road prune: the tile is PAINTED where the pass
+   * first put it (a ghost), and a later beat ERASES it. That keeps the last
+   * frame equal to the shipped plan while making the move legible, and it is
+   * the only rendering in which the origin tile is ever on screen.
+   *
+   * WHY THE GHOSTS GET THEIR OWN CANVAS (plan.mjs `animGhost`). The erase is a
+   * clearRect, and a clearRect takes whatever else is on that canvas with it —
+   * the same trap that gave the roads their own layer. Three origins are ROADS
+   * in the shipped plan (E12S6 24,3 · E18S5 5,35 · E2S3 36,21), and putting
+   * the ghosts on the structures canvas would also have let the erase reach an
+   * extension that later lands on the same tile.
+   *
+   * APPROXIMATION, DECLARED: the ghosts are emitted at the head of the mass
+   * rather than at the exact placement inside it, and the destinations are
+   * emitted with the rest of the mass rather than at the move. Both are
+   * contained inside layer 6's own pass — the same rounding the corridor split
+   * above declares, and the same reason: it does not move work between layers.
+   *
+   * TWO PASSES RELOCATE, AND BOTH ARE DRAWN. Layer 6 moves what it can see; the
+   * post-prune reflow (layer 7b, `meta.extensions.reflow.moved`) moves what only
+   * exists once the dead-end prune has handed the corridor back as floor, and it
+   * is now the bigger of the two — 48 moves in 16 rooms against layer 6's 80 in
+   * 25. Drawing one and not the other would put the same lie back, one layer
+   * later. Layer 7b's moves are tagged so the caption can say which pass moved
+   * the slot and, when the move bought a road face, that it paved one tile.
+   */
+  const relocated = [
+    ...(plan.meta?.extensions?.relocated || [])
+      .filter((r) => r && r.from && r.to)
+      .map((r) => ({ ...r, pass: 6 })),
+    ...(plan.meta?.extensions?.reflow?.moved || [])
+      .filter((r) => r && r.from && r.to)
+      .map((r) => ({ ...r, pass: 7 })),
+  ];
+  for (const r of relocated) {
+    sb.push(
+      "extGhost",
+      `shallow slot (${r.from.x},${r.from.y}) — the fill took this tile before the ` +
+        (r.pass === 7 ? "post-prune reflow" : "relocation pass") +
+        ` ran`,
+      sb.flat([r.from], "#ff8899"),
+    );
+  }
+
   if (plan.structures.extension?.length) {
     chunked(
       sb,
@@ -538,6 +604,32 @@ export function buildAnim(room, terrain, plan) {
       EXT_CHUNK,
       "#ffd24d",
       (a, b, n) => `extensions ${b}/${n} — fill the protected space`,
+    );
+  }
+
+  // ...and now the origins are vacated, one labelled move at a time. A room
+  // with relocatedCount 0 emits nothing here and never gets the stage (push
+  // ignores an empty cell list, and meta.stageOrder is built from the steps).
+  for (const r of relocated) {
+    const d = r.closer;
+    // layer 7b publishes the two depths instead of a hub-walk delta, because the
+    // whole point of its move is the depth: a slot at depth < 4 rents a personal
+    // rampart forever and a slot at depth >= 4 does not.
+    const trade =
+      r.pass === 7
+        ? `depth ${r.fromDepth} → ${r.toDepth}, retiring the personal rampart`
+        : d > 0
+          ? `${d} step${d === 1 ? "" : "s"} nearer the hub`
+          : d < 0
+            ? `${-d} step${d === -1 ? "" : "s"} farther out`
+            : "no change in hub walk";
+    sb.push(
+      "extMove",
+      `relocate (${r.from.x},${r.from.y}) → (${r.to.x},${r.to.y}) — onto deep floor, ${trade}` +
+        (r.tookStub ? ", lifting the stub road that was there" : "") +
+        (r.paved ? `, paving ${r.paved.x},${r.paved.y} to give it a road face` : "") +
+        (r.pass === 7 ? " [layer 7b, on floor the dead-end prune handed back]" : ""),
+      sb.flat([r.from], "#ff4444"),
     );
   }
 
@@ -600,10 +692,69 @@ function roomsFromGallery() {
     .map((p) => p.room);
 }
 
+/**
+ * FILMS OF ROOMS THAT ARE NOT IN THE WORLD ANY MORE.
+ *
+ * out-v2/anim held 203 films for a 172-room fleet: 31 of them (E11S0, E11S10,
+ * E12S0, E20S1..E20S9, E21S0, E21S10 and the rest) were left over from an
+ * earlier claimable list and nothing ever removed them. index.html links only
+ * the current fleet, so they were invisible from the gallery — and served from
+ * the gallery root, which is exactly how a reviewer ends up reading anim/E20S3
+ * as evidence about a plan this suite no longer produces.
+ *
+ * ONLY ON A FULL-FLEET RUN. Re-rendering one room with
+ * `export-anim.mjs E11S7` would otherwise delete the other 171 rooms' films,
+ * which is a far worse bug than the one being fixed; the caller has to have
+ * asked for the whole list (--all / --all-claimable) before anything is
+ * unlinked. The keep-set is the room list the run was ASKED for, not the rooms
+ * it managed to write, so a room whose terrain fetch failed this run keeps its
+ * film instead of being wiped by a mongo hiccup.
+ *
+ * AND THE FLEET FLAG IS NOT ENOUGH BY ITSELF, because --all does not read the
+ * world — it reads plans-hub.json, and any `plan.mjs --rooms E9S2` overwrites
+ * that file with a one-room array. That is not hypothetical: plans-hub.json was
+ * observed holding exactly one room (E9S2) between two runs of this suite while
+ * anim/ held 203 films. A --all run in that state believes the fleet is one
+ * room and would delete 202 films on the strength of a file somebody else was
+ * halfway through regenerating. So the keep-list also has to look like a fleet:
+ * if it does not cover at least half the room files already on disk, this
+ * refuses to delete anything and says why. A world that genuinely halves is a
+ * thing the owner will want to confirm by hand; the 31 orphans this exists for
+ * are 15% of the directory and clear the bar easily.
+ *
+ * The name pattern is a room name and nothing else — a file in this directory
+ * that is not <room>.json is not this function's business.
+ */
+const ROOM_FILE = /^([EW]\d+[NS]\d+)\.json$/;
+function pruneOrphanFilms(dir, rooms) {
+  if (!fs.existsSync(dir)) return;
+  const keep = new Set(rooms);
+  const onDisk = fs.readdirSync(dir).filter((f) => ROOM_FILE.test(f));
+  const orphans = onDisk.filter((f) => !keep.has(ROOM_FILE.exec(f)[1]));
+  if (!orphans.length) {
+    console.log(`anim/ carries no room outside this run's ${rooms.length}-room list — nothing to prune`);
+    return;
+  }
+  if (orphans.length * 2 > onDisk.length) {
+    console.log(
+      `REFUSING TO PRUNE: this run's room list (${rooms.length}) would orphan ${orphans.length} of the ` +
+        `${onDisk.length} films on disk. That is not a shrinking world, it is a stale or partial ` +
+        `plans-hub.json — re-run plan.mjs --all-claimable, then this. Nothing deleted.`,
+    );
+    return;
+  }
+  for (const f of orphans) fs.unlinkSync(path.join(dir, f));
+  console.log(
+    `pruned ${orphans.length} stale film(s) from anim/ — not in this run's ${rooms.length}-room list: ` +
+      orphans.map((f) => ROOM_FILE.exec(f)[1]).join(" "),
+  );
+}
+
 async function main() {
   const args = process.argv.slice(2);
   let rooms = args.filter((a) => !a.startsWith("--"));
-  if (args.includes("--all") || args.includes("--all-claimable")) rooms = roomsFromGallery();
+  const fullFleet = args.includes("--all") || args.includes("--all-claimable");
+  if (fullFleet) rooms = roomsFromGallery();
   if (!rooms.length) {
     console.error("usage: node tools/plan-suite/v2/export-anim.mjs <room> [room...] | --all");
     process.exit(1);
@@ -656,6 +807,7 @@ async function main() {
   const seen = new Set(data.map((d) => d.room));
   for (const r of rooms) if (!seen.has(r)) failed.push(`${r}: no terrain in mongo`);
   console.log(`\nanim written: ${ok}/${rooms.length} -> ${outDir}`);
+  if (fullFleet) pruneOrphanFilms(outDir, rooms);
   if (failed.length) console.log("skipped:", failed.join(" | "));
 }
 

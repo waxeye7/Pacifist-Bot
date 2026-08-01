@@ -84,6 +84,22 @@ export function planLabs(terrain, plan) {
   }
   occupied.add(key(plan.sitter.x, plan.sitter.y));
   for (const k of plan.objectTiles || []) occupied.add(k); // C1
+  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
+  // claimController/signController (both range 1) always have somewhere to
+  // stand and a creep can always get there. See the CLAIM SEAT block in
+  // layer-hub.
+  //
+  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
+  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
+  // and reserving a walkable tile there tells this layer the tile is a WALL.
+  // The first cut did exactly that and E15S5 paid for it — its tower moved off
+  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
+  // because the one tile the stitch wanted to pave was the reserved approach.
+  // A creep stands on the seat; a road may run over it; only a blocking
+  // STRUCTURE may not be placed on it.
+  const reserved = new Set();
+  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
+  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
   const hauls = fieldFrom(terrain, plan.sitter, occupied);
@@ -348,7 +364,13 @@ export function planLabs(terrain, plan) {
           const x = ax + dx,
             y = ay + dy;
           const k = key(x, y);
-          if (!buildable(terrain, x, y) || ext[idx(x, y)] || depth[idx(x, y)] < minDepth || occupied.has(k)) {
+          if (
+            !buildable(terrain, x, y) ||
+            ext[idx(x, y)] ||
+            depth[idx(x, y)] < minDepth ||
+            occupied.has(k) ||
+            reserved.has(k)
+          ) {
             ok = false;
             break;
           }

@@ -62,36 +62,37 @@ per room. Rise to the bar; do not lower it.
 - Interior connectivity invariant: interior walk region stays one component reaching
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
-  `plans-hub.json` over 2 consecutive `--all-claimable` runs of the shipped tree:
-  byte-identical, `6cc2a40b5c50dd0c…`. (An earlier 3-run set on the same code
-  modulo one declaration string likewise hashed identically to each other,
-  `98790d27…` — 5 runs, 2 hashes, one per code state.) `planMs` is deliberately
-  not serialised, or the hash would differ on every run for reasons that have
-  nothing to do with the planner.
-- **Runtime, re-measured 2026-08-01, and the earlier claim was measuring the wrong
-  thing.** Five consecutive full-fleet runs on this machine:
+  `plans-hub.json` over 2 consecutive `--all-claimable` runs of the shipped tree
+  on the 172-room world: byte-identical, `8b24fd42494f5904…`. `planMs` is
+  deliberately not serialised, or the hash would differ on every run for reasons
+  that have nothing to do with the planner.
+- **Runtime, re-measured 2026-08-02 on THIS world (172 rooms), because the
+  previous table described the retired 159-room one.** Four full-fleet runs:
 
-  | run | suite wall clock | in-planner total | planRoom p50 | p90 | max (E4S7) |
+  | run | suite wall clock | in-planner total | planRoom p50 | p90 | max |
   |---|---|---|---|---|---|
-  | 1 | 97.7s | 94.2s | 449.5ms | 1132.5ms | 4289.6ms |
-  | 2 | 96.2s | 92.5s | 473.5ms | 1138.5ms | 4356.9ms |
-  | 3 | 94.9s | 89.6s | 404.3ms | 1032.7ms | 4149.4ms |
-  | 4 | 96.1s | 92.9s | — | — | — |
-  | 5 | 93.1s | 89.7s | — | — | — |
+  | 1 | 134.9s | 123.5s | 588.8ms | 1215.9ms | 4209.7ms (E8S4) |
+  | 2 | 152.6s | 124.9s | 624.4ms | 1278.8ms | 4053.5ms (E8S4) |
+  | 3 | 144.1s | 112.6s | 552.9ms | 1120.9ms | 4022.8ms (E8S4) |
+  | 4 | 202.1s | 171.7s | 832.1ms | 1740.0ms | 7653.3ms (E1S8) |
 
-  **Spread 93.1–97.7s end to end; call it ~95s ± 2s, not "under 90s".** The old
-  sentence claimed "full 159-room suite under 90s" while the instrument behind it
-  summed `meta.planMs` — in-planner time only, excluding the mongo fetch, the SVG
-  render and 159 file writes of over a megabyte each. A reviewer with a stopwatch
-  measured 98s and was right; the two numbers were measuring different quantities
-  and only one of them was labelled. `plan.mjs` now prints BOTH, labelled, and the
-  end-to-end one says "quote this one when you mean the suite".
+  **In-planner 112.6–171.7s; end to end 134.9–202.1s.** Runs 3 and 4 are the
+  consecutive determinism pair and differ by 59s of wall clock for identical
+  output, so the spread is machine load and not planner variance — quote the
+  range, never a single figure. Per room that is 0.65–1.00s against the retired
+  world's 0.60s.
 
-  The per-room figures also drifted and are corrected here: p90 is ~1.1s, not the
-  ~660ms previously claimed, and the worst room is ~4.3s, not ~2.4s. Roughly 5s of
-  the current total is round 5's own additions (the seal reconciliation and the
-  weak-battery escalation, the latter deliberately confined to the ~17 rooms that
-  were going to declare).
+  The previous table's "93.1–97.7s … ~95s ± 2s", p90 ~1.1s and worst ~4.3s (E4S7)
+  were all measured on the 159-room world and are superseded. The end-to-end
+  figure grew for three reasons that are all deliberate: 13 more rooms, the
+  unconditional shell re-measure (layer 7 no longer skips it when the cut happens
+  not to have changed), and layer 7b, the post-prune extension reflow. The last of
+  those is what buys 60/60 in 172/172 and halves the fleet's shallow extensions,
+  and it costs roughly one exterior flood plus one walk region per candidate
+  tile examined.
+
+  The old "≤ ~200ms per room" budget stays retired for the same reason it was
+  retired before, restated below.
 
   The old "≤ ~200ms per room" budget stays retired deliberately: the planner
   composes up to 4 proof-carrying escalation rungs per room — each rung a full

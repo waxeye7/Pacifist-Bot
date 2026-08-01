@@ -90,6 +90,17 @@ function idx(x, y) {
 }
 
 /**
+ * Lexicographic compare of two equal-length numeric tuples. Used where a
+ * choice has several ranked tie-breaks and a single blended score would let a
+ * later key outvote an earlier one (the mistake the controller-link partition
+ * at claimControllerWorks documents). Returns <0 when a wins.
+ */
+function cmpTuple(a, b) {
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+  return 0;
+}
+
+/**
  * Basin = buildable tiles reachable from seed by walk distance, in BFS
  * order. This is the room-shaped pocket everything else grows inside.
  */
@@ -1612,6 +1623,118 @@ export function planHub(terrain, objects, opts = {}) {
     });
   }
 
+  // ------------------------------------------------------------------
+  // THE CLAIM SEAT: ONE TILE BESIDE THE CONTROLLER THAT IS NEVER OURS.
+  //
+  // `claimController` and `signController` are RANGE 1. Upgrading is range 3
+  // and survives almost anything, which is why this went unnoticed: nine rooms
+  // in the shipped fleet had every walkable range-1 tile of their own
+  // controller covered by one of our blocking structures, and a room that
+  // downgrades to unowned could never have been re-claimed without demolishing
+  // an extension first. E11S7's controller at 27,6 has exactly one walkable
+  // neighbour, 26,5, and we put an extension on it. E9S2's controller at 25,24
+  // had three, and we took all three — two extensions and, at 25,23, the
+  // OBSERVER, the one structure in the game whose position is irrelevant.
+  // E11S5 was the same story: its controller's single walkable neighbour, 7,12,
+  // held an observer. Forty-seven further rooms were down to a single seat by
+  // accident rather than by decision.
+  //
+  // Nothing measured this, so nothing defended it. The fix is a reservation
+  // rather than a repair: one range-1 tile is designated HERE, at layer 1,
+  // while the controller's ring is still empty, and every later layer folds it
+  // into the same `occupied` set it already folds `objectTiles` into. A repair
+  // pass was rejected — by the time the mass is grown the seat may be the only
+  // tile a lab diamond or the hub trio can use, and "relocate whatever landed
+  // on it" is the repair loop this planner is not allowed to have.
+  //
+  // ROADS, RAMPARTS AND CONTAINERS ARE NOT A PROBLEM and are not excluded: a
+  // creep stands on all three. Only the blocking set matters, which is why
+  // this is its own field and not another `objectTiles` entry — objectTiles
+  // bans roads too, and the controller ring is exactly where the upgrader
+  // road wants to run.
+  //
+  // Preference order, all of it deterministic: a tile that is already one of
+  // the controller link's park seats (so the seat doubles as upgrader parking
+  // and costs the room nothing), then the tile nearest the hub on foot, then
+  // reading order. If the controller's whole walkable ring is object tiles the
+  // room genuinely has no seat — that is a terrain verdict, and it is declared
+  // rather than papered over.
+  // ------------------------------------------------------------------
+  // A SEAT NOBODY CAN WALK TO IS NOT A SEAT.
+  //
+  // Reserving the tile is necessary and not sufficient: the seat can be left
+  // empty and still be unreachable, because the tiles AROUND it get built on.
+  // Three rooms did exactly that on the first cut of this — E18S1 10,30,
+  // E6S4 14,20, E7S7 16,24 — each reserved, each free, each walled in by a
+  // ring of our own structures plus natural wall. E7S7's seat has three
+  // walkable neighbours in the whole room and we put a tower on one, the
+  // controller's own link on another and an extension on the third.
+  //
+  // Two changes follow. The seat is now scored on APPROACH BREADTH first —
+  // how many walkable neighbours it has, i.e. how hard it is to seal — which
+  // in E18S1 picks 11,30 (seven walkable neighbours) over 10,30 (five). And a
+  // single APPROACH tile is reserved alongside it, so the room keeps one
+  // walkable step into the seat no matter what the mass does. Two reserved
+  // tiles per room is the entire cost, and it buys the difference between
+  // "the seat exists" and "a creep can use it".
+  const parkSeatKeys = new Set((ctrlLink.parkTiles || []).map((p) => key(p.x, p.y)));
+  const walkNbrs = (x, y) => {
+    let n = 0;
+    for (const [ax, ay] of D8) if (walkable(terrain, x + ax, y + ay)) n++;
+    return n;
+  };
+  let claimSeat = null;
+  let claimSeatScore = null;
+  for (const [dx, dy] of D8) {
+    const x = controller.x + dx,
+      y = controller.y + dy;
+    if (!walkable(terrain, x, y)) continue;
+    // `impassable` is objectTiles + the hub trio + the spawns + every link, i.e.
+    // exactly the blocking things layer 1 has already committed. A seat under
+    // one of those is not a seat.
+    if (impassable.has(key(x, y))) continue;
+    const d = hubField[idx(x, y)];
+    const sc = [
+      -walkNbrs(x, y), // widest approach first — hardest to seal
+      parkSeatKeys.has(key(x, y)) ? 0 : 1,
+      d >= INF ? INF : d,
+      y,
+      x,
+    ];
+    if (!claimSeatScore || cmpTuple(sc, claimSeatScore) < 0) {
+      claimSeatScore = sc;
+      claimSeat = { x, y };
+    }
+  }
+  // ...and one step into it, kept walkable for the same reason.
+  let claimApproach = null;
+  if (claimSeat) {
+    let best = null;
+    for (const [dx, dy] of D8) {
+      const x = claimSeat.x + dx,
+        y = claimSeat.y + dy;
+      if (!walkable(terrain, x, y)) continue;
+      if (x === controller.x && y === controller.y) continue; // not a tile to stand on
+      if (impassable.has(key(x, y))) continue;
+      const d = hubField[idx(x, y)];
+      const sc = [d >= INF ? INF : d, -walkNbrs(x, y), y, x];
+      if (!best || cmpTuple(sc, best.sc) < 0) best = { x, y, sc };
+    }
+    if (best) claimApproach = { x: best.x, y: best.y };
+  }
+  if (!claimSeat) {
+    shortfalls.push({
+      gate: "ctrlSeat",
+      kind: "claim-seat",
+      detail:
+        `controller ${controller.x},${controller.y} has no walkable range-1 tile that is not itself an ` +
+        `object tile, so no tile beside it can be reserved for claimController/signController — both of ` +
+        `which are range 1. This is the terrain, not a placement: the ring was measured before any ` +
+        `structure was placed in this room, while every tile on it was still free.`,
+      tiles: [{ x: controller.x, y: controller.y }],
+    });
+  }
+
   const structures = {
     storage: [{ x: storage.x, y: storage.y }],
     terminal: [terminal],
@@ -1667,6 +1790,11 @@ export function planHub(terrain, objects, opts = {}) {
       },
       pathController: pCtrl,
       pathSourcesSum: pSrc,
+      // the reserved range-1 tile — see the CLAIM SEAT block above. Published
+      // so the gallery and the validator can both see what was promised; the
+      // validator re-derives whether it was KEPT rather than believing this.
+      claimSeat: claimSeat ? { x: claimSeat.x, y: claimSeat.y } : null,
+      claimApproach: claimApproach ? { x: claimApproach.x, y: claimApproach.y } : null,
       ctrlParks: ctrlLink.parks ?? 0,
       // the seat search behind that integer: what was on offer and what lost
       ctrlParksCensus: ctrlLink.census ?? null,
@@ -1688,5 +1816,8 @@ export function planHub(terrain, objects, opts = {}) {
     mineral,
     // C1: every later layer folds this into its own occupancy set
     objectTiles,
+    // ...and so do these two, for blocking structures only. See CLAIM SEAT.
+    claimSeat,
+    claimApproach,
   };
 }

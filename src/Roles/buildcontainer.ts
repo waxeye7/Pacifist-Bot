@@ -1,3 +1,31 @@
+import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2";
+
+/**
+ * Memory.target_colonise.spawn_pos, or null if it is not a usable tile IN THIS
+ * ROOM. Two things it will not let through that the old inline checks did:
+ *
+ *  - x/y of 0 or 49. Those are the exit band, where createConstructionSite
+ *    returns ERR_INVALID_TARGET forever; rooms.construction.ts:420-421 has
+ *    always used 1..48 and this did not.
+ *  - a position in a room this creep merely happens to be standing in. The
+ *    rampart clause below used to build at spawn_pos in WHATEVER room the creep
+ *    was in, which for a colonisation builder crossing three rooms is not the
+ *    colony at all.
+ *
+ * Returns null rather than `return`ing out of the role: a malformed spawn_pos
+ * used to abort the whole tick at the top of the rampart clause, so the build
+ * and harvest paths below it never ran.
+ */
+function coloniseSpawnPos(room: Room): RoomPosition | null {
+    const target = Memory.target_colonise;
+    if(!target || !target.spawn_pos || room.name !== target.room) return null;
+    const x = target.spawn_pos.x;
+    const y = target.spawn_pos.y;
+    if(typeof x !== 'number' || typeof y !== 'number') return null;
+    if(x < 1 || x > 48 || y < 1 || y > 48) return null;
+    return new RoomPosition(x, y, room.name);
+}
+
 const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     creep.memory.moving = false;
@@ -124,13 +152,27 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         // }
 
         let mySpawns = creep.room.find(FIND_MY_SPAWNS)
-        if(Game.time % 25 == 0 && Memory.target_colonise && Memory.target_colonise.spawn_pos && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0 && creep.room.name === Memory.target_colonise.room) {
-            if(typeof Memory.target_colonise.spawn_pos.x === 'number' && typeof Memory.target_colonise.spawn_pos.y === 'number' && 
-               Memory.target_colonise.spawn_pos.x >= 0 && Memory.target_colonise.spawn_pos.x <= 49 && 
-               Memory.target_colonise.spawn_pos.y >= 0 && Memory.target_colonise.spawn_pos.y <= 49) {
-                let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
-                location.createConstructionSite(STRUCTURE_SPAWN);
-            }
+        // ------------------------------------------------------------------
+        // THE OFF-PLAN SPAWN IS A RACE, AND ONLY ONE SIDE OF IT KNOWS.
+        //
+        // Memory.target_colonise.spawn_pos is picked by the expansion scout;
+        // room.memory.planV2.t.spawn is picked by the offline planner. This
+        // clause used to consult only the first, on a Game.time % 25 tick, and
+        // whichever landed first won — because placeFromPlanV2 skips a type the
+        // moment `existing >= cap`, and one built spawn is the RCL1-6 cap. Lose
+        // the race and the plan NEVER sites its own spawn, and migrateSpawns
+        // keeps the off-plan one until RCL7.
+        //
+        // So: the plan wins whenever it has an opinion, and while it is still
+        // being read out of the segment (two ticks) nobody places anything.
+        // AutoExpand adopts on claim, so for a planned room this branch is now
+        // dead code — it stays for the rooms colonised ahead of a plan, which
+        // is the case it was written for.
+        // ------------------------------------------------------------------
+        const spawnPos = coloniseSpawnPos(creep.room);
+        const planOwnsTheSpawn = planPending(creep.room) || plannedSpawnTile(creep.room) !== null;
+        if(Game.time % 25 == 0 && spawnPos && !planOwnsTheSpawn && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length == 0 && mySpawns.length == 0) {
+            spawnPos.createConstructionSite(STRUCTURE_SPAWN);
         }
 
         if(mySpawns.length == 1) {
@@ -143,23 +185,39 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 }
             }
 
-            if(!Memory.target_colonise || !Memory.target_colonise.spawn_pos || 
-               typeof Memory.target_colonise.spawn_pos.x !== 'number' || typeof Memory.target_colonise.spawn_pos.y !== 'number' ||
-               Memory.target_colonise.spawn_pos.x < 0 || Memory.target_colonise.spawn_pos.x > 49 || 
-               Memory.target_colonise.spawn_pos.y < 0 || Memory.target_colonise.spawn_pos.y > 49) {
-                return;
-            }
-            let location = new RoomPosition(Memory.target_colonise.spawn_pos.x, Memory.target_colonise.spawn_pos.y, creep.room.name);
-            let lookForBuildings = location.lookFor(LOOK_STRUCTURES);
-            if(lookForBuildings.length > 0) {
+            // ------------------------------------------------------------------
+            // THE SPAWN RAMPART. One rampart, over the new colony's spawn, so the
+            // one structure the room cannot survive losing is not naked.
+            //
+            // It used to be sited with NO RCL GATE, EVERY TICK (not on the %25
+            // cadence the spawn siting uses), in whatever room the creep was
+            // standing in, and with no check that the shell wants a rampart
+            // there at all. Ramparts are RCL4+, so at RCL1-3 that was a
+            // guaranteed-failing createConstructionSite every tick; and a
+            // rampart the min-cut shell does not want is one this creep would
+            // then nurse forever out of the colony's own energy, which is the
+            // exact tax utils/PlanV2 sanctionedRampartKeys exists to stop.
+            //
+            // isSanctionedRampart returns TRUE for a room with no plan and no
+            // perimeter, so the fresh-claim case this was written for still
+            // gets its rampart — it is only the planned rooms that now say no.
+            // ------------------------------------------------------------------
+            if(spawnPos && creep.room.controller && creep.room.controller.level >= 4 &&
+               isSanctionedRampart(creep.room, spawnPos)) {
+                let lookForBuildings = spawnPos.lookFor(LOOK_STRUCTURES);
+                let standing = false;
                 for(let building of lookForBuildings) {
-                    if(building.structureType == STRUCTURE_RAMPART && (building.hits < building.hitsMax - 5000 && building.hits < 1500000)) {
+                    if(building.structureType != STRUCTURE_RAMPART) continue;
+                    standing = true;
+                    if(building.hits < building.hitsMax - 5000 && building.hits < 1500000) {
                         creep.repair(building)
                         return;
                     }
                 }
+                if(!standing && Game.time % 25 == 0) {
+                    spawnPos.createConstructionSite(STRUCTURE_RAMPART);
+                }
             }
-            location.createConstructionSite(STRUCTURE_RAMPART);
         }
 
         if(targets.length > 0) {

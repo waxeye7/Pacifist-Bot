@@ -45,6 +45,22 @@ export function planMisc(terrain, plan) {
   }
   occupied.add(key(plan.sitter.x, plan.sitter.y));
   for (const k of plan.objectTiles || []) occupied.add(k); // C1
+  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
+  // claimController/signController (both range 1) always have somewhere to
+  // stand and a creep can always get there. See the CLAIM SEAT block in
+  // layer-hub.
+  //
+  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
+  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
+  // and reserving a walkable tile there tells this layer the tile is a WALL.
+  // The first cut did exactly that and E15S5 paid for it — its tower moved off
+  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
+  // because the one tile the stitch wanted to pave was the reserved approach.
+  // A creep stands on the seat; a road may run over it; only a blocking
+  // STRUCTURE may not be placed on it.
+  const reserved = new Set();
+  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
+  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
   const hub = fieldFrom(terrain, plan.sitter, occupied);
@@ -56,7 +72,7 @@ export function planMisc(terrain, plan) {
       const k = key(x, y);
       if (!buildable(terrain, x, y) || ext[i]) continue;
       if (depth[i] < DEPTH_SAFE) continue;
-      if (occupied.has(k) || roadSet.has(k)) continue;
+      if (occupied.has(k) || roadSet.has(k) || reserved.has(k)) continue;
       if (hub[i] >= 9999) continue;
       cands.push({ x, y, d: hub[i] });
     }
@@ -64,6 +80,33 @@ export function planMisc(terrain, plan) {
   if (cands.length < 2) return { error: `only ${cands.length} deep tiles for nuker+observer` };
 
   const nearRoad = (p) => D8.some(([dx, dy]) => roadSet.has(key(p.x + dx, p.y + dy)));
+
+  // ------------------------------------------------------------------
+  // THE OBSERVER DOES NOT GET TO SIT NEXT TO THE CONTROLLER.
+  //
+  // Layer 1 reserves exactly ONE range-1 tile of the controller as the claim
+  // seat, which is what makes `claimController` possible forever. It does not
+  // reserve the rest of the ring, and it should not have to: an upgrader parks
+  // there, a repairer stands there, and every tile of it is worth more empty
+  // than built on. The observer is the one structure in the game whose position
+  // is completely irrelevant — its own placement rule is literally "takes the
+  // furthest leftover tile" — and it was found sitting on the controller's ring
+  // in six rooms (E11S5 7,12 · E13S5 22,31 · E16S7 18,41 · E17S8 7,37 ·
+  // E9S2 25,23 · W0S5 28,7). In two of those it was on the controller's ONLY
+  // walkable neighbour, so a room that ever downgraded could not have been
+  // re-claimed without demolishing an observer. That is not "placed with
+  // intent", and it costs nothing to fix: this is a PREFERENCE, not a veto, so
+  // a room with nowhere else to put it still ships one.
+  // ------------------------------------------------------------------
+  const ctrlRing = new Set();
+  if (plan.controller) {
+    for (const [dx, dy] of D8) {
+      const x = plan.controller.x + dx,
+        y = plan.controller.y + dy;
+      if (walkable(terrain, x, y)) ctrlRing.add(key(x, y));
+    }
+  }
+  const offRing = (p) => !ctrlRing.has(key(p.x, p.y));
 
   // M4: the observer takes the FURTHEST leftover tile, which in a room with
   // a long thin interior is exactly the tile plugging the corridor to a
@@ -110,7 +153,10 @@ export function planMisc(terrain, plan) {
 
   // nuker: nearest the hub by walk — fillers haul 300k energy into it
   const byNear = cands.slice().sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
-  const nuker = byNear.find((c) => !seals(c, occupied)) || byNear[0];
+  const nuker =
+    byNear.find((c) => offRing(c) && !seals(c, occupied)) ||
+    byNear.find((c) => !seals(c, occupied)) ||
+    byNear[0];
   occupied.add(key(nuker.x, nuker.y));
 
   // observer: needs no access, so it takes the furthest leftover tile —
@@ -119,6 +165,8 @@ export function planMisc(terrain, plan) {
     .filter((c) => c !== nuker)
     .sort((a, b) => b.d - a.d || a.x - b.x || a.y - b.y);
   const observer =
+    byFar.find((c) => offRing(c) && nearRoad(c) && !seals(c, occupied)) ||
+    byFar.find((c) => offRing(c) && !seals(c, occupied)) ||
     byFar.find((c) => nearRoad(c) && !seals(c, occupied)) ||
     byFar.find((c) => !seals(c, occupied)) ||
     byFar[0];
@@ -241,6 +289,23 @@ export function planMisc(terrain, plan) {
     }
   }
 
+  // THE ACTUAL NETWORK TEST behind `mineralOffNetwork` below. Same conducting
+  // rule the road-network check uses: roads carry, containers carry (creeps
+  // walk them), and a structure is serviced if it is D8 of either. Measured
+  // against the road set as it stands at the END of this layer, including the
+  // roads this layer just stitched to the nuker and the observer.
+  const netTiles = new Set([...roadSet, ...newRoads.map((r) => key(r.x, r.y))]);
+  for (const c of plan.structures.container || []) netTiles.add(key(c.x, c.y));
+  const mineralSeatNetTiles = [];
+  if (mineralContainer.length) {
+    const seat = mineralContainer[0];
+    for (const [dx, dy] of D8) {
+      const k = key(seat.x + dx, seat.y + dy);
+      if (netTiles.has(k)) mineralSeatNetTiles.push(k);
+    }
+  }
+  const mineralSeatOnNetwork = mineralSeatNetTiles.length > 0;
+
   return {
     layer: "misc",
     nuker: [{ x: nuker.x, y: nuker.y }],
@@ -258,22 +323,43 @@ export function planMisc(terrain, plan) {
       mineralContainer: mineralContainer.length,
       mineralBubble: bubbles.length,
       // ------------------------------------------------------------------
-      // THE MINER'S SEAT IS OFF THE ROAD NET ON PURPOSE, AND SAYS SO IN META.
+      // THE MINER'S SEAT IS OFF THE ROAD NET ON PURPOSE — WHEN IT IS.
       //
       // Mineral hauling is a trickle: one deposit, a long cooldown, a hauler
       // that goes when the terminal wants it. Paving to it would cost road
       // decay forever to save a handful of ticks a week, so this layer grows
-      // no road to the seat — a deliberate omission that has, until now, been
-      // recorded only in a source comment. Every automated reader of the plan
-      // (the road-network check, the gallery, a future consumer) sees a
-      // container that is not on the network and has no way to tell "by
-      // design" from "bug". So it is a FIELD, next to the numbers, and the
-      // validator's structures-off-network check reads it.
+      // no road to the seat, and the omission is a published field rather than
+      // a source comment nobody downstream can read.
+      //
+      // TWO THINGS THAT WERE WRONG ABOUT IT. The flag was set from
+      // `mineralContainer.length > 0` — i.e. it asserted "off network" without
+      // measuring anything, and it was therefore FALSE in 34 of 172 rooms,
+      // where the seat happens to land D8 of real road: E17S6's seat at 34,18
+      // touches 33,18 · 35,17 · 33,19 · 33,17, and E8S6's at 18,21 touches
+      // four. This layer PREFERS a clean tile (the +0.5 at the seat search) but
+      // has never refused a paved one, so "there is a container" and "it is off
+      // the network" were never the same claim. It is now measured, with the
+      // same conducting rule the road-network check uses: a structure is ON the
+      // network if it is D8 of a live road or container.
+      //
+      // And the comment used to end "the validator's structures-off-network
+      // check reads it". It does not, and never did — validate.mjs derives the
+      // mineral seat geometrically (containers within range 1 of the mineral)
+      // and exempts it on that basis alone. Nothing in the suite reads this
+      // field. It is published for the human reading the plan, which is a good
+      // enough reason to keep it and not a good enough reason to lie about who
+      // consumes it.
       // ------------------------------------------------------------------
-      mineralOffNetwork: mineralContainer.length > 0,
-      mineralOffNetworkWhy:
-        "no road by design — mineral hauling is one trickle deposit on a long cooldown, " +
-        "and permanent road decay to reach it costs more than the walk it saves",
+      mineralOffNetwork: mineralContainer.length > 0 && !mineralSeatOnNetwork,
+      mineralOffNetworkWhy: !mineralContainer.length
+        ? null
+        : mineralSeatOnNetwork
+          ? `the seat at ${mineralContainer[0].x},${mineralContainer[0].y} DOES touch the road network ` +
+            `(${mineralSeatNetTiles.join(" ")}) — no road was grown to it, but the corridor another ` +
+            `layer laid happens to run past it, so it is serviced like any other container`
+          : "no road by design — mineral hauling is one trickle deposit on a long cooldown, " +
+            "and permanent road decay to reach it costs more than the walk it saves",
+      mineralSeatNetTiles,
       factory: 0,
       powerSpawn: 0,
     },

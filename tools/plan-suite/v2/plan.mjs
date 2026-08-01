@@ -27,7 +27,7 @@ import {
   ROAD_PAINT,
   RAMPART_PAINT,
 } from "./render.mjs";
-import { EXT_TARGET, planRoom } from "./pipeline.mjs";
+import { EXT_TARGET, planRoom, redeclareEcoTax, setFleetMedians } from "./pipeline.mjs";
 
 /**
  * Sprite kinds the animation player rasterises. Same names render.mjs uses, so
@@ -173,6 +173,57 @@ function animNotes(plan) {
         (why.length ? ` because ${why.join(" and ")}` : ""),
     );
   }
+  // ------------------------------------------------------------------
+  // THE WALL CAPTION HAS TO STATE THE NUMBER THE WALL IS JUDGED ON.
+  //
+  // The escalation clause above can say "defenders could not out-walk an
+  // attacker around the wall" and then stop, which is what it did. In E16S1
+  // (as-built gated lap 4.4) and E9S2 — the two rooms an audit walked end to
+  // end — mobility is the only gate either room misses, and the film put no
+  // number on it anywhere: nothing in either film distinguished a 4.4 from a
+  // 1.21. The number is published, so the caption states it.
+  //
+  // WHICH READING, AND WHY NOT THE OTHER ONE. meta.walls.mobility.builtGated
+  // is the AS-BUILT GATED lap: measured with the extension mass standing in
+  // the room, over the pairs whose absolute detour clears the floor. It is the
+  // reading the target is applied to and the one the room page headlines.
+  // meta.shell.mobility is layer 2's negotiation reading, taken on the bare cut
+  // before any mass exists — a different quantity that disagrees (E11S7: 11
+  // there, 13.5 as built), and putting it on a caption about the wall this room
+  // ships is how two numbers about one room end up looking like one number
+  // arguing with itself. Only the target and the detour floor are read out of
+  // meta.shell.mobility, because that is where the layer publishes them.
+  // ------------------------------------------------------------------
+  const wmob = m.walls?.mobility;
+  const smob = m.shell?.mobility;
+  const lap =
+    typeof wmob?.builtGated === "number"
+      ? wmob.builtGated
+      : typeof m.shell?.mobilityBuilt?.maxGated === "number"
+        ? m.shell.mobilityBuilt.maxGated
+        : null;
+  if (lap !== null) {
+    const tgt = typeof smob?.target === "number" ? smob.target : null;
+    const floor = typeof smob?.detourFloor === "number" ? smob.detourFloor : null;
+    const over = typeof wmob?.overGated === "number" ? wmob.overGated : null;
+    if (lap > 0) {
+      bits.push(
+        `as-built gated lap ${lap}` +
+          (tgt !== null ? ` vs target ${tgt} — ${lap > tgt ? "OVER" : "within target"}` : "") +
+          (over ? ` · ${over} judged pair${over === 1 ? "" : "s"} lap worse than target` : "") +
+          " (interior ÷ exterior walk between wall tiles, extension mass in place)",
+      );
+    } else {
+      // A ZERO IS NOT A PERFECT WALL. It means the gate judged nothing.
+      bits.push(
+        `as-built gated lap 0` +
+          (floor !== null
+            ? ` — no pair of wall tiles detours more than ${floor} tiles, so no pair was judged`
+            : " — no pair was judged") +
+          (tgt !== null ? ` (target ${tgt})` : ""),
+      );
+    }
+  }
   if (plan.shell) {
     bits.push(
       `${plan.shell.cut.length} cut tiles · ${plan.shell.upkeepPerTick} e/tick upkeep · ${plan.shell.deepTiles} deep tiles sealed in` +
@@ -186,6 +237,25 @@ function animNotes(plan) {
   }
   if (c.lab) n.labs = `${c.lab} labs — both inputs within range 2 of every output`;
   if (c.nuker) n.nuker = "300k energy and 5k ghodium have to be hauled here, so it hugs the hub";
+  // THE ONE PLACEMENT STAGE THAT HAD NO NUMBER UNDER IT. Every other stage
+  // carried a caption assembled from something the planner published; observer
+  // carried only the hardcoded WHY in STAGE_INFO, so the note line rendered
+  // empty on the one structure whose entire justification is a distance. Layer
+  // misc publishes both singletons' hub-field walk (meta.misc.nukerHubDist /
+  // observerHubDist) — the nuker takes the nearest deep leftover tile and the
+  // observer the furthest, and those two numbers ARE the decision. Nothing
+  // else about the choice is published: the preference for a road-adjacent,
+  // non-sealing candidate is a sort key inside layer-misc and leaves no field
+  // behind, so the caption does not claim it.
+  if (m.misc && typeof m.misc.observerHubDist === "number") {
+    const o = (plan.structures.observer || [])[0];
+    n.observer =
+      (o ? `(${o.x},${o.y}) · ` : "") +
+      `${m.misc.observerHubDist} steps from the hub — the furthest deep tile left over` +
+      (typeof m.misc.nukerHubDist === "number"
+        ? `, where the nuker took the nearest at ${m.misc.nukerHubDist}`
+        : "");
+  }
   if (plan.mineral) n.extractor = `mineral at (${plan.mineral.x},${plan.mineral.y}) — the extractor is built on top of it`;
   if (m.extensions) {
     n.extensions =
@@ -194,13 +264,52 @@ function animNotes(plan) {
         ? ` · ${m.extensions.corridorFallback} placed road-blind (fallback)`
         : " · every one of them D4 on a road");
   }
+  // Layer 6's relocation pass, captioned from its own record. `relocated` is
+  // per-move and auditable (from, to, closer, tookStub), so the aggregate is
+  // counted here and the individual moves ride the step labels; a room that
+  // relocated nothing gets neither stage nor caption.
+  const rel = m.extensions?.relocated || [];
+  if (rel.length) {
+    const nearer = rel.filter((r) => r.closer > 0);
+    const farther = rel.filter((r) => r.closer < 0);
+    const stubs = rel.filter((r) => r.tookStub).length;
+    const best = nearer.length ? Math.max(...nearer.map((r) => r.closer)) : 0;
+    // meta.extensions.shallow is counted AFTER the pass has spliced out every
+    // slot it moved, so it is what is still shallow in the shipped room — not
+    // the size of the pass's input list.
+    n.extGhost =
+      `${rel.length} slot${rel.length === 1 ? "" : "s"} the fill took too close to the wall, and layer 6 came back for` +
+      (typeof m.extensions.shallow === "number"
+        ? m.extensions.shallow
+          ? ` · ${m.extensions.shallow} more stay shallow in the shipped room`
+          : " · every shallow slot in the room was rescued"
+        : "");
+    const level = rel.length - nearer.length - farther.length;
+    n.extMove =
+      `${rel.length} move${rel.length === 1 ? "" : "s"} onto deep floor · ` +
+      (nearer.length
+        ? `${nearer.length} landed nearer the hub (up to ${best} step${best === 1 ? "" : "s"})`
+        : "none landed nearer the hub") +
+      (farther.length ? `, ${farther.length} farther out` : "") +
+      (level ? `, ${level} at the same walk` : "") +
+      (stubs ? ` · ${stubs} lifted a stub road` : "") +
+      // The lap the relocation is blamed for, when layer 6 published both ends
+      // of it: E11S7 lifts five stubs and re-derives its bound over the
+      // corridor the room ships, 11.5 -> 13.5. Printed only when the two
+      // numbers exist and differ — a room that paid nothing says nothing.
+      (typeof m.extensions.laneMeta?.boundBeforeStubs === "number" &&
+      typeof m.extensions.laneMeta?.bounded === "number" &&
+      m.extensions.laneMeta.bounded !== m.extensions.laneMeta.boundBeforeStubs
+        ? ` · re-measuring the lane bound over the lifted stubs took it ${m.extensions.laneMeta.boundBeforeStubs} → ${m.extensions.laneMeta.bounded}`
+        : "");
+  }
   return n;
 }
 
 /**
  * Browser replay of the planner stages — dependency-free vanilla JS.
  *
- * SEVEN stacked canvases, bottom to top:
+ * EIGHT stacked canvases, bottom to top:
  *   terrain    drawn once
  *   scaffoldA  dt + distance fields  — dimmed once the plan starts landing
  *   scaffoldB  basin + core          — dimmed once the wall goes up
@@ -208,6 +317,8 @@ function animNotes(plan) {
  *   roads      roads                 — ABOVE the ramparts and BELOW the
  *                                      structures, which is the order
  *                                      renderRoomSvg stacks them in
+ *   ghost      extensions layer 6 placed and then moved — erased at the
+ *                                      relocation beat, empty in the last frame
  *   cells      the structures themselves, as real Screeps sprites
  *   marks      sources / controller / mineral + transient FX
  *
@@ -219,6 +330,13 @@ function animNotes(plan) {
  * the film (see roadProvenance in export-anim.mjs) — clearing a tile on a
  * shared canvas would take the rampart underneath it with it, and 4 pruned
  * tiles across the fleet do carry a rampart.
+ *
+ * THE RELOCATION GHOSTS GOT THEIR OWN CANVAS FOR THE SAME REASON, AFTER THE
+ * SAME NEAR MISS. Layer 6's relocation pass is drawn ghost-and-erase like the
+ * prune (see export-anim.mjs), and three of the 78 origin tiles are ROADS in
+ * the shipped plan (E12S6 24,3 · E18S5 5,35 · E2S3 36,21) — a clearRect on the
+ * roads or the structures canvas would have taken them, or a later extension,
+ * with the ghost.
  *
  * THE FRAMES ARE NOT TOUCHED HERE. Steps come from anim/<room>.json exactly as
  * export-anim.mjs wrote them; this file only decides how a tile is DRAWN, how
@@ -256,6 +374,7 @@ function animPlayerHtml(plan) {
   <canvas class="anim-layer" id="animScaffB"></canvas>
   <canvas class="anim-layer" id="animUnder"></canvas>
   <canvas class="anim-layer" id="animRoads"></canvas>
+  <canvas class="anim-layer" id="animGhost"></canvas>
   <canvas class="anim-layer" id="animCells"></canvas>
   <canvas class="anim-layer" id="animMarks"></canvas>
   <div class="anim-title" id="animTitle"><div class="tt" id="animTitleName"></div><div class="te" id="animTitleWhy"></div></div>
@@ -336,7 +455,9 @@ function animPlayerHtml(plan) {
     extractor:  [5, 'the extractor', 'the one structure built ON a room object — it sits on the mineral', 'extractor', '5 · extractor'],
     roadsMisc:  [5, 'the mineral run', 'the haul road out to the mineral seat', 'tiles', '5 · mineral road'],
     roadsExt:   [6, 'extension corridors', 'dig the corridor first — every extension has to land with a D4 face on a road', 'tiles', '6 · corridors'],
+    extGhost:   [6, 'shallow slots', 'tiles the fill took while it still had to, too close to the wall to be safe — layer 6 comes back for them', 'slots', '6 · shallow'],
     extensions: [6, 'extensions', 'growing corridors into deep, safe floor — 60 of them, every one on a road face', 'extensions', '6 · extensions'],
+    extMove:    [6, 'the relocation', 'layer 6 finishing its own job inside its own pass: a shallow slot vacated for a deep, road-faced tile — where that tile was a paved stub, the stub is lifted', 'moves', '6 · relocate'],
     roadsPrune: [7, 'the dead-end prune', 'the one pass allowed to DELETE an earlier layer\\'s road — these led somewhere before the later layers filled it in', 'tiles', '7 · prune'],
     roadsLate:  [7, 'rampart spurs', 'roads TO the wall so defenders can reach it, plus the extension-face safety net', 'tiles', '7 · spurs'],
     roadsResid: [0, 'unattributed roads', 'these tiles carry no meta.roadLayer entry — the film will not guess which layer laid them', 'tiles', '? · unattributed']
@@ -346,24 +467,29 @@ function animPlayerHtml(plan) {
       [0, String(stage).replace(/_/g, ' '), '', 'steps', String(stage)];
   }
 
-  // stage -> what a tile of it IS. '#road' / '#rampart' / '#unroad' / '#sitter'
-  // are hand-painted (no sprite exists for any of them); claims is
-  // heterogeneous and uses CLAIMK instead. SIX road stages, one per pipeline
-  // layer that lays road, plus the layer-7 prune which UNPAINTS.
+  // stage -> what a tile of it IS. '#road' / '#rampart' / '#unroad' /
+  // '#sitter' / '#seed' / '#extghost' / '#unghost' are hand-painted (no sprite
+  // exists for any of them); claims is heterogeneous and uses CLAIMK instead.
+  // SIX road stages, one per pipeline layer that lays road, plus the layer-7
+  // prune which UNPAINTS — and layer 6's relocation, which does the same thing
+  // to an extension ghost.
   var STAGE_KIND = {
     roads: '#road', roadsTwr: '#road', roadsLab: '#road', roadsMisc: '#road',
     roadsExt: '#road', roadsLate: '#road', roadsResid: '#road',
     roadsPrune: '#unroad',
+    seed: '#seed',
     ramparts: '#rampart', towers: 'tower', labs: 'lab',
     nuker: 'nuker', observer: 'observer', extractor: 'extractor',
-    extensions: 'extension'
+    extensions: 'extension',
+    extGhost: '#extghost', extMove: '#unghost'
   };
   // stages whose steps are expanded back into ONE PLACEMENT PER TILE
   var EXPAND = {
     claims: 1, roads: 1, roadsTwr: 1, roadsLab: 1, roadsMisc: 1, roadsExt: 1,
     roadsPrune: 1, roadsLate: 1, roadsResid: 1,
     ramparts: 1, towers: 1, labs: 1,
-    nuker: 1, observer: 1, extractor: 1, extensions: 1
+    nuker: 1, observer: 1, extractor: 1, extensions: 1,
+    extGhost: 1, extMove: 1
   };
   // scaffold stages that live on the LATE scaffold canvas (dimmed at the wall)
   var SCAFF_LATE = { basin: 1, core: 1 };
@@ -385,8 +511,8 @@ function animPlayerHtml(plan) {
   var elScaffA = document.getElementById('animScaffA');
   var elScaffB = document.getElementById('animScaffB');
   var gT = ctx2d('animTerrain'), gA = ctx2d('animScaffA'), gB = ctx2d('animScaffB'),
-      gU = ctx2d('animUnder'), gR = ctx2d('animRoads'), gC = ctx2d('animCells'),
-      gM = ctx2d('animMarks');
+      gU = ctx2d('animUnder'), gR = ctx2d('animRoads'), gG = ctx2d('animGhost'),
+      gC = ctx2d('animCells'), gM = ctx2d('animMarks');
   var rr = typeof gC.roundRect === 'function';
 
   // --- terrain (once) ---
@@ -503,6 +629,80 @@ function animPlayerHtml(plan) {
     g.strokeRect(px, py, w, w);
     g.restore();
   }
+  /**
+   * THE SEED IS THE SITTER'S BUG, AND THE FIX WAS NOT APPLIED TO IT.
+   *
+   * Everything written above paintSitter is true of the seed as well, and it
+   * was left behind when the sitter was fixed. The seed is the confluence
+   * winner — a tile the planner REASONS from, never a tile it builds on: it
+   * has no entry in STAGE_KIND, so it fell through paintTile to paintRect and
+   * filled opaquely, and ctxFor put it on the structures canvas where no fade
+   * dims it and no stage erases it.
+   *
+   * Counted off the films themselves (the seed tile is in every anim/*.json as
+   * the one cell of the seed step; plans-hub.json does not carry it at all —
+   * the slim writer drops it): 24 of the 203 films end with it still visible,
+   * 20 of them in the current 172-room fleet. 14 sit on top of a road the room
+   * does ship — E17S4 21,18 · E12S6 28,10 · E9S7 11,14 · E15S2 17,23 · E6S3
+   * 12,18 among them — and 10 on bare floor (E12S3 30,22 · E13S9 17,35 ·
+   * E17S8 17,40 · E19S7 32,38 · E1S9 19,30 · E2S1 27,16 · E2S2 30,31 · E4S3
+   * 24,25, plus E11S10 and E12S0 from the retired world). The other 179 are
+   * not correct, only lucky: a structure happens to land on the seed tile
+   * later and paints over the square on the same canvas. All 24 sat under a
+   * HUD that reads "plan complete — this last frame IS the shipped plan, tile
+   * for tile".
+   *
+   * The two rejections recorded for the sitter hold here word for word.
+   * Rejected: dropping the seed beat. It is the decision layer 1 is built
+   * around and the whole basin grows out of it; a film of the planner thinking
+   * that does not show the tile it thought from is worse than one with a wrong
+   * square in it. Rejected: painting it on the marks canvas, which drawMarks
+   * clears and redraws every frame — the seed would become the one placement a
+   * rewind could not take back.
+   *
+   * So, like the sitter, it is a MARK: a dashed yellow ring inset into the
+   * tile over a low-alpha wash, same geometry, in the seed's own #ffff33. The
+   * road underneath reads through it, the tile still reads as chosen, and the
+   * seed never claims to be a plan tile.
+   */
+  function paintSeed(g, x, y) {
+    var px = x * CELL + 2.5, py = y * CELL + 2.5, w = CELL - 5;
+    g.save();
+    g.globalAlpha = 0.12;
+    g.fillStyle = '#ffff33';
+    g.fillRect(x * CELL + 1, y * CELL + 1, CELL - 2, CELL - 2);
+    g.globalAlpha = 0.95;
+    g.strokeStyle = '#ffff33';
+    g.lineWidth = 1.2;
+    if (g.setLineDash) g.setLineDash([2.5, 2]);
+    g.strokeRect(px, py, w, w);
+    g.restore();
+  }
+  /**
+   * Layer 6's relocation ghost: an extension the fill really did put here, and
+   * really did take away again. Drawn as the extension sprite at a third alpha
+   * under a dashed red ring — the dash says "provisional" in the same visual
+   * language as the sitter and seed rings, and the red is the prune's colour,
+   * because this tile is about to be taken back exactly like a pruned road.
+   * It lives on its own canvas (see ctxFor) so unpaintGhost cannot reach the
+   * road or the extension underneath it.
+   */
+  function paintExtGhost(g, x, y) {
+    g.save();
+    g.globalAlpha = 0.34;
+    if (SPRITE.extension) g.drawImage(SPRITE.extension, x * CELL, y * CELL, CELL, CELL);
+    else { g.fillStyle = '#ffd24d'; g.fillRect(x * CELL + 2, y * CELL + 2, CELL - 4, CELL - 4); }
+    g.globalAlpha = 0.9;
+    g.strokeStyle = '#ff4444';
+    g.lineWidth = 1.2;
+    if (g.setLineDash) g.setLineDash([2.5, 2]);
+    g.strokeRect(x * CELL + 2.5, y * CELL + 2.5, CELL - 5, CELL - 5);
+    g.restore();
+  }
+  /** the relocation completes: the slot the extension came from is vacated */
+  function unpaintGhost(g, x, y) {
+    g.clearRect(x * CELL, y * CELL, CELL, CELL);
+  }
   /** layer 7's prune: the tile had a road, and now it does not */
   function unpaintRoad(g, x, y) {
     g.clearRect(x * CELL, y * CELL, CELL, CELL);
@@ -522,6 +722,9 @@ function animPlayerHtml(plan) {
     if (k === '#unroad') { unpaintRoad(g, x, y); return; }
     if (k === '#rampart') { paintRampart(g, x, y); return; }
     if (k === '#sitter') { paintSitter(g, x, y); return; }
+    if (k === '#seed') { paintSeed(g, x, y); return; }
+    if (k === '#extghost') { paintExtGhost(g, x, y); return; }
+    if (k === '#unghost') { unpaintGhost(g, x, y); return; }
     if (k && SPRITE[k]) { g.drawImage(SPRITE[k], x * CELL, y * CELL, CELL, CELL); return; }
     paintRect(g, x, y, hex);   // scaffolding, and anything unmapped
   }
@@ -658,8 +861,14 @@ function animPlayerHtml(plan) {
     var k = STAGE_KIND[stage];
     return k === '#road' || k === '#unroad';
   }
+  /** the paint-then-erase pair for layer 6's relocation — same rule as roads */
+  function isGhostStage(stage) {
+    var k = STAGE_KIND[stage];
+    return k === '#extghost' || k === '#unghost';
+  }
   function ctxFor(stage) {
     if (isRoadStage(stage)) return gR;
+    if (isGhostStage(stage)) return gG;
     if (stage === 'ramparts') return gU;
     if (!scaff[stage]) return gC;
     return SCAFF_LATE[stage] ? gB : gA;
@@ -679,7 +888,7 @@ function animPlayerHtml(plan) {
   function clearCells() {
     gA.clearRect(0, 0, W, W); gB.clearRect(0, 0, W, W);
     gU.clearRect(0, 0, W, W); gR.clearRect(0, 0, W, W);
-    gC.clearRect(0, 0, W, W);
+    gG.clearRect(0, 0, W, W); gC.clearRect(0, 0, W, W);
   }
   /** the thinking layers recede as the real base lands on top of them */
   function applyFades(i) {
@@ -1161,6 +1370,69 @@ ${notesHtml(plan)}
 </body></html>`;
 }
 
+/**
+ * ARTIFACTS FROM A WORLD THAT IS NOT THERE ANY MORE.
+ *
+ * out-v2/thumbs and out-v2/anim each held 203 files for a 172-room fleet: 31
+ * rooms (E11S0, E11S10, E12S0, E20S1..E20S9, E21S0, E21S10 and the rest) came
+ * from an earlier claimable list, and nothing has ever removed a file this
+ * suite stopped writing. index.html links only the current fleet, so the
+ * orphans are unreachable from the gallery — and they sit in the gallery root,
+ * which is precisely how a reviewer ends up opening thumbs/E20S3.svg and
+ * reading it as a plan this planner produces. A stale artifact that nobody
+ * links is still an artifact anybody can open.
+ *
+ * ONLY ON A FULL-FLEET RUN, AND THAT GUARD IS THE POINT. `plan.mjs --rooms
+ * E11S7` plans one room; letting that run delete the other 171 rooms' thumbs
+ * and films would be a far worse bug than the one being fixed here. Nothing is
+ * unlinked unless the caller asked for the whole claimable list.
+ *
+ * THE KEEP-SET IS WHAT THE RUN WAS ASKED FOR, NOT WHAT IT MANAGED TO WRITE.
+ * A room whose plan errored this run is still a room in the world, and a mongo
+ * hiccup must not be able to delete its artifacts.
+ *
+ * AND THE LIST STILL HAS TO LOOK LIKE A FLEET. `fetchAllClaimableRooms` is the
+ * world and is authoritative — but a mongo call that comes back half empty is
+ * not a world that shrank, and it would take the gallery with it. So a run that
+ * would orphan more than half of a directory deletes nothing and says why; the
+ * 31 files this exists for are 15% of 203 and clear that bar without noticing
+ * it. export-anim.mjs guards its own prune the same way and needs it harder,
+ * because its room list comes out of plans-hub.json rather than out of mongo.
+ *
+ * Only <room>.svg / <room>.json are ever considered — anything else in those
+ * directories is not this function's business.
+ */
+function pruneOrphanArtifacts(rooms) {
+  const keep = new Set(rooms);
+  const gone = [];
+  for (const [dir, ext] of [
+    [path.join(OUT_V2, "thumbs"), ".svg"],
+    [path.join(OUT_V2, "anim"), ".json"],
+  ]) {
+    if (!fs.existsSync(dir)) continue;
+    const re = new RegExp(`^([EW]\\d+[NS]\\d+)\\${ext}$`);
+    const onDisk = fs.readdirSync(dir).filter((f) => re.test(f));
+    const orphans = onDisk.filter((f) => !keep.has(re.exec(f)[1]));
+    if (orphans.length * 2 > onDisk.length) {
+      console.log(
+        `stale artifacts: REFUSING TO PRUNE ${path.basename(dir)}/ — this run's ${rooms.length} rooms would ` +
+          `orphan ${orphans.length} of its ${onDisk.length} files. That is a short room list, not a shrunken ` +
+          `world. Nothing deleted.`,
+      );
+      continue;
+    }
+    for (const f of orphans) {
+      fs.unlinkSync(path.join(dir, f));
+      gone.push(`${path.basename(dir)}/${f}`);
+    }
+  }
+  console.log(
+    gone.length
+      ? `stale artifacts pruned: ${gone.length} file(s) for rooms outside this ${rooms.length}-room run — ${gone.join(" ")}`
+      : `stale artifacts: none pruned — thumbs/ and anim/ hold nothing outside this ${rooms.length}-room run`,
+  );
+}
+
 function main() {
   // TRUE PROCESS WALL CLOCK. The line at the bottom of this report used to say
   // "total Ns" and that number was sum(meta.planMs) — in-planner time only. It
@@ -1174,7 +1446,10 @@ function main() {
   let rooms = GOLDEN;
   const ri = args.indexOf("--rooms");
   if (ri >= 0 && args[ri + 1]) rooms = args[ri + 1].split(",").map((s) => s.trim());
-  if (args.includes("--all-claimable") || args.includes("--all")) {
+  // "did the caller ask for the WHOLE world?" — the only run allowed to delete
+  // another room's artifacts. See pruneOrphanArtifacts.
+  const fullFleet = args.includes("--all-claimable") || args.includes("--all");
+  if (fullFleet) {
     rooms = fetchAllClaimableRooms();
   }
 
@@ -1230,10 +1505,34 @@ function main() {
         ? `ext=${plan.meta.extensions.placed}/${plan.meta.extensions.target}${plan.meta.extensions.placed < EXT_TARGET ? " SHORT" : ""}`
         : "",
     );
-    fs.writeFileSync(path.join(OUT_V2, `${d.room}.html`), roomPage(plan));
   }
 
   const ok = plans.filter((p) => !p.error);
+
+  // ------------------------------------------------------------------
+  // THE FLEET MEDIANS ARE MEASURED HERE, AND THE ECO GATES MOVE WITH THEM.
+  //
+  // pipeline.mjs's eco block promised "the medians below are measured, not
+  // assumed; the suite re-prints them every run, and if they drift the gates
+  // drift with them", and then hard-coded two literals that no line of this
+  // suite ever computed or printed. One of them had drifted: the true median of
+  // pathSourcesSum over the shipped 172 rooms is 26, not the 27 every one of
+  // the 37 eco declarations quoted, which set the gate two tiles too high and
+  // left E21S5 (53) and E7S5 (54) silently above the rule as written.
+  //
+  // This is why the room pages are written BELOW rather than inside the
+  // planning loop: a room's eco declaration quotes the fleet, so no room page
+  // may be rendered until the whole fleet has been planned. The declaration is
+  // then re-derived per plan (redeclareEcoTax strips only the `gate:"eco"`
+  // entry) and printed, so a reviewer can argue with the multiple instead of
+  // reverse-engineering a cliff.
+  // ------------------------------------------------------------------
+  const fm = setFleetMedians(ok);
+  if (fm) {
+    for (const p of ok) redeclareEcoTax(p);
+  }
+
+  for (const p of ok) fs.writeFileSync(path.join(OUT_V2, `${p.room}.html`), roomPage(p));
   let index = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Pacifist Plan v2 — Hub</title>
 <style>
 body{font-family:system-ui,sans-serif;background:#080808;color:#eee;margin:20px}
@@ -1320,6 +1619,7 @@ ${thumbLegendHtml()}
   }
   index += `</div></body></html>`;
   fs.writeFileSync(path.join(OUT_V2, "index.html"), index);
+  if (fullFleet) pruneOrphanArtifacts(rooms);
 
   // THE SERIALISED PLAN CARRIES NO STOPWATCH. `meta.planMs` is wall-clock: it is
   // different on every run, it was the only thing in the artifact that was, and
@@ -1441,6 +1741,16 @@ ${thumbLegendHtml()}
   console.log(
     `upgrader parks: min ${parks[0]} · median ${med(parks)}` +
       (thin.length ? ` — THIN: ${thin.map((p) => `${p.room}:${p.meta.ctrlParks}`).join(" ")}` : ""),
+  );
+  // the eco gates, and the fleet they were measured off — the line pipeline.mjs
+  // has always claimed the suite prints and never did.
+  console.log(
+    fm
+      ? `eco medians (measured this run, ${fm.rooms} rooms): controller walk ${fm.ctrlWalk} -> gate ` +
+        `${fm.ctrlGate} · source sum ${fm.srcSum} -> gate ${fm.srcGate} ` +
+        `(each gate is the lower of its absolute line and 2x the median)`
+      : `eco medians: NOT measured — this run planned too few rooms to median a fleet, so the seeded ` +
+        `values stand and every eco declaration says which case it is in`,
   );
   const noExtractor = ok.filter((p) => !(p.structures.extractor || []).length);
   console.log(

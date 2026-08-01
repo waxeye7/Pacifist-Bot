@@ -44,9 +44,10 @@
  * them: 4 rooms fleet-wide, 19 extensions). Handing that job to layer 7 does
  * NOT work — the next fallback extension takes the tile layer 7 meant to pave.
  */
-import { D4, D8, buildable, key, walkable } from "./shared.mjs";
+import { D4, D8, buildable, engineBuildable, isWall, key, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 import {
+  BUILT_OBSTACLES,
   MOBILITY_TARGET,
   arriveAt,
   bfsField,
@@ -490,6 +491,22 @@ export function planExtensions(terrain, plan) {
   // C1: object tiles are obstacles — never a candidate, never walkable, and
   // never something that needs a face (they are not ours to service).
   for (const k of plan.objectTiles || []) occupied.add(k);
+  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
+  // claimController/signController (both range 1) always have somewhere to
+  // stand and a creep can always get there. See the CLAIM SEAT block in
+  // layer-hub.
+  //
+  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
+  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
+  // and reserving a walkable tile there tells this layer the tile is a WALL.
+  // The first cut did exactly that and E15S5 paid for it — its tower moved off
+  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
+  // because the one tile the stitch wanted to pave was the reserved approach.
+  // A creep stands on the seat; a road may run over it; only a blocking
+  // STRUCTURE may not be placed on it.
+  const reserved = new Set();
+  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
+  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
   const sitter = plan.sitter;
   // the wall line: a corridor may never be paved ON a rampart (owner: roads
   // TO ramparts, never on them) and never THROUGH one
@@ -685,6 +702,8 @@ export function planExtensions(terrain, plan) {
     const k = key(x, y);
     // a reserved defender lane is a cut tile as far as the mass is concerned
     if (laneSet.has(k)) return false;
+    // ...and so is the controller claim seat and its approach
+    if (reserved.has(k)) return false;
     return !blockedNow.has(k) && !pavedTiles.has(k);
   };
   /**
@@ -1832,6 +1851,11 @@ export function planExtensions(terrain, plan) {
           if (hubField[i] >= 9999) continue;
           if (hubField[i] > Math.max(deepReach, farthestShallow)) continue;
           if (laneSet.has(tk)) continue; // a reserved defender lane is not ours to take
+          // ...and neither is the controller claim seat or its approach. This pass
+          // builds its own candidate list rather than going through extCapableAt,
+          // so it needs the ban restated: E11S7 and E5S6 relocated an extension
+          // straight onto the reserved seat and sealed their own controller in.
+          if (reserved.has(tk)) continue;
           if (deferShape(x, y)) continue;
           // THE ROAD FACE HAS TO ALREADY EXIST — this pass never paves. A
           // stub road ON the tile does not count as its own face.
@@ -2348,4 +2372,839 @@ export function planExtensions(terrain, plan) {
     if (betterRun(alt, out)) out = alt;
   }
   return out;
+}
+
+// ===========================================================================
+// LAYER 7b — THE POST-PRUNE EXTENSION REFLOW
+// ===========================================================================
+/**
+ * THE CORRIDOR THE MASS GREW ALONG IS NOT THE CORRIDOR THE ROOM SHIPS, AND THE
+ * EXTENSION LAYER WAS THE ONLY ONE THAT NEVER FOUND OUT.
+ *
+ * Layer 6 grows the extension mass along a paved corridor and refuses any tile
+ * that already carries a road — correctly, because you cannot stack an
+ * extension on a road. Layer 7 then runs the dead-end prune and DELETES part of
+ * that corridor: 1,659 road tiles across the fleet, every one of them turning
+ * back into free interior floor that is, by construction, deep, already
+ * road-faced (the corridor it belonged to is still there) and inside the wall.
+ * Nothing looked at it again. Layer 6 had already returned.
+ *
+ * That single ordering gap is the whole of three separate review findings, and
+ * the reviewers found it by construction rather than by reading the code:
+ *
+ *   - E9S2 shipped 56/60 extensions and declared the missing four IMPOSSIBLE —
+ *     "no composition in this search reached more than 56 extensions at any
+ *     seed or any rung ... the 4 missing extension(s) are the room, not a
+ *     placement that gave up early". Two independent reviewers built 60/60 in
+ *     the shipped enclosure. Their tiles were 36,14 / 35,11 / 37,13 / 35,15
+ *     (depth 10-11, no rampart needed, two of them two tiles from the storage).
+ *     ALL FOUR ARE TILES THIS ROOM PAVED IN LAYER 6 AND PRUNED IN LAYER 7.
+ *   - Fleet-wide, every one of the 55 shallow extensions sat in a room that
+ *     still held free deep road-faced floor, and the relocation targets the
+ *     reviewers proved out are the same story: 12 of the 13 they named
+ *     (E11S1 23,42 + 26,37; E9S9 36,19 + 33,26; E12S5 10,21; E17S8 16,42;
+ *     E2S3 43,31; E3S7 28,23; E5S6 29,40; E12S6 28,13) are pruned road tiles.
+ *   - E3S7's layer-6 note read "6 of 60 sit at depth < 4" when the shipped room
+ *     has exactly one shallow extension. The gap of 5 is that room's
+ *     `inertPruned: 5` — the note was written before the prune it describes.
+ *
+ * The cause sentence layer 6 prints for those rooms — "the deep skeleton ran
+ * out of diggable deep floor — digDeep() came back empty" — is a true statement
+ * about phase 1 of a search that ran against a board the room does not ship. It
+ * was converted into a statement about the room, which is the one thing the
+ * honest-shortfall channel is not allowed to do.
+ *
+ * WHY A REFLOW AND NOT A RE-ORDER. Pruning before the mass grows is circular:
+ * a road is inert only when nothing claims it, and the extensions are most of
+ * the claimants. Re-running the whole of layer 6 after the prune was rejected
+ * too — it would re-derive a different corridor, which would prune differently,
+ * which is the same circle with a longer radius. So this pass does the one
+ * thing that is well-defined on a finished board: it takes the floor the prune
+ * freed and asks, tile by tile, whether an extension may stand there.
+ *
+ * IT IS NOT A REPAIR LOOP. It never moves a finished structure to chase a
+ * metric, it never paves, it never touches the wall, and it only ever moves an
+ * extension in ONE direction — from a tile that rents a personal rampart
+ * forever onto a tile that needs none. Every placement is subject to the same
+ * acceptance test the reviewers used against the shipped validator, plus two
+ * the reviewers asked for and the planner did not have: the controller claim
+ * seat, and the as-built upgrader parks.
+ *
+ * WHAT IT REFUSES IS RECORDED, TILE BY TILE. The declaration this feeds may say
+ * "impossible" only after a search it can cite, so the returned census carries
+ * every free deep tile that was considered and the exact reason each one lost.
+ */
+const REFLOW_REFUSAL_CAP = 400;
+const round2v = (v) => (v === null || v === undefined || !isFinite(v) ? v : Math.round(v * 100) / 100);
+
+/**
+ * @param terrain  raw room terrain string
+ * @param plan     the finished plan; `structures.extension` and
+ *                 `structures.rampart` are mutated in place
+ * @param liveRoadKeys Set of "x,y" for the roads that SURVIVE layer 7's prune —
+ *                 not `plan.structures.road`, which still carries the ghosts at
+ *                 the point this runs. Passing it in rather than deriving it is
+ *                 deliberate: the freed floor IS the difference between the two,
+ *                 and a pass that recomputed it would be guessing at the caller.
+ */
+export function reflowExtensions(terrain, plan, liveRoadKeys) {
+  const idxOf = (x, y) => x + y * 50;
+  const objectTiles = new Set(plan.objectTiles || []);
+  // both reserved tiles: the claim seat and the one walkable step into it
+  const reservedK = new Set();
+  if (plan.claimSeat) reservedK.add(key(plan.claimSeat.x, plan.claimSeat.y));
+  if (plan.claimApproach) reservedK.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  const extensions = plan.structures.extension || [];
+  const ramparts = plan.structures.rampart || [];
+
+  // ---- the shipped board, re-derived here and not read from any cache ------
+  // Every metric this pass is allowed to trade against has to be measured on
+  // the tiles the room ships. Layer 2's exterior, layer 2's depth field and
+  // layer 6's roadSet are all wrong by this point in at least one room, and
+  // reading a stale one is the bug class this pass exists to close.
+  const rampartSet = new Set(ramparts.map((r) => key(r.x, r.y)));
+  const passable = (x, y) =>
+    x >= 0 && x <= 49 && y >= 0 && y <= 49 && (!isWall(terrain, x, y) || liveRoadKeys.has(key(x, y)));
+
+  /** exterior = flood from the exits; ramparts block; roads tunnel walls. */
+  const floodExterior = (rset) => {
+    const ext = new Uint8Array(2500);
+    const q = [];
+    const seed = (x, y) => {
+      if (!passable(x, y) || rset.has(key(x, y))) return;
+      const i = idxOf(x, y);
+      if (ext[i]) return;
+      ext[i] = 1;
+      q.push(i);
+    };
+    for (let i = 0; i < 50; i++) {
+      seed(i, 0);
+      seed(i, 49);
+      seed(0, i);
+      seed(49, i);
+    }
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi];
+      const x = i % 50,
+        y = (i / 50) | 0;
+      for (const [dx, dy] of D8) seed(x + dx, y + dy);
+    }
+    return ext;
+  };
+  /** depth = chebyshev distance to the nearest exterior tile, THROUGH walls */
+  const depthFrom = (ext) => {
+    const dep = new Int16Array(2500).fill(999);
+    const q = [];
+    for (let i = 0; i < 2500; i++) {
+      if (ext[i]) {
+        dep[i] = 0;
+        q.push(i);
+      }
+    }
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi];
+      const x = i % 50,
+        y = (i / 50) | 0;
+      for (const [dx, dy] of D8) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const ni = idxOf(nx, ny);
+        if (dep[ni] <= dep[i] + 1) continue;
+        dep[ni] = dep[i] + 1;
+        q.push(ni);
+      }
+    }
+    return dep;
+  };
+
+  const exterior = floodExterior(rampartSet);
+  const depth = depthFrom(exterior);
+
+  // ---- occupancy ----------------------------------------------------------
+  // A tile is FREE only when nothing at all stands on it. Ramparts count: an
+  // extension is legal under a rampart, but a cut tile is the defenders' walk
+  // and a battlement, and standing a blocker on it is how the wall stops being
+  // walkable. Deep floor almost never carries one, so this costs nothing.
+  const occupiedTile = new Set();
+  for (const [t, list] of Object.entries(plan.structures)) {
+    for (const p of list || []) {
+      const k = key(p.x, p.y);
+      if (t === "road" && !liveRoadKeys.has(k)) continue; // a pruned ghost is not a structure
+      occupiedTile.add(k);
+    }
+  }
+
+  /** creep-blocking tiles, given extra tiles to block and tiles to free */
+  const blockedWith = (extraKeys, dropKeys) => {
+    const b = new Set(objectTiles);
+    for (const t of BUILT_OBSTACLES) {
+      for (const p of plan.structures[t] || []) b.add(key(p.x, p.y));
+    }
+    for (const k of dropKeys || []) b.delete(k);
+    for (const k of extraKeys || []) b.add(k);
+    for (const k of reservedK) b.delete(k); // reserved tiles are walkable, never blocked
+    return b;
+  };
+
+  /** walk region a creep of ours can reach from the sitter, D8 */
+  const walkFrom = (blocked, ext) => {
+    const seen = new Uint8Array(2500);
+    const si = idxOf(plan.sitter.x, plan.sitter.y);
+    seen[si] = 1;
+    const q = [si];
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi];
+      const x = i % 50,
+        y = (i / 50) | 0;
+      for (const [dx, dy] of D8) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const ni = idxOf(nx, ny);
+        if (seen[ni] || !passable(nx, ny) || ext[ni]) continue;
+        if (blocked.has(key(nx, ny))) continue;
+        seen[ni] = 1;
+        q.push(ni);
+      }
+    }
+    return seen;
+  };
+
+  // ---- the as-built quantities this pass may not make worse ---------------
+  // Measured BEFORE anything moves, so every acceptance test below is "no
+  // worse than shipped" rather than "meets some absolute bar the shipped room
+  // may already miss". A pass that could only run in rooms that were already
+  // perfect would never run.
+  const ctrl = plan.controller;
+  // the LAST link is the controller's, by layer 1's construction order — the
+  // same convention layer-shell and the as-built park re-measure use. A
+  // "nearest link at chebyshev 2-3" derivation picks a source link instead in
+  // five rooms (E13S6, E18S3, E13S9, E1S3, E5S5).
+  const ctrlLink = (() => {
+    if (!ctrl) return null;
+    const links = plan.structures.link || [];
+    const last = links[links.length - 1];
+    if (!last) return null;
+    const d = Math.max(Math.abs(last.x - ctrl.x), Math.abs(last.y - ctrl.y));
+    return d >= 2 && d <= 3 ? { x: last.x, y: last.y, d } : null;
+  })();
+  /** as-built upgrader parks: the producer's own definition, re-measured */
+  const parksWith = (blocked) => {
+    if (!ctrlLink || !ctrl) return 99;
+    let n = 0;
+    for (const [dx, dy] of D8) {
+      const x = ctrlLink.x + dx,
+        y = ctrlLink.y + dy;
+      if (!walkable(terrain, x, y)) continue;
+      if (Math.max(Math.abs(x - ctrl.x), Math.abs(y - ctrl.y)) > 3) continue;
+      if (blocked.has(key(x, y)) || objectTiles.has(key(x, y))) continue;
+      n++;
+    }
+    return n;
+  };
+  /** free walkable range-1 tiles of the controller — the claim/sign seats */
+  const seatsWith = (blocked) => {
+    if (!ctrl) return 99;
+    let n = 0;
+    for (const [dx, dy] of D8) {
+      const x = ctrl.x + dx,
+        y = ctrl.y + dy;
+      if (!walkable(terrain, x, y)) continue;
+      if (objectTiles.has(key(x, y))) continue;
+      if (blocked.has(key(x, y))) continue;
+      n++;
+    }
+    return n;
+  };
+
+  const baseBlocked = blockedWith(null, null);
+  const baseWalk = walkFrom(baseBlocked, exterior);
+  const baseParks = parksWith(baseBlocked);
+  const baseSeats = seatsWith(baseBlocked);
+  const cutRaw = plan.shell && plan.shell.cut ? plan.shell.cut : [];
+  const cutKeys = cutRaw.map((c) => key(c.x, c.y));
+  /** every cut tile the shipped garrison can actually stand on */
+  const baseBattlements = cutKeys.filter((k) => {
+    const p = k.split(",");
+    return baseWalk[idxOf(+p[0], +p[1])] === 1;
+  }).length;
+
+  /** structures that owe a serviceable D8 face */
+  const facedD8 = [];
+  for (const t of [
+    "storage",
+    "terminal",
+    "link",
+    "spawn",
+    "tower",
+    "lab",
+    "nuker",
+    "observer",
+    "container",
+    "extractor",
+  ]) {
+    for (const p of plan.structures[t] || []) facedD8.push(p);
+  }
+
+  // ------------------------------------------------------------------
+  // THE ACCEPTANCE TEST. This is the reviewers' construction, made into code:
+  // block the trial tiles, and require that the finished room is no worse off
+  // on every property it is judged on. It is deliberately phrased as a
+  // comparison against the SHIPPED numbers, not against a constant.
+  // ------------------------------------------------------------------
+  // EVERY TEST IS "NO WORSE THAN SHIPPED", NEVER "MEETS AN ABSOLUTE BAR.
+  //
+  // The first version of this asked, flatly, whether every structure had a
+  // walkable face. That is not the same question and it fails everywhere: a
+  // room with a source outside its wall — E9S2 has one, at 31,35 — has eco
+  // structures the interior walk region never reaches BY DESIGN, so the
+  // absolute test refused all three of E9S2's own recoverable tiles and blamed
+  // a container thirty tiles away. The only thing this pass may promise is
+  // that it takes nothing away, so each property is measured on the shipped
+  // board first and every trial is compared against that.
+  const hadFaceD8 = new Map();
+  for (const p of facedD8) {
+    let ok = false;
+    for (const [dx, dy] of D8) {
+      if (baseWalk[idxOf(p.x + dx, p.y + dy)] === 1) {
+        ok = true;
+        break;
+      }
+    }
+    hadFaceD8.set(key(p.x, p.y), ok);
+  }
+  const baseRoadsInWalk = new Set();
+  for (const k of liveRoadKeys) {
+    const p = k.split(",");
+    if (baseWalk[idxOf(+p[0], +p[1])] === 1) baseRoadsInWalk.add(k);
+  }
+
+  const accepts = (addKeys, dropKeys, extList) => {
+    const blocked = blockedWith(addKeys, dropKeys);
+    const walk = walkFrom(blocked, exterior);
+    const inWalk = (x, y) => walk[idxOf(x, y)] === 1;
+    // (a) every non-extension structure that HAD a walkable D8 face keeps one
+    for (const p of facedD8) {
+      if (!hadFaceD8.get(key(p.x, p.y))) continue; // never had one; not ours to grant
+      let ok = false;
+      for (const [dx, dy] of D8) {
+        if (inWalk(p.x + dx, p.y + dy)) {
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) return { ok: false, why: `structure ${p.x},${p.y} loses its last walkable face` };
+    }
+    // (b) every extension keeps a walkable D4 face (the filler stands there).
+    // No base exemption here: an extension with no reachable D4 face is an
+    // extension no filler can ever fill, and the validator fails it outright.
+    for (const e of extList) {
+      let ok = false;
+      for (const [dx, dy] of D4) {
+        if (inWalk(e.x + dx, e.y + dy)) {
+          ok = true;
+          break;
+        }
+      }
+      if (!ok) return { ok: false, why: `extension ${e.x},${e.y} loses its last walkable D4 face` };
+    }
+    // (c) every road the sitter could reach, it still can
+    for (const k of baseRoadsInWalk) {
+      const p = k.split(",");
+      const x = +p[0],
+        y = +p[1];
+      if (blocked.has(k)) continue; // a road under a blocker conducts nothing anyway
+      if (!inWalk(x, y)) return { ok: false, why: `road ${k} is cut off from the sitter` };
+    }
+    // (d) the garrison keeps every battlement it shipped
+    const bat = cutKeys.filter((k) => {
+      const p = k.split(",");
+      return walk[idxOf(+p[0], +p[1])] === 1;
+    }).length;
+    if (bat < baseBattlements) {
+      return { ok: false, why: `loses ${baseBattlements - bat} battlement(s)` };
+    }
+    // (e) the controller keeps at least one claim/sign seat, and no fewer
+    const seats = seatsWith(blocked);
+    if (seats < 1) return { ok: false, why: "takes the controller's last claim seat" };
+    if (seats < baseSeats) return { ok: false, why: "costs the controller a claim seat" };
+    // (f) upgrader parking does not shrink
+    const parks = parksWith(blocked);
+    if (parks < baseParks) return { ok: false, why: `costs ${baseParks - parks} upgrader park(s)` };
+    return { ok: true };
+  };
+
+  // ------------------------------------------------------------------
+  // THE CANDIDATE SET — every tile in the room that could hold a free
+  // extension, with the reason recorded for the ones that cannot. "Free" means
+  // deep: at depth >= DEPTH_SAFE an extension is out of a ranged attacker's
+  // envelope and rents no personal rampart, which is the only kind of tile
+  // this pass is willing to move a shallow extension onto.
+  // ------------------------------------------------------------------
+  const refusals = [];
+  const scanFree = (skipKeys) => {
+    const out = [];
+    for (let y = 1; y <= 48; y++) {
+      for (let x = 1; x <= 48; x++) {
+        const k = key(x, y);
+        if (skipKeys && skipKeys.has(k)) continue;
+        if (occupiedTile.has(k)) continue;
+        if (objectTiles.has(k)) continue;
+        const i = idxOf(x, y);
+        if (exterior[i]) continue; // outside our own wall
+        if (isWall(terrain, x, y)) continue;
+        if (depth[i] < DEPTH_SAFE) continue; // shallow floor is not an upgrade
+        if (reservedK.has(k)) {
+          refusals.push({ k, why: "reserved controller claim seat" });
+          continue;
+        }
+        if (!engineBuildable(terrain, x, y, "extension")) {
+          refusals.push({ k, why: "engine refuses an extension here (border rule)" });
+          continue;
+        }
+        // must already have a D4 road face that conducts — this pass never paves
+        let faced = false;
+        for (const [dx, dy] of D4) {
+          const fk = key(x + dx, y + dy);
+          if (liveRoadKeys.has(fk) && !baseBlocked.has(fk)) {
+            faced = true;
+            break;
+          }
+        }
+        if (!faced) {
+          refusals.push({ k, why: "no D4 road face, and this pass never paves" });
+          continue;
+        }
+        // and the builder has to be able to reach it
+        if (!baseWalk[i]) {
+          refusals.push({ k, why: "sealed off from the sitter — no builder can reach it" });
+          continue;
+        }
+        out.push({ x, y, k, depth: depth[i] });
+      }
+    }
+    return out;
+  };
+
+  const added = [];
+  const movedLog = [];
+  const rampartsRetired = [];
+  const taken = new Set();
+
+  const field = fieldFrom(terrain, plan.sitter, baseBlocked);
+  const rank = (c) => {
+    let best = 9999;
+    for (const [dx, dy] of D4) {
+      const f = field[idxOf(c.x + dx, c.y + dy)];
+      if (f < best) best = f;
+    }
+    return best;
+  };
+  const ordered = (list) =>
+    list
+      .map((c) => ({ x: c.x, y: c.y, k: c.k, depth: c.depth, r: rank(c) }))
+      .sort((a, b) => a.r - b.r || a.y - b.y || a.x - b.x);
+
+  let free = scanFree(taken);
+  const freeDeepFaced = free.length;
+
+  // ---- (1) BACKFILL to the target ----------------------------------------
+  // Nearest-to-the-hub first: the filler walks this every refill cycle, and a
+  // tile the prune freed is by construction on an existing corridor, so the
+  // cheap ones are the ones the corridor already passes.
+  if (extensions.length < TARGET) {
+    for (const c of ordered(free)) {
+      if (extensions.length >= TARGET) break;
+      const trial = new Set(taken);
+      trial.add(c.k);
+      const verdict = accepts(trial, null, extensions.concat([{ x: c.x, y: c.y }]));
+      if (!verdict.ok) {
+        refusals.push({ k: c.k, why: verdict.why });
+        continue;
+      }
+      taken.add(c.k);
+      occupiedTile.add(c.k);
+      extensions.push({ x: c.x, y: c.y });
+      added.push({ x: c.x, y: c.y, depth: c.depth });
+    }
+  }
+
+  // ---- (1b) STILL SHORT: BUY A ROAD FACE, THEN BUY A RAMPART -------------
+  // The ladder below is priced, cheapest first, and it only runs while the room
+  // is under target. Both rungs are things this planner already does elsewhere —
+  // layer 6 paves corridor to reach floor, and 15 of E9S2's own extensions rent
+  // a personal rampart — so neither is a new kind of cost, only a new place to
+  // pay it. Both reviewers who built E9S2 to 60 used one of these two rungs for
+  // their last tile: one added a road at 34,15 to reach 35,15, the other took
+  // 34,4 at depth 3 with one rampart, "exactly like the room's other 15".
+  const newRoads = [];
+  const shallowRamparts = [];
+  const roadKeysNow = new Set(liveRoadKeys);
+  /** a tile a road may be laid on: free floor, inside the wall, net-adjacent */
+  const paveableFor = (t) => {
+    for (const [dx, dy] of D4) {
+      const px = t.x + dx,
+        py = t.y + dy;
+      const pk = key(px, py);
+      if (px < 1 || py < 1 || px > 48 || py > 48) continue;
+      if (roadKeysNow.has(pk) || occupiedTile.has(pk) || objectTiles.has(pk)) continue;
+      if (reservedK.has(pk)) continue;
+      if (isWall(terrain, px, py)) continue; // never tunnel the wall to reach floor
+      if (exterior[idxOf(px, py)]) continue;
+      if (!baseWalk[idxOf(px, py)]) continue;
+      // it has to JOIN the network, or it is a road to nowhere
+      let joins = false;
+      for (const [ax, ay] of D8) {
+        if (roadKeysNow.has(key(px + ax, py + ay))) {
+          joins = true;
+          break;
+        }
+      }
+      if (joins) return { x: px, y: py, k: pk };
+    }
+    return null;
+  };
+
+  if (extensions.length < TARGET) {
+    // rung B — deep floor one paved tile from the net: costs a road, no rampart
+    const unfacedDeep = [];
+    for (let y = 1; y <= 48; y++) {
+      for (let x = 1; x <= 48; x++) {
+        const k = key(x, y);
+        if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        const i = idxOf(x, y);
+        if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
+        if (!engineBuildable(terrain, x, y, "extension")) continue;
+        if (!baseWalk[i]) continue;
+        let faced = false;
+        for (const [dx, dy] of D4) {
+          const fk = key(x + dx, y + dy);
+          if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
+            faced = true;
+            break;
+          }
+        }
+        if (faced) continue;
+        unfacedDeep.push({ x, y, k, depth: depth[i] });
+      }
+    }
+    for (const c of ordered(unfacedDeep)) {
+      if (extensions.length >= TARGET) break;
+      const pave = paveableFor(c);
+      if (!pave) continue;
+      const verdict = accepts(new Set([...taken, c.k]), null, extensions.concat([{ x: c.x, y: c.y }]));
+      if (!verdict.ok) {
+        refusals.push({ k: c.k, why: verdict.why });
+        continue;
+      }
+      taken.add(c.k);
+      occupiedTile.add(c.k);
+      occupiedTile.add(pave.k);
+      roadKeysNow.add(pave.k);
+      liveRoadKeys.add(pave.k);
+      baseRoadsInWalk.add(pave.k);
+      newRoads.push({ x: pave.x, y: pave.y });
+      extensions.push({ x: c.x, y: c.y });
+      added.push({ x: c.x, y: c.y, depth: c.depth, paved: { x: pave.x, y: pave.y } });
+    }
+
+    // rung C — shallow floor with a road face: costs a personal rampart forever.
+    // Last, and only to close a 60/60 gap, because the whole of layer 6's
+    // relocation pass exists to get OUT of these.
+    if (extensions.length < TARGET) {
+      const shallowCands = [];
+      for (let y = 1; y <= 48; y++) {
+        for (let x = 1; x <= 48; x++) {
+          const k = key(x, y);
+          if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+          const i = idxOf(x, y);
+          if (exterior[i] || isWall(terrain, x, y)) continue;
+          if (depth[i] >= DEPTH_SAFE || depth[i] < 2) continue; // deep is rung A/B; depth<2 is indefensible
+          if (!engineBuildable(terrain, x, y, "extension")) continue;
+          if (!engineBuildable(terrain, x, y, "rampart")) continue; // no cover, no extension
+          if (!baseWalk[i]) continue;
+          let faced = false;
+          for (const [dx, dy] of D4) {
+            const fk = key(x + dx, y + dy);
+            if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
+              faced = true;
+              break;
+            }
+          }
+          if (!faced) continue;
+          shallowCands.push({ x, y, k, depth: depth[i] });
+        }
+      }
+      for (const c of ordered(shallowCands)) {
+        if (extensions.length >= TARGET) break;
+        const verdict = accepts(new Set([...taken, c.k]), null, extensions.concat([{ x: c.x, y: c.y }]));
+        if (!verdict.ok) {
+          refusals.push({ k: c.k, why: verdict.why });
+          continue;
+        }
+        taken.add(c.k);
+        occupiedTile.add(c.k);
+        extensions.push({ x: c.x, y: c.y });
+        shallowRamparts.push({ x: c.x, y: c.y });
+        rampartSet.add(c.k);
+        added.push({ x: c.x, y: c.y, depth: c.depth, rampart: true });
+      }
+    }
+  }
+
+  // the lap this room has once every extension it owes is standing. Relocation
+  // below is measured against THIS, not against the pre-backfill room.
+  const lapBeforeMoves = (() => {
+    const b = new Set(objectTiles);
+    for (const t of BUILT_OBSTACLES) {
+      for (const p of plan.structures[t] || []) b.add(key(p.x, p.y));
+    }
+    const w = interiorWalk(terrain, rampartSet, exterior, b, plan.sitter);
+    return mobilityStats(cutRaw, exterior, maskFromKeys(w)).maxGated;
+  })();
+
+  // ---- (2) RELOCATE shallow extensions onto free deep floor ---------------
+  // One direction only, and only onto a tile that needs no rampart. A slot that
+  // moves retires a personal rampart forever; a slot that cannot move keeps
+  // exactly what it had.
+  // A ROAD IS CHEAPER THAN A RAMPART, SO THIS PASS WILL BUY ONE.
+  //
+  // Restricting relocation to floor whose road face ALREADY exists left 41
+  // shallow extensions standing fleet-wide, in seven rooms, most of them next
+  // to deep floor that was one tile of pavement away from being usable. That
+  // restriction is inherited from layer 6's relocation pass, where it makes
+  // sense — layer 6 is still growing corridor and has a paving budget to
+  // protect. Here there is no budget left to protect and the arithmetic is
+  // one-sided: a personal rampart is 0.03 e/tick of decay forever and blocks
+  // nothing useful, a road tile is an order of magnitude cheaper and makes the
+  // filler's trip shorter. The pave is still the SECOND choice, tried only
+  // when no already-faced deep tile will take the slot.
+  const shallowOf = (e) => depth[idxOf(e.x, e.y)] < DEPTH_SAFE;
+  /** deep, free, engine-legal targets: faced ones first, then one-pave ones */
+  const deepTargets = () => {
+    const faced = ordered(scanFree(taken)).map((c) => ({ ...c, pave: null }));
+    const unfaced = [];
+    for (let y = 1; y <= 48; y++) {
+      for (let x = 1; x <= 48; x++) {
+        const k = key(x, y);
+        if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        const i = idxOf(x, y);
+        if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
+        if (!engineBuildable(terrain, x, y, "extension")) continue;
+        if (!baseWalk[i]) continue;
+        let isFaced = false;
+        for (const [dx, dy] of D4) {
+          const fk = key(x + dx, y + dy);
+          if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
+            isFaced = true;
+            break;
+          }
+        }
+        if (isFaced) continue; // already in `faced`
+        const pave = paveableFor({ x, y });
+        if (!pave) continue;
+        unfaced.push({ x, y, k, depth: depth[i] });
+      }
+    }
+    return faced.concat(ordered(unfaced).map((c) => ({ ...c, pave: paveableFor(c) })));
+  };
+  for (let guard = 0; guard < 96; guard++) {
+    const slots = extensions.filter(shallowOf);
+    if (!slots.length) break;
+    const order = deepTargets();
+    if (!order.length) break;
+    let movedOne = false;
+    for (const slot of slots) {
+      const from = key(slot.x, slot.y);
+      let placed = null;
+      for (const c of order) {
+        if (taken.has(c.k)) continue;
+        const nextList = extensions
+          .filter((e) => key(e.x, e.y) !== from)
+          .concat([{ x: c.x, y: c.y }]);
+        const verdict = accepts(new Set([...taken, c.k]), [from], nextList);
+        if (!verdict.ok) continue;
+        placed = c;
+        break;
+      }
+      if (!placed) continue;
+      const i = extensions.findIndex((e) => key(e.x, e.y) === from);
+      extensions.splice(i, 1, { x: placed.x, y: placed.y });
+      taken.add(placed.k);
+      occupiedTile.add(placed.k);
+      occupiedTile.delete(from);
+      if (placed.pave) {
+        occupiedTile.add(placed.pave.k);
+        roadKeysNow.add(placed.pave.k);
+        liveRoadKeys.add(placed.pave.k);
+        baseRoadsInWalk.add(placed.pave.k);
+        newRoads.push({ x: placed.pave.x, y: placed.pave.y });
+      }
+      movedLog.push({
+        from: { x: slot.x, y: slot.y },
+        to: { x: placed.x, y: placed.y },
+        fromDepth: depth[idxOf(slot.x, slot.y)],
+        toDepth: placed.depth,
+        paved: placed.pave ? { x: placed.pave.x, y: placed.pave.y } : null,
+      });
+      movedOne = true;
+      break; // re-scan: the board changed
+    }
+    if (!movedOne) break;
+  }
+
+  // ---- (2b) THE LANE BOUND IS A PROMISE, AND THIS PASS IS INSIDE IT -------
+  // Layer 6 reserves defender lanes and then proves an upper bound on the lap
+  // ANY mass it could grow would leave — and it already knows that its own
+  // relocation pass invalidates the model, which is why it re-derives the bound
+  // over "the corridor this room SHIPS" once its moves are made (see the
+  // stubNote in layer-walls). Layer 7b relocates after that, onto tiles the
+  // model had read as permanently walkable corridor, so it inherits exactly the
+  // same obligation. Unpoliced it broke the bound in three rooms — E11S7
+  // (13.5 -> 14), E13S6 (3.33 -> 6.33), E15S2 (1.67 -> 1.89) — and a bound the
+  // mass beats is a defect, not a footnote.
+  //
+  // ADDITIONS ARE NEVER ROLLED BACK. 60/60 extensions is the one unconditional
+  // gate in the goal and it outranks the lap; layer 6 says the same thing when
+  // it drops a whole lane reservation `droppedFor: "extensions"`. RELOCATIONS
+  // are pure upkeep wins and entirely optional, so they are what gives way —
+  // most recent first, so the room keeps the cheapest ones it can afford.
+  // TWO CEILINGS, AND THE TIGHTER ONE WINS.
+  //   (i) the bound layer 6 published, if it published one; and
+   //  (ii) the lap this room already had once the 60th extension was standing.
+  // (ii) exists because a bound is not a licence. E15S2 publishes no finite
+  // bound at all, so under (i) alone the relocation pass was free to walk its
+  // lap from 1.89 to 2.71 in exchange for two ramparts and say nothing — which
+  // is the same silent trade the mobility declarations exist to stop. Layer 7b
+  // is an UPKEEP pass; it may not spend the garrison's legs to buy upkeep.
+  const laneBound = plan.meta?.extensions?.laneMeta?.bounded;
+  const lapNow = () => {
+    const b = new Set(objectTiles);
+    for (const t of BUILT_OBSTACLES) {
+      for (const p of plan.structures[t] || []) b.add(key(p.x, p.y));
+    }
+    const w = interiorWalk(terrain, rampartSet, exterior, b, plan.sitter);
+    return mobilityStats(cutRaw, exterior, maskFromKeys(w)).maxGated;
+  };
+  const boundRollback = [];
+  let lapCeiling = null;
+  let lapFinal = null;
+  if (movedLog.length) {
+    lapCeiling = lapBeforeMoves;
+    if (laneBound !== null && laneBound !== undefined) lapCeiling = Math.min(lapCeiling, laneBound);
+    let lap = lapNow();
+    while (lap > lapCeiling + 1e-9 && movedLog.length) {
+      const mv = movedLog.pop();
+      const i = extensions.findIndex((e) => e.x === mv.to.x && e.y === mv.to.y);
+      if (i >= 0) extensions.splice(i, 1, { x: mv.from.x, y: mv.from.y });
+      taken.delete(key(mv.to.x, mv.to.y));
+      occupiedTile.delete(key(mv.to.x, mv.to.y));
+      occupiedTile.add(key(mv.from.x, mv.from.y));
+      // the trade, priced: one forever-rampart refused, and what it would have cost
+      boundRollback.push({ ...mv, wouldLap: round2v(lap), ceiling: round2v(lapCeiling) });
+      lap = lapNow();
+    }
+    lapFinal = round2v(lap);
+  }
+
+  // ---- (3) RETIRE the personal ramparts the moves made pointless ----------
+  // A rampart is retired only when it is provably doing nothing else. The test
+  // is not "layer 6 put it there for this extension" — it is the shipped
+  // board's own: nothing that needs depth stands on it, it is not part of the
+  // published wall, and removing it does not move one tile of the exterior.
+  if (movedLog.length) {
+    const cutSet = new Set(cutKeys);
+    const bubbleSet = new Set(
+      (plan.shell && plan.shell.bubble ? plan.shell.bubble : []).map((b) => key(b.x, b.y)),
+    );
+    const denialSet = new Set(
+      (plan.shell && plan.shell.standDenial ? plan.shell.standDenial : []).map((b) => key(b.x, b.y)),
+    );
+    const stillThere = new Set();
+    for (const t of [
+      "spawn",
+      "extension",
+      "tower",
+      "storage",
+      "terminal",
+      "link",
+      "lab",
+      "nuker",
+      "observer",
+      "container",
+    ]) {
+      for (const p of plan.structures[t] || []) stillThere.add(key(p.x, p.y));
+    }
+    for (const mv of movedLog) {
+      const k = key(mv.from.x, mv.from.y);
+      if (!rampartSet.has(k)) continue;
+      if (cutSet.has(k) || bubbleSet.has(k) || denialSet.has(k)) continue;
+      // something else moved in, or was always there, and it is shallow
+      if (stillThere.has(k) && depth[idxOf(mv.from.x, mv.from.y)] < DEPTH_SAFE) continue;
+      const trial = new Set(rampartSet);
+      trial.delete(k);
+      const after = floodExterior(trial);
+      let same = true;
+      for (let i = 0; i < 2500; i++) {
+        if (after[i] !== exterior[i]) {
+          same = false;
+          break;
+        }
+      }
+      if (!same) continue;
+      rampartSet.delete(k);
+      rampartsRetired.push({ x: mv.from.x, y: mv.from.y });
+    }
+    if (rampartsRetired.length) {
+      const gone = new Set(rampartsRetired.map((r) => key(r.x, r.y)));
+      plan.structures.rampart = ramparts.filter((r) => !gone.has(key(r.x, r.y)));
+    }
+  }
+
+  // ---- (4) the as-built shallow set, and the build order, re-derived ------
+  // m4: layer 6 sorted this array and wrote its note over a board that still
+  // carried the corridor layer 7 deletes. Both are re-derived HERE, over the
+  // finished interior, which is the contract layer 6's own comment claims.
+  const finalBlocked = blockedWith(null, null);
+  const finalWalk = walkFrom(finalBlocked, exterior);
+  const buildField = fieldFrom(terrain, plan.sitter, finalBlocked);
+  const buildCost = (e) => {
+    let best = 9999;
+    for (const [dx, dy] of D4) {
+      const f = buildField[idxOf(e.x + dx, e.y + dy)];
+      if (f + 1 < best) best = f + 1;
+    }
+    if (depth[idxOf(e.x, e.y)] < DEPTH_SAFE) best += 3; // a shallow slot owes a rampart too
+    return best;
+  };
+  extensions.sort((a, b) => buildCost(a) - buildCost(b) || a.y - b.y || a.x - b.x);
+
+  return {
+    added,
+    boundRollback,
+    lapCeiling: round2v(lapCeiling),
+    lapBeforeMoves: round2v(lapBeforeMoves),
+    lapAfterMoves: lapFinal,
+    roads: newRoads,
+    shallowRamparts,
+    moved: movedLog,
+    rampartsRetired,
+    shallow: extensions.filter(shallowOf).map((e) => ({ x: e.x, y: e.y })),
+    placed: extensions.length,
+    // the citable search: what was on offer and why each tile lost. An
+    // impossibility declaration downstream may quote these numbers and nothing
+    // else — a claim about the room has to be a claim about a search.
+    search: {
+      freeDeepRoadFaced: freeDeepFaced,
+      refusedCount: refusals.length,
+      refused: refusals.slice(0, REFLOW_REFUSAL_CAP).slice(0, 24),
+    },
+    parks: parksWith(finalBlocked),
+    seats: seatsWith(finalBlocked),
+    battlements: cutKeys.filter((k) => {
+      const p = k.split(",");
+      return finalWalk[idxOf(+p[0], +p[1])] === 1;
+    }).length,
+  };
 }

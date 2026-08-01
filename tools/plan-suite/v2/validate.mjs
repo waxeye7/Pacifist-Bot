@@ -58,9 +58,26 @@
  *          a shortfall, and no note makes it right.
  *   LABS   exactly 10, plan.labInputs are 2 of them, and every lab is within
  *          range 2 of BOTH inputs (that is the reaction rule, not taste).
+ *   CTRLSEAT at least one walkable tile D8-adjacent to the controller carries
+ *          none of our blocking structures. claimController and signController
+ *          are both RANGE 1, so a room that has built over its controller's
+ *          whole ring can never be re-claimed after a downgrade — the claimer
+ *          has nowhere to stand and the extension in the way cannot be
+ *          demolished without a spawn that needs the controller. Roads,
+ *          ramparts and containers do NOT take the seat (a creep walks over
+ *          all three) and rock was never a seat. Undeclarable: the seat costs
+ *          one extension out of sixty.
+ *   CTRLPARKS the controller link's upgrader seats, RE-DERIVED AS BUILT rather
+ *          than read from meta.ctrlParks — layer 1 measures that number six
+ *          layers before extensions, towers, labs, the nuker and the observer
+ *          land on the tiles it counted. Under the floor of 4 is a declarable
+ *          shortfall; a meta.ctrlParks that does not match the shipped room is
+ *          undeclarable, because a wrong number is not a short one.
  *   SITTER the tile every other check is measured FROM. It must be walkable
- *          terrain, D8-adjacent to storage and itself a road tile. The
- *          exterior flood, the interior walk component and the road network
+ *          terrain, D8-adjacent to the whole hub trio — storage, terminal and
+ *          the hub link, all three servable from one tile in one tick — and
+ *          itself a road tile. The exterior
+ *          flood, the interior walk component and the road network
  *          are all seeded here — a sitter on a natural wall or in a sealed
  *          pocket does not make those checks fail, it makes them MEANINGLESS,
  *          which is worse. Undeclarable, like every other trust gate.
@@ -206,6 +223,17 @@ const REFILL_NOTE = 8;
 /** hub link + one per source + controller link. Below this the link network
  *  is not a network — a source hauls its energy by creep, forever. */
 const MIN_LINKS = 4;
+/**
+ * Upgrader seats the controller link has to feed, AS BUILT.
+ *
+ * The same 4 layer-hub.mjs calls MIN_PARKS and treats as a hard floor while it
+ * picks the link (m9: a link with two or three seats throttles the upgrader
+ * fleet forever), and the same 4 every room's census echoes as `minParksFloor`.
+ * The floor is not re-argued here — it is layer 1's own number — it is merely
+ * applied to the room that actually shipped rather than to the one layer 1 was
+ * looking at six layers earlier. See the ctrlParks block near the bottom.
+ */
+const MIN_PARKS_FLOOR = 4;
 
 /**
  * Passability the way the ENGINE moves a creep, not the way terrain reads.
@@ -441,6 +469,22 @@ const GATE_ALIAS = {
   cores: "core",
   road: "road",
   roads: "road",
+  // the controller gates. "ctrlParks" is the spelling the producer already
+  // ships (E17S5, E8S2 both file {gate:"ctrlParks", kind:"seats"}) and normGate
+  // lowercases it to "ctrlparks", so the canonical form has to BE the lowercase
+  // one or those two declarations would stop matching. Singular and hyphenated
+  // twins map too, for the same reason every other entry in this table does:
+  // the undeclarable rules below are keyed on one spelling, and a gate name a
+  // call site or a declaration can spell two ways is a gate name that can be
+  // walked around.
+  ctrlpark: "ctrlparks",
+  ctrlparks: "ctrlparks",
+  "ctrl-park": "ctrlparks",
+  "ctrl-parks": "ctrlparks",
+  ctrlseat: "ctrlseat",
+  ctrlseats: "ctrlseat",
+  "ctrl-seat": "ctrlseat",
+  "ctrl-seats": "ctrlseat",
 };
 const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g || "").toLowerCase();
 
@@ -508,6 +552,34 @@ const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "to
  * count: `lab N!=10` is raised TWICE, once here as (labs, count) from the exact
  * program and once inside the geometry bundle, and excusing the second does
  * nothing about the first.
+ *
+ * THE TWO CONTROLLER PAIRS ARE HERE FOR THE SAME REASON THE FORBIDDEN RULE IS.
+ *
+ * `ctrlseat|no-seat` — a room that has built over every walkable tile next to
+ * its own controller cannot be re-claimed. claimController and signController
+ * are both RANGE 1 (@screeps/engine Creep.prototype.claimController), so once
+ * the room downgrades to unowned there is no tile a claimer can stand on and
+ * the only way back in is to demolish an extension we can no longer build a
+ * creep to demolish. Nine shipped rooms were in exactly that state when this
+ * gate was written (E11S5, E11S7, E13S9, E18S3, E2S2, E3S1, E4S7, E5S6, E9S2 —
+ * five of them with the controller's ONE walkable neighbour taken; the producer
+ * has since moved them). That is not a capacity the room
+ * ran out of: the seat costs one extension out of sixty, and every one of those
+ * nine rooms has deep floor elsewhere. "This room could not fit 60 extensions
+ * AND a way back into itself" is not an admission a note gets to make, so the
+ * pair is refused here and the producer has to move the structure.
+ *
+ * `ctrlparks|stale-claim` — meta.ctrlParks disagreeing with the shipped room is
+ * a false statement about the plan, not a shortfall in it. The count is measured
+ * at layer 1 against an obstacle set that predates extensions, towers, labs, the
+ * nuker and the observer, all of which then land on counted park tiles: 84 of
+ * 172 rooms shipped fewer parks than they claimed on the run that motivated this
+ * rule, and the census line that prints "min 4 · median 8" was describing a fleet
+ * whose real reading was min 3 / median 7. A declaration cannot make a stale number true — the number is either
+ * what the room ships or it is wrong — so the fix is to re-measure it, not to
+ * note it. The SHORTFALL half of the same gate (`ctrlparks|count`, a room that
+ * genuinely cannot seat four upgraders) stays declarable, which is the same
+ * split as labs/count vs labs/geometry one block up.
  */
 const UNDECLARABLE_PAIRS = new Set([
   "spawn|count",
@@ -519,6 +591,12 @@ const UNDECLARABLE_PAIRS = new Set([
   "observer|count",
   "extractor|count",
   "count|forbidden",
+  "ctrlseat|no-seat",
+  "ctrlparks|stale-claim",
+  // meta.ctrlLink pointing at a tile that carries no link, or at a tile outside
+  // the controller's 2..3 seat band, is a broken pointer — the same class of thing
+  // as a planted factory, not a room that ran out of space. Same refusal.
+  "ctrlparks|bad-ctrl-link",
 ]);
 
 /**
@@ -797,6 +875,10 @@ export function checkRoom(plan, terrain, objects) {
       shallowTowers: 0,
       engineReject: 0,
       orphanRoads: 0,
+      ctrlSeatBlocked: 0,
+      ctrlSeatUnreachable: 0,
+      ctrlParksShort: 0,
+      ctrlParksStale: 0,
     };
   }
 
@@ -996,6 +1078,63 @@ export function checkRoom(plan, terrain, objects) {
       "sitter",
       `SITTER ${sitter.x},${sitter.y} is not D8-adjacent to storage ` +
         `${storageTile.x},${storageTile.y} (range ${chebyshev(sitter, storageTile)})`,
+    );
+  }
+  // ...AND THE OTHER TWO THIRDS OF THE HUB TRIO.
+  //
+  // The storage check above stood alone, and a reviewer walked straight through
+  // the gap twice: move the TERMINAL off the sitter ring, validator exits 0; move
+  // the HUB LINK off it, validator exits 0. The comment three lines up already
+  // said what the sitter is for — "the filler stands here to serve the hub trio" —
+  // and one third of the trio was the only third anything checked.
+  //
+  // The trio is a trio because ONE creep standing on ONE tile serves all three in
+  // a tick: transfer is range 1, so a terminal at range 2 costs the filler a step
+  // in and a step back out of the hub on every terminal move, forever, and a hub
+  // link at range 2 does the same to every link send. That is not a shortfall the
+  // room was beaten into, it is a hub that is not a hub — and every downstream
+  // number in this file that is measured FROM the sitter (the road component, the
+  // tower refill walk, the interior walk field) is measured from a tile that no
+  // longer does the job it was chosen for.
+  //
+  // Re-derived, not read: the terminal is `structures.terminal[0]` (the count gate
+  // above already pins the room to exactly one) and the hub link is
+  // `structures.link[0]` by producer convention (layer-hub.mjs:1282,
+  // `const hubLink = structures.link[0];`) — there is no meta.hubLink to trust or
+  // distrust. Measured across the fleet: sitter-to-terminal and sitter-to-link[0]
+  // are BOTH chebyshev 1 in all 172 shipped rooms, so this costs the fleet
+  // nothing and bites the moment either one drifts.
+  //
+  // Gate "core", and "core" is in UNDECLARABLE — so these are permanent hard
+  // fails with no declaration path at all. That is deliberate and it is the same
+  // rule the storage check has always had: this is a TRUST gate. Every other
+  // check in this file measures from the sitter on the assumption that the sitter
+  // is the hub's service tile; a room allowed to declare its way out of that
+  // assumption would not be shipping a declared shortfall, it would be shipping
+  // 40 checks that silently measure a different room.
+  const terminalTile = (s.terminal || [])[0];
+  if (!terminalTile) {
+    fail("core", "sitter", `SITTER ${sitter.x},${sitter.y} has no terminal to sit beside`);
+  } else if (chebyshev(sitter, terminalTile) > 1) {
+    fail(
+      "core",
+      "sitter",
+      `SITTER ${sitter.x},${sitter.y} is not D8-adjacent to terminal ` +
+        `${terminalTile.x},${terminalTile.y} (range ${chebyshev(sitter, terminalTile)}) — the filler ` +
+        `cannot serve the hub trio from one tile, so it steps out of the hub on every terminal move`,
+    );
+  }
+  const hubLinkTile = (s.link || [])[0];
+  if (!hubLinkTile) {
+    fail("core", "sitter", `SITTER ${sitter.x},${sitter.y} has no hub link to sit beside`);
+  } else if (chebyshev(sitter, hubLinkTile) > 1) {
+    fail(
+      "core",
+      "sitter",
+      `SITTER ${sitter.x},${sitter.y} is not D8-adjacent to the hub link ` +
+        `${hubLinkTile.x},${hubLinkTile.y} (range ${chebyshev(sitter, hubLinkTile)}; the hub link is ` +
+        `structures.link[0] by producer convention, layer-hub.mjs:1282) — every link send now costs ` +
+        `the filler a step out of the hub and a step back`,
     );
   }
   if (!roadSet.has(sitterKey)) {
@@ -1331,6 +1470,82 @@ export function checkRoom(plan, terrain, objects) {
         stale.map((t) => t.k),
       );
     }
+    // ------------------------------------------------------------------
+    // ...AND THE OTHER DIRECTION, WHICH NOTHING WAS ENFORCING.
+    //
+    // The `stale` filter above is cut ⊇ sealCritical: every rampart that carries
+    // the seal has to appear in the declared cut. That is one of the two
+    // containments the goal document asks for — "meta.shell.cut must BE the wall
+    // ... the validator fails any room where the two disagree" — and BE is an
+    // equality, not a superset. A reviewer padded E11S8's meta.shell.cut with ten
+    // tiles that carry no rampart at all (2,2 through 15,2, every one of them in
+    // the exterior flood, i.e. bare floor OUTSIDE the wall) and this validator
+    // exited 0, because a phantom cut tile is a tile the `stale` filter never
+    // looks at: it iterates the REAL ramparts and asks whether the cut mentions
+    // them, so anything the cut mentions that is not a rampart is invisible to it.
+    //
+    // A padded cut is not cosmetic. Every shell metric in the plan is an average
+    // or a minimum computed over these tiles — battlement coverage, the weakest
+    // tower face, which endpoints the mobility lap runs between, links-on-the-wall
+    // — and the battery gate 80 lines down scores exactly this list when no
+    // rampart carries the seal. Ten bare floor tiles in the middle of the room
+    // move all of those numbers, in the room's favour, for free.
+    //
+    // TWO CASES, REPORTED SEPARATELY, because `rampartSet` is ENGINE-FILTERED and
+    // collapsing them would blame the producer for the wrong thing:
+    //   cut-not-rampart      the cut names a tile with no planned rampart on it.
+    //                        Nothing was ever going to stand there. This is a
+    //                        fabricated wall tile.
+    //   cut-rampart-rejected the cut names a tile that DOES carry a planned
+    //                        rampart, but one createConstructionSite refuses
+    //                        (code-3 terrain, the exit band, the border-adjacency
+    //                        triple). The producer planned a wall; the server will
+    //                        not build it. That is the `=== WALL` failure mode
+    //                        this file already documents at the rampartSet
+    //                        derivation, seen from the cut's side.
+    // Both carry their tiles so a tiled declaration can arbitrate them, on gate
+    // "shell" like the stale check — a room whose wall genuinely rests on a tile
+    // the engine refuses should be able to say so with the tile in hand rather
+    // than be failed for terrain.
+    //
+    // MEASURED ON THE CURRENT FLEET: 7275 cut tiles across 172 rooms (max 80 in
+    // one room), and every single one of them is a planned rampart the engine
+    // accepts. Both filters come back empty, so this check costs the shipped
+    // fleet nothing and exists entirely to make the padding above impossible.
+    //
+    // REJECTED: re-deriving the cut and comparing set-for-set. It is the same
+    // test written less usefully — sealCritical is already derived and already
+    // compared one way, and a plain set difference would report "these tiles
+    // differ" without separating a fabrication from an engine rejection, which
+    // are two different bugs with two different fixes.
+    const rampartPlanned = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
+    const phantomCut = [];
+    const rejectedCut = [];
+    for (const k of declaredCut) {
+      if (!rampartPlanned.has(k)) phantomCut.push(k);
+      else if (!rampartSet.has(k)) rejectedCut.push(k);
+    }
+    if (phantomCut.length) {
+      late("shell", "cut-not-rampart",
+        `${phantomCut.length} tile(s) in meta.shell.cut carry NO planned rampart at all ` +
+          `(${phantomCut.slice(0, 8).join(" ")}${phantomCut.length > 8 ? " ..." : ""}) — the cut is ` +
+          `supposed to BE the wall, and these tiles are not wall, they are not anything. Every shell ` +
+          `metric computed over the cut (battlement coverage, weakest tower face, links on the seal, ` +
+          `mobility endpoints) is averaged over tiles this room does not defend`,
+        phantomCut,
+      );
+    }
+    if (rejectedCut.length) {
+      late("shell", "cut-rampart-rejected",
+        `${rejectedCut.length} tile(s) in meta.shell.cut carry a planned rampart the ENGINE would ` +
+          `refuse to build (${rejectedCut.slice(0, 8).join(" ")}${rejectedCut.length > 8 ? " ..." : ""}) ` +
+          `— createConstructionSite returns ERR_INVALID_TARGET on natural wall (code 3 included), on ` +
+          `the exit band, and on a non-road structure whose border triple is not solid rock. The plan ` +
+          `counts these as wall; the server will never build them, so the shipped room's seal is ` +
+          `whatever is left after they are struck out`,
+        rejectedCut,
+      );
+    }
   }
 
   // ------------------------------------------------------------------
@@ -1375,6 +1590,410 @@ export function checkRoom(plan, terrain, objects) {
           `shell is its adjacent ring, and this ring is open`,
         openStands,
       );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // THE CLAIM SEAT — can this room ever be re-claimed?
+  //
+  // Nine shipped rooms had built over EVERY walkable tile next to their own
+  // controller. Not "over most of them" — over all of them, so there was no tile
+  // in the room a creep could stand on and touch the controller (measured on the
+  // fleet that motivated this gate; the producer has since moved the structures,
+  // and the fleet reads 0 today):
+  //
+  //   E11S5  ctrl  8,11   one walkable neighbour, 7,12: OBSERVER
+  //   E11S7  ctrl 27,6    one walkable neighbour, 26,5: extension
+  //   E13S9  ctrl 10,27   9,26 / 9,27 / 9,28 all extensions
+  //   E18S3  ctrl 14,44   one walkable neighbour, 15,43: extension
+  //   E2S2   ctrl 27,36   26,35 / 27,35 / 28,35 all extensions
+  //   E3S1   ctrl 14,37   one walkable neighbour, 15,38: extension
+  //   E4S7   ctrl 33,39   34,38 and 32,38 both extensions
+  //   E5S6   ctrl 31,36   30,37 / 31,37 / 32,37 all extensions
+  //   E9S2   ctrl 25,24   24,23 ext, 24,24 ext, 25,23 OBSERVER
+  //
+  // WHY THIS IS FATAL AND NOT UNTIDY. claimController and signController are
+  // RANGE 1 — the same range as upgradeController is 3. A room that downgrades to
+  // unowned (a lost RCL8 room ticks down, and a room whose spawns die stops
+  // paying the controller) can then never be re-claimed: the claimer has nowhere
+  // to stand, and the only structure standing in the way is one we can no longer
+  // build a creep to demolish, because there is no spawn until there is a
+  // controller. The room becomes permanently dead ground holding our own base.
+  // Five of the nine have exactly ONE walkable neighbour in the whole room, so
+  // one extension is the entire difference between recoverable and not.
+  //
+  // Nothing else in this repo notices. meta has no field for it, the D4 gate asks
+  // about EXTENSIONS having a face rather than the controller having one, and the
+  // ctrl-ring check directly above is about RAMPARTS and only looks at tiles in
+  // the EXTERIOR flood — the tiles that fail here are all interior, so it passes
+  // them without a word. No shortfall mentions it either.
+  //
+  // WHAT COUNTS AS TAKING THE SEAT: the BLOCKING list, and only that list. Roads,
+  // ramparts and containers are excluded from it deliberately (see the list at the
+  // top of this file) because a creep walks over all three — a road on the
+  // controller's face is a seat, not an obstruction, and failing a room for paving
+  // its own upgrader stand would be the check misreading the game. Terrain is the
+  // other half: a natural-wall neighbour was never a seat, so the test is over
+  // WALKABLE neighbours only, and a controller boxed in by rock alone is terrain,
+  // not a planning bug — which is why a room with zero walkable neighbours cannot
+  // fail this gate. All nine offenders have walkable floor next to the controller
+  // and we built on it.
+  //
+  // Re-derived from terrain + the shipped structure lists, like everything else:
+  // the controller comes from `objects` (mongo), the occupancy from `s[type]`.
+  //
+  // UNDECLARABLE (`ctrlseat|no-seat`, see the pair set at the top). This is a
+  // "this is wrong", not a "this is short": the seat costs one extension out of
+  // sixty and every one of the nine rooms has deep floor elsewhere to put it.
+  // ------------------------------------------------------------------
+  let ctrlSeatBlocked = 0;
+  let ctrlSeatUnreachable = 0;
+  if (controller) {
+    /** who, of ours, is standing on this tile — "" when nobody is */
+    const occupantOf = (x, y) =>
+      BLOCKING.filter((t) => (s[t] || []).some((p) => p.x === x && p.y === y)).join("+");
+    const ring = [];
+    for (const [dx, dy] of D8) {
+      const x = controller.x + dx,
+        y = controller.y + dy;
+      if (!walkable(terrain, x, y)) continue; // rock was never a seat
+      ring.push({ x, y, k: key(x, y), on: occupantOf(x, y) });
+    }
+    const seats = ring.filter((t) => !t.on);
+    if (ring.length && !seats.length) {
+      ctrlSeatBlocked = 1;
+      late("ctrlseat", "no-seat",
+        `CONTROLLER SEALED IN — all ${ring.length} walkable tile(s) D8-adjacent to the controller ` +
+          `${controller.x},${controller.y} carry one of our blocking structures ` +
+          `(${ring.map((t) => `${t.k}=${t.on}`).join(" ")}). claimController and signController are ` +
+          `both range 1, so if this room ever downgrades to unowned it can never be re-claimed: the ` +
+          `claimer has nowhere to stand, and the structure in the way cannot be demolished without a ` +
+          `spawn that cannot exist without the controller. Roads, ramparts and containers are NOT ` +
+          `counted as taking the seat — a creep walks over all three — so every tile listed here is ` +
+          `genuinely occupied`,
+        ring.map((t) => t.k),
+      );
+    } else if (seats.length) {
+      // ...AND A SEPARATE, WEAKER CONDITION: can OUR OWN creeps get to the seat?
+      //
+      // A free tile the claimer cannot walk to is worth knowing about even though
+      // it is not the same failure — the room is still re-claimable from a fresh
+      // creep entering at an exit, which is exactly the situation a re-claim
+      // happens in, so this is a NOTE-grade fact and it is raised on its own kind.
+      //
+      // NOT `interior`. The obvious reading — "the seat must be on the interior
+      // walk component at line ~1074" — is WRONG for this fleet and would fail 69
+      // of 172 rooms: the goal document deliberately leaves the controller OUTSIDE
+      // the shell (rampart its ring, nothing wider), so a correctly-planned
+      // controller seat is an EXTERIOR tile and interiorComponent excludes every
+      // exterior tile by construction. What is wanted is OUR walk, and our creeps
+      // pass our own ramparts — so the field is flooded here from the sitter over
+      // passable tiles minus our blocking structures, with ramparts, roads and
+      // containers left conducting. On that reading exactly 2 rooms have a free
+      // seat they cannot walk to: E6S4 (ctrl 15,21, seat 14,20) and E7S7
+      // (ctrl 15,25, seat 16,24). Declarable — a pocket outside the wall that
+      // terrain will not let us reach is a real constraint, and it does not stop
+      // the room being re-claimed.
+      const reach = new Uint8Array(2500);
+      {
+        const si0 = idx(sitter.x, sitter.y);
+        reach[si0] = 1;
+        const q = [si0];
+        for (let qi = 0; qi < q.length; qi++) {
+          const i = q[qi],
+            x = i % 50,
+            y = (i / 50) | 0;
+          for (const [dx, dy] of D8) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            const ni = idx(nx, ny);
+            if (reach[ni] || !passable(nx, ny) || blocked.has(key(nx, ny))) continue;
+            reach[ni] = 1;
+            q.push(ni);
+          }
+        }
+      }
+      if (!seats.some((t) => reach[idx(t.x, t.y)])) {
+        ctrlSeatUnreachable = 1;
+        // WHY IS IT A POCKET — terrain, or us? The disposition depends on it, so
+        // the message says it rather than making a reader re-derive it. Each
+        // seat's own eight neighbours are split into natural wall (nothing anyone
+        // can do) and OUR blocking structures (a thing the producer can move).
+        // On the shipped fleet all three pockets are mixed — E6S4's seat 14,20
+        // has 5 wall neighbours and 3 of ours, E7S7's 16,24 has 5 wall and 3 of
+        // ours, E18S1's 10,30 has 3 wall and 5 of ours — so none of them is pure
+        // terrain and every one of them is at least partly a placement decision.
+        const why = seats.map((t) => {
+          let wall = 0,
+            mine = 0;
+          for (const [dx, dy] of D8) {
+            const nx = t.x + dx,
+              ny = t.y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            if (!passable(nx, ny)) wall++;
+            else if (blocked.has(key(nx, ny))) mine++;
+          }
+          return `${t.k} (${wall} natural wall, ${mine} of ours)`;
+        });
+        late("ctrlseat", "seat-unreachable",
+          `CONTROLLER SEAT UNREACHABLE — the controller ${controller.x},${controller.y} has ` +
+            `${seats.length} free walkable neighbour(s) and OUR creeps cannot walk to any of them from ` +
+            `the sitter ${sitter.x},${sitter.y}. The flood is NOT stopped at the wall — it runs over our ` +
+            `own ramparts, roads and containers, which we pass, and it reaches every exterior tile in ` +
+            `this room — so the seat is a genuine pocket and not an artefact of measuring only the ` +
+            `inside. What seals each seat: ${why.join(" · ")}. The room is still re-claimable by a creep ` +
+            `entering at an exit, so this is a constraint and not a wall — but no upgrader we spawn ` +
+            `will ever stand there either`,
+          seats.map((t) => t.k),
+        );
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // ctrlParks, AS BUILT — the number is measured six layers too early.
+  //
+  // layer-hub.mjs:1035-1061 counts the controller link's park tiles while it is
+  // CHOOSING that link, at layer 1, against an `impassable` set that contains
+  // whatever exists at layer 1. Extensions, towers, labs, the nuker and the
+  // observer all land afterwards, and they land on counted park tiles. Measured
+  // on the fleet that motivated this gate (the run before the producer fix):
+  // re-derived as built, 84 of 172 rooms shipped fewer parks than meta.ctrlParks
+  // claimed. The real distribution was min 3 / median 7 against a claimed min 4 /
+  // median 8, MIN_PARKS = 4 is treated as a hard floor throughout layer 1 and
+  // echoed as `minParksFloor: 4` in every room's census, and three rooms shipped
+  // BELOW that floor — E14S2 claimed 8 shipped 3, E18S8 claimed 8 shipped 3,
+  // E17S5 claimed 5 shipped 3. A parked upgrader is a whole creep's worth of throughput;
+  // the difference between 8 seats and 3 is the difference between an RCL8
+  // controller that keeps up and one that throttles the fleet forever (m9, the
+  // finding that put MIN_PARKS there in the first place).
+  //
+  // THE RE-DERIVATION, independent of the producer by construction. The
+  // definition is layer 1's own: park tiles are the WALKABLE D8 neighbours of the
+  // CONTROLLER LINK, restricted to chebyshev <= 3 of the controller, minus our
+  // blocking structures and the room objects. `blocked` (built at the D4 gate
+  // above) is exactly that obstacle set, measured on the SHIPPED structure lists
+  // rather than on layer 1's snapshot of them — which is the entire difference
+  // between the two numbers.
+  //
+  // FINDING THE CONTROLLER LINK IS THE ONLY HARD PART, AND IT IS DONE
+  // GEOMETRICALLY. It is NOT link[0] — that is the hub link (layer-hub.mjs:1282,
+  // and check "core"/sitter above pins it to the sitter's ring). The producer's
+  // own handle is `structures.link[structures.link.length - 1]`, i.e. array
+  // order, which is precisely the kind of producer convention this file refuses
+  // to measure anything important against. The geometric definition is layer 1's
+  // filter: chebyshev 2..3 of the controller (`if (ch < 2) continue` over a
+  // -3..3 box). That alone is ambiguous in 10 rooms, where a SOURCE link happens
+  // to fall in the controller's band too — so source links are struck out the way
+  // they are built: bestLinkFor() places them D8-adjacent to a source SEAT, and a
+  // seat is a container D8-adjacent to a source. That resolves 170 of 172 rooms
+  // to exactly one candidate and 0 rooms to more than one.
+  //
+  // AND IT IS MEASURED, NOT ASSERTED, on the same principle as walkField()'s
+  // mirror above: the link this derivation picks is the same tile as
+  // meta.ctrlParksCensus.chosen in 172/172 rooms, every room, exactly. The census
+  // is read for that comparison and for nothing else — no branch below depends on
+  // it — but it is the number to re-run if this ever disagrees, and it is what
+  // says the residual mismatches this gate reports are the producer's count and
+  // not the validator's aim.
+  //
+  // THE TWO ROOMS IT DOES NOT RESOLVE (E13S9, E1S3) have both band links touching
+  // a source container, so both get struck and nothing survives. There the
+  // roomiest band link wins, which is the CONSERVATIVE fallback — it can only
+  // ever report MORE parks than the alternative, so it cannot invent a shortfall
+  // — and it happens to pick the producer's own link in both (E1S3's 40,8 reads
+  // 7 parks against 40,7's 5, and meta claims 7; E13S9's 8,25 reads 6 against
+  // 9,25's 3).
+  //
+  // TWO CHECKS, TWO CLASSES, ON PURPOSE:
+  //   seats        as built, fewer than MIN_PARKS_FLOOR seats. DECLARABLE through
+  //                the channel the producer actually writes — layer-hub files
+  //                {gate:"ctrlParks", kind:"seats", tiles:[...]} for a thin seat
+  //                search — and it carries the SURVIVING seats as tiles so the
+  //                declaration has to have named them. See the block at the raise
+  //                site for why the tiles are the survivors and what that buys.
+  //   stale-claim  meta.ctrlParks does not equal the re-derivation. UNDECLARABLE
+  //                (see the pair set): a wrong number is not a shortfall, and no
+  //                note makes 8 into 3.
+  //
+  // REJECTED: failing on `meta.ctrlParks < 4` instead. That is the check that
+  // exists today by implication and it is the one that missed all three floor
+  // breaches, because every one of them CLAIMS a passing number. The claim is the
+  // thing under test; it cannot also be the instrument.
+  // ------------------------------------------------------------------
+  let ctrlParksShort = 0;
+  let ctrlParksStale = 0;
+  if (controller) {
+    const links = s.link || [];
+    const band = links.filter((l) => {
+      const c = chebyshev(l, controller);
+      return c >= 2 && c <= 3;
+    });
+    const sourceSeats = (s.container || []).filter((c) => sources.some((src) => chebyshev(c, src) <= 1));
+    const notASourceLink = band.filter((l) => !sourceSeats.some((c) => chebyshev(l, c) <= 1));
+    const parksOf = (l) => {
+      const seats = [];
+      for (const [dx, dy] of D8) {
+        const px = l.x + dx,
+          py = l.y + dy;
+        if (!walkable(terrain, px, py)) continue;
+        if (blocked.has(key(px, py))) continue;
+        if (chebyshev({ x: px, y: py }, controller) > 3) continue;
+        seats.push(key(px, py));
+      }
+      return seats;
+    };
+    let geoLink = null;
+    if (notASourceLink.length === 1) geoLink = notASourceLink[0];
+    else {
+      // ambiguous or empty — take the roomiest candidate in the band. See above:
+      // this can only overstate the park count, never understate it.
+      const pool = notASourceLink.length ? notASourceLink : band;
+      for (const l of pool) if (!geoLink || parksOf(l).length > parksOf(geoLink).length) geoLink = l;
+    }
+    // ------------------------------------------------------------------
+    // THREE WITNESSES TO THE SAME TILE, AND THE DISAGREEMENT IS THE FINDING.
+    //
+    // The producer's convention is POSITIONAL: layer-hub builds
+    // `link: [hubLink, ...sourceLinks, ctrlLink]`, so the controller link is
+    // `structures.link[structures.link.length - 1]`, and layer-shell.mjs:1449
+    // reads it that way. That is array order — a producer convention, exactly the
+    // kind of thing this file does not measure anything important against — so it
+    // is used here as a WITNESS rather than as the answer, alongside the geometric
+    // derivation above and `meta.ctrlLink` when the plan publishes one.
+    //
+    // meta.ctrlLink IS VERIFIED BEFORE IT IS BELIEVED, which is the only way this
+    // file is allowed to read a producer field at all: the tile must actually
+    // carry a planned link and must actually sit at chebyshev 2..3 of the
+    // controller. A pointer that fails either test is not a hint, it is a bug, and
+    // it is reported as one — undeclarable, because a meta field pointing at
+    // nothing is wrong rather than short — and the geometric derivation is used
+    // instead so the park gates below still measure something real.
+    //
+    // WHAT THIS SETTLED. Five rooms (E13S6, E13S9, E1S3, E18S3, E5S5) shipped a
+    // meta.ctrlParks the as-built re-derivation disagreed with, and the first
+    // hypothesis was that the two ends were looking at different links, because a
+    // SOURCE link can sit at chebyshev 2 of the controller too (E13S6 has links at
+    // 17,39 and 15,36 both at range 2; E18S3 has 16,42 and 12,42). It was not
+    // that. Measured across the whole fleet, the geometric derivation, the
+    // positional link[last] and the producer's OWN layer-1 seat search
+    // (meta.ctrlParksCensus.chosen) name the same tile in 172/172 rooms, every
+    // room, exactly — including all five. What differs is that
+    // `meta.ctrlParksBuiltTiles` in those five rooms are the D8 neighbours of the
+    // OTHER band link (E13S6's are around 17,39 while its census chose 15,36;
+    // E13S9's around 9,25 against a chosen 8,25; E1S3's around 40,7 against 40,8;
+    // E18S3's around 16,42 against 12,42; E5S5's around 21,9 against 20,9) and
+    // meta.ctrlParks equals that wrong-link count in every one. So the disagreement
+    // is inside the producer, between its as-built re-measure and its own seat
+    // search, and the three-witness cross-check below is what makes that visible
+    // instead of arguable.
+    // ------------------------------------------------------------------
+    const positional = links.length ? links[links.length - 1] : null;
+    const same = (a, b) => a && b && a.x === b.x && a.y === b.y;
+    const declaredLink = plan.meta?.ctrlLink;
+    let ctrlLink = geoLink;
+    let via = "geometry";
+    if (declaredLink && Number.isInteger(declaredLink.x) && Number.isInteger(declaredLink.y)) {
+      const carriesLink = links.some((l) => same(l, declaredLink));
+      const chDecl = chebyshev(declaredLink, controller);
+      if (carriesLink && chDecl >= 2 && chDecl <= 3) {
+        ctrlLink = declaredLink;
+        via = "meta.ctrlLink, verified";
+      } else {
+        late("ctrlparks", "bad-ctrl-link",
+          `meta.ctrlLink points at ${declaredLink.x},${declaredLink.y}, which ` +
+            (carriesLink
+              ? `is chebyshev ${chDecl} from the controller ${controller.x},${controller.y} — the ` +
+                `controller link is a 2..3 seat by construction (layer-hub's seat search skips the inner ` +
+                `ring and never looks past 3)`
+              : `carries no planned link at all`) +
+            `. The field is not usable, so the park counts below are measured against the geometric ` +
+            `derivation instead` +
+            (geoLink ? ` (${geoLink.x},${geoLink.y})` : " (which also found nothing)"),
+        );
+      }
+    }
+    if (ctrlLink && positional && !same(ctrlLink, positional)) {
+      late("ctrlparks", "ctrl-link-disagreement",
+        `the controller link is ambiguous: this validator measures ${ctrlLink.x},${ctrlLink.y} ` +
+          `(via ${via}) and the producer's positional convention — structures.link[last], which is how ` +
+          `layer-hub builds the array and how layer-shell reads it — names ${positional.x},` +
+          `${positional.y}. They feed ${parksOf(ctrlLink).length} and ${parksOf(positional).length} park ` +
+          `seat(s) respectively, so the two ends of this gate are not scoring the same structure and ` +
+          `neither number can be trusted until they are`,
+      );
+    }
+    const claimed = typeof plan.meta?.ctrlParks === "number" ? plan.meta.ctrlParks : null;
+    if (!ctrlLink) {
+      // No link in the controller's band at all. The links/count gate above owns
+      // "too few links"; what is reported here is that the park measurement has
+      // no subject, which is not the same statement and must not read as a pass.
+      late("ctrlparks", "no-ctrl-link",
+        `no link sits at chebyshev 2..3 of the controller ${controller.x},${controller.y} ` +
+          `(${links.length} link(s) in the room), so the controller has no link to park against and ` +
+          `ctrlParks is unmeasurable` +
+          (claimed === null ? "" : ` — the plan's own claim is ${claimed}`),
+      );
+    } else {
+      const built = parksOf(ctrlLink);
+      if (built.length < MIN_PARKS_FLOOR) {
+        ctrlParksShort = 1;
+        // KIND "seats", AND IT CARRIES THE SURVIVING SEATS AS TILES. Both halves
+        // of that are about matching the channel the producer actually writes.
+        //
+        // layer-hub files `{gate:"ctrlParks", kind:"seats", tiles:[...]}` whenever
+        // the seat search comes back at or under THIN_PARKS, and the as-built
+        // re-measure amends that same entry — it is the one honest declaration a
+        // genuinely cramped controller has. Raising this violation on kind "count"
+        // meant `excused()`'s `d.kind === f.kind` test could never match it, so the
+        // three rooms that DO declare (E16S3, E17S5, E8S7 — all three at 3 seats,
+        // all three claiming 3, i.e. producer and validator now agreeing on the
+        // number) were hard-failing for saying so. That is the shortfall channel
+        // punishing the behaviour it exists to reward.
+        //
+        // The tiles are the SURVIVING seats, not the lost ones, and they are what
+        // makes the arbitration honest rather than merely permissive: a tiled
+        // declaration excuses a violation only when every tile of the violation is
+        // inside its list, and the as-built survivors are a subset of the seats the
+        // layer-1 search declared in all three rooms (E16S3 19,11/18,10/19,12
+        // inside a declared four; E17S5 27,33/26,34/26,32 inside a declared six;
+        // E8S7 12,41/10,42/10,40 inside a declared four). So the declaration only
+        // covers a room that lost seats it had already named. A room that ships
+        // ZERO seats raises this with an EMPTY tile list, which no tiled
+        // declaration can ever excuse — `excused()` requires `f.tiles.length` — and
+        // that is the right floor: a controller with nowhere at all to park is not
+        // a cramped room, it is an upgrader that never runs.
+        late("ctrlparks", "seats",
+          `AS BUILT the controller link ${ctrlLink.x},${ctrlLink.y} feeds ${built.length} park seat(s), ` +
+            `under the ${MIN_PARKS_FLOOR} floor layer 1 plans to (MIN_PARKS, echoed as minParksFloor in ` +
+            `every census)` +
+            (claimed === null ? "" : ` — the plan claims ${claimed}`) +
+            `. Seats left: ${built.join(" ") || "none"}. Every upgrader past the ${built.length}th ` +
+            `queues, forever`,
+          built,
+        );
+      }
+      if (claimed !== null && claimed !== built.length) {
+        ctrlParksStale = 1;
+        // BOTH DIRECTIONS GET PROSE. The overclaim is the common one and the
+        // expensive one — layer 1 counted seats that later layers then built on —
+        // but the reverse happens too and it is a different bug: it means the
+        // number was measured against a DIFFERENT LINK than the one the room
+        // ships, which is the failure this check's link derivation exists to
+        // expose. Printing "-2 seats were built over" would hide exactly that.
+        late("ctrlparks", "stale-claim",
+          `meta.ctrlParks says ${claimed}, the shipped room has ${built.length} ` +
+            `(controller link ${ctrlLink.x},${ctrlLink.y}; seats ${built.join(" ") || "none"}). ` +
+            (claimed > built.length
+              ? `The claim is measured at layer 1, before extensions, towers, labs, the nuker and the ` +
+                `observer land — ${claimed - built.length} counted seat(s) were built over afterwards.`
+              : `The claim is LOWER than the shipped room, so it was not measured against this link at ` +
+                `all — ${built.length - claimed} seat(s) exist that the claim never counted, which means ` +
+                `the producer and this validator disagree about which link is the controller's.`) +
+            ` The number in meta describes a room that was never shipped`,
+        );
+      }
     }
   }
 
@@ -1543,6 +2162,12 @@ export function checkRoom(plan, terrain, objects) {
     shallowTowers: shallowTowers.length,
     engineReject: engineReject.length,
     orphanRoads: orphanRoads.length,
+    // one per room, not per tile: a room either can re-seat a claimer or it
+    // cannot, and "9 rooms" is the number that means something here.
+    ctrlSeatBlocked,
+    ctrlSeatUnreachable,
+    ctrlParksShort,
+    ctrlParksStale,
   };
 }
 
@@ -1579,6 +2204,10 @@ function main() {
     shallowTowers: 0,
     engineReject: 0,
     orphanRoads: 0,
+    ctrlSeatBlocked: 0,
+    ctrlSeatUnreachable: 0,
+    ctrlParksShort: 0,
+    ctrlParksStale: 0,
   };
   const roadCounts = [];
   for (const p of list) {
@@ -1623,7 +2252,10 @@ function main() {
       `engine-rejects ${agg.engineReject}, leaks ${agg.leaks}, stacked ${agg.stack}, ` +
       `on-object ${agg.onObject}, shallow ${agg.shallow}, shallow towers ${agg.shallowTowers}, ` +
       `diag-only exts ${agg.diagOnly}, off-road exts ${agg.extNoRoad}, ` +
-      `orphan roads ${agg.orphanRoads}, structures off-network ${agg.stranded}`,
+      `orphan roads ${agg.orphanRoads}, structures off-network ${agg.stranded}, ` +
+      // rooms, not tiles — see the note on these four in checkRoom's return
+      `controllers sealed in ${agg.ctrlSeatBlocked}, seats unreachable ${agg.ctrlSeatUnreachable}, ` +
+      `ctrlParks under floor ${agg.ctrlParksShort}, ctrlParks stale ${agg.ctrlParksStale}`,
   );
   if (roadCounts.length) {
     const rc = roadCounts.slice().sort((a, b) => a - b);

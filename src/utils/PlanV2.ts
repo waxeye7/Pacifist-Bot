@@ -39,6 +39,15 @@ export type PackedPlan = {
   // packed coords: x + y * 50, in placement priority order
   // (also carries the non-buildable keys `shellCut` and `labInput`)
   t: { [structureType: string]: number[] };
+  /**
+   * Road STAGING: the RCL each `t.road` tile is wanted at, same order, same
+   * length (see roadsForRcl). Sits outside `t` on purpose — several loops walk
+   * `Object.keys(plan.t)` and read every value as packed tiles, and a stage of
+   * 3 would read as the tile 3,0. ~2 bytes per road tile in the Memory blob
+   * (median 82 roads, max 123), which is the price of building the arterials
+   * four RCLs earlier.
+   */
+  rs?: number[];
 };
 
 const unpack = (p: number) => ({ x: p % 50, y: Math.floor(p / 50) });
@@ -99,6 +108,34 @@ export function spawnFirstLockdown(room: Room): boolean {
     );
   }
   return true;
+}
+
+/**
+ * The tile the plan wants the room's FIRST spawn on, or null if this room has
+ * no adopted plan (or a plan with no spawn in it).
+ *
+ * `unpack` is module-private, so this is the minimum a caller outside this file
+ * needs to answer "does the plan already have somewhere to put a spawn?".
+ * placeFromPlanV2 sites spawns in array order, so `t.spawn[0]` is the one a
+ * spawnless room is waiting on — and the one an off-plan siting would race.
+ * See Roles/buildcontainer.
+ */
+export function plannedSpawnTile(room: Room): { x: number; y: number } | null {
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  const spawns = plan && plan.t ? plan.t.spawn : undefined;
+  if (!spawns || !spawns.length) return null;
+  return unpack(spawns[0]);
+}
+
+/**
+ * True while a plan for this room has been asked for but not yet read out of
+ * the segment (adoptPlan / AutoExpand set Memory.planV2Adopt, and the read
+ * takes two ticks — see runPlanV2Adoption). Anything that would place a
+ * structure the plan is about to have an opinion on must wait it out.
+ */
+export function planPending(room: Room): boolean {
+  const adopt = Memory.planV2Adopt;
+  return !!adopt && adopt.room === room.name;
 }
 
 /**
@@ -248,7 +285,14 @@ export function packPlanPayload(data: any): PackedPlan {
   //   labInput  the two reaction input labs → rooms.labs assignment
   t.shellCut = pack(data.shellCut || []);
   t.labInput = pack(data.labInputs || []);
-  return { v: 1, h: data.planHash, t };
+  const out: PackedPlan = { v: 1, h: data.planHash, t };
+  // Road staging (push-plan.mjs `roadStage`). Length-checked against t.road
+  // here as well as at every read: a payload whose stage array does not line up
+  // with the road array is not a schedule, it is an off-by-one, and the room is
+  // better off on the legacy "first 20 at RCL3" rule than on a scrambled one.
+  const rs = data.roadStage;
+  if (rs && rs.length === t.road.length) out.rs = rs.slice();
+  return out;
 }
 
 /** Per-tick: handles the segment-read state machine for adoption. */
@@ -309,7 +353,7 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
 }
 
 /**
- * How many of the plan's roads to build at this RCL.
+ * Which of the plan's roads to build at this RCL, in the plan's own order.
  *
  * THE INVARIANT THIS RELIES ON: the planner emits `structures.road` ordered by
  * a network BFS outward from the sitter, so EVERY PREFIX of the array is a
@@ -326,13 +370,55 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * tiles from the hub. The fix belongs in the planner (it has the terrain and
  * the CPU to do a real BFS), NOT here — re-sorting 129 packed coords in the
  * bot every 15 ticks would burn CPU on shard3 to recompute a constant. So this
- * side only documents the contract and, at RCL3 where the prefix is the whole
- * point, cheaply NOTICES if the contract is broken (see auditRoadPrefix).
+ * side only documents the contract and, at RCL3 where the selection is the
+ * whole point, cheaply NOTICES if it is broken (see auditRoadPrefix).
+ *
+ * ---------------------------------------------------------------------------
+ * "FIRST 20, THEN EVERYTHING" WAS A SECOND, WORSE SCHEDULE.
+ *
+ * BFS order is a distance order, not an importance order. A prefix of it is
+ * "the 20 tiles nearest the hub", which is mostly hub filler — while the
+ * arterials, the hub->source and hub->controller lines the haulers walk from
+ * the tick the room hits RCL3, sit at indices 40..80 and were not built until
+ * RCL4 (and then behind the whole min-cut shell, because rampart sits ahead of
+ * road in PLACE_ORDER — see the comment there).
+ *
+ * The planner has always known which pass laid which road tile
+ * (`plan.meta.roadLayer`: 1 = the eco kit, 3 = tower spurs, 4 = lab access,
+ * 5 = the mineral run, 6 = extension corridors, 7 = rampart spurs) and the
+ * payload threw it away. push-plan.mjs now folds that provenance into an RCL
+ * per road tile and ships it as `roadStage`, a parallel int array in the same
+ * order as `structures.road`; packPlanPayload keeps it as `plan.rs`. Measured
+ * on out-v2/plans-hub.json (172 rooms) the arterial set is 35 tiles in E16S1,
+ * 53 in E12S9, 45 in E9S2 — median 39, max 85 of 123 — where the old prefix
+ * bought 20 tiles of whatever was nearest.
+ *
+ * SELECTION, NOT RE-SORT. The staged tiles are taken in the array's existing
+ * BFS order, so what the room builds is still a connected network reachable
+ * from the sitter and auditRoadPrefix stays quiet. (A layer<=3 filter of the
+ * RAW provenance is NOT connected — 65 of 172 rooms break, because layer 1
+ * lines run through tiles a later layer laid: E11S1's eco line to its far
+ * source is bridged at 33,41 and 36,41 by layer-6 corridor tiles. push-plan
+ * repairs that offline by demoting the bridge tiles into the arterial set, 145
+ * tiles across the fleet, and verifies the result before it ships.)
+ *
+ * `plan.rs` is indexed off `plan.t.road` itself, so any caller that hands us a
+ * REORDERED or SHORTENED road array (plannedTilesFor can drop an element — the
+ * mineral-container case) must not be allowed to read the stages off by one:
+ * the length check below drops us back to the legacy schedule instead, which is
+ * also what a plan pushed before this change gets.
+ * ---------------------------------------------------------------------------
  */
-function roadBudget(planRoads: number[], lvl: number): number {
-  if (lvl < 3) return 0;
-  if (lvl === 3) return Math.min(20, planRoads.length);
-  return planRoads.length;
+function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number[] {
+  if (lvl < 3) return [];
+  const stage = plan.rs;
+  if (!stage || stage.length !== planRoads.length) {
+    // no staging shipped (pre-roadStage payload) — the old schedule verbatim
+    return lvl === 3 ? planRoads.slice(0, Math.min(20, planRoads.length)) : planRoads;
+  }
+  const out: number[] = [];
+  for (let i = 0; i < planRoads.length; i++) if (stage[i] <= lvl) out.push(planRoads[i]);
+  return out;
 }
 
 /**
@@ -463,11 +549,18 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] 
 // whose entire premise is "it's all about defence".
 //
 // Ramparts are RCL4+ and roads RCL3+, so the practical schedule is now:
-// RCL3 builds its 20-road prefix (connected, see roadBudget), and from RCL4
-// the shell goes up before roads 21..N. That is the right trade — road 21 of
-// 129 buys a few ticks of hauler fatigue; the shell is the difference between
-// being raided and not. The roads are not lost, just later, and the 15-tick
-// placement cadence chews through them steadily once the shell is sited.
+// RCL3 builds the whole ARTERIAL set — the eco kit and the tower spurs, the
+// roads a hauler actually walks, connected and staged by the planner (see
+// roadsForRcl; median 39 tiles, max 85) — and from RCL4 the shell goes up
+// before the remaining roads. That is the right trade in both directions: the
+// arterials are the ones that pay per tick and they now land a whole RCL
+// earlier than the old "first 20 by distance, the rest at RCL4" schedule, while
+// the tiles the shell delays are extension corridors, lab access, the mineral
+// run and the rampart spurs, which buy a few ticks of hauler fatigue against a
+// shell that is
+// the difference between being raided and not. Nothing is lost, just later, and
+// the 15-tick placement cadence chews through them steadily once the shell is
+// sited.
 //
 // Storage and the towers still sit AHEAD of the 60-extension mass — at RCL4
 // the extensions would otherwise eat every site slot for thousands of ticks
@@ -1149,7 +1242,7 @@ export function placeFromPlanV2(room: Room): void {
   // exactly the room that stays busy building them.
   if (lvl === 3 && Game.time % 1000 < 15) {
     const roads = plan.t.road || [];
-    auditRoadPrefix(room, plan, roads.slice(0, roadBudget(roads, lvl)));
+    auditRoadPrefix(room, plan, roadsForRcl(plan, roads, lvl));
   }
 
   // ConstructionSite.remove() only lands at the end of the tick, so the sites
@@ -1195,12 +1288,18 @@ export function placeFromPlanV2(room: Room): void {
     // it is written as a `continue` guard so a future reorder cannot reopen the
     // hole silently.
     if (spawnless && type !== "spawn") continue;
-    const planned = plannedTilesFor(plan, type, lvl);
+    // Roads are the one type whose ARRAY is trimmed rather than capped: the
+    // RCL selection is a staged subsequence, not a prefix (see roadsForRcl), so
+    // the loop below must iterate the selection itself.
+    const planned =
+      type === "road"
+        ? roadsForRcl(plan, plannedTilesFor(plan, type, lvl), lvl)
+        : plannedTilesFor(plan, type, lvl);
     if (!planned || !planned.length) continue;
     if (!typeAllowedAtRcl(type, lvl)) continue;
     const cap =
       type === "road"
-        ? roadBudget(planned, lvl)
+        ? planned.length
         : (CONTROLLER_STRUCTURES as any)[type]
           ? (CONTROLLER_STRUCTURES as any)[type][lvl] || 0
           : planned.length;
@@ -1219,13 +1318,11 @@ export function placeFromPlanV2(room: Room): void {
     // tiles already ran above, outside the site budget.
     if (existing >= cap) continue;
     for (let i = 0; i < planned.length && existing < cap && budget > 0; i++) {
-      // roads are the one type whose array order IS a budget (RCL3 builds
-      // the first N only) — and a road is never blocked by our own
-      // structures, so the prefix rule costs nothing there. Every other
-      // type scans the WHOLE array: stopping at the prefix meant one
-      // permanently-occupied tile stalled the type forever (E11S5 never
-      // got a tower because a legacy container squatted tower[0]).
-      if (type === "road" && i >= cap) break;
+      // No prefix guard here any more: for roads `planned` IS the RCL's staged
+      // selection and cap is its length, and every other type scans its WHOLE
+      // array — stopping at a prefix meant one permanently-occupied tile
+      // stalled the type forever (E11S5 never got a tower because a legacy
+      // container squatted tower[0]).
       const packed = planned[i];
       if (placedSet[packed]) continue;
       const { x, y } = unpack(packed);

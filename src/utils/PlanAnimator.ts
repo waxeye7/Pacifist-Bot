@@ -4,7 +4,9 @@
  * The offline exporter (tools/plan-suite/v2/export-anim.mjs) flattens the
  * planner stages into ordered STEPS; tools/server/push-anim.mjs writes them
  * into RawMemory segments (index in 89, data in 90..99). This plays them back
- * one step per tick, leaving earlier stages painted underneath.
+ * one step per tick, folding each step into a per-tile picture so earlier
+ * stages stay painted underneath and the two stages that DELETE tiles actually
+ * delete them (see FOLD_OPS).
  *
  * Console:
  *   animPlan("E2S7")             start (after push-anim.mjs) — 1 step/tick, LOOPS
@@ -27,8 +29,60 @@ import { logAlways } from "utils/Logger";
 const INDEX_SEGMENT = 89;
 /** Steps stay on screen this long after the last one lands. */
 const HOLD_TICKS = 100;
+/** A room is 50x50, and the fold below holds at most one entry per tile. */
+const ROOM_TILES = 2500;
 /** Never paint more than this many rects in one tick. */
-const MAX_CELLS = 2500;
+const MAX_CELLS = ROOM_TILES;
+
+/**
+ * ---------------------------------------------------------------------------
+ * THE FILM IS NOT APPEND-ONLY, SO THE PLAYER CANNOT BE EITHER.
+ *
+ * Two stages take something BACK: layer 7's dead-end road prune (`roadsPrune`)
+ * and layer 6's relocation pass vacating the shallow extension slots it took
+ * (`extMove`). The browser player gives them the kinds '#unroad' and '#unghost'
+ * and clearRect()s the tile (tools/plan-suite/v2/plan.mjs STAGE_KIND), which is
+ * what keeps its last frame equal to the shipped plan.
+ *
+ * This file used to repaint steps [from..upTo] with one identical `vis.rect`
+ * per cell and no stage dispatch at all, so a prune step painted RED SQUARES ON
+ * TOP of the roads it was supposed to delete. The in-game "final frame" was the
+ * shipped plan PLUS every pruned ghost road PLUS a prune marker over each one:
+ * E16S1 kept 6 ghost roads, E11S7 kept 18 (counted off the roadsPrune cells in
+ * out-v2/anim/*.json — 1914 pruned tiles across the 203 shipped films). Same
+ * payload, same fidelity claim, two different pictures.
+ *
+ * The payload gives us no way to ASK which stages erase: meta ships
+ * stageOrder / stageRates / stageScaffold and no kind map at all (verified over
+ * out-v2/anim/*.json). So the two names are repeated here, deliberately as data
+ * rather than as an `if (stage === "roadsPrune")`, and the road stages are
+ * recognised by their "roads" prefix the same way the browser recognises them
+ * by kind — of the 19 stage names the shipped films use, only the seven road
+ * stages start with "roads".
+ *
+ * SCOPE MATTERS, and this is why the erase is not a plain delete. '#unroad'
+ * clears the ROADS canvas; a rampart on the same tile lives on another canvas
+ * and survives. 9 pruned tiles across the 203 films carry a planned rampart
+ * (E12S7 23,24 · E15S1 15,19 · E16S2 22,30 · E19S4 31,39 · E19S8 35,35 ·
+ * E21S7 8,28 among them), and `ramparts` paints AFTER `roads`, so an unscoped
+ * delete would rub out a rampart the plan keeps. The fold therefore remembers
+ * whether the colour now on a tile came from a road stage, and only a road
+ * gets pruned.
+ *
+ * The extension ghosts get their own tiny layer for exactly the reason the
+ * browser gives them their own canvas: three ghost origins are ROADS in the
+ * shipped plan (E12S6 24,3 · E18S5 5,35 · E2S3 36,21), so erasing a ghost out
+ * of the main fold would lift a road the plan keeps. No film in out-v2/anim
+ * carries extGhost/extMove yet — the exporter emits them, the 203 films on disk
+ * predate it — so this half is written to the exporter, not to the data.
+ * ---------------------------------------------------------------------------
+ */
+type FoldOp = { ghost?: boolean; erase?: boolean };
+const FOLD_OPS: { [stage: string]: FoldOp } = {
+  roadsPrune: { erase: true },
+  extGhost: { ghost: true },
+  extMove: { ghost: true, erase: true },
+};
 
 export interface PlanAnimStep {
   stage: string;
@@ -41,7 +95,32 @@ export interface PlanAnimData {
   room: string;
   format: string;
   palette: { [index: string]: string };
+  /** additive since the exporter shipped it; older films have none */
+  meta?: {
+    stageOrder?: string[];
+    stageRates?: { [stage: string]: number };
+    /** "thinking" output, not part of the base — dimmed, never hidden */
+    stageScaffold?: { [stage: string]: boolean };
+  };
   steps: PlanAnimStep[];
+}
+
+/**
+ * The painted state of the room after steps 0..upTo, one entry per TILE.
+ *
+ * `tiles[packed]` is the palette index PLUS ONE (0 = nothing painted), `road`
+ * marks the tiles whose current colour came from a road stage, `scaff` marks
+ * the ones that came from a scaffold stage, and `ghost` is the handful of
+ * extension ghosts. Typed arrays rather than an object: the render loop walks
+ * all 2500 slots every tick and this keeps it free of string keys and garbage.
+ */
+interface PlanAnimFold {
+  /** last step folded in — the cache key */
+  upTo: number;
+  tiles: Int16Array;
+  road: Uint8Array;
+  scaff: Uint8Array;
+  ghost: { [packed: number]: number };
 }
 
 interface PlanAnimIndex {
@@ -72,7 +151,7 @@ export interface PlanAnimState {
 const g = global as any;
 
 /** Heap cache — survives ticks, dies with the isolate, never touches Memory. */
-function heap(): { room?: string; data?: PlanAnimData } {
+function heap(): { room?: string; data?: PlanAnimData; fold?: PlanAnimFold } {
   if (!g.__planAnim) g.__planAnim = {};
   return g.__planAnim;
 }
@@ -151,42 +230,102 @@ function readData(s: PlanAnimState): boolean {
   const h = heap();
   h.room = data.room;
   h.data = data;
+  h.fold = undefined; // a fold of the PREVIOUS film means nothing for this one
   s.phase = "play";
   logAlways(`animPlan ${data.room}: ${data.steps.length} steps loaded (speed ${s.speed})`);
   return true;
 }
 
 /**
- * Steps [0..upTo] painted at once would blow the rect budget on big rooms, so
- * walk backwards from the newest step and keep whatever fits — plus every step
- * of the current stage, which is the one the viewer is actually watching.
+ * Fold steps 0..upTo into the per-tile state, INCREMENTALLY.
+ *
+ * The old draw() replayed a window of steps every tick; this walks each step
+ * exactly once and keeps the result on the heap keyed by the cursor, so a
+ * normal tick folds the ONE step the cursor advanced by (a few cells) instead
+ * of re-walking hundreds. Only a rewind — the loop restarting at step 0, or a
+ * heap that was never built — pays for a full rebuild, and even that is bounded
+ * by the film's total cell count.
+ *
+ * Fold, not replay, is also the only way the erase stages can work at all: a
+ * step that deletes a tile cannot be expressed by painting over it.
  */
-function visibleRange(steps: PlanAnimStep[], upTo: number): number {
-  let budget = MAX_CELLS;
-  const stage = steps[upTo].stage;
-  let first = upTo;
-  for (let i = upTo; i >= 0; i--) {
-    budget -= steps[i].cells.length / 3;
-    if (budget < 0 && steps[i].stage !== stage) break;
-    first = i;
+function foldTo(data: PlanAnimData, upTo: number): PlanAnimFold {
+  const h = heap();
+  let f = h.fold;
+  if (!f || f.upTo > upTo) {
+    f = {
+      upTo: -1,
+      tiles: new Int16Array(ROOM_TILES),
+      road: new Uint8Array(ROOM_TILES),
+      scaff: new Uint8Array(ROOM_TILES),
+      ghost: {},
+    };
+    h.fold = f;
   }
-  return first;
+  if (f.upTo >= upTo) return f;
+
+  const scaffold = (data.meta && data.meta.stageScaffold) || {};
+  for (let i = f.upTo + 1; i <= upTo; i++) {
+    const step = data.steps[i];
+    const op = FOLD_OPS[step.stage];
+    const isRoad = step.stage.indexOf("roads") === 0 && !(op && op.erase);
+    const isScaff = scaffold[step.stage] ? 1 : 0;
+    const cells = step.cells;
+    for (let c = 0; c < cells.length; c += 3) {
+      const packed = cells[c] + cells[c + 1] * 50;
+      if (packed < 0 || packed >= ROOM_TILES) continue;
+      if (op && op.erase) {
+        if (op.ghost) delete f.ghost[packed];
+        // '#unroad' clears the ROADS canvas only — see FOLD_OPS
+        else if (f.road[packed]) {
+          f.tiles[packed] = 0;
+          f.road[packed] = 0;
+          f.scaff[packed] = 0;
+        }
+        continue;
+      }
+      if (op && op.ghost) {
+        f.ghost[packed] = cells[c + 2] + 1;
+        continue;
+      }
+      f.tiles[packed] = cells[c + 2] + 1;
+      f.road[packed] = isRoad ? 1 : 0;
+      f.scaff[packed] = isScaff;
+    }
+  }
+  f.upTo = upTo;
+  return f;
 }
 
 function draw(s: PlanAnimState, data: PlanAnimData): void {
   const steps = data.steps;
   const upTo = Math.min(s.step, steps.length - 1);
   const vis = new RoomVisual(s.room);
-  const from = visibleRange(steps, upTo);
+  const f = foldTo(data, upTo);
 
-  for (let i = from; i <= upTo; i++) {
-    const cells = steps[i].cells;
-    for (let c = 0; c < cells.length; c += 3) {
-      vis.rect(cells[c] - 0.4, cells[c + 1] - 0.4, 0.8, 0.8, {
-        fill: data.palette[cells[c + 2]],
-        opacity: 0.35,
-      });
-    }
+  // MAX_CELLS is now a cap on the RENDER, not on how far back the replay
+  // reaches: a fold cannot hold more than one entry per tile, so the walk is
+  // 2500 slots whatever the film does. Scaffold tiles are painted fainter
+  // rather than dropped, which is the same trade the browser makes (it dims
+  // the thinking canvases once the plan appears) and matters here for the
+  // first time: with a fold, `dt` and `fields` survive to the final frame
+  // instead of scrolling out of the old backwards budget.
+  let painted = 0;
+  for (let packed = 0; packed < ROOM_TILES && painted < MAX_CELLS; packed++) {
+    const v = f.tiles[packed];
+    if (!v) continue;
+    vis.rect((packed % 50) - 0.4, Math.floor(packed / 50) - 0.4, 0.8, 0.8, {
+      fill: data.palette[v - 1],
+      opacity: f.scaff[packed] ? 0.15 : 0.35,
+    });
+    painted++;
+  }
+  for (const key in f.ghost) {
+    const packed = +key;
+    vis.rect((packed % 50) - 0.4, Math.floor(packed / 50) - 0.4, 0.8, 0.8, {
+      fill: data.palette[f.ghost[packed] - 1],
+      opacity: 0.35,
+    });
   }
 
   const cur = steps[upTo];
@@ -267,6 +406,7 @@ export function animPlan(roomName: string, speed: number = 1, loop: boolean = tr
   } as PlanAnimState;
   // drop a stale heap cache so a re-push is picked up
   const h = heap();
+  h.fold = undefined; // the cursor is back at 0; so is the picture
   if (h.room !== roomName) {
     h.room = undefined;
     h.data = undefined;
