@@ -124,6 +124,28 @@ function depotPark(creep: any, depot: any): any {
 	return { pos: best, id: "ctrlpark:" + best.x + "," + best.y };
 }
 
+/**
+ * Does this room have a creep whose ACTUAL job is building?
+ *
+ * Used to bound the RCL2 build-help above to the bootstrap window. Cached per
+ * tick per room because every upgrader in the room asks the same question.
+ */
+let _builderTick = -1;
+let _builderCache: any = {};
+function roomHasNoBuilder(room: any): boolean {
+	if(_builderTick !== Game.time) {
+		_builderTick = Game.time;
+		_builderCache = {};
+	}
+	if(_builderCache[room.name] !== undefined) return _builderCache[room.name];
+	let found = false;
+	for(const c of room.find(FIND_MY_CREEPS)) {
+		if(c.memory.role == "builder") { found = true; break; }
+	}
+	_builderCache[room.name] = !found;
+	return !found;
+}
+
 const run = function (creep) {
 	creep.memory.moving = false;
 	if(creep.evacuate()) {
@@ -132,12 +154,44 @@ const run = function (creep) {
 	// const start = Game.cpu.getUsed()
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller && creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 9) {
-        creep.memory.role = "builder";
-        creep.memory.locked = false;
-    }
-	if(creep.room.controller.level == 2 && creep.ticksToLive % 100 == 0 && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-		creep.memory.role = "builder";
+	// ------------------------------------------------------------------
+	// Help with construction WITHOUT rewriting memory.role.
+	//
+	// These two branches used to do `creep.memory.role = "builder"`, which is a
+	// PERMANENT, one-way rewrite — and rooms.spawning.ts sizes the roster off
+	// memory.role (the `case "upgrader"` arm of the census switch,
+	// rooms.spawning.ts:481). So every converted creep silently vanished from
+	// `upgraders` and reappeared in `builders`.
+	//
+	// The RCL2 branch fired on the creep's FIRST tick: a fresh creep has
+	// ticksToLive == CREEP_LIFE_TIME == 1500 and 1500 % 100 == 0, and the v2
+	// base planner keeps construction sites open permanently, so 100% of RCL2
+	// upgraders converted before doing any work. `upgraders` therefore read 0
+	// forever, the RCL2 gate (`upgraders < spawnrules[2].upgrade_creep.amount
+	// + pressure.burn`, rooms.spawning.ts:1238) never closed, and the room
+	// spawned upgraders without limit — while `builders` read 21 and blocked
+	// the REAL builder rung (rooms.spawning.ts:1233) from ever running.
+	//
+	// Measured on the VPS test server, W1N1 @ tick 55531: 30 creeps, 21 named
+	// Upgrader-*, _.countBy(memory.role) = {builder:21, upgrader:0} against a
+	// target of 4. RCL2 for ~6,400 ticks with controller.progress == 89, spawn
+	// / extensions / container all at 0 energy, and every one of those 21
+	// creeps standing still with an empty store.
+	//
+	// Delegating for the tick keeps the intent and keeps the census honest.
+	// At RCL2 the help is limited to the bootstrap window — while the room has
+	// no real builder yet — so that once the builder rung delivers, upgraders
+	// go back to upgrading and the room can actually climb to RCL3.
+	// ------------------------------------------------------------------
+	const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
+		!storage && creep.room.find(FIND_MY_CREEPS).length < 9;
+	const rcl2Bootstrap = creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
+	if((skeletonCrewNoBank || rcl2Bootstrap) && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
+		const builder: any = (global as any).ROLES && (global as any).ROLES.builder;
+		if(builder) {
+			builder.run(creep);
+			return;
+		}
 	}
 
 	// if(creep.fatigue > 0) {
