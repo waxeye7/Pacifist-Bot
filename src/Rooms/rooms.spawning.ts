@@ -1,4 +1,5 @@
 import construction from "./rooms.construction";
+import { remoteIsHot, markRemoteHot } from "./rooms.remotes";
 function spawning(room: any) {
     if(Game.cpu.bucket < 1000) return;
 
@@ -261,11 +262,21 @@ function shrinkQueuedBody(body:string[], name:string):boolean {
     let others = body.length - moves;
 
     if(name && name.startsWith("Reserver")) {
-        // [CLAIM,MOVE] x N. Drop a whole pair off the end; a reserver with no
-        // CLAIM is a 50 energy creep that walks to a remote and does nothing,
-        // so [CLAIM,MOVE] is the floor and below it the entry just waits for
-        // energy (it is deliberately exempt from the clear rungs).
-        if((counts[CLAIM] || 0) <= 1) return false;
+        // [CLAIM,MOVE] x N. Drop a whole pair off the end.
+        //
+        // The floor is TWO CLAIM, not one. reserveController() adds +1 tick per
+        // CLAIM part while the reservation decays 1 tick/tick, so a ONE-CLAIM
+        // reserver is exactly net zero: it can hold a reservation still while it
+        // stands there and can never grow one, and it loses ground for every
+        // tick of the walk out. Measured live before this floor was raised:
+        // average reservation ticksToEnd was 1.0 across every remote in the
+        // empire, with ~25% of ticks having no reservation at all — 650 energy
+        // and a spawn slot per creep for nothing.
+        //
+        // Below two CLAIM the entry just waits for energy (reservers are
+        // deliberately exempt from the clear rungs), which is strictly better
+        // than spawning a creep that provably cannot do its job.
+        if((counts[CLAIM] || 0) <= 2) return false;
         counts[CLAIM] --;
         if(moves > 1) counts[MOVE] --;
     }
@@ -3058,49 +3069,106 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
         return body;
     }
     else {
-        if(room.controller.level >= 5) {
-            threeWorkParts = sixWorkParts;
-        }
-        let ticksPerRoundTrip = (values.pathLength * 2) + 2;
-        let energyProducedPerRoundTrip = threeWorkParts * ticksPerRoundTrip
-        let body = [];
-        let alternate = 1;
-        while (energyProducedPerRoundTrip > 0 && (body.length * 50) <= (room.energyCapacityAvailable-100)) {
-            body.push(CARRY);
-            if((body.length * 50) == room.energyCapacityAvailable && alternate % 2 == 0) {
-                while(body.length > 50) {
-                    body.pop();
-                }
-                return body;
-            }
-            else if((body.length * 50) == room.energyCapacityAvailable && alternate % 2 == 1) {
-                body.pop();
-                while(body.length > 50) {
-                    body.pop();
-                }
-                return body;
-            }
+        /*
+         * REMOTE carrier body.
+         *
+         * Old formula: capacity = (6 or 12) * (2L + 2), 2:1 CARRY:MOVE, hard cap
+         * at energyCapacityAvailable-100, exactly one carrier per source.
+         * Three separate errors:
+         *   1. 12 e/tick (RCL>=5) overshoots even a reserved source (10/tick);
+         *      6 e/tick sits between the reserved (10) and unreserved (5) cases
+         *      and matches neither.
+         *   2. 2:1 CARRY:MOVE is road speed, but the remotes have no roads
+         *      (measured: road=0 on every active remote), so a loaded carrier
+         *      moved at half the speed the body was sized for.
+         *   3. When demand exceeded one body it just truncated — no second
+         *      carrier ever covered the shortfall.
+         *
+         * Now: size to measured demand, pick the ratio the terrain actually
+         * supports, and let spawn_carrier decide how many bodies to split it
+         * across.
+         */
+        const demand = remoteCarrierDemand(room, targetSource.room.name, values);
+        const budget = room.energyCapacityAvailable;
 
-            if(alternate % 2 == 1) {
-                body.push(MOVE);
-                if((body.length * 50) == room.energyCapacityAvailable) {
-                    body.pop();
-                    body.pop();
-                    while(body.length > 50) {
-                        body.pop();
-                    }
-                    return body;
-                }
-            }
-            energyProducedPerRoundTrip = energyProducedPerRoundTrip - 50;
-            alternate = alternate + 1;
-        }
-        // console.log(body,room.name)
-        while(body.length > 50) {
-            body.pop();
-        }
+        // 1:1 off-road (full speed loaded on plain), 2:1 once the path is roaded.
+        const movePerCarry = demand.roaded ? 0.5 : 1;
+        const unitCost = 50 + 50 * movePerCarry;          // energy per CARRY incl. its MOVE share
+        const maxCarryByBudget = Math.floor(budget / unitCost);
+        const maxCarryByParts = Math.floor(50 / (1 + movePerCarry));
+
+        // Split the demand across at most MAX_CARRIERS_PER_SOURCE bodies.
+        const wantCarryTotal = Math.ceil(demand.capacityNeeded / 50);
+        const perBody = Math.max(
+            2,
+            Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(wantCarryTotal / carriersWantedForSource(room, values, demand)))
+        );
+
+        const carry = perBody;
+        const move = Math.max(1, Math.ceil(carry * movePerCarry));
+
+        const body = [];
+        for(let i = 0; i < carry; i++) body.push(CARRY);
+        for(let i = 0; i < move; i++) body.push(MOVE);
+        while(body.length > 50) body.pop();
         return body;
     }
+}
+
+/** MAX bodies we will ever put on one remote source */
+const MAX_CARRIERS_PER_SOURCE = 3;
+
+/**
+ * Remote carrier body that needs NO vision on the remote.
+ *
+ * getCarrierBody() starts with `Game.getObjectById(sourceId)` and returns []
+ * when that is null, which it always is without vision. Combined with the
+ * vision guard at the top of spawn_carrier, a remote that lost vision could
+ * never be given a carrier — and it needs a carrier precisely because the last
+ * creep there died. Observed live on E3S3->E3S4: both sources sat at 3000/3000,
+ * fully reserved and completely untouched, with zero carriers ever spawned,
+ * while the no-vision fallback kept sending 2-WORK probe miners 82 tiles.
+ *
+ * Everything the sizing actually needs (pathLength, roaded, containers,
+ * reserved) is cached in room.memory.resources, so none of it needs the source
+ * object.
+ */
+function getRemoteCarrierBody(room, targetRoomName, values) {
+    if(!values || !values.pathLength) return [];
+    const demand = remoteCarrierDemand(room, targetRoomName, values);
+    const want = carriersWantedForSource(room, values, demand);
+
+    const movePerCarry = demand.roaded ? 0.5 : 1;
+    const unitCost = 50 + 50 * movePerCarry;
+    const maxCarryByBudget = Math.floor(room.energyCapacityAvailable / unitCost);
+    const maxCarryByParts = Math.floor(50 / (1 + movePerCarry));
+
+    const wantCarryTotal = Math.ceil(demand.capacityNeeded / 50);
+    const carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(wantCarryTotal / want)));
+    if(carry < 2) return [];
+    const move = Math.max(1, Math.ceil(carry * movePerCarry));
+
+    const body = [];
+    for(let i = 0; i < carry; i++) body.push(CARRY);
+    for(let i = 0; i < move; i++) body.push(MOVE);
+    while(body.length > 50) body.pop();
+    return body;
+}
+
+/**
+ * How many carriers to split this source's haul demand across, given what one
+ * body can actually be at this RCL.
+ */
+function carriersWantedForSource(room, values, demand):number {
+    const budget = room.energyCapacityAvailable;
+    const roaded = demand.roaded;
+    const movePerCarry = roaded ? 0.5 : 1;
+    const unitCost = 50 + 50 * movePerCarry;
+    const maxCarryByBudget = Math.max(1, Math.floor(budget / unitCost));
+    const maxCarryByParts = Math.floor(50 / (1 + movePerCarry));
+    const bestSingle = Math.min(maxCarryByBudget, maxCarryByParts) * 50;
+    if(bestSingle <= 0) return 1;
+    return Math.max(1, Math.min(MAX_CARRIERS_PER_SOURCE, Math.ceil(demand.capacityNeeded / bestSingle)));
 }
 
 
@@ -3131,6 +3199,88 @@ function minerOnTheWay(room, sourceId):boolean {
     return _.some(Game.creeps, (creep:any) =>
             creep.memory.role == 'EnergyMiner' && creep.memory.sourceId == sourceId)
         || queuedForSource(room, 'EnergyMiner', sourceId);
+}
+
+/** live carriers (incl. mid-dropoff FakeFillers and hatching ones) bound to a source */
+function liveCarriersForSource(room, sourceId):number {
+    let n = 0;
+    for(const name in Game.creeps) {
+        const c:any = Game.creeps[name];
+        const r = c.memory.role;
+        if((r == 'carry' || r == 'FakeFiller') && c.memory.sourceId == sourceId && c.memory.homeRoom == room.name) n++;
+    }
+    return n;
+}
+
+/**
+ * Does the haul path for this remote actually have roads on it?
+ *
+ * getCarrierBody has always emitted a 2:1 CARRY:MOVE body. That ratio is exactly
+ * road speed — on plain terrain a loaded 2:1 carrier moves at HALF speed, so the
+ * real round trip is ~1.5-2x the distance the body was sized for. Measured on the
+ * live server: every active remote had `road: 0`. Zero. So every remote carrier
+ * in the fleet was sized for a trip it physically could not make in that time,
+ * and the shortfall was being papered over by spawning more carriers.
+ *
+ * Until roads exist, build 1:1 (full speed loaded on plain).
+ */
+function remotePathIsRoaded(room, targetRoomName):boolean {
+    // Verdict is cached by manageRemotes() (rooms.remotes.ts) once per remote per
+    // 25 ticks — do NOT re-find() it here, this runs once per source per pass.
+    const res = room.memory.resources;
+    return !!(res && res[targetRoomName] && res[targetRoomName].roaded);
+}
+
+/**
+ * How much CARRY capacity does this remote source need in flight, and how many
+ * carriers should provide it?
+ *
+ * capacity needed = yield/tick * round-trip ticks
+ *   yield/tick   : 10 for a reserved remote source (3000/300), else 5 (1500/300)
+ *   round trip   : 2*pathLength + ~6 ticks of load/unload slack
+ *
+ * The old code computed a single body from `6 * (2L+2)` and then capped it at
+ * `energyCapacityAvailable - 100`, silently under-delivering whenever the demand
+ * exceeded one body — with no second carrier to make up the difference. Splitting
+ * across N carriers is what actually closes the gap.
+ */
+function remoteCarrierDemand(room, targetRoomName, values) {
+    const L = values && values.pathLength ? values.pathLength : 40;
+    const rr = Game.rooms[targetRoomName];
+    // Prefer live vision, fall back to the verdict manageRemotes cached. A long
+    // remote spends most of its time unobserved, and sizing must not depend on
+    // whether we happen to have a creep standing there this tick.
+    const resMem = room.memory.resources;
+    const cached = resMem && resMem[targetRoomName];
+    const reserved = rr && rr.controller
+        ? !!rr.controller.reservation
+        : !!(cached && cached.reserved);
+    const yieldPerTick = reserved ? 10 : 5;
+    const roaded = remotePathIsRoaded(room, targetRoomName);
+    // The body ratio picked in getCarrierBody is always matched to the terrain
+    // (1:1 off-road, 2:1 on roads), so the loaded leg is 1 tick/tile either way
+    // and the round trip is just out + back plus load/unload slack. This is the
+    // assumption the OLD code got wrong: it always built 2:1 and then assumed
+    // road speed on unroaded ground.
+    const roundTrip = L * 2 + 6;
+
+    /*
+     * HEADROOM. The clean `yield * roundTrip` figure is a floor, not a target:
+     * it assumes the carrier fills instantly and walks an unobstructed straight
+     * line. Reality costs more — room-transition ticks, queueing at the exit
+     * tile, and (worst) filling from scattered ground piles when the remote has
+     * no source container.
+     *
+     * Measured after the first round of sizing fixes: E2S8's remotes sat at
+     * exactly the modelled carrier count yet still left 2.4-3.2k energy rotting
+     * on the floor while delivery fell, i.e. the model was systematically short.
+     * These remotes have zero containers, which is the expensive case.
+     */
+    const res = room.memory.resources;
+    const conts = (res && res[targetRoomName] && res[targetRoomName].containers) || 0;
+    const headroom = conts > 0 ? 1.25 : 1.5;
+    const capacityNeeded = Math.ceil(yieldPerTick * roundTrip * headroom);
+    return { capacityNeeded, roaded, roundTrip, reserved, headroom };
 }
 
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
@@ -3315,10 +3465,41 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         if(targetRoomName != room.name && room.memory.danger) {
                             return;
                         }
-                        if(!Game.rooms[targetRoomName] || Game.rooms[targetRoomName] == undefined || Game.rooms[targetRoomName].memory.roomData && Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps == true) {
+                        // NEVER spawn into a remote we have abandoned for threat
+                        // reasons. The old code below treated "no vision" and
+                        // "hostiles present" as the SAME case and spawned a
+                        // [WORK,WORK,MOVE] miner in both — i.e. it deliberately
+                        // walked a 250e creep into the room that had just killed
+                        // the last one, forever.
+                        if(remoteIsHot(room, targetRoomName)) {
+                            return;
+                        }
+                        // Skip this pass if the cached hostile flag is set, but do
+                        // NOT mark the remote hot from it. `roomData` is a stale
+                        // cache that survives loss of vision, and a sticky
+                        // 600-tick flag set from stale data can never be cleared
+                        // (clearing needs vision, vision needs a creep, the flag
+                        // blocks the creep). Only scanRemoteThreats(), which
+                        // requires real vision, is allowed to mark a remote hot.
+                        if(Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData &&
+                           Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps == true) {
+                            return;
+                        }
+                        // "No vision" used to mean "send a 2-WORK probe". But an
+                        // ACTIVE, non-hot remote whose pathLength we already know
+                        // is a remote we have already surveyed — the only thing
+                        // missing is a creep standing in it. Sending a 2-WORK
+                        // body on an 82-tile walk to a reserved 10/tick source
+                        // throws away more than half the yield for the whole
+                        // creep life. Observed on E3S3->E3S4: both sources parked
+                        // at 3000/3000 while 2-WORK probes trickled out.
+                        //
+                        // Only fall back to the cheap probe when we genuinely
+                        // know nothing (no pathLength surveyed yet).
+                        if((!Game.rooms[targetRoomName] || Game.rooms[targetRoomName] == undefined) && !values.pathLength) {
                             room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
                                 {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Energy Miner to Spawn List: ' + newName);
+                            console.log('Adding Energy Miner (probe, unsurveyed) to Spawn List: ' + newName);
                             values.lastSpawn = Game.time-120;
                         }
 
@@ -3386,6 +3567,27 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
             _.forEach(data.energy, function(values, sourceId) {
+                // REMOTE carriers are handled first and WITHOUT requiring vision
+                // on the remote — see getRemoteCarrierBody(). The vision guard
+                // below is kept for the home room only.
+                if(targetRoomName != room.name) {
+                    if(room.memory.danger) return;
+                    if(remoteIsHot(room, targetRoomName)) return;
+                    const demand = remoteCarrierDemand(room, targetRoomName, values);
+                    const want = carriersWantedForSource(room, values, demand);
+                    const have = liveCarriersForSource(room, sourceId);
+                    if(have >= want || queuedForSource(room, 'Carrier', sourceId)) return;
+                    if(Game.time - (values.lastSpawnCarrier || 0) < 60) return;
+                    const body = getRemoteCarrierBody(room, targetRoomName, values);
+                    if(!body || body.length === 0) return;
+                    const nm = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                    room.memory.spawn_list.push(body, nm,
+                        {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
+                    values.lastSpawnCarrier = Game.time;
+                    console.log('Adding remote Carrier ' + nm + ' -> ' + targetRoomName +
+                        ' (' + (have+1) + '/' + want + ', need ' + demand.capacityNeeded + 'e, roaded=' + demand.roaded + ', resv=' + demand.reserved + ')');
+                    return;
+                }
                 if(!Game.rooms[targetRoomName] || room.name != targetRoomName && room.memory.danger || Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData && Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps) {
                     return;
                 }
@@ -3412,6 +3614,22 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                         "- no carrier alive or queued");
                     values.lastSpawnCarrier = 0;
                 }
+                /*
+                 * REMOTE carriers are count-driven, not stamp-driven.
+                 *
+                 * The stamp scheme below (one spawn per CREEP_LIFE_TIME per
+                 * source) was the intent, but it was defeated by the hub-container
+                 * rung at the bottom of this function, which subtracted 200 from
+                 * `lastSpawnCarrier` on EVERY producer pass while the hub container
+                 * was full — an unbounded feedback loop, and it applied to remote
+                 * sources too. Measured result: 76 live carriers for 16 sources
+                 * (7.8 simultaneously on a single 2-source remote that the code
+                 * believed had 2), each one costing spawn time and CPU while the
+                 * remote ran at a net energy LOSS.
+                 *
+                 * Replace it for remotes with an explicit target count derived
+                 * from haul demand, enforced against live creeps.
+                 */
                 if (Game.time - (values.lastSpawnCarrier || 0) > CREEP_LIFE_TIME) {
                     let newName = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     let bodyForCarrier = getCarrierBody(sourceId, values, storage, spawn, room);
@@ -3448,10 +3666,20 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                     console.log('Adding Carrier to Spawn List: ' + newName);
                     values.lastSpawnCarrier = Game.time-600;
                 }
+                // "Hub container is full -> we are under-hauling, bring the next
+                // carrier forward." Sound idea, but it subtracted 200 on EVERY
+                // producer pass with no floor, so `lastSpawnCarrier` ran away to
+                // -infinity and the rung above fired every single pass. That is
+                // where the 76-carrier fleet came from.
+                //
+                // Clamp it: it may pull the next spawn forward to "due now" and
+                // no further, and only if we do not already have a carrier in
+                // flight for this source.
                 if(room.controller.level <= 5 && room.memory.Structures && room.memory.Structures.container) {
                     let container:any = Game.getObjectById(room.memory.Structures.container);
-                    if(container && container.store.getFreeCapacity() == 0) {
-                        values.lastSpawnCarrier -= 200;
+                    if(container && container.store.getFreeCapacity() == 0 && !queuedForSource(room, 'Carrier', sourceId)) {
+                        const floor = Game.time - CREEP_LIFE_TIME;
+                        values.lastSpawnCarrier = Math.max(floor, (values.lastSpawnCarrier || 0) - 200);
                     }
                 }
             });
@@ -3463,6 +3691,28 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
 function spawn_remote_repairer(resourceData, room, activeRemotes) {
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
+            /*
+             * One RemoteRepairer per SOURCE meant a 2-source remote always got 2,
+             * regardless of whether the remote contained a single road. Measured:
+             * 6 live RemoteRepairers across pacifist1's remotes, every one of which
+             * had road=0 and container=0 to work on — pure spawn waste.
+             *
+             * Gate on there being actual work, and allow one per REMOTE.
+             */
+            if(targetRoomName != room.name) {
+                if(remoteIsHot(room, targetRoomName)) return;
+                const rr = Game.rooms[targetRoomName];
+                if(!rr) return;
+                const hasWork =
+                    rr.find(FIND_MY_CONSTRUCTION_SITES).length > 0 ||
+                    rr.find(FIND_STRUCTURES, {filter: (s:any) =>
+                        (s.structureType == STRUCTURE_ROAD || s.structureType == STRUCTURE_CONTAINER) &&
+                        s.hits < s.hitsMax * 0.75}).length > 0;
+                if(!hasWork) return;
+                if(_.some(Game.creeps, (c:any) =>
+                    c.memory.role == 'RemoteRepair' && c.memory.homeRoom == room.name &&
+                    c.memory.targetRoom == targetRoomName)) return;
+            }
             _.forEach(data.energy, function(values, sourceId) {
                 if(Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 1.5) {
                     let newName = 'RemoteRepairer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -3521,7 +3771,76 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
     });
 }
 
+/**
+ * Should this commune be allowed to run remote reservers at all?
+ *
+ * Owner rule: reserving is a HIGH-RCL move. Two independent reasons, both
+ * measured on the live server before this gate existed:
+ *
+ * 1. ECONOMICS. A reserver is 600e per CLAIM part and lives only
+ *    CREEP_CLAIM_LIFE_TIME (600) ticks, not 1500. At RCL3-4 the commune cannot
+ *    afford a body big enough to matter, and the spawn-time it burns is spawn
+ *    time not spent on miners/carriers/upgraders. Measured on E2S8 (RCL3):
+ *    the remote spent 16.3 energy/tick on creeps to deliver 8.4 energy/tick.
+ *
+ * 2. MECHANICS. reserveController() adds +1 tick per CLAIM part while the
+ *    reservation decays 1 tick/tick. A ONE-CLAIM reserver is therefore exactly
+ *    net zero — it can never grow a reservation, it can only stop an existing
+ *    one shrinking while it stands there, and it loses ground for every tick it
+ *    spends walking. Measured: average reservation ticksToEnd across E2S9/E3S8
+ *    was 1.0 with 29% of ticks having no reservation at all. The old RCL<=4
+ *    [CLAIM,MOVE] rung was 650e for literally nothing.
+ *
+ * So: >=2 CLAIM parts or don't bother, which needs 1300 energyCapacity (RCL4+),
+ * and gate the whole thing on RCL>=5. RCL4 is allowed ONLY when GCL says we
+ * have no free claim slots — if GCL is ahead of our owned-room count there is a
+ * free room glut and claiming a room outright beats reserving someone's.
+ */
+function reserverGate(room): { ok: boolean; reason: string } {
+    const lvl = room.controller ? room.controller.level : 0;
+    const owned = _.filter(Game.rooms, (r: any) => r.controller && r.controller.my).length;
+    const gcl = Game.gcl ? Game.gcl.level : 1;
+
+    if (room.energyCapacityAvailable < 1300) {
+        return { ok: false, reason: "cap " + room.energyCapacityAvailable + "<1300 (needs 2xCLAIM; 1 CLAIM is net-zero)" };
+    }
+    if (lvl >= 5) {
+        return { ok: true, reason: "RCL" + lvl + ">=5" };
+    }
+    if (lvl === 4) {
+        if (gcl > owned) {
+            return { ok: false, reason: "RCL4 but GCL" + gcl + ">owned" + owned + " — free claim slot, claiming beats reserving" };
+        }
+        return { ok: true, reason: "RCL4 and GCL" + gcl + "<=owned" + owned + " — no claim slot, reserve instead" };
+    }
+    return { ok: false, reason: "RCL" + lvl + "<5" };
+}
+
+/** log the gate verdict at most once per 500 ticks per room, so it is visible but not spam */
+function logReserverGate(room, g: { ok: boolean; reason: string }) {
+    if (!room.memory._rgLog || Game.time - room.memory._rgLog > 500) {
+        room.memory._rgLog = Game.time;
+        console.log("[reserver-gate] " + room.name + " " + (g.ok ? "ALLOW" : "BLOCK") + " — " + g.reason);
+    }
+}
+
+/** is a reserver of ours already alive (or hatching) for this remote? */
+function anyReserverAlive(room, targetRoomName):boolean {
+    return _.some(Game.creeps, (c:any) =>
+        c.memory.role === 'reserve' &&
+        c.memory.homeRoom === room.name &&
+        c.memory.targetRoom === targetRoomName);
+}
+
 function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
+    // OWNER RULE: no remote reservation at low RCL. See reserverGate() above.
+    const gate = reserverGate(room);
+    logReserverGate(room, gate);
+    // The claim rung below (Memory.CanClaimRemote) is a real room CLAIM, not a
+    // reservation — 1 CLAIM part is correct there and it is not what the gate is
+    // about, so it stays reachable.
+    if (!gate.ok && !(Memory.CanClaimRemote >= 3)) return;
+
     // `reservers` is a GLOBAL count — rooms.spawning tallies Game.creeps
     // without filtering by homeRoom — so `reservers > 0` meant exactly ONE
     // reservation could exist across the whole empire. Scope it to this
@@ -3578,23 +3897,44 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                     return;
                 }
 
+                if(!gate.ok) {
+                    return;
+                }
+                if(remoteIsHot(room, targetRoomName)) {
+                    return;
+                }
                 if(targetRoomName != room.name && Game.rooms[targetRoomName] != undefined && Game.rooms[targetRoomName].memory.roomData && !Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps && !Game.rooms[targetRoomName].controller.my) {
-                    if(Game.rooms[targetRoomName] != undefined && Game.rooms[targetRoomName].controller.reservation && Game.rooms[targetRoomName].controller.reservation.ticksToEnd <= 1000 && Game.time - (values.lastSpawnReserver || 0) > CREEP_LIFE_TIME/2 ||
-                    Game.rooms[targetRoomName] != undefined && !Game.rooms[targetRoomName].controller.reservation && Game.time - (values.lastSpawnReserver || 0) > CREEP_LIFE_TIME/4) {
+                    // TIMING. Spawn shortly BEFORE the reservation lapses, not
+                    // after. The old rungs keyed off `lastSpawnReserver` with
+                    // CREEP_LIFE_TIME/2 == 750, but a CLAIM creep lives
+                    // CREEP_CLAIM_LIFE_TIME == 600 — the re-spawn interval was
+                    // LONGER than the creep's life, guaranteeing a coverage gap
+                    // every single cycle on top of the walk out.
+                    //
+                    // Lead time = walk + spawn + slack. The replacement should
+                    // arrive while the old reservation still has ticks on it.
+                    const rsv = Game.rooms[targetRoomName].controller.reservation;
+                    const walk = Math.max(20, Math.min(120, (values.pathLength || 50)));
+                    const lead = walk + 40;
+                    // `covered` already prevents a duplicate per room, so the
+                    // stamp is only an anti-thrash guard for the spawn-failed case.
+                    const notThrashing = Game.time - (values.lastSpawnReserver || 0) > 150;
+                    const needNow = !rsv || rsv.ticksToEnd <= lead ||
+                        (rsv.ticksToEnd < CONTROLLER_RESERVE_MAX - 600 && !anyReserverAlive(room, targetRoomName));
+
+                    if(needNow && notThrashing) {
 
                         if(room.memory.danger || (storage && storage.store[RESOURCE_ENERGY] < 25000)) {
                             return;
                         }
 
-                        // RCL3/4 had NO branch at all here, so an RCL3-4 commune
-                        // could never reserve a remote no matter what else was
-                        // true. One CLAIM/MOVE pair is 650e — affordable from
-                        // RCL3 (800 cap) and enough to hold a reservation.
+                        // >=2 CLAIM or nothing: 1 CLAIM is net-zero against the
+                        // 1/tick reservation decay (see reserverGate).
                         if(room.controller.level <= 4) {
-                            if(room.energyCapacityAvailable < 650) {
+                            if(room.energyCapacityAvailable < 1300) {
                                 return;
                             }
-                            room.memory.spawn_list.push([CLAIM,MOVE], newName,
+                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE], newName,
                                 {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Reserver to Spawn List: ' + newName);
                             markSpawned();

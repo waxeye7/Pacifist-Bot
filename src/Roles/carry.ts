@@ -2,6 +2,7 @@
 // the closest hungry structure — and this picker locks onto it for the
 // creep's whole life. See utils/Reachability.
 import { isUndeliverable } from "utils/Reachability";
+import { remoteIsHot } from "Rooms/rooms.remotes";
 
 function findLocked(creep) {
     let terminal = creep.room.terminal;
@@ -216,6 +217,20 @@ function findLocked(creep) {
                 delete creep.memory.exit;
                 delete creep.memory.route;
             }
+        }
+        // Remote abandoned for threat reasons -> reassign to home instead of
+        // walking back into it. The spawner already refuses to make new carriers
+        // for a hot remote; without this the ones already alive keep commuting
+        // into the room that is killing them.
+        if (
+            creep.memory.targetRoom &&
+            creep.memory.homeRoom &&
+            creep.memory.targetRoom !== creep.memory.homeRoom &&
+            remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)
+        ) {
+            creep.memory.targetRoom = creep.memory.homeRoom;
+            delete creep.memory.exit;
+            delete creep.memory.route;
         }
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);

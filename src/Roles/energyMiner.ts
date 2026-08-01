@@ -1,3 +1,5 @@
+import { remoteIsHot } from "Rooms/rooms.remotes";
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -102,6 +104,17 @@ const run = function (creep) {
     // Tested with getActiveBodyparts, NOT store.getCapacity(): a creep with no
     // CARRY answers `null` there on this engine, and `null == 0` is false, so a
     // capacity test silently does nothing.
+    // Remote gone hot: a static 4W/2M miner cannot fight or outrun anything, so
+    // walk it home and recycle the body rather than donate it to the attacker.
+    if(creep.memory.targetRoom && creep.memory.homeRoom &&
+       creep.memory.targetRoom != creep.memory.homeRoom &&
+       remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)) {
+        if(creep.room.name !== creep.memory.homeRoom) {
+            return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        }
+        return creep.recycle();
+    }
+
     if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.getActiveBodyparts(CARRY) == 0 || !linkNetworkDelivers(creep.room)) {
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();

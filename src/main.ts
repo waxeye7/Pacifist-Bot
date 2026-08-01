@@ -11,6 +11,7 @@ import { trackRoomRcl } from "utils/Speedrun";
 import { runPlanAnimator } from "utils/PlanAnimator";
 import { runPlanV2Adoption } from "utils/PlanV2";
 import { runAutoExpand } from "Managers/AutoExpand";
+import { sampleRemoteStats, installRemoteStatsCommand } from "utils/RemoteStats";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
 
@@ -161,6 +162,7 @@ global.ROLES = {
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
   installLogger();
+  installRemoteStatsCommand();
 
   const startTotal = Game.cpu.getUsed();
   // ensureBench (via getOpts) boots A/B on version bump
@@ -207,6 +209,8 @@ export const loop = ErrorMapper.wrapLoop(() => {
   runAutoExpand();
 
   decrementTempBadRooms();
+
+  sampleRemoteStats();
 
   const tickCpu = Game.cpu.getUsed() - startTotal;
   recordTick(tickCpu);

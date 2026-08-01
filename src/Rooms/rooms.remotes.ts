@@ -57,6 +57,106 @@ function remotes(room) {
  * second ring; those are map knowledge, not remote targets).
  * ------------------------------------------------------------------ */
 
+/* ------------------------------------------------------------------ *
+ * Remote threat hysteresis — "leave fast, return slowly".
+ *
+ * The old behaviour keyed every remote decision off
+ * `Game.rooms[remote].memory.roomData.has_hostile_creeps`, which is (a) only
+ * true while we have vision and (b) cached, so it flaps: the moment our last
+ * creep dies the flag goes stale, the spawner decides the room is fine, and it
+ * feeds another creep into the same hostile room. Measured symptom: miners kept
+ * being queued into rooms that had just killed the previous miner, because
+ * spawn_energy_miner's "no vision OR hostiles" branch spawned a
+ * [WORK,WORK,MOVE] in BOTH cases.
+ *
+ * The fix is an explicit, sticky, memory-backed flag:
+ *   res[remote].hot = <tick until which the remote is off-limits>
+ * Set the instant a hostile is seen (leave fast). It is never cleared early —
+ * it simply expires, and any fresh sighting pushes it back out (return slowly).
+ * ------------------------------------------------------------------ */
+
+/** how long a remote stays abandoned after the last hostile sighting */
+const HOT_COOLDOWN = 600;
+
+function resFor(homeRoomName: string): any {
+    const mem = Memory.rooms && Memory.rooms[homeRoomName];
+    return mem && (mem as any).resources;
+}
+
+/** Is this remote currently abandoned for threat reasons? */
+export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
+    const name = typeof homeRoom === "string" ? homeRoom : homeRoom.name;
+    const res = resFor(name);
+    const e = res && res[remoteName];
+    if (!e || !e.hot) return false;
+    if (Game.time >= e.hot) {
+        // Expired. Re-open OPTIMISTICALLY, even with no vision.
+        //
+        // The first version of this required seeing the room clear before
+        // clearing the flag, which deadlocks: no vision -> stays hot -> we never
+        // send a creep -> we never get vision -> hot forever. Observed live on
+        // E2S8's E2S9 and E3S8, which sat abandoned while completely empty.
+        //
+        // "Return slowly" is the cooldown, not a refusal to ever return. If the
+        // threat is still there, scanRemoteThreats() sees it on the next pass
+        // with vision and re-marks the room immediately ("leave fast"), so the
+        // worst case is one probe creep, not a permanent loss of the remote.
+        const rr = Game.rooms[remoteName];
+        if (rr && rr.find(FIND_HOSTILE_CREEPS).length > 0) {
+            return true; // still hot; scanRemoteThreats will push the timer out
+        }
+        delete e.hot;
+        console.log(`[remotes] ${name} ${remoteName} cooled down, re-opening`);
+        return false;
+    }
+    return true;
+}
+
+/** Mark a remote hot. Called whenever hostiles are actually seen there. */
+export function markRemoteHot(homeRoomName: string, remoteName: string, why: string): void {
+    const res = resFor(homeRoomName);
+    if (!res || !res[remoteName]) return;
+    const was = res[remoteName].hot;
+    res[remoteName].hot = Game.time + HOT_COOLDOWN;
+    if (!was) {
+        console.log(`[remotes] ${homeRoomName} ABANDON ${remoteName} for ${HOT_COOLDOWN}t (${why})`);
+    }
+}
+
+/**
+ * Sweep every visible active remote for hostiles and set/refresh the hot flag.
+ * Cheap: one find() per visible active remote, and only for rooms we already
+ * decided to mine.
+ */
+export function scanRemoteThreats(room: any): void {
+    if (!room.controller || !room.controller.my) return;
+    const res = room.memory.resources;
+    if (!res) return;
+    for (const remote in res) {
+        if (remote === room.name) continue;
+        if (!res[remote] || !res[remote].active) continue;
+        const rr = Game.rooms[remote];
+        if (!rr) continue;
+        const hostiles = rr.find(FIND_HOSTILE_CREEPS, {
+            filter: (c: any) =>
+                c.getActiveBodyparts(ATTACK) > 0 ||
+                c.getActiveBodyparts(RANGED_ATTACK) > 0 ||
+                c.getActiveBodyparts(HEAL) > 0 ||
+                c.getActiveBodyparts(WORK) > 0,
+        });
+        if (hostiles.length) {
+            markRemoteHot(room.name, remote, hostiles.length + " hostile(s)");
+        }
+        // Invader cores are a longer-lived problem than a passing creep.
+        const cores = rr.find(FIND_HOSTILE_STRUCTURES, {
+            filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
+        });
+        if (cores.length) {
+            markRemoteHot(room.name, remote, "invader core");
+        }
+    }
+}
+
 /** stagger the per-room pass so 10 communes don't all path on one tick */
 function roomTickOffset(name: string): number {
     let h = 0;
@@ -70,7 +170,26 @@ const HARD_CAP = 2;
 
 export function manageRemotes(room: any): void {
     if (!room.controller || !room.controller.my) return;
-    if (room.controller.level < 3) return;
+
+    // Below RCL3 a commune has no business running remotes at all. scout.ts
+    // writes `active = true` the moment it decides a room is minable, with no
+    // RCL awareness, so an RCL1-2 room could sit with active remotes and trickle
+    // creeps at them. Observed on pacifist2's E19S7 (RCL2): three "active"
+    // remotes returning 0.13 e/tick for 0.65 e/tick of spawn. Clear them here
+    // rather than only forcing them off inside the spawn loop, so the flag and
+    // the behaviour cannot disagree.
+    if (room.controller.level < 3) {
+        const r = room.memory.resources;
+        if (r) {
+            for (const n in r) {
+                if (n !== room.name && r[n] && r[n].active) {
+                    r[n].active = false;
+                    console.log(`[remotes] ${room.name} close ${n} (RCL${room.controller.level} < 3)`);
+                }
+            }
+        }
+        return;
+    }
     if (room.memory.danger) return;
     if (Game.cpu.bucket < 4000) return;
     if ((Game.time + roomTickOffset(room.name)) % MANAGE_EVERY !== 0) return;
@@ -133,13 +252,96 @@ export function manageRemotes(room: any): void {
             e.active = false; // scouted and rejected
             continue;
         }
+        // A remote under threat is not a candidate this pass.
+        if (remoteIsHot(room, name)) {
+            if (e.active) {
+                e.active = false;
+                console.log(`[remotes] ${room.name} close ${name} (hot)`);
+            }
+            continue;
+        }
+
         // Build_Remote_Roads stores pathLength per source; use the closest.
         let best = 90;
         for (const id of sourceIds) {
             const pl = e.energy[id] && e.energy[id].pathLength;
             if (typeof pl === "number" && pl < best) best = pl;
         }
-        scored.push({ name, score: sourceIds.length * 100 - best });
+
+        // Refresh the cached road verdict while we have vision. Cached (rather
+        // than re-derived per source in the spawner) so this find() happens once
+        // per remote per MANAGE_EVERY ticks instead of once per source per
+        // producer pass.
+        const vis = Game.rooms[name];
+        if (vis && best < 90) {
+            let roads = 0;
+            let conts = 0;
+            for (const s of vis.find(FIND_STRUCTURES)) {
+                if (s.structureType === STRUCTURE_ROAD) roads++;
+                else if (s.structureType === STRUCTURE_CONTAINER) conts++;
+            }
+            e.roaded = roads >= best * 0.4;
+            // Without a source container the miner drop-mines onto the floor and
+            // the carrier has to walk between scattered piles to fill up, which
+            // costs real ticks the round-trip model does not otherwise see.
+            e.containers = conts;
+            // Cached so carrier sizing never needs live vision — see
+            // remoteCarrierDemand(). A reserved source yields 10/tick, an
+            // unreserved one 5, and getting that wrong halves or doubles the
+            // fleet.
+            e.reserved = !!(vis.controller && vis.controller.reservation);
+        }
+
+        /*
+         * SCORING. The old score was `sources * 100 - pathLength`, which prices
+         * one extra source as worth 100 tiles of haul. That is wildly wrong and
+         * it showed: E3S3 (RCL4) had opened E3S4 at pathLength 81-85, i.e. a
+         * ~170-tick round trip, which needs ~850 energy of CARRY per source to
+         * keep up — more than the room's entire spawn capacity.
+         *
+         * Score on NET energy per tick instead. A source yields 5/tick
+         * unreserved (1500/300). A carrier that has to cover `L` tiles each way
+         * ties up roughly `yield * 2L` energy of body, which has to be respawned
+         * every CREEP_LIFE_TIME, so haul overhead is proportional to L. Net
+         * value per source ~= yield * (1 - L/BREAKEVEN).
+         */
+        const BREAKEVEN = 110; // tiles one-way at which a remote stops paying for itself
+
+        // Roads roughly halve the body a carrier needs for the same throughput
+        // (2:1 CARRY:MOVE instead of 1:1), so a roaded remote is effectively
+        // closer. Measured: E3S3->E3S4 is 81 tiles but has 70 roads and returns
+        // 1.5x its spawn cost, while the unroaded E2S7->E3S7 at a shorter path
+        // returns 0.92x. Distance alone is the wrong discriminator.
+        // Roads make a remote cheaper to run, so they RANK it higher — but they
+        // deliberately do NOT feed the reject below.
+        //
+        // `roaded` is only knowable with vision, and closing a remote removes
+        // the vision that would revise the verdict. A cached `roaded:false` that
+        // gates the reject is therefore self-sealing: E3S4 (82 tiles, 56 roads,
+        // 2 containers, returning 1.5x its spawn cost) sat closed forever on a
+        // stale false. Any cached NEGATIVE that suppresses its own evidence is a
+        // trap; the reject has to run on data that is always available.
+        // pathLength is stored in memory and never needs vision, so the reject
+        // uses raw distance and only the score uses roads.
+        const effective = e.roaded === true ? Math.round(best * 0.6) : best;
+        const perSource = 5 * (1 - effective / BREAKEVEN);
+        const score = Math.round(sourceIds.length * perSource * 100);
+
+        // Reject only genuinely absurd hauls. The old `sources*100 - path` score
+        // had no reject at all; this is a backstop, not the main selector —
+        // HARD_CAP already keeps only the best two, and the demand-sized carriers
+        // handle the rest. Kept deliberately loose so it can never be the reason
+        // a working remote is dropped.
+        const maxPath = room.controller.level >= 5 ? 120 : 90;
+        if (best > maxPath) {
+            if (e.active) {
+                e.active = false;
+                console.log(`[remotes] ${room.name} close ${name} (path ${best} > ${maxPath} for RCL${room.controller.level})`);
+            }
+            continue;
+        }
+
+        scored.push({ name, score });
     }
 
     scored.sort((a, b) => b.score - a.score);
