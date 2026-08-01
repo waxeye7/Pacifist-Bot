@@ -28,7 +28,8 @@
     "watch-season": "rollup -cw --environment DEST:season",
     "watch-sim": "rollup -cw --environment DEST:sim",
     "push-pacifist": "rollup -c --environment DEST:pacifist",
-    "push-pacifist2": "rollup -c --environment DEST:pacifist2"
+    "push-pacifist2": "rollup -c --environment DEST:pacifist2",
+    "push-race": "rollup -c --environment DEST:race"
   },
   "repository": {
     "type": "git",

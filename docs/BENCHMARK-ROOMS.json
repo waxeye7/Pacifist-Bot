@@ -1,20 +1,73 @@
 {
   "schemaVersion": 1,
-  "generatedAt": "2026-08-01T10:06:37.995Z",
+  "generatedAt": "2026-08-01T16:15:28.000Z",
   "generatedBy": "tools/server/race.mjs --pick",
-  "provisional": true,
-  "frozen": false,
-  "setHash": "1n0ujw9",
+  "provisional": false,
+  "frozen": true,
+  "setHash": "1f90aub",
   "world": {
     "source": "mongo",
-    "gameTime": 8404,
+    "gameTime": 207403,
     "normalRooms": 243,
-    "occupiedRooms": 2,
-    "candidatePool": 154,
-    "rejectedCandidates": 16,
+    "claimedRooms": 12,
+    "occupiedRooms": 40,
+    "candidatePool": 89,
+    "rejectedCandidates": 43,
+    "claimedRoomsAtPick": [
+      "E11S8",
+      "E13S5",
+      "E15S6",
+      "E16S6",
+      "E18S3",
+      "E19S7",
+      "E1S4",
+      "E2S7",
+      "E2S8",
+      "E3S3",
+      "E6S5",
+      "E9S8"
+    ],
     "ownedRoomsAtPick": [
-      "E14S5",
-      "E5S6"
+      "E11S8",
+      "E12S5",
+      "E13S5",
+      "E14S8",
+      "E15S6",
+      "E15S7",
+      "E16S4",
+      "E16S5",
+      "E16S6",
+      "E16S7",
+      "E17S6",
+      "E18S3",
+      "E18S6",
+      "E18S7",
+      "E19S6",
+      "E19S7",
+      "E19S8",
+      "E1S3",
+      "E1S4",
+      "E1S5",
+      "E1S7",
+      "E1S8",
+      "E2S3",
+      "E2S4",
+      "E2S6",
+      "E2S7",
+      "E2S8",
+      "E2S9",
+      "E3S3",
+      "E3S4",
+      "E3S7",
+      "E3S8",
+      "E5S5",
+      "E6S3",
+      "E6S4",
+      "E6S5",
+      "E6S6",
+      "E7S5",
+      "E7S6",
+      "E9S8"
     ]
   },
   "users": {
@@ -26,7 +79,7 @@
       "room status normal, not a source-keeper room",
       "exactly 2 sources + an unowned, unreserved controller",
       "no user-owned object in the room at pick time",
-      "at least 2 rooms from any already-owned room",
+      "at least 2 rooms from any CLAIMED room (a controller with an owner: player base or invader stronghold). Transient occupancy — a creep walking through, a remote-road construction site, a tombstone — is deliberately NOT counted: it changes every tick, so counting it would make this frozen set unreproducible.",
       "at least 2 rooms from every other benchmark room"
     ],
     "hardnessWeights": {
@@ -39,33 +92,33 @@
     "hardnessNote": "weighted sum of z-scores over the candidate pool; higher = harder. srcStepsSum/ctrlSteps are 8-directional uniform-cost BFS step counts from the anchor tile (most central buildable tile, dt>=2, minimising sources+controller distance).",
     "zStats": {
       "srcStepsSum": {
-        "mean": 25.3312,
-        "sd": 11.0436
+        "mean": 24.809,
+        "sd": 10.6022
       },
       "ctrlSteps": {
-        "mean": 12.2338,
-        "sd": 9.3835
+        "mean": 13.5618,
+        "sd": 10.2602
       },
       "swampPct": {
-        "mean": 0.123,
-        "sd": 0.138
+        "mean": 0.1251,
+        "sd": 0.1481
       },
       "negOpenPct": {
-        "mean": -0.6712,
-        "sd": 0.1577
+        "mean": -0.6659,
+        "sd": 0.1552
       },
       "negMinSourceFree": {
-        "mean": -2.2338,
-        "sd": 1.1592
+        "mean": -2.191,
+        "sd": 1.1168
       }
     },
     "bandCutoffs": {
-      "easy": -0.1834,
-      "hard": 0.1233
+      "easy": -0.1739,
+      "hard": 0.1759
     },
     "controllerBandCutoffs": {
-      "near": 6,
-      "far": 15
+      "near": 8,
+      "far": 17.67
     },
     "anchorTypes": {
       "open": "anchor headroom >=6",
@@ -91,127 +144,127 @@
       "band": "hard",
       "attributes": {
         "anchorType": "enclosed",
-        "controller": "far",
+        "controller": "near",
         "sources": "enclosed"
       },
       "rooms": {
-        "control": "E15S2",
-        "candidate": "E4S9"
+        "control": "E5S3",
+        "candidate": "E9S1"
       },
       "paired": true,
-      "pairDistance": 6.024,
-      "pairWarning": null,
-      "reason": "E15S2: hard band (hardness +0.1296σ); sources 3+21 steps from the anchor; controller 18 steps (far); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 2 free tiles (enclosed); 61% buildable, 3% swamp. Picked to cover enclosed/far/enclosed in the hard band; paired with E4S9 (hard band (hardness +0.1883σ); sources 11+13 steps from the anchor; controller 17 steps (far); semi anchor (dt 3, 4 tiles of headroom); tightest source has 1 free tiles (enclosed); 64% buildable, 6% swamp) — feature distance 6.024, so control and candidate race near-equivalent rooms at the same time.",
+      "pairDistance": 11.424,
+      "pairWarning": "pair distance 11.424 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E5S3: hard band (hardness +0.6143σ); sources 18+29 steps from the anchor; controller 2 steps (near); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 2 free tiles (enclosed); 40% buildable, 2% swamp. Picked to cover enclosed/near/enclosed in the hard band; paired with E9S1 (hard band (hardness +0.6307σ); sources 3+41 steps from the anchor; controller 5 steps (near); semi anchor (dt 3, 4 tiles of headroom); tightest source has 1 free tiles (enclosed); 46% buildable, 0% swamp) — feature distance 11.424, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 11.424 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
       "profiles": {
-        "E15S2": {
-          "room": "E15S2",
-          "terrainHash": "nciqlh",
+        "E5S3": {
+          "room": "E5S3",
+          "terrainHash": "evajnp",
           "sources": [
             {
-              "x": 23,
-              "y": 19,
-              "freeTiles": 4
+              "x": 11,
+              "y": 40,
+              "freeTiles": 2
             },
             {
-              "x": 4,
-              "y": 36,
-              "freeTiles": 2
+              "x": 21,
+              "y": 45,
+              "freeTiles": 3
             }
           ],
           "controller": {
-            "x": 38,
-            "y": 18,
-            "freeTiles": 5
+            "x": 37,
+            "y": 41,
+            "freeTiles": 2
           },
-          "mineral": "O",
+          "mineral": "X",
           "anchor": {
-            "x": 19,
-            "y": 16,
+            "x": 40,
+            "y": 43,
             "dt": 3,
             "space": 3,
             "cramped": false
           },
           "srcSteps": [
-            3,
-            21
+            18,
+            29
           ],
-          "srcStepsSum": 24,
-          "srcStepsSpread": 18,
-          "ctrlSteps": 18,
+          "srcStepsSum": 47,
+          "srcStepsSpread": 11,
+          "ctrlSteps": 2,
           "minSourceFree": 2,
-          "openPct": 0.6063,
-          "swampPct": 0.0293,
-          "dtMax": 4,
-          "exitTiles": 113,
-          "nearestOwnedDistance": 3,
+          "openPct": 0.4019,
+          "swampPct": 0.0184,
+          "dtMax": 3,
+          "exitTiles": 94,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": -0.121,
-            "ctrlSteps": 0.615,
-            "swampPct": -0.679,
-            "negOpenPct": 0.412,
-            "negMinSourceFree": 0.202
+            "srcStepsSum": 2.093,
+            "ctrlSteps": -1.127,
+            "swampPct": -0.72,
+            "negOpenPct": 1.701,
+            "negMinSourceFree": 0.171
           },
-          "hardness": 0.1296,
+          "hardness": 0.6143,
           "band": "hard",
-          "ctrlBand": "far",
+          "ctrlBand": "near",
           "anchorType": "enclosed",
           "sourceBand": "enclosed",
-          "tuple": "enclosed/far/enclosed"
+          "tuple": "enclosed/near/enclosed"
         },
-        "E4S9": {
-          "room": "E4S9",
-          "terrainHash": "1qo7zk6",
+        "E9S1": {
+          "room": "E9S1",
+          "terrainHash": "r99c6d",
           "sources": [
             {
-              "x": 12,
-              "y": 34,
+              "x": 11,
+              "y": 6,
               "freeTiles": 3
             },
             {
-              "x": 38,
+              "x": 34,
               "y": 42,
               "freeTiles": 1
             }
           ],
           "controller": {
-            "x": 42,
-            "y": 17,
+            "x": 24,
+            "y": 37,
             "freeTiles": 1
           },
           "mineral": "Z",
           "anchor": {
-            "x": 26,
-            "y": 35,
+            "x": 30,
+            "y": 43,
             "dt": 3,
             "space": 4,
             "cramped": false
           },
           "srcSteps": [
-            11,
-            13
+            3,
+            41
           ],
-          "srcStepsSum": 24,
-          "srcStepsSpread": 2,
-          "ctrlSteps": 17,
+          "srcStepsSum": 44,
+          "srcStepsSpread": 38,
+          "ctrlSteps": 5,
           "minSourceFree": 1,
-          "openPct": 0.6367,
-          "swampPct": 0.062,
-          "dtMax": 5,
-          "exitTiles": 98,
-          "nearestOwnedDistance": 3,
+          "openPct": 0.4566,
+          "swampPct": 0,
+          "dtMax": 4,
+          "exitTiles": 50,
+          "nearestOwnedDistance": 4,
           "z": {
-            "srcStepsSum": -0.121,
-            "ctrlSteps": 0.508,
-            "swampPct": -0.442,
-            "negOpenPct": 0.219,
-            "negMinSourceFree": 1.064
+            "srcStepsSum": 1.81,
+            "ctrlSteps": -0.834,
+            "swampPct": -0.845,
+            "negOpenPct": 1.349,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.1883,
+          "hardness": 0.6307,
           "band": "hard",
-          "ctrlBand": "far",
+          "ctrlBand": "near",
           "anchorType": "semi",
           "sourceBand": "enclosed",
-          "tuple": "semi/far/enclosed"
+          "tuple": "semi/near/enclosed"
         }
       }
     },
@@ -219,128 +272,128 @@
       "id": "B2",
       "band": "hard",
       "attributes": {
-        "anchorType": "semi",
+        "anchorType": "enclosed",
         "controller": "far",
-        "sources": "tight"
+        "sources": "enclosed"
       },
       "rooms": {
-        "control": "E3S1",
-        "candidate": "E7S3"
+        "control": "E12S3",
+        "candidate": "E13S9"
       },
       "paired": true,
-      "pairDistance": 6.128,
-      "pairWarning": null,
-      "reason": "E3S1: hard band (hardness +0.2884σ); sources 3+24 steps from the anchor; controller 18 steps (far); semi anchor (dt 3, 4 tiles of headroom); tightest source has 3 free tiles (tight); 43% buildable, 7% swamp. Picked to cover semi/far/tight in the hard band; paired with E7S3 (hard band (hardness +0.1572σ); sources 3+20 steps from the anchor; controller 19 steps (far); semi anchor (dt 3, 4 tiles of headroom); tightest source has 3 free tiles (tight); 46% buildable, 6% swamp) — feature distance 6.128, so control and candidate race near-equivalent rooms at the same time.",
+      "pairDistance": 12.412,
+      "pairWarning": "pair distance 12.412 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E12S3: hard band (hardness +0.6415σ); sources 12+20 steps from the anchor; controller 20 steps (far); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 1 free tiles (enclosed); 46% buildable, 4% swamp. Picked to cover enclosed/far/enclosed in the hard band; paired with E13S9 (hard band (hardness +0.2031σ); sources 5+16 steps from the anchor; controller 20 steps (far); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 1 free tiles (enclosed); 48% buildable, 2% swamp) — feature distance 12.412, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 12.412 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
       "profiles": {
-        "E3S1": {
-          "room": "E3S1",
-          "terrainHash": "1c1qsat",
+        "E12S3": {
+          "room": "E12S3",
+          "terrainHash": "1pt83q",
           "sources": [
             {
-              "x": 6,
-              "y": 7,
-              "freeTiles": 3
+              "x": 36,
+              "y": 9,
+              "freeTiles": 4
             },
             {
-              "x": 31,
-              "y": 28,
-              "freeTiles": 3
+              "x": 46,
+              "y": 34,
+              "freeTiles": 1
             }
           ],
           "controller": {
-            "x": 14,
-            "y": 37,
+            "x": 19,
+            "y": 27,
             "freeTiles": 1
           },
-          "mineral": "H",
+          "mineral": "L",
           "anchor": {
-            "x": 31,
-            "y": 24,
+            "x": 30,
+            "y": 22,
             "dt": 3,
-            "space": 4,
+            "space": 3,
             "cramped": false
           },
           "srcSteps": [
-            3,
-            24
+            12,
+            20
           ],
-          "srcStepsSum": 27,
-          "srcStepsSpread": 21,
-          "ctrlSteps": 18,
-          "minSourceFree": 3,
-          "openPct": 0.4332,
-          "swampPct": 0.0661,
+          "srcStepsSum": 32,
+          "srcStepsSpread": 8,
+          "ctrlSteps": 20,
+          "minSourceFree": 1,
+          "openPct": 0.4596,
+          "swampPct": 0.0397,
           "dtMax": 4,
-          "exitTiles": 80,
-          "nearestOwnedDistance": 5,
+          "exitTiles": 56,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 0.151,
-            "ctrlSteps": 0.615,
-            "swampPct": -0.412,
-            "negOpenPct": 1.509,
-            "negMinSourceFree": -0.661
+            "srcStepsSum": 0.678,
+            "ctrlSteps": 0.627,
+            "swampPct": -0.577,
+            "negOpenPct": 1.329,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.2884,
+          "hardness": 0.6415,
           "band": "hard",
           "ctrlBand": "far",
-          "anchorType": "semi",
-          "sourceBand": "tight",
-          "tuple": "semi/far/tight"
+          "anchorType": "enclosed",
+          "sourceBand": "enclosed",
+          "tuple": "enclosed/far/enclosed"
         },
-        "E7S3": {
-          "room": "E7S3",
-          "terrainHash": "18wu5s7",
+        "E13S9": {
+          "room": "E13S9",
+          "terrainHash": "1vprupy",
           "sources": [
             {
               "x": 20,
-              "y": 10,
-              "freeTiles": 3
+              "y": 7,
+              "freeTiles": 1
             },
             {
-              "x": 6,
-              "y": 11,
+              "x": 10,
+              "y": 23,
               "freeTiles": 3
             }
           ],
           "controller": {
-            "x": 42,
-            "y": 16,
-            "freeTiles": 1
+            "x": 10,
+            "y": 27,
+            "freeTiles": 3
           },
-          "mineral": "U",
+          "mineral": "K",
           "anchor": {
-            "x": 24,
-            "y": 11,
+            "x": 14,
+            "y": 6,
             "dt": 3,
-            "space": 4,
+            "space": 3,
             "cramped": false
           },
           "srcSteps": [
-            3,
-            20
+            5,
+            16
           ],
-          "srcStepsSum": 23,
-          "srcStepsSpread": 17,
-          "ctrlSteps": 19,
-          "minSourceFree": 3,
-          "openPct": 0.457,
-          "swampPct": 0.0617,
+          "srcStepsSum": 21,
+          "srcStepsSpread": 11,
+          "ctrlSteps": 20,
+          "minSourceFree": 1,
+          "openPct": 0.477,
+          "swampPct": 0.0218,
           "dtMax": 5,
-          "exitTiles": 89,
-          "nearestOwnedDistance": 3,
+          "exitTiles": 50,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": -0.211,
-            "ctrlSteps": 0.721,
-            "swampPct": -0.444,
-            "negOpenPct": 1.358,
-            "negMinSourceFree": -0.661
+            "srcStepsSum": -0.359,
+            "ctrlSteps": 0.627,
+            "swampPct": -0.698,
+            "negOpenPct": 1.217,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.1572,
+          "hardness": 0.2031,
           "band": "hard",
           "ctrlBand": "far",
-          "anchorType": "semi",
-          "sourceBand": "tight",
-          "tuple": "semi/far/tight"
+          "anchorType": "enclosed",
+          "sourceBand": "enclosed",
+          "tuple": "enclosed/far/enclosed"
         }
       }
     },
@@ -348,128 +401,128 @@
       "id": "B3",
       "band": "hard",
       "attributes": {
-        "anchorType": "enclosed",
-        "controller": "mid",
+        "anchorType": "semi",
+        "controller": "near",
         "sources": "enclosed"
       },
       "rooms": {
-        "control": "E11S9",
-        "candidate": "E9S7"
+        "control": "E18S9",
+        "candidate": "E8S5"
       },
       "paired": true,
-      "pairDistance": 7.192,
-      "pairWarning": null,
-      "reason": "E11S9: hard band (hardness +0.7365σ); sources 3+34 steps from the anchor; controller 14 steps (mid); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 2 free tiles (enclosed); 39% buildable, 21% swamp. Picked to cover enclosed/mid/enclosed in the hard band; paired with E9S7 (hard band (hardness +0.8716σ); sources 6+33 steps from the anchor; controller 13 steps (mid); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 1 free tiles (enclosed); 43% buildable, 25% swamp) — feature distance 7.192, so control and candidate race near-equivalent rooms at the same time.",
+      "pairDistance": 13.296,
+      "pairWarning": "pair distance 13.296 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E18S9: hard band (hardness +0.3575σ); sources 13+26 steps from the anchor; controller 6 steps (near); semi anchor (dt 3, 5 tiles of headroom); tightest source has 1 free tiles (enclosed); 72% buildable, 9% swamp. Picked to cover semi/near/enclosed in the hard band; paired with E8S5 (hard band (hardness +0.3489σ); sources 13+25 steps from the anchor; controller 10 steps (mid); open anchor (dt 3, 7 tiles of headroom); tightest source has 1 free tiles (enclosed); 77% buildable, 0% swamp) — feature distance 13.296, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 13.296 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
       "profiles": {
-        "E11S9": {
-          "room": "E11S9",
-          "terrainHash": "c51b3a",
+        "E18S9": {
+          "room": "E18S9",
+          "terrainHash": "jx2m12",
           "sources": [
             {
-              "x": 16,
+              "x": 46,
               "y": 4,
-              "freeTiles": 5
+              "freeTiles": 1
             },
             {
-              "x": 7,
-              "y": 30,
-              "freeTiles": 2
+              "x": 19,
+              "y": 40,
+              "freeTiles": 1
             }
           ],
           "controller": {
-            "x": 27,
-            "y": 20,
+            "x": 25,
+            "y": 6,
             "freeTiles": 3
           },
-          "mineral": "H",
+          "mineral": "O",
           "anchor": {
-            "x": 20,
-            "y": 5,
+            "x": 32,
+            "y": 13,
             "dt": 3,
-            "space": 3,
+            "space": 5,
             "cramped": false
           },
           "srcSteps": [
-            3,
-            34
+            13,
+            26
           ],
-          "srcStepsSum": 37,
-          "srcStepsSpread": 31,
-          "ctrlSteps": 14,
-          "minSourceFree": 2,
-          "openPct": 0.3911,
-          "swampPct": 0.2053,
-          "dtMax": 3,
-          "exitTiles": 104,
-          "nearestOwnedDistance": 4,
+          "srcStepsSum": 39,
+          "srcStepsSpread": 13,
+          "ctrlSteps": 6,
+          "minSourceFree": 1,
+          "openPct": 0.7248,
+          "swampPct": 0.0874,
+          "dtMax": 6,
+          "exitTiles": 69,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 1.057,
-            "ctrlSteps": 0.188,
-            "swampPct": 0.596,
-            "negOpenPct": 1.776,
-            "negMinSourceFree": 0.202
+            "srcStepsSum": 1.338,
+            "ctrlSteps": -0.737,
+            "swampPct": -0.255,
+            "negOpenPct": -0.38,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.7365,
+          "hardness": 0.3575,
           "band": "hard",
-          "ctrlBand": "mid",
-          "anchorType": "enclosed",
+          "ctrlBand": "near",
+          "anchorType": "semi",
           "sourceBand": "enclosed",
-          "tuple": "enclosed/mid/enclosed"
+          "tuple": "semi/near/enclosed"
         },
-        "E9S7": {
-          "room": "E9S7",
-          "terrainHash": "fgokna",
+        "E8S5": {
+          "room": "E8S5",
+          "terrainHash": "1q6new4",
           "sources": [
             {
-              "x": 29,
+              "x": 6,
               "y": 8,
               "freeTiles": 1
             },
             {
-              "x": 45,
-              "y": 30,
+              "x": 40,
+              "y": 34,
               "freeTiles": 3
             }
           ],
           "controller": {
-            "x": 22,
-            "y": 10,
-            "freeTiles": 1
+            "x": 43,
+            "y": 9,
+            "freeTiles": 2
           },
-          "mineral": "Z",
+          "mineral": "O",
           "anchor": {
-            "x": 34,
-            "y": 3,
+            "x": 32,
+            "y": 20,
             "dt": 3,
-            "space": 3,
+            "space": 7,
             "cramped": false
           },
           "srcSteps": [
-            6,
-            33
+            13,
+            25
           ],
-          "srcStepsSum": 39,
-          "srcStepsSpread": 27,
-          "ctrlSteps": 13,
+          "srcStepsSum": 38,
+          "srcStepsSpread": 12,
+          "ctrlSteps": 10,
           "minSourceFree": 1,
-          "openPct": 0.4275,
-          "swampPct": 0.2487,
-          "dtMax": 4,
-          "exitTiles": 38,
-          "nearestOwnedDistance": 4,
+          "openPct": 0.7743,
+          "swampPct": 0.0045,
+          "dtMax": 11,
+          "exitTiles": 51,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 1.238,
-            "ctrlSteps": 0.082,
-            "swampPct": 0.911,
-            "negOpenPct": 1.545,
-            "negMinSourceFree": 1.064
+            "srcStepsSum": 1.244,
+            "ctrlSteps": -0.347,
+            "swampPct": -0.814,
+            "negOpenPct": -0.698,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.8716,
+          "hardness": 0.3489,
           "band": "hard",
           "ctrlBand": "mid",
-          "anchorType": "enclosed",
+          "anchorType": "open",
           "sourceBand": "enclosed",
-          "tuple": "enclosed/mid/enclosed"
+          "tuple": "open/mid/enclosed"
         }
       }
     },
@@ -478,127 +531,127 @@
       "band": "median",
       "attributes": {
         "anchorType": "semi",
-        "controller": "near",
+        "controller": "mid",
         "sources": "enclosed"
       },
       "rooms": {
-        "control": "E13S3",
-        "candidate": "E1S6"
+        "control": "E11S6",
+        "candidate": "E8S3"
       },
       "paired": true,
-      "pairDistance": 7.404,
+      "pairDistance": 5.748,
       "pairWarning": null,
-      "reason": "E13S3: median band (hardness +0.1179σ); sources 11+24 steps from the anchor; controller 2 steps (near); semi anchor (dt 3, 4 tiles of headroom); tightest source has 1 free tiles (enclosed); 74% buildable, 17% swamp. Picked to cover semi/near/enclosed in the median band; paired with E1S6 (median band (hardness +0.1169σ); sources 14+21 steps from the anchor; controller 4 steps (near); enclosed anchor (dt 3, 3 tiles of headroom); tightest source has 1 free tiles (enclosed); 81% buildable, 14% swamp) — feature distance 7.404, so control and candidate race near-equivalent rooms at the same time.",
+      "reason": "E11S6: median band (hardness -0.1109σ); sources 2+22 steps from the anchor; controller 14 steps (mid); semi anchor (dt 3, 4 tiles of headroom); tightest source has 2 free tiles (enclosed); 83% buildable, 12% swamp. Picked to cover semi/mid/enclosed in the median band; paired with E8S3 (median band (hardness -0.1173σ); sources 4+18 steps from the anchor; controller 14 steps (mid); semi anchor (dt 3, 5 tiles of headroom); tightest source has 1 free tiles (enclosed); 85% buildable, 10% swamp) — feature distance 5.748, so control and candidate race near-equivalent rooms at the same time.",
       "profiles": {
-        "E13S3": {
-          "room": "E13S3",
-          "terrainHash": "1sd4o93",
+        "E11S6": {
+          "room": "E11S6",
+          "terrainHash": "143139j",
           "sources": [
             {
               "x": 46,
-              "y": 13,
-              "freeTiles": 4
+              "y": 3,
+              "freeTiles": 3
             },
             {
-              "x": 15,
-              "y": 37,
-              "freeTiles": 1
+              "x": 30,
+              "y": 21,
+              "freeTiles": 2
             }
           ],
           "controller": {
-            "x": 19,
-            "y": 28,
-            "freeTiles": 5
+            "x": 12,
+            "y": 24,
+            "freeTiles": 3
           },
-          "mineral": "L",
+          "mineral": "U",
           "anchor": {
-            "x": 21,
-            "y": 25,
+            "x": 27,
+            "y": 18,
             "dt": 3,
             "space": 4,
             "cramped": false
           },
           "srcSteps": [
-            11,
-            24
+            2,
+            22
           ],
-          "srcStepsSum": 35,
-          "srcStepsSpread": 13,
-          "ctrlSteps": 2,
-          "minSourceFree": 1,
-          "openPct": 0.7431,
-          "swampPct": 0.17,
-          "dtMax": 4,
-          "exitTiles": 102,
+          "srcStepsSum": 24,
+          "srcStepsSpread": 20,
+          "ctrlSteps": 14,
+          "minSourceFree": 2,
+          "openPct": 0.8303,
+          "swampPct": 0.1187,
+          "dtMax": 8,
+          "exitTiles": 97,
           "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 0.876,
-            "ctrlSteps": -1.091,
-            "swampPct": 0.341,
-            "negOpenPct": -0.456,
-            "negMinSourceFree": 1.064
+            "srcStepsSum": -0.076,
+            "ctrlSteps": 0.043,
+            "swampPct": -0.043,
+            "negOpenPct": -1.059,
+            "negMinSourceFree": 0.171
           },
-          "hardness": 0.1179,
+          "hardness": -0.1109,
           "band": "median",
-          "ctrlBand": "near",
+          "ctrlBand": "mid",
           "anchorType": "semi",
           "sourceBand": "enclosed",
-          "tuple": "semi/near/enclosed"
+          "tuple": "semi/mid/enclosed"
         },
-        "E1S6": {
-          "room": "E1S6",
-          "terrainHash": "regepw",
+        "E8S3": {
+          "room": "E8S3",
+          "terrainHash": "1ij97t1",
           "sources": [
             {
-              "x": 12,
-              "y": 15,
-              "freeTiles": 1
+              "x": 22,
+              "y": 24,
+              "freeTiles": 4
             },
             {
-              "x": 41,
-              "y": 39,
-              "freeTiles": 5
+              "x": 44,
+              "y": 35,
+              "freeTiles": 1
             }
           ],
           "controller": {
-            "x": 15,
-            "y": 35,
-            "freeTiles": 2
+            "x": 18,
+            "y": 5,
+            "freeTiles": 4
           },
-          "mineral": "H",
+          "mineral": "K",
           "anchor": {
-            "x": 19,
-            "y": 30,
+            "x": 25,
+            "y": 19,
             "dt": 3,
-            "space": 3,
+            "space": 5,
             "cramped": false
           },
           "srcSteps": [
-            14,
-            21
+            4,
+            18
           ],
-          "srcStepsSum": 35,
-          "srcStepsSpread": 7,
-          "ctrlSteps": 4,
+          "srcStepsSum": 22,
+          "srcStepsSpread": 14,
+          "ctrlSteps": 14,
           "minSourceFree": 1,
-          "openPct": 0.8073,
-          "swampPct": 0.1366,
-          "dtMax": 6,
-          "exitTiles": 81,
-          "nearestOwnedDistance": 4,
+          "openPct": 0.8464,
+          "swampPct": 0.1036,
+          "dtMax": 9,
+          "exitTiles": 114,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 0.876,
-            "ctrlSteps": -0.877,
-            "swampPct": 0.099,
-            "negOpenPct": -0.863,
-            "negMinSourceFree": 1.064
+            "srcStepsSum": -0.265,
+            "ctrlSteps": 0.043,
+            "swampPct": -0.145,
+            "negOpenPct": -1.163,
+            "negMinSourceFree": 1.066
           },
-          "hardness": 0.1169,
+          "hardness": -0.1173,
           "band": "median",
-          "ctrlBand": "near",
-          "anchorType": "enclosed",
+          "ctrlBand": "mid",
+          "anchorType": "semi",
           "sourceBand": "enclosed",
-          "tuple": "enclosed/near/enclosed"
+          "tuple": "semi/mid/enclosed"
         }
       }
     },
@@ -607,146 +660,17 @@
       "band": "median",
       "attributes": {
         "anchorType": "semi",
-        "controller": "mid",
-        "sources": "enclosed"
-      },
-      "rooms": {
-        "control": "E21S7",
-        "candidate": "E5S1"
-      },
-      "paired": true,
-      "pairDistance": 8.552,
-      "pairWarning": "pair distance 8.552 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
-      "reason": "E21S7: median band (hardness -0.142σ); sources 6+20 steps from the anchor; controller 12 steps (mid); semi anchor (dt 3, 5 tiles of headroom); tightest source has 2 free tiles (enclosed); 83% buildable, 1% swamp. Picked to cover semi/mid/enclosed in the median band; paired with E5S1 (median band (hardness -0.0624σ); sources 10+14 steps from the anchor; controller 15 steps (far); semi anchor (dt 3, 5 tiles of headroom); tightest source has 2 free tiles (enclosed); 74% buildable, 1% swamp) — feature distance 8.552, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 8.552 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
-      "profiles": {
-        "E21S7": {
-          "room": "E21S7",
-          "terrainHash": "ybsxly",
-          "sources": [
-            {
-              "x": 11,
-              "y": 11,
-              "freeTiles": 2
-            },
-            {
-              "x": 33,
-              "y": 30,
-              "freeTiles": 3
-            }
-          ],
-          "controller": {
-            "x": 11,
-            "y": 28,
-            "freeTiles": 1
-          },
-          "mineral": "Z",
-          "anchor": {
-            "x": 12,
-            "y": 17,
-            "dt": 3,
-            "space": 5,
-            "cramped": false
-          },
-          "srcSteps": [
-            6,
-            20
-          ],
-          "srcStepsSum": 26,
-          "srcStepsSpread": 14,
-          "ctrlSteps": 12,
-          "minSourceFree": 2,
-          "openPct": 0.8277,
-          "swampPct": 0.0131,
-          "dtMax": 12,
-          "exitTiles": 26,
-          "nearestOwnedDistance": 7,
-          "z": {
-            "srcStepsSum": 0.061,
-            "ctrlSteps": -0.025,
-            "swampPct": -0.796,
-            "negOpenPct": -0.992,
-            "negMinSourceFree": 0.202
-          },
-          "hardness": -0.142,
-          "band": "median",
-          "ctrlBand": "mid",
-          "anchorType": "semi",
-          "sourceBand": "enclosed",
-          "tuple": "semi/mid/enclosed"
-        },
-        "E5S1": {
-          "room": "E5S1",
-          "terrainHash": "y1bo3q",
-          "sources": [
-            {
-              "x": 8,
-              "y": 8,
-              "freeTiles": 3
-            },
-            {
-              "x": 30,
-              "y": 12,
-              "freeTiles": 2
-            }
-          ],
-          "controller": {
-            "x": 30,
-            "y": 36,
-            "freeTiles": 4
-          },
-          "mineral": "H",
-          "anchor": {
-            "x": 20,
-            "y": 20,
-            "dt": 3,
-            "space": 5,
-            "cramped": false
-          },
-          "srcSteps": [
-            10,
-            14
-          ],
-          "srcStepsSum": 24,
-          "srcStepsSpread": 4,
-          "ctrlSteps": 15,
-          "minSourceFree": 2,
-          "openPct": 0.7391,
-          "swampPct": 0.0129,
-          "dtMax": 7,
-          "exitTiles": 80,
-          "nearestOwnedDistance": 5,
-          "z": {
-            "srcStepsSum": -0.121,
-            "ctrlSteps": 0.295,
-            "swampPct": -0.798,
-            "negOpenPct": -0.431,
-            "negMinSourceFree": 0.202
-          },
-          "hardness": -0.0624,
-          "band": "median",
-          "ctrlBand": "far",
-          "anchorType": "semi",
-          "sourceBand": "enclosed",
-          "tuple": "semi/far/enclosed"
-        }
-      }
-    },
-    {
-      "id": "B6",
-      "band": "median",
-      "attributes": {
-        "anchorType": "semi",
         "controller": "near",
         "sources": "tight"
       },
       "rooms": {
         "control": "E16S9",
-        "candidate": "E3S4"
+        "candidate": "E4S7"
       },
       "paired": true,
-      "pairDistance": 8.648,
-      "pairWarning": "pair distance 8.648 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
-      "reason": "E16S9: median band (hardness +0.0344σ); sources 6+26 steps from the anchor; controller 6 steps (near); semi anchor (dt 3, 5 tiles of headroom); tightest source has 3 free tiles (tight); 46% buildable, 2% swamp. Picked to cover semi/near/tight in the median band; paired with E3S4 (median band (hardness -0.1137σ); sources 12+16 steps from the anchor; controller 7 steps (mid); semi anchor (dt 3, 4 tiles of headroom); tightest source has 3 free tiles (tight); 51% buildable, 1% swamp) — feature distance 8.648, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 8.648 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "pairDistance": 9.292,
+      "pairWarning": "pair distance 9.292 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E16S9: median band (hardness +0.0382σ); sources 6+26 steps from the anchor; controller 6 steps (near); semi anchor (dt 3, 5 tiles of headroom); tightest source has 3 free tiles (tight); 46% buildable, 2% swamp. Picked to cover semi/near/tight in the median band; paired with E4S7 (median band (hardness +0.0188σ); sources 8+22 steps from the anchor; controller 3 steps (near); semi anchor (dt 3, 5 tiles of headroom); tightest source has 2 free tiles (enclosed); 42% buildable, 6% swamp) — feature distance 9.292, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 9.292 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
       "profiles": {
         "E16S9": {
           "room": "E16S9",
@@ -788,75 +712,204 @@
           "swampPct": 0.0224,
           "dtMax": 5,
           "exitTiles": 47,
-          "nearestOwnedDistance": 4,
+          "nearestOwnedDistance": 3,
           "z": {
-            "srcStepsSum": 0.604,
-            "ctrlSteps": -0.664,
-            "swampPct": -0.729,
-            "negOpenPct": 1.311,
-            "negMinSourceFree": -0.661
+            "srcStepsSum": 0.678,
+            "ctrlSteps": -0.737,
+            "swampPct": -0.693,
+            "negOpenPct": 1.298,
+            "negMinSourceFree": -0.724
           },
-          "hardness": 0.0344,
+          "hardness": 0.0382,
           "band": "median",
           "ctrlBand": "near",
           "anchorType": "semi",
           "sourceBand": "tight",
           "tuple": "semi/near/tight"
         },
-        "E3S4": {
-          "room": "E3S4",
-          "terrainHash": "13c6m4n",
+        "E4S7": {
+          "room": "E4S7",
+          "terrainHash": "1hbuzxh",
           "sources": [
             {
-              "x": 9,
-              "y": 37,
-              "freeTiles": 4
+              "x": 25,
+              "y": 12,
+              "freeTiles": 2
             },
             {
-              "x": 39,
-              "y": 41,
+              "x": 41,
+              "y": 44,
               "freeTiles": 3
             }
           ],
           "controller": {
-            "x": 25,
-            "y": 26,
-            "freeTiles": 3
+            "x": 33,
+            "y": 39,
+            "freeTiles": 2
           },
-          "mineral": "H",
+          "mineral": "K",
           "anchor": {
-            "x": 26,
-            "y": 34,
+            "x": 32,
+            "y": 35,
+            "dt": 3,
+            "space": 5,
+            "cramped": false
+          },
+          "srcSteps": [
+            8,
+            22
+          ],
+          "srcStepsSum": 30,
+          "srcStepsSpread": 14,
+          "ctrlSteps": 3,
+          "minSourceFree": 2,
+          "openPct": 0.4197,
+          "swampPct": 0.06,
+          "dtMax": 5,
+          "exitTiles": 61,
+          "nearestOwnedDistance": 2,
+          "z": {
+            "srcStepsSum": 0.49,
+            "ctrlSteps": -1.029,
+            "swampPct": -0.44,
+            "negOpenPct": 1.586,
+            "negMinSourceFree": 0.171
+          },
+          "hardness": 0.0188,
+          "band": "median",
+          "ctrlBand": "near",
+          "anchorType": "semi",
+          "sourceBand": "enclosed",
+          "tuple": "semi/near/enclosed"
+        }
+      }
+    },
+    {
+      "id": "B6",
+      "band": "median",
+      "attributes": {
+        "anchorType": "semi",
+        "controller": "far",
+        "sources": "tight"
+      },
+      "rooms": {
+        "control": "E18S5",
+        "candidate": "E6S1"
+      },
+      "paired": true,
+      "pairDistance": 9.38,
+      "pairWarning": "pair distance 9.38 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E18S5: median band (hardness -0.1734σ); sources 3+11 steps from the anchor; controller 25 steps (far); semi anchor (dt 3, 4 tiles of headroom); tightest source has 3 free tiles (tight); 59% buildable, 1% swamp. Picked to cover semi/far/tight in the median band; paired with E6S1 (median band (hardness -0.0271σ); sources 2+12 steps from the anchor; controller 23 steps (far); open anchor (dt 3, 6 tiles of headroom); tightest source has 1 free tiles (enclosed); 54% buildable, 0% swamp) — feature distance 9.38, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 9.38 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "profiles": {
+        "E18S5": {
+          "room": "E18S5",
+          "terrainHash": "1skku5g",
+          "sources": [
+            {
+              "x": 9,
+              "y": 21,
+              "freeTiles": 4
+            },
+            {
+              "x": 12,
+              "y": 33,
+              "freeTiles": 3
+            }
+          ],
+          "controller": {
+            "x": 8,
+            "y": 9,
+            "freeTiles": 1
+          },
+          "mineral": "L",
+          "anchor": {
+            "x": 8,
+            "y": 32,
             "dt": 3,
             "space": 4,
             "cramped": false
           },
           "srcSteps": [
-            12,
-            16
+            3,
+            11
           ],
-          "srcStepsSum": 28,
-          "srcStepsSpread": 4,
-          "ctrlSteps": 7,
+          "srcStepsSum": 14,
+          "srcStepsSpread": 8,
+          "ctrlSteps": 25,
           "minSourceFree": 3,
-          "openPct": 0.5052,
-          "swampPct": 0.0095,
+          "openPct": 0.5877,
+          "swampPct": 0.0096,
           "dtMax": 4,
-          "exitTiles": 44,
+          "exitTiles": 109,
           "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": 0.242,
-            "ctrlSteps": -0.558,
-            "swampPct": -0.822,
-            "negOpenPct": 1.053,
-            "negMinSourceFree": -0.661
+            "srcStepsSum": -1.02,
+            "ctrlSteps": 1.115,
+            "swampPct": -0.78,
+            "negOpenPct": 0.504,
+            "negMinSourceFree": -0.724
           },
-          "hardness": -0.1137,
+          "hardness": -0.1734,
           "band": "median",
-          "ctrlBand": "mid",
+          "ctrlBand": "far",
           "anchorType": "semi",
           "sourceBand": "tight",
-          "tuple": "semi/mid/tight"
+          "tuple": "semi/far/tight"
+        },
+        "E6S1": {
+          "room": "E6S1",
+          "terrainHash": "41dj44",
+          "sources": [
+            {
+              "x": 35,
+              "y": 32,
+              "freeTiles": 1
+            },
+            {
+              "x": 31,
+              "y": 40,
+              "freeTiles": 1
+            }
+          ],
+          "controller": {
+            "x": 40,
+            "y": 5,
+            "freeTiles": 1
+          },
+          "mineral": "K",
+          "anchor": {
+            "x": 38,
+            "y": 29,
+            "dt": 3,
+            "space": 6,
+            "cramped": false
+          },
+          "srcSteps": [
+            2,
+            12
+          ],
+          "srcStepsSum": 14,
+          "srcStepsSpread": 10,
+          "ctrlSteps": 23,
+          "minSourceFree": 1,
+          "openPct": 0.5378,
+          "swampPct": 0,
+          "dtMax": 7,
+          "exitTiles": 116,
+          "nearestOwnedDistance": 3,
+          "z": {
+            "srcStepsSum": -1.02,
+            "ctrlSteps": 0.92,
+            "swampPct": -0.845,
+            "negOpenPct": 0.825,
+            "negMinSourceFree": 1.066
+          },
+          "hardness": -0.0271,
+          "band": "median",
+          "ctrlBand": "far",
+          "anchorType": "open",
+          "sourceBand": "enclosed",
+          "tuple": "open/far/enclosed"
         }
       }
     },
@@ -864,128 +917,128 @@
       "id": "B7",
       "band": "easy",
       "attributes": {
-        "anchorType": "open",
+        "anchorType": "semi",
         "controller": "far",
-        "sources": "open"
+        "sources": "enclosed"
       },
       "rooms": {
-        "control": "E18S6",
-        "candidate": "E21S9"
+        "control": "E12S1",
+        "candidate": "E3S5"
       },
       "paired": true,
-      "pairDistance": 7.48,
+      "pairDistance": 5.844,
       "pairWarning": null,
-      "reason": "E18S6: easy band (hardness -0.9288σ); sources 2+4 steps from the anchor; controller 18 steps (far); open anchor (dt 3, 8 tiles of headroom); tightest source has 5 free tiles (open); 83% buildable, 2% swamp. Picked to cover open/far/open in the easy band; paired with E21S9 (easy band (hardness -0.7267σ); sources 2+3 steps from the anchor; controller 19 steps (far); open anchor (dt 3, 7 tiles of headroom); tightest source has 3 free tiles (tight); 81% buildable, 5% swamp) — feature distance 7.48, so control and candidate race near-equivalent rooms at the same time.",
+      "reason": "E12S1: easy band (hardness -0.2213σ); sources 5+11 steps from the anchor; controller 21 steps (far); semi anchor (dt 3, 5 tiles of headroom); tightest source has 2 free tiles (enclosed); 73% buildable, 0% swamp. Picked to cover semi/far/enclosed in the easy band; paired with E3S5 (easy band (hardness -0.2196σ); sources 8+10 steps from the anchor; controller 18 steps (far); semi anchor (dt 3, 5 tiles of headroom); tightest source has 2 free tiles (enclosed); 72% buildable, 1% swamp) — feature distance 5.844, so control and candidate race near-equivalent rooms at the same time.",
       "profiles": {
-        "E18S6": {
-          "room": "E18S6",
-          "terrainHash": "1g6ybxg",
+        "E12S1": {
+          "room": "E12S1",
+          "terrainHash": "hv2hus",
           "sources": [
             {
-              "x": 31,
-              "y": 5,
-              "freeTiles": 5
+              "x": 27,
+              "y": 10,
+              "freeTiles": 2
             },
             {
-              "x": 28,
-              "y": 7,
+              "x": 37,
+              "y": 25,
               "freeTiles": 5
             }
           ],
           "controller": {
-            "x": 38,
-            "y": 29,
+            "x": 15,
+            "y": 38,
             "freeTiles": 5
           },
-          "mineral": "K",
+          "mineral": "U",
           "anchor": {
-            "x": 28,
-            "y": 10,
+            "x": 25,
+            "y": 16,
             "dt": 3,
-            "space": 8,
+            "space": 5,
             "cramped": false
           },
           "srcSteps": [
-            2,
-            4
+            5,
+            11
           ],
-          "srcStepsSum": 6,
-          "srcStepsSpread": 2,
-          "ctrlSteps": 18,
-          "minSourceFree": 5,
-          "openPct": 0.8294,
-          "swampPct": 0.0209,
-          "dtMax": 11,
-          "exitTiles": 72,
+          "srcStepsSum": 16,
+          "srcStepsSpread": 6,
+          "ctrlSteps": 21,
+          "minSourceFree": 2,
+          "openPct": 0.7266,
+          "swampPct": 0,
+          "dtMax": 5,
+          "exitTiles": 51,
           "nearestOwnedDistance": 4,
           "z": {
-            "srcStepsSum": -1.75,
-            "ctrlSteps": 0.615,
-            "swampPct": -0.74,
-            "negOpenPct": -1.003,
-            "negMinSourceFree": -2.386
+            "srcStepsSum": -0.831,
+            "ctrlSteps": 0.725,
+            "swampPct": -0.845,
+            "negOpenPct": -0.391,
+            "negMinSourceFree": 0.171
           },
-          "hardness": -0.9288,
+          "hardness": -0.2213,
           "band": "easy",
           "ctrlBand": "far",
-          "anchorType": "open",
-          "sourceBand": "open",
-          "tuple": "open/far/open"
+          "anchorType": "semi",
+          "sourceBand": "enclosed",
+          "tuple": "semi/far/enclosed"
         },
-        "E21S9": {
-          "room": "E21S9",
-          "terrainHash": "au2lgm",
+        "E3S5": {
+          "room": "E3S5",
+          "terrainHash": "co6ufa",
           "sources": [
             {
-              "x": 5,
-              "y": 30,
-              "freeTiles": 3
+              "x": 17,
+              "y": 14,
+              "freeTiles": 2
             },
             {
-              "x": 4,
-              "y": 31,
+              "x": 20,
+              "y": 29,
               "freeTiles": 3
             }
           ],
           "controller": {
-            "x": 27,
-            "y": 25,
-            "freeTiles": 2
+            "x": 44,
+            "y": 30,
+            "freeTiles": 4
           },
-          "mineral": "O",
+          "mineral": "H",
           "anchor": {
-            "x": 8,
-            "y": 29,
+            "x": 25,
+            "y": 25,
             "dt": 3,
-            "space": 7,
+            "space": 5,
             "cramped": false
           },
           "srcSteps": [
-            2,
-            3
+            8,
+            10
           ],
-          "srcStepsSum": 5,
-          "srcStepsSpread": 1,
-          "ctrlSteps": 19,
-          "minSourceFree": 3,
-          "openPct": 0.8064,
-          "swampPct": 0.0474,
-          "dtMax": 8,
-          "exitTiles": 47,
-          "nearestOwnedDistance": 7,
+          "srcStepsSum": 18,
+          "srcStepsSpread": 2,
+          "ctrlSteps": 18,
+          "minSourceFree": 2,
+          "openPct": 0.717,
+          "swampPct": 0.0115,
+          "dtMax": 7,
+          "exitTiles": 79,
+          "nearestOwnedDistance": 2,
           "z": {
-            "srcStepsSum": -1.841,
-            "ctrlSteps": 0.721,
-            "swampPct": -0.548,
-            "negOpenPct": -0.857,
-            "negMinSourceFree": -0.661
+            "srcStepsSum": -0.642,
+            "ctrlSteps": 0.433,
+            "swampPct": -0.767,
+            "negOpenPct": -0.329,
+            "negMinSourceFree": 0.171
           },
-          "hardness": -0.7267,
+          "hardness": -0.2196,
           "band": "easy",
           "ctrlBand": "far",
-          "anchorType": "open",
-          "sourceBand": "tight",
-          "tuple": "open/far/tight"
+          "anchorType": "semi",
+          "sourceBand": "enclosed",
+          "tuple": "semi/far/enclosed"
         }
       }
     },
@@ -994,127 +1047,127 @@
       "band": "easy",
       "attributes": {
         "anchorType": "semi",
-        "controller": "near",
-        "sources": "tight"
+        "controller": "mid",
+        "sources": "enclosed"
       },
       "rooms": {
-        "control": "E21S2",
-        "candidate": "E8S1"
+        "control": "E13S7",
+        "candidate": "E21S4"
       },
       "paired": true,
-      "pairDistance": 7.692,
-      "pairWarning": null,
-      "reason": "E21S2: easy band (hardness -0.5084σ); sources 13+16 steps from the anchor; controller 2 steps (near); semi anchor (dt 3, 5 tiles of headroom); tightest source has 4 free tiles (tight); 84% buildable, 5% swamp. Picked to cover semi/near/tight in the easy band; paired with E8S1 (easy band (hardness -0.3807σ); sources 3+27 steps from the anchor; controller 4 steps (near); open anchor (dt 3, 7 tiles of headroom); tightest source has 4 free tiles (tight); 81% buildable, 6% swamp) — feature distance 7.692, so control and candidate race near-equivalent rooms at the same time.",
+      "pairDistance": 10.164,
+      "pairWarning": "pair distance 10.164 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
+      "reason": "E13S7: easy band (hardness -0.975σ); sources 2+3 steps from the anchor; controller 10 steps (mid); semi anchor (dt 3, 4 tiles of headroom); tightest source has 2 free tiles (enclosed); 84% buildable, 8% swamp. Picked to cover semi/mid/enclosed in the easy band; paired with E21S4 (easy band (hardness -1.0991σ); sources 3+5 steps from the anchor; controller 9 steps (mid); semi anchor (dt 3, 4 tiles of headroom); tightest source has 4 free tiles (tight); 81% buildable, 1% swamp) — feature distance 10.164, so control and candidate race near-equivalent rooms at the same time. WARNING: pair distance 10.164 > 8 — the twin rooms are only loosely matched, counterbalance with --swap",
       "profiles": {
-        "E21S2": {
-          "room": "E21S2",
-          "terrainHash": "1llxg79",
+        "E13S7": {
+          "room": "E13S7",
+          "terrainHash": "gudezo",
           "sources": [
             {
-              "x": 36,
-              "y": 14,
-              "freeTiles": 5
+              "x": 10,
+              "y": 13,
+              "freeTiles": 2
             },
             {
-              "x": 17,
-              "y": 44,
+              "x": 12,
+              "y": 14,
               "freeTiles": 4
             }
           ],
           "controller": {
             "x": 25,
-            "y": 34,
-            "freeTiles": 5
-          },
-          "mineral": "O",
-          "anchor": {
-            "x": 28,
-            "y": 31,
-            "dt": 3,
-            "space": 5,
-            "cramped": false
-          },
-          "srcSteps": [
-            13,
-            16
-          ],
-          "srcStepsSum": 29,
-          "srcStepsSpread": 3,
-          "ctrlSteps": 2,
-          "minSourceFree": 4,
-          "openPct": 0.8433,
-          "swampPct": 0.0504,
-          "dtMax": 9,
-          "exitTiles": 49,
-          "nearestOwnedDistance": 7,
-          "z": {
-            "srcStepsSum": 0.332,
-            "ctrlSteps": -1.091,
-            "swampPct": -0.526,
-            "negOpenPct": -1.091,
-            "negMinSourceFree": -1.524
-          },
-          "hardness": -0.5084,
-          "band": "easy",
-          "ctrlBand": "near",
-          "anchorType": "semi",
-          "sourceBand": "tight",
-          "tuple": "semi/near/tight"
-        },
-        "E8S1": {
-          "room": "E8S1",
-          "terrainHash": "1c78giv",
-          "sources": [
-            {
-              "x": 29,
-              "y": 14,
-              "freeTiles": 4
-            },
-            {
-              "x": 20,
-              "y": 46,
-              "freeTiles": 5
-            }
-          ],
-          "controller": {
-            "x": 25,
-            "y": 13,
+            "y": 14,
             "freeTiles": 3
           },
           "mineral": "Z",
           "anchor": {
-            "x": 26,
-            "y": 18,
+            "x": 14,
+            "y": 11,
             "dt": 3,
-            "space": 7,
+            "space": 4,
+            "cramped": false
+          },
+          "srcSteps": [
+            2,
+            3
+          ],
+          "srcStepsSum": 5,
+          "srcStepsSpread": 1,
+          "ctrlSteps": 10,
+          "minSourceFree": 2,
+          "openPct": 0.8416,
+          "swampPct": 0.0846,
+          "dtMax": 10,
+          "exitTiles": 110,
+          "nearestOwnedDistance": 2,
+          "z": {
+            "srcStepsSum": -1.868,
+            "ctrlSteps": -0.347,
+            "swampPct": -0.273,
+            "negOpenPct": -1.132,
+            "negMinSourceFree": 0.171
+          },
+          "hardness": -0.975,
+          "band": "easy",
+          "ctrlBand": "mid",
+          "anchorType": "semi",
+          "sourceBand": "enclosed",
+          "tuple": "semi/mid/enclosed"
+        },
+        "E21S4": {
+          "room": "E21S4",
+          "terrainHash": "1cludjb",
+          "sources": [
+            {
+              "x": 43,
+              "y": 7,
+              "freeTiles": 4
+            },
+            {
+              "x": 37,
+              "y": 9,
+              "freeTiles": 5
+            }
+          ],
+          "controller": {
+            "x": 42,
+            "y": 23,
+            "freeTiles": 2
+          },
+          "mineral": "O",
+          "anchor": {
+            "x": 39,
+            "y": 13,
+            "dt": 3,
+            "space": 4,
             "cramped": false
           },
           "srcSteps": [
             3,
-            27
+            5
           ],
-          "srcStepsSum": 30,
-          "srcStepsSpread": 24,
-          "ctrlSteps": 4,
+          "srcStepsSum": 8,
+          "srcStepsSpread": 2,
+          "ctrlSteps": 9,
           "minSourceFree": 4,
-          "openPct": 0.8086,
-          "swampPct": 0.058,
-          "dtMax": 9,
-          "exitTiles": 53,
-          "nearestOwnedDistance": 5,
+          "openPct": 0.8103,
+          "swampPct": 0.0118,
+          "dtMax": 7,
+          "exitTiles": 47,
+          "nearestOwnedDistance": 3,
           "z": {
-            "srcStepsSum": 0.423,
-            "ctrlSteps": -0.877,
-            "swampPct": -0.471,
-            "negOpenPct": -0.871,
-            "negMinSourceFree": -1.524
+            "srcStepsSum": -1.585,
+            "ctrlSteps": -0.445,
+            "swampPct": -0.765,
+            "negOpenPct": -0.93,
+            "negMinSourceFree": -1.62
           },
-          "hardness": -0.3807,
+          "hardness": -1.0991,
           "band": "easy",
-          "ctrlBand": "near",
-          "anchorType": "open",
+          "ctrlBand": "mid",
+          "anchorType": "semi",
           "sourceBand": "tight",
-          "tuple": "open/near/tight"
+          "tuple": "semi/mid/tight"
         }
       }
     }

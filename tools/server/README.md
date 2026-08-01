@@ -20,7 +20,7 @@ reads the matching entry from the gitignored `screeps.json`.
 
 | Target | `screeps.json` dest | Server | Command | Who owns it |
 | --- | --- | --- | --- | --- |
-| **local** | `pacifist` / `pserver` / `pacifist2` / `waxeye` | `http://127.0.0.1:23025` (docker compose, this machine) | `npm run push-pacifist` | this repo — disposable, reset freely |
+| **local** | `pacifist` / `pserver` / `pacifist2` / `waxeye` / `race` | `http://127.0.0.1:23025` (docker compose, this machine) | `npm run push-pacifist` | this repo — disposable, reset freely |
 | **vps** | `vps` (fallback `vps-ip`) | `http://screeps.marlyman123.com`, fallback `http://100.67.41.31:21025` | `npm run push-vps` / `npm run push-vps-ip` | the `big_vps` repo — **hands off** |
 | **live** | `main` | `https://screeps.com` (official MMO) | `npm run push-main` | the owner — never push unattended |
 
@@ -55,10 +55,47 @@ reads the matching entry from the gitignored `screeps.json`.
 | `pacifist` | `pacifist1` | `local-pacifist-user-token-001` | `pacifist`, `pserver` | `npm run push-pacifist` |
 | `pacifist2` | `pacifist2` | `local-pacifist2-user-token-001` | `pacifist2` | `npm run push-pacifist2` |
 | `waxeye` | `waxeye1` | `local-waxeye-token-001` | `waxeye` | `npm run push-waxeye` |
+| `pacifist-race` | `pacifist-race` | `local-pacifist-race-token-001` | `race` | `npm run push-race` |
 
 `pacifist` and `pacifist2` are two instances of **this** bot (same `src/`), which is what
 makes an A/B run possible; `waxeye` is a third account that also runs this repo from its
 own dest, so a different branch/build can be parked there.
+
+`pacifist-race` is the **speedrun campaign's control account** (`race.mjs --seed` seeds it as
+the control side). It carries a FROZEN build that must not drift — never `npm run push-race`
+as part of ordinary work. See `docs/speedrun-ledger/CONTROL.md` for the pinned commit and the
+re-baseline procedure.
+
+### Adding a user (the `pacifist-race` recipe, reusable)
+
+`screeps.json` is gitignored, so a new dest is added by hand — the local tokens are fixed
+strings, not secrets (see the root `README.md` for the full local block):
+
+```jsonc
+"race": { "token": "local-pacifist-race-token-001", "protocol": "http",
+          "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" }
+```
+
+```bash
+# 1. user document (gcl matched to the other bot accounts so nothing is handicapped)
+docker exec local-screeps-server-mongo-1 mongosh screeps --quiet --eval '
+db.users.insertOne({_id:"pacifist-race", username:"pacifist-race", usernameLower:"pacifist-race",
+  email:"pacifist-race@local.test", cpu:100, cpuAvailable:10000, registeredDate:new Date(),
+  money:0, gcl:17000000, credits:0, power:0, active:10000, blocked:false, rooms:[], activeSegments:[],
+  authTouched:true, badge:{type:2,color1:"#ff8800",color2:"#ffffff",color3:"#663300",param:0,flip:false}});
+db["users.tokens"].insertOne({token:"local-pacifist-race-token-001", user:"pacifist-race", full:true});'
+
+# 2. auth (this server authenticates from redis only)
+docker exec local-screeps-server-redis-1 redis-cli set auth_local-pacifist-race-token-001 pacifist-race
+
+# 3. push code, then activate the branch (a first push does NOT set activeWorld)
+npm run push-race
+docker exec local-screeps-server-mongo-1 mongosh screeps --quiet --eval '
+db["users.code"].updateMany({user:"pacifist-race",branch:"main"},{$set:{activeWorld:true,activeSim:true}})'
+```
+
+`spawn-in.mjs` auto-detects the bot account with `/^pacifist$/i` first, so `pacifist-race`
+is never picked by accident; `race.mjs` always passes `--user` explicitly anyway.
 
 Auth on this server is redis-only: `redis-cli set auth_<token> <userId>`. `db.users.tokens`
 carries the same mapping for the web UI. `tools/server/push-expansion-pack.mjs --user <name>`

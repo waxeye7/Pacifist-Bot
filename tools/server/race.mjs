@@ -357,14 +357,35 @@ function userIndex(users) {
 // ---------------------------------------------------------------- world snapshot
 /**
  * Snapshot shape (identical whether it came from mongo or a --fixture):
- *   { source, gameTime, users[], rooms[], ownedRooms[], candidates[{room,terrain,objects[]}] }
+ *   { source, gameTime, users[], rooms[], ownedRooms[], claimedRooms[],
+ *     candidates[{room,terrain,objects[]}] }
  * `candidates` = normal, non-SK, no user-owned object, controller + exactly 2 sources.
+ *
+ * TWO notions of "taken", deliberately kept apart:
+ *   ownedRooms   — any room holding *any* user object. That includes a scout
+ *                  standing in an empty room for one tick, a remote-road
+ *                  construction site and a tombstone, so it churns every tick
+ *                  and is only safe as a *pick-time* room filter (it mirrors
+ *                  spawn-in.mjs, which refuses a room containing any user
+ *                  object).
+ *   claimedRooms — rooms whose CONTROLLER has an owner: real bases and invader
+ *                  strongholds. This is the durable notion, and the only one
+ *                  --min-owner-distance may use: keeping a frozen benchmark
+ *                  set 2 rooms clear of a live base is the intent, whereas
+ *                  keeping it clear of wherever a creep happened to be walking
+ *                  makes the freeze non-reproducible and starves the pool
+ *                  (measured on this server: 12 claimed vs 38 "occupied" rooms
+ *                  shrank the candidate pool from 134 to 55 and blew matched
+ *                  pair distances out from ~5 to ~21).
  */
 async function loadWorld(opts) {
   if (opts.fixture) {
     const fx = readJson(opts.fixture);
     if (!fx.world) die(`fixture ${opts.fixture} has no "world" key`);
-    return { ...fx.world, source: `fixture:${rel(path.resolve(opts.fixture))}` };
+    const w = { ...fx.world, source: `fixture:${rel(path.resolve(opts.fixture))}` };
+    // older fixtures predate claimedRooms — fall back to the conservative set
+    if (!Array.isArray(w.claimedRooms)) w.claimedRooms = w.ownedRooms || [];
+    return w;
   }
   const mongo = makeMongo(opts);
   const snap = mongo(`
@@ -373,6 +394,8 @@ var users = db.users.find({}, {username:1, active:1, rooms:1}).toArray().map(fun
 });
 var ownedRooms = db["rooms.objects"].distinct("room", {user: {$ne: null}}).sort();
 var owned = {}; ownedRooms.forEach(function (r) { owned[r] = true; });
+// durable ownership: a controller with an owner (player base or invader stronghold)
+var claimedRooms = db["rooms.objects"].distinct("room", {type: "controller", user: {$ne: null}}).sort();
 
 var roomDocs = db.rooms.find({}, {status:1, bus:1, sourceKeepers:1}).toArray().map(function (r) {
   return {room: r._id, status: r.status, bus: !!r.bus, sourceKeepers: !!r.sourceKeepers};
@@ -415,7 +438,7 @@ candidateNames.forEach(function (r) {
   candidates.push({room: r, terrain: terrain[r], objects: byRoom[r] || []});
 });
 
-emit({users: users, ownedRooms: ownedRooms, rooms: roomDocs, candidates: candidates});
+emit({users: users, ownedRooms: ownedRooms, claimedRooms: claimedRooms, rooms: roomDocs, candidates: candidates});
 `);
   let gameTime = null;
   try {
@@ -708,9 +731,11 @@ async function modePick(opts, flags) {
   }
 
   const normalRooms = world.rooms.filter((r) => r.status === "normal").length;
+  const claimedRooms = world.claimedRooms || world.ownedRooms;
   console.log(
     `world       : ${world.source} · tick ${world.gameTime ?? "?"} · ${normalRooms} normal rooms · ` +
-      `${world.ownedRooms.length} occupied · ${world.candidates.length} free 2-source rooms`,
+      `${claimedRooms.length} claimed (${world.ownedRooms.length} hold some user object) · ` +
+      `${world.candidates.length} free 2-source rooms`,
   );
 
   // ---- profile every candidate
@@ -722,12 +747,14 @@ async function modePick(opts, flags) {
       rejected.push({ room: cand.room, why: "excluded" });
       continue;
     }
-    const nearOwner = world.ownedRooms.reduce(
+    // distance is measured against CLAIMED rooms only (owned controllers), never
+    // against transient creeps/sites — see loadWorld() for why
+    const nearOwner = claimedRooms.reduce(
       (m, r) => Math.min(m, roomDistance(cand.room, r)),
       Infinity,
     );
     if (nearOwner < minOwnerDist) {
-      rejected.push({ room: cand.room, why: `only ${nearOwner} rooms from an owned room` });
+      rejected.push({ room: cand.room, why: `only ${nearOwner} rooms from a claimed room` });
       continue;
     }
     const p = profileRoom(cand);
@@ -941,9 +968,11 @@ async function modePick(opts, flags) {
       source: world.source,
       gameTime: world.gameTime ?? null,
       normalRooms,
+      claimedRooms: claimedRooms.length,
       occupiedRooms: world.ownedRooms.length,
       candidatePool: pool.length,
       rejectedCandidates: rejected.length,
+      claimedRoomsAtPick: claimedRooms,
       ownedRoomsAtPick: world.ownedRooms,
     },
     users: { control: opts.controlUser, candidate: opts.candidateUser },
@@ -952,7 +981,10 @@ async function modePick(opts, flags) {
         "room status normal, not a source-keeper room",
         "exactly 2 sources + an unowned, unreserved controller",
         "no user-owned object in the room at pick time",
-        `at least ${minOwnerDist} rooms from any already-owned room`,
+        `at least ${minOwnerDist} rooms from any CLAIMED room (a controller with an owner: ` +
+          `player base or invader stronghold). Transient occupancy — a creep walking through, ` +
+          `a remote-road construction site, a tombstone — is deliberately NOT counted: it ` +
+          `changes every tick, so counting it would make this frozen set unreproducible.`,
         `at least ${minSep} rooms from every other benchmark room`,
       ],
       hardnessWeights: HARDNESS_WEIGHTS,
