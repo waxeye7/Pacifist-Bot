@@ -70,14 +70,14 @@ const MIN_SAT = 3600;
  */
 const CAP = 2400;
 /** The gate the room is expected to clear; below it we declare a shortfall. */
-const TARGET_MIN = 1200;
+export const TARGET_MIN = 1200;
 /**
  * The line between "legal" and "what the fleet actually gets" — see the
  * weak-battery declaration at the bottom of this file. Both numbers are read
  * off the fleet, not invented: 152/159 rooms clear 1800 on their weakest wall
  * face, and the median furthest-tower refill walk is 1.
  */
-const WEAK_SHELL_DMG = 1800;
+export const WEAK_SHELL_DMG = 1800;
 const REFILL_NOTE = 8;
 
 /**
@@ -102,6 +102,34 @@ function towerDmg(a, b) {
   if (r <= 5) return 600;
   if (r >= 20) return 150;
   return 600 - (r - 5) * 30;
+}
+
+/**
+ * Total battery damage on every tile of a wall, and the weakest of them.
+ *
+ * Split out of planTowers in round 5 so it can be re-run at layer 7 on the wall
+ * the room ACTUALLY ships. Layer 3 measures the wall layer 2 handed it; layer 7's
+ * inert prune and seal reconciliation can both change which tiles carry the seal,
+ * and a weakest-face number computed on a wall that no longer exists is not a
+ * measurement, it is a leftover. Same arithmetic, one definition, two call sites.
+ */
+export function shellDamage(towers, cut, floor = TARGET_MIN) {
+  let mn = Infinity;
+  let sum = 0;
+  let weak = 0;
+  let worst = null;
+  for (const c of cut) {
+    let s = 0;
+    for (const tw of towers) s += towerDmg(tw, c);
+    if (s < mn) {
+      mn = s;
+      worst = { x: c.x, y: c.y };
+    }
+    if (s < floor) weak++;
+    sum += s;
+  }
+  const n = cut.length || 1;
+  return { min: cut.length ? mn : 0, avg: Math.round(sum / n), weak, worst, tiles: cut.length };
 }
 
 export function planTowers(terrain, plan, opts = {}) {
@@ -351,7 +379,7 @@ export function planTowers(terrain, plan, opts = {}) {
    * partner. O(K·C·T) per slot pair, not O(C²·T).
    */
   const PAIR_K = 6;
-  const pairMove = (set, cur) => {
+  const pairMove = (set, cur, K = PAIR_K) => {
     let bestSc = cur;
     let bestPair = null;
     for (let i = 0; i < N_TOWERS - 1; i++) {
@@ -368,7 +396,7 @@ export function planTowers(terrain, plan, opts = {}) {
           ranked.push({ a, sat: sc.sat, val: sc.val });
         }
         ranked.sort((p, q) => q.sat - p.sat || q.val - p.val || p.a - q.a);
-        for (const { a } of ranked.slice(0, PAIR_K)) {
+        for (const { a } of ranked.slice(0, K)) {
           const withA = rest.concat([a]);
           coverOf(withA, partial);
           const upA = restUp + upkeep[a];
@@ -413,6 +441,7 @@ export function planTowers(terrain, plan, opts = {}) {
   let bestSc = null;
   const tried = new Set();
   const seenSet = new Set();
+  const settled = []; // every start's local optimum — the escalation re-enters these
   for (const s of seeds) {
     if (tried.has(s)) continue;
     tried.add(s);
@@ -430,6 +459,7 @@ export function planTowers(terrain, plan, opts = {}) {
     // crossing per basin is what the search actually needed.
     const p1 = pairMove(r.set, r.sc);
     if (p1) r = localSearch(p1.set);
+    settled.push({ set: r.set.slice(), sc: r.sc });
     if (better(r.sc, bestSc)) {
       bestSc = r.sc;
       best = r.set;
@@ -442,6 +472,116 @@ export function planTowers(terrain, plan, opts = {}) {
     const r = localSearch(p.set);
     best = r.set;
     bestSc = r.sc;
+  }
+
+  // ------------------------------------------------------------------
+  // ESCALATION — and the reason the declaration needed one.
+  //
+  // The weak-battery declaration used to end "no other six of those C seats
+  // cover this shell better". That was a claim about the SEARCH SPACE made by a
+  // search that had not covered it: greedy from a handful of starts, single-slot
+  // steepest descent, and three rounds of pairwise ejection with the partner
+  // list truncated to the best PAIR_K=6. A reviewer beat 10 of the 16 declaring
+  // rooms by hand — E8S5 1440 -> 1530, E13S8 better on BOTH the weakest face and
+  // the refill walk. A declaration that is beatable by hand is not a declaration,
+  // it is an excuse.
+  //
+  // Two ways to fix a claim: search harder, or say less. This does both. When
+  // the settled battery lands under WEAK_SHELL_DMG on the weakest face or past
+  // REFILL_NOTE on the furthest refill — i.e. exactly when the room is about to
+  // declare — the search re-enters EVERY start's local optimum and runs pairwise
+  // ejection to CONVERGENCE with the partner list widened to ESC_PAIR_K, instead
+  // of three truncated rounds on one of them. It is bounded (ESC_ROUNDS is a hard
+  // stop), it is deterministic (same iteration order, same strict ">"), and it
+  // only runs in the rooms that were going to make the claim, so the fleet's
+  // runtime is unchanged everywhere else.
+  //
+  // And the claim itself now states what was actually searched — starts, rounds,
+  // partner width, whether it converged — rather than asserting optimality the
+  // search cannot prove. The honest sentence is "greedy + N swap rounds", and it
+  // is generated from the counters below.
+  // ------------------------------------------------------------------
+  // MEASURED OPERATING POINT, not a guess. On the seven rooms that declare, the
+  // escalation was swept at (K, rounds, restarts) = (12,6,12), (24,8,16) and
+  // (48,10,24): all three return the IDENTICAL six answers, at 8.5s / 15.8s /
+  // 38.7s of planner time against 3.9s with the escalation off. The search
+  // saturates at the cheapest setting, so paying 4x for the same answer would be
+  // theatre. What the cheapest setting buys over no escalation at all is three
+  // of the seven rooms: E12S1 1890 -> 1950, E7S8 1890 -> 1920, E5S3 2040 -> 2070.
+  // E8S5 (1440) and E13S8 (1710) do not move at ANY of the three settings — see
+  // the declaration text, which now says that instead of claiming optimality.
+  const ESC_PAIR_K = 12;
+  const ESC_ROUNDS = 6;
+  const ESC_RESTARTS = 12;
+  const weakNow = () => {
+    const refills0 = best.map((c) => cands[c].ref);
+    return bestSc.min < WEAK_SHELL_DMG || Math.max(...refills0) > REFILL_NOTE;
+  };
+  const escalation = { ran: false };
+  if (weakNow()) {
+    const before = { min: bestSc.min, val: bestSc.val };
+    let rounds = 0;
+    let improved = 0;
+    let converged = true;
+    for (const st of settled) {
+      let cur = { set: st.set.slice(), sc: st.sc };
+      let r = 0;
+      for (; r < ESC_ROUNDS; r++) {
+        const p = pairMove(cur.set, cur.sc, ESC_PAIR_K);
+        if (!p) break;
+        cur = localSearch(p.set);
+      }
+      if (r >= ESC_ROUNDS) converged = false;
+      rounds += r;
+      if (better(cur.sc, bestSc)) {
+        bestSc = cur.sc;
+        best = cur.set.slice();
+        improved++;
+      }
+    }
+    // RANDOM RESTARTS, deterministically seeded. Pairwise ejection crosses a
+    // two-tower ridge; a room whose weakest face needs THREE towers moved is
+    // still stuck, and the seeded starts all live in the same few basins (they
+    // are all derived from the same geometry). A fixed-seed LCG samples legal
+    // 6-sets from elsewhere in the space and descends each one. Seeded from a
+    // constant and iterated in a fixed order, so it is a pure function of the
+    // terrain: two runs, one answer, and the determinism check still holds.
+    let rng = 0x9e3779b9;
+    const nextRand = () => {
+      rng = (Math.imul(rng, 1664525) + 1013904223) >>> 0;
+      return rng / 4294967296;
+    };
+    for (let restart = 0; restart < ESC_RESTARTS; restart++) {
+      const set = [];
+      for (let tries = 0; tries < 400 && set.length < N_TOWERS; tries++) {
+        const c = Math.floor(nextRand() * C);
+        if (conflicts(set, c)) continue;
+        set.push(c);
+      }
+      if (set.length < N_TOWERS) continue;
+      set.sort((a, b) => a - b);
+      let cur = localSearch(set);
+      for (let r = 0; r < ESC_ROUNDS; r++) {
+        const p = pairMove(cur.set, cur.sc, ESC_PAIR_K);
+        if (!p) break;
+        cur = localSearch(p.set);
+        rounds++;
+      }
+      if (better(cur.sc, bestSc)) {
+        bestSc = cur.sc;
+        best = cur.set.slice();
+        improved++;
+      }
+    }
+    escalation.ran = true;
+    escalation.restarts = ESC_RESTARTS;
+    escalation.starts = settled.length;
+    escalation.rounds = rounds;
+    escalation.pairK = ESC_PAIR_K;
+    escalation.converged = converged;
+    escalation.improvedFrom = before.min;
+    escalation.improvedTo = bestSc.min;
+    escalation.improvements = improved;
   }
 
   // ------------------------------------------------------------------
@@ -654,11 +794,33 @@ export function planTowers(terrain, plan, opts = {}) {
         `THIS BATTERY IS LEGAL, NOT GOOD: ${bits.join("; ")}. The search that produced it: ${C} legal seat(s) ` +
         `offered in this room (depth >= ${DEPTH_SAFE}, refill walk <= ${refillCap}), the six chosen spread to a ` +
         `radius of ${spreadRadius} to cover a ${T}-tile shell, average face damage ${Math.round(sum / T)}. ` +
-        `Refill walks, nearest first: ${refills.slice().sort((a, b) => a - b).join("/")}. No other six of those ` +
-        `${C} seats cover this shell better inside falloff range (150 damage past chebyshev 20); the room is ` +
-        `long or two-lobed, and this is the price.`,
+        `Refill walks, nearest first: ${refills.slice().sort((a, b) => a - b).join("/")}. ` +
+        // WHAT WAS SEARCHED, not what is optimal. C-choose-6 is astronomical and
+        // this is a hill-climb; the sentence says so.
+        `WHAT WAS SEARCHED (this is a bounded hill-climb over ${C} seats, not a proof of optimality): ` +
+        `greedy from ${seenSet.size} distinct start(s), each descended by single-slot steepest descent to a ` +
+        `local optimum, then pairwise ejection` +
+        (escalation.ran
+          ? ` re-entered on ALL ${escalation.starts} of those optima plus ${escalation.restarts} ` +
+            `deterministically-seeded random legal batteries, and run to ` +
+            `${escalation.converged ? "convergence" : `the ${ESC_ROUNDS}-round bound WITHOUT converging`} with the ` +
+            `partner list widened to ${escalation.pairK} — ${escalation.rounds} swap round(s) in total, which ` +
+            (escalation.improvedTo > escalation.improvedFrom
+              ? `lifted the weakest face from ${escalation.improvedFrom} to ${escalation.improvedTo}`
+              : `found nothing better than the ${escalation.improvedFrom} the cheap search had already settled on`) +
+            `. This escalation runs precisely because the room was about to make this declaration`
+          : ` for 3 rounds on the winner (partner list ${PAIR_K})`) +
+        `. No set the search REACHED covers this shell better inside falloff range (150 damage past ` +
+        `chebyshev 20); the room is long or two-lobed, and this is the price.`,
       tiles: towers.map((t) => ({ x: t.x, y: t.y })),
-      towers: { minShellDmg: mn, avgShellDmg: Math.round(sum / T), maxRefill, candidates: C, weakTiles: weak },
+      towers: {
+        minShellDmg: mn,
+        avgShellDmg: Math.round(sum / T),
+        maxRefill,
+        candidates: C,
+        weakTiles: weak,
+        search: escalation,
+      },
     });
   }
 
@@ -676,6 +838,8 @@ export function planTowers(terrain, plan, opts = {}) {
       spreadRadius,
       newRoads: newRoads.length,
       candidates: C,
+      starts: seenSet.size,
+      search: escalation,
     },
   };
 }

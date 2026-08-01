@@ -61,13 +61,44 @@ per room. Rise to the bar; do not lower it.
   and the validator itself must catch injected mutations of every class it checks.
 - Interior connectivity invariant: interior walk region stays one component reaching
   the sitter and a face of every structure, at every placement step.
-- Deterministic output — identical plans across runs, modulo the recorded `planMs`.
-  Measured on the current fleet: planRoom p50 ~450ms, p90 ~660ms, worst room ~2.4s
-  (E4S7), full 159-room suite under 90s. The old "≤ ~200ms per room" budget is
-  retired deliberately: the planner now composes up to 4 proof-carrying escalation
-  rungs per room — each rung a full shell+program re-plan whose result is kept only
-  if it measurably wins — and that proof is precisely what 200ms was silently
-  trading away.
+- Deterministic output — identical plans across runs. Verified by hashing
+  `plans-hub.json` over 2 consecutive `--all-claimable` runs of the shipped tree:
+  byte-identical, `6cc2a40b5c50dd0c…`. (An earlier 3-run set on the same code
+  modulo one declaration string likewise hashed identically to each other,
+  `98790d27…` — 5 runs, 2 hashes, one per code state.) `planMs` is deliberately
+  not serialised, or the hash would differ on every run for reasons that have
+  nothing to do with the planner.
+- **Runtime, re-measured 2026-08-01, and the earlier claim was measuring the wrong
+  thing.** Five consecutive full-fleet runs on this machine:
+
+  | run | suite wall clock | in-planner total | planRoom p50 | p90 | max (E4S7) |
+  |---|---|---|---|---|---|
+  | 1 | 97.7s | 94.2s | 449.5ms | 1132.5ms | 4289.6ms |
+  | 2 | 96.2s | 92.5s | 473.5ms | 1138.5ms | 4356.9ms |
+  | 3 | 94.9s | 89.6s | 404.3ms | 1032.7ms | 4149.4ms |
+  | 4 | 96.1s | 92.9s | — | — | — |
+  | 5 | 93.1s | 89.7s | — | — | — |
+
+  **Spread 93.1–97.7s end to end; call it ~95s ± 2s, not "under 90s".** The old
+  sentence claimed "full 159-room suite under 90s" while the instrument behind it
+  summed `meta.planMs` — in-planner time only, excluding the mongo fetch, the SVG
+  render and 159 file writes of over a megabyte each. A reviewer with a stopwatch
+  measured 98s and was right; the two numbers were measuring different quantities
+  and only one of them was labelled. `plan.mjs` now prints BOTH, labelled, and the
+  end-to-end one says "quote this one when you mean the suite".
+
+  The per-room figures also drifted and are corrected here: p90 is ~1.1s, not the
+  ~660ms previously claimed, and the worst room is ~4.3s, not ~2.4s. Roughly 5s of
+  the current total is round 5's own additions (the seal reconciliation and the
+  weak-battery escalation, the latter deliberately confined to the ~17 rooms that
+  were going to declare).
+
+  The old "≤ ~200ms per room" budget stays retired deliberately: the planner
+  composes up to 4 proof-carrying escalation rungs per room — each rung a full
+  shell+program re-plan whose result is kept only if it measurably wins — and that
+  proof is precisely what 200ms was silently trading away. The planner runs
+  offline, so this is a claim about developer patience, not in-game CPU; the point
+  of the table is that the claim is now checkable.
 
 ## Optimization objectives (minimize / maximize — reviewer judges trade-offs)
 
@@ -102,7 +133,21 @@ per room. Rise to the bar; do not lower it.
   range), spread, refill-distance weighted; the first-built tower (array order) must
   be the easiest to refill.
 - Controller outside the wall: rampart ONLY its adjacent ring (denies claim-attack
-  stands) + link + container. Nothing wider.
+  stands) + link + container. Nothing wider. **The ring defends a room OBJECT, not
+  a structure of ours** — this is why the layer-7 inert-rampart prune, whose keep
+  test only values a rampart for what it does to our own structures' depth and
+  exterior flag, deleted 161 ring tiles across 66 rooms while every gate passed.
+  Ring tiles are a named keep-class in that pass (`plan.shell.standDenial`) and the
+  validator now re-derives the ring independently: a walkable tile D8-adjacent to
+  an outside controller that carries no rampart and is in the exterior flood is a
+  hard fail on gate `shell`, kind `ctrl-ring`.
+- **`meta.shell.cut` must BE the wall.** Every shell metric — battlements, the
+  battery's weakest face, links on the wall, mobility endpoints — is computed over
+  it, so a cut that has gone stale reports all of them against a wall the room does
+  not have. The definition is a mutation and both sides run it: a rampart is part
+  of the seal exactly when removing IT ALONE lets the exterior flood reach the
+  sitter. Layer 7 adopts whatever that test finds into the cut and re-derives every
+  metric over the union; the validator fails any room where the two disagree.
 
 ## Judgment criteria (the owner's voice — reviewer applies these to sampled rooms)
 

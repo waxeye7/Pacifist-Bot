@@ -570,6 +570,14 @@ ${shortfallsHtml(plan)}
 }
 
 function main() {
+  // TRUE PROCESS WALL CLOCK. The line at the bottom of this report used to say
+  // "total Ns" and that number was sum(meta.planMs) — in-planner time only. It
+  // excluded the mongo fetch, the validation pass, the SVG render and 159 file
+  // writes of >1MB each, and the goal doc then quoted it as "the full 159-room
+  // suite". A reviewer timed the process at 98s against a committed claim of
+  // under 90 and was right to; the two numbers were measuring different things
+  // and only one of them was labelled. Both are printed now, and labelled.
+  const suiteT0 = performance.now();
   const args = process.argv.slice(2);
   let rooms = GOLDEN;
   const ri = args.indexOf("--rooms");
@@ -816,7 +824,7 @@ ${full}</div>`;
     .slice(0, 3);
   console.log(
     `planRoom wall time: p50 ${qm(0.5)}ms · p90 ${qm(0.9)}ms · max ${msAll[msAll.length - 1]}ms · ` +
-      `total ${(msAll.reduce((s, v) => s + v, 0) / 1000).toFixed(1)}s — slowest ` +
+      `in-planner total ${(msAll.reduce((s, v) => s + v, 0) / 1000).toFixed(1)}s — slowest ` +
       slowest
         .map((p) => `${p.room}:${p.meta.planMs}ms(${p.meta.shellEscalation?.steps ?? 1} composes)`)
         .join(" "),
@@ -827,6 +835,16 @@ ${full}</div>`;
       (escalated.length
         ? ` (${escalated.map((p) => `${p.room}:skip${p.meta.seedSkip} eco${p.meta.pathSourcesSum + p.meta.pathController}`).join(" ")})`
         : ""),
+  );
+  // ...and the number a reviewer with a stopwatch will actually see. It is
+  // larger than the in-planner total by the mongo fetch, the render and the
+  // writes, and the gap is not noise — it is roughly a tenth of the run.
+  const suiteS = (performance.now() - suiteT0) / 1000;
+  const inPlanner = msAll.reduce((s, v) => s + v, 0) / 1000;
+  console.log(
+    `SUITE WALL CLOCK: ${suiteS.toFixed(1)}s end to end (in-planner ${inPlanner.toFixed(1)}s + ` +
+      `${(suiteS - inPlanner).toFixed(1)}s of mongo fetch, SVG render and ${ok.length} file writes). ` +
+      `Quote this one when you mean "the suite".`,
   );
 }
 

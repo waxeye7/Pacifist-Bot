@@ -42,7 +42,7 @@
  *       reports it. It moves NOTHING. See the header on verifyMobility below
  *       for what used to live here and why it is gone.
  */
-import { D4, D8, isSwamp, key, walkable } from "./shared.mjs";
+import { D4, D8, chebyshev, isSwamp, key, walkable } from "./shared.mjs";
 import {
   BUILT_OBSTACLES,
   MOBILITY_TARGET,
@@ -51,7 +51,9 @@ import {
   interiorWalk,
   maskFromKeys,
   mobilityStats,
+  pickBattlements,
 } from "./layer-shell.mjs";
+import { TARGET_MIN, WEAK_SHELL_DMG, shellDamage } from "./layer-towers.mjs";
 
 /** a 1-tile rampart in a crack is not a defensive position worth a road */
 const MIN_CLUSTER = 2;
@@ -332,6 +334,74 @@ function verifyMobility(terrain, plan) {
  *
  * "No double shell" is a hard gate, so this is a fixpoint and not one pass: each
  * deletion can expose the next (E11S10's seven come off in seven rounds).
+ *
+ * ------------------------------------------------------------------------
+ * ROUND-5 REGRESSION AND THE KEEP-CLASSES THAT FIX IT
+ * ------------------------------------------------------------------------
+ * The keep-test above values a rampart ONLY for what it does to our own
+ * STRUCTURES, and a whole class of rampart does not defend a structure at all.
+ * The controller's adjacent ring defends a room OBJECT: it denies an attacking
+ * claim/attack creep the only tiles it can stand on. Delete one and no depth
+ * moves, no structure changes flag, the walk region is identical — the test
+ * passes cleanly, and it passed 161 times across 66 rooms, deleting 161 of this
+ * pass's 173 deletions and reopening every ring the goal document mandates
+ * ("controller outside the wall: rampart ONLY its adjacent ring — denies
+ * claim-attack stands").
+ *
+ * The fix is not to weaken the removal test — it is exact and it is what keeps
+ * E11S10's seven inner double-wall tiles gone. It is to say out loud which
+ * ramparts this pass has no licence over:
+ *
+ *   (a) THE CONTROLLER'S RING. Every walkable tile D8-adjacent to the
+ *       controller. Unconditional: an enemy claim creep standing there is a
+ *       threat whether or not the shell happens to enclose the controller,
+ *       and the ring is the owner's stated defence against it.
+ *   (b) ANY DECLARED STAND-DENIAL TILE (plan.shell.standDenial) — the same
+ *       ring, named by the layer that placed it, so the intent survives a
+ *       refactor that moves the geometry.
+ *   (c) EVERY DECLARED BUBBLE (plan.shell.bubble). This pass's licence is over
+ *       the CUT — the doubled min-cut wall layer 2 could not see it had bought.
+ *       A bubble is a deliberate purchase with a named beneficiary; if one is
+ *       genuinely redundant, layer 2's addBubble already refuses to buy it
+ *       (inside AND at DEPTH_SAFE ⇒ not added). Re-litigating that decision
+ *       here, with a test that cannot see the beneficiary, is how the ring was
+ *       lost. plan.shell.bubble is therefore never scrubbed either: a
+ *       declaration this pass may not act on is a declaration it may not edit.
+ *
+ * ------------------------------------------------------------------------
+ * ...AND THE PRUNE MAY NOT MOVE THE WALL, ONLY SHRINK IT
+ * ------------------------------------------------------------------------
+ * Measured at HEAD: before this pass runs, the layer-2 cut is a complete and
+ * correct seal in all 159 rooms and NOT ONE rampart outside it is load-bearing.
+ * After it runs, four rooms (E11S10, E1S8, E11S3, E12S4) have a seal that
+ * partly rests on tiles that were bought as bubbles. The mechanism is subtle
+ * and the removal test is blameless: deleting a genuinely doubled inner wall
+ * merges a walled-off lobe into the sitter's region, and the lobe's own eco
+ * bubbles — a source container, a controller ring, and in two rooms a LINK —
+ * become the wall on that side. Nothing measurable moved, so the test passed.
+ *
+ * What moved is who is holding the line, and it is a real downgrade, not a
+ * bookkeeping one. E11S10 traded 7 ramparts of inner wall (0.21 e/tick) for a
+ * seal whose weakest tile is a source link 19 tiles from the battery: 1380
+ * damage instead of 2670, on a tile that is an OBSTACLE_OBJECT_TYPE so no
+ * defender or repairer can ever stand on it. E1S8 does the same to its
+ * controller link. Neither was visible, because every shell metric is computed
+ * over `cut` and neither link was in `cut`.
+ *
+ * REFUSING THE DELETION WAS TRIED FIRST AND IS THE WRONG FIX. Making promotion
+ * a veto is one line and it does hold the weakest face at 2670 — by keeping all
+ * seven of E11S10's inner double-wall tiles, which are exactly the waste this
+ * pass exists to delete and which the goal document names as waste. Fleet-wide
+ * the veto resurrected every promoting deletion in all four rooms. Buying back
+ * a doubled wall to make a number look better is the anti-pattern, not the fix.
+ *
+ * So the deletion STANDS, and the fact that it moved the wall is carried
+ * forward instead of vanishing: `inertPromoted` counts it, reconcileSeal below
+ * adopts whatever is actually holding the line into meta.shell.cut, every
+ * cut-shaped metric is re-derived over the union, and the room declares the
+ * result — including, in E11S10 and E1S8, a link on the seal and a weakest
+ * sealing face well under what layer 3 was told it had. The wall is allowed to
+ * move; it is not allowed to move quietly.
  */
 const DEPTH_SAFE = 4;
 const idxOf = (x, y) => x + y * 50;
@@ -397,6 +467,89 @@ function depthFromExterior(e) {
   return depth;
 }
 
+/**
+ * The garrison side of the seal: every walkable, un-ramparted tile the sitter
+ * can reach without crossing a rampart. Mirror image of exteriorFlood — the two
+ * are disjoint exactly when the enclosure holds.
+ */
+function insideFlood(terrain, rampartSet, sitter) {
+  const inside = new Uint8Array(2500);
+  const s = idxOf(sitter.x, sitter.y);
+  if (!walkable(terrain, sitter.x, sitter.y) || rampartSet.has(key(sitter.x, sitter.y))) return inside;
+  inside[s] = 1;
+  const q = [s];
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi],
+      x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (!walkable(terrain, nx, ny) || rampartSet.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (inside[ni]) continue;
+      inside[ni] = 1;
+      q.push(ni);
+    }
+  }
+  return inside;
+}
+
+/**
+ * SEAL-CRITICAL, IN TWO FLOODS INSTEAD OF ONE PER TILE.
+ *
+ * A rampart T is seal-critical exactly when deleting T alone lets the exterior
+ * reach the sitter. Deleting T changes ONE tile's passability, so any new path
+ * from the sitter to the outside must run through T — entering from a tile of
+ * the garrison region and leaving to a tile of the exterior. So:
+ *
+ *     T is seal-critical  ⟺  T is walkable terrain
+ *                         ∧  some D8 neighbour of T is in the inside flood
+ *                         ∧  some D8 neighbour of T is in the exterior flood
+ *
+ * Both directions hold: the forward one because those two neighbours give the
+ * path, the reverse because T is the only tile whose state changed. This is
+ * exact, not a screen, and it replaces |ramparts| floods per query with two —
+ * which is what makes the invariant affordable inside the prune's fixpoint
+ * (the brute-force form cost the suite 13 seconds).
+ */
+function sealCriticalSet(terrain, rampartSet, ext, inside) {
+  const out = [];
+  for (const k of rampartSet) {
+    const [x, y] = k.split(",").map(Number);
+    if (!walkable(terrain, x, y)) continue; // a rampart on rock opens nothing
+    let touchIn = false;
+    let touchOut = false;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (inside[ni]) touchIn = true;
+      else if (ext[ni]) touchOut = true;
+      if (touchIn && touchOut) break;
+    }
+    if (touchIn && touchOut) out.push({ x, y });
+  }
+  return out;
+}
+
+/**
+ * True when, with `dropped` deleted, some rampart OUTSIDE the declared cut is
+ * single-handedly keeping the exterior off the sitter — i.e. this deletion has
+ * turned somebody's bubble into wall. See the invariant in the header.
+ */
+function promotesOutsider(terrain, set1, dropped, cutKeys, ext1, sitter) {
+  const inside = insideFlood(terrain, set1, sitter);
+  for (const c of sealCriticalSet(terrain, set1, ext1, inside)) {
+    const k = key(c.x, c.y);
+    if (k === dropped || cutKeys.has(k)) continue;
+    return true;
+  }
+  return false;
+}
+
 function pruneInertRamparts(terrain, plan) {
   const removed = [];
   let ramp = plan.structures.rampart || [];
@@ -412,6 +565,22 @@ function pruneInertRamparts(terrain, plan) {
     if (t === "rampart" || t === "road") continue;
     for (const p of plan.structures[t] || []) ownTiles.add(key(p.x, p.y));
   }
+  // KEEP-CLASSES — ramparts this pass has no licence over. See the header.
+  const keep = new Set();
+  if (plan.controller) {
+    for (const [dx, dy] of D8) {
+      const x = plan.controller.x + dx,
+        y = plan.controller.y + dy;
+      if (walkable(terrain, x, y)) keep.add(key(x, y)); // (a) the ring
+    }
+  }
+  for (const p of plan.shell?.standDenial || []) keep.add(key(p.x, p.y)); // (b)
+  for (const p of plan.shell?.bubble || []) keep.add(key(p.x, p.y)); // (c)
+  // THE WALL WE BOUGHT, and the sitter the seal is defined against. A rampart
+  // outside this set is somebody's bubble; the invariant below says it may not
+  // be turned into wall by anything this pass does.
+  const cutKeys = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
+  let promoted = 0; // deletions that handed a piece of the seal to a bubble
   for (let guard = 0; guard < 200; guard++) {
     const set0 = new Set(ramp.map((r) => key(r.x, r.y)));
     const ext0 = exteriorFlood(terrain, set0);
@@ -430,6 +599,8 @@ function pruneInertRamparts(terrain, plan) {
     let gone = null;
     for (const r of ramp) {
       const k = key(r.x, r.y);
+      // a declared purpose this pass cannot measure — held whatever the flood says
+      if (keep.has(k)) continue;
       // somebody's personal cover — held whatever the flood says
       if (ownTiles.has(k) && dep0[idxOf(r.x, r.y)] < DEPTH_SAFE) continue;
       const faces = facesExterior(r);
@@ -461,6 +632,14 @@ function pruneInertRamparts(terrain, plan) {
         if (!ok) continue;
       }
       if (interiorWalk(terrain, set1, ext1, blocked, plan.sitter).size !== walk0.size) continue;
+      // THE DELETION IS ALLOWED, AND IT IS RECORDED WHEN IT MOVES THE WALL.
+      // Refusing here was tried and refused in turn: the only deletions that
+      // promote an outsider are E11S10's seven inner double-wall tiles and
+      // their kin, and those are precisely the waste this pass exists to
+      // delete. So the deletion stands and the fact is carried forward — the
+      // reconciliation below adopts whatever ends up holding the line into the
+      // cut and declares it, rather than the wall quietly moving in silence.
+      if (promotesOutsider(terrain, set1, k, cutKeys, ext1, plan.sitter)) promoted++;
       gone = r;
       break;
     }
@@ -473,11 +652,285 @@ function pruneInertRamparts(terrain, plan) {
   const dead = new Set(removed.map((r) => key(r.x, r.y)));
   plan.structures.rampart = ramp;
   plan.shell.cut = (plan.shell.cut || []).filter((c) => !dead.has(key(c.x, c.y)));
-  plan.shell.bubble = (plan.shell.bubble || []).filter((c) => !dead.has(key(c.x, c.y)));
+  // plan.shell.bubble is NOT scrubbed: keep-class (c) means no bubble can be in
+  // `dead`, and a declaration this pass may not act on is one it may not edit.
   plan.shell.inertPruned = removed;
+  plan.shell.inertPromoted = promoted;
   plan.shell.upkeepPerTick = Math.round(plan.structures.rampart.length * 3) / 100;
   if (plan.meta?.counts) plan.meta.counts.rampart = plan.structures.rampart.length;
   return removed;
+}
+
+/**
+ * ------------------------------------------------------------------------
+ * SEAL RECONCILIATION — one source of truth for "which tiles are the wall".
+ * ------------------------------------------------------------------------
+ *
+ * meta.shell.cut is supposed to BE the wall: the tiles an attacker has to break
+ * to get inside, the tiles the battlements cover, the tiles the towers are
+ * scored against, the endpoints the mobility lap is measured over. Layer 2
+ * produces it from the min-cut and it is true at layer 2. It is not always true
+ * at layer 7, for a reason nothing in the pipeline was watching:
+ *
+ *   layers 2-6 keep ADDING ramparts (eco bubbles, lab cover, the mineral seat),
+ *   and the inert prune above is then allowed to DELETE a cut tile whose job a
+ *   neighbouring bubble has quietly taken over. The prune's test is exact about
+ *   what it deletes and says nothing about what is now holding the line. The
+ *   result is a room whose declared cut is smaller than its actual seal.
+ *
+ * Four rooms shipped that way (E11S10, E1S8, E11S3, E12S4). The consequences
+ * were not cosmetic: E11S10's real weakest sealing tile is a source link 19
+ * tiles from the battery — 1380 damage, not the declared 2670 — and it is a
+ * LINK on the seal, which no defender or repairer can ever stand on, and the
+ * link-on-cut declaration was empty because the link was not in `cut`. E1S8
+ * hides a second one (its controller link at 36,13).
+ *
+ * THE DEFINITION, and it is the only one that is testable: a tile is part of
+ * the seal when REMOVING IT ALONE lets the exterior flood reach the sitter.
+ * That is exactly the mutation the validator now runs, so the plan and its
+ * check agree on what a wall is.
+ *
+ * The cut becomes the UNION of what layer 2 bought and what that test finds,
+ * not a replacement: a doubled segment where no single tile is load-bearing is
+ * still wall we paid for and still wall the defenders have to hold, and
+ * dropping it to make the declaration prettier would be the same class of
+ * mistake in the other direction. Then every metric derived from the cut is
+ * recomputed against it — battlements, the battlement gap, links on the wall,
+ * the mobility lap and the battery's weakest face — because a metric computed
+ * on a wall the room does not have is not a measurement.
+ */
+function reconcileSeal(terrain, plan) {
+  const ramp = plan.structures.rampart || [];
+  if (!ramp.length) return null;
+  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
+  const extFinal = exteriorFlood(terrain, rset);
+  const si = idxOf(plan.sitter.x, plan.sitter.y);
+  // a room whose sitter is already exterior has no seal to reconcile — the
+  // shell layer would have failed long before here, but be explicit.
+  if (extFinal[si]) return null;
+
+  const sealCritical = sealCriticalSet(
+    terrain,
+    rset,
+    extFinal,
+    insideFlood(terrain, rset, plan.sitter),
+  );
+  const cut = plan.shell.cut || [];
+  const inCut = new Set(cut.map((c) => key(c.x, c.y)));
+  // deterministic append order: reading order, not rampart-array order, so the
+  // adopted tiles do not inherit whatever order earlier layers happened to push
+  const adopted = sealCritical
+    .filter((c) => !inCut.has(key(c.x, c.y)))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  plan.shell.sealCritical = sealCritical.length;
+  plan.shell.cutAdopted = adopted;
+  if (!adopted.length) return { adopted, sealCritical };
+  plan.shell.cut = cut.concat(adopted.map((c) => ({ x: c.x, y: c.y })));
+  return { adopted, sealCritical, extFinal };
+}
+
+/**
+ * Re-derive every cut-shaped metric on the wall the room is actually shipping.
+ * Called only when the cut changed under layer 7 (the prune removed tiles, the
+ * reconciliation adopted some, or both) — a room whose cut layer 2 chose is
+ * still exactly the cut it ships has nothing to recompute and gets layer 2's
+ * numbers untouched.
+ */
+function remeasureShell(terrain, plan, reason) {
+  const cut = plan.shell.cut || [];
+  if (!cut.length) return;
+  const ramp = plan.structures.rampart || [];
+  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
+  const extFinal = exteriorFlood(terrain, rset);
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  const walkFinal = interiorWalk(terrain, rset, extFinal, blocked, plan.sitter);
+
+  const b = pickBattlements(terrain, cut, extFinal, walkFinal);
+  plan.shell.battlements = b.battlements;
+  plan.shell.battlementGapTiles = b.battlementGapTiles;
+  plan.shell.battlementGap = b.battlementGap;
+  plan.shell.battlementUnreachable = b.battlementUnreachable;
+  plan.shell.battlementFloor = Math.ceil(cut.length / 3);
+
+  const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
+  plan.shell.linkOnCut = cut.filter((c) => linkKeys.has(key(c.x, c.y))).map((c) => ({ x: c.x, y: c.y }));
+
+  const m = mobilityStats(cut, extFinal, maskFromKeys(walkFinal));
+  m.target = MOBILITY_TARGET;
+  // the cause/floor/eco attribution belongs to the negotiation that chose the
+  // enclosure and is NOT re-derived here — only the geometry it is attributed to
+  const prev = plan.shell.mobility || {};
+  for (const f of ["cause", "floor", "candidates", "ecoCost"]) if (f in prev) m[f] = prev[f];
+  plan.shell.mobilityShipped = m;
+
+  const dmg = shellDamage(plan.structures.tower || [], cut);
+  plan.shell.shippedShellDmg = dmg;
+  plan.shell.remeasured = reason;
+  // meta.towers keeps BOTH readings on purpose. minShellDmg is what layer 3
+  // optimised against and is the number that explains the battery it chose;
+  // shippedMinShellDmg is what the wall the room actually ships sees. Replacing
+  // one with the other would hide either the decision or the outcome — the
+  // validator checks the shipped number and the declaration quotes both.
+  if (plan.meta?.towers) {
+    plan.meta.towers.shippedMinShellDmg = dmg.min;
+    plan.meta.towers.shippedAvgShellDmg = dmg.avg;
+    plan.meta.towers.shippedWeakTiles = dmg.weak;
+    plan.meta.towers.shippedWeakest = dmg.worst;
+    plan.meta.towers.shippedCutTiles = dmg.tiles;
+  }
+  return dmg;
+}
+
+/**
+ * INTERIOR FLOOR THE FINISHED BASE SEALED OFF FROM ITSELF.
+ *
+ * 137 tiles across 42 rooms are inside the wall, are not wall, carry nothing,
+ * and cannot be walked to from the sitter. Some of that is the enclosure: the
+ * min-cut is free to wall a lobe the basin could never reach anyway, and no
+ * ordering of the program recovers it. Some of it is US: a row of extensions
+ * across a one-wide corridor seals the pocket behind it, and that pocket was
+ * deep buildable floor the same layer then went shallow for want of.
+ *
+ * The two are not the same thing and the note separates them, because only one
+ * is actionable: `ourFault` re-floods with every blocking structure of ours
+ * removed and counts what comes back. That is the honest upper bound on what an
+ * ordering fix inside layer 6 could ever recover — quoted as a bound and not as
+ * a promise, since recovering it also requires the corridor to stay open, which
+ * costs the tile the corridor runs through.
+ *
+ * It is a NOTE and not a shortfall on purpose. Nothing here is a violation: the
+ * room is legal, sealed and complete. It is a fact a reviewer would otherwise
+ * have to re-derive, and the anti-pattern this planner is held to is silence,
+ * not imperfection.
+ */
+function noteSealedFloor(terrain, plan) {
+  const ramp = plan.structures.rampart || [];
+  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
+  const ext = exteriorFlood(terrain, rset);
+  const depth = depthFromExterior(ext);
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  const walk = interiorWalk(terrain, rset, ext, blocked, plan.sitter);
+  // the same flood with only room OBJECTS blocking — what the interior would be
+  // if the program had not been grown into it
+  const bare = interiorWalk(terrain, rset, ext, new Set(plan.objectTiles || []), plan.sitter);
+
+  let sealed = 0;
+  let deepSealed = 0;
+  let ourFault = 0;
+  const tiles = [];
+  for (let y = 0; y < 50; y++) {
+    for (let x = 0; x < 50; x++) {
+      if (!walkable(terrain, x, y)) continue;
+      const i = idxOf(x, y);
+      if (ext[i]) continue;
+      const k = key(x, y);
+      if (rset.has(k) || blocked.has(k) || walk.has(k)) continue;
+      sealed++;
+      if (tiles.length < 24) tiles.push({ x, y });
+      const usable = depth[i] >= DEPTH_SAFE && x >= 2 && x <= 47 && y >= 2 && y <= 47;
+      if (usable) deepSealed++;
+      if (bare.has(k)) ourFault++;
+    }
+  }
+  if (!sealed) return null;
+  const shallowStructs = plan.meta?.extensions?.shallow ?? 0;
+  plan.meta.notes = plan.meta.notes || [];
+  plan.meta.notes.push(
+    `SEALED INTERIOR FLOOR: ${sealed} tile(s) sit inside the wall, carry nothing, and cannot be reached ` +
+      `from the sitter (${tiles.map((t) => `${t.x},${t.y}`).join(" ")}${sealed > tiles.length ? " …" : ""}). ` +
+      `${deepSealed} of them are deep (>= ${DEPTH_SAFE}) and inside the buildable band, i.e. floor the ` +
+      `program could have used; this room ships ${shallowStructs} shallow extension(s). ` +
+      `${ourFault} of the ${sealed} come back if OUR OWN blocking structures are removed and the enclosure ` +
+      `is left as it is — that is the ceiling on what any re-ordering inside the placement layers could ` +
+      `recover, and the remaining ${sealed - ourFault} are the enclosure's shape, which no ordering reaches.`,
+  );
+  plan.meta.sealedFloor = { tiles: sealed, deep: deepSealed, ourFault, shallowStructs };
+  return plan.meta.sealedFloor;
+}
+
+/**
+ * THE BATTERY IS DECLARED AGAINST THE WALL IT DEFENDS, NOT THE WALL IT WAS SOLD.
+ *
+ * Layer 3 makes the weak-battery declaration from the cut it was handed, and it
+ * is the right layer to do it — it is the layer that can explain the search. But
+ * layer 7 can change which tiles are the wall, and when it does, layer 3's
+ * verdict is stale in the one direction that matters: E11S10 declared nothing
+ * because its cut-wide weakest face was 2670, while the seal it actually ships
+ * is weakest at 1380 on a source link the battery cannot cover. So the shipped
+ * reading gets its own pass at the same gate. It does not overwrite layer 3's
+ * declaration where there is one (the two numbers mean different things and both
+ * are printed); it adds one where the shipped wall is weak and layer 3 had no
+ * reason to speak.
+ */
+function declareShippedBattery(plan, dmg) {
+  if (!dmg || !dmg.tiles) return;
+  if (dmg.min >= WEAK_SHELL_DMG) return;
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  const already = plan.meta.shortfalls.some((sf) => sf && sf.kind === "weak-battery");
+  const declared = plan.meta?.towers?.minShellDmg;
+  if (already) return; // layer 3 already said it; its text carries the search
+  const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
+  const onLink = dmg.worst && linkKeys.has(key(dmg.worst.x, dmg.worst.y));
+  plan.meta.shortfalls.push({
+    gate: "towers",
+    kind: "weak-battery",
+    detail:
+      `THIS BATTERY IS LEGAL, NOT GOOD, AND LAYER 3 COULD NOT HAVE KNOWN: the wall this room ships is ` +
+      `weakest at ${dmg.min} damage on ${dmg.worst ? `${dmg.worst.x},${dmg.worst.y}` : "an adopted tile"} — ` +
+      `under the ${WEAK_SHELL_DMG} the fleet reaches almost everywhere, and under the ${declared} layer 3 ` +
+      `measured over the cut it was given. The gap is not an arithmetic error: layer 7's inert prune ` +
+      `deleted ${(plan.shell.inertPruned || []).length} tile(s) of doubled inner wall, which merged a ` +
+      `walled-off lobe into the garrison's region and handed that side of the seal to the lobe's own eco ` +
+      `bubbles — tiles the battery was never scored against because they were not in the cut. ` +
+      (onLink
+        ? `The weakest of them carries a LINK (an OBSTACLE_OBJECT_TYPE), so no defender or repairer can ` +
+          `stand on that rampart to help it. `
+        : "") +
+      `${dmg.weak}/${dmg.tiles} sealing tiles are under the ${TARGET_MIN} hard floor. The trade the prune ` +
+      `made — ${(plan.shell.inertPruned || []).length} ramparts of forever-upkeep against a weaker far ` +
+      `face — is written down here rather than split between two layers that each saw half of it.`,
+    tiles: dmg.worst ? [{ x: dmg.worst.x, y: dmg.worst.y }] : [],
+    towers: { shippedMinShellDmg: dmg.min, declaredMinShellDmg: declared, weakTiles: dmg.weak },
+  });
+}
+
+/**
+ * BELT AND BRACES. The prune's promotion invariant means `adopted` should be
+ * empty in every room; if it ever is not, the room ships a seal partly carried
+ * by tiles nobody scored, and that is declared rather than silently unioned in.
+ * Kept as a live declaration and not an assert because a plan that throws is a
+ * plan nobody can look at.
+ */
+function declareAdoptedSeal(plan, adopted, dmg) {
+  const where = adopted.map((t) => `${t.x},${t.y}`).join(" ");
+  const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
+  const links = adopted.filter((t) => linkKeys.has(key(t.x, t.y)));
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  plan.meta.shortfalls.push({
+    gate: "shell",
+    kind: "adopted-seal",
+    detail:
+      `${adopted.length} rampart(s) outside the declared cut turn out to carry the seal (${where}) — ` +
+      `removing any one of them alone lets the exterior flood reach the sitter. They were bought as ` +
+      `bubbles, so no battlement, tower score or mobility endpoint was computed over them until now; ` +
+      `they have been adopted into meta.shell.cut and every shell metric re-derived over the union. ` +
+      (links.length
+        ? `${links.length} of them carry a LINK (${links.map((t) => `${t.x},${t.y}`).join(" ")}), which is an ` +
+          `OBSTACLE_OBJECT_TYPE — no defender or repairer can ever stand on that rampart. `
+        : "") +
+      (dmg
+        ? `On the reconciled wall the weakest sealing tile sees ${dmg.min} damage` +
+          (dmg.worst ? ` (${dmg.worst.x},${dmg.worst.y})` : "") +
+          `, against the ${plan.meta?.towers?.minShellDmg ?? "?"} layer 3 measured on the cut it was given.`
+        : ""),
+    tiles: adopted.map((t) => ({ x: t.x, y: t.y })),
+  });
 }
 
 export function planWallRoads(terrain, plan) {
@@ -489,6 +942,26 @@ export function planWallRoads(terrain, plan) {
   //      already has over roads: it is the last pass, so it is the only one that
   //      can see what every earlier layer actually left behind.
   const inertPruned = pruneInertRamparts(terrain, plan);
+
+  // (0a2) RECONCILE the declared cut with the seal the room actually ships,
+  //       then re-derive every metric that is a function of the cut. See
+  //       reconcileSeal / remeasureShell — this is the single source of truth
+  //       for "which tiles are the wall", and it has to run after the prune
+  //       because the prune is the last thing that can change the answer.
+  const rec = reconcileSeal(terrain, plan);
+  const adopted = rec?.adopted || [];
+  const cutChanged = inertPruned.length > 0 || adopted.length > 0;
+  const shipDmg = cutChanged
+    ? remeasureShell(
+        terrain,
+        plan,
+        `${inertPruned.length} tile(s) pruned as inert, ${adopted.length} adopted into the cut ` +
+          `by the single-removal seal test`,
+      )
+    : null;
+  if (adopted.length) declareAdoptedSeal(plan, adopted, shipDmg);
+  if (shipDmg) declareShippedBattery(plan, shipDmg);
+
   const cut = plan.shell.cut || [];
   if (!cut.length) return { error: "shell has no cut tiles" };
   const ext = plan.exterior;
@@ -1027,6 +1500,10 @@ export function planWallRoads(terrain, plan) {
   const keptNew = newRoads.filter((r) => !pruned.has(key(r.x, r.y)));
   const removeRoads = plan.structures.road.filter((r) => pruned.has(key(r.x, r.y)));
 
+  // last thing this layer does: say what the finished base sealed off from
+  // itself. Read-only — see noteSealedFloor.
+  const sealedFloor = noteSealedFloor(terrain, plan);
+
   return {
     layer: "late-roads",
     roads: keptNew,
@@ -1049,6 +1526,9 @@ export function planWallRoads(terrain, plan) {
       // ramparts deleted because deleting them changed nothing measurable —
       // doubled wall the earlier layers' own additions made redundant
       inertPruned: inertPruned.length,
+      // interior floor the finished base cannot walk to, and how much of it is
+      // our own structures' doing rather than the enclosure's
+      sealedFloor,
     },
   };
 }

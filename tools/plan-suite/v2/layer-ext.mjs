@@ -87,6 +87,13 @@ const RICH_RATIO = 1.5;
 /** paving budget for a room that still has somewhere worth reaching */
 const MAX_STUB_ROADS_RICH = 51;
 /**
+ * Off-ladder deep-paving allowance for the rescue retry — see the rescue block
+ * inside attempt(). Swept at 0/4/8/16: 4 buys the whole improvement (fleet
+ * shallow 85 -> 82) and 8 and 16 buy nothing further, so it is the measured
+ * knee and not a round number.
+ */
+const EXT_RESCUE_ROADS = 4;
+/**
  * PAVEMENT COSTS, in the same units the stub scorer values an opened slot
  * (one deep flank = 3). That scale is the point: charging 0.8 against a term
  * worth 3 per flank cannot change any decision except an exact tie, which is
@@ -588,7 +595,12 @@ export function planExtensions(terrain, plan) {
    * the lap, always. Rounds are spent strand-first, so a shrunk reservation is
    * the one that reattaches severed battlements and skips the ratio shaving.
    */
-  function attempt(hubCap, laneRounds) {
+  /**
+   * `rescue` — an off-ladder deep-paving allowance, spent only by the retry at
+   * the bottom of this function. See the note there. 0 on the normal path, so
+   * every rung the ladder already walked is bit-for-bit what it was.
+   */
+  function attempt(hubCap, laneRounds, rescue = 0) {
   const pavedTiles = freshPaved();
   const roadSet = freshRoadSet();
   const blockedNow = new Set(occupied);
@@ -1496,6 +1508,58 @@ export function planExtensions(terrain, plan) {
     }
   }
 
+  // ------------------------------------------------------------------
+  // THE CORRIDOR BUDGET IS THE REASON, AND IT DOES NOT SAY SO.
+  //
+  // `deepExhausted` reads like "this room has no deep floor left", and in the
+  // seven rooms that ship the fleet's avoidable shallow extensions it is FALSE
+  // — which reads like the placement simply chose badly. It did not. Phase 1
+  // has three exits and only ONE of them sets that flag: `digDeep()` coming
+  // back empty. The other two are `capacityDeep() >= NEED_DEEP_SLOTS` and
+  // `stubUsed() >= stubCap`, and in all seven rooms it is the third — every one
+  // of them ends on stubUsed() == 51 == MAX_STUB_ROADS_RICH, with
+  // NEED_DEEP_SLOTS = 66 arithmetically out of reach. The mass then starts with
+  // the paving budget already spent, so the loop below breaks after its FIRST
+  // pass (`if (stubUsed() >= stubCap) break`) and the whole program, deep tiles
+  // and shallow tiles alike, is laid from one snapshot with no possibility of
+  // growing another corridor to reach the deep floor that is left.
+  //
+  // Measured, at ship time, in those seven rooms: between 1 and 15 free deep
+  // tiles remain — and between 0 and 1 of them have a road face, because roads
+  // and extensions compete for the same floor and 41-51 deep tiles went under
+  // the corridor. So the honest finding is that the deep floor is NOT sitting
+  // there road-faced and ignored. What is missing is the corridor to reach it.
+  //
+  // Hence a RESCUE and not a re-sort: a small extra paving allowance, spent
+  // only when the budget is genuinely exhausted, offering ONLY tier-0
+  // candidates so the pass can never buy its way to a shallow tile. It is
+  // funded through laneRoadCredit — the same accounting the lane reservation
+  // uses — and anything it does not spend is handed straight back, so a room it
+  // cannot help pays nothing. Lane reservations, the M4/C3 invariants and the
+  // shape deferrals are untouched.
+  //
+  // Sizing is measured, not chosen: raising MAX_STUB_ROADS_RICH itself (60, 75,
+  // 120) takes the seven rooms from 22 shallow to 18 but makes E14S6 WORSE
+  // (9 -> 10), because a bigger budget also eats more deep floor. A 4-tile
+  // rescue, arbitrated so it cannot regress (see the retry at the bottom),
+  // takes the fleet from 85 shallow to 82 with ramparts down 3, roads up 4, the
+  // cut unchanged and the filler tour p50/p90/max unchanged.
+  // ------------------------------------------------------------------
+  let rescueSpent = 0;
+  if (rescue > 0 && stubUsed() >= stubCap) {
+    laneRoadCredit += rescue;
+    for (let g = 0; g < 300 && extensions.length < TARGET; g++) {
+      place(roadCandidates().filter((c) => c.tier === 0));
+      if (extensions.length >= TARGET || rescueSpent >= rescue) break;
+      const n0 = stubRoads.length;
+      if (!growDeepStub()) digDeep();
+      const spent = stubRoads.length - n0;
+      if (spent === 0) break;
+      rescueSpent += spent;
+    }
+    laneRoadCredit -= Math.max(0, rescue - rescueSpent);
+  }
+
   let stalls = 0;
   for (let guard = 0; guard < 300 && extensions.length < TARGET; guard++) {
     const before = extensions.length;
@@ -1684,6 +1748,13 @@ export function planExtensions(terrain, plan) {
       shallow: shallow.length,
       stubRoads: stubRoads.length,
       deepExhausted,
+      // THE FLAG THAT ACTUALLY EXPLAINS A SHALLOW EXTENSION. deepExhausted is
+      // true only when a dig came back empty; a room whose phase 1 ran out of
+      // PAVING budget reports false and looks like a placement failure. Both
+      // exits are now visible, so a declaration can name the real one.
+      stubExhausted: stubUsed() >= stubCap,
+      stubCap,
+      rescueSpent,
       digRoads,
       corridorPlaced,
       corridorFallback: extensions.length - corridorPlaced,
@@ -1905,6 +1976,27 @@ export function planExtensions(terrain, plan) {
       };
       out = bare;
     }
+  }
+
+  // ------------------------------------------------------------------
+  // ONE RETRY, AND IT CANNOT MAKE THE ROOM WORSE.
+  //
+  // Run the rescue only where the diagnosis above says it applies — the room
+  // ships a shallow extension AND phase 1 died on the paving budget — and keep
+  // the result only if the EXISTING comparator prefers it (fullest, then fewest
+  // personal ramparts, then most compact). That arbitration is the whole safety
+  // argument: an unarbitrated rescue was measured too, and it does more (fleet
+  // 85 -> 79, eight rooms improved) at the price of regressing two rooms into a
+  // shallow extension they did not have and stretching E11S7's filler tour from
+  // 79 to 105 for nothing. Buying six shallow tiles with two other rooms'
+  // ramparts and a tour is not a trade this planner is allowed to make quietly,
+  // and making it loudly would still be making it. So: three rooms improve
+  // (E11S8 1->0, E13S4 1->0, E18S4 5->4), nothing regresses, and the four rooms
+  // the aggressive variant would have "fixed" are declared instead.
+  // ------------------------------------------------------------------
+  if (out.extMeta.shallow > 0 && out.extMeta.stubExhausted) {
+    const alt = attempt(out.extMeta.hubDistCap, out.extMeta.laneMeta?.rounds || 0, EXT_RESCUE_ROADS);
+    if (betterRun(alt, out)) out = alt;
   }
   return out;
 }

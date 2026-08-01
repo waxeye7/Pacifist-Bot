@@ -855,6 +855,24 @@ export function checkRoom(plan, terrain, objects) {
   const fails = [...inadmissible];
   const notes = [];
   for (const f of raw) (excused(f) ? notes : fails).push(f.msg);
+  // meta.notes — the planner's own observations channel. A NOTE is not a
+  // shortfall: it is a fact about the room that nothing failed on and that a
+  // reviewer should not have to re-derive (how much interior floor the finished
+  // base sealed off from itself, for instance). Shortfalls excuse violations;
+  // notes excuse nothing and are printed regardless.
+  for (const n of plan.meta?.notes || []) if (typeof n === "string") notes.push(n);
+  /**
+   * A violation raised AFTER `raw` has been drained. Everything above this line
+   * is collected into `raw` and sorted into fails/notes in one pass; a check
+   * that needs data computed later (the seal cross-check needs the interior
+   * component; the ring check needs the controller) still has to go through the
+   * same declaration arbitration, or it would either be undeclarable or — worse
+   * — be pushed onto `raw` where nothing would ever read it again.
+   */
+  const late = (gate, kind, msg, tiles = []) => {
+    const f = { gate: normGate(gate), kind, msg, tiles };
+    (excused(f) ? notes : fails).push(msg);
+  };
 
   // ------------------------------------------------------------------
   // A BATTERY THAT IS MERELY LEGAL HAS TO SAY SO.
@@ -873,16 +891,187 @@ export function checkRoom(plan, terrain, objects) {
   // anything and the room would fail no matter what it declared. This is the
   // opposite shape — declaring is precisely how a room passes it.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // WHAT IS THE WALL? — the cross-check that catches a cut which has gone stale.
+  //
+  // Every shell metric in the plan is computed over meta.shell.cut: which tiles
+  // the battlements cover, which the battery is scored against, which endpoints
+  // the mobility lap is measured between, whether a link is on the wall. All of
+  // that is worth exactly as much as `cut` being the wall — and in four rooms it
+  // was not. Layer 7's inert prune deleted doubled wall whose job a neighbouring
+  // BUBBLE then took over, so the shipped seal rested partly on tiles that were
+  // never in `cut` and never scored (E11S10 hid a 1380-damage face and a link on
+  // the seal behind a declared 2670; E1S8 hid a second link).
+  //
+  // The test is a mutation and it is re-derived here, from terrain and the
+  // rampart list, with nothing read out of meta except the claim being checked:
+  // DELETE ONE RAMPART, RE-FLOOD, and if the exterior now reaches the sitter
+  // then that rampart is the wall and it must be in meta.shell.cut. The planner
+  // now runs the same test in reverse (it adopts whatever it finds), so this is
+  // the independent confirmation that the two agree.
+  //
+  // Cheap form, exact: deleting a single tile changes one tile's passability, so
+  // any new sitter-to-exterior path must run through it — which happens exactly
+  // when that tile touches the interior component on one side and the exterior
+  // on the other. Two floods for the room, not one per rampart.
+  const declaredCut = new Set(
+    (plan.meta?.shell?.cut || []).map((c) => key(c.x, c.y)),
+  );
+  //
+  // The garrison side has to be flooded WITHOUT the ramparts, which is not the
+  // same region as `interior`: interiorComponent deliberately walks ONTO rampart
+  // tiles (a defender stands on his own wall), and a rampart that merely touches
+  // another rampart would then look like it touches the inside. Getting this
+  // wrong is not a rounding error — it flagged 17 rooms whose seal is fine.
+  const insideNoRampart = new Uint8Array(2500);
+  {
+    const si0 = idx(sitter.x, sitter.y);
+    if (passable(sitter.x, sitter.y) && !rampartSet.has(sitterKey)) {
+      insideNoRampart[si0] = 1;
+      const q = [si0];
+      for (let qi = 0; qi < q.length; qi++) {
+        const i = q[qi],
+          x = i % 50,
+          y = (i / 50) | 0;
+        for (const [dx, dy] of D8) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+          const ni = idx(nx, ny);
+          if (insideNoRampart[ni] || !passable(nx, ny) || rampartSet.has(key(nx, ny))) continue;
+          insideNoRampart[ni] = 1;
+          q.push(ni);
+        }
+      }
+    }
+  }
+  const sealTiles = [];
+  if (plan.meta?.shell?.cut) {
+    for (const k of rampartSet) {
+      const [rx, ry] = k.split(",").map(Number);
+      if (!passable(rx, ry)) continue; // a rampart on rock opens nothing
+      let touchIn = false;
+      let touchOut = false;
+      for (const [dx, dy] of D8) {
+        const nx = rx + dx,
+          ny = ry + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const ni = idx(nx, ny);
+        if (insideNoRampart[ni]) touchIn = true;
+        else if (ext[ni]) touchOut = true;
+        if (touchIn && touchOut) break;
+      }
+      if (touchIn && touchOut) sealTiles.push({ x: rx, y: ry, k });
+    }
+    const stale = sealTiles.filter((t) => !declaredCut.has(t.k));
+    if (stale.length) {
+      // NOT via fail(): `raw` was drained into fails/notes above, so a late
+      // fail() would be silently dropped. Routed through the same excused()
+      // the drained ones used, so a declaration can still own it.
+      late("shell", "stale-cut",
+        `${stale.length} rampart(s) carry the seal but are NOT in meta.shell.cut ` +
+          `(${stale.map((t) => t.k).join(" ")}) — removing any one of them alone lets the exterior ` +
+          `reach the sitter, so every metric computed over the declared cut (battlements, weakest ` +
+          `tower face, links on the wall, mobility endpoints) is measured on a wall this room does ` +
+          `not have`,
+        stale.map((t) => t.k),
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // THE CONTROLLER'S RING — the check the round-5 regression walked straight
+  // through, because nothing was looking.
+  //
+  // Goal document: "controller outside the wall: rampart ONLY its adjacent ring
+  // (denies claim-attack stands) + link + container. Nothing wider." Every tile
+  // a hostile creep can stand on to reach the controller is D8-adjacent to it,
+  // so an un-ramparted one of those is a free seat for a claim or attack creep
+  // and the ring has failed at the one job it has. Layer 7's inert-rampart prune
+  // deleted 161 of them across 66 rooms and every gate in this file passed the
+  // fleet, because the prune's own test only values a rampart for what it does
+  // to a STRUCTURE and this ring defends a room OBJECT.
+  //
+  // Re-derived, never read out of meta: take the controller from `objects`, take
+  // the exterior this validator flooded for itself, and ask whether an attacker
+  // can stand next to the controller. A ring tile that is INSIDE the wall is not
+  // a stand — nothing hostile can get to it — so the test is "walkable, no
+  // rampart, and exterior", which is exactly the set an attacker can occupy.
+  // Declarable on gate "shell": a border-band tile whose edge triple is not
+  // natural wall can never carry a rampart (engine ERR_INVALID_TARGET), and a
+  // room in that position must say so rather than be failed for terrain.
+  // ------------------------------------------------------------------
+  if (controller) {
+    const openStands = [];
+    for (const [dx, dy] of D8) {
+      const x = controller.x + dx,
+        y = controller.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      if (isWall(terrain, x, y)) continue;
+      const k = key(x, y);
+      if (rampartSet.has(k)) continue;
+      if (!ext[idx(x, y)]) continue; // inside the wall — no attacker reaches it
+      openStands.push(k);
+    }
+    if (openStands.length) {
+      late("shell", "ctrl-ring",
+        `${openStands.length} walkable tile(s) D8-adjacent to the controller carry no rampart and are ` +
+          `OUTSIDE the wall (${openStands.join(" ")}) — a hostile claim or attack creep can stand there ` +
+          `and work the controller unopposed. The goal document's rule for a controller outside the ` +
+          `shell is its adjacent ring, and this ring is open`,
+        openStands,
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // A BATTERY THAT IS MERELY LEGAL HAS TO SAY SO — measured, not taken on trust.
+  //
+  // This used to read meta.towers.minShellDmg and believe it, with a comment
+  // admitting as much ("a planner that lied about its damage would not be caught
+  // here"). It did not have to be a lie to be wrong: a cut that goes stale under
+  // layer 7 makes that number honest arithmetic over the wrong tiles, which is
+  // how E11S10 shipped a declared 2670 over a real 1380. So the weakest face is
+  // now RE-DERIVED here from the shipped tower list and the seal tiles this
+  // validator found for itself, and the gate is applied to that. The planner's
+  // own number is still reported when the two disagree, because the disagreement
+  // is the interesting part.
+  // ------------------------------------------------------------------
   const tw = plan.meta?.towers;
   if (tw && typeof tw.minShellDmg === "number") {
-    const weak = tw.minShellDmg < WEAK_SHELL_DMG;
+    const scored = sealTiles.length
+      ? sealTiles
+      : (plan.meta?.shell?.cut || []).map((c) => ({ x: c.x, y: c.y }));
+    let measured = null;
+    let worst = null;
+    for (const c of scored) {
+      let sum = 0;
+      for (const t of s.tower || []) {
+        const r = chebyshev(t, c);
+        sum += r <= 5 ? 600 : r >= 20 ? 150 : 600 - (r - 5) * 30;
+      }
+      if (measured === null || sum < measured) {
+        measured = sum;
+        worst = c;
+      }
+    }
+    if (measured === null) measured = tw.minShellDmg;
+    const weak = measured < WEAK_SHELL_DMG;
     const farRefill = (tw.maxRefill ?? 0) > REFILL_NOTE;
     if (weak || farRefill) {
       const declaredWeak = declared.some(
         (sf) => sf && normGate(sf.gate) === "towers" && sf.kind === "weak-battery",
       );
       const why = [
-        weak ? `weakest wall face ${tw.minShellDmg} < ${WEAK_SHELL_DMG}` : null,
+        weak
+          ? `weakest SEALING tile ${measured} < ${WEAK_SHELL_DMG}` +
+            (worst ? ` (${worst.x},${worst.y}` : "") +
+            (worst && measured !== tw.minShellDmg
+              ? `; the plan's own cut-wide reading is ${tw.minShellDmg})`
+              : worst
+                ? ")"
+                : "")
+          : null,
         farRefill ? `furthest tower refill walk ${tw.maxRefill} > ${REFILL_NOTE}` : null,
       ]
         .filter(Boolean)

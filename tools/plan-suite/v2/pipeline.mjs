@@ -129,6 +129,39 @@ export function composePlan(d, shellOpts = {}) {
     }
     plan.meta.counts.extension = ex.extension.length;
     plan.meta.extensions = ex.extMeta;
+    // WHY THIS ROOM WENT SHALLOW, in the room's own numbers.
+    //
+    // A shallow extension is a personal rampart forever, so a room that ships
+    // one owes an explanation, and "deepExhausted: false" was actively
+    // misleading: it is set only when a dig comes back empty, so every room
+    // whose corridor budget ran out first reported false and read like a
+    // placement that simply chose badly. It is not — see the rescue block in
+    // layer-ext. Both exits are named here, and where the budget is the cause
+    // the rescue has already been tried and arbitrated.
+    if (ex.extMeta.shallow > 0) {
+      plan.meta.notes = plan.meta.notes || [];
+      plan.meta.notes.push(
+        `SHALLOW EXTENSIONS: ${ex.extMeta.shallow} of ${ex.extension.length} sit at depth < 4 and rent a ` +
+          `personal rampart forever. Cause: ` +
+          (ex.extMeta.deepExhausted
+            ? `the deep skeleton ran out of diggable deep floor — digDeep() came back empty, which is `+
+              `the ONE exit that sets deepExhausted. Note that this is a statement about phase 1; if `+
+              `this room also carries a SEALED INTERIOR FLOOR note, some of that deep floor existed `+
+              `then and was sealed off later by the mass itself`
+            : ex.extMeta.stubExhausted
+              ? `the corridor paving budget, not the floor. Phase 1 ended on stubUsed ` +
+                `${ex.extMeta.stubRoads}/${ex.extMeta.stubCap}, not on a failed dig, so deepExhausted is ` +
+                `false while the room still could not reach what deep floor is left. The ` +
+                `off-ladder deep rescue was run and ${
+                  ex.extMeta.rescueSpent
+                    ? `spent ${ex.extMeta.rescueSpent} extra road tile(s) on it`
+                    : `found nothing to pave toward`
+                }; what survives is deep floor with no road face and no budget left to give it one`
+              : `the placement invariant refused the remaining deep tiles (each would strand a ` +
+                `structure face, a road or the wall)`) +
+          `.`,
+      );
+    }
     if (ex.extension.length < EXT_TARGET) {
       plan.meta.shortfalls.push({
         gate: "extension",
@@ -195,14 +228,38 @@ export function composePlan(d, shellOpts = {}) {
 //
 // The thresholds are read off the fleet, not invented: pathController runs
 // min 4 / median 10 / p90 25 / max 75, and pathSourcesSum min 8 / median 27 /
-// p90 46 / max 84. So >25 and >60 each mark roughly the worst decile — the
-// rooms where the hauler bill is a terrain verdict rather than a planner
-// choice — and any seedSkip at all means the top-ranked confluence was rejected
-// outright. The wording below is generated from the room's own numbers.
+// p90 45 / max 84 (159 rooms, re-measured this round; the p90 for source sum
+// was quoted as 46 and is 45). The absolute lines >25 and >60 each marked
+// roughly the worst decile — the rooms where the hauler bill is a terrain
+// verdict rather than a planner choice — and any seedSkip at all means the
+// top-ranked confluence was rejected outright. The wording below is generated
+// from the room's own numbers.
+//
+// ...AND AN ABSOLUTE CLIFF IS THE WRONG SHAPE FOR A FLEET STATISTIC.
+//
+// The two absolute gates were derived from the fleet distribution once and then
+// frozen as bare numbers, and a bare number cuts wherever it happens to land.
+// It landed badly: E11S10 hauls 58 and E5S1 hauls 55 — 2.15x and 2.04x the
+// fleet median, 4th and 5th worst in 159 rooms — and both were SILENT, because
+// 58 and 55 are under 60. E19S6 at 62 declares. Two tiles of terrain is the
+// entire difference between "the hauler bill is a terrain verdict worth a
+// paragraph" and "nothing to see here", which is not a distinction the room
+// shape supports. The controller-walk gate has the same defect and 9 more
+// silent rooms above 2x its median (E12S9 and E6S2 sit at exactly 25, one tile
+// under a strict >).
+//
+// So each gate now fires on the ABSOLUTE line OR on twice the fleet median,
+// whichever is lower. Twice-the-median is the relative form of the same
+// judgement the absolute number was reaching for, it moves with the fleet
+// instead of with a literal, and it is stated as a multiple so the next
+// reviewer can argue with the multiple rather than reverse-engineer a cliff.
+// The medians below are measured, not assumed; the suite re-prints them every
+// run, and if they drift the gates drift with them.
 const FLEET_CTRL_WALK_MEDIAN = 10;
 const FLEET_SRC_SUM_MEDIAN = 27;
-const ECO_CTRL_WALK_GATE = 25;
-const ECO_SRC_SUM_GATE = 60;
+const ECO_REL_MULT = 2;
+const ECO_CTRL_WALK_GATE = Math.min(25, ECO_REL_MULT * FLEET_CTRL_WALK_MEDIAN);
+const ECO_SRC_SUM_GATE = Math.min(60, ECO_REL_MULT * FLEET_SRC_SUM_MEDIAN);
 
 const OCTANT = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
 function bearing(from, to) {
@@ -220,7 +277,9 @@ function declareEcoTax(plan) {
   if (pc > ECO_CTRL_WALK_GATE) {
     bits.push(
       `the controller is a ${pc}-tile walk ${bearing(hub, plan.controller)} of the hub, ` +
-        `${pc - FLEET_CTRL_WALK_MEDIAN} over the fleet median of ${FLEET_CTRL_WALK_MEDIAN} — every upgrader ` +
+        `${pc - FLEET_CTRL_WALK_MEDIAN} over the fleet median of ${FLEET_CTRL_WALK_MEDIAN} ` +
+        `(${Math.round((pc / FLEET_CTRL_WALK_MEDIAN) * 100) / 100}x it; the gate is ${ECO_CTRL_WALK_GATE}, ` +
+        `whichever is lower of the absolute 25 and ${ECO_REL_MULT}x the median) — every upgrader ` +
         `trip and every controller-link haul pays it`,
     );
   }
@@ -228,7 +287,9 @@ function declareEcoTax(plan) {
     bits.push(
       `the source paths sum to ${ps} (${plan.sources
         .map((s) => bearing(hub, s))
-        .join(" + ")}), ${ps - FLEET_SRC_SUM_MEDIAN} over the fleet median of ${FLEET_SRC_SUM_MEDIAN} — ` +
+        .join(" + ")}), ${ps - FLEET_SRC_SUM_MEDIAN} over the fleet median of ${FLEET_SRC_SUM_MEDIAN} ` +
+        `(${Math.round((ps / FLEET_SRC_SUM_MEDIAN) * 100) / 100}x it; the gate is ${ECO_SRC_SUM_GATE}, ` +
+        `whichever is lower of the absolute 60 and ${ECO_REL_MULT}x the median) — ` +
         `paid on every miner rotation and every container haul`,
     );
   }

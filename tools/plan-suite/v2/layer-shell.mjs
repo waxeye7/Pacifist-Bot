@@ -978,6 +978,96 @@ function unreachableCut(cut, walkSet) {
   return cut.filter((c) => !walkSet.has(key(c.x, c.y)));
 }
 
+/**
+ * BATTLEMENTS — where the defenders stand.
+ *
+ * Lane count picks the tiles that MATTER — a rampart facing three walkable
+ * exterior tiles is where a breach party can mass. But lanes alone is a
+ * terrain accident: a shell whose approach is one tile wide the whole way
+ * round marks almost nothing, and a room that marks 5 stands on a 17-tile
+ * cut has told its defenders to hold a wall they cannot reach in time.
+ *
+ * So the marks carry a floor as well as a preference:
+ *   - at least ceil(cut/3) stands, so a fleet minimum holds everywhere;
+ *   - every cut tile within chebyshev 2 of a stand, so a defender is always
+ *     one or two sidesteps from any tile that starts taking hits.
+ * Top-ups are chosen greedily by how much uncovered wall each one buys,
+ * ties broken by lane count then tile order — deterministic, and it still
+ * lands on the wide faces first.
+ *
+ * EXTRACTED so layer 7 can re-run it. Round 5: the inert-rampart prune can
+ * trade a cut tile against a neighbouring bubble that turns out to carry the
+ * seal, so the wall this function is asked about at layer 2 is not always the
+ * wall the room ships. The reconciliation in layer-walls re-derives the seal
+ * from the finished rampart list and calls this again — one definition of a
+ * battlement, applied to whichever wall is actually true at the time.
+ */
+export function pickBattlements(terrain, cut, extMask, walkSet) {
+  const laneCount = (c) => {
+    let lanes = 0;
+    for (const [dx, dy] of D8) {
+      const x = c.x + dx,
+        y = c.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      if (walkable(terrain, x, y) && extMask[idx(x, y)]) lanes++;
+    }
+    return lanes;
+  };
+  // a stand a defender cannot walk to is decoration: only cut tiles the
+  // interior walk region actually touches may be marked. This is the SAME
+  // region the cut was chosen against — one definition of "reachable", used by
+  // the pick, the expansion guard and the marks alike.
+  const standable = cut.filter((c) => walkSet.has(key(c.x, c.y)));
+  const pool = standable.length ? standable : cut;
+
+  const battlements = [];
+  const marked = new Set();
+  const mark = (c) => {
+    const k = key(c.x, c.y);
+    if (marked.has(k)) return;
+    marked.add(k);
+    battlements.push({ x: c.x, y: c.y });
+  };
+  for (const c of pool) if (laneCount(c) >= 3) mark(c);
+
+  const covered = (c) => battlements.some((b) => chebyshev(b, c) <= 2);
+  const floor = Math.ceil(cut.length / 3);
+  let guard = 0;
+  while (guard++ < cut.length + 1) {
+    const uncovered = cut.filter((c) => !covered(c));
+    if (!uncovered.length && battlements.length >= floor) break;
+    let best = null;
+    for (const c of pool) {
+      const k = key(c.x, c.y);
+      if (marked.has(k)) continue;
+      const gain = uncovered.filter((u) => chebyshev(u, c) <= 2).length;
+      const lanes = laneCount(c);
+      if (
+        !best ||
+        gain > best.gain ||
+        (gain === best.gain && lanes > best.lanes) ||
+        (gain === best.gain && lanes === best.lanes && (c.x < best.c.x || (c.x === best.c.x && c.y < best.c.y)))
+      ) {
+        best = { c, gain, lanes };
+      }
+    }
+    if (!best) break; // every standable tile is already marked — say so in meta
+    mark(best.c);
+  }
+  // Honest shortfall, not a rounding error: a cut tile no battlement can
+  // cover is a tile no defender can stand within two steps of, and in every
+  // fleet case so far that is because the interior cannot reach that wall
+  // segment at all (the min-cut sealed a pocket the base does not own).
+  // Name the tiles so the next reviewer can see it rather than infer it.
+  const battlementGapTiles = cut.filter((c) => !covered(c)).map((c) => ({ x: c.x, y: c.y }));
+  return {
+    battlements,
+    battlementGapTiles,
+    battlementGap: battlementGapTiles.length,
+    battlementUnreachable: cut.length - standable.length,
+  };
+}
+
 /** deep, buildable, unoccupied interior tiles left for the RCL8 program */
 function countDeep(terrain, ext, depth, cutSet, occupied, roadSet) {
   let deep = 0;
@@ -1557,86 +1647,36 @@ export function planShell(terrain, plan, opts = {}) {
   // wide range-3 park bubble the old version rented. The controller link and
   // its container are covered above (links + containers all go through
   // addBubble); they are listed here so the intent survives a refactor.
+  //
+  // STAND-DENIAL IS A PURPOSE, AND IT HAS TO BE WRITTEN DOWN.
+  //
+  // Round-5 regression: layer 7's inert-rampart prune keeps a rampart only when
+  // deleting it would move some STRUCTURE's exterior flag or depth. That test
+  // is exactly right for doubled wall and it is exactly wrong here — a ring
+  // tile protects no structure of ours at all. What it protects is a room
+  // OBJECT: it denies the only tiles a hostile claim/attack creep can stand on
+  // to reach the controller. Deleting one changes no depth anywhere and the
+  // prune duly deleted 161 of them across 66 rooms, quietly reopening every
+  // ring the goal document mandates. So the ring is DECLARED, by tile, and
+  // layer 7 reads the declaration instead of re-deriving intent from geometry.
+  const standDenial = [];
   if (!enclosedController) {
-    for (const p of ctrlRing) addBubble(p);
+    for (const p of ctrlRing) {
+      addBubble(p);
+      standDenial.push({ x: p.x, y: p.y });
+    }
     addBubble(ctrlLink);
     for (const c of plan.structures.container) if (chebyshev(c, ctrl) <= 3) addBubble(c);
   }
 
-  // --- battlements: where the defenders stand ---
-  // Lane count picks the tiles that MATTER — a rampart facing three walkable
-  // exterior tiles is where a breach party can mass. But lanes alone is a
-  // terrain accident: a shell whose approach is one tile wide the whole way
-  // round marks almost nothing, and a room that marks 5 stands on a 17-tile
-  // cut has told its defenders to hold a wall they cannot reach in time.
-  //
-  // So the marks carry a floor as well as a preference:
-  //   - at least ceil(cut/3) stands, so a fleet minimum holds everywhere;
-  //   - every cut tile within chebyshev 2 of a stand, so a defender is always
-  //     one or two sidesteps from any tile that starts taking hits.
-  // Top-ups are chosen greedily by how much uncovered wall each one buys,
-  // ties broken by lane count then tile order — deterministic, and it still
-  // lands on the wide faces first.
-  const laneCount = (c) => {
-    let lanes = 0;
-    for (const [dx, dy] of D8) {
-      const x = c.x + dx,
-        y = c.y + dy;
-      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
-      if (walkable(terrain, x, y) && extF[idx(x, y)]) lanes++;
-    }
-    return lanes;
-  };
-  // a stand a defender cannot walk to is decoration: only cut tiles the
-  // interior walk region actually touches may be marked. This is the SAME
-  // region the cut was chosen against — one definition of "reachable", used by
-  // the pick, the expansion guard and the marks alike.
+  // --- battlements: where the defenders stand --- (see pickBattlements)
   const walkFinal = walkF;
-  const standable = cut.filter((c) => walkFinal.has(key(c.x, c.y)));
-  const pool = standable.length ? standable : cut;
-
-  const battlements = [];
-  const marked = new Set();
-  const mark = (c) => {
-    const k = key(c.x, c.y);
-    if (marked.has(k)) return;
-    marked.add(k);
-    battlements.push({ x: c.x, y: c.y });
-  };
-  for (const c of pool) if (laneCount(c) >= 3) mark(c);
-
-  const covered = (c) => battlements.some((b) => chebyshev(b, c) <= 2);
-  const floor = Math.ceil(cut.length / 3);
-  let guard = 0;
-  while (guard++ < cut.length + 1) {
-    const uncovered = cut.filter((c) => !covered(c));
-    if (!uncovered.length && battlements.length >= floor) break;
-    let best = null;
-    for (const c of pool) {
-      const k = key(c.x, c.y);
-      if (marked.has(k)) continue;
-      const gain = uncovered.filter((u) => chebyshev(u, c) <= 2).length;
-      const lanes = laneCount(c);
-      if (
-        !best ||
-        gain > best.gain ||
-        (gain === best.gain && lanes > best.lanes) ||
-        (gain === best.gain && lanes === best.lanes && (c.x < best.c.x || (c.x === best.c.x && c.y < best.c.y)))
-      ) {
-        best = { c, gain, lanes };
-      }
-    }
-    if (!best) break; // every standable tile is already marked — say so in meta
-    mark(best.c);
-  }
-  // Honest shortfall, not a rounding error: a cut tile no battlement can
-  // cover is a tile no defender can stand within two steps of, and in every
-  // fleet case so far that is because the interior cannot reach that wall
-  // segment at all (the min-cut sealed a pocket the base does not own).
-  // Name the tiles so the next reviewer can see it rather than infer it.
-  const battlementGapTiles = cut.filter((c) => !covered(c)).map((c) => ({ x: c.x, y: c.y }));
-  const battlementGap = battlementGapTiles.length;
-  const battlementUnreachable = cut.length - standable.length;
+  const {
+    battlements,
+    battlementGapTiles,
+    battlementGap,
+    battlementUnreachable,
+  } = pickBattlements(terrain, cut, extF, walkFinal);
 
   // ------------------------------------------------------------------
   // DECLARE WHAT WE COULD NOT BUY
@@ -1848,6 +1888,10 @@ export function planShell(terrain, plan, opts = {}) {
       // cut tiles deleted because deleting them changed nothing measurable —
       // doubled wall and rings around pockets the base cannot walk to
       uselessCut,
+      // tiles whose DECLARED PURPOSE is denying an attacker a stand next to a
+      // room object rather than covering a structure of ours. Layer 7's prune
+      // may not touch these — see the note at the ring above.
+      standDenial,
       // links the wall had to go through anyway (declared above), and whether
       // the "route around every link" rule had to be dropped to find a cut
       linkOnCut: linkOnCut.map((t) => ({ x: t.x, y: t.y })),
