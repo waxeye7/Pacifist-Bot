@@ -1405,10 +1405,18 @@ Creep.prototype.acquireEnergyWithContainersAndOrDroppedEnergy = function acquire
             return this.pos.findClosestByRange(drops) || drops[0];
         }
 
-        // Containers
-        let container: any =
-            Game.getObjectById(room.memory.Structures.container) || room.findContainers(free);
-        if (container && (container.store[RESOURCE_ENERGY] <= 0 || !hasRoom(container, strict))) {
+        // Containers. Never read room.memory.Structures.container directly: the
+        // raw id skips every exclusion (bin / hub storage / controller depot)
+        // AND the fill floor, which is what locked carriers onto a near-empty
+        // drop-off while the source containers spilled. findContainers() keeps
+        // the same cache, but only hands it back once it passes the filter.
+        let container: any = room.findContainers(free);
+        // Retry at the low threshold whenever the first pass produced nothing
+        // usable — including when it produced NOTHING AT ALL. The old guard was
+        // `if (container && ...)`, so the fallback could never run in the exact
+        // case it exists for: no container holds more than this creep's free
+        // capacity, so the creep idled next to a half-full source container.
+        if (!container || container.store[RESOURCE_ENERGY] <= 0 || !hasRoom(container, strict)) {
             container = room.findContainers(1);
         }
         if (container && container.store[RESOURCE_ENERGY] > 0 && hasRoom(container, strict)) {

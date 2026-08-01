@@ -129,9 +129,31 @@ Room.prototype.findStorageLink = function(): object | void {
 }
 
 Room.prototype.findStorage = function() {
+    if(!this.memory.Structures) {
+        this.memory.Structures = {};
+    }
+    // Structures.storage doubles as the PRE-storage hub container id, and every
+    // reader is `getObjectById(Structures.storage) || room.findStorage()` — that
+    // refreshes only when the cached object DIES. A hub container outlives the
+    // storage build, so without this the cache stays pinned to a 2k container
+    // and every `storage > 15000 / 50000 / 100000` gate reads <= 2000 forever.
+    // The real storage always wins, and a repoint invalidates the bin so it gets
+    // re-derived next to the storage instead of next to the old container
+    // (same repoint rooms.ts does per tick — this is the version that also
+    // covers rooms/ticks the room loop has not reached yet).
+    if(this.storage && this.storage.my) {
+        if(this.memory.Structures.storage !== this.storage.id) {
+            this.memory.Structures.storage = this.storage.id;
+            delete this.memory.Structures.bin;
+        }
+        return this.storage;
+    }
     let storage = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});
     if(storage.length) {
-        this.memory.Structures.storage = storage[0].id;
+        if(this.memory.Structures.storage !== storage[0].id) {
+            this.memory.Structures.storage = storage[0].id;
+            delete this.memory.Structures.bin;
+        }
         return storage[0];
     }
     else {
@@ -185,24 +207,37 @@ Room.prototype.findContainers = function(capacity) {
     if(!this.memory.Structures) {
         this.memory.Structures = {};
     }
-    let containers;
-    if(this.controller && this.controller.my && this.controller.level !== 0) {
-        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity && i.id !== this.memory.Structures.bin && i.id !== this.memory.Structures.storage && i.id !== this.memory.Structures.controllerLink});
-    }
-    else {
-        containers = this.find(FIND_STRUCTURES, {filter: (i) => i.structureType == STRUCTURE_CONTAINER && i.store[RESOURCE_ENERGY] > capacity});
-    }
+    // The bin / hub-storage container / controller depot are DROP-OFF points.
+    // Withdrawing from them just moves energy in a circle, so they are excluded
+    // in a room we own and have developed (a reserved remote has no hub).
+    const excluded = !!(this.controller && this.controller.my && this.controller.level !== 0);
+    // ONE predicate for both the scan and the sticky cache. They used to differ:
+    // the cache branch checked only `store >= capacity` on the raw id, skipping
+    // every exclusion above and using `>=` where the scan uses `>`. A cached hub
+    // container the scan would never return therefore kept getting handed back,
+    // which is how carriers ended up parked on a near-empty drop-off while the
+    // source containers overflowed.
+    const usable = (i:any) =>
+        !!i &&
+        i.structureType == STRUCTURE_CONTAINER &&
+        i.room && i.room.name == this.name &&
+        i.store[RESOURCE_ENERGY] > capacity &&
+        (!excluded ||
+            (i.id !== this.memory.Structures.bin &&
+             i.id !== this.memory.Structures.storage &&
+             i.id !== this.memory.Structures.controllerLink));
+
+    let containers = this.find(FIND_STRUCTURES, {filter: usable});
     if(containers.length > 0) {
+        // Sticky pick: keep the current container while it still passes the SAME
+        // filter, so haulers don't thrash between two equally full containers.
         let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
-        if(CurrentContainer && CurrentContainer.store[RESOURCE_ENERGY] >= capacity) {
-            this.memory.Structures.container = CurrentContainer.id;
+        if(usable(CurrentContainer)) {
             return CurrentContainer;
         }
-        else {
-            containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-            this.memory.Structures.container = containers[0].id;
-            return containers[0];
-        }
+        containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+        this.memory.Structures.container = containers[0].id;
+        return containers[0];
     }
 }
 
