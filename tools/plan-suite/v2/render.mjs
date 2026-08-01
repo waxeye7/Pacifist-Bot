@@ -38,12 +38,36 @@ function iconSprite(parts, p, cell, file, scale = 0.92) {
   );
 }
 
+/**
+ * THE PAINT IS SHARED, NOT COPIED.
+ *
+ * Roads and ramparts have no sprite in the asset pack — the gallery draws them
+ * by hand. The animation player has to draw the same two things on a canvas,
+ * and the moment those numbers are typed out twice the film and the plan start
+ * to drift (a road that is grey here and blue there is a bug report waiting to
+ * happen). Both renderers read these.
+ */
+export const ROAD_PAINT = { base: "#4a4a4a", top: "#6e6e6e", inset: 0.12, size: 0.76 };
+export const RAMPART_PAINT = {
+  fill: "#3f6",
+  stroke: "#5f8",
+  inset: 1,
+  radius: 0.2,
+  fillOpacity: 0.28,
+  hotFillOpacity: 0.5,
+  strokeOpacity: 0.8,
+  strokeWidth: 0.8,
+  hotStrokeWidth: 1.5,
+};
+
 function iconRoad(parts, p, cell) {
   const ox = p.x * cell,
     oy = p.y * cell;
-  parts.push(`<rect x="${ox}" y="${oy}" width="${cell}" height="${cell}" fill="#4a4a4a"/>`);
   parts.push(
-    `<rect x="${ox + cell * 0.12}" y="${oy + cell * 0.12}" width="${cell * 0.76}" height="${cell * 0.76}" fill="#6e6e6e"/>`,
+    `<rect x="${ox}" y="${oy}" width="${cell}" height="${cell}" fill="${ROAD_PAINT.base}"/>`,
+  );
+  parts.push(
+    `<rect x="${ox + cell * ROAD_PAINT.inset}" y="${oy + cell * ROAD_PAINT.inset}" width="${cell * ROAD_PAINT.size}" height="${cell * ROAD_PAINT.size}" fill="${ROAD_PAINT.top}"/>`,
   );
 }
 
@@ -94,13 +118,27 @@ const STRUCT_ICON = {
   mineral: ["harvest-mineral.svg"],
 };
 
-function iconStructure(parts, p, cell, type) {
+/**
+ * The exact sprite stack (file + scale) the gallery paints for a structure
+ * type. Exported so the animation player can rasterise the SAME layers onto a
+ * canvas instead of maintaining a second, quietly-diverging icon table.
+ */
+export function iconLayers(type) {
   const files = STRUCT_ICON[type];
-  if (!files) return;
-  for (const f of files) {
-    const scale = type === "spawn" && f === "operate-spawn.svg" ? 0.55 : 0.94;
-    iconSprite(parts, p, cell, f, scale);
-  }
+  if (!files) return [];
+  return files.map((file) => ({
+    file,
+    scale: type === "spawn" && file === "operate-spawn.svg" ? 0.55 : 0.94,
+  }));
+}
+
+/** base64 data URI for one asset file — the gallery's own embedder. */
+export function iconDataUri(name) {
+  return loadIconDataUri(name);
+}
+
+function iconStructure(parts, p, cell, type) {
+  for (const l of iconLayers(type)) iconSprite(parts, p, cell, l.file, l.scale);
 }
 
 /**
@@ -174,8 +212,9 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
       if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
       const o = ox(p.x, p.y);
       const hot = battle.has(`${p.x},${p.y}`);
+      const R = RAMPART_PAINT;
       parts.push(
-        `<rect x="${o.x * cell + 1}" y="${o.y * cell + 1}" width="${cell - 2}" height="${cell - 2}" rx="${cell * 0.2}" fill="#3f6" fill-opacity="${hot ? 0.5 : 0.28}" stroke="#5f8" stroke-opacity="0.8" stroke-width="${hot ? 1.5 : 0.8}"/>`,
+        `<rect x="${o.x * cell + R.inset}" y="${o.y * cell + R.inset}" width="${cell - 2 * R.inset}" height="${cell - 2 * R.inset}" rx="${cell * R.radius}" fill="${R.fill}" fill-opacity="${hot ? R.hotFillOpacity : R.fillOpacity}" stroke="${R.stroke}" stroke-opacity="${R.strokeOpacity}" stroke-width="${hot ? R.hotStrokeWidth : R.strokeWidth}"/>`,
       );
     }
   }

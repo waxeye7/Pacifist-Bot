@@ -16,22 +16,164 @@ import {
   fetchRoomsFromMongo,
   fetchAllClaimableRooms,
 } from "./shared.mjs";
-import { renderRoomSvg, hubCrop, legendHtml } from "./render.mjs";
+import {
+  renderRoomSvg,
+  hubCrop,
+  legendHtml,
+  iconLayers,
+  iconDataUri,
+  ROAD_PAINT,
+  RAMPART_PAINT,
+} from "./render.mjs";
 import { EXT_TARGET, planRoom } from "./pipeline.mjs";
+
+/**
+ * Sprite kinds the animation player rasterises. Same names render.mjs uses, so
+ * `iconLayers` hands back the SAME file stack the gallery SVG draws.
+ */
+const ANIM_SPRITE_TYPES = [
+  "extension",
+  "storage",
+  "terminal",
+  "tower",
+  "lab",
+  "link",
+  "nuker",
+  "observer",
+  "extractor",
+  "spawn",
+  "container",
+  "source",
+  "mineral",
+  "controller",
+];
+
+/**
+ * The gallery's own base64 embedder, once per page, keyed by structure type.
+ * The player rasterises each stack into a tile-sized offscreen canvas — it does
+ * not own an icon table of its own, because a second table is a table that
+ * drifts.
+ */
+function animSprites() {
+  const out = {};
+  for (const t of ANIM_SPRITE_TYPES) {
+    const layers = iconLayers(t)
+      .map((l) => ({ u: iconDataUri(l.file), s: l.scale }))
+      .filter((l) => l.u);
+    if (layers.length) out[t] = layers;
+  }
+  return out;
+}
+
+/**
+ * The claims stage is the one stage whose tiles are HETEROGENEOUS — storage,
+ * terminal, links, spawns and containers all land in it — and the frame file
+ * only carries a colour. Rather than reverse-engineering the type back out of
+ * the palette (which would break the moment a colour changed), the type is read
+ * straight off the shipped plan and matched by coordinate. Every other stage is
+ * one type by construction, so a stage->type map covers it.
+ */
+function animClaimKinds(plan) {
+  const out = {};
+  for (const t of ["container", "link", "spawn", "terminal", "storage"]) {
+    for (const p of plan.structures[t] || []) out[`${p.x},${p.y}`] = t;
+  }
+  return out;
+}
+
+/**
+ * PER-LAYER CAPTIONS, READ OFF THE PLAN — NEVER INVENTED.
+ *
+ * Each string below is assembled from a number the planner already published
+ * (meta.counts, meta.towers, meta.extensions, meta.shellEscalation, shell.*).
+ * If the plan does not carry the number, the layer gets no caption; a made-up
+ * caption on a film whose whole selling point is "this is what actually
+ * happened" would be the worst possible bug.
+ */
+function animNotes(plan) {
+  const m = plan.meta || {};
+  const c = m.counts || {};
+  const n = {};
+
+  if (plan.seed && plan.hub) {
+    n.seed = `seed (${plan.seed.x},${plan.seed.y}) → hub (${plan.hub.x},${plan.hub.y})`;
+  }
+  if (m.coreSize != null) n.core = `${m.coreSize} tiles in the pocket`;
+  n.claims =
+    `${c.spawn ?? 0} spawns · ${c.container ?? 0} containers · ${c.link ?? 0} links` +
+    (m.storageAccessD4 != null ? ` · storage reachable from ${m.storageAccessD4} sides` : "");
+  if (c.road != null) {
+    n.roads = `${c.road} road tiles — hub, spawns, sources, controller, plus the layer-7 rampart spurs (drawn here so the web reads as one net)`;
+  }
+
+  const bits = [];
+  const esc = m.shellEscalation;
+  if (esc && esc.walked) {
+    const why = [];
+    if (esc.why?.demand) why.push("the tight wall left no deep floor for the program");
+    if (esc.why?.shallow) why.push("extensions were being forced onto shallow, exposed tiles");
+    if (esc.why?.mobility) why.push("defenders could not out-walk an attacker around the wall");
+    const tried = `${esc.steps} composition${esc.steps === 1 ? "" : "s"} tried`;
+    // A WALK IS NOT A PURCHASE. Most rooms that walk the ladder walk it and
+    // come home: pickedNeedDeepBonus 0 means the wider bubbles were composed,
+    // priced and REJECTED. Reporting that as "bought a wider wall" would put a
+    // purchase on the caption of a room that bought nothing.
+    bits.push(
+      (esc.pickedNeedDeepBonus > 0
+        ? `ESCALATED — bought a wider wall (+${esc.pickedNeedDeepBonus} deep-tile demand, ${tried})`
+        : `WALKED THE LADDER — ${tried}, and the cheapest cut still won`) +
+        (why.length ? ` because ${why.join(" and ")}` : ""),
+    );
+  }
+  if (plan.shell) {
+    bits.push(
+      `${plan.shell.cut.length} cut tiles · ${plan.shell.upkeepPerTick} e/tick upkeep · ${plan.shell.deepTiles} deep tiles sealed in` +
+        ` · controller ${plan.shell.enclosedController ? "inside" : "outside"}, sources ${plan.shell.enclosedSources}/${(plan.sources || []).length} inside`,
+    );
+  }
+  if (bits.length) n.ramparts = bits.join(" — ");
+
+  if (m.towers) {
+    n.towers = `the weakest wall tile still takes ${m.towers.minShellDmg} damage a tick (${m.towers.avgShellDmg} average) · every tower refills within ${m.towers.maxRefill} steps`;
+  }
+  if (c.lab) n.labs = `${c.lab} labs — both inputs within range 2 of every output`;
+  if (c.nuker) n.nuker = "300k energy and 5k ghodium have to be hauled here, so it hugs the hub";
+  if (plan.mineral) n.extractor = `mineral at (${plan.mineral.x},${plan.mineral.y}) — the extractor is built on top of it`;
+  if (m.extensions) {
+    n.extensions =
+      `${m.extensions.placed}/${m.extensions.target} placed · ${m.extensions.stubRoads} stub roads` +
+      (m.extensions.corridorFallback
+        ? ` · ${m.extensions.corridorFallback} placed road-blind (fallback)`
+        : " · every one of them D4 on a road");
+  }
+  return n;
+}
 
 /**
  * Browser replay of the planner stages — dependency-free vanilla JS.
  *
- * Five stacked canvases:
- *   terrain   drawn once
- *   scaffoldA dt + distance fields   — dimmed once the plan starts landing
- *   scaffoldB basin + core           — dimmed once the wall goes up
- *   cells     the actual plan        — stays at full brightness
- *   marks     sources / controller / mineral + transient FX (pulses, ranges)
+ * SIX stacked canvases, bottom to top:
+ *   terrain    drawn once
+ *   scaffoldA  dt + distance fields  — dimmed once the plan starts landing
+ *   scaffoldB  basin + core          — dimmed once the wall goes up
+ *   under      roads + ramparts      — BELOW the structures, the same order
+ *                                      renderRoomSvg stacks them in
+ *   cells      the structures themselves, as real Screeps sprites
+ *   marks      sources / controller / mineral + transient FX
  *
- * Frames come from anim/<room>.json (export-anim.mjs). Optional `meta` in that
- * file drives pacing (stageRates) and the scaffold split (stageScaffold); if it
- * is missing the player degrades to the old flat-rate single-layer behaviour.
+ * THE FRAMES ARE NOT TOUCHED HERE. Steps come from anim/<room>.json exactly as
+ * export-anim.mjs wrote them; this file only decides how a tile is DRAWN, how
+ * fast, and what the banner says about it. The last frame is therefore the
+ * shipped plan tile for tile, painted with the sprite stack render.mjs gives
+ * the gallery.
+ *
+ * PACING IS PER TILE, NOT PER STEP. export-anim emits roads, ramparts and
+ * extensions in chunks of 2-3 tiles because the payload has to fit inside a
+ * 100KB memory segment — a packaging decision, not a storytelling one. The
+ * player expands those chunks back into single placements, so the eye gets one
+ * thing at a time and "step forward" means one structure rather than three.
+ * Scaffolding steps (whole distance-transform bands, whole flood rings) stay
+ * atomic: they are one idea each, and one of them is 300 tiles wide.
  */
 function animPlayerHtml(plan) {
   const marks = JSON.stringify({
@@ -40,30 +182,48 @@ function animPlayerHtml(plan) {
     mineral: plan.mineral || null,
     hub: plan.hub || null,
   });
+  const sprites = JSON.stringify(animSprites());
+  const claimKinds = JSON.stringify(animClaimKinds(plan));
+  const battlements = JSON.stringify(
+    (plan.shell?.battlements || []).map((b) => `${b.x},${b.y}`),
+  );
+  const notes = JSON.stringify(animNotes(plan));
   // NOTE: the player script uses string concat, never template literals —
   // this whole file is one big JS template literal already.
-  return `<div class="card anim-card" id="anim"><h3>Animated plan — watch the planner think</h3>
+  return `<div class="card anim-card" id="anim"><h3>Animated plan — watch the planner build ${plan.room}</h3>
 <div class="anim-wrap" id="animWrap">
   <canvas class="anim-layer" id="animTerrain"></canvas>
   <canvas class="anim-layer" id="animScaffA"></canvas>
   <canvas class="anim-layer" id="animScaffB"></canvas>
+  <canvas class="anim-layer" id="animUnder"></canvas>
   <canvas class="anim-layer" id="animCells"></canvas>
   <canvas class="anim-layer" id="animMarks"></canvas>
   <div class="anim-title" id="animTitle"><div class="tt" id="animTitleName"></div><div class="te" id="animTitleWhy"></div></div>
 </div>
+<div class="anim-banner">
+  <div class="ab-head">
+    <span class="ab-badge" id="animBadge">Layer 1</span>
+    <span class="ab-name" id="animName">&mdash;</span>
+    <span class="ab-count" id="animCount">&mdash;</span>
+  </div>
+  <div class="ab-why" id="animWhy"></div>
+  <div class="ab-note" id="animNote"></div>
+</div>
 <div class="anim-bar"><div class="anim-bar-fill" id="animBar"></div></div>
 <div class="anim-ctl">
-  <button id="animPlay" class="btn">&#10074;&#10074; pause</button>
-  <button id="animRestart" class="btn">&#8635; restart</button>
-  <label class="spd">speed
-    <select id="animSpeed">
-      <option value="0.5">0.5&times;</option>
-      <option value="1" selected>1&times;</option>
-      <option value="2">2&times;</option>
-      <option value="4">4&times;</option>
-    </select>
-  </label>
-  <span class="count" id="animCount">&mdash;</span>
+  <button id="animPrevStage" class="btn" title="back to the start of this layer (or the one before it)">&#8676;</button>
+  <button id="animBack" class="btn" title="one placement back">&#9664;</button>
+  <button id="animPlay" class="btn btn-wide">&#10074;&#10074; pause</button>
+  <button id="animFwd" class="btn" title="one placement forward">&#9654;</button>
+  <button id="animNextStage" class="btn" title="skip to the next layer">&#8677;</button>
+  <button id="animRestart" class="btn" title="back to the first frame">&#8635;</button>
+  <label class="trail"><input type="checkbox" id="animTrails" checked/>trails</label>
+</div>
+<div class="anim-ctl">
+  <span class="spd-lab">speed</span>
+  <input type="range" id="animSpeed" min="-2" max="3" step="0.25" value="0"/>
+  <span class="spd-val" id="animSpeedVal">1&times;</span>
+  <span class="rate" id="animRate"></span>
 </div>
 <div class="stages" id="animStages"></div>
 <div class="anim-label" id="animLabel">loading anim/${plan.room}.json &hellip;</div>
@@ -73,32 +233,60 @@ function animPlayerHtml(plan) {
   var ROOM = ${JSON.stringify(plan.room)};
   var TERRAIN = ${JSON.stringify(plan.terrain)};
   var MARKS = ${marks};
-  var CELL = 12, N = 50, W = CELL * N, BASE_RATE = 8, HOLD_MS = 2400;
-  var TITLE_HOLD = 700, TITLE_FADE = 1000;
+  var SPR = ${sprites};
+  var CLAIMK = ${claimKinds};
+  var BATTL = ${battlements};
+  var NOTES = ${notes};
+  var RP = ${JSON.stringify(ROAD_PAINT)};
+  var MP = ${JSON.stringify(RAMPART_PAINT)};
 
-  // stage -> [TITLE CARD, one-line explainer, HUD noun, chip label]
+  var CELL = 15, N = 50, W = CELL * N;
+  // TILES PER SECOND at 1x, before the per-stage multiplier in meta.stageRates.
+  // The building stages sit on rates 0.4-1.5, so the structures land at roughly
+  // 1.3-4.8 tiles/sec — slow enough to follow a single extension with your eye.
+  var TILE_RATE = 3.2;
+  var HOLD_MS = 3600;          // dwell on the finished plan before looping
+  var LAYER_PAUSE_MS = 1100;   // beat between layers, so the cut is legible
+  var TITLE_HOLD = 900, TITLE_FADE = 900;
+
+  var BATT = {};
+  for (var bi = 0; bi < BATTL.length; bi++) BATT[BATTL[bi]] = 1;
+
+  // stage -> [layer number, plain name, one-line WHY, counted noun, chip]
   var STAGE_INFO = {
-    dt:         ['DISTANCE TRANSFORM', 'how far every tile sits from the nearest wall', 'bands', 'dt'],
-    fields:     ['DISTANCE FIELDS', 'walk-distance flood out of each source and the controller', 'rings', 'fields'],
-    seed:       ['CONFLUENCE SEED', 'the one tile with the cheapest total walk to everything that matters', 'seed', 'seed'],
-    basin:      ['BASIN', 'grow out from the seed, cheapest walk first — how much room is there?', 'rings', 'basin'],
-    core:       ['CORE POCKET', 'the open pocket the hub trio has to fit inside', 'tiles', 'core'],
-    claims:     ['CLAIM TILES', 'storage, terminal, link, spawns — one deliberate tile at a time', 'claims', 'claims'],
-    roads:      ['ROAD NETWORK', 'one connected web: hub to spawns to sources to controller', 'roads', 'roads'],
-    ramparts:   ['MIN-CUT', 'the cheapest wall that seals the base', 'ramparts', 'min-cut'],
-    towers:     ['TOWERS', 'set-cover the shell so no wall tile is out of tower range', 'towers', 'towers'],
-    labs:       ['LAB DIAMOND', '10 labs packed so every reagent pair is within reach', 'labs', 'labs'],
-    nuker:      ['NUKER', 'one deep tile, as far inside the wall as it gets', 'nuker', 'nuker'],
-    observer:   ['OBSERVER', 'anywhere inside the wall — it only has to exist', 'observer', 'observer'],
-    extractor:  ['EXTRACTOR', 'the one structure built ON a room object — it sits on the mineral', 'extractor', 'extractor'],
-    extensions: ['EXTENSIONS', 'flanking the corridors, closest to the hub first — every one on a road face', 'extensions', 'extensions']
+    dt:         [1, 'reading the room', 'how far every tile sits from the nearest wall — the wide-open ground is where a base can fit', 'tiles', '1 · dt'],
+    fields:     [1, 'walking distances', 'flood out from every source and the controller: how many steps does a hauler pay from here?', 'tiles', '1 · fields'],
+    seed:       [1, 'the seed', 'the single tile with the cheapest total walk to everything the room earns from', 'tile', '1 · seed'],
+    basin:      [1, 'the basin', 'grow out from the seed, cheapest walk first — is there actually room here?', 'tiles', '1 · basin'],
+    core:       [1, 'the core pocket', 'the open pocket the hub trio has to fit inside', 'tiles', '1 · core'],
+    claims:     [1, 'the hub', 'storage, terminal, link, spawns and miner seats — one deliberate tile at a time', 'tiles', '1 · hub'],
+    roads:      [1, 'the roads', 'one connected web: hub to spawns to sources to controller', 'tiles', '1 · roads'],
+    ramparts:   [2, 'the wall', 'the cheapest rampart line that seals the base (distance-weighted min-cut)', 'ramparts', '2 · wall'],
+    towers:     [3, 'towers', 'set-cover the wall so no rampart tile is out of tower range', 'towers', '3 · towers'],
+    labs:       [4, 'labs', 'the one stamp worth keeping — a diamond where every reagent pair is in reach', 'labs', '4 · labs'],
+    nuker:      [5, 'the nuker', 'one deep tile hugging the hub, because everything it eats has to be carried', 'nuker', '5 · nuker'],
+    observer:   [5, 'the observer', 'needs no access at all, so it takes the far leftover tile', 'observer', '5 · observer'],
+    extractor:  [5, 'the extractor', 'the one structure built ON a room object — it sits on the mineral', 'extractor', '5 · extractor'],
+    extensions: [6, 'extensions', 'growing corridors into deep, safe floor — 60 of them, every one on a road face', 'extensions', '6 · extensions']
   };
   function info(stage) {
-    return STAGE_INFO[stage] || [String(stage).toUpperCase().replace(/_/g, ' '), '', 'steps', String(stage)];
+    return STAGE_INFO[stage] ||
+      [0, String(stage).replace(/_/g, ' '), '', 'steps', String(stage)];
   }
-  // single-tile steps in these stages do NOT pulse (they are bulk fill / scaffolding)
-  var NO_PULSE = { roads: 1, ramparts: 1, extensions: 1, labs: 1, dt: 1, fields: 1, basin: 1, core: 1 };
-  // scaffold stages that live on the LATE scaffold canvas (dimmed only at the wall)
+
+  // stage -> what a tile of it IS. '#road' / '#rampart' are hand-painted (no
+  // sprite exists for either); claims is heterogeneous and uses CLAIMK instead.
+  var STAGE_KIND = {
+    roads: '#road', ramparts: '#rampart', towers: 'tower', labs: 'lab',
+    nuker: 'nuker', observer: 'observer', extractor: 'extractor',
+    extensions: 'extension'
+  };
+  // stages whose steps are expanded back into ONE PLACEMENT PER TILE
+  var EXPAND = {
+    claims: 1, roads: 1, ramparts: 1, towers: 1, labs: 1,
+    nuker: 1, observer: 1, extractor: 1, extensions: 1
+  };
+  // scaffold stages that live on the LATE scaffold canvas (dimmed at the wall)
   var SCAFF_LATE = { basin: 1, core: 1 };
   var TOWER_RANGE = 5;
 
@@ -118,7 +306,8 @@ function animPlayerHtml(plan) {
   var elScaffA = document.getElementById('animScaffA');
   var elScaffB = document.getElementById('animScaffB');
   var gT = ctx2d('animTerrain'), gA = ctx2d('animScaffA'), gB = ctx2d('animScaffB'),
-      gC = ctx2d('animCells'), gM = ctx2d('animMarks');
+      gU = ctx2d('animUnder'), gC = ctx2d('animCells'), gM = ctx2d('animMarks');
+  var rr = typeof gC.roundRect === 'function';
 
   // --- terrain (once) ---
   for (var y = 0; y < N; y++) {
@@ -134,30 +323,119 @@ function animPlayerHtml(plan) {
     gT.beginPath(); gT.moveTo(0, i * CELL); gT.lineTo(W, i * CELL); gT.stroke();
   }
 
-  // --- markers + transient FX (redrawn while pulses are alive) ---
-  function dot(p, fill, stroke) {
-    if (!p) return;
+  // --- sprites: rasterise each gallery icon stack into one tile-sized canvas --
+  // Composing once up front means a 300-placement rewind is 300 blits instead
+  // of 600 SVG rasterisations, and it keeps the layer ORDER (border under body)
+  // even though the images resolve out of order.
+  var SPRITE = {};
+  function loadSprites(cb) {
+    var jobs = [], k, j;
+    for (k in SPR) for (j = 0; j < SPR[k].length; j++) jobs.push([k, j, SPR[k][j].u]);
+    if (!jobs.length) return cb();
+    var left = jobs.length, imgs = {};
+    function done() { if (--left === 0) { compose(imgs); cb(); } }
+    for (var i = 0; i < jobs.length; i++) {
+      (function (job) {
+        var im = new Image();
+        im.onload = function () { imgs[job[0] + '#' + job[1]] = im; done(); };
+        im.onerror = done;
+        im.src = job[2];
+      })(jobs[i]);
+    }
+  }
+  function compose(imgs) {
+    var R = Math.max(24, Math.round(CELL * dpr * 2)); // 2x supersample, then blit down
+    for (var k in SPR) {
+      var off = document.createElement('canvas');
+      off.width = R; off.height = R;
+      var g = off.getContext('2d'), drew = 0;
+      for (var j = 0; j < SPR[k].length; j++) {
+        var im = imgs[k + '#' + j];
+        if (!im) continue;
+        var sc = SPR[k][j].s, pad = R * (1 - sc) / 2, sz = R * sc;
+        try { g.drawImage(im, pad, pad, sz, sz); drew++; } catch (e) { /* unusable asset */ }
+      }
+      if (drew) SPRITE[k] = off;
+    }
+  }
+
+  // --- tile painters (the gallery's own paint, shared via render.mjs) --------
+  function paintRect(g, x, y, hex) {
+    g.fillStyle = hex;
+    var px = x * CELL + 1, py = y * CELL + 1, w = CELL - 2;
+    if (rr) { g.beginPath(); g.roundRect(px, py, w, w, 2.5); g.fill(); }
+    else g.fillRect(px, py, w, w);
+  }
+  function paintRoad(g, x, y) {
+    g.fillStyle = RP.base;
+    g.fillRect(x * CELL, y * CELL, CELL, CELL);
+    g.fillStyle = RP.top;
+    g.fillRect(x * CELL + CELL * RP.inset, y * CELL + CELL * RP.inset,
+               CELL * RP.size, CELL * RP.size);
+  }
+  function paintRampart(g, x, y) {
+    var hot = BATT[x + ',' + y] === 1;
+    var px = x * CELL + MP.inset, py = y * CELL + MP.inset, w = CELL - 2 * MP.inset;
+    g.save();
+    g.beginPath();
+    if (rr) g.roundRect(px, py, w, w, CELL * MP.radius); else g.rect(px, py, w, w);
+    g.globalAlpha = hot ? MP.hotFillOpacity : MP.fillOpacity;
+    g.fillStyle = MP.fill; g.fill();
+    g.globalAlpha = MP.strokeOpacity;
+    g.strokeStyle = MP.stroke;
+    g.lineWidth = hot ? MP.hotStrokeWidth : MP.strokeWidth;
+    g.stroke();
+    g.restore();
+  }
+  function kindFor(stage, x, y) {
+    if (stage === 'claims') return CLAIMK[x + ',' + y] || null;
+    return STAGE_KIND[stage] || null;
+  }
+  function paintTile(g, stage, x, y, hex) {
+    var k = kindFor(stage, x, y);
+    if (k === '#road') { paintRoad(g, x, y); return; }
+    if (k === '#rampart') { paintRampart(g, x, y); return; }
+    if (k && SPRITE[k]) { g.drawImage(SPRITE[k], x * CELL, y * CELL, CELL, CELL); return; }
+    paintRect(g, x, y, hex);   // scaffolding, the sitter tile, anything unmapped
+  }
+
+  // --- markers + transient FX ----------------------------------------------
+  var cursor = null;
+  function disc(p, fill) {
     gM.beginPath();
-    gM.arc(p.x * CELL + CELL / 2, p.y * CELL + CELL / 2, CELL * 0.34, 0, 6.2832);
+    gM.arc(p.x * CELL + CELL / 2, p.y * CELL + CELL / 2, CELL * 0.42, 0, 6.2832);
     gM.fillStyle = fill; gM.fill();
-    gM.lineWidth = 1.4; gM.strokeStyle = stroke; gM.stroke();
+  }
+  function mark(p, kind, fill) {
+    if (!p) return;
+    disc(p, fill);
+    if (SPRITE[kind]) gM.drawImage(SPRITE[kind], p.x * CELL, p.y * CELL, CELL, CELL);
   }
   function drawMarks() {
     gM.clearRect(0, 0, W, W);
-    for (var s = 0; s < MARKS.sources.length; s++) dot(MARKS.sources[s], '#ffe14d', '#7a5c00');
-    dot(MARKS.controller, '#66ccff', '#083b57');
-    dot(MARKS.mineral, '#e0a6ff', '#3d1a4d');
+    for (var s = 0; s < MARKS.sources.length; s++) mark(MARKS.sources[s], 'source', 'rgba(255,225,77,0.30)');
+    mark(MARKS.controller, 'controller', 'rgba(102,204,255,0.30)');
+    mark(MARKS.mineral, 'mineral', 'rgba(224,166,255,0.30)');
     if (MARKS.hub) {
       gM.beginPath();
       gM.arc(MARKS.hub.x * CELL + CELL / 2, MARKS.hub.y * CELL + CELL / 2, CELL * 0.5, 0, 6.2832);
       gM.lineWidth = 1.6; gM.strokeStyle = '#00E676'; gM.stroke();
     }
+    // the eye needs somewhere to be between placements — this is where the
+    // planner's hand is resting right now
+    if (cursor) {
+      gM.save();
+      gM.strokeStyle = '#fff'; gM.globalAlpha = 0.9; gM.lineWidth = 1.6;
+      if (gM.setLineDash) gM.setLineDash([3, 3]);
+      gM.strokeRect(cursor.x * CELL - 1.5, cursor.y * CELL - 1.5, CELL + 3, CELL + 3);
+      gM.restore();
+    }
   }
-  drawMarks();
 
   var fx = [], fxDirty = false;
   function addPulse(x, y, hex) { fx.push({ k: 0, x: x, y: y, c: hex, t0: now(), life: 620 }); }
-  function addRange(x, y, r) { fx.push({ k: 1, x: x, y: y, r: r, c: '#ff8844', t0: now(), life: 1100 }); }
+  function addRange(x, y, r) { fx.push({ k: 1, x: x, y: y, r: r, c: '#ff8844', t0: now(), life: 1200 }); }
+  function addTrail(x, y, hex) { fx.push({ k: 2, x: x, y: y, c: hex, t0: now(), life: 2600 }); }
   function drawFx(t) {
     if (!fx.length) {
       if (fxDirty) { drawMarks(); fxDirty = false; }
@@ -178,7 +456,7 @@ function animPlayerHtml(plan) {
         gM.beginPath(); gM.arc(cx, cy, CELL * (0.45 + 3.0 * e), 0, 6.2832); gM.stroke();
         gM.globalAlpha = (1 - a) * 0.55;
         gM.beginPath(); gM.arc(cx, cy, CELL * (0.45 + 1.5 * e), 0, 6.2832); gM.stroke();
-      } else {
+      } else if (f.k === 1) {
         var sx = (f.x - f.r) * CELL, sy = (f.y - f.r) * CELL, sw = (2 * f.r + 1) * CELL;
         gM.strokeStyle = f.c; gM.lineWidth = 1.6;
         if (gM.setLineDash) gM.setLineDash([5, 4]);
@@ -186,24 +464,30 @@ function animPlayerHtml(plan) {
         gM.strokeRect(sx, sy, sw, sw);
         gM.globalAlpha = (1 - a) * 0.10;
         gM.fillStyle = f.c; gM.fillRect(sx, sy, sw, sw);
+      } else {
+        gM.globalAlpha = (1 - a) * 0.5;
+        gM.fillStyle = f.c;
+        gM.fillRect(f.x * CELL + 2, f.y * CELL + 2, CELL - 4, CELL - 4);
       }
       gM.restore();
     }
     fxDirty = true;
   }
 
-  // --- title cards ---
+  // --- title cards ----------------------------------------------------------
   var elTitle = document.getElementById('animTitle');
   var elTName = document.getElementById('animTitleName');
   var elTWhy = document.getElementById('animTitleWhy');
   var titleT0 = 0, titleOn = false;
   function showTitle(stage) {
-    var inf = stage === '__done'
-      ? ['PLAN COMPLETE', ROOM + ' · ' + steps.length + ' planner steps']
-      : info(stage);
-    if (!inf[0]) return;
-    elTName.textContent = inf[0];
-    elTWhy.textContent = inf[1] || '';
+    var txt;
+    if (stage === '__done') txt = ['PLAN COMPLETE', ROOM + ' · ' + plc.length + ' placements'];
+    else {
+      var inf = info(stage);
+      txt = [(inf[0] ? 'LAYER ' + inf[0] + ' — ' : '') + inf[1].toUpperCase(), inf[2] || ''];
+    }
+    elTName.textContent = txt[0];
+    elTWhy.textContent = txt[1];
     titleT0 = now(); titleOn = true;
     tickTitle(titleT0);
   }
@@ -217,36 +501,46 @@ function animPlayerHtml(plan) {
     elTitle.style.transform = 'scale(' + (1.05 - 0.05 * Math.min(1, age / 420)) + ')';
   }
 
-  // --- playback ---
-  var steps = null, palette = [], idx = 0, acc = 0, last = 0, holdUntil = 0, playing = true, speed = 1;
-  var stageStart = {}, stageCount = {}, stageOrder = [], curStage = null;
+  // --- playback -------------------------------------------------------------
+  var steps = null, palette = [], plc = [], idx = 0, acc = 0, last = 0;
+  var holdUntil = 0, pauseUntil = 0, playing = true, speed = 1, trails = true;
+  var stageStart = {}, stageTiles = {}, tileRun = [], stageOrder = [], curStage = null;
   var rates = {}, scaff = {}, fadeAAt = Infinity, fadeBAt = Infinity;
   var elPlay = document.getElementById('animPlay');
-  var elRestart = document.getElementById('animRestart');
-  var elSpeed = document.getElementById('animSpeed');
   var elCount = document.getElementById('animCount');
   var elLabel = document.getElementById('animLabel');
   var elStages = document.getElementById('animStages');
   var elBar = document.getElementById('animBar');
+  var elBadge = document.getElementById('animBadge');
+  var elName = document.getElementById('animName');
+  var elWhy = document.getElementById('animWhy');
+  var elNote = document.getElementById('animNote');
+  var elSpeed = document.getElementById('animSpeed');
+  var elSpeedVal = document.getElementById('animSpeedVal');
+  var elRate = document.getElementById('animRate');
+  var elTrails = document.getElementById('animTrails');
 
-  var rr = typeof gC.roundRect === 'function';
-  /** scaffold stages paint on their own canvas so they can be dimmed later */
+  /** roads and ramparts go UNDER the structures, exactly as the gallery stacks them */
   function ctxFor(stage) {
+    if (stage === 'roads' || stage === 'ramparts') return gU;
     if (!scaff[stage]) return gC;
     return SCAFF_LATE[stage] ? gB : gA;
   }
-  function drawStep(st, g) {
-    var c = st.cells, col = null;
-    for (var i = 0; i < c.length; i += 3) {
-      var hex = palette[c[i + 2]];
-      if (hex !== col) { col = hex; g.fillStyle = hex; }
-      var x = c[i] * CELL + 1, y = c[i + 1] * CELL + 1, w = CELL - 2;
-      if (rr) { g.beginPath(); g.roundRect(x, y, w, w, 2.5); g.fill(); }
-      else g.fillRect(x, y, w, w);
+  function rateOf(stage) {
+    var r = rates[stage];
+    return (r > 0) ? r : 1;
+  }
+  function drawPlacement(p) {
+    var st = steps[p.s], g = ctxFor(st.stage), c = st.cells, i;
+    if (p.o < 0) {
+      for (i = 0; i < c.length; i += 3) paintTile(g, st.stage, c[i], c[i + 1], palette[c[i + 2]]);
+    } else {
+      paintTile(g, st.stage, c[p.o], c[p.o + 1], palette[c[p.o + 2]]);
     }
   }
   function clearCells() {
-    gA.clearRect(0, 0, W, W); gB.clearRect(0, 0, W, W); gC.clearRect(0, 0, W, W);
+    gA.clearRect(0, 0, W, W); gB.clearRect(0, 0, W, W);
+    gU.clearRect(0, 0, W, W); gC.clearRect(0, 0, W, W);
   }
   /** the thinking layers recede as the real base lands on top of them */
   function applyFades(i) {
@@ -255,44 +549,66 @@ function animPlayerHtml(plan) {
   }
 
   function seek(to) {
+    if (to < 0) to = 0;
+    if (to > plc.length) to = plc.length;
     clearCells();
     fx.length = 0; fxDirty = true;
-    for (var i = 0; i < to; i++) drawStep(steps[i], ctxFor(steps[i].stage));
-    idx = to; acc = 0; holdUntil = 0;
+    for (var i = 0; i < to; i++) drawPlacement(plc[i]);
+    idx = to; acc = 0; holdUntil = 0; pauseUntil = 0;
+    cursor = to > 0 ? tileOf(plc[to - 1]) : null;
     applyFades(idx);
-    curStage = steps[Math.min(idx, steps.length - 1)].stage;
+    curStage = steps[plc[Math.min(idx, plc.length - 1)].s].stage;
     showTitle(curStage);
+    drawMarks();
     hud();
+  }
+  function tileOf(p) {
+    var c = steps[p.s].cells, o = p.o < 0 ? 0 : p.o;
+    return { x: c[o], y: c[o + 1] };
   }
 
   function advance() {
-    var st = steps[idx];
-    if (st.stage !== curStage) { curStage = st.stage; showTitle(st.stage); }
-    drawStep(st, ctxFor(st.stage));
-    // a single tile landing is a decision — announce it
-    if (st.cells.length === 3 && !NO_PULSE[st.stage]) {
-      addPulse(st.cells[0], st.cells[1], palette[st.cells[2]] || '#ffffff');
-      if (st.stage === 'towers') addRange(st.cells[0], st.cells[1], TOWER_RANGE);
+    var p = plc[idx], st = steps[p.s];
+    drawPlacement(p);
+    if (p.o >= 0) {
+      var x = st.cells[p.o], yy = st.cells[p.o + 1], hex = palette[st.cells[p.o + 2]] || '#ffffff';
+      cursor = { x: x, y: yy };
+      addPulse(x, yy, hex);
+      if (trails) addTrail(x, yy, hex);
+      if (st.stage === 'towers') addRange(x, yy, TOWER_RANGE);
+    } else {
+      cursor = null;
     }
     idx++;
     applyFades(idx);
+    drawMarks();
   }
 
   function hud() {
-    var done = idx >= steps.length;
-    var i = Math.min(idx, steps.length);
-    var cur = steps[Math.min(idx, steps.length - 1)];
-    var active = done ? stageOrder[stageOrder.length - 1] : cur.stage;
+    var done = idx >= plc.length;
+    var i = Math.min(idx, plc.length);
+    var cur = plc[Math.min(idx, plc.length - 1)];
+    var active = done ? stageOrder[stageOrder.length - 1] : steps[cur.s].stage;
     var inf = info(active);
-    var within = done ? stageCount[active] : i - stageStart[active];
-    elCount.textContent = inf[0] + ' · ' + within + '/' + stageCount[active] + ' ' + inf[2];
-    elLabel.textContent = done ? 'plan complete — looping' : cur.label;
-    elBar.style.width = (100 * i / steps.length) + '%';
+    var tiles = done ? stageTiles[active] : (i > stageStart[active] ? tileRun[i - 1] : 0);
+    elBadge.textContent = inf[0] ? 'Layer ' + inf[0] : 'stage';
+    elName.textContent = inf[1];
+    elWhy.textContent = inf[2] || '';
+    elNote.textContent = NOTES[active] || '';
+    elCount.textContent = tiles + ' / ' + stageTiles[active] + ' ' + inf[3];
+    elLabel.textContent = done
+      ? 'plan complete — this last frame IS the shipped plan, tile for tile'
+      : steps[cur.s].label;
+    elBar.style.width = (100 * i / plc.length) + '%';
+    // the scaffolding stages are paced a WHOLE BAND at a time, so "tiles/sec"
+    // would be a lie there by two orders of magnitude
+    elRate.textContent = '≈ ' + (TILE_RATE * rateOf(active) * speed).toFixed(1) +
+      (EXPAND[active] ? ' tiles/sec here' : ' bands/sec here');
     var kids = elStages.children;
     for (var k = 0; k < kids.length; k++) {
-      var st = kids[k].getAttribute('data-stage');
-      var pos = stageOrder.indexOf(st);
-      kids[k].className = 'stage' + (st === active ? ' on' : (pos < stageOrder.indexOf(active) ? ' past' : ''));
+      var sg = kids[k].getAttribute('data-stage');
+      kids[k].className = 'stage' + (sg === active ? ' on'
+        : (stageOrder.indexOf(sg) < stageOrder.indexOf(active) ? ' past' : ''));
     }
   }
 
@@ -305,72 +621,127 @@ function animPlayerHtml(plan) {
     var dt = (t - last) / 1000; last = t;
     if (dt > 0.5) dt = 0.5;
     if (!playing) return;
-    if (idx >= steps.length) {
+    if (idx >= plc.length) {
       if (!holdUntil) holdUntil = t + HOLD_MS;
       else if (t >= holdUntil) { holdUntil = 0; seek(0); }
       return;
     }
-    // budget in SECONDS: each step costs 1/(BASE_RATE * stageRate), so a stage
-    // rate of 5 skims and a rate of 0.4 dwells — crossing a stage boundary
-    // mid-tick just changes the price of the next step.
+    if (pauseUntil) {
+      if (t < pauseUntil) return;
+      pauseUntil = 0;
+    }
+    // budget in SECONDS: a placement costs 1/(TILE_RATE * stageRate), so a
+    // stage rate of 5 skims and a rate of 0.4 dwells on every single tile.
     acc += dt * speed;
     var moved = false, guard = 0;
-    while (idx < steps.length) {
-      var r = rates[steps[idx].stage];
-      if (!(r > 0)) r = 1;
-      var cost = 1 / (BASE_RATE * r);
+    while (idx < plc.length) {
+      var sg = steps[plc[idx].s].stage;
+      if (sg !== curStage) {
+        // BEAT BETWEEN LAYERS. The cut used to happen mid-stride and the eye
+        // never registered that the subject had changed.
+        curStage = sg; showTitle(sg); hud();
+        pauseUntil = t + LAYER_PAUSE_MS / Math.max(0.5, speed);
+        acc = 0;
+        return;
+      }
+      var cost = 1 / (TILE_RATE * rateOf(sg));
       if (acc < cost) break;
       acc -= cost; advance(); moved = true;
-      if (++guard > 800) { acc = 0; break; }
+      if (++guard > 400) { acc = 0; break; }
     }
     if (moved) {
       hud();
-      if (idx >= steps.length) showTitle('__done');
+      if (idx >= plc.length) showTitle('__done');
     }
   }
 
-  elPlay.onclick = function () {
-    playing = !playing;
+  function setPlaying(v) {
+    playing = v;
     elPlay.innerHTML = playing ? '&#10074;&#10074; pause' : '&#9654; play';
-  };
-  elRestart.onclick = function () { seek(0); };
-  elSpeed.onchange = function () { speed = parseFloat(elSpeed.value); };
+  }
+  function stageOf(i) { return steps[plc[Math.min(i, plc.length - 1)].s].stage; }
 
-  fetch('anim/' + ROOM + '.json', { cache: 'no-cache' })
-    .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-    .then(function (a) {
-      steps = a.steps;
-      palette = [];
-      for (var k in a.palette) palette[+k] = a.palette[k];
-      // meta is optional — without it every stage runs at 1x on one cell layer
-      var meta = a.meta || {};
-      rates = meta.stageRates || {};
-      scaff = meta.stageScaffold || {};
-      for (var i = 0; i < steps.length; i++) {
-        var sg = steps[i].stage;
-        if (!(sg in stageStart)) { stageStart[sg] = i; stageOrder.push(sg); }
-        stageCount[sg] = (stageCount[sg] || 0) + 1;
-      }
-      // dt+fields recede once real tiles get claimed; basin+core once the wall goes up
-      fadeAAt = stageStart.claims !== undefined ? stageStart.claims
-        : (stageStart.roads !== undefined ? stageStart.roads : Infinity);
-      fadeBAt = stageStart.ramparts !== undefined ? stageStart.ramparts
-        : (stageStart.towers !== undefined ? stageStart.towers : Infinity);
-      for (var j = 0; j < stageOrder.length; j++) {
-        var b = document.createElement('button');
-        b.className = 'stage'; b.textContent = info(stageOrder[j])[3];
-        b.setAttribute('data-stage', stageOrder[j]);
-        b.setAttribute('title', info(stageOrder[j])[1]);
-        b.onclick = (function (name) { return function () { seek(stageStart[name]); }; })(stageOrder[j]);
-        elStages.appendChild(b);
-      }
-      seek(0);
-      requestAnimationFrame(frame);
-    })
-    .catch(function (e) {
-      elLabel.textContent = 'no animation for ' + ROOM + ' (' + e.message +
-        ') — run: node tools/plan-suite/v2/export-anim.mjs --all';
-    });
+  elPlay.onclick = function () { setPlaying(!playing); };
+  document.getElementById('animRestart').onclick = function () { seek(0); };
+  document.getElementById('animFwd').onclick = function () {
+    setPlaying(false);
+    if (idx < plc.length) { curStage = stageOf(idx); advance(); hud(); }
+  };
+  document.getElementById('animBack').onclick = function () {
+    setPlaying(false); seek(idx - 1);
+  };
+  document.getElementById('animNextStage').onclick = function () {
+    var here = stageOrder.indexOf(stageOf(idx >= plc.length ? plc.length - 1 : idx));
+    var nxt = here + 1;
+    while (nxt < stageOrder.length && stageStart[stageOrder[nxt]] <= idx) nxt++;
+    seek(nxt < stageOrder.length ? stageStart[stageOrder[nxt]] : plc.length);
+  };
+  document.getElementById('animPrevStage').onclick = function () {
+    var here = stageOrder.indexOf(stageOf(Math.min(idx, plc.length - 1)));
+    var top = stageStart[stageOrder[here]];
+    // rewind to the top of THIS layer first; a second press goes back one more
+    seek(idx > top + 1 ? top : (here > 0 ? stageStart[stageOrder[here - 1]] : 0));
+  };
+  elSpeed.oninput = function () {
+    speed = Math.pow(2, parseFloat(elSpeed.value));
+    elSpeedVal.innerHTML = (speed < 1 ? speed.toFixed(2).replace(/0+$/, '') : speed.toFixed(2).replace(/\\.?0+$/, '')) + '&times;';
+    if (steps) hud();
+  };
+  elTrails.onchange = function () { trails = elTrails.checked; };
+
+  loadSprites(function () {
+    drawMarks();
+    fetch('anim/' + ROOM + '.json', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function (a) {
+        steps = a.steps;
+        palette = [];
+        for (var k in a.palette) palette[+k] = a.palette[k];
+        // meta is optional — without it every stage runs at 1x on one cell layer
+        var meta = a.meta || {};
+        rates = meta.stageRates || {};
+        scaff = meta.stageScaffold || {};
+
+        // EXPAND THE CHUNKS. export-anim packs 2-3 tiles per step to fit a
+        // memory segment; that is packaging, and the film should not inherit it.
+        for (var i = 0; i < steps.length; i++) {
+          var st = steps[i];
+          if (EXPAND[st.stage]) {
+            for (var o = 0; o < st.cells.length; o += 3) plc.push({ s: i, o: o, n: 1 });
+          } else {
+            plc.push({ s: i, o: -1, n: st.cells.length / 3 });
+          }
+        }
+        for (var j = 0; j < plc.length; j++) {
+          var sg = steps[plc[j].s].stage;
+          if (!(sg in stageStart)) { stageStart[sg] = j; stageOrder.push(sg); stageTiles[sg] = 0; }
+          stageTiles[sg] += plc[j].n;
+          tileRun[j] = stageTiles[sg];
+        }
+        // dt+fields recede once real tiles get claimed; basin+core at the wall
+        fadeAAt = stageStart.claims !== undefined ? stageStart.claims
+          : (stageStart.roads !== undefined ? stageStart.roads : Infinity);
+        fadeBAt = stageStart.ramparts !== undefined ? stageStart.ramparts
+          : (stageStart.towers !== undefined ? stageStart.towers : Infinity);
+        for (var q = 0; q < stageOrder.length; q++) {
+          var b = document.createElement('button');
+          var inf = info(stageOrder[q]);
+          b.className = 'stage'; b.textContent = inf[4];
+          b.setAttribute('data-stage', stageOrder[q]);
+          b.setAttribute('title', inf[1] + ' — ' + inf[2]);
+          b.onclick = (function (name) {
+            return function () { seek(stageStart[name]); };
+          })(stageOrder[q]);
+          elStages.appendChild(b);
+        }
+        seek(0);
+        requestAnimationFrame(frame);
+      })
+      .catch(function (e) {
+        elLabel.textContent = 'no animation for ' + ROOM + ' (' + e.message +
+          ') — run: node tools/plan-suite/v2/export-anim.mjs --all';
+      });
+  });
 })();
 </script>`;
 }
@@ -493,9 +864,9 @@ h1{margin:0 0 6px} .sub{color:#9ab;line-height:1.5;max-width:1100px}
 .card svg{display:block;image-rendering:auto;max-width:100%;height:auto}
 table{border-collapse:collapse;margin-top:12px;font-size:13px}
 td,th{border:1px solid #333;padding:6px 10px}
-.anim-card{width:628px}
-.anim-wrap{position:relative;width:600px;height:600px;border-radius:6px;overflow:hidden;background:#000}
-.anim-layer{position:absolute;left:0;top:0;width:600px;height:600px;transition:opacity .6s cubic-bezier(.4,0,.2,1)}
+.anim-card{width:778px}
+.anim-wrap{position:relative;width:750px;height:750px;border-radius:6px;overflow:hidden;background:#000}
+.anim-layer{position:absolute;left:0;top:0;width:750px;height:750px;transition:opacity .6s cubic-bezier(.4,0,.2,1)}
 .anim-title{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
   pointer-events:none;opacity:0;text-align:center;padding:0 30px;
   background:radial-gradient(ellipse at center,rgba(0,0,0,.62) 0%,rgba(0,0,0,.28) 45%,rgba(0,0,0,0) 72%)}
@@ -503,14 +874,27 @@ td,th{border:1px solid #333;padding:6px 10px}
   text-shadow:0 0 18px rgba(0,190,255,.55),0 2px 6px #000}
 .anim-title .te{margin-top:8px;font-size:14px;letter-spacing:.6px;color:#9fd6f2;
   max-width:460px;line-height:1.45;text-shadow:0 1px 5px #000}
+.anim-banner{margin-top:10px;background:#101820;border:1px solid #23323d;border-left:3px solid #2b6a86;
+  border-radius:0 8px 8px 0;padding:9px 12px;min-height:62px}
+.ab-head{display:flex;align-items:baseline;gap:10px}
+.ab-badge{background:#12303f;color:#8cf;border:1px solid #2b6a86;border-radius:999px;padding:2px 10px;
+  font-size:11px;letter-spacing:1.2px;text-transform:uppercase;white-space:nowrap}
+.ab-name{font-size:17px;font-weight:700;color:#eaf6ff;letter-spacing:.3px}
+.ab-count{margin-left:auto;font-variant-numeric:tabular-nums;color:#9fd6f2;font-size:12.5px;
+  letter-spacing:.4px;white-space:nowrap}
+.ab-why{margin-top:4px;color:#b9cdd8;font-size:13px;line-height:1.45}
+.ab-note{margin-top:4px;color:#7f96a3;font-size:11.5px;line-height:1.4;font-variant-numeric:tabular-nums}
 .anim-bar{height:4px;background:#222;border-radius:2px;margin-top:10px;overflow:hidden}
 .anim-bar-fill{height:100%;width:0;background:#8cf;transition:width .08s linear}
-.anim-ctl{display:flex;align-items:center;gap:10px;margin-top:10px;font-size:13px;color:#9ab}
+.anim-ctl{display:flex;align-items:center;gap:8px;margin-top:10px;font-size:13px;color:#9ab}
 .btn{background:#1d1d1d;color:#dfe;border:1px solid #3a3a3a;border-radius:6px;padding:5px 10px;cursor:pointer;font-size:13px}
 .btn:hover{background:#282828}
-.spd select{background:#1d1d1d;color:#dfe;border:1px solid #3a3a3a;border-radius:6px;padding:4px 6px}
-.count{margin-left:auto;font-variant-numeric:tabular-nums;color:#cde;font-size:12px;letter-spacing:.5px;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-wide{min-width:96px}
+.trail{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:12px;color:#9ab;cursor:pointer}
+.spd-lab{font-size:12px;letter-spacing:.5px;color:#9ab}
+.anim-ctl input[type=range]{flex:1 1 auto;accent-color:#8cf;background:transparent;cursor:pointer}
+.spd-val{min-width:44px;text-align:right;color:#cde;font-variant-numeric:tabular-nums;font-size:12.5px}
+.rate{color:#7f96a3;font-size:11.5px;font-variant-numeric:tabular-nums;white-space:nowrap;min-width:132px;text-align:right}
 .stages{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 .stage{background:#171717;color:#667;border:1px solid #2a2a2a;border-radius:999px;padding:3px 10px;font-size:11px;letter-spacing:.4px;cursor:pointer}
 .stage.past{color:#9ab;border-color:#333}
