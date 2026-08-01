@@ -120,13 +120,14 @@ const run = function (creep) {
             }
             if(target) {
                 if(creep.pos.isNearTo(target)) {
-                    let result = creep.transfer(target, RESOURCE_ENERGY);
-                    if(result == 0) {
-                        let indexOfTargetId = creep.room.memory.reserveFill.indexOf(target.id);
-                        if(indexOfTargetId !== -1) {
-                            creep.room.memory.reserveFill = creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
-                        }
-                    }
+                    // No manual reservation release here: reserveFill entries are
+                    // {id, creep, t} objects now, so indexOf(target.id) never
+                    // matched — and the release it guarded assigned the RESULT of
+                    // splice() (the removed element) back over the whole list,
+                    // i.e. it would have wiped every other creep's reservation the
+                    // one time it fired. creepFunctions.liveReserveFill() drops
+                    // entries by owner/TTL, which is the release path.
+                    creep.transfer(target, RESOURCE_ENERGY);
                     if(creep.store[RESOURCE_ENERGY] > target.store.getFreeCapacity(RESOURCE_ENERGY)) {
                         let newTarget = creep.findFillerTarget();
                         if(newTarget && creep.pos.getRangeTo(newTarget) > 1) {

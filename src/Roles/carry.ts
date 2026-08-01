@@ -39,6 +39,120 @@ function findLocked(creep) {
 
 
 
+/* ---------------------------------------------------------------------------
+ * The controller depot below RCL5.
+ *
+ * Nothing refilled it. A carrier delivers to spawn/extensions/towers/storage and
+ * then parks its load; the two roles that DO know about the controller container
+ * are both out of reach down here - `filler` is a storage-room role and
+ * ControllerLinkFiller is throttled to one creep in a 12-of-70-tick window and
+ * additionally requires an upgrader to already exist (rooms.spawning.ts:1824),
+ * which is a deadlock in exactly the rooms this matters for. Measured live:
+ * E1S4 (RCL3) depot at (23,28) holding 0 with 12,797 energy rotting on the room
+ * floor and six upgraders shuttling to the source piles instead; E13S5 (RCL2)
+ * depot at (22,29) holding 0; E19S7 (RCL4) depot at (34,40) holding 80.
+ *
+ * So the carriers own it: once the spawn, the extensions and the towers are fed,
+ * the SURPLUS goes to the controller container instead of into a parked store.
+ * No new creep - the same haulers, one rung earlier than "park it in storage".
+ * ------------------------------------------------------------------------- */
+/** don't start a trip for less than this much free space in the depot */
+const DEPOT_MIN_FREE = 200;
+/** a tower under this is fed before the controller is */
+const DEPOT_TOWER_FLOOR = 500;
+/** re-resolve the depot at most this often per creep */
+const DEPOT_TTL = 100;
+
+/**
+ * The controller container, resolved the same way upgrader.ts/controllerDepot
+ * does it (range 4, never a source container, never the bin or the storage) so
+ * both ends of the line agree on which structure is "the depot".
+ *
+ * Publishing the id to room.memory.Structures.controllerLink is deliberate: it
+ * is the key the whole codebase already uses for this structure below RCL7, and
+ * Room.findContainers() skips it - without that, carriers would happily withdraw
+ * from the depot they just filled.
+ */
+function controllerDepot(creep: any): any {
+    const room = creep.room;
+    const ctrl = room.controller;
+    if(!ctrl || !ctrl.my) return null;
+    if(!room.memory.Structures) room.memory.Structures = {};
+    const S: any = room.memory.Structures;
+
+    const known: any = Game.getObjectById(S.controllerLink);
+    if(known) {
+        // a LINK is the ControllerLinkFiller's job, not a hauler's
+        return known.structureType == STRUCTURE_CONTAINER ? known : null;
+    }
+
+    const mem: any = creep.memory._depot;
+    if(mem && Game.time - (mem.t || 0) < DEPOT_TTL) {
+        return mem.id ? Game.getObjectById(mem.id) : null;
+    }
+
+    const sources = room.find(FIND_SOURCES);
+    const candidates = room.find(FIND_STRUCTURES, {filter: (s: any) =>
+        s.structureType == STRUCTURE_CONTAINER &&
+        s.id !== S.bin &&
+        s.id !== S.storage &&
+        s.pos.getRangeTo(ctrl) <= 4 &&
+        s.pos.findInRange(sources, 1).length == 0});
+    const depot: any = candidates.length ? ctrl.pos.findClosestByRange(candidates) : null;
+    creep.memory._depot = {id: depot ? depot.id : false, t: Game.time};
+    if(depot) {
+        S.controllerLink = depot.id;
+    }
+    return depot;
+}
+
+/** is every higher-priority sink in the room already fed? one answer per tick. */
+let _fedTick = -1;
+let _fedCache: {[roomName: string]: boolean} = {};
+function baseIsFed(room: any): boolean {
+    if(_fedTick !== Game.time) {
+        _fedTick = Game.time;
+        _fedCache = {};
+    }
+    if(_fedCache[room.name] !== undefined) return _fedCache[room.name];
+    let fed = true;
+    // Spawn and extensions first. energyAvailable == capacity is the cheap test;
+    // it is NOT sufficient on its own because an extension with no walkable
+    // approach is hungry forever (see utils/Reachability), which would park the
+    // room's whole surplus behind a structure nobody can reach.
+    if(room.energyAvailable < room.energyCapacityAvailable) {
+        fed = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
+            (b.structureType == STRUCTURE_SPAWN || b.structureType == STRUCTURE_EXTENSION) &&
+            b.store.getFreeCapacity(RESOURCE_ENERGY) > 0 &&
+            !isUndeliverable(room, b.id)}).length == 0;
+    }
+    // Then the towers.
+    if(fed) {
+        fed = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
+            b.structureType == STRUCTURE_TOWER &&
+            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length == 0;
+    }
+    _fedCache[room.name] = fed;
+    return fed;
+}
+
+/** the depot, but only when delivering there would not starve anything. */
+function depotSink(creep: any): any {
+    const room = creep.room;
+    const ctrl = room.controller;
+    // RCL5+ has links, an EnergyManager and real fillers for this.
+    if(!ctrl || !ctrl.my || ctrl.level < 2 || ctrl.level >= 5) return null;
+    if(creep.memory.homeRoom && creep.memory.homeRoom !== room.name) return null;
+    if(room.memory.danger) return null;
+    // cheapest test first: no depot / no room in it -> no finds at all
+    const depot = controllerDepot(creep);
+    if(!depot) return null;
+    const near = creep.pos.isNearTo(depot);
+    if(depot.store.getFreeCapacity(RESOURCE_ENERGY) < (near ? 50 : DEPOT_MIN_FREE)) return null;
+    if(!baseIsFed(room)) return null;
+    return depot;
+}
+
 /**
  * A little description of this function
  * @param {Creep} creep
@@ -103,6 +217,22 @@ function findLocked(creep) {
 
         if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        }
+
+        // Surplus goes to the controller BEFORE the load is parked in storage
+        // (or dropped at the spawn) - see controllerDepot above. Everything with
+        // a higher claim on the energy has already been checked by depotSink().
+        const depot = depotSink(creep);
+        if(depot) {
+            if(creep.pos.isNearTo(depot)) {
+                if(creep.transfer(depot, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
+                    creep.memory.full = false;
+                }
+            }
+            else {
+                creep.MoveCostMatrixRoadPrio(depot, 1);
+            }
+            return;
         }
 
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();

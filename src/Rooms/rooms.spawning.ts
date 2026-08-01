@@ -1148,7 +1148,34 @@ function add_creeps_to_spawn_list(room, spawn) {
     // young room at its current level forever. Those rosters are 2-4 upgraders
     // off a 300-550 energy spawn, which is exactly how a room is meant to climb
     // to RCL4 in the first place.
-    let upgraderEnergyFloor = storage && storage.store[RESOURCE_ENERGY] > 10000;
+    //
+    // ...and the floor has to be read off the REAL bank. `storage` here can be
+    // the hub CONTAINER (findStorage falls back to it when the room has no real
+    // storage yet) and a container caps at 2,000, so `storage > 10000` was
+    // unsatisfiable BY CONSTRUCTION - exactly the trap the RCL4 builder gate had
+    // and that the comment at :1292 already fixed. An RCL4 room without a
+    // storage therefore had sitesMayNotVetoUpgraders pinned false for as long
+    // as the planner kept sites open, i.e. permanently: live E2S7 sat at ZERO
+    // upgraders for ~2,500 ticks with four sites and a full hub container.
+    //
+    // Real storage  -> bankEnergy(), which reads room.storage ONLY (same number
+    //                  upgraderTarget()/upgradeLatch() budget from, so the floor
+    //                  and the target can no longer disagree about what "the
+    //                  bank" is).
+    // No real bank  -> there is nothing to protect and the income has nowhere
+    //                  else to go, so judge the room on what it actually has:
+    //                  a hub container at least half full, a standing floor pile
+    //                  (already-paid-for energy, see drainPressure), or a spawn
+    //                  pool that is topped up. upgraderTarget() takes the same
+    //                  view for these rooms (`!room.storage` -> base + burn) and
+    //                  lets the energy supply throttle the roster.
+    const hasRealBank = !!(room.storage && room.storage.my);
+    const hubFallback = !hasRealBank && storage && storage.store ? storage : null;
+    let upgraderEnergyFloor = hasRealBank
+        ? bankEnergy(room) > UPGRADE_FLOOR
+        : !!hubFallback && hubFallback.store[RESOURCE_ENERGY] * 2 >= hubFallback.store.getCapacity(RESOURCE_ENERGY)
+            || pressure.onFloor >= FLOOR_PILE_SMALL
+            || room.energyCapacityAvailable > 0 && room.energyAvailable * 10 >= room.energyCapacityAvailable * 9;
 
     // A REMOTE miner stands in the REMOTE room, so EnergyMinersInRoom reads 0
     // while mining is fully staffed - and every builder rung from RCL4 up

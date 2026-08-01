@@ -170,21 +170,26 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
 
     if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
         if(this.room.controller && this.room.controller.level < 7) {
-            let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 3});
+            /*
+             * `getRangeTo(controller) == 3` — EXACTLY three — is what this used
+             * to ask for, so a depot the planner put at range 1, 2 or 4 was
+             * invisible and the key stayed unset forever (and the source-
+             * container filter below it only ran when there were 2+ candidates,
+             * so a single source container at range 3 was adopted as the depot).
+             * Range 4, source containers excluded up front: the same definition
+             * upgrader.ts/controllerDepot, Roles/carry.ts and the spawn gate in
+             * rooms.spawning.ts use, so all four agree on which structure is the
+             * depot.
+             */
+            let sources = this.room.find(FIND_SOURCES);
+            let containers = this.room.find(FIND_STRUCTURES, {filter: building =>
+                building.structureType == STRUCTURE_CONTAINER &&
+                building.id !== this.room.memory.Structures.bin &&
+                building.id !== this.room.memory.Structures.storage &&
+                building.pos.getRangeTo(this.room.controller) <= 4 &&
+                building.pos.findInRange(sources, 1).length == 0});
             if(containers.length > 0) {
-                let controllerLink = this.room.controller.pos.findClosestByRange(containers);
-                if(containers.length > 1) {
-                    let sources = this.room.find(FIND_SOURCES);
-                    if(controllerLink.pos.findInRange(sources, 1).length > 0) {
-                        containers = containers.filter(function(con) {return con.id !== controllerLink.id;});
-                        let newControllerLink = this.room.controller.pos.findClosestByRange(containers);
-                        this.room.memory.Structures.controllerLink = newControllerLink.id;
-                    }
-                }
-                else {
-                    this.room.memory.Structures.controllerLink = controllerLink.id;
-                }
-
+                this.room.memory.Structures.controllerLink = this.room.controller.pos.findClosestByRange(containers).id;
             }
         }
         else {
