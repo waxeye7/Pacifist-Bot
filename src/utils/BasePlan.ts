@@ -32,7 +32,14 @@ export interface RoomBasePlan {
   score: number;
 }
 
-const PLAN_VERSION = 3;
+const PLAN_VERSION = 5;
+
+/**
+ * How far from the hub a planned extension still counts as "inside the base"
+ * for the purpose of sizing the defence shell. Everything within this radius
+ * has to end up behind the wall, otherwise the shell is a decoration.
+ */
+const SHELL_FOOTPRINT_R = 6;
 
 /** How far from edges hub must stay (exits + edge clutter). */
 const EDGE_MARGIN = 5;
@@ -234,12 +241,30 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
   let fullCut: BasePlanPos[] = [];
   let perimeterMode: RoomBasePlan["perimeterMode"] = "none";
 
+  // The shell has to enclose the BASE, not just the core stamp. Sizing the
+  // min-cut rect off storage/terminal/spawn/tower alone produced a ~7x6
+  // bounding box which, padded by 2, min-cuts straight back to its own
+  // boundary in open terrain — the "small rounded box" that leaves the
+  // controller, a source and two thirds of the planned extensions OUTSIDE the
+  // wall. Take the real footprint instead: core stamps + the extension field
+  // within SHELL_FOOTPRINT_R + the controller + any source close enough to be
+  // worth defending.
   const corePoints: BasePlanPos[] = [hub];
   if (spawn) corePoints.push({ x: spawn.pos.x, y: spawn.pos.y });
   for (const st of [STRUCTURE_STORAGE, STRUCTURE_TERMINAL, STRUCTURE_SPAWN, STRUCTURE_TOWER]) {
     for (const p of structures[st] || []) corePoints.push(p);
   }
   if (room.storage) corePoints.push({ x: room.storage.pos.x, y: room.storage.pos.y });
+
+  for (const p of structures[STRUCTURE_EXTENSION] || []) {
+    if (chebyshev(p, hub) <= SHELL_FOOTPRINT_R) corePoints.push(p);
+  }
+  const controllerPos = { x: room.controller.pos.x, y: room.controller.pos.y };
+  if (chebyshev(controllerPos, hub) <= SHELL_FOOTPRINT_R + 3) corePoints.push(controllerPos);
+  for (const s of sources) {
+    const sp = { x: s.pos.x, y: s.pos.y };
+    if (chebyshev(sp, hub) <= SHELL_FOOTPRINT_R + 3) corePoints.push(sp);
+  }
 
   const rect = rectAround(corePoints, 2);
   if (rect && rect.x2 - rect.x1 >= 2 && rect.y2 - rect.y1 >= 2) {
@@ -274,11 +299,30 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
       addRoad(hub.x + dx, hub.y + dy);
     }
   }
-  for (const p of fullCut) addRoad(p.x, p.y);
+  // Arterial roads FIRST — build order is array order, and this list used to
+  // read [hub ring, every wall tile, ramp lanes]: i.e. everywhere EXCEPT where
+  // the traffic actually is, with the wall ring queued ahead of everything. A
+  // young room would burn its whole builder budget paving 39 tiles of future
+  // wall out on the room's edge before laying a single tile between the spawn
+  // and the hub. Every filler/carrier/upgrader cycles hub <-> spawn <-> source
+  // <-> controller; unpaved, that is 1 tile / 2 ticks on plain and creeps stack
+  // up around the spawn. Pave the real arteries before the decoration.
+  const arterials: BasePlanPos[] = [];
+  if (spawn) arterials.push({ x: spawn.pos.x, y: spawn.pos.y });
+  arterials.push({ x: room.controller.pos.x, y: room.controller.pos.y });
+  for (const s of sources) arterials.push({ x: s.pos.x, y: s.pos.y });
+  for (const target of arterials) {
+    const path = greedyPath(room.name, hub, target);
+    // stop one short: never pave the source/controller tile itself
+    for (let i = 0; i < path.length - 1; i++) addRoad(path[i].x, path[i].y);
+  }
+
+  // ...then the shell service roads (ramp lanes, then the wall walk itself).
   for (const r of ramps) {
     const path = greedyPath(room.name, hub, r);
     for (const p of path) addRoad(p.x, p.y);
   }
+  for (const p of fullCut) addRoad(p.x, p.y);
   structures[STRUCTURE_ROAD] = roads;
 
   return {
@@ -439,7 +483,12 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     if (st === STRUCTURE_TERMINAL && rcl < 6) continue;
     if (st === STRUCTURE_SPAWN && rcl < 7) continue; // extra spawns only
     if (st === STRUCTURE_ROAD && rcl < 3) continue;
-    if (st === STRUCTURE_RAMPART && rcl < 3) continue;
+    // Ramparts from RCL4, matching the v2 planner's own wall gate
+    // (utils/PlanV2 wantsAtRcl: `if (type === "rampart") return lvl >= 4`).
+    // At RCL3 a shell is pure waste: no storage to pay for it, safe mode is
+    // available, and RAMPART_DECAY (300 hits / 100 ticks) outruns anything a
+    // pre-storage room can repair — the room builds a wall and watches it rot.
+    if (st === STRUCTURE_RAMPART && rcl < 4) continue;
 
     const maxAllowed =
       st === STRUCTURE_RAMPART ? 2500 : maxStructuresAtRcl(st, rcl);
@@ -453,8 +502,19 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     let remaining = maxAllowed - have;
     if (remaining <= 0) continue;
 
-    const slots =
+    let slots =
       st === STRUCTURE_RAMPART ? plan.perimeter || [] : plan.structures[st] || [];
+
+    // A road ON the wall only pays off once the wall exists (it is the shell
+    // patrol/repair lane). Before the shell RCL those tiles sit on the far edge
+    // of the base and are pure builder overhead, so drop them from the slot
+    // list rather than let them crowd out the arterials.
+    if (st === STRUCTURE_ROAD && rcl < 4) {
+      const shell = new Set<string>();
+      for (const t of plan.perimeter || []) shell.add(`${t.x},${t.y}`);
+      for (const t of plan.ramps || []) shell.add(`${t.x},${t.y}`);
+      if (shell.size) slots = slots.filter((s) => !shell.has(`${s.x},${s.y}`));
+    }
     for (const slot of slots) {
       if (remaining <= 0 || created >= maxSites) break;
       if (!isBuildable(room.name, slot.x, slot.y)) continue;

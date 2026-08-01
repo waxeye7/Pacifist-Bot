@@ -1,6 +1,7 @@
 import { getBasePlan, placeFromBasePlan, visualizeBasePlan } from "utils/BasePlan";
-import { syncPerimeterToConstructionMemory } from "utils/Perimeter";
+import { syncPerimeterToConstructionMemory, SHELL_MIN_RCL } from "utils/Perimeter";
 import { placeFromPlanV2 } from "utils/PlanV2";
+import { getFeatures, minCutWallsEnabled } from "utils/Features";
 
 /** Debug build markers only when Memory.verbose (kills yellow/orange circles) */
 function vizCircle(roomName: string, x: number, y: number, style: any) {
@@ -438,7 +439,18 @@ function construction(room) {
     }
 
     // Clear stray road sites along exits / remote corridors until base is mature
-    if (room.controller && room.controller.level < 4) {
+    if (room.controller && room.controller.level < SHELL_MIN_RCL) {
+        // Roads on the planned wall are shell infrastructure and must not be
+        // built before the shell exists (see placeFromBasePlan). Sweep any that
+        // an older plan version already queued — the shell can sit 12+ tiles
+        // out, so the "far from spawn" rule below does not catch all of them.
+        const shellTiles = new Set<string>();
+        const bp: any = room.memory.basePlan;
+        if (bp) {
+            for (const t of (bp.perimeter || []).concat(bp.ramps || [])) {
+                shellTiles.add(`${t.x},${t.y}`);
+            }
+        }
         const sites = room.find(FIND_MY_CONSTRUCTION_SITES, {
             filter: (s) => s.structureType == STRUCTURE_ROAD,
         });
@@ -448,7 +460,8 @@ function construction(room) {
             let far = false;
             const spawn: any = Game.getObjectById(room.memory.Structures && room.memory.Structures.spawn);
             if (spawn && site.pos.getRangeTo(spawn) > 12) far = true;
-            if (onEdge || far) site.remove();
+            const onShell = shellTiles.has(`${site.pos.x},${site.pos.y}`);
+            if (onEdge || far || onShell) site.remove();
         }
     }
 
@@ -527,7 +540,21 @@ function construction(room) {
     }
 
 
-    if (room.controller.level >= 3 && storage && myConstructionSites == 0) {
+    // LEGACY square shell: a +/-10 band of ramparts around storage. Superseded
+    // by the min-cut / plan perimeter and gated off by default
+    // (Memory.features.squareWalls, DEFAULTS false).
+    //
+    // It was not merely redundant, it was destructive: pathBuilder(...,
+    // STRUCTURE_RAMPART, ...) ends with `room.memory.construction
+    // .rampartLocations = listOfRampartPositions` (see the STRUCTURE_RAMPART
+    // branch above), so every run OVERWROTE the perimeter list that
+    // syncPerimeterToConstructionMemory had just written — usually with [],
+    // because the band tiles already have structures/complete paths. An empty
+    // rampartLocations silently disables the RampartErector spawn gate, so the
+    // shell was never erected or maintained as a set; only the stray sites that
+    // placeFromBasePlan managed to squeeze in got built, and then decayed.
+    if (!minCutWallsEnabled() && getFeatures().squareWalls &&
+        room.controller.level >= 3 && storage && myConstructionSites == 0) {
 
         let rampartLocations = [];
         for (let i = -10; i <= 10; i++) {
@@ -591,7 +618,12 @@ function construction(room) {
             //   array.splice(index, 1);
             // }
 
-            if(spawn) {
+            // Spawn-tile rampart: same RCL gate as the shell. Below RCL4 this
+            // was the one rampart in the room anything bothered to repair
+            // (maintainer/SpecialRepair pick the lowest-hits rampart), so a
+            // young room poured its repair budget into a single 1M-hit tile
+            // while every wall tile decayed at 300/100t.
+            if(spawn && room.controller.level >= SHELL_MIN_RCL) {
                 let spawnlocationlook = spawn.pos.lookFor(LOOK_STRUCTURES);
                 if(spawnlocationlook.length == 1) {
                     spawn.pos.createConstructionSite(STRUCTURE_RAMPART);
@@ -752,7 +784,19 @@ function construction(room) {
         }
 
 
-        if(room.controller.level == 2 || room.controller.level == 3) {
+        // ONE hub container. This block used to walk a ring of spawn+/-2
+        // offsets and place a container at the first free tile, with no memory
+        // of the ones it had already placed and no awareness of the hub
+        // container the base plan puts on the storage tile. A room could end up
+        // with two or three "hub" sinks within 4 tiles of the spawn; fillers and
+        // carriers then shuttle between them across untraded tiles, which is the
+        // clump the owner is seeing at the spawn. Skip entirely once any
+        // container already serves the spawn area.
+        const hubContainers = room.find(FIND_STRUCTURES, {
+            filter: (s: any) =>
+                s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(spawn) <= 4
+        });
+        if ((room.controller.level == 2 || room.controller.level == 3) && hubContainers.length == 0) {
             // Preferred hub container is spawn.y-2 (legacy layout). If that tile is blocked
             // (controller, wall, other structure), try nearby offsets instead of stalling forever.
             const containerOffsets = [

@@ -1,4 +1,28 @@
-import { findDamagedPerimeterRamparts, findPerimeterRamparts } from "utils/Perimeter";
+import {
+    findDamagedPerimeterRamparts,
+    findPerimeterRamparts,
+    perimeterKeySet,
+    SHELL_MIN_RCL,
+} from "utils/Perimeter";
+
+/**
+ * Ramparts that sit EXACTLY on a planned perimeter tile.
+ *
+ * Deliberately strict, unlike findPerimeterRamparts, which falls back to
+ * "within range 1 of the cut" and then to "a band around storage". Shell
+ * upkeep must never adopt an off-plan rampart: a room that replans (or that
+ * gets a v2 plan adopted over a legacy layout) is left with ramparts on the
+ * OLD shell, and the whole point is to let those decay away instead of
+ * spending tower energy holding a wall that no longer encloses anything.
+ */
+function planShellRamparts(room: any): any[] {
+    const set = perimeterKeySet(room);
+    if (!set.size) return [];
+    return room.find(FIND_MY_STRUCTURES, {
+        filter: (s: any) =>
+            s.structureType == STRUCTURE_RAMPART && set.has(`${s.pos.x},${s.pos.y}`)
+    });
+}
 
 function roomDefence(room) {
     if(!room.memory.defence) {
@@ -75,6 +99,47 @@ function roomDefence(room) {
     }
     else {
         maxRepairTower = 150000
+    }
+
+    // --- Peacetime shell upkeep ---------------------------------------------
+    //
+    // Nothing kept the perimeter alive at low RCL. The only tower path that
+    // repairs ramparts (above) is behind `danger && danger_timer > 500 &&
+    // spawn.effects[0] === PWR_DISRUPT_SPAWN && room.storage`, i.e. an enemy
+    // power creep disrupting the spawn — it never fires in a young room. So the
+    // shell was built and then decayed at RAMPART_DECAY (300 hits / 100 ticks)
+    // with only maintainer.ts occasionally dumping a creep's whole carry into
+    // whichever single rampart happened to be lowest.
+    //
+    // Fix: from SHELL_MIN_RCL, one tower per tick tops up the weakest PLANNED
+    // shell tile. A tower repair is 800 hits for 10 energy at range <= 5, so a
+    // single tower covers ~2600 hits/tick of decay headroom — far more than a
+    // shell of any size sheds. Strictly on-plan (see planShellRamparts): ramparts
+    // left over from an old layout are abandoned and allowed to decay.
+    if (!room.memory.danger &&
+        room.controller.level >= SHELL_MIN_RCL &&
+        Game.time % 3 == 0 &&
+        room.memory.Structures.towers && room.memory.Structures.towers.length) {
+
+        const shell = planShellRamparts(room);
+        if (shell.length) {
+            let weakest = shell[0];
+            for (const r of shell) {
+                if (r.hits < weakest.hits) weakest = r;
+            }
+            // don't chase a wall that is already at the level cap for this RCL
+            const target = Math.min(weakest.hitsMax, maxRepairTower);
+            if (weakest.hits < target) {
+                for (const towerID of room.memory.Structures.towers) {
+                    const tower: any = Game.getObjectById(towerID);
+                    // leave a full salvo (10 shots) in the tower for defence
+                    if (tower && tower.store[RESOURCE_ENERGY] >= 200) {
+                        tower.repair(weakest);
+                        break;
+                    }
+                }
+            }
+        }
     }
 
     if(Game.time % 100 == 0) {

@@ -75,13 +75,25 @@ export function findDamagedPerimeterRamparts(
     .sort((a, b) => a.hits - b.hits);
 }
 
+/** RCL at which a room may start erecting its defence shell. Must match the
+ *  rampart gate in BasePlan.placeFromBasePlan and utils/PlanV2 wantsAtRcl. */
+export const SHELL_MIN_RCL = 4;
+
 /** Sync plan perimeter → construction.rampartLocations for older erect roles. */
 export function syncPerimeterToConstructionMemory(room: Room): void {
   const tiles = getPerimeterTiles(room);
   if (!tiles.length) return;
   if (!room.memory.construction) room.memory.construction = {};
   // walls only for erect roles (ramps are openings — still walkable, optional light rampart later)
-  room.memory.construction.rampartLocations = tiles.map((t) => [t.x, t.y]);
+  //
+  // rampartLocations is the RampartErector spawn trigger (rooms.spawning:
+  // "rampartLocations && rampartLocations.length > 0") AND the list that role
+  // turns into construction sites. Publishing it below SHELL_MIN_RCL makes a
+  // pre-storage room spend its whole builder budget on a wall it cannot
+  // maintain, so keep it empty until the room can actually hold the shell.
+  const rcl = room.controller ? room.controller.level : 0;
+  room.memory.construction.rampartLocations =
+    rcl >= SHELL_MIN_RCL ? tiles.map((t) => [t.x, t.y]) : [];
   room.memory.defence = room.memory.defence || {};
   room.memory.defence.perimeter = tiles;
   room.memory.defence.perimeterCount = tiles.length;
