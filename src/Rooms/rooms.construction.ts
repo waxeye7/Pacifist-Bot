@@ -26,6 +26,137 @@ function getNeighbours(tile, listOfLocations) {
     return neighbours;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * LEGACY ROADS — ONE LINE PER DESTINATION, AND NOTHING PARALLEL TO IT.
+ *
+ * MEASURED, VPS W1N1 @ tick 87k, RCL4, legacy planning (no plan segment):
+ *   roads on the ground          128
+ *   basePlan road set            105   (anchored on basePlan.hub 30,34)
+ *   built roads ON that set       58
+ *   built roads OFF it            70   (anchored on storage 33,29)
+ * i.e. the room is carrying TWO complete road networks between the same three
+ * endpoints, laid from two anchors five tiles apart. That is the hatched
+ * lattice in the owner's screenshot.
+ *
+ * Three independent generators fed it, and all three are closed here:
+ *
+ * 1. TWO OWNERS AT ONCE. construction() calls placeFromBasePlan(room, 8) while
+ *    the room is `young` (RCL < 4 or no storage) — that placer paves
+ *    hub -> spawn / controller / sources from basePlan.hub from RCL3. The
+ *    legacy pathBuilder lines below pave storage -> sources / controller from
+ *    RCL3 as well. The windows OVERLAP for the whole of RCL3-with-a-hub-
+ *    container, so every legacy room lays both. `basePlanRoadsActive` in
+ *    construction() now hands road duty to exactly one of them at a time.
+ *
+ * 2. NO ROAD PREFERENCE IN THE SEARCH. makeStructuresCostMatrix marks every
+ *    non-road structure 255 and leaves roads at the terrain default — the
+ *    `costs.set(..., 0)` for them is commented out (see that function). So a
+ *    road already on the ground is worth exactly as much as bare plain, and
+ *    every time an extension lands on a checkerboard tile the matrix changes
+ *    and PathFinder is free to return a different equal-cost route. pathBuilder
+ *    then paves THAT one too, and nothing ever removes the old one — it is in
+ *    keepTheseRoads (62 entries in W1N1), so maintainers keep repairing it.
+ *    makeRoadCostMatrix below prices an existing road at 1 against plain 2 and
+ *    swamp 6, so the line snaps onto the network that is already there and
+ *    stops drifting. It is used ONLY for road placement: container / link /
+ *    rampart seats keep deriving from the original matrix, because moving those
+ *    would move real structures.
+ *
+ * 3. NO SITE BUDGET. Each pathBuilder call paves its WHOLE path, and the only
+ *    cap was `find(FIND_MY_CONSTRUCTION_SITES).length >= 12` on one of the four
+ *    placement branches. claimRoadTile below gives the room ONE road-site
+ *    budget for the whole pass, shared across every destination, and refuses a
+ *    tile a sibling call already claimed this tick (createConstructionSite is
+ *    not visible to lookFor until the tick ends, so sibling calls could
+ *    otherwise stack intents on the same tile).
+ * ---------------------------------------------------------------------------
+ */
+/** Road construction sites one legacy room may hold at once. */
+const LEGACY_ROAD_SITE_CAP = 6;
+
+let roadPassTick = -1;
+let roadPassBudget: { [roomName: string]: number } = {};
+let roadPassTiles: { [key: string]: boolean } = {};
+
+function roadBudgetFor(room): number {
+    if (roadPassTick !== Game.time) {
+        roadPassTick = Game.time;
+        roadPassBudget = {};
+        roadPassTiles = {};
+    }
+    if (roadPassBudget[room.name] === undefined) {
+        const open = room.find(FIND_MY_CONSTRUCTION_SITES, {
+            filter: (s: any) => s.structureType == STRUCTURE_ROAD,
+        }).length;
+        roadPassBudget[room.name] = Math.max(0, LEGACY_ROAD_SITE_CAP - open);
+    }
+    return roadPassBudget[room.name];
+}
+
+/**
+ * Claim one tile out of `room`'s road-site budget for this pass. Returns false
+ * when the budget is spent or when another call in the same pass already took
+ * this tile — the caller must then NOT create the site.
+ */
+function claimRoadTile(room, roomName: string, x: number, y: number): boolean {
+    if (roadBudgetFor(room) <= 0) return false;
+    const key = `${roomName}:${x + y * 50}`;
+    if (roadPassTiles[key]) return false;
+    roadPassTiles[key] = true;
+    roadPassBudget[room.name]--;
+    return true;
+}
+
+/**
+ * The road-placement matrix: everything makeStructuresCostMatrix blocks, plus
+ * an explicit price on what is already walkable. A road (built or sited) costs
+ * 1, bare plain 2, swamp 6 — so a line will happily detour to reuse the
+ * network rather than lay a second one beside it, and will not re-route the
+ * moment an extension changes the cost landscape. Containers conduct at 1 as
+ * well (a hauler walks them and they are never destroyed by a road site).
+ */
+const makeRoadCostMatrix = (roomName: string): boolean | CostMatrix => {
+    const currentRoom = Game.rooms[roomName];
+    if (!currentRoom) return false;
+    const terrain = new Room.Terrain(roomName);
+    const costs = new PathFinder.CostMatrix;
+    for (let y = 0; y <= 49; y++) {
+        for (let x = 0; x <= 49; x++) {
+            const tile = terrain.get(x, y);
+            if (tile == TERRAIN_MASK_WALL) costs.set(x, y, 255);
+            else if (tile == TERRAIN_MASK_SWAMP) costs.set(x, y, 6);
+            else costs.set(x, y, 2);
+        }
+    }
+    for (const building of currentRoom.find(FIND_STRUCTURES)) {
+        if (building.structureType == STRUCTURE_ROAD || building.structureType == STRUCTURE_CONTAINER) {
+            costs.set(building.pos.x, building.pos.y, 1);
+        }
+        else if (building.structureType != STRUCTURE_RAMPART) {
+            costs.set(building.pos.x, building.pos.y, 255);
+        }
+    }
+    for (const site of currentRoom.find(FIND_MY_CONSTRUCTION_SITES)) {
+        if (site.structureType == STRUCTURE_ROAD) costs.set(site.pos.x, site.pos.y, 1);
+    }
+    return costs;
+};
+
+/**
+ * The one road line to `goal`. Separate from the container/link searches on
+ * purpose — those must keep using makeStructuresCostMatrix so their seats do
+ * not move (see the note above).
+ */
+function legacyRoadLine(room, from: RoomPosition, goal: RoomPosition, range: number) {
+    return PathFinder.search(from, {pos: goal, range: range}, {
+        plainCost: 2,
+        swampCost: 6,
+        maxRooms: 1,
+        roomCallback: (roomName) => makeRoadCostMatrix(roomName),
+    });
+}
+
 function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
     // Early RCL often has no storage/container yet — fall back to spawn as layout anchor.
@@ -298,12 +429,14 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
             if(structure == STRUCTURE_ROAD && lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART && lookForExistingConstructionSites.length == 0) {
+                if(!claimRoadTile(room, block.roomName, block.x, block.y)) return;
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
             }
 
             if(structure == STRUCTURE_ROAD && lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_CONTAINER && lookForExistingConstructionSites.length == 0) {
+                if(!claimRoadTile(room, block.roomName, block.x, block.y)) return;
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
@@ -318,6 +451,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
             if(lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
+                if(!claimRoadTile(room, block.roomName, block.x, block.y)) return;
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
@@ -354,12 +488,14 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
 
 
             if(structure == STRUCTURE_ROAD && lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART && lookForExistingConstructionSites.length == 0) {
+                if(!claimRoadTile(room, block.roomName, block.x, block.y)) return;
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
             }
 
             if(structure == STRUCTURE_ROAD && lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_CONTAINER && lookForExistingConstructionSites.length == 0) {
+                if(!claimRoadTile(room, block.roomName, block.x, block.y)) return;
                 constructionSitesPlaced ++;
                 Game.rooms[block.roomName].createConstructionSite(block.x, block.y, structure);
                 return;
@@ -371,7 +507,7 @@ function pathBuilder(neighbors, structure, room, usingPathfinder=true) {
             }
 
             if (lookForTerrain[0] == "swamp" || lookForTerrain[0] == "plain") {
-                if(structure == STRUCTURE_ROAD && Game.rooms[block.roomName].find(FIND_MY_CONSTRUCTION_SITES).length >= 12) {
+                if(structure == STRUCTURE_ROAD && !claimRoadTile(room, block.roomName, block.x, block.y)) {
                     buldingAlreadyHereCount ++;
                     return;
                 }
@@ -509,6 +645,14 @@ function construction(room) {
         return;
     }
 
+    // ONE ROAD OWNER AT A TIME — see the note above pathBuilder. placeFromBasePlan
+    // paves basePlan.hub -> spawn / controller / sources from RCL3; the legacy
+    // pathBuilder lines further down pave storage -> sources / controller from
+    // RCL3 too. While the basePlan placer is the one running, the legacy lines
+    // stand down: two anchors paving the same three journeys is what put 128
+    // roads and two complete networks into VPS W1N1.
+    let basePlanRoadsActive = false;
+
     // Dynamic plan: always compute/visualize. Only AUTO-PLACE sites on young rooms.
     // Rooms that already have storage keep legacy construction (avoids dual-stamp site flood).
     if (room.controller && room.controller.my && !room.memory.danger) {
@@ -518,6 +662,10 @@ function construction(room) {
         const young = room.controller.level < 4 || !hasStorage;
         if (young) {
             placeFromBasePlan(room, 8);
+            // placeFromBasePlan only queues roads from RCL3 (see BasePlan.ts) —
+            // below that nobody is paving and the legacy lines are gated on
+            // RCL3 anyway, so the flag can safely track the whole young window.
+            basePlanRoadsActive = true;
         }
         if (Memory.verbose || Memory.showPlan) {
             visualizeBasePlan(room);
@@ -1112,14 +1260,25 @@ function construction(room) {
                 if(room.controller.level < 6) {
                     Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);
                 }
-                if(room.controller.level >= 3) pathBuilder(pathFromStorageToSource1, STRUCTURE_ROAD, room);
 
                 if(room.controller.level < 6) {
                     Game.rooms[container2.roomName].createConstructionSite(container2.x, container2.y, STRUCTURE_CONTAINER);
                 }
-                if(room.controller.level >= 3) pathBuilder(pathFromStorageToSource2, STRUCTURE_ROAD, room);
 
-                if(room.controller.level >= 3) pathBuilder(pathFromStorageToController, STRUCTURE_ROAD, room);
+                // THE ROAD LINES. Re-searched on makeRoadCostMatrix rather than
+                // reusing the container/link searches above: those must stay on
+                // makeStructuresCostMatrix so the container and link SEATS do not
+                // move, but a road line has to prefer the road that is already
+                // there or it lays a second one beside it every time an extension
+                // changes the cost landscape. One line per destination, and none
+                // at all while the basePlan placer owns the road budget.
+                if(room.controller.level >= 3 && !basePlanRoadsActive) {
+                    pathBuilder(legacyRoadLine(room, storage.pos, sources[0].pos, 1), STRUCTURE_ROAD, room);
+                    pathBuilder(legacyRoadLine(room, storage.pos, sources[1].pos, 1), STRUCTURE_ROAD, room);
+                    const controllerRoad = legacyRoadLine(room, storage.pos, room.controller.pos, 2);
+                    controllerRoad.path.pop();
+                    pathBuilder(controllerRoad, STRUCTURE_ROAD, room);
+                }
 
                 if(room.controller.level >= 6) {
 
@@ -1191,11 +1350,12 @@ function construction(room) {
                         RampartLocationMineral.createConstructionSite(STRUCTURE_RAMPART);
                     }
 
-                    pathBuilder(pathFromStorageToMineral, STRUCTURE_ROAD, room);
+                    // road line on the road-preferring matrix; the rampart seat
+                    // above keeps the original search (see legacyRoadLine)
+                    pathBuilder(legacyRoadLine(room, storage.pos, mineral.pos, 1), STRUCTURE_ROAD, room);
 
                     if(room.terminal) {
-                        let pathFromStorageToTerminal = PathFinder.search(storage.pos, {pos:room.terminal.pos, range:1}, {plainCost: 1, swampCost: 3, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
-                        pathBuilder(pathFromStorageToTerminal, STRUCTURE_ROAD, room);
+                        pathBuilder(legacyRoadLine(room, storage.pos, room.terminal.pos, 1), STRUCTURE_ROAD, room);
                     }
 
                 }

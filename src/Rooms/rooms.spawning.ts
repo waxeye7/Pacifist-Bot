@@ -1336,7 +1336,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // the hysteresis that stops the 0-upgrader cycle; the surplus tier
             // is folded into it. Deliberately NOT gated on
             // constructionSitesAmount — that gate is what froze E11S5 at 778k.
-            if(upgraders < upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
+            if(upgraders < upgraderTarget(room, spawnrules[4].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom) && !room.memory.danger && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
@@ -1395,7 +1395,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             // caps at 2,000 — unsatisfiable. The downgrade clause is kept as a
             // hard floor: one upgrader regardless of the bank once the
             // controller is below half its downgrade timer.
-            if(upgraders < upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn) && !room.memory.danger
+            if(upgraders < upgraderTarget(room, spawnrules[5].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom) && !room.memory.danger
                 || room.controller.ticksToDowngrade < 6000 && upgraders < spawnrules[5].upgrade_creep.amount && !room.memory.danger
                 || upgraders < 1 && room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -3133,28 +3133,78 @@ function upgradeLatch(room): boolean {
 }
 
 /**
+ * KEEP ONE — the rung below the floor.
+ *
+ * The bank rungs above all bottom out at `Math.max(burn, emergency)`, and both
+ * of those can be zero for thousands of ticks in a room that has just paid for
+ * a level. A room that reaches RCL5 has spent its storage on getting there:
+ * bank < UPGRADE_FLOOR, no standing floor pile (so burn == 0) and a
+ * ticksToDowngrade that the level-up itself has just reset to full (so
+ * emergency == 0). upgraderTarget() therefore returns 0 and the room runs with
+ * NO upgrader at all while its builders eat every drop of income — the
+ * controller does not move until the bank climbs back over 10k, which in a room
+ * with open sites can take the whole of RCL5.
+ *
+ * The rung is deliberately the smallest thing that fixes that: ONE upgrader,
+ * and only once the downgrade timer has actually started to slip. It engages at
+ * KEEP_ONE_AT of the level's full timer rather than at the `emergency` half, so
+ * a room notices while the controller still has a comfortable margin instead of
+ * waking up at 50%.
+ *
+ * GATED ON INCOME, not on the bank. A room with a miner on a source is earning
+ * energy whether or not any of it has reached the storage yet; a room with no
+ * miners cannot feed an upgrader and must spend what it has on getting one
+ * mining again. `miners` is EnergyMinersInRoom, already counted by the census
+ * for the builder gates.
+ *
+ * DOES NOT TOUCH THE HYSTERESIS. It only ever raises the result (it is folded
+ * in through the same Math.max as `emergency`, replacing it as the hard floor),
+ * it reads nothing the latch reads, and it writes nothing. The surge latch is
+ * still driven purely by bankEnergy through upgradeLatch().
+ *
+ * It is a duty cycle by construction, and that is the intent: a successful
+ * upgradeController resets ticksToDowngrade to the level maximum, so the moment
+ * the one upgrader lands the rung disengages and the room does not queue a
+ * second. The timer then slips again over the next few thousand ticks and buys
+ * the room another one. That is a floor, not a roster.
+ */
+/** engage the keep-one rung once the downgrade timer is below this fraction */
+const KEEP_ONE_AT = 0.8;
+
+function keepOneUpgrader(room, miners:number): number {
+    if(miners <= 0) return 0;
+    const full = CONTROLLER_DOWNGRADE[room.controller.level];
+    if(!full) return 0;
+    return room.controller.ticksToDowngrade < full * KEEP_ONE_AT ? 1 : 0;
+}
+
+/**
  * How many upgraders this room should be running right now.
  *
  * `burn` is drain-side pressure (see drainPressure): energy already rotting on
  * this room's floor is energy the room has ALREADY paid to mine, so burning it
  * into the controller is free progress no matter what the bank says.
+ *
+ * `miners` is EnergyMinersInRoom — see keepOneUpgrader.
  */
-function upgraderTarget(room, base:number, surplus:number, burn:number): number {
+function upgraderTarget(room, base:number, surplus:number, burn:number, miners:number = 0): number {
     const emergency =
         room.controller.ticksToDowngrade < CONTROLLER_DOWNGRADE[room.controller.level] / 2 ? 1 : 0;
+    // the hard floor every rung below is Math.max'd against
+    const floor = Math.max(emergency, keepOneUpgrader(room, miners));
     const latched = upgradeLatch(room);
     // No real storage: there is no bank to protect and the income has nowhere
     // else to go, so run the roster and let the energy supply throttle it.
-    if(!room.storage || !room.storage.my) return Math.max(base + burn, emergency);
+    if(!room.storage || !room.storage.my) return Math.max(base + burn, floor);
     const bank = bankEnergy(room);
     // Full roster while the surge is latched AND there is still a real bank to
     // spend. Below the middle band the latch only guarantees that the roster
     // never reaches zero — draining a room to 15k at 48 energy/tick would starve
     // the other things that read a storage floor (reservers want 25k).
-    if(latched && bank >= UPGRADE_MID) return Math.max(base + surplus + burn, emergency);
-    if(bank >= UPGRADE_MID) return Math.max(Math.min(base, 3) + burn, emergency);
-    if(bank >= UPGRADE_FLOOR) return Math.max((latched ? 2 : 1) + burn, emergency);
-    return Math.max(burn, emergency);
+    if(latched && bank >= UPGRADE_MID) return Math.max(base + surplus + burn, floor);
+    if(bank >= UPGRADE_MID) return Math.max(Math.min(base, 3) + burn, floor);
+    if(bank >= UPGRADE_FLOOR) return Math.max((latched ? 2 : 1) + burn, floor);
+    return Math.max(burn, floor);
 }
 
 /* -------------------------------------------------------------------------

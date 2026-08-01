@@ -203,9 +203,48 @@ function findLocked(creep, storage) {
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
-    if(creep.room.controller.level == 4 && !storage && creep.room.find(FIND_MY_CREEPS).length < 8) {
-        creep.memory.role = "builder";
+    // ------------------------------------------------------------------
+    // Help with construction WITHOUT rewriting memory.role.
+    //
+    // This branch used to do `creep.memory.role = "builder"`, which is a
+    // PERMANENT, one-way rewrite — the same bug the upgrader carried (see
+    // Roles/upgrader.ts, commit "upgraders no longer convert to builders on
+    // their first tick"). rooms.spawning.ts sizes the roster off memory.role:
+    // the `case "repair"` arm of the census switch (rooms.spawning.ts:492) is
+    // the ONLY thing that counts repairers, so every converted creep left
+    // `repairers` and joined `builders` for the rest of its life.
+    //
+    // The condition is a standing state, not an event: an RCL4 room that lost
+    // its bank keeps satisfying it, so the room converts each repairer the
+    // tick it spawns, reads `repairers == 0` forever, queues another, and
+    // inflates `builders` — which then blocks the real builder rung. Nothing
+    // ever converts back, because the test is re-run against a role that no
+    // longer routes here.
+    //
+    // Delegating for the tick keeps the intent (a skeleton crew with no bank
+    // needs hands on the sites, not on decay) and keeps the census honest.
+    //
+    // `locked` is shared with the builder role but means a different thing
+    // there — a construction SITE, not a damaged structure — and builder only
+    // drops a lock whose object has vanished, so a repair target handed across
+    // survives as a lock the builder can never build. It is therefore cleared
+    // on each TRANSITION (both directions) and left alone in between, so each
+    // role still gets to keep a lock while it is the one driving.
+    // ------------------------------------------------------------------
+    const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
+        !storage && creep.room.find(FIND_MY_CREEPS).length < 8;
+    const helpBuild = skeletonCrewNoBank && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0;
+    const mem: any = creep.memory;
+    if(helpBuild !== !!mem.helpBuild) {
+        mem.helpBuild = helpBuild;
         creep.memory.locked = false;
+    }
+    if(helpBuild) {
+        const builder: any = (global as any).ROLES && (global as any).ROLES.builder;
+        if(builder) {
+            builder.run(creep);
+            return;
+        }
     }
 
 

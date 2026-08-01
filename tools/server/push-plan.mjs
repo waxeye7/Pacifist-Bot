@@ -2,11 +2,42 @@
  * Push a v2 plan into memory segment 88 so the bot can adopt it.
  *
  *   node tools/server/push-plan.mjs E11S2 [--dest pserver] [--user <username>] [--adopt]
+ *   node tools/server/push-plan.mjs W1N1 --dest vps-ip --live --adopt
  *
  * Reads tools/plan-suite/out-v2/plans-hub.json (run plan.mjs first).
  * With --adopt, also sends `adoptPlan("<room>")` to the user's console.
  * --user resolves/mints a redis API token for that user (plans live in
  * per-user segments, so push as the user whose bot will build).
+ *
+ * ---------------------------------------------------------------------------
+ * --live — PLAN A ROOM ON A SERVER THIS MACHINE CANNOT REACH THE DATABASE OF.
+ *
+ * plan.mjs gets its terrain and its source/controller/mineral positions out of
+ * the LOCAL docker mongo (shared.mjs fetchRoomsFromMongo → `docker exec
+ * local-screeps-server-mongo-1 mongosh`). The VPS test server has no such
+ * handle from here: it is reachable over the tailnet on HTTP only, the repo is
+ * forbidden from SSHing to it (tools/server/README.md), and vanilla 4.3.0
+ * serves no /api/game/room-objects. So a room over there could never be
+ * planned, and the bot fell back to legacy stamp construction — which is what
+ * put two parallel road networks into W1N1 (see rooms.construction.ts).
+ *
+ * --live closes that with the two channels the server DOES offer:
+ *   terrain  GET /api/game/room-terrain?room=<r>&encoded=1 — the same
+ *            2,500-char string the mongo `rooms.terrain` doc carries, so it
+ *            drops straight into the planner's `d.terrain`.
+ *   objects  the websocket `subscribe room:<r>` snapshot. The first frame after
+ *            a subscribe is the FULL object set for the room (later frames are
+ *            deltas), which is all the planner wants: source, controller and
+ *            mineral positions.
+ * Those two make the exact `{room, terrain, objects}` shape planRoom() takes,
+ * so the plan produced here is the same artifact plan.mjs would have written —
+ * same pipeline, same layers, same escalation ladder — for a room whose data
+ * arrived over the wire instead of out of a container.
+ *
+ * The result is written to out-v2/live-<room>.json for the record. It is
+ * deliberately NOT merged into plans-hub.json: that file is the local fleet
+ * snapshot and plan.mjs rewrites it wholesale.
+ * ---------------------------------------------------------------------------
  */
 import fs from "fs";
 import path from "path";
@@ -16,6 +47,8 @@ import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, "..", "..");
 const SEGMENT = 88;
+/** how long to wait for the room snapshot frame before giving up */
+const WS_TIMEOUT_MS = 25000;
 
 function loadConfig(dest) {
   const cfg = JSON.parse(fs.readFileSync(path.join(REPO, "screeps.json"), "utf8"))[dest];
@@ -50,6 +83,114 @@ function tokenForUser(username) {
   redis(["set", `auth_${token}`, userId]);
   console.log(`minted permanent token for ${username}: auth_${token}`);
   return { token, userId };
+}
+
+/**
+ * Terrain for one room, as the planner wants it: the 2,500-char encoded string,
+ * index y*50+x, '1' = wall / '2' = swamp. Public endpoint, no auth needed.
+ */
+async function fetchTerrain(cfg, room) {
+  const res = await fetch(`${cfg.base}/api/game/room-terrain?room=${room}&encoded=1`);
+  const json = await res.json().catch(() => ({}));
+  const entry = json && json.ok === 1 && (json.terrain || [])[0];
+  if (!entry || typeof entry.terrain !== "string" || entry.terrain.length !== 2500) {
+    throw new Error(`room-terrain ${room}: unusable response ${JSON.stringify(json).slice(0, 200)}`);
+  }
+  return entry.terrain;
+}
+
+/**
+ * Source / controller / mineral positions, off the websocket room snapshot.
+ *
+ * Vanilla 4.3.0 has no REST room-objects endpoint, and the console would mean
+ * asking the BOT for the answer — which fails exactly when the bot is broken.
+ * The socket is served by the game process itself, so it answers whether or not
+ * any code is running.
+ */
+async function fetchRoomObjects(cfg, room) {
+  const { default: WebSocket } = await import("ws");
+  const { gunzipSync } = await import("zlib");
+  const url = cfg.base.replace(/^http/, "ws") + "/socket/websocket";
+  return await new Promise((resolve, reject) => {
+    const ws = new WebSocket(url);
+    const timer = setTimeout(() => {
+      try { ws.close(); } catch (e) { /* already gone */ }
+      reject(new Error(`no room:${room} frame after ${WS_TIMEOUT_MS}ms — is the tailnet up?`));
+    }, WS_TIMEOUT_MS);
+    const done = (err, val) => {
+      clearTimeout(timer);
+      try { ws.close(); } catch (e) { /* already gone */ }
+      err ? reject(err) : resolve(val);
+    };
+    ws.on("error", (e) => done(e));
+    ws.on("open", () => ws.send("auth " + cfg.token));
+    ws.on("message", (data) => {
+      const s = data.toString();
+      if (s.startsWith("auth failed")) return done(new Error("websocket auth failed — check the token"));
+      if (s.startsWith("auth ok")) return ws.send(`subscribe room:${room}`);
+      let msg;
+      try {
+        msg = JSON.parse(s.startsWith("gz:") ? gunzipSync(Buffer.from(s.slice(3), "base64")).toString() : s);
+      } catch (e) {
+        return; // time/protocol chatter
+      }
+      if (!Array.isArray(msg) || msg[0] !== `room:${room}`) return;
+      const objects = (msg[1] && msg[1].objects) || {};
+      const out = [];
+      for (const id of Object.keys(objects)) {
+        const o = objects[id];
+        if (!o || (o.type !== "source" && o.type !== "controller" && o.type !== "mineral")) continue;
+        out.push({ type: o.type, x: o.x, y: o.y, room: room });
+      }
+      // A subscribe always yields the whole room first. An empty first frame
+      // means we are watching a room the server has nothing for — fail loudly
+      // rather than hand the planner a room with no sources.
+      if (!out.length) return done(new Error(`room:${room} snapshot carried no source/controller/mineral`));
+      done(null, out);
+    });
+  });
+}
+
+/** Run the offline v2 pipeline against data pulled off a live server. */
+async function planLive(cfg, room) {
+  const [terrain, objects] = await Promise.all([fetchTerrain(cfg, room), fetchRoomObjects(cfg, room)]);
+  const sources = objects.filter((o) => o.type === "source").length;
+  const hasController = objects.some((o) => o.type === "controller");
+  console.log(`${room}: terrain ok (2500), ${sources} source(s), controller ${hasController ? "yes" : "NO"}`);
+  if (!hasController) throw new Error(`${room} has no controller — nothing to plan`);
+  const { planRoom } = await import("../plan-suite/v2/pipeline.mjs");
+  const plan = planRoom({ room, terrain, objects });
+  if (!plan || plan.error) throw new Error(`planner refused ${room}: ${plan && plan.error}`);
+  for (const [tag, e] of [
+    ["SHELL", plan.shellError],
+    ["TOWER", plan.towerError],
+    ["LAB", plan.labError],
+    ["MISC", plan.miscError],
+    ["EXT", plan.extError],
+    ["WALLROAD", plan.wallRoadError],
+  ]) {
+    if (e) console.log(`${room} ${tag} ERROR ${e}`);
+  }
+  const outDir = path.join(REPO, "tools", "plan-suite", "out-v2");
+  fs.mkdirSync(outDir, { recursive: true });
+  const { planMs, ...meta } = plan.meta || {};
+  fs.writeFileSync(
+    path.join(outDir, `live-${room}.json`),
+    JSON.stringify(
+      { room: plan.room, hub: plan.hub, sitter: plan.sitter, labInputs: plan.labInputs,
+        structures: plan.structures, meta, sources: plan.sources, controller: plan.controller,
+        mineral: plan.mineral },
+      null, 2,
+    ),
+  );
+  const c = (plan.meta && plan.meta.counts) || {};
+  console.log(
+    `${room}: planned live — hub ${plan.hub && plan.hub.x},${plan.hub && plan.hub.y} · ` +
+      `${c.spawn ?? 0} spawns · ${(plan.structures.extension || []).length} extensions · ` +
+      `${c.tower ?? 0} towers · ${(plan.structures.road || []).length} roads · ` +
+      `wrote out-v2/live-${room}.json`,
+  );
+  return plan;
 }
 
 async function api(cfg, method, endpoint, body) {
@@ -115,6 +256,8 @@ async function api(cfg, method, endpoint, body) {
 const ARTERIAL_LAYER = 3; // eco kit + tower spurs
 const ARTERIAL_RCL = 3; // roads unlock at RCL3 — the earliest they can be built
 const REST_RCL = 4; // unchanged from the schedule this replaces
+/** CONTROLLER_STRUCTURES.extension[3] — the extensions a room owns at RCL3 */
+const RCL3_EXTENSIONS = 10;
 
 function roadStageFor(plan) {
   const roads = plan.structures.road || [];
@@ -125,6 +268,38 @@ function roadStageFor(plan) {
   );
   const index = new Map();
   roads.forEach((r, i) => index.set(r.x + r.y * 50, i));
+
+  // ---------------------------------------------------------------------
+  // THE ARTERIAL SET HAS TO COVER THE EXTENSIONS THE ROOM ACTUALLY BUILDS.
+  //
+  // The provenance split above is about where a road CAME FROM, and extension
+  // corridors are layer 6, so they all land at RCL4. That is right for the mass
+  // and wrong for the first ten: CONTROLLER_STRUCTURES gives a room ten
+  // extensions at RCL3 and the bot builds `plan.t.extension[0..9]`, so those ten
+  // are standing for a whole RCL. E15S2 shipped four of its ten (19,25 / 15,24 /
+  // 21,24 / 21,25) with no road within D8 until RCL4 — a filler walking swamp
+  // and bare ground to the tiles it refills every single cycle, at the level
+  // where the room has no storage and no link network to soften it.
+  //
+  // One D4 face per extension, cheapest index first so the choice is a function
+  // of the plan and not of iteration luck. It runs BEFORE the bridge repair
+  // below on purpose: a demoted face is an arterial like any other and its own
+  // path back to the hub gets bridged with the rest.
+  // ---------------------------------------------------------------------
+  const exts = (plan.structures.extension || []).slice(0, RCL3_EXTENSIONS);
+  let extFaced = 0;
+  for (const e of exts) {
+    const faces = [];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const i = index.get(e.x + dx + (e.y + dy) * 50);
+      if (i !== undefined) faces.push(i);
+    }
+    if (!faces.length) continue; // no planned road face at all — not ours to fix
+    if (faces.some((i) => stage[i] <= ARTERIAL_RCL)) continue;
+    faces.sort((p, q) => p - q);
+    stage[faces[0]] = ARTERIAL_RCL;
+    extFaced++;
+  }
   // containers and the hub structures conduct, exactly as the bot's
   // auditRoadPrefix has it — the generous reading, so we only ever bridge a
   // gap the bot would also call a gap
@@ -194,6 +369,7 @@ function roadStageFor(plan) {
   // for the log line only — JSON.stringify drops properties hung off an array,
   // so this never reaches the segment
   stage.bridged = bridged;
+  stage.extFaced = extFaced;
   return stage;
 }
 
@@ -239,20 +415,41 @@ async function main() {
   const args = process.argv.slice(2);
   const room = args.find((a) => !a.startsWith("--"));
   if (!room) {
-    console.error("usage: node tools/server/push-plan.mjs <room> [--dest pserver] [--user <name>] [--adopt]");
+    console.error(
+      "usage: node tools/server/push-plan.mjs <room> [--dest pserver] [--user <name>] " +
+        "[--token <tok>] [--live | --plan-file <json>] [--dry-run] [--adopt]",
+    );
     process.exit(1);
   }
   const dest = args.includes("--dest") ? args[args.indexOf("--dest") + 1] : "pserver";
   const cfg = loadConfig(dest);
+  // --user mints/looks up a token in the LOCAL redis; --token is the remote
+  // equivalent for a server this machine only has HTTP to (the VPS).
   if (args.includes("--user")) {
     cfg.token = tokenForUser(args[args.indexOf("--user") + 1]).token;
   }
+  if (args.includes("--token")) {
+    cfg.token = args[args.indexOf("--token") + 1];
+  }
 
-  const plansPath = path.join(REPO, "tools", "plan-suite", "out-v2", "plans-hub.json");
-  const plans = JSON.parse(fs.readFileSync(plansPath, "utf8"));
-  const plan = plans.find((p) => p.room === room);
+  let plan;
+  if (args.includes("--plan-file")) {
+    // A single-room plan JSON — the shape --live writes to out-v2/live-<room>.json.
+    // Re-pushing a plan must not require re-planning the room.
+    plan = JSON.parse(fs.readFileSync(args[args.indexOf("--plan-file") + 1], "utf8"));
+    if (plan.room !== room) throw new Error(`--plan-file is for ${plan.room}, not ${room}`);
+  } else if (args.includes("--live")) {
+    plan = await planLive(cfg, room);
+  } else {
+    const plansPath = path.join(REPO, "tools", "plan-suite", "out-v2", "plans-hub.json");
+    const plans = JSON.parse(fs.readFileSync(plansPath, "utf8"));
+    plan = plans.find((p) => p.room === room);
+  }
   if (!plan || !plan.structures) {
-    console.error(`${room} not in plans-hub.json — run: node tools/plan-suite/v2/plan.mjs --all-claimable`);
+    console.error(
+      `${room} not in plans-hub.json — run: node tools/plan-suite/v2/plan.mjs --all-claimable ` +
+        `(or pass --live to plan it straight off the target server)`,
+    );
     process.exit(1);
   }
 
@@ -292,6 +489,17 @@ async function main() {
   };
   const data = JSON.stringify(payload);
   if (data.length > 100 * 1024) throw new Error(`plan too big for one segment: ${data.length}`);
+  // --dry-run: everything except the write. The point of it is --live against a
+  // server that is already running a bot — you want to see the plan a fresh
+  // pipeline produces before it lands in the segment that bot adopts from.
+  if (args.includes("--dry-run")) {
+    const dryArterials = roadStage.filter((s) => s <= ARTERIAL_RCL).length;
+    console.log(
+      `DRY RUN — not written. ${room} payload ${data.length} bytes hash ${payload.planHash} ` +
+        `shellCut ${payload.shellCut.length} roads ${roadStage.length} (${dryArterials} arterial)`,
+    );
+    return;
+  }
   await api(cfg, "POST", "/api/user/memory-segment", { segment: SEGMENT, data });
   const back = await api(cfg, "GET", `/api/user/memory-segment?segment=${SEGMENT}`);
   if (!back.data || JSON.parse(back.data).room !== room) throw new Error("segment verify failed");
