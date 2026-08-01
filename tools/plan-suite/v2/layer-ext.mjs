@@ -629,6 +629,60 @@ export function planExtensions(terrain, plan) {
     return false;
   };
   /**
+   * TWO CORRIDORS FOR ONE BAR. A 2-wide slab of extensions with a road down
+   * BOTH of its long sides looks dense and is the opposite: the road-to-slot
+   * ratio inside it is 1:1, where the corridor pattern this layer is built
+   * around is 1:2 (one lane, extensions down each face). E16S7 is the worked
+   * example — extensions 37-38 x 34-38 flanked by corridors at x=36 and x=39,
+   * ten slots paying for two lanes.
+   *
+   * BUT THE PATTERN IS ONLY WASTE WHEN THE LANES ARE ONE-SIDED. road | ext |
+   * ext | road with the OUTER faces of both roads also filled is the ideal
+   * packing, not a slab: two lanes serving four columns. So the test is not
+   * "is this two wide", it is "are both flanking lanes serving nothing on
+   * their far side, and can they never" — a lane whose outer face is already
+   * an extension, or is still buildable and might become one, is doing its
+   * job and this candidate is free.
+   *
+   * Cheap and local, like makesSquare: two axes, two orientations, four
+   * lookups each. And, like makesSquare, it DEFERS rather than forbids —
+   * 60/60 outranks the shape of the mass, so a room with nothing else left
+   * still builds the bar and the deferral only decides the order.
+   */
+  const makesSlab = (x, y) => {
+    for (const [dx, dy] of [
+      [1, 0],
+      [0, 1],
+    ]) {
+      for (const s of [1, -1]) {
+        const px = x + dx * s,
+          py = y + dy * s; // the partner column/row of the bar
+        if (!extSet.has(key(px, py))) continue;
+        const ax = x - dx * s,
+          ay = y - dy * s; // lane on our outer side
+        const bx = px + dx * s,
+          by = py + dy * s; // lane on the partner's outer side
+        if (!roadSet.has(key(ax, ay)) || !roadSet.has(key(bx, by))) continue;
+        // ...and both lanes must be serving nothing on their far faces
+        const fax = ax - dx * s,
+          fay = ay - dy * s;
+        const fbx = bx + dx * s,
+          fby = by + dy * s;
+        const dead = (fx, fy) => !extSet.has(key(fx, fy)) && !extCapable(fx, fy);
+        // BOTH, never either. Relaxing this to "one lane is one-sided" was
+        // measured on the fleet: the same 234 slab tiles survive, extension
+        // road-faces drop 13073 -> 13037 and the filler tour lengthens, because
+        // deferring a bar whose other lane IS serving a third column moves the
+        // extension somewhere worse for nothing. Only the doubly-wasteful
+        // configuration is worth an order change.
+        if (dead(fax, fay) && dead(fbx, fby)) return true;
+      }
+    }
+    return false;
+  };
+  /** the two shape deferrals, together — see makesSquare and makesSlab */
+  const deferShape = (x, y) => makesSquare(x, y) || makesSlab(x, y);
+  /**
    * one candidate, invariant-checked, with the rollback. true = it landed.
    * `allowSquare` is the fallback's escape hatch: 60/60 outranks the shape of
    * the mass, so the one-at-a-time tail may brick if that is all the room has.
@@ -644,7 +698,7 @@ export function planExtensions(terrain, plan) {
     // a candidate can go stale inside a pass (an earlier placement took its
     // tile or a stub paved it — cheap re-check)
     if (cap === null ? !extCapable(c.x, c.y) : !extCapableAt(c.x, c.y, cap)) return false;
-    if (!allowSquare && makesSquare(c.x, c.y)) return false;
+    if (!allowSquare && deferShape(c.x, c.y)) return false;
     const trial = new Set(blockedNow);
     trial.add(ck);
     if (!invariantHolds(trial)) {
@@ -736,7 +790,7 @@ export function planExtensions(terrain, plan) {
         flush();
         curTier = c.tier;
       }
-      if (makesSquare(c.x, c.y)) {
+      if (deferShape(c.x, c.y)) {
         deferred.push(c);
         continue;
       }
@@ -1148,23 +1202,42 @@ export function planExtensions(terrain, plan) {
       const { a, b } = priced[0].p;
       const path = shortestLane(freeMask, a, b, (x, y) => {
         const k = key(x, y);
-        if (laneSet.has(k) || !massKeys.has(k)) return 0; // nothing given up
+        if (laneSet.has(k) || !extCapable(x, y)) return 0; // nothing given up
         return tierOf(idx(x, y)) === 0 ? LANE_PEN_DEEP : LANE_PEN_SHALLOW;
       });
       if (!path) break; // no mass-free lane between them either — not ours
-      // RESERVE ONLY WHAT IS IN THE WAY. The lane is a route, not a corridor we
-      // own: every tile of it that the mass was never going to take is already
-      // walkable and reserving it would cost an extension slot for nothing. So
-      // the reservation is the INTERSECTION of the route with the predicted
-      // mass — one to four tiles, the same footprint the relocation pass used
-      // to move, taken before anything is built instead of after. The
-      // prediction is re-derived every round, so the tile promoted into the
-      // mass by this round's reservation is caught by the next one.
+      // RESERVE EVERY TILE OF THE ROUTE THE MASS COULD EVER TAKE — not just the
+      // ones today's prediction says it WILL.
+      //
+      // This used to reserve the INTERSECTION of the route with `massKeys` (the
+      // first TARGET road-flanking candidates), on the reasoning that a tile the
+      // mass was never going to take is already walkable and reserving it spends
+      // an extension slot for nothing. The reasoning is sound and the premise is
+      // false: `massKeys` is a snapshot of a skeleton that is still growing. The
+      // reservation runs before the placement loop, and that loop grows more
+      // corridor stubs as it goes — so a tile predicted to be MASS becomes ROAD,
+      // and its neighbour, which the snapshot never listed, is promoted into the
+      // mass and lands on the lane. E17S8 is the worked example: the snapshot had
+      // 43,34 as an extension and never listed 43,35; the built room paved 43,34
+      // and put an extension on 43,35, straight across the only lane between the
+      // 46,32 and 46,37 battlements. The model reported a bounded lap of 1.75 and
+      // the room shipped at 4 — a bound that is not a bound.
+      //
+      // A route is stable; a snapshot of the mass is not. So the reservation is
+      // the route intersected with what is BUILDABLE AT ALL (`extCapable`), which
+      // is the true set of tiles an extension could ever occupy on this lane.
+      // Tiles that are not buildable — roads, objects, tight terrain — still cost
+      // nothing and are still skipped. The extra tiles this takes are charged to
+      // the same deep budget as before, so the upkeep ceiling is unchanged, and
+      // the paving pass below turns them into corridor that hands its own
+      // neighbours a road face rather than an invisible no-build stripe.
       const add = [];
       let deepAdd = 0;
       for (const i of path) {
-        const k = key(i % 50, (i / 50) | 0);
-        if (laneSet.has(k) || !massKeys.has(k)) continue;
+        const x = i % 50,
+          y = (i / 50) | 0;
+        const k = key(x, y);
+        if (laneSet.has(k) || !extCapable(x, y)) continue;
         add.push(k);
         if (tierOf(i) === 0) deepAdd++;
       }

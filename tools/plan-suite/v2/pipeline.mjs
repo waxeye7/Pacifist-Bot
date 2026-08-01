@@ -239,16 +239,71 @@ function declareEcoTax(plan) {
     );
   }
   const basin = plan.basin?.length ?? 0;
+  // ------------------------------------------------------------------
+  // THE CAUSAL CLAUSE IS GENERATED, NOT ASSERTED.
+  //
+  // This used to end, unconditionally, with "the closer seats were rejected by
+  // the space budget or by the enclosure, not by the eco score". In 14 of the
+  // 20 rooms that print it, seedSkip is 0 — the hub IS the top-ranked
+  // confluence and it composed the full RCL8 program on its first rung. Nothing
+  // was rejected. The sentence invented a search that never ran, to explain a
+  // distance that has a much simpler and entirely checkable cause: the anchors
+  // in these rooms are far apart, and no hub anywhere in the room can be near
+  // all of them at once.
+  //
+  // So the clause now comes off the room's own numbers. When a closer seat
+  // really did fail (seedSkip > 0) it says so and counts them. When none did,
+  // it says THAT, and backs the "genuinely far apart" claim with a bound
+  // anybody can re-derive: two anchors chebyshev d apart cannot both be closer
+  // than d/2 to any tile in the room, so ceil(d/2) is a floor on the walk this
+  // room owes the far one no matter where the hub goes.
+  // ------------------------------------------------------------------
+  const anchors = [
+    ...(plan.controller ? [{ n: "controller", p: plan.controller }] : []),
+    ...(plan.sources || []).map((s, i) => ({ n: `source ${i + 1}`, p: s })),
+  ];
+  let spread = 0;
+  let spreadPair = "";
+  for (let i = 0; i < anchors.length; i++) {
+    for (let j = i + 1; j < anchors.length; j++) {
+      const d = Math.max(
+        Math.abs(anchors[i].p.x - anchors[j].p.x),
+        Math.abs(anchors[i].p.y - anchors[j].p.y),
+      );
+      if (d > spread) {
+        spread = d;
+        spreadPair = `${anchors[i].n} ${anchors[i].p.x},${anchors[i].p.y} and ${anchors[j].n} ${anchors[j].p.x},${anchors[j].p.y}`;
+      }
+    }
+  }
+  const anchorFloor = Math.ceil(spread / 2);
+  const cause =
+    skip > 0
+      ? `${skip} closer-scoring seat(s) WERE tried and rejected — none of them held the RCL8 program at ` +
+        `any rung of the shell ladder — so this distance was bought, not preferred.`
+      : `NO closer seat was rejected: this hub is seed rank 0 of ${plan.meta.seedPool ?? "?"} scored ` +
+        `confluences and it composed the whole RCL8 program on its own ladder, so the eco score was ` +
+        `never overruled by anything. The anchors are genuinely far apart in this room — the widest ` +
+        `separation is ${spread} tiles (${spreadPair}), and two anchors ${spread} apart cannot both sit ` +
+        `within ${anchorFloor} of any tile in the room, so a walk of at least ${anchorFloor} to the far ` +
+        `one is owed by EVERY hub this room admits, not by this one.`;
   plan.meta.shortfalls.push({
     gate: "eco",
     detail:
       `hauler distances in this room are a terrain verdict, not a preference: ${bits.join("; ")}. ` +
       `The hub sits at ${hub.x},${hub.y} on the only basin that holds the program — ${basin} tiles reachable ` +
-      `from the seed, core pocket ${plan.meta.coreSize ?? "?"} — and the closer seats were rejected by the ` +
-      `space budget or by the enclosure, not by the eco score. Capping this silently is the anti-pattern; ` +
-      `the numbers are here so the trade can be argued with.`,
+      `from the seed, core pocket ${plan.meta.coreSize ?? "?"}. ${cause} Capping this silently is the ` +
+      `anti-pattern; the numbers are here so the trade can be argued with.`,
     tiles: [{ x: hub.x, y: hub.y }],
-    eco: { pathController: pc, pathSourcesSum: ps, seedSkip: skip, basin },
+    eco: {
+      pathController: pc,
+      pathSourcesSum: ps,
+      seedSkip: skip,
+      basin,
+      seedPool: plan.meta.seedPool ?? null,
+      anchorSpread: spread,
+      anchorWalkFloor: anchorFloor,
+    },
   });
 }
 
@@ -472,6 +527,44 @@ function attachRungProof(plan, trail) {
   return plan;
 }
 
+/**
+ * RUNTIME IS A SHORTFALL LIKE ANY OTHER.
+ *
+ * The stated budget was "~200ms per room offline" and the fleet's real p50 is
+ * ~450ms, because every room now composes up to four proof-carrying rungs
+ * instead of one unexamined plan. That trade is defensible and it is written
+ * down (docs/BASE-PLANNER-PERFECTION-GOAL.md); a room that takes more than a
+ * WHOLE SECOND is a different thing — it is the ladder failing to converge, and
+ * it should have to say so with the compositions that cost the time. E4S7 is
+ * the standing example at ~2.4s across 8 seeds.
+ *
+ * A note, never a failure: the planner runs offline, so a slow room costs a
+ * developer's patience and nothing in-game. The validator treats it the same
+ * way (a note above 1000ms, not a fail).
+ */
+const RUNTIME_DECLARE_MS = 1000;
+function declareRuntime(plan, trail) {
+  const ms = plan.meta.planMs ?? 0;
+  if (ms <= RUNTIME_DECLARE_MS) return;
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  const seeds = new Set(trail.map((r) => r.seedSkip)).size;
+  const complete = trail.filter((r) => r.complete).length;
+  plan.meta.shortfalls.push({
+    gate: "runtime",
+    kind: "slow-room",
+    detail:
+      `PLANNING THIS ROOM TOOK ${ms}ms, over the ${RUNTIME_DECLARE_MS}ms line the suite declares at ` +
+      `(fleet p50 is roughly 450ms). The time is the escalation ladder, not a hot loop: this room ` +
+      `composed ${trail.length} full plan(s) across ${seeds} seed(s), of which ${complete} held the ` +
+      `whole RCL8 program, and it shipped from seed rank ${plan.meta.seedSkip ?? 0}. Each composition ` +
+      `is a complete shell negotiation plus the whole structure program, kept only if it measurably ` +
+      `beat the incumbent — that proof is exactly what the old sub-200ms budget was trading away. ` +
+      `The planner runs offline, so this is a note about developer patience, not about CPU in-game; ` +
+      `it is declared rather than hidden because a ladder that cannot converge is worth seeing.`,
+    runtime: { planMs: ms, compositions: trail.length, seeds, complete },
+  });
+}
+
 function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache) {
   let win = first;
   let winIdx = firstIdx;
@@ -618,6 +711,7 @@ export function planRoom(d) {
     if (p && p.meta) {
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
+      declareRuntime(p, trail);
     }
     return p;
   };

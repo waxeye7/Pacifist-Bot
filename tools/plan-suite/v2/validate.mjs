@@ -30,9 +30,9 @@
  *   LEAK   no owned structure sits in the exterior flood (ramparts block).
  *          A structure outside the shell is fine ONLY if its own tile is
  *          ramparted (a bubble), which the flood accounts for naturally.
- *   DEPTH  every eco structure is either at depth ≥ 4 (out of a ranged
- *          attacker's reach from the wall) or has a rampart on its tile.
- *          Depth is re-derived from the re-derived exterior.
+ *   DEPTH  every eco structure — CONTAINERS INCLUDED — is either at depth ≥ 4
+ *          (out of a ranged attacker's reach from the wall) or has a rampart
+ *          on its tile. Depth is re-derived from the re-derived exterior.
  *   D4     every extension has a D4 face on the interior walk component
  *          that contains the sitter — no diagonal-only, un-roadable exts.
  *   EXTROAD every extension has a ROAD on a D4 face. Reachable is not the
@@ -54,7 +54,8 @@
  *   TOWERS depth >= 4 against the re-derived exterior with NO rampart
  *          exemption. A ramparted tower still eats ranged fire through the
  *          rampart's hit points; the whole point of a tower is that it is
- *          unreachable.
+ *          unreachable. Undeclarable: a shallow tower is a broken tower, not
+ *          a shortfall, and no note makes it right.
  *   LABS   exactly 10, plan.labInputs are 2 of them, and every lab is within
  *          range 2 of BOTH inputs (that is the reaction rule, not taste).
  *   SITTER the tile every other check is measured FROM. It must be walkable
@@ -70,6 +71,13 @@
  * The identical violation with no declaration is a hard fail. That is the
  * whole mechanism — the planner is allowed to be beaten by a room, it is not
  * allowed to be quiet about it.
+ *
+ * Two limits keep that mechanism from becoming a mute button. Some gates are
+ * UNDECLARABLE outright (see below) — a shallow tower or a stacked structure
+ * is wrong, not short. And every declaration must carry EVIDENCE: real detail
+ * prose, the ladder it walked, or the tiles it lost. A bare {gate, kind} pair
+ * is inadmissible and hard-fails the room on its own — a declaration with no
+ * evidence is not a declaration, it is a suppression flag.
  *
  * Exits nonzero on any undeclared failure.
  */
@@ -116,7 +124,19 @@ const BLOCKING = [
   "observer",
   "extractor",
 ];
-// eco structures that must be out of ranged reach or personally ramparted
+/**
+ * Eco structures that must be out of ranged reach or personally ramparted.
+ *
+ * CONTAINERS ARE IN THIS LIST. A container at depth < 4 with no rampart on its
+ * tile is a 250k-hit-point-less box of energy sitting inside a ranged
+ * attacker's envelope: it dies to one pass and the source or the upgrader it
+ * feeds stalls. "It is only a container" is the argument that ships the leak.
+ * The two containers that legitimately live near the wall keep the exact path
+ * every other structure has — a rampart on the tile exempts them via the
+ * `rampartSet.has(k)` check below, and a room that genuinely cannot rampart
+ * the tile (E5S9's mineral seat sits on the border band, where the engine
+ * refuses the rampart outright) declares it and passes with a note.
+ */
 const NEEDS_DEPTH = [
   "spawn",
   "extension",
@@ -127,6 +147,7 @@ const NEEDS_DEPTH = [
   "lab",
   "nuker",
   "observer",
+  "container",
 ];
 
 /** CONTROLLER_STRUCTURES[type][8] — the hard server cap. */
@@ -170,6 +191,9 @@ const FORBIDDEN = ["factory", "powerSpawn", "constructedWall"];
 const EXT_SHORTFALL_OK = new Set([]);
 
 const DEPTH_SAFE = 4;
+/** planRoom wall time past which a room gets a NOTE (never a fail) — see the
+ *  runtime block at the bottom of checkRoom. Fleet p50 is roughly 450ms. */
+const RUNTIME_NOTE_MS = 1000;
 /** hub link + one per source + controller link. Below this the link network
  *  is not a network — a source hauls its energy by creep, forever. */
 const MIN_LINKS = 4;
@@ -328,8 +352,47 @@ const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g ||
  * a licence to ship a structure the server will refuse to build, two
  * structures on one tile, or a base with a hole in it. Those are wrong, not
  * short, and there is no note that makes them right.
+ *
+ * "towers" IS ON THIS LIST. A shallow tower is not a capacity shortfall — it
+ * is a tower that does not work. The whole point of a tower is that nothing
+ * can stand where it can be shot; a tower inside the ranged envelope is
+ * ground down at leisure by an attacker the tower cannot reach past, and the
+ * six of them are the room's entire answer to a siege. There is no note that
+ * makes that right, so `{gate:"towers", kind:"shallow-tower"}` is not a
+ * declaration, it is laundering, and it is refused here.
  */
-const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core"]);
+const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "towers"]);
+
+/**
+ * EVIDENCE. A declaration is a claim that a room beat the planner, and the
+ * mechanism only works if the claim is auditable — the whole point of the
+ * shortfall channel is that the planner may lose, loudly, in public. A bare
+ * `{gate:"rampart", kind:"leak"}` says nothing a reader can check: it names
+ * the violation it wants excused and stops. That is not an admission, it is a
+ * suppression flag, and two fields of it would silently excuse a real hole.
+ *
+ * So a declaration is ADMISSIBLE only if it carries evidence:
+ *   - `detail` is a string of >= 40 characters (real prose — which tile, why
+ *     the room cannot do better, what was tried), OR
+ *   - the entry carries a non-empty `rungs` (the ladder that was walked) or
+ *     `tiles` (the exact tiles the room lost).
+ * Anything else is INADMISSIBLE: it excuses nothing, and its presence is
+ * itself a hard fail for the room. A declaration with no evidence is not a
+ * declaration.
+ */
+const MIN_DETAIL_CHARS = 40;
+function declarationEvidence(sf) {
+  if (typeof sf.detail === "string" && sf.detail.trim().length >= MIN_DETAIL_CHARS) return null;
+  if (Array.isArray(sf.rungs) ? sf.rungs.length : sf.rungs && Object.keys(sf.rungs).length) return null;
+  if (Array.isArray(sf.tiles) && sf.tiles.length) return null;
+  const n = typeof sf.detail === "string" ? sf.detail.trim().length : 0;
+  return (
+    `INADMISSIBLE DECLARATION on gate "${normGate(sf.gate)}"` +
+    (sf.kind ? `/kind "${sf.kind}"` : "") +
+    ` — no evidence (detail ${n} chars < ${MIN_DETAIL_CHARS}, no rungs, no tiles). ` +
+    `A declaration with no evidence is not a declaration; it excuses nothing.`
+  );
+}
 
 export function checkRoom(plan, terrain, objects) {
   const s = plan.structures || {};
@@ -730,16 +793,34 @@ export function checkRoom(plan, terrain, objects) {
   //   class  a tile-less declaration is a claim about a whole class, so it
   //          must NAME that class: gate + kind. There is no wildcard, and
   //          silence is not a declaration.
+  //   evidence the entry must carry some. A declaration with no evidence is
+  //          INADMISSIBLE: it is dropped before arbitration (so it excuses
+  //          nothing at all) AND its presence is itself a hard fail for the
+  //          room, naming the gate it tried to speak for. See
+  //          declarationEvidence() above for what counts as evidence.
   //
   // Backwards compatible by construction: every declaration the planner
   // ships today carries tiles and is arbitrated against tiled violations.
   // ------------------------------------------------------------------
   const declared = (plan.meta && plan.meta.shortfalls) || [];
-  const decls = declared.map((sf) => ({
-    gate: normGate(sf.gate),
-    kind: sf.kind ? String(sf.kind) : null,
-    tiles: new Set((sf.tiles || []).map((t) => key(t.x, t.y))),
-  }));
+  const inadmissible = [];
+  const decls = [];
+  for (const sf of declared) {
+    if (!sf || typeof sf !== "object") {
+      inadmissible.push(`INADMISSIBLE DECLARATION — entry is not an object (${JSON.stringify(sf)})`);
+      continue;
+    }
+    const why = declarationEvidence(sf);
+    if (why) {
+      inadmissible.push(why);
+      continue; // dropped: an inadmissible declaration excuses nothing
+    }
+    decls.push({
+      gate: normGate(sf.gate),
+      kind: sf.kind ? String(sf.kind) : null,
+      tiles: new Set((sf.tiles || []).map((t) => key(t.x, t.y))),
+    });
+  }
   const excused = (f) => {
     if (UNDECLARABLE.has(f.gate)) return false;
     for (const d of decls) {
@@ -755,9 +836,32 @@ export function checkRoom(plan, terrain, objects) {
     }
     return false;
   };
-  const fails = [];
+  // An inadmissible declaration is a HARD FAIL in its own right — it cannot be
+  // excused (there is nothing to excuse it with) and it never reaches excused().
+  const fails = [...inadmissible];
   const notes = [];
   for (const f of raw) (excused(f) ? notes : fails).push(f.msg);
+
+  // ------------------------------------------------------------------
+  // RUNTIME — a NOTE, never a fail.
+  //
+  // The planner runs offline, so a slow room costs a developer's patience and
+  // nothing in-game; failing the fleet over it would be the wrong shape of
+  // rule. But it is not nothing either: past a whole second the escalation
+  // ladder is not converging, and the old "~200ms per room" claim in the goal
+  // doc was quietly false for the entire fleet before anybody measured it.
+  // The pipeline declares these rooms on gate "runtime"; this is the
+  // independent check that the number in the plan actually is over the line,
+  // and it is reported whether or not the plan remembered to declare it.
+  // ------------------------------------------------------------------
+  const planMs = plan.meta?.planMs;
+  if (typeof planMs === "number" && planMs > RUNTIME_NOTE_MS) {
+    const declaredRuntime = declared.some((sf) => sf && normGate(sf.gate) === "runtime");
+    notes.push(
+      `SLOW ROOM — planMs ${planMs} over the ${RUNTIME_NOTE_MS}ms line` +
+        (declaredRuntime ? " (declared)" : " and NOT declared by the planner"),
+    );
+  }
 
   return {
     fails,

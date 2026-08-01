@@ -61,6 +61,7 @@ const MAX_SPUR = 14;
 function idx(x, y) {
   return x + y * 50;
 }
+const round2 = (v) => Math.round(v * 100) / 100;
 
 /**
  * ------------------------------------------------------------------------
@@ -143,11 +144,29 @@ function verifyMobility(terrain, plan) {
   if (mBuilt.worstGated || mBuilt.worst) {
     const { a, b, din, dout } = mBuilt.worstGated || mBuilt.worst;
     // the same pair, walked with no mass at all: if THAT is inside the target
-    // the detour is ours, and the reservation did not hold it
+    // the detour is ours, and the reservation did not hold it.
+    //
+    // THE TEST IS GATED, and it was not always. It used to read
+    //     freeDin / dout <= MOBILITY_TARGET
+    // — the UNGATED ratio — while every other verdict in this file is taken
+    // against the 4-tile detour floor (MOBILITY_DETOUR_FLOOR). That mismatch is
+    // strictly one-directional and it lies in the flattering direction: a pair
+    // that walks 7 free against 4 outside reads 1.75 ungated and is therefore
+    // "not ours", when under the reading this room is actually judged on it is
+    // not a detour at all (3 tiles, under the floor) and the room's mass-free
+    // gated lap is a clean 0. Four rooms — E17S8, E21S10, E18S9, E19S4 — printed
+    // "no arrangement of 60 extensions shortens it" about a lap that is 100%
+    // ours by the only metric the gate uses. The free reading now clears the
+    // same two hurdles the built one does before it is allowed to blame terrain.
     const freeDin = arriveAt(bfsField(freeMask, a), b);
-    meta.worst = { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, din, dout, freeDin };
-    meta.worstCaused =
-      mBuilt.maxGated > MOBILITY_TARGET && isFinite(freeDin) && freeDin / dout <= MOBILITY_TARGET;
+    const freeOverGated =
+      isFinite(freeDin) && freeDin - dout > mBuilt.detourFloor && freeDin / dout > MOBILITY_TARGET;
+    // how many tiles of the worst walk our own structures added — the single
+    // number the declaration is about, and the one that decides its wording
+    const massAdds = isFinite(freeDin) ? din - freeDin : null;
+    meta.worst = { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, din, dout, freeDin, massAdds };
+    meta.massAdds = massAdds;
+    meta.worstCaused = mBuilt.maxGated > MOBILITY_TARGET && isFinite(freeDin) && !freeOverGated;
   }
 
   if (mBuilt.maxGated > MOBILITY_TARGET && mBuilt.worstGated && plan.meta) {
@@ -158,6 +177,56 @@ function verifyMobility(terrain, plan) {
       : lane.dropped
         ? ` The lane reservation layer 6 wanted (${lane.tiles} tile(s)) was DROPPED: honouring it cost this room its 60th extension, and 60/60 outranks the lap.`
         : ` Layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ${lane.rounds} round(s), which bounds the worst mass this room could grow at ${lane.bounded} against an unreserved ${lane.worstCase}.`;
+    // ------------------------------------------------------------------
+    // THE MASS SHARE, STATED. The old template offered a reader exactly one
+    // bit — "our mass" or "not our mass" — and computed that bit with the
+    // ungated ratio (see verifyMobility above), so 27 rooms whose own
+    // structures add four tiles or more to the worst walk were told that no
+    // arrangement of 60 extensions could shorten it. The declaration now
+    // prints the measurement it is made of: the bare-terrain lap and the
+    // as-built lap side by side, the same pair's two walks, and the
+    // difference between them in tiles. That difference is the mass share,
+    // and it — not a boolean — chooses the sentence. The absolution
+    // ("no arrangement shortens it") is reserved for rooms where the mass
+    // adds at most one tile, which is the only case in which it is true.
+    // ------------------------------------------------------------------
+    const freeDin = meta.worst.freeDin;
+    const share = meta.worst.massAdds;
+    const pct = share !== null && din > 0 ? Math.round((share / din) * 100) : 0;
+    const massShare =
+      share === null
+        ? `THE MASS SHARE, measured: with the extension mass removed this pair is not connected at all, ` +
+          `so every tile of this walk exists because of where we built.`
+        : `THE MASS SHARE, measured: bare terrain — this same enclosure with every extension removed — ` +
+          `laps ${mFree.maxGated} and that pair walks ${freeDin} inside; as built the room laps ` +
+          `${mBuilt.maxGated} and the same pair walks ${din}. The mass adds ${share} tile(s) to the ` +
+          `worst walk` +
+          (share >= 4
+            ? ` — ${pct}% of it. This room's miss is substantially the structures we chose to grow, ` +
+              `not the enclosure and not the terrain, and the lane reservation did not hold them.`
+            : share >= 2
+              ? ` — ${pct}% of it: a real share, but the other ${freeDin} tiles are the enclosure and ` +
+                `the terrain.`
+              : `. The lap is the enclosure and the terrain, not the mass — no arrangement of 60 ` +
+                `extensions shortens it.`);
+    // ...and WHY the bare-terrain reading clears, in the gate's own terms: a
+    // pair is only judged when its absolute detour exceeds the floor, so
+    // "clears" means one of two different things and the reader is told which.
+    const freeDetour = share === null ? 0 : freeDin - dout;
+    const causedWhy =
+      freeDetour <= mBuilt.detourFloor
+        ? `its detour there is ${freeDetour} tile(s), not over the ${mBuilt.detourFloor}-tile floor, so ` +
+          `it is not a real detour at all`
+        : `it reads ${round2(freeDin / dout)}, inside the ${MOBILITY_TARGET} target`;
+    const causedNote =
+      share === null
+        ? ""
+        : meta.worstCaused
+          ? ` On bare terrain this pair CLEARS the gate — ${causedWhy} — so the room did not fail here ` +
+            `until we grew into it.`
+          : ` On bare terrain this pair already misses (${round2(freeDin / dout)} over ` +
+            `${freeDetour} tile(s) of detour), so the room was over target before the first ` +
+            `extension landed.`;
     plan.meta.shortfalls = plan.meta.shortfalls || [];
     plan.meta.shortfalls.push({
       gate: "mobility",
@@ -167,13 +236,8 @@ function verifyMobility(terrain, plan) {
         `${mBuilt.detourFloor} tiles of detour (target ${MOBILITY_TARGET}; ungated over every pair it is ` +
         `${mBuilt.max}): between wall tiles ` +
         `${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while the attacker walks ` +
-        `${dout} outside. With the extension mass removed entirely the same room measures ` +
-        `${mFree.maxGated} (that pair: ${meta.worst.freeDin} inside), so ` +
-        (meta.worstCaused
-          ? `this pair IS our mass and the reservation did not hold it`
-          : `the lap is the enclosure and the terrain, not the mass — no arrangement of 60 extensions ` +
-            `shortens it`) +
-        `. ${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
+        `${dout} outside. ${massShare}${causedNote} ` +
+        `${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
         `${mFree.overGated} with no mass in the room (ungated: ${mBuilt.over}/${mBuilt.pairs} against ` +
         `${mFree.over}).${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
         `defender's lanes before it grows, and a pass that moved finished structures to patch the ` +
@@ -182,6 +246,7 @@ function verifyMobility(terrain, plan) {
         { x: a.x, y: a.y },
         { x: b.x, y: b.y },
       ],
+      mass: { adds: share, bareLap: mFree.maxGated, builtLap: mBuilt.maxGated, bareDin: freeDin, din, dout },
     });
   }
   return meta;

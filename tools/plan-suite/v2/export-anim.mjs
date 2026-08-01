@@ -248,6 +248,69 @@ const CLAIM_COLORS = {
   ctrlLink: "#9fbfff",
 };
 
+const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+/** Upgraders work at range 3, and layer-hub only ever seats the bin at 1..3. */
+const CTRL_BIN_RANGE = 3;
+
+/**
+ * structures.container is one seat per source, then the CONTROLLER bin (the
+ * pre-RCL7 upgrader bin), then the MINERAL seat when the room has a mineral —
+ * but 1-source and mineral-less rooms exist, so the label is derived from the
+ * plan's own anchors rather than from a fixed index. Anything the anchors do
+ * not explain keeps a neutral positional label; guessing would be worse than
+ * saying nothing.
+ *
+ * Claim order is source → controller → mineral, each taking from what is left,
+ * because that is the order of decreasing geometric certainty: a source seat
+ * touches its source and nothing else, while the controller bin and the
+ * mineral seat can land on top of each other. E8S3 is the fleet's degenerate
+ * case — its mineral is D8-adjacent to the controller link, so BOTH seats sit
+ * at range 1 of the mineral, range 1 of the link and range 3 of the
+ * controller, and no amount of geometry separates them. There the array order
+ * breaks the tie, which layer-hub guarantees ("It joins structures.container
+ * AFTER the source containers and BEFORE the mineral container — that order is
+ * load-bearing"). That is a tie-break on a documented invariant, not an
+ * assumption about which index the controller bin lives at.
+ */
+function containerRoles(plan) {
+  const list = plan.structures.container || [];
+  const sources = plan.sources || [];
+  const links = plan.structures.link || [];
+  // link[0] is the hub link, link[last] is the controller link
+  const ctrlLink = links.length > 1 ? links[links.length - 1] : null;
+  const labels = new Array(list.length).fill(null);
+
+  list.forEach((c, i) => {
+    const si = sources.findIndex((s) => cheb(c, s) <= 1);
+    if (si >= 0) labels[i] = `source ${si + 1} miner seat`;
+  });
+
+  // layer-hub seats the bin at range 1..3 of the controller AND D8-adjacent to
+  // the controller link; nearest-to-controller decides, array order breaks ties
+  if (plan.controller) {
+    let best = -1;
+    let bestD = Infinity;
+    for (let i = 0; i < list.length; i++) {
+      if (labels[i]) continue;
+      const d = cheb(list[i], plan.controller);
+      if (d > CTRL_BIN_RANGE || d >= bestD) continue;
+      if (ctrlLink && cheb(list[i], ctrlLink) > 1) continue;
+      best = i;
+      bestD = d;
+    }
+    if (best >= 0) labels[best] = "controller upgrader bin";
+  }
+
+  if (plan.mineral) {
+    const mi = list.findIndex((c, i) => !labels[i] && cheb(c, plan.mineral) <= 1);
+    if (mi >= 0) labels[mi] = "mineral miner seat";
+  }
+
+  for (let i = 0; i < list.length; i++) if (!labels[i]) labels[i] = `container ${i + 1}`;
+  return labels;
+}
+
 function stageClaims(sb, plan) {
   const s = plan.structures;
   const one = (label, tile, hex) => sb.push("claims", label, sb.flat([tile], hex));
@@ -258,7 +321,8 @@ function stageClaims(sb, plan) {
   if (plan.sitter) one("sitter tile — one creep serves the trio", plan.sitter, CLAIM_COLORS.sitter);
 
   (s.spawn || []).forEach((p, i) => one(`claim spawn ${i + 1} — fanned sector`, p, CLAIM_COLORS.spawn));
-  (s.container || []).forEach((p, i) => one(`claim container ${i + 1} — miner seat`, p, CLAIM_COLORS.container));
+  const cRoles = containerRoles(plan);
+  (s.container || []).forEach((p, i) => one(`claim container — ${cRoles[i]}`, p, CLAIM_COLORS.container));
 
   // link[0] is the hub link, link[last] is the controller link, rest = sources
   const links = s.link || [];

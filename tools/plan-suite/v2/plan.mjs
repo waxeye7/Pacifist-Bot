@@ -375,6 +375,73 @@ function animPlayerHtml(plan) {
 </script>`;
 }
 
+/** the only escape in this file — details are prose written by the layers */
+function esc(s) {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** the target the as-built gated lap is judged against (layer-shell MOBILITY_TARGET) */
+const MOBILITY_TARGET = 1.2;
+/** pairs whose absolute detour is at or below this many tiles are not judged */
+const MOBILITY_DETOUR_FLOOR = 4;
+
+/** the as-built gated lap — the number that decides, not the shell's mass-free one */
+function builtGated(plan) {
+  const v = plan?.meta?.walls?.mobility?.builtGated;
+  return typeof v === "number" ? v : null;
+}
+function mobilityOver(plan) {
+  const v = builtGated(plan);
+  return v !== null && v > MOBILITY_TARGET;
+}
+
+/**
+ * DECLARED SHORTFALLS, rendered in full. A room that met every gate says so
+ * out loud — omitting the section for the clean rooms is the same hiding bug
+ * one level up, because then an empty page is indistinguishable from a page
+ * that never had the section at all.
+ */
+function shortfallsHtml(plan) {
+  const list = plan.meta?.shortfalls || [];
+  if (!list.length) {
+    return `<div class="card sf-card"><h3>Declared shortfalls</h3>
+<p class="sf-none">No declared shortfalls — this room met every gate it was measured against.</p></div>`;
+  }
+  const items = list
+    .map((s) => {
+      const tag = [s.gate, s.kind, s.source].filter(Boolean).map(esc).join(" · ");
+      const tiles = (s.tiles || []).length
+        ? `<div class="sf-tiles">tiles: ${s.tiles.map((t) => `${t.x},${t.y}`).join(" · ")}</div>`
+        : "";
+      return `<div class="sf-item"><div class="sf-gate">${tag || "(untagged gate)"}</div>
+<div class="sf-detail">${esc(s.detail)}</div>${tiles}</div>`;
+    })
+    .join("\n");
+  return `<div class="card sf-card"><h3>Declared shortfalls · ${list.length}</h3>
+<p class="sf-lead">Every gate this plan knowingly failed, in the layer's own words. Nothing here is a crash — it is a
+measured miss the planner chose to publish rather than paper over.</p>
+${items}</div>`;
+}
+
+/** the defender-mobility row: as-built gated lap first, shell reading demoted */
+function mobilityCell(plan) {
+  const mob = plan.meta?.walls?.mobility;
+  const bg = builtGated(plan);
+  if (!mob || bg === null) return "—";
+  const over = bg > MOBILITY_TARGET;
+  const shell = plan.shell
+    ? `shell ungated record ${plan.shell.mobility.max} max · ${plan.shell.mobility.mean} mean`
+    : "shell ungated record —";
+  const floorGated = typeof mob.floorGated === "number" ? mob.floorGated : "—";
+  return `<span class="mob-main${over ? " mob-over" : ""}">${bg}</span> <span class="mob-lab">as-built gated lap</span>` +
+    (over ? ` <span class="mob-badge">over target ${MOBILITY_TARGET}</span>` : ` <span class="mob-ok">within target</span>`) +
+    `<div class="mob-sub">mass-free: ${floorGated} bare-terrain gated · ${shell}</div>`;
+}
+
 function roomPage(plan) {
   const m = plan.meta?.counts || {};
   const full = renderRoomSvg(plan, 20);
@@ -413,6 +480,21 @@ td,th{border:1px solid #333;padding:6px 10px}
 .stage.past{color:#9ab;border-color:#333}
 .stage.on{background:#12303f;color:#8cf;border-color:#2b6a86;box-shadow:0 0 0 1px #2b6a8666}
 .anim-label{margin-top:8px;font-size:13px;color:#cde;min-height:18px}
+.sf-card{margin-top:16px;max-width:1100px}
+.sf-card h3{color:#ffb454}
+.sf-lead{margin:0 0 12px;color:#9ab;font-size:12.5px;line-height:1.5}
+.sf-none{margin:0;color:#6f6;font-size:13px}
+.sf-item{border-left:3px solid #a4642a;background:#171310;border-radius:0 6px 6px 0;padding:9px 12px;margin-top:10px}
+.sf-gate{color:#ffb454;font-size:12px;letter-spacing:.6px;text-transform:uppercase;margin-bottom:5px}
+.sf-detail{color:#dcdcdc;font-size:13px;line-height:1.55}
+.sf-tiles{margin-top:6px;color:#9ab;font-size:12px;font-variant-numeric:tabular-nums}
+.mob-main{font-size:16px;font-weight:700;color:#6f6;font-variant-numeric:tabular-nums}
+.mob-main.mob-over{color:#ff6b6b}
+.mob-lab{color:#9ab;font-size:12px}
+.mob-ok{color:#6f6;font-size:11px;border:1px solid #2f5c33;border-radius:999px;padding:1px 7px;margin-left:4px}
+.mob-badge{background:#3a1414;color:#ff8b8b;border:1px solid #7d2626;border-radius:999px;
+  padding:1px 8px;font-size:11px;letter-spacing:.5px;margin-left:4px;white-space:nowrap}
+.mob-sub{color:#889;font-size:11.5px;margin-top:3px}
 </style></head><body>
 <h1>${plan.room} · Layer 1 Hub</h1>
 <p class="sub">
@@ -430,7 +512,7 @@ ${legendHtml()}
 <tr><td>storage</td><td>${m.storage ?? 0}</td><td>hub center</td></tr>
 <tr><td>terminal</td><td>${m.terminal ?? 0}</td><td>hub trio — all touch the sitter tile</td></tr>
 <tr><td>links</td><td>${m.link ?? 0}</td><td>hub + per-source + controller</td></tr>
-<tr><td>containers</td><td>${m.container ?? 0}</td><td>one per source (miner seat)</td></tr>
+<tr><td>containers</td><td>${m.container ?? 0}</td><td>one miner seat per source, plus the controller upgrader bin (the pre-RCL7 energy drop), plus the mineral miner seat when the room has a mineral</td></tr>
 <tr><td>spawn</td><td>${m.spawn ?? 0}</td><td>RCL8 = 3, fanned into sectors</td></tr>
 <tr><td>road</td><td>${m.road ?? 0}</td><td>one connected network: hub ↔ spawns ↔ sources ↔ controller</td></tr>
 <tr><td>rampart</td><td>${m.rampart ?? 0}</td><td>weighted min-cut shell (no openings) + eco bubbles · ${plan.shell ? plan.shell.upkeepPerTick + " e/tick upkeep, " + plan.shell.deepTiles + " deep tiles inside" : "—"}</td></tr>
@@ -441,10 +523,11 @@ ${legendHtml()}
 <tr><td>extractor</td><td>${m.extractor ?? 0}</td><td>sits ON the mineral (the one structure allowed on an object tile) + a miner container on the mineral ring · no road by design</td></tr>
 <tr><td>upgrader parks</td><td>${plan.meta?.ctrlParks ?? 0}</td><td>walkable seats the controller link feeds — 4 is the floor, below that the upgrader fleet throttles</td></tr>
 <tr><td>enclosure</td><td>${plan.shell ? (plan.shell.enclosedController ? "ctrl ✓" : "ctrl ✗") + " · src " + plan.shell.enclosedSources + "/" + plan.sources.length : "—"}</td><td>eco pulled inside the wall when it cost ≤4 (controller) / ≤3 (source) extra cut tiles</td></tr>
-<tr><td>defender mobility</td><td>${plan.shell ? plan.shell.mobility.max + " max · " + plan.shell.mobility.mean + " mean" : "—"}</td><td>interior walk ÷ exterior walk between wall tiles — &lt;1 means we out-manoeuvre the attacker</td></tr>
+<tr><td>defender mobility</td><td>${mobilityCell(plan)}</td><td>target <b>${MOBILITY_TARGET}</b> — interior walk ÷ exterior walk between wall tiles, judged only over pairs whose absolute detour exceeds a ${MOBILITY_DETOUR_FLOOR}-tile detour floor. The headline is the AS-BUILT lap (extension mass in the room, the walk the garrison actually gets); the mass-free readings below it are the same measure with the mass removed. &lt;1 means we out-manoeuvre the attacker.</td></tr>
 <tr><td>rampart spurs</td><td>${plan.meta?.walls ? plan.meta.walls.spurred + "/" + plan.meta.walls.clusters + " clusters · " + plan.meta.walls.spurTiles + " tiles" : "—"}</td><td>roads TO the ramparts, never ON them · ${plan.meta?.walls ? plan.meta.walls.pruned + " dead-end tiles pruned, " + plan.meta.walls.fillerTiles + " ext-face tiles" : "—"}</td></tr>
 <tr><td>ext corridors</td><td>${plan.meta?.extensions ? plan.meta.extensions.stubRoads + " stub roads" : "—"}</td><td>extensions grow flanking the road network — ${plan.meta?.extensions?.corridorFallback ? plan.meta.extensions.corridorFallback + " placed road-blind (fallback)" : "every one of them D4 on a road"}</td></tr>
 </table>
+${shortfallsHtml(plan)}
 <p>seed (${plan.seed?.x},${plan.seed?.y}) → hub (${plan.hub.x},${plan.hub.y}) · core ${plan.meta?.coreSize} · storage D4 <b>${plan.meta?.storageAccessD4}</b> · pCtrl ${plan.meta?.pathController} · pSrc ${plan.meta?.pathSourcesSum}</p>
 <p><a href="index.html">← gallery</a></p>
 </body></html>`;
@@ -495,7 +578,15 @@ function main() {
         ? `cut=${sh.cut.length} deep=${sh.deepTiles} upkeep=${sh.upkeepPerTick}e/t${sh.budgetPass ? "" : " SPACE-SHORT"}${sh.priceyWall ? " pricey-wall" : ""}`
         : "no-shell",
       sh ? `encl[ctrl=${sh.enclosedController ? "Y" : "n"} src=${sh.enclosedSources}/${plan.sources.length}]` : "",
-      sh ? `mob[max=${sh.mobility.max} mean=${sh.mobility.mean}]` : "",
+      // the as-built GATED lap is the verdict; the shell's mass-free max is the raw record
+      builtGated(plan) !== null
+        ? `mob[built-gated=${builtGated(plan)}${mobilityOver(plan) ? " OVER-TARGET" : ""}` +
+          ` floor-gated=${plan.meta.walls.mobility.floorGated}` +
+          (sh ? ` shell-ungated=${sh.mobility.max}` : "") +
+          `]`
+        : sh
+          ? `mob[shell-ungated=${sh.mobility.max} mean=${sh.mobility.mean}]`
+          : "",
       plan.meta.towers
         ? `twr[min=${plan.meta.towers.minShellDmg} avg=${plan.meta.towers.avgShellDmg} rf<=${plan.meta.towers.maxRefill}]`
         : "",
@@ -516,6 +607,10 @@ h1{margin-bottom:4px} .sub{color:#889;max-width:1100px;line-height:1.55}
 .card h3{margin:0 0 8px;font-size:14px}
 .card svg{width:100%;height:auto;image-rendering:auto;background:#0a0a0a;border-radius:6px}
 a{color:#6af} .tag{color:#6f6;font-size:12px;margin-left:8px}
+.mob{font-size:11px;margin-left:8px;border-radius:999px;padding:2px 8px;white-space:nowrap;
+  background:#12220f;color:#8fd48f;border:1px solid #2f5c33}
+.mob.over{background:#3a1414;color:#ff8b8b;border-color:#7d2626}
+.sfc{font-size:11px;margin-left:6px;color:#ffb454}
 .watch{margin-left:8px;font-size:11px;color:#8cf;text-decoration:none;background:#12303f;border:1px solid #2b6a86;border-radius:999px;padding:2px 8px}
 .watch:hover{background:#17415a;color:#bfe6ff}
 </style></head><body>
@@ -530,9 +625,17 @@ ${legendHtml()}
     const full = renderRoomSvg(p, 10);
     const sh = p.shell ? `cut ${p.shell.cut.length} · deep ${p.shell.deepTiles}` : "no shell";
     const lb = p.structures.lab?.length ? `${p.structures.lab.length} labs` : "NO LABS";
+    // as-built GATED lap — the same number the room page headlines, marked when over
+    const bg = builtGated(p);
+    const mob =
+      bg === null
+        ? ""
+        : `<span class="mob${mobilityOver(p) ? " over" : ""}" title="as-built gated defender lap (target ${MOBILITY_TARGET}, ${MOBILITY_DETOUR_FLOOR}-tile detour floor)">mob ${bg}${mobilityOver(p) ? " over" : ""}</span>`;
+    const nsf = (p.meta.shortfalls || []).length;
+    const sfc = nsf ? `<span class="sfc" title="declared shortfalls">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
     index += `<div class="card"><h3><a href="${p.room}.html">${p.room}</a>
 <a class="watch" href="${p.room}.html#anim" title="watch the planner build ${p.room} step by step">&#9654; watch</a>
-<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span></h3>
+<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span>${mob}${sfc}</h3>
 ${full}</div>`;
   }
   index += `</div></body></html>`;

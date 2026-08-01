@@ -428,6 +428,9 @@ function proxyDepthField(terrain, storage) {
   return depth;
 }
 
+/** the 30° sector index of a bearing — the same bins the shortlist strata use */
+const sectorOf = (ang) => Math.floor(((ang + 360) % 360) / (360 / SECTOR_BINS));
+
 function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
   // core first, then one ring outside it
   const pool = [...core];
@@ -440,6 +443,43 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
     }
   }
 
+  // CENSUS — read-only bookkeeping over the search that is about to run. It
+  // changes nothing: every counter below is incremented on a path that already
+  // existed, so a room plans exactly the tiles it planned before. Its whole
+  // job is to make `fanned:false` explicable instead of a bare boolean — WHY
+  // the pocket could not offer three spawns 60° apart, in numbers.
+  const census = {
+    pool: pool.length,
+    poolCore: core.length,
+    poolRing: pool.length - core.length,
+    rejClaimed: 0, // tile already taken by the hub trio / an object
+    rejHubRing: 0, // inside storage's own 2-tile ring
+    rejWalk: 0, // past the filler leash
+    rejStorageFace: 0, // would cut storage below 2 free D4 faces
+    rejExits: 0, // fewer than 3 free exits — a creep could not leave
+    viable: 0,
+    viableCore: 0,
+    viableShallow: 0, // proven shallow on the pre-shell depth proxy
+    viableSectors: 0,
+    shortlist: 0,
+    shortlistSectors: 0,
+    triples: 0, // legal (pairwise non-adjacent) triples enumerated
+    triplesAdjacent: 0, // combinations discarded because two spawns touched
+    triplesJointRejected: 0, // better-scoring triples that failed the joint test
+    fannedTriples: 0, // enumerated triples that DID reach SECTOR_TARGET
+    // set only when the fan misses: the best-scoring triple that would have
+    // reached the target, and the exact trade it lost. Without it a miss reads
+    // as "the terrain ran out" even in rooms where the fan was on the table and
+    // was outbid by tile quality — two different failures, one boolean.
+    fannedAvailable: null,
+    winnerSectors: 0,
+    walkCap: SPAWN_WALK_MAX,
+    sectorDeg: Math.round(360 / SECTOR_BINS),
+    sectorBins: SECTOR_BINS,
+    depthSafe: DEPTH_SAFE,
+    fallback: false,
+  };
+
   // walk distance from storage over bare terrain minus the hub trio — the
   // real filler leash, not a chebyshev guess that a wall makes a lie of
   const walk = fieldFrom(terrain, storage, blocked);
@@ -449,14 +489,29 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
   const viable = [];
   for (const p of pool) {
     const k = key(p.x, p.y);
-    if (blocked.has(k)) continue;
-    if (chebyshev(p, storage) < 2) continue; // keep the hub ring clear
-    if (walk[idx(p.x, p.y)] > SPAWN_WALK_MAX) continue;
+    if (blocked.has(k)) {
+      census.rejClaimed++;
+      continue;
+    }
+    if (chebyshev(p, storage) < 2) {
+      census.rejHubRing++;
+      continue; // keep the hub ring clear
+    }
+    if (walk[idx(p.x, p.y)] > SPAWN_WALK_MAX) {
+      census.rejWalk++;
+      continue;
+    }
     const trial = new Set(blocked);
     trial.add(k);
-    if (freeNeighbors4(terrain, storage, trial).length < 2) continue;
+    if (freeNeighbors4(terrain, storage, trial).length < 2) {
+      census.rejStorageFace++;
+      continue;
+    }
     const exits = freeNeighbors8(terrain, p, trial).length;
-    if (exits < 3) continue; // creeps must be able to leave the spawn
+    if (exits < 3) {
+      census.rejExits++;
+      continue; // creeps must be able to leave the spawn
+    }
     // Every tile below DEPTH_SAFE on the proxy is PROVEN to end up in the
     // ranged band whatever the shell does, so it will buy a personal rampart
     // and repair it forever. Deep tiles score exactly as they always did —
@@ -483,6 +538,11 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
         shallowCost,
     });
   }
+  census.viable = viable.length;
+  census.viableCore = viable.filter((v) => coreSet.has(key(v.x, v.y))).length;
+  census.viableShallow = viable.filter((v) => v.proxyDepth < DEPTH_SAFE).length;
+  census.viableSectors = new Set(viable.map((v) => sectorOf(v.ang))).size;
+
   // deterministic order for every downstream tie-break
   viable.sort((a, b) => b.base - a.base || a.x - b.x || a.y - b.y);
 
@@ -494,13 +554,15 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
   };
   for (const c of viable.slice(0, TOP_OVERALL)) take(c);
   for (const c of viable) {
-    const b = Math.floor(((c.ang + 360) % 360) / (360 / SECTOR_BINS));
+    const b = sectorOf(c.ang);
     const cnt = bins.get(b) || 0;
     if (cnt >= PER_BIN) continue;
     bins.set(b, cnt + 1);
     take(c);
   }
   shortlist.sort((a, b) => a.x - b.x || a.y - b.y);
+  census.shortlist = shortlist.length;
+  census.shortlistSectors = new Set(shortlist.map((c) => sectorOf(c.ang))).size;
 
   const jointOk = (set) => {
     const trial = new Set(blocked);
@@ -539,10 +601,40 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
   triples.sort(
     (p, q) => q.sc - p.sc || q.minAng - p.minAng || p.i - q.i || p.j - q.j || p.k - q.k,
   );
+  census.triples = triples.length;
+  census.triplesAdjacent = Math.max(0, (L * (L - 1) * (L - 2)) / 6 - triples.length);
+  census.fannedTriples = triples.filter((t) => t.minAng >= SECTOR_TARGET).length;
+  // the score minus its sector term — the pure tile-quality sum a triple offers
+  const tileQuality = (t) => t.sc - Math.min(t.minAng, SECTOR_TARGET) * SECTOR_WEIGHT;
+  const r1 = (v) => Math.round(v * 10) / 10;
   for (const t of triples) {
     const set = [shortlist[t.i], shortlist[t.j], shortlist[t.k]];
-    if (!jointOk(set)) continue;
+    if (!jointOk(set)) {
+      census.triplesJointRejected++;
+      continue;
+    }
+    if (t.minAng < SECTOR_TARGET) {
+      // triples are sorted by score, so the first target-reaching entry IS the
+      // best fan the room could have had. One extra feasibility call, on the
+      // failure path only, and nothing here feeds back into the choice.
+      const rival = triples.find((u) => u.minAng >= SECTOR_TARGET);
+      if (rival) {
+        const rset = [shortlist[rival.i], shortlist[rival.j], shortlist[rival.k]];
+        census.fannedAvailable = {
+          minAngle: Math.round(rival.minAng),
+          tiles: rset.map((s) => ({ x: s.x, y: s.y })),
+          jointlyFeasible: jointOk(rset),
+          scoreGap: r1(t.sc - rival.sc),
+          tileQualityGap: r1(tileQuality(t) - tileQuality(rival)),
+          sectorGain: r1(
+            (Math.min(rival.minAng, SECTOR_TARGET) - Math.min(t.minAng, SECTOR_TARGET)) *
+              SECTOR_WEIGHT,
+          ),
+        };
+      }
+    }
     for (const s of set) blocked.add(key(s.x, s.y));
+    census.winnerSectors = new Set(set.map((s) => sectorOf(s.ang))).size;
     return {
       spawns: set.map((s) => ({ x: s.x, y: s.y })),
       minAngle: Math.round(t.minAng),
@@ -550,12 +642,14 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
       fanned: t.minAng >= SECTOR_TARGET,
       // the bound, not the truth — layer 2 measures the real depth later
       proxyDepthMin: Math.min(...set.map((s) => s.proxyDepth)),
+      census,
     };
   }
 
   // FALLBACK — the pocket is too tight for any legal fan. Grow sequentially
   // the way the old code did so the room still gets three spawns, and let the
   // meta say how thin the fan came out.
+  census.fallback = true;
   const spawns = [];
   while (spawns.length < n) {
     let best = null;
@@ -580,13 +674,98 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
       minAngle = Math.min(minAngle, angleGap(bearing(storage, spawns[i]), bearing(storage, spawns[j])));
     }
   }
+  census.winnerSectors = new Set(spawns.map((s) => sectorOf(bearing(storage, s)))).size;
   return {
     spawns,
     minAngle: spawns.length > 1 ? Math.round(minAngle) : 180,
     walkMax: spawns.length ? Math.max(...spawns.map((s) => walk[idx(s.x, s.y)])) : 0,
     fanned: false,
     proxyDepthMin: spawns.length ? Math.min(...spawns.map((s) => proxy[idx(s.x, s.y)])) : 0,
+    census,
   };
+}
+
+/**
+ * THE FAN THAT MISSED, IN NUMBERS.
+ *
+ * `fanned:false` used to be the whole story: the room shipped three spawns
+ * bunched inside one angular sector and the meta said so in a boolean nobody
+ * can argue with. Silently capping an axis is the anti-pattern this codebase
+ * forbids by name, so the miss now costs a declared shortfall whose prose is
+ * generated from the census the search kept: what the pocket offered, what
+ * each hard filter took away, and how few sectors the survivors covered. The
+ * plan is unchanged — this is the receipt, not a new decision.
+ */
+function spawnFanDetail(fan, storage) {
+  const c = fan.census;
+  const short = Math.max(0, SECTOR_TARGET - fan.minAngle);
+  const rejected =
+    c.rejClaimed + c.rejHubRing + c.rejWalk + c.rejStorageFace + c.rejExits;
+  const where = fan.spawns.map((s) => `${s.x},${s.y}`).join(" / ");
+  const parts = [];
+  parts.push(
+    `spawn fan short by ${short}°: the best legal triple around the hub at ` +
+      `${storage.x},${storage.y} separates its three spawns (${where}) by only ` +
+      `${fan.minAngle}° at the worst pair, against the ${SECTOR_TARGET}° sector target — ` +
+      `achieved ${fan.minAngle}° vs target ${SECTOR_TARGET}°, filler leash used ` +
+      `${fan.walkMax} of ${c.walkCap} walk steps, shallowest spawn at proxy depth ` +
+      `${fan.proxyDepthMin} (floor ${c.depthSafe}).`,
+  );
+  parts.push(
+    `Candidate census: ${c.pool} tiles were considered (${c.poolCore} in the grown core, ${c.poolRing} in the ring just outside it); ` +
+      `${rejected} were struck out in order — ${c.rejClaimed} already claimed by the hub trio or ` +
+      `an object tile, ${c.rejHubRing} inside storage's own 2-tile ring, ${c.rejWalk} past the ` +
+      `${c.walkCap}-step filler leash, ${c.rejStorageFace} that would have cut storage below two ` +
+      `free faces, ${c.rejExits} with fewer than 3 free exits for a creep to leave by — leaving ` +
+      `${c.viable} viable seats (${c.viableCore} of them inside the core pocket, ` +
+      `${c.viableShallow} of them proven shallow below depth ${c.depthSafe} on the pre-shell ` +
+      `proxy), spread over ${c.viableSectors} of the ${c.sectorBins} ${c.sectorDeg}° sectors ` +
+      `around storage. ${c.shortlist} of those were shortlisted across ${c.shortlistSectors} ` +
+      `sectors and ${c.triples} pairwise-non-adjacent triples were enumerated from them ` +
+      `(${c.triplesAdjacent} more discarded because two spawns touched), of which ` +
+      `${c.fannedTriples} reached the ${SECTOR_TARGET}° target; ${c.triplesJointRejected} ` +
+      `better-scoring triples failed the joint feasibility test before this one was taken, and ` +
+      `the winner spans ${c.winnerSectors} sector${c.winnerSectors === 1 ? "" : "s"}.`,
+  );
+  // WHICH failure this was. A miss because the pocket has no daylight in it is
+  // a different admission from a miss because the fan was outbid, and reporting
+  // the first when the second happened would be a comfortable lie.
+  if (c.fallback) {
+    parts.push(
+      `Not one triple survived the joint feasibility test — storage's own free faces and the ` +
+        `3-exit rule could not be satisfied by any three of them at once — so the sequential ` +
+        `fallback placed the spawns one at a time and the fan is whatever the leftovers allowed.`,
+    );
+  } else if (!c.fannedTriples) {
+    parts.push(
+      `Why it failed: not one of the ${c.triples} triples reached ${SECTOR_TARGET}°. The pocket ` +
+        `offered ${c.viable} seats in ${c.viableSectors} sectors and no three of them, mutually ` +
+        `non-adjacent, stand ${SECTOR_TARGET}° apart around storage — this is the terrain's ` +
+        `answer, not a scoring preference, and no reweighting reaches a tile that is not there.`,
+    );
+  } else if (c.fannedAvailable) {
+    const f = c.fannedAvailable;
+    parts.push(
+      `Why it failed: the fan WAS on the table and lost on score. ${c.fannedTriples} triples ` +
+        `reached the target, the best of them ${f.minAngle}° at ` +
+        `${f.tiles.map((t) => `${t.x},${t.y}`).join(" / ")}` +
+        (f.jointlyFeasible ? ` (jointly feasible)` : ` (and not even jointly feasible)`) +
+        `, but it scored ${f.scoreGap} points below the winner: the sector term pays ` +
+        `${SECTOR_WEIGHT} points per degree and saturates at ${SECTOR_TARGET}°, so the extra ` +
+        `angle was worth ${f.sectorGain} points while the fanned triple gave up ` +
+        `${f.tileQualityGap} points of tile quality — exits, pocket hug and proxy depth. That is ` +
+        `a deliberate trade, priced by SECTOR_WEIGHT, and this is where it is being declared ` +
+        `rather than hidden behind a boolean.`,
+    );
+  }
+  parts.push(
+    `Consequence: three spawns inside one sector means the room's spawn-adjacent parking and the ` +
+      `fill routes crowd one side of the hub — the fillers queue on a single face instead of ` +
+      `touring three, and one breach, one nuke or one blocked corridor on that side reaches every ` +
+      `spawn the room has. At ${fan.minAngle}° the worst pair here is ${short}° inside that ` +
+      `bunching, and the parking, roads and rampart spend follow them.`,
+  );
+  return parts.join(" ");
 }
 
 /** Roads may sit anywhere walkable off the exit band. */
@@ -822,6 +1001,12 @@ function claimSourceWorks(terrain, source, hubField, impassable, seals) {
  * a genuinely cramped controller is visible rather than silently accepted.
  */
 const MIN_PARKS = 4;
+/**
+ * A room at MIN_PARKS + 1 is one seat from throttling, which is a constraint
+ * worth declaring, not a comfortable margin worth hiding. At or below this,
+ * the room ships a `ctrlParks` shortfall carrying the seat search's evidence.
+ */
+const THIN_PARKS = 5;
 function claimControllerWorks(terrain, controller, hubField, impassable, objectTiles, seals) {
   const cands = [];
   for (let dx = -3; dx <= 3; dx++) {
@@ -834,15 +1019,22 @@ function claimControllerWorks(terrain, controller, hubField, impassable, objectT
       if (objectTiles.has(key(x, y))) continue;
       if (hubField[idx(x, y)] >= INF) continue;
       let park = 0;
+      const parkTiles = [];
       for (const [ax, ay] of D8) {
         const px = x + ax,
           py = y + ay;
         if (!walkable(terrain, px, py)) continue;
         if (impassable.has(key(px, py)) || objectTiles.has(key(px, py))) continue;
-        if (Math.max(Math.abs(px - controller.x), Math.abs(py - controller.y)) <= 3) park++;
+        if (Math.max(Math.abs(px - controller.x), Math.abs(py - controller.y)) <= 3) {
+          park++;
+          // kept, not recounted: the seat tiles ARE the evidence for a thin
+          // ctrlParks declaration, and the loop that knows them is this one.
+          parkTiles.push({ x: px, y: py });
+        }
       }
-      const sc = park * 2 - hubField[idx(x, y)] * 0.5;
-      cands.push({ x, y, sc, park });
+      const d = hubField[idx(x, y)];
+      const sc = park * 2 - d * 0.5;
+      cands.push({ x, y, sc, park, d, parkTiles });
     }
   }
   if (!cands.length) return null;
@@ -854,10 +1046,108 @@ function claimControllerWorks(terrain, controller, hubField, impassable, objectT
   const clean = cands.filter((c) => !(seals && seals(c.x, c.y)));
   const pool = clean.length ? clean : cands;
   const roomy = pool.find((c) => c.park >= MIN_PARKS);
-  if (roomy) return { x: roomy.x, y: roomy.y, parks: roomy.park };
-  let best = pool[0];
-  for (const c of pool) if (c.park > best.park) best = c;
-  return { x: best.x, y: best.y, parks: best.park };
+  let chosen = roomy;
+  if (!chosen) {
+    chosen = pool[0];
+    for (const c of pool) if (c.park > chosen.park) chosen = c;
+  }
+  // CENSUS — the ladder above already computed every number here; keeping them
+  // costs nothing and turns "ctrlParks: 5" into an argument that can be checked.
+  // The runner-up is the roomiest tile the room could have had INSTEAD, ties
+  // broken by the ladder's own score, so the trade it lost is legible.
+  let runnerUp = null;
+  for (const c of pool) {
+    if (c === chosen) continue;
+    if (!runnerUp || c.park > runnerUp.park || (c.park === runnerUp.park && c.sc > runnerUp.sc)) {
+      runnerUp = c;
+    }
+  }
+  const strip = (c) =>
+    c ? { x: c.x, y: c.y, parks: c.park, hubWalk: c.d, score: Math.round(c.sc * 10) / 10 } : null;
+  return {
+    x: chosen.x,
+    y: chosen.y,
+    parks: chosen.park,
+    parkTiles: chosen.parkTiles,
+    census: {
+      considered: cands.length,
+      sealing: cands.length - clean.length,
+      forcedOntoSealingPool: clean.length === 0,
+      maxParks: pool.reduce((m, c) => Math.max(m, c.park), 0),
+      minParksFloor: MIN_PARKS,
+      tookFirstAboveFloor: !!roomy,
+      chosen: strip(chosen),
+      runnerUp: strip(runnerUp),
+    },
+  };
+}
+
+/**
+ * A CONTROLLER SEAT AT THE FLOOR IS A CONSTRAINT, NOT A MARGIN.
+ *
+ * MIN_PARKS is 4 and the meta reports the achieved count, but a room shipping
+ * 5 was indistinguishable from a room shipping 8 — one seat of slack read as
+ * comfort. It is not: it is the terrain's ceiling or a trade the ladder made,
+ * and either way it belongs in the shortfalls channel with the numbers that
+ * forced it, not in a silent integer.
+ */
+function ctrlParksDetail(controller, ctrl) {
+  const c = ctrl.census;
+  const r = c.runnerUp;
+  const rel =
+    ctrl.parks < MIN_PARKS
+      ? `${MIN_PARKS - ctrl.parks} BELOW the ${MIN_PARKS}-seat floor`
+      : ctrl.parks === MIN_PARKS
+        ? `exactly ON the ${MIN_PARKS}-seat floor`
+        : `${ctrl.parks - MIN_PARKS} above the ${MIN_PARKS}-seat floor`;
+  const parts = [];
+  parts.push(
+    `thin upgrader seat: the controller link at ${ctrl.x},${ctrl.y} feeds ${ctrl.parks} walkable ` +
+      `parking tiles within range 3 of the controller at ${controller.x},${controller.y} — ` +
+      `${rel}, which is a constraint and not a margin: lose one seat to a rampart, a road ` +
+      `repair or a creep standing still and the upgrader fleet throttles.`,
+  );
+  parts.push(
+    `Seat search, in numbers: ${c.considered} buildable link tiles at chebyshev 2–3 from the ` +
+      `controller were reachable from the hub and considered` +
+      (c.sealing
+        ? `, of which ${c.sealing} were set aside for sealing a pocket off the basin` +
+          (c.forcedOntoSealingPool
+            ? ` — and every candidate did, so the seat had to come from the sealing pool anyway`
+            : ``)
+        : `, none of which sealed a pocket off the basin`) +
+      `. The winner offered ${ctrl.parks} seats at ${c.chosen.hubWalk} walk steps from the hub ` +
+      `(ladder score ${c.chosen.score} on park×2 − hubWalk÷2), and was taken as ` +
+      (c.tookFirstAboveFloor
+        ? `the highest-scoring tile that clears the ${MIN_PARKS}-seat floor`
+        : `the roomiest tile on offer — no candidate cleared the ${MIN_PARKS}-seat floor at all`) +
+      `.`,
+  );
+  if (!r) {
+    parts.push(
+      `There was no runner-up: the ring produced exactly one legal link tile, so ${ctrl.parks} ` +
+        `seats is not a choice the planner made but the only seat the terrain sells.`,
+    );
+  } else if (r.parks > ctrl.parks) {
+    parts.push(
+      `The trade: a roomier seat existed — ${r.x},${r.y} feeds ${r.parks} tiles, ` +
+        `${r.parks - ctrl.parks} more — but it sits ${r.hubWalk - c.chosen.hubWalk} walk steps ` +
+        `further from the hub (${r.hubWalk} vs ${c.chosen.hubWalk}) and scores ${r.score} against ` +
+        `${c.chosen.score}. That detour is paid on every pre-link hauler round trip and every ` +
+        `repair walk to the controller for the life of the room, so the chosen seat won anyway; ` +
+        `the seat count is what the room paid for the shorter haul.`,
+    );
+  } else {
+    parts.push(
+      `The trade was not available: the best alternative, ${r.x},${r.y}, feeds ${r.parks} ` +
+        (r.parks === ctrl.parks ? `— the same count — ` : `— ${ctrl.parks - r.parks} fewer — `) +
+        `at ${r.hubWalk} walk steps against the winner's ${c.chosen.hubWalk} (score ${r.score} vs ` +
+        `${c.chosen.score}), and no tile anywhere in the ring fed more than ${c.maxParks}. ` +
+        `${ctrl.parks} seats is therefore the room's ceiling, not a preference — the chosen tile ` +
+        `won on hub distance among equals.`,
+    );
+  }
+  return parts.join(" ");
 }
 
 /**
@@ -1230,6 +1520,41 @@ export function planHub(terrain, objects, opts = {}) {
     });
   }
 
+  // THE FAN, DECLARED. A miss on the sector target is a real axis the room
+  // beat the planner on, and it shipped as a bare `fanned:false` until now.
+  if (!spawnFan.fanned) {
+    shortfalls.push({
+      gate: "spawnFan",
+      kind: "sector",
+      detail: spawnFanDetail(spawnFan, storage),
+      tiles: spawn.map((s) => ({ x: s.x, y: s.y })),
+      spawnFan: {
+        minAngle: spawnFan.minAngle,
+        target: SECTOR_TARGET,
+        walkMax: spawnFan.walkMax,
+        census: spawnFan.census,
+      },
+    });
+  }
+
+  // THE UPGRADER SEAT, DECLARED. MIN_PARKS is the floor; one seat above it is
+  // still a room whose fleet has no slack, so THIN_PARKS and below is stated
+  // out loud with the seat search's own numbers behind it.
+  if ((ctrlLink.parks ?? 0) <= THIN_PARKS) {
+    shortfalls.push({
+      gate: "ctrlParks",
+      kind: "seats",
+      detail: ctrlParksDetail(controller, ctrlLink),
+      tiles: [{ x: ctrlLink.x, y: ctrlLink.y }, ...(ctrlLink.parkTiles || [])],
+      ctrlParks: {
+        parks: ctrlLink.parks ?? 0,
+        floor: MIN_PARKS,
+        thinAt: THIN_PARKS,
+        census: ctrlLink.census,
+      },
+    });
+  }
+
   // upgrader bin — sources first, controller after, mineral last (layer 5)
   const ctrlContainer = claimControllerContainer(terrain, controller, ctrlLink, hubField, [
     impassable,
@@ -1297,10 +1622,14 @@ export function planHub(terrain, objects, opts = {}) {
         fanned: spawnFan.fanned,
         proxyDepthMin: spawnFan.proxyDepthMin,
         target: SECTOR_TARGET,
+        // the search's own bookkeeping — why the fan came out the way it did
+        census: spawnFan.census,
       },
       pathController: pCtrl,
       pathSourcesSum: pSrc,
       ctrlParks: ctrlLink.parks ?? 0,
+      // the seat search behind that integer: what was on offer and what lost
+      ctrlParksCensus: ctrlLink.census ?? null,
       ctrlContainer: ctrlContainer ? { ...ctrlContainer, range: chebyshev(ctrlContainer, controller) } : null,
       roadConnected: conn.connected,
       roadOrphans: conn.orphanStructs,
