@@ -48,8 +48,10 @@ import {
   MOBILITY_TARGET,
   arriveAt,
   bfsField,
+  builtMobility,
   interiorWalk,
   maskFromKeys,
+  mobilityCauseDetail,
   mobilityStats,
   pickBattlements,
 } from "./layer-shell.mjs";
@@ -266,8 +268,37 @@ function verifyMobility(terrain, plan) {
     meta.worstCaused = mBuilt.maxGated > MOBILITY_TARGET && isFinite(freeDin) && !freeOverGated;
   }
 
-  if (mBuilt.maxGated > MOBILITY_TARGET && mBuilt.worstGated && plan.meta) {
-    const { a, b, din, dout } = mBuilt.worstGated;
+  // ------------------------------------------------------------------
+  // ONE DECLARATION PER ROOM, BUILT FIRST.
+  //
+  // Two entries used to be filed for one question — layer 2's, about a mass-free
+  // interior inside the enclosure it was negotiating, and this one, about the
+  // room. 72 rooms shipped both, layer 2's first. The consequence is the round-8
+  // headline: 33 rooms published the PRE-MASS lap as "the room's mobility", 23 of
+  // them understating what the garrison actually walks; 17 published a cause
+  // their own as-built metric contradicts; 9 published a tile pair the shipped
+  // wall does not exhibit and one (E13S4) published a wall tile the room does not
+  // have at all. Every one of those numbers was correct about the thing layer 2
+  // measured, which is exactly why two entries was the wrong shape: a reader
+  // asking "how far does my defender walk" has to be answered once.
+  //
+  // So the room declares once, here, on the board it ships, and layer 2's
+  // measurement becomes the NEGOTIATION RECORD inside it — kept in full, because
+  // the enclosure really was chosen on those numbers and deleting them would
+  // hide the decision. The trigger is the union: this fires when the as-built lap
+  // misses the target OR when the negotiation missed it, so a room whose mass
+  // fixed a lap layer 2 could not still publishes the ladder it walked.
+  // ------------------------------------------------------------------
+  const neg = plan.shell?.mobility?.negotiation || null;
+  const negMissed = !!neg;
+  if ((mBuilt.maxGated > MOBILITY_TARGET || negMissed) && plan.meta) {
+    const worst = mBuilt.worstGated || mBuilt.worst || null;
+    const { a, b, din, dout } = worst || {
+      a: { x: 0, y: 0 },
+      b: { x: 0, y: 0 },
+      din: 0,
+      dout: 0,
+    };
     // ------------------------------------------------------------------
     // A BOUND IS ONLY A BOUND IF THE SHIPPED ROOM IS INSIDE IT.
     //
@@ -355,8 +386,8 @@ function verifyMobility(terrain, plan) {
     // fact `causedNote` states below; it used to be allowed to contradict the
     // sentence immediately preceding it.
     // ------------------------------------------------------------------
-    const freeDin = meta.worst.freeDin;
-    const share = meta.worst.massAdds;
+    const freeDin = meta.worst ? meta.worst.freeDin : null;
+    const share = meta.worst ? meta.worst.massAdds : null;
     const pct = share !== null && din > 0 ? Math.round((share / din) * 100) : 0;
     /** share of the worst walk, in percent, above which the mass is the story */
     const MASS_SHARE_PCT = 30;
@@ -407,25 +438,117 @@ function verifyMobility(terrain, plan) {
           : ` On bare terrain this pair already misses (${round2(freeDin / dout)} over ` +
             `${freeDetour} tile(s) of detour), so the room was over target before the first ` +
             `extension landed.`;
+    // ------------------------------------------------------------------
+    // THE CAUSE, RE-DIAGNOSED ON THE ROOM THAT SHIPS.
+    //
+    // `mobility.cause` is layer 2's: measured on a mass-free interior, over
+    // layer 2's exterior, about layer 2's worst pair. 17 rooms published "Cause:
+    // terrain" while the same room's as-built metric records `structures`. The
+    // arithmetic is identical (mobilityCauseDetail), only the board is not — the
+    // shipped wall and the shipped worst pair — so both labels exist and each is
+    // attached to the measurement it is true about.
+    // ------------------------------------------------------------------
+    const builtCause = worst
+      ? mobilityCauseDetail(terrain, cut, ext, worst)
+      : { cause: "none", dStruct: null, dFree: null };
+    meta.cause = builtCause.cause;
+    meta.causeWalks = { noStructures: builtCause.dStruct, noWalls: builtCause.dFree };
+    const walkVerdict = (d) => {
+      if (d === null || !isFinite(d)) return "does not connect at all";
+      const detour = d - dout;
+      const ratio = dout > 0 ? round2(d / dout) : 0;
+      return detour <= 0
+        ? `${d} against the attacker's ${dout} — SHORTER than the attacker's own lap, so it CLEARS ` +
+            `the gate outright`
+        : detour <= mBuilt.detourFloor
+        ? `${d} against the attacker's ${dout} — a ${detour}-tile detour, inside the ` +
+            `${mBuilt.detourFloor}-tile floor, so it CLEARS the gate`
+        : ratio <= MOBILITY_TARGET
+          ? `${d} against the attacker's ${dout} — ratio ${ratio}, inside the ${MOBILITY_TARGET} target, ` +
+            `so it CLEARS the gate`
+          : `${d} against the attacker's ${dout} — a ${detour}-tile detour at ratio ${ratio}, which is ` +
+            `STILL OVER the ${MOBILITY_TARGET} target`;
+    };
+    const causeLine = worst
+      ? ` CAUSE, as built: ${builtCause.cause} — with every structure of ours lifted out the same pair ` +
+        `walks ${walkVerdict(builtCause.dStruct)}, and with the interior's natural walls lifted out as ` +
+        `well it walks ${walkVerdict(builtCause.dFree)}.`
+      : "";
+    // ------------------------------------------------------------------
+    // THE NEGOTIATION RECORD — layer 2's declaration, demoted to evidence.
+    //
+    // It keeps every word it had, because the enclosure was really chosen on
+    // these numbers and a record that is edited to agree with the outcome is not
+    // a record. What it loses is the right to be the headline, and what it gains
+    // is the two reconciliations it always needed: the same mass-free reading
+    // taken over the wall the room SHIPS (layers 2-6 add bubble ramparts, layer 7
+    // prunes and adopts), and the as-built lap above.
+    // ------------------------------------------------------------------
+    const ship = plan.shell?.mobilityShippedFree;
+    const negLap = neg ? (plan.shell.mobility.maxGated ?? plan.shell.mobility.max) : null;
+    const shipLap = ship ? (ship.maxGated ?? ship.max) : null;
+    const negBlock = !neg
+      ? ""
+      : ` — · — THE ENCLOSURE NEGOTIATION, for the record: layer 2 chose this cut against an EMPTY ` +
+        `interior (object tiles, the hub trio and the links, nothing else), and what it measured there is ` +
+        `not what the garrison walks — it is the evidence the enclosure was bought on. Verbatim: "` +
+        neg.detail +
+        `"` +
+        (shipLap !== null
+          ? ` RE-DERIVED ON THE SHIPPED WALL with that same mass-free walk, the negotiated lap of ` +
+            `${round2(negLap)} reads ${round2(shipLap)} over ` +
+            `${ship.overGated ?? ship.over}/${ship.gatedPairs ?? ship.pairs} real-detour pairs` +
+            (Math.abs(round2(negLap) - round2(shipLap)) >= MATERIAL_SHELL_LAP
+              ? `. THOSE DISAGREE MATERIALLY: the trade layer 2 priced was priced against an incumbent ` +
+                `lap this room does not have. The reasoning stands because it is what was decided; the ` +
+                `number is corrected here rather than quietly overwritten.`
+              : `, which agrees with it to within ${MATERIAL_SHELL_LAP} of a lap.`)
+          : ".") +
+        ` The as-built figure at the top of this declaration is the one that describes this room.`;
     plan.meta.shortfalls = plan.meta.shortfalls || [];
     plan.meta.shortfalls.push({
       gate: "mobility",
+      // ONE entry. `source: "built"` says which board the headline is taken on;
+      // `negotiated` is what attachRungProof looks for when it staples the
+      // escalation ladder underneath (a room whose enclosure never missed the
+      // target composed no rungs to show).
       source: "built",
+      negotiated: negMissed
+        ? {
+            lap: round2(negLap),
+            cause: plan.shell.mobility.cause,
+            tiles: neg.tiles,
+            metric: neg.metric,
+            shippedWallLap: shipLap === null ? null : round2(shipLap),
+          }
+        : null,
+      cause: builtCause.cause,
       detail:
-        `AS BUILT the defender lap is ${mBuilt.maxGated} over pairs costing more than ` +
-        `${mBuilt.detourFloor} tiles of detour (target ${MOBILITY_TARGET}; ungated over every pair it is ` +
-        `${mBuilt.max}): between wall tiles ` +
-        `${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while the attacker walks ` +
-        `${dout} outside. ${massShare}${causedNote} ` +
+        (mBuilt.maxGated > MOBILITY_TARGET
+          ? `AS BUILT the defender lap is ${mBuilt.maxGated} over pairs costing more than ` +
+            `${mBuilt.detourFloor} tiles of detour (target ${MOBILITY_TARGET}; ungated over every pair it is ` +
+            `${mBuilt.max})`
+          : `AS BUILT the defender lap is ${mBuilt.maxGated} over pairs costing more than ` +
+            `${mBuilt.detourFloor} tiles of detour, INSIDE the ${MOBILITY_TARGET} target (ungated over ` +
+            `every pair it is ${mBuilt.max}) — this room is declared because the enclosure it was ` +
+            `negotiated from was not, and the ladder that priced it is stapled below`) +
+        (worst
+          ? `: between wall tiles ${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while ` +
+            `the attacker walks ${dout} outside. `
+          : `: no pair of wall tiles detours far enough to be judged, so there is no worst pair to name. `) +
+        (worst ? `${massShare}${causedNote}${causeLine} ` : "") +
         `${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
         `${mFree.overGated} with no mass in the room (ungated: ${mBuilt.over}/${mBuilt.pairs} against ` +
         `${mFree.over}).${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
         `defender's lanes before it grows, and a pass that moved finished structures to patch the ` +
-        `result would be the repair loop this planner is not allowed to have.`,
-      tiles: [
-        { x: a.x, y: a.y },
-        { x: b.x, y: b.y },
-      ],
+        `result would be the repair loop this planner is not allowed to have.` +
+        negBlock,
+      tiles: worst
+        ? [
+            { x: a.x, y: a.y },
+            { x: b.x, y: b.y },
+          ]
+        : [],
       mass: { adds: share, bareLap: mFree.maxGated, builtLap: mBuilt.maxGated, bareDin: freeDin, din, dout },
     });
   }
@@ -1203,14 +1326,23 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
       return `${k} — ${refused[k] || "held by an earlier layer's declared purpose"}`;
     });
   plan.meta.notes = plan.meta.notes || [];
+  // A NOTE ABOUT NOTHING IS NOISE. When the prune cleared the room out entirely
+  // the old text still printed "The 0 that remain are NOT double shell and each
+  // one has a named reason: ." — a colon, a full stop and no tiles.
   plan.meta.notes.push(
-    `CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: ${redundant.length} of this room's ${cut.length} cut ` +
-      `tile(s) can each be removed on their own without letting the exterior flood reach the sitter, and ` +
-      `${inertPruned.length} more already were — layer 7's inert prune deleted them this run. The ` +
-      `${redundant.length} that remain are NOT double shell and each one has a named reason: ` +
-      `${lines.join(" · ")}${redundant.length > lines.length ? ` · …and ${redundant.length - lines.length} more` : ""}. ` +
-      `At ${round2(redundant.length * 0.03)} e/tick of forever-upkeep this is the price of the wall that ` +
-      `holds floor the single-removal test cannot see it holding.`,
+    redundant.length === 0
+      ? `NO CUT TILE IS REDUNDANT: every one of this room's ${cut.length} cut tile(s) is singly ` +
+        `load-bearing — remove any one of them alone and the exterior flood reaches the sitter — and ` +
+        `${inertPruned.length} further rampart(s) that were not already came off in layer 7's inert ` +
+        `prune this run, re-run to a fixpoint on the board the room ships. There is no double shell here.`
+      : `CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: ${redundant.length} of this room's ${cut.length} cut ` +
+        `tile(s) can each be removed on their own without letting the exterior flood reach the sitter, and ` +
+        `${inertPruned.length} more already were — layer 7's inert prune deleted them this run. The ` +
+        `${redundant.length} that remain are NOT double shell and each one has a named reason, measured ` +
+        `on the post-reflow board this room ships: ` +
+        `${lines.join(" · ")}${redundant.length > lines.length ? ` · …and ${redundant.length - lines.length} more` : ""}. ` +
+        `At ${round2(redundant.length * 0.03)} e/tick of forever-upkeep this is the price of the wall that ` +
+        `holds floor the single-removal test cannot see it holding.`,
   );
   return plan.shell.redundantCut;
 }
@@ -1237,7 +1369,7 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
  * have to re-derive, and the anti-pattern this planner is held to is silence,
  * not imperfection.
  */
-function noteSealedFloor(terrain, plan) {
+function noteSealedFloor(terrain, plan, shallowNow) {
   const ramp = plan.structures.rampart || [];
   const rset = new Set(ramp.map((r) => key(r.x, r.y)));
   const ext = exteriorFlood(terrain, rset);
@@ -1270,7 +1402,10 @@ function noteSealedFloor(terrain, plan) {
     }
   }
   if (!sealed) return null;
-  const shallowStructs = plan.meta?.extensions?.shallow ?? 0;
+  // 7b's own census, passed in. Reading `plan.meta.extensions.shallow` here is
+  // reading a field the pipeline does not correct until AFTER this layer returns
+  // — the pre-7b number, in a sentence about the shipped room.
+  const shallowStructs = typeof shallowNow === "number" ? shallowNow : (plan.meta?.extensions?.shallow ?? 0);
   plan.meta.notes = plan.meta.notes || [];
   plan.meta.notes.push(
     `SEALED INTERIOR FLOOR: ${sealed} tile(s) sit inside the wall, carry nothing, and cannot be reached ` +
@@ -1301,11 +1436,46 @@ function noteSealedFloor(terrain, plan) {
  */
 function declareShippedBattery(plan, dmg) {
   if (!dmg || !dmg.tiles) return;
-  if (dmg.min >= WEAK_SHELL_DMG) return;
   plan.meta.shortfalls = plan.meta.shortfalls || [];
-  const already = plan.meta.shortfalls.some((sf) => sf && sf.kind === "weak-battery");
+  const already = plan.meta.shortfalls.find((sf) => sf && sf.kind === "weak-battery");
   const declared = plan.meta?.towers?.minShellDmg;
-  if (already) return; // layer 3 already said it; its text carries the search
+  // the amendment below runs whether or not the SHIPPED battery is weak: a
+  // layer-3 declaration quoting a wall the room does not have is stale either way
+  if (!already && dmg.min >= WEAK_SHELL_DMG) return;
+  if (already) {
+    // ------------------------------------------------------------------
+    // ...BUT LAYER 3's NUMBERS ARE ABOUT THE CUT LAYER 3 WAS GIVEN.
+    //
+    // Returning here left the room publishing the PRE-ADOPTION battery in its
+    // most-quoted sentence. E15S5 ships "1380 damage on 20 cut tile(s) ... 2306
+    // average" over a wall that is 19 tiles, weakest at 1410 and averaging 2364;
+    // E5S6 quotes 26 cut tiles against 23. Both plans also claim, in the same
+    // artifact, that every shell metric was re-derived over the reconciled wall
+    // — which this early return made false. The layer-3 text is still the record
+    // of the search that chose the battery and is not rewritten; the shipped
+    // reading is appended to it, the same way the upgrader seats are.
+    // ------------------------------------------------------------------
+    const same =
+      already.towers &&
+      already.towers.shippedMinShellDmg === dmg.min &&
+      already.towers.shippedCutTiles === dmg.tiles;
+    if (same) return;
+    already.detail +=
+      ` AS SHIPPED, on the wall this room actually has: the weakest sealing tile takes ${dmg.min} ` +
+      `damage${dmg.worst ? ` (${dmg.worst.x},${dmg.worst.y})` : ""} over ${dmg.tiles} cut tile(s), ` +
+      `averaging ${dmg.avg}, with ${dmg.weak} of them under the ${TARGET_MIN} floor. The numbers above ` +
+      `are layer 3's, measured over the cut it was handed before layer 7's inert prune and the ` +
+      `single-removal seal reconciliation changed which tiles are the wall; they are kept because they ` +
+      `are what the battery was chosen on.`;
+    already.towers = {
+      ...(already.towers || {}),
+      shippedMinShellDmg: dmg.min,
+      shippedAvgShellDmg: dmg.avg,
+      shippedWeakTiles: dmg.weak,
+      shippedCutTiles: dmg.tiles,
+    };
+    return;
+  }
   const linkKeys = new Set((plan.structures.link || []).map((l) => key(l.x, l.y)));
   const onLink = dmg.worst && linkKeys.has(key(dmg.worst.x, dmg.worst.y));
   plan.meta.shortfalls.push({
@@ -1329,69 +1499,6 @@ function declareShippedBattery(plan, dmg) {
     tiles: dmg.worst ? [{ x: dmg.worst.x, y: dmg.worst.y }] : [],
     towers: { shippedMinShellDmg: dmg.min, declaredMinShellDmg: declared, weakTiles: dmg.weak },
   });
-}
-
-/**
- * ------------------------------------------------------------------------
- * THE SHELL'S OWN MOBILITY DECLARATION, RECONCILED AGAINST THE SHIPPED WALL.
- * ------------------------------------------------------------------------
- * Layer 2 negotiates the enclosure and, when the winning cut still misses the
- * mobility target, files a `gate:"mobility", source:"shell"` shortfall quoting
- * the numbers it measured. Those numbers are taken against layer 2's exterior —
- * before a single bubble rampart exists and before layer 7's inert prune. In
- * seven rooms the shipped wall gives a materially different answer and the
- * declaration argued the whole trade against the wrong incumbent:
- *
- *   E17S3 declared "defender mobility max 3.17 ... between wall tiles 4,34 and
- *   11,34 the defender walks 19 inside while the attacker walks 6 outside ...
- *   41/41 wall pairs with a real detour exceed the target". On the shipped wall
- *   that same pair measures 19 in / 16 out — ratio 1.19, detour 3, under BOTH
- *   the 1.2 target and the 4-tile detour floor — and the room has 4 gated pairs
- *   at 1.36, not 41 at 3.17. Its "rung 3 gives 2.0 for +9 ramparts, refused on
- *   upkeep-first policy" trade was priced against an incumbent of 3.17 that the
- *   room does not have. E13S4 (4.6 vs 3.67), E18S9 (2.5 vs 1.5), E2S6, E11S2,
- *   E8S1 and E18S8 are the same shape.
- *
- * The layer-2 text is NOT rewritten. It is the record of a decision that was
- * really made on those numbers, and deleting it would hide the decision. What
- * is added is the reconciliation: the same measurement, same walk semantics,
- * re-derived over the wall the room ships, stated next to it — and, when the
- * two disagree materially, said so in those words.
- */
-function reconcileShellMobility(plan) {
-  const ship = plan.shell?.mobilityShippedFree;
-  const neg = plan.shell?.mobility;
-  if (!ship || !neg || !plan.meta?.shortfalls) return;
-  const s = plan.meta.shortfalls.find(
-    (sf) => sf && sf.gate === "mobility" && sf.source === "shell",
-  );
-  if (!s) return;
-  const a = neg.maxGated ?? neg.max;
-  const b = ship.maxGated ?? ship.max;
-  if (a === undefined || b === undefined) return;
-  const drift = Math.abs(round2(a) - round2(b));
-  const pairsNeg = `${neg.overGated ?? neg.over}/${neg.gatedPairs ?? neg.pairs}`;
-  const pairsShip = `${ship.overGated ?? ship.over}/${ship.gatedPairs ?? ship.pairs}`;
-  s.shippedMobility = {
-    negotiatedLap: round2(a),
-    shippedLap: round2(b),
-    negotiatedOver: pairsNeg,
-    shippedOver: pairsShip,
-  };
-  s.detail +=
-    ` RE-DERIVED ON THE SHIPPED WALL: every number above was measured over the enclosure layer 2 ` +
-    `negotiated, which is not the rampart set this room ships — layers 2-6 add bubble ramparts around ` +
-    `the containers, the links, the hub trio and every shallow structure, and layer 7 prunes the wall ` +
-    `that defends nothing. Re-measured over the shipped ramparts with the SAME mass-free walk this ` +
-    `paragraph uses, the lap is ${round2(b)} over ${pairsShip} real-detour pairs, against the ` +
-    `${round2(a)} over ${pairsNeg} quoted above.` +
-    (drift >= MATERIAL_SHELL_LAP
-      ? ` THOSE DISAGREE MATERIALLY, and the shipped reading is the one that describes this room: the ` +
-        `trade priced above was priced against an incumbent lap of ${round2(a)} that the shipped wall ` +
-        `does not have. The reasoning is left standing because it is what was actually decided; the ` +
-        `number it was decided on is corrected here rather than quietly overwritten.`
-      : ` They agree to within ${MATERIAL_SHELL_LAP} of a lap, so the trade above is priced on a number ` +
-        `this room really ships.`);
 }
 
 /**
@@ -1493,9 +1600,7 @@ export function planWallRoads(terrain, plan) {
   //       reconcileSeal / remeasureShell — this is the single source of truth
   //       for "which tiles are the wall", and it has to run after the prune
   //       because the prune is the last thing that can change the answer.
-  const rec = reconcileSeal(terrain, plan);
-  const adopted = rec?.adopted || [];
-  const cutChanged = inertPruned.length > 0 || adopted.length > 0;
+  reconcileSeal(terrain, plan);
   // ------------------------------------------------------------------
   // THE RE-MEASURE IS UNCONDITIONAL, BECAUSE THE WALL MOVES WITHOUT THE CUT.
   //
@@ -1514,25 +1619,11 @@ export function planWallRoads(terrain, plan) {
   //
   // shippedFlood() is memoised, so the honest version costs one flood per room.
   // ------------------------------------------------------------------
-  const shipDmg = remeasureShell(
-    terrain,
-    plan,
-    cutChanged
-      ? `${inertPruned.length} tile(s) pruned as inert, ${adopted.length} adopted into the cut ` +
-          `by the single-removal seal test`
-      : `cut unchanged by layer 7, but the shipped rampart set includes every bubble laid by ` +
-          `layers 2-6, so the exterior — and every metric taken against it — is re-derived over ` +
-          `the union rather than over the min-cut ring layer 2 negotiated`,
-  );
-  if (adopted.length) declareAdoptedSeal(plan, adopted, shipDmg);
-  if (shipDmg) declareShippedBattery(plan, shipDmg);
-  // F4: state the shipped reading next to the negotiated one the layer-2
-  // declaration argues from. F10: name the wall no defender can reach.
-  reconcileShellMobility(plan);
-  declareUnreachableCut(plan, unreachableAtLayer2);
-  // ...and say, in the room's own tiles, which cut ramparts are not singly
-  // load-bearing and why each of them is still standing. See noteRedundantCut.
-  noteRedundantCut(terrain, plan, rec?.sealCritical, inertPruned);
+  // ...AND THE MEASUREMENT ITSELF MOVED TO THE END OF THE LAYER. See the TRUTH
+  // PASS at stage (6b): the prune and the reconciliation are MUTATIONS and stay
+  // here, because everything below builds roads against the cut they leave. The
+  // numbers and the sentences derived from them are taken after 7b, which is the
+  // last thing in this file that changes what the room contains.
 
   const cut = plan.shell.cut || [];
   if (!cut.length) return { error: "shell has no cut tiles" };
@@ -2079,6 +2170,110 @@ export function planWallRoads(terrain, plan) {
   if (swampPaved) prunePass(null);
 
   // ------------------------------------------------------------------
+  // (5b) A ROAD THAT RUNS ALONG THE WALL IS A LADDER, NOT A GATE.
+  //
+  // "Roads TO ramparts, never ON them" is the doctrine, and the pipeline is
+  // careful about it in every direction it controls: layer 7 refuses to pave a
+  // cut tile at all (`addRoad` checks `cutSet`). The coincidences that ship come
+  // from the other direction — layer 1 lays the eco lanes to the sources and the
+  // controller BEFORE the shell exists, and layer 2's min-cut is then free to
+  // run down one of them. 241 of the fleet's 286 road+rampart tiles are exactly
+  // that and they are fine: one paved tile where the lane CROSSES the wall is a
+  // gate, and a gate is what a lane needs.
+  //
+  // What is not fine is a run of them. Where the cut turns and follows the lane,
+  // the room ships two or three consecutive paved rampart tiles — a prepared
+  // surface for anything that breaks in, laid along the exact line it would want
+  // to walk. E14S5 ships 42,36 42,37 42,38 with 41,36 41,37 41,38 sitting bare
+  // one tile west, inside the wall, going the same way. 12 tiles in 10 rooms.
+  //
+  // So a run of two or more is offered the interior parallel, one tile at a
+  // time, and the swap is accepted only if the network is measurably no worse:
+  // the same road count, one component from the sitter, every container and
+  // structure still on it, every extension still holding a D4 road face. Any
+  // failure reverts the tile. A single crossing tile is never touched.
+  // ------------------------------------------------------------------
+  let alongCutMoved = 0;
+  {
+    const liveNow = () => {
+      const s = new Set();
+      for (const r of plan.structures.road.concat(newRoads)) {
+        const k = key(r.x, r.y);
+        if (!pruned.has(k)) s.add(k);
+      }
+      return s;
+    };
+    const netOK = (live) => {
+      // one component from the sitter, over roads + containers
+      const comp = new Set([key(plan.sitter.x, plan.sitter.y)]);
+      const q = [plan.sitter];
+      for (let qi = 0; qi < q.length; qi++) {
+        const c = q[qi];
+        for (const [dx, dy] of D8) {
+          const x = c.x + dx,
+            y = c.y + dy;
+          const k = key(x, y);
+          if (comp.has(k) || (!live.has(k) && !containerSet.has(k))) continue;
+          comp.add(k);
+          q.push({ x, y });
+        }
+      }
+      for (const k of live) if (!comp.has(k)) return false;
+      for (const c of plan.structures.container || []) {
+        const k = key(c.x, c.y);
+        if (comp.has(k)) continue;
+        if (!D8.some(([dx, dy]) => comp.has(key(c.x + dx, c.y + dy)))) return false;
+      }
+      for (const e of plan.structures.extension || []) {
+        if (!D4.some(([dx, dy]) => live.has(key(e.x + dx, e.y + dy)))) return false;
+      }
+      return true;
+    };
+    let live = liveNow();
+    const onCut = (k) => cutSet.has(k);
+    const runTiles = [];
+    for (const c of cut) {
+      const k = key(c.x, c.y);
+      if (!live.has(k)) continue;
+      // "along" = at least one D4 neighbour is ALSO a paved cut tile
+      if (!D4.some(([dx, dy]) => onCut(key(c.x + dx, c.y + dy)) && live.has(key(c.x + dx, c.y + dy)))) continue;
+      runTiles.push(c);
+    }
+    runTiles.sort((a, b) => a.y - b.y || a.x - b.x);
+    for (const c of runTiles) {
+      const k = key(c.x, c.y);
+      if (!live.has(k)) continue;
+      // the interior parallel: a D4 neighbour that is inside the wall, free
+      // floor, not the wall itself and not already paved
+      let target = null;
+      for (const [dx, dy] of D4) {
+        const x = c.x + dx,
+          y = c.y + dy;
+        const tk = key(x, y);
+        if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+        if (!walkable(terrain, x, y) || ext[idx(x, y)]) continue;
+        if (occupied.has(tk) || cutSet.has(tk) || live.has(tk)) continue;
+        target = { x, y, k: tk };
+        break;
+      }
+      if (!target) continue;
+      const trial = new Set(live);
+      trial.delete(k);
+      trial.add(target.k);
+      if (!netOK(trial)) continue;
+      live = trial;
+      pruned.add(k);
+      if (!plan.structures.road.some((r) => r.x === target.x && r.y === target.y)) {
+        newRoads.push({ x: target.x, y: target.y });
+        roadSet.add(target.k);
+      } else {
+        pruned.delete(target.k);
+      }
+      alongCutMoved++;
+    }
+  }
+
+  // ------------------------------------------------------------------
   // (6) THE EXTENSION REFLOW — the floor the prune just freed.
   //
   // Everything above this line has been deleting corridor. Each deleted tile is
@@ -2131,12 +2326,40 @@ export function planWallRoads(terrain, plan) {
   const keptNew = newRoads.filter((r) => !pruned.has(key(r.x, r.y)));
   const removeRoads = plan.structures.road.filter((r) => pruned.has(key(r.x, r.y)));
 
-  // (7) NOW measure the lap, on the mass and the wall the room actually ships.
-  const mobility = verifyMobility(terrain, plan);
-
-  // last thing this layer does: say what the finished base sealed off from
-  // itself. Read-only — see noteSealedFloor.
-  const sealedFloor = noteSealedFloor(terrain, plan);
+  // ------------------------------------------------------------------
+  // (6b) THE TRUTH PASS runs in finalizeRoom, not here — see that function.
+  //
+  // It used to run at (0a2), before the roads and before 7b, and it was
+  // wrong in the way an ordering bug is always wrong: quietly, in prose, about a
+  // room that had not finished existing. What it published:
+  //
+  //   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
+  //     structure at X,Y would drop from depth 4 to 3". Measured on the shipped
+  //     plan every one of them drops 4 -> 0: the named structure leaves the wall
+  //     entirely, because 7b retired the personal rampart that was holding it.
+  //     E11S7's five (17,2 18,2 19,2 20,2 21,2) are the standing example, and the
+  //     same strings are printed verbatim into meta.notes.
+  //   · `mobilityShipped` — stale in 6 rooms (E11S1 0.95 vs 0.96 and maxDetour 1
+  //     vs 2, E11S7, E13S2, E8S7, E9S4, E9S9), for the same reason: 7b adds
+  //     extensions and retires ramparts after the measurement was taken.
+  //   · the shipped-battery, adopted-seal and unreachable-wall declarations, all
+  //     of them arguing about a wall 7b could still change.
+  //
+  // The fix is the ordering, not the strings: layer 7 is allowed exactly one
+  // moment at which the room is finished, and this is it. The prune is re-run
+  // to a fixpoint against the shipped board — it deletes nothing in 172/172,
+  // which is the property that makes the earlier run's DECISIONS safe, and its
+  // refusal reasons are now measured on the tiles the room ships rather than on
+  // the tiles it had before the reflow.
+  // ------------------------------------------------------------------
+  // ...and the truth pass itself is NOT run here. See finalizeRoom below: it is
+  // about the room that SHIPS, and this function runs once per rung of the
+  // escalation ladder (up to four per seed). Running the re-derivation on every
+  // composition was measured at 486s of in-planner time against 120s — four
+  // times the cost to produce four answers, three of which are thrown away.
+  // What this function keeps is the state the pass needs: which ramparts the
+  // early prune took, and what layer 2 counted before anything re-measured.
+  plan.wallPassState = { inertPruned, unreachableAtLayer2 };
 
   return {
     layer: "late-roads",
@@ -2155,16 +2378,99 @@ export function planWallRoads(terrain, plan) {
       servedExts,
       pruned: pruned.size,
       swampPaved,
+      // paved cut tiles moved onto the interior parallel — see (5b)
+      alongCutMoved,
       unreachableExts,
-      mobility,
+      // filled by finalizeRoom, on the winning composition only
+      mobility: null,
       // layer 7b — what the post-prune reflow found and did
       reflow,
       // ramparts deleted because deleting them changed nothing measurable —
       // doubled wall the earlier layers' own additions made redundant
       inertPruned: inertPruned.length,
-      // interior floor the finished base cannot walk to, and how much of it is
-      // our own structures' doing rather than the enclosure's
-      sealedFloor,
+      // ...also filled by finalizeRoom
+      sealedFloor: null,
     },
   };
+}
+
+/**
+ * ==========================================================================
+ * THE TRUTH PASS — every derived number and every published sentence, once,
+ * on the room that ships.
+ * ==========================================================================
+ *
+ * The pipeline composes up to four shells per seed and throws all but one away.
+ * Every layer up to here is therefore written to be re-runnable and cheap, and
+ * the RE-DERIVATION is not: it re-floods, re-walks all-pairs over the wall and
+ * re-runs the inert prune to a fixpoint. It belongs to the winner, once.
+ *
+ * It also has to be LAST, and that is the round-8 finding it exists for. These
+ * measurements used to be taken at the top of planWallRoads, before the roads
+ * and before layer 7b, and they published prose about a room that had not
+ * finished existing:
+ *
+ *   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
+ *     structure at X,Y would drop from depth 4 to 3". Re-measured on the shipped
+ *     plan every one of them drops 4 -> 0: the named structure leaves the wall
+ *     entirely, because 7b had retired the personal rampart holding it. E11S7's
+ *     five (17,2 18,2 19,2 20,2 21,2) are the standing example, and the strings
+ *     are printed verbatim into meta.notes.
+ *   · `mobilityShipped` — stale in 6 rooms (E11S1 0.95 vs 0.96 and maxDetour 1
+ *     vs 2, plus E11S7, E13S2, E8S7, E9S4, E9S9).
+ *   · the SEALED INTERIOR FLOOR note's shallow-extension count — stale in 8
+ *     rooms, and in 7 of them contradicted by another note in the same array
+ *     (E11S7 said 11 in one and 5 in the other; E9S9 said 10 against a real 0).
+ *   · the shipped-battery, adopted-seal and unreachable-wall declarations, all
+ *     arguing about a wall 7b could still move.
+ *
+ * The prune is re-run here to a fixpoint against the shipped board. It deletes
+ * nothing in 172/172 — which is exactly the property that makes the earlier
+ * run's DECISIONS safe to keep — and what it produces that matters is a refusal
+ * reason measured on the tiles the room ships.
+ */
+export function finalizeRoom(terrain, plan) {
+  if (!plan || plan.error || !plan.shell || !(plan.shell.cut || []).length) return plan;
+  if (plan.meta?.finalized) return plan;
+  const st = plan.wallPassState || { inertPruned: [], unreachableAtLayer2: 0 };
+  const inertPrunedLate = pruneInertRamparts(terrain, plan);
+  const allInertPruned = (st.inertPruned || []).concat(inertPrunedLate);
+  if (inertPrunedLate.length) {
+    plan.shell.inertPruned = allInertPruned;
+    if (plan.meta?.walls) plan.meta.walls.inertPruned = allInertPruned.length;
+  }
+  const rec = reconcileSeal(terrain, plan);
+  const adopted = rec?.adopted || [];
+  const cutChanged = allInertPruned.length > 0 || adopted.length > 0;
+  const shipDmg = remeasureShell(
+    terrain,
+    plan,
+    cutChanged
+      ? `${allInertPruned.length} tile(s) pruned as inert, ${adopted.length} adopted into the cut by ` +
+          `the single-removal seal test — re-derived after layer 7b, on the mass the room ships`
+      : `cut unchanged by layer 7, but the shipped rampart set includes every bubble laid by layers ` +
+          `2-6 and every personal rampart layer 7b retired or rented, so the exterior — and every ` +
+          `metric taken against it — is re-derived over the union rather than over the min-cut ring ` +
+          `layer 2 negotiated`,
+  );
+  if (adopted.length) declareAdoptedSeal(plan, adopted, shipDmg);
+  if (shipDmg) declareShippedBattery(plan, shipDmg);
+  declareUnreachableCut(plan, st.unreachableAtLayer2 || 0);
+  noteRedundantCut(terrain, plan, rec?.sealCritical, allInertPruned);
+
+  // the lap, on the mass and the wall the room actually ships — and the room's
+  // ONE mobility declaration, filed off it
+  const mobility = verifyMobility(terrain, plan);
+  if (plan.meta?.walls) plan.meta.walls.mobility = mobility;
+
+  // ...and the same reading in the field the gallery and the census headline.
+  // It used to be taken in composePlan, i.e. once per rung and before this pass
+  // could move the wall under it.
+  if (plan.meta?.shell) plan.meta.shell.mobilityBuilt = builtMobility(terrain, plan);
+
+  const sealedFloor = noteSealedFloor(terrain, plan, plan.meta?.extensions?.shallow);
+  if (plan.meta?.walls) plan.meta.walls.sealedFloor = sealedFloor;
+  if (plan.meta) plan.meta.finalized = true;
+  delete plan.wallPassState;
+  return plan;
 }

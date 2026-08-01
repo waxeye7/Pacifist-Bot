@@ -31,6 +31,8 @@ const ROAD_CHUNK = 3;
 const RAMPART_CHUNK = 3; // small chunks so the min-cut sweep reads as a sweep
 const EXT_CHUNK = 2; // steady build rhythm
 const FIELD_MERGE = 2; // rings per step — the flood is the least interesting part
+/** the RCL8 extension programme, restated for the caption (pipeline EXT_TARGET) */
+const EXT_TARGET_ANIM = 60;
 
 /**
  * Pacing multipliers on the player's BASE_RATE (steps/sec).
@@ -62,6 +64,9 @@ const STAGE_RATES = {
   // same reason as roadsPrune below: the relocation is the other moment the
   // plan takes something back, and 5 tiles vanishing at speed reads as a glitch
   extMove: 0.5,
+  // layer 7b's backfill: a handful of tiles, and the whole reason a room like
+  // E9S2 reaches 60/60 — slow enough to read the caption
+  extAdd: 0.4,
   // the prune is 12 tiles in a typical room and it is the one moment the plan
   // gets SMALLER — it has to be slow enough that the eye catches the deletion
   roadsPrune: 0.5,
@@ -95,6 +100,7 @@ const STAGE_SCAFFOLD = {
   extGhost: false,
   extensions: false,
   extMove: false,
+  extAdd: false,
   roadsPrune: false,
   roadsLate: false,
   roadsResid: false,
@@ -596,11 +602,62 @@ export function buildAnim(room, terrain, plan) {
     );
   }
 
-  if (plan.structures.extension?.length) {
+  // ------------------------------------------------------------------
+  // THE ERASE HAS TO COME BEFORE THE PAINT, ON THE TILES WHERE BOTH HAPPEN.
+  //
+  // This file asserts, over the layer-7 block below, that "the prune is drawn as
+  // an erase ... so the last frame still equals the shipped plan exactly". It did
+  // not: the `roadsPrune` erase is a clearRect in #ff4444 and it ran AFTER the
+  // `extensions` stage painted, so every pruned stub road that layer 7b then
+  // stood an extension on ended the film rendered as ERASED — 38 tiles across 17
+  // rooms (E11S7 6, E13S2 3, E11S1 2, E12S5 2, E1S8 2, E11S2/E12S6/E17S8 1). The
+  // caption on those very moves says "lifting the stub road that was there",
+  // which is the film narrating the thing it then drew backwards.
+  //
+  // Splitting the prune is the honest fix rather than moving the whole stage:
+  // the tiles a shipped structure ends up on are erased HERE, immediately before
+  // the mass paints over them, and the rest — the great majority, road that
+  // simply goes away — stays in layer 7 where it belongs. Nothing is drawn out
+  // of layer order except the tiles whose whole point is that layer 6 and layer
+  // 7 both touched them.
+  // ------------------------------------------------------------------
+  const shippedOccupied = new Set();
+  for (const t of Object.keys(plan.structures || {})) {
+    if (t === "road" || t === "rampart") continue;
+    for (const p of plan.structures[t] || []) shippedOccupied.add(`${p.x},${p.y}`);
+  }
+  const pruneUnderStructure = rp.pruned.filter((t) => shippedOccupied.has(`${t.x},${t.y}`));
+  const pruneClean = rp.pruned.filter((t) => !shippedOccupied.has(`${t.x},${t.y}`));
+  if (pruneUnderStructure.length) {
+    chunked(
+      sb,
+      "roadsPrune",
+      pruneUnderStructure,
+      ROAD_CHUNK,
+      "#ff4444",
+      (a, b, n) =>
+        `dead-end prune ${b}/${n} — stub road lifted for the structure that is about to stand on it`,
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // LAYER 7b ADDS, CAPTIONED. `extGhost`/`extMove` draw the MOVES of both
+  // relocation passes and nothing drew the ADDS — the backfill 7b runs when the
+  // prune hands back deep floor and the room is still short of 60. E9S2 is the
+  // only room in the fleet that adds without moving, and its four 7b extensions
+  // were painted anonymously inside the plain `extensions` chunk: the single
+  // room whose 60/60 depends entirely on layer 7b was also the single room in
+  // which layer 7b was invisible. They come out of the mass here and get their
+  // own beat below, at the moment they actually happen.
+  // ------------------------------------------------------------------
+  const reflowAdds = (plan.meta?.extensions?.reflow?.added || []).filter((a) => a && typeof a.x === "number");
+  const addKeys = new Set(reflowAdds.map((a) => `${a.x},${a.y}`));
+  const massExtensions = (plan.structures.extension || []).filter((e) => !addKeys.has(`${e.x},${e.y}`));
+  if (massExtensions.length) {
     chunked(
       sb,
       "extensions",
-      plan.structures.extension,
+      massExtensions,
       EXT_CHUNK,
       "#ffd24d",
       (a, b, n) => `extensions ${b}/${n} — fill the protected space`,
@@ -635,15 +692,32 @@ export function buildAnim(room, terrain, plan) {
 
   // LAYER 7, in pipeline order: the prune deletes first, then the late roads
   // are pushed. The prune is drawn as an erase (the player clears the tile) so
-  // the last frame still equals the shipped plan exactly.
-  if (rp.pruned.length) {
+  // the last frame still equals the shipped plan exactly — which is now true,
+  // because the tiles a structure ends up on were erased before the mass painted
+  // over them (see the split above).
+  if (pruneClean.length) {
     chunked(
       sb,
       "roadsPrune",
-      rp.pruned,
+      pruneClean,
       ROAD_CHUNK,
       "#ff4444",
       (a, b, n) => `dead-end prune ${b}/${n} — road that led nowhere once every layer was in`,
+    );
+  }
+  // ...and NOW the backfill layer 7b ran on the floor that prune just freed.
+  for (const a of reflowAdds) {
+    const deep = typeof a.depth !== "number" || a.depth >= 4;
+    sb.push(
+      "extAdd",
+      `layer 7b adds an extension at (${a.x},${a.y})` +
+        (typeof a.depth === "number" ? ` — depth ${a.depth}` : "") +
+        (deep
+          ? `, on deep road-faced floor the dead-end prune handed back`
+          : `, and it is SHALLOW: the priced ladder had no deep tile left, so this one rents a ` +
+            `personal rampart forever to close the count`) +
+        `; this room was ${reflowAdds.length} extension(s) short of ${EXT_TARGET_ANIM} before this pass`,
+      sb.flat([a], "#ffd24d"),
     );
   }
   emitRoads(sb, rp, 7);

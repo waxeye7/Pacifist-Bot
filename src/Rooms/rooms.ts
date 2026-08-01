@@ -6,7 +6,7 @@ import labs from "./rooms.labs";
 import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
-import remotes, { manageRemotes } from "./rooms.remotes";
+import remotes, { manageRemotes, scanRemoteThreats } from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
 import { getCpuPolicy } from "utils/CpuPolicy";
@@ -316,6 +316,12 @@ function rooms() {
       // Which neighbours this commune remotes. Cheap, self-throttling
       // (per-room stagger inside), owns room.memory.resources[*].active.
       manageRemotes(room);
+
+      // Threat sweep runs far more often than manageRemotes' 25-tick cadence:
+      // "leave fast" is only fast if we notice fast.
+      if (Game.time % 5 === 0) {
+        scanRemoteThreats(room);
+      }
 
       // Remote roads paint site-lines to exits — only when RCL is ready + remotes allowed
       if (

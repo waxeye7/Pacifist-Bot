@@ -30,7 +30,16 @@
  *
  * RCL8 final positions; lower RCLs fill the same tiles later.
  */
-import { D4, D8, borderLegal, buildable, chebyshev, key, walkable } from "./shared.mjs";
+import {
+  D4,
+  D8,
+  borderLegal,
+  buildable,
+  chebyshev,
+  key,
+  mineralRing,
+  walkable,
+} from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
 // terrain-only, no cycle: layer-shell imports nothing but shared.mjs
 import { computeUnprotectable } from "./layer-shell.mjs";
@@ -1503,6 +1512,38 @@ export function planHub(terrain, objects, opts = {}) {
   if (spawn.length < 3) {
     return { error: `spawns only grew ${spawn.length}/3`, seed, coreSize: core.length };
   }
+  // ------------------------------------------------------------------
+  // SPAWN[0] IS THE ROOM'S ONLY SPAWN FOR SIX RCLs — AND IT WAS ELEMENT ZERO.
+  //
+  // CONTROLLER_STRUCTURES gives a room its second spawn at RCL7. Everything
+  // before that — every miner, every hauler, every builder and every defender —
+  // walks out of spawn[0] and, on death, walks back to be replaced from it. The
+  // fan search picks the SET on angular spread and depth, which is right, and
+  // then emitted it in whatever order the growth happened to produce: E14S5
+  // shipped the worst of its three on source distance and paid +8 ticks on every
+  // creep's round trip to the sources for six levels.
+  //
+  // The fan is unordered, so this costs nothing at all: order the three by the
+  // sum of their walks to the source seats, which is the trip that actually
+  // repeats. Ties break on the walk to the hub and then on reading order, so two
+  // runs on one terrain emit one array. `fields` are the per-anchor distance
+  // fields layer 1 already grew — sources first, controller last.
+  // ------------------------------------------------------------------
+  {
+    const srcWalk = (p) => {
+      let sum = 0;
+      for (let si = 0; si < sources.length; si++) {
+        const d = fields[si][idx(p.x, p.y)];
+        sum += d >= INF ? INF : d;
+      }
+      return sum;
+    };
+    const hubWalk = (p) => Math.max(Math.abs(p.x - storage.x), Math.abs(p.y - storage.y));
+    spawn.sort(
+      (a, b) => srcWalk(a) - srcWalk(b) || hubWalk(a) - hubWalk(b) || a.y - b.y || a.x - b.x,
+    );
+    spawnFan.spawnOrder = spawn.map((p) => ({ x: p.x, y: p.y, srcWalk: srcWalk(p) }));
+  }
 
   // --- 8. Eco works at the anchors: containers + links ---
   // impassable = real structures (sitter stays walkable — it's a road)
@@ -1722,6 +1763,86 @@ export function planHub(terrain, objects, opts = {}) {
     }
     if (best) claimApproach = { x: best.x, y: best.y };
   }
+  // ------------------------------------------------------------------
+  // THE MINERAL GETS THE SAME TWO TILES, FOR THE SAME REASON.
+  //
+  // E9S9 shipped an extractor and a mineral container that no creep in the room
+  // can ever reach: the mineral at 41,18 has exactly one walkable neighbour
+  // (40,19), the lab diamond correctly left it free — layer 4's `keepsMineralSeat`
+  // held — and then the diamond, a tower and a spawn took every one of 40,19's
+  // own eight neighbours. The seat existed and was unreachable, which is the
+  // exact failure the claim seat learned about the controller two rounds ago:
+  // reserving the tile is necessary and not sufficient.
+  //
+  // So the mineral is given the same pair, chosen the same way and on the same
+  // evidence: the stand with the widest approach (hardest to seal) and nearest
+  // the hub on foot, plus one walkable step into it. 138 of the 172 rooms in
+  // this world put their mineral container off the road network by design, so
+  // the stand is very often a tile nothing else has any reason to touch — the
+  // reservation costs those rooms literally nothing and it is the only thing
+  // standing between a 1-tile mineral ring and a dead extractor.
+  //
+  // The seat is chosen HERE, at layer 1, and not in layer 5 where the container
+  // is placed, because layers 3 and 4 run in between and they are the ones that
+  // seal it.
+  // ------------------------------------------------------------------
+  const mRing = mineral
+    ? mineralRing(terrain, { mineral, objectTiles }).filter((p) => !impassable.has(key(p.x, p.y)))
+    : [];
+  let mineralSeat = null;
+  let mineralSeatScore = null;
+  for (const p of mRing) {
+    const d = hubField[idx(p.x, p.y)];
+    const sc = [-walkNbrs(p.x, p.y), d >= INF ? INF : d, p.y, p.x];
+    if (!mineralSeatScore || cmpTuple(sc, mineralSeatScore) < 0) {
+      mineralSeatScore = sc;
+      mineralSeat = { x: p.x, y: p.y };
+    }
+  }
+  let mineralApproach = null;
+  if (mineralSeat) {
+    let best = null;
+    for (const [dx, dy] of D8) {
+      const x = mineralSeat.x + dx,
+        y = mineralSeat.y + dy;
+      if (!walkable(terrain, x, y)) continue;
+      if (objectTiles.has(key(x, y))) continue; // the mineral itself is an obstacle
+      if (impassable.has(key(x, y))) continue;
+      const d = hubField[idx(x, y)];
+      const sc = [d >= INF ? INF : d, -walkNbrs(x, y), y, x];
+      if (!best || cmpTuple(sc, best.sc) < 0) best = { x, y, sc };
+    }
+    if (best) mineralApproach = { x: best.x, y: best.y };
+  }
+
+  // ------------------------------------------------------------------
+  // ...AND THE UPGRADER'S PARKING IS RESERVED, NOT MERELY COUNTED.
+  //
+  // `ctrlParks` was an integer this layer measured, declared and then handed to
+  // five layers that had never heard of it. 80 rooms ate 159 of those seats and
+  // four shipped UNDER the 4-seat floor this planner calls hard — E14S2, E16S3
+  // and E18S8 all went 8 -> 3, and every one of them passed the validator on a
+  // ctrlParks declaration the pipeline had generated for them out of their own
+  // damage. A seat is not three tiles of hauler walk; it is a throttle on the
+  // upgrader fleet for the life of the room.
+  //
+  // The floor is min(what layer 1 measured, PARK_PROTECT), and PARK_PROTECT is
+  // the ring's own maximum — so every seat this layer counted is a seat the room
+  // keeps. A floor of 6 was measured first and is recorded in shared.mjs: it left
+  // 33 rooms one seat down and bought the fleet nothing at all. The reservation
+  // order still matters for the rooms whose ring is over the cap, and it is
+  // decided the way everything else here is — deterministically, and in the
+  // direction that costs the mass least: the FURTHEST from the hub go first,
+  // because the extension fill grows outward and wants the near ones, and an
+  // upgrader is indifferent between two tiles that are both range-1 of the link
+  // and range-3 of the controller.
+  // ------------------------------------------------------------------
+  // WHICH seats is decided in the pipeline, not here: see reserveParkSeats. The
+  // ordering that costs the extension mass least is depth-aware, and depth does
+  // not exist until layer 2 has drawn the wall. Layer 1 publishes the candidate
+  // list (`ctrlParkTiles`) and the floor; the pipeline picks.
+  const parkReserve = [];
+
   if (!claimSeat) {
     shortfalls.push({
       gate: "ctrlSeat",
@@ -1795,7 +1916,17 @@ export function planHub(terrain, objects, opts = {}) {
       // validator re-derives whether it was KEPT rather than believing this.
       claimSeat: claimSeat ? { x: claimSeat.x, y: claimSeat.y } : null,
       claimApproach: claimApproach ? { x: claimApproach.x, y: claimApproach.y } : null,
+      // the mineral's version of the same pair — see the MINERAL block above
+      mineralSeat: mineralSeat ? { x: mineralSeat.x, y: mineralSeat.y } : null,
+      mineralApproach: mineralApproach ? { x: mineralApproach.x, y: mineralApproach.y } : null,
+      mineralRingFree: mRing.length,
       ctrlParks: ctrlLink.parks ?? 0,
+      // ...and WHICH tiles they are. `ctrlParks` was an integer nobody
+      // downstream could act on, so every later layer treated the controller's
+      // ring as ordinary floor and 80 rooms ate 159 seats. The tiles are the
+      // thing a placement guard needs — see parkGuard in shared.mjs — and they
+      // are also the evidence for the as-built recount in the pipeline.
+      ctrlParkTiles: (ctrlLink.parkTiles || []).map((p) => ({ x: p.x, y: p.y })),
       // the seat search behind that integer: what was on offer and what lost
       ctrlParksCensus: ctrlLink.census ?? null,
       ctrlContainer: ctrlContainer ? { ...ctrlContainer, range: chebyshev(ctrlContainer, controller) } : null,
@@ -1816,8 +1947,13 @@ export function planHub(terrain, objects, opts = {}) {
     mineral,
     // C1: every later layer folds this into its own occupancy set
     objectTiles,
-    // ...and so do these two, for blocking structures only. See CLAIM SEAT.
+    // ...and so do these, for blocking structures only. See CLAIM SEAT, the
+    // MINERAL block and the PARKING block — all three are read through
+    // reservedTiles() in shared.mjs so no layer can honour one and forget another.
     claimSeat,
     claimApproach,
+    mineralSeat,
+    mineralApproach,
+    parkReserve,
   };
 }

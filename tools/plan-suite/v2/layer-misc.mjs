@@ -25,7 +25,7 @@
  * need one to FUNCTION, but a structure nothing can walk to is a plan
  * smell and trips the suite validator).
  */
-import { D4, D8, borderLegal, buildable, key, walkable } from "./shared.mjs";
+import { D4, D8, borderLegal, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 
 const DEPTH_SAFE = 4;
@@ -45,25 +45,18 @@ export function planMisc(terrain, plan) {
   }
   occupied.add(key(plan.sitter.x, plan.sitter.y));
   for (const k of plan.objectTiles || []) occupied.add(k); // C1
-  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
-  // claimController/signController (both range 1) always have somewhere to
-  // stand and a creep can always get there. See the CLAIM SEAT block in
-  // layer-hub.
-  //
-  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
-  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
-  // and reserving a walkable tile there tells this layer the tile is a WALL.
-  // The first cut did exactly that and E15S5 paid for it — its tower moved off
-  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
-  // because the one tile the stitch wanted to pave was the reserved approach.
-  // A creep stands on the seat; a road may run over it; only a blocking
-  // STRUCTURE may not be placed on it.
-  const reserved = new Set();
-  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
-  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  // THE TILES NO BLOCKING STRUCTURE MAY TAKE — the controller claim seat and
+  // its approach, the mineral stand and its approach, and the upgrader park
+  // seats this room holds to its floor. See reservedTiles in shared.mjs.
+  const reserved = reservedTiles(plan);
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
   const hub = fieldFrom(terrain, plan.sitter, occupied);
+  const mGuard = mineralGuard(terrain, plan);
+  const standBlocked = new Set(plan.objectTiles || []);
+  for (const ty of ["storage", "terminal", "link", "spawn", "tower", "lab"]) {
+    for (const q of plan.structures[ty] || []) standBlocked.add(key(q.x, q.y));
+  }
 
   const cands = [];
   for (let x = 2; x <= 47; x++) {
@@ -73,6 +66,10 @@ export function planMisc(terrain, plan) {
       if (!buildable(terrain, x, y) || ext[i]) continue;
       if (depth[i] < DEPTH_SAFE) continue;
       if (occupied.has(k) || roadSet.has(k) || reserved.has(k)) continue;
+      // the nuker and the observer may not seal the mineral either — the
+      // observer takes the FURTHEST leftover tile, which is exactly the kind of
+      // far pocket a mineral sits in. See mineralGuard.
+      if (!mGuard.ok({ x, y }, standBlocked)) continue;
       if (hub[i] >= 9999) continue;
       cands.push({ x, y, d: hub[i] });
     }
@@ -98,6 +95,13 @@ export function planMisc(terrain, plan) {
   // intent", and it costs nothing to fix: this is a PREFERENCE, not a veto, so
   // a room with nowhere else to put it still ships one.
   // ------------------------------------------------------------------
+  // ...AND THE UPGRADER'S PARKING IS THE SAME ARGUMENT ONE RING OUT.
+  //
+  // 18 of the 159 upgrader seats this fleet lost went to the OBSERVER — more
+  // than the towers and the labs put together — for a structure whose position
+  // is irrelevant by its own placement rule. Six of those seats are protected
+  // outright now (reservedTiles), and the ones above the floor are still worth
+  // more empty than built on, so the same preference covers both rings.
   const ctrlRing = new Set();
   if (plan.controller) {
     for (const [dx, dy] of D8) {
@@ -106,6 +110,7 @@ export function planMisc(terrain, plan) {
       if (walkable(terrain, x, y)) ctrlRing.add(key(x, y));
     }
   }
+  for (const p of plan.meta?.ctrlParkTiles || []) ctrlRing.add(key(p.x, p.y));
   const offRing = (p) => !ctrlRing.has(key(p.x, p.y));
 
   // M4: the observer takes the FURTHEST leftover tile, which in a room with
@@ -151,8 +156,32 @@ export function planMisc(terrain, plan) {
     return facesKeep.some((f) => !D8.some(([dx, dy]) => seen.has(key(f.x + dx, f.y + dy))));
   };
 
+  // ------------------------------------------------------------------
+  // NUKE DISPERSION, the one tile THIS layer can move.
+  //
+  // A nuke does full damage over a 5x5, cannot be intercepted, and the only
+  // counter is rampart hit points. The nuker is itself a high-value target and
+  // its rule is "nearest the hub" — which puts it in the room's single most
+  // crowded window, beside the storage, the terminal and three spawns. Layer 3
+  // has already dispersed what it could (see the post-pass there); this is the
+  // same soft term one layer on, and it is a TIE-BREAK and never a veto: the
+  // haul distance still decides, and among tiles at the SAME walk the nuker
+  // takes the one whose 5x5 holds least of the rest of the program. In an open
+  // room that is free; in a tight one there is only one tile at that distance
+  // and nothing changes.
+  // ------------------------------------------------------------------
+  const HIGH_VALUE = ["spawn", "storage", "terminal", "tower", "lab"];
+  const hvPts = [];
+  for (const t of HIGH_VALUE) for (const p of plan.structures[t] || []) hvPts.push(p);
+  const window5 = (p) => {
+    let n = 0;
+    for (const q of hvPts) if (Math.abs(q.x - p.x) <= 2 && Math.abs(q.y - p.y) <= 2) n++;
+    return n;
+  };
   // nuker: nearest the hub by walk — fillers haul 300k energy into it
-  const byNear = cands.slice().sort((a, b) => a.d - b.d || a.x - b.x || a.y - b.y);
+  const byNear = cands
+    .slice()
+    .sort((a, b) => a.d - b.d || window5(a) - window5(b) || a.x - b.x || a.y - b.y);
   const nuker =
     byNear.find((c) => offRing(c) && !seals(c, occupied)) ||
     byNear.find((c) => !seals(c, occupied)) ||
@@ -244,6 +273,13 @@ export function planMisc(terrain, plan) {
       // engine border rule: a seat at x/y 1 or 48 whose edge triple is not all
       // wall can never carry the miner's rampart bubble (shared.mjs borderLegal)
       if (!borderLegal(terrain, x, y, "rampart")) d += 12;
+      // THE RESERVED STAND WINS OUTRIGHT. Layer 1 picked one ring tile on
+      // approach breadth and reserved it plus one step into it (see the MINERAL
+      // block in layer-hub) precisely so a creep can always get here; putting the
+      // container anywhere else spends that guarantee on a tile that has none.
+      // It is a bias and not a veto because the reserved tile can legitimately be
+      // paved or ramparted by then, and both are walkable.
+      if (plan.mineralSeat && plan.mineralSeat.x === x && plan.mineralSeat.y === y) d -= 100;
       if (!seat || d < seat.d) seat = { x, y, d };
     }
     if (seat) {

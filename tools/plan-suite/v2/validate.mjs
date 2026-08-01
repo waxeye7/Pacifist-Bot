@@ -877,6 +877,7 @@ export function checkRoom(plan, terrain, objects) {
       orphanRoads: 0,
       ctrlSeatBlocked: 0,
       ctrlSeatUnreachable: 0,
+      mineralSeatSealed: 0,
       ctrlParksShort: 0,
       ctrlParksStale: 0,
     };
@@ -1648,6 +1649,110 @@ export function checkRoom(plan, terrain, objects) {
   // ------------------------------------------------------------------
   let ctrlSeatBlocked = 0;
   let ctrlSeatUnreachable = 0;
+  // OUR OWN WALK, flooded once and shared by every work-seat test below: from
+  // the sitter over passable tiles minus our blocking structures, with ramparts,
+  // roads and containers left conducting because our creeps pass all three. It
+  // deliberately runs OUTSIDE the wall as well — the goal document leaves the
+  // controller outside the shell on purpose, so a correct claim seat is very
+  // often an exterior tile.
+  const ourWalk = new Uint8Array(2500);
+  {
+    const si0 = idx(sitter.x, sitter.y);
+    ourWalk[si0] = 1;
+    const q = [si0];
+    for (let qi = 0; qi < q.length; qi++) {
+      const i = q[qi],
+        x = i % 50,
+        y = (i / 50) | 0;
+      for (const [dx, dy] of D8) {
+        const nx = x + dx,
+          ny = y + dy;
+        if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+        const ni = idx(nx, ny);
+        if (ourWalk[ni] || !passable(nx, ny) || blocked.has(key(nx, ny))) continue;
+        ourWalk[ni] = 1;
+        q.push(ni);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // THE MINERAL'S WORK SEAT — the same test as the controller's, on the other
+  // room object a creep has to stand beside.
+  //
+  // E9S9 shipped an extractor on 41,18 and its container on 40,19 that NO CREEP
+  // CAN EVER REACH, and every gate in this file passed it. The mineral's eight
+  // neighbours are five natural walls and two of our labs, so 40,19 is the only
+  // mining stand the room has; 40,19's own eight neighbours are three natural
+  // walls, three labs, a tower and a spawn. The off-network test was the closest
+  // thing to a check and it asks the wrong question — it wants D8 adjacency to a
+  // road or container NODE, and the container IS a node, so the seat certified
+  // itself. The room's SEALED INTERIOR FLOOR note even printed 40,19 as sealed-off
+  // floor "carrying nothing"; it was the mineral container.
+  //
+  // The consequence is permanent: the mineral is unharvestable, the container can
+  // never be filled or emptied, both decay forever, and the RCL6 extractor build
+  // order stalls on a site no builder can stand beside. UNDECLARABLE, and the
+  // producer-side invariant that prevents it is in shared.mjs (mineralSeatHolds),
+  // which is local and cheap; this is the global version — a real flood that has
+  // to ARRIVE — and the two are checked against each other on every fleet run.
+  // ------------------------------------------------------------------
+  let mineralSeatSealed = 0;
+  if (mineral && (s.extractor || []).length) {
+    const occupantOfM = (x, y) =>
+      BLOCKING.filter((t) => (s[t] || []).some((p) => p.x === x && p.y === y)).join("+");
+    const ring = [];
+    for (const [dx, dy] of D8) {
+      const x = mineral.x + dx,
+        y = mineral.y + dy;
+      if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+      if (!walkable(terrain, x, y)) continue;
+      if (objectTiles.has(key(x, y))) continue;
+      ring.push({ x, y, k: key(x, y), on: occupantOfM(x, y) });
+    }
+    const stands = ring.filter((t) => !t.on && ourWalk[idx(t.x, t.y)]);
+    if (ring.length && !stands.length) {
+      mineralSeatSealed = 1;
+      const why = ring.map((t) => {
+        if (t.on) return `${t.k} carries our ${t.on}`;
+        let wall = 0,
+          mine = 0;
+        for (const [dx, dy] of D8) {
+          const nx = t.x + dx,
+            ny = t.y + dy;
+          if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+          if (!passable(nx, ny)) wall++;
+          else if (blocked.has(key(nx, ny))) mine++;
+        }
+        return `${t.k} is free but sealed (${wall} natural wall, ${mine} of ours)`;
+      });
+      late("misc", "mineral-seat",
+        `MINERAL ENTOMBED — the mineral ${mineral.x},${mineral.y} carries an extractor and not one of ` +
+          `its ${ring.length} walkable neighbour(s) is both free and reachable by our own creeps from ` +
+          `the sitter ${sitter.x},${sitter.y}: ${why.join(" · ")}. The flood runs over our ramparts, ` +
+          `roads and containers and is not stopped at the wall, so this is a genuine pocket. Nothing ` +
+          `can ever mine here, the mineral container can never be filled or emptied, both structures ` +
+          `decay forever, and the RCL6 extractor build order stalls on a site no builder can stand ` +
+          `beside. A room object's work seat is a placement invariant, not a shortfall`,
+        ring.map((t) => t.k),
+      );
+    }
+    // ...and the seat the plan actually chose has to BE one of them.
+    const mc = (s.container || []).find(
+      (c) => Math.max(Math.abs(c.x - mineral.x), Math.abs(c.y - mineral.y)) <= 1,
+    );
+    if (mc && !ourWalk[idx(mc.x, mc.y)]) {
+      mineralSeatSealed = 1;
+      late("misc", "mineral-seat",
+        `MINERAL CONTAINER UNREACHABLE — the miner's container at ${mc.x},${mc.y} is not on our own ` +
+          `walk region from the sitter ${sitter.x},${sitter.y}. A container is walkable, so the only ` +
+          `way this happens is that everything AROUND it is one of our obstacles or natural wall. ` +
+          `Nothing can stand on it, fill it or empty it`,
+        [key(mc.x, mc.y)],
+      );
+    }
+  }
+
   if (controller) {
     /** who, of ours, is standing on this tile — "" when nobody is */
     const occupantOf = (x, y) =>
@@ -1694,26 +1799,8 @@ export function checkRoom(plan, terrain, objects) {
       // (ctrl 15,25, seat 16,24). Declarable — a pocket outside the wall that
       // terrain will not let us reach is a real constraint, and it does not stop
       // the room being re-claimed.
-      const reach = new Uint8Array(2500);
-      {
-        const si0 = idx(sitter.x, sitter.y);
-        reach[si0] = 1;
-        const q = [si0];
-        for (let qi = 0; qi < q.length; qi++) {
-          const i = q[qi],
-            x = i % 50,
-            y = (i / 50) | 0;
-          for (const [dx, dy] of D8) {
-            const nx = x + dx,
-              ny = y + dy;
-            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-            const ni = idx(nx, ny);
-            if (reach[ni] || !passable(nx, ny) || blocked.has(key(nx, ny))) continue;
-            reach[ni] = 1;
-            q.push(ni);
-          }
-        }
-      }
+      // one flood for every work-seat test in this file — see ourWalk above
+      const reach = ourWalk;
       if (!seats.some((t) => reach[idx(t.x, t.y)])) {
         ctrlSeatUnreachable = 1;
         // WHY IS IT A POCKET — terrain, or us? The disposition depends on it, so
@@ -2166,6 +2253,7 @@ export function checkRoom(plan, terrain, objects) {
     // cannot, and "9 rooms" is the number that means something here.
     ctrlSeatBlocked,
     ctrlSeatUnreachable,
+    mineralSeatSealed,
     ctrlParksShort,
     ctrlParksStale,
   };
@@ -2206,6 +2294,7 @@ function main() {
     orphanRoads: 0,
     ctrlSeatBlocked: 0,
     ctrlSeatUnreachable: 0,
+    mineralSeatSealed: 0,
     ctrlParksShort: 0,
     ctrlParksStale: 0,
   };
@@ -2255,6 +2344,7 @@ function main() {
       `orphan roads ${agg.orphanRoads}, structures off-network ${agg.stranded}, ` +
       // rooms, not tiles — see the note on these four in checkRoom's return
       `controllers sealed in ${agg.ctrlSeatBlocked}, seats unreachable ${agg.ctrlSeatUnreachable}, ` +
+      `minerals entombed ${agg.mineralSeatSealed}, ` +
       `ctrlParks under floor ${agg.ctrlParksShort}, ctrlParks stale ${agg.ctrlParksStale}`,
   );
   if (roadCounts.length) {

@@ -138,6 +138,198 @@ export function key(x, y) {
   return `${x},${y}`;
 }
 
+// ---------------------------------------------------------------------------
+// PLACEMENT INVARIANTS THAT BELONG TO A ROOM OBJECT, NOT TO A STRUCTURE
+// ---------------------------------------------------------------------------
+/**
+ * THE MINERAL'S WORK SEAT IS A PLACEMENT INVARIANT, NOT A LATE DISCOVERY.
+ *
+ * E9S9 shipped an extractor on 41,18 and its container on 40,19 that NO CREEP
+ * CAN EVER REACH. The mineral's eight neighbours are five natural walls and two
+ * of our labs, so 40,19 is the only mining stand the room has; 40,19's own eight
+ * neighbours are three natural walls, three labs, a tower and a spawn. Every one
+ * an engine obstacle. The mineral is unharvestable forever, both structures
+ * decay forever, and the RCL6 extractor build order stalls on a site no builder
+ * can stand beside.
+ *
+ * Nothing caught it because every guard in the pipeline was written about
+ * STRUCTURES. layer-labs already refuses a stamp that empties the mineral's ring
+ * (`keepsMineralSeat`), and that guard held — the ring kept 40,19. What it did
+ * not ask is whether the surviving seat could still be WALKED TO. The
+ * controller has had exactly this protection since the claim-seat work
+ * (`plan.claimSeat` plus a reserved `claimApproach`, so the room keeps one
+ * walkable step into the seat no matter what the mass does); the mineral is the
+ * other room object a creep has to stand beside, and it had half of it.
+ *
+ * So the invariant is stated once, here, and every layer that places a blocking
+ * structure asks it about its own candidate: AT LEAST ONE mineral-ring tile must
+ * be free AND keep at least one free walkable tile to be approached from. It is
+ * local (8x8 lookups, no flood) because it runs inside the extension mass's
+ * inner loop; the GLOBAL version — a flood from the sitter that has to arrive —
+ * is the validator's job (see MINERAL SEAT in validate.mjs), and the two are
+ * checked against each other on every run of the fleet.
+ *
+ * A ring that is ALREADY empty of free tiles before we place anything is the
+ * room beating us, not us beating the room: layer 5 declares that case
+ * (`no free walkable ring tile`) and this invariant deliberately passes it
+ * through rather than making every later layer unsatisfiable.
+ */
+export function mineralRing(terrain, plan) {
+  const out = [];
+  if (!plan || !plan.mineral) return out;
+  const objs = plan.objectTiles || new Set();
+  for (const [dx, dy] of D8) {
+    const x = plan.mineral.x + dx,
+      y = plan.mineral.y + dy;
+    if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+    if (!walkable(terrain, x, y)) continue;
+    if (objs.has(key(x, y))) continue;
+    out.push({ x, y });
+  }
+  return out;
+}
+
+/**
+ * True when, with `blocked` standing (engine obstacles only — roads, containers
+ * and ramparts are walkable), the mineral still has a stand a creep can occupy
+ * and step into. `ring` may be passed in when the caller has already computed it
+ * for this room, which is the whole reason this is affordable in a hot loop.
+ */
+export function mineralSeatHolds(terrain, plan, blocked, ring) {
+  const seats = ring || mineralRing(terrain, plan);
+  if (!seats.length) return true; // an already-sealed ring is layer 5's honest shortfall
+  const objs = plan.objectTiles || new Set();
+  for (const s of seats) {
+    if (blocked.has(key(s.x, s.y))) continue;
+    for (const [dx, dy] of D8) {
+      const x = s.x + dx,
+        y = s.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      if (!walkable(terrain, x, y)) continue;
+      const k = key(x, y);
+      if (objs.has(k)) continue; // the mineral itself, a source, the controller
+      if (blocked.has(k)) continue;
+      return true;
+    }
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// THE UPGRADER'S PARKING IS A PRICED RESOURCE, NOT FREE FLOOR
+// ---------------------------------------------------------------------------
+/**
+ * Layer 1 chooses the controller link on how many walkable range-3 seats it
+ * feeds, declares the number, and then layers 3-7 eat them: 80 rooms lost 159
+ * seats, and four rooms (E14S2 8->3, E16S3 8->3, E18S8 8->3, E17S5 5->3) shipped
+ * UNDER the 4-seat floor this planner calls hard — passing the validator only on
+ * a declaration they had generated themselves. 120 of the 159 went to
+ * extensions, 18 to the observer (the one structure whose position is
+ * irrelevant), 14 to towers and 7 to labs.
+ *
+ * A seat is worth more than the three tiles of hauler walk an extension saves by
+ * standing on it: it throttles the upgrader fleet for the life of the room. So
+ * the seats are protected down to a floor, and the floor is what layer 1
+ * measured, capped at PARK_PROTECT — a room whose controller only ever offered
+ * five seats is held to five, and one that offered eight is held to eight.
+ *
+ * This is a veto and not a score because a score has to be tuned against every
+ * other term in five different layers and a floor does not — and because the
+ * measurement above says the price of the veto is zero: the fleet ships the same
+ * ramparts, the same shallow count and the same 172/172 extensions with the
+ * whole ring held as it did with three quarters of it held.
+ */
+/**
+ * How many of layer 1's counted upgrader seats are held against every later
+ * layer. 8 is the ring's own maximum, so this is "all of them" — and that is a
+ * measurement, not a maximalist default. A floor of 6 (the number the review
+ * asked for) was run over the whole fleet first: it cost 33 rooms one seat each,
+ * and it bought NOTHING — identical 8264 ramparts, identical 39 shallow
+ * extensions, identical 172/172 at 60 extensions, identical road median. The
+ * seats the mass wanted at 6 it simply took from somewhere else, so the cheaper
+ * floor was cheaper only for the controller. Held at the full count.
+ */
+export const PARK_PROTECT = 8;
+
+/**
+ * EVERY TILE THE LAYERS THAT PLACE BLOCKING STRUCTURES MAY NOT HAVE.
+ *
+ * One list, one definition, five consumers (towers, labs, misc, the extension
+ * mass and the post-prune reflow). It used to be two lines copy-pasted into four
+ * files, which is why the mineral's stand and the upgrader's parking — the other
+ * two things a creep has to stand on — were never in it.
+ *
+ * THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into the
+ * layers' `occupied` sets: those double as the pathing mask and the no-road
+ * mask, and reserving a walkable tile there tells a layer the tile is a WALL.
+ * The first cut of the claim seat did exactly that and E15S5 paid for it — its
+ * tower moved off 34,6 onto 33,6 and then could not be stitched to the road
+ * network at all, because the one tile the stitch wanted to pave was the
+ * reserved approach. A creep stands on these tiles; a road or a rampart may run
+ * over them; only a blocking STRUCTURE may not be placed on them.
+ */
+export function reservedTiles(plan) {
+  const s = new Set();
+  if (!plan) return s;
+  if (plan.claimSeat) s.add(key(plan.claimSeat.x, plan.claimSeat.y));
+  if (plan.claimApproach) s.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  for (const p of plan.parkReserve || []) s.add(key(p.x, p.y));
+  return s;
+}
+
+/**
+ * THE MINERAL IS NOT ON THIS LIST, AND THAT IS THE POINT.
+ *
+ * The first cut reserved a mineral seat and an approach exactly the way the
+ * controller's are reserved, and it works — but a static reservation spends two
+ * tiles in EVERY room to fix a problem one room in 172 has. Measured: E12S6 (106
+ * deep tiles for the whole RCL8 program) paid three extra SHALLOW extensions,
+ * three personal ramparts forever, for two tiles it never needed. The controller
+ * pays that price willingly because a room that cannot be re-claimed is dead;
+ * the mineral's failure mode is a dead extractor, and the invariant that
+ * prevents it can be checked exactly instead of pre-paid.
+ *
+ * So `mineralSeatHolds` is a VETO every placing layer applies to its own
+ * candidate — and only to candidates near enough to matter, which is what makes
+ * it free in the extension mass's inner loop. `mineralGuard` is the shape that
+ * does the bounds check for the caller.
+ */
+export function mineralGuard(terrain, plan) {
+  const ring = mineralRing(terrain, plan);
+  const mineral = plan && plan.mineral;
+  if (!ring.length || !mineral) return { ring: [], ok: () => true, active: false };
+  // A CALLER'S `occupied` IS NOT AN OBSTACLE SET, and the difference is the
+  // mineral container itself. Every layer folds containers (and often the sitter
+  // road) into the set it uses to mean "cannot build here", which is correct for
+  // placement and wrong for walking: a creep stands on a container. Feeding that
+  // set to a REACHABILITY test would declare the miner's own seat impassable and
+  // refuse every candidate in the room. So the guard strips the walkable things
+  // back out of whatever it is handed.
+  const soft = new Set();
+  for (const t of ["container", "road", "rampart"]) {
+    for (const p of (plan.structures && plan.structures[t]) || []) soft.add(key(p.x, p.y));
+  }
+  if (plan.sitter) soft.add(key(plan.sitter.x, plan.sitter.y));
+  return {
+    ring,
+    active: true,
+    /**
+     * May a blocking structure stand on `p`, given `blocked` (whatever the
+     * caller is using for occupancy)? Only tiles within chebyshev 2 of the
+     * mineral can seal a stand or a stand's approach, so every other tile in the
+     * room is answered with two subtractions and no work at all — which is what
+     * makes this affordable inside the extension mass's inner loop.
+     */
+    ok(p, blocked) {
+      if (Math.max(Math.abs(p.x - mineral.x), Math.abs(p.y - mineral.y)) > 2) return true;
+      const b = new Set();
+      for (const k of blocked) if (!soft.has(k)) b.add(k);
+      b.add(key(p.x, p.y));
+      return mineralSeatHolds(terrain, plan, b, ring);
+    },
+  };
+}
+
 export function approachTile(terrain, pos) {
   if (walkable(terrain, pos.x, pos.y)) return { x: pos.x, y: pos.y };
   let best = null;

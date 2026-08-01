@@ -35,7 +35,7 @@
  * (TOWER_POWER_ATTACK 600, TOWER_OPTIMAL_RANGE 5, TOWER_FALLOFF_RANGE 20,
  * TOWER_FALLOFF 0.75).
  */
-import { D4, D8, buildable, key, walkable } from "./shared.mjs";
+import { D4, D8, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 
 const N_TOWERS = 6;
@@ -152,23 +152,18 @@ export function planTowers(terrain, plan, opts = {}) {
   }
   occupied.add(key(plan.sitter.x, plan.sitter.y));
   for (const k of plan.objectTiles || []) occupied.add(k); // C1
-  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
-  // claimController/signController (both range 1) always have somewhere to
-  // stand and a creep can always get there. See the CLAIM SEAT block in
-  // layer-hub.
-  //
-  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
-  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
-  // and reserving a walkable tile there tells this layer the tile is a WALL.
-  // The first cut did exactly that and E15S5 paid for it — its tower moved off
-  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
-  // because the one tile the stitch wanted to pave was the reserved approach.
-  // A creep stands on the seat; a road may run over it; only a blocking
-  // STRUCTURE may not be placed on it.
-  const reserved = new Set();
-  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
-  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  // THE TILES NO BLOCKING STRUCTURE MAY TAKE — the controller claim seat and
+  // its approach, the mineral stand and its approach, and the upgrader park
+  // seats this room holds to its floor. See reservedTiles in shared.mjs.
+  const reserved = reservedTiles(plan);
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
+  // ...and the one room object whose work seat this layer can seal. A tower on
+  // 39,19 is one third of why E9S9 entombed its mineral. See mineralGuard.
+  const mGuard = mineralGuard(terrain, plan);
+  const standBlocked = new Set(plan.objectTiles || []);
+  for (const ty of ["storage", "terminal", "link", "spawn", "lab"]) {
+    for (const q of plan.structures[ty] || []) standBlocked.add(key(q.x, q.y));
+  }
 
   const blockers = new Set();
   for (const t of ["storage", "terminal", "link", "spawn"]) {
@@ -211,6 +206,7 @@ export function planTowers(terrain, plan, opts = {}) {
         if (!buildable(terrain, x, y) || ext[i]) continue;
         if (depth[i] < DEPTH_SAFE) continue;
         if (occupied.has(k) || roadSet.has(k) || reserved.has(k)) continue;
+        if (!mGuard.ok({ x, y }, standBlocked)) continue;
         if (refill[i] > maxRefill || refill[i] >= 9999) continue;
         if (!faceOf(x, y, D8)) continue;
         out.push({ x, y, i, ref: refill[i], d4: faceOf(x, y, D4), spur: Math.max(0, roadDist[i] - 1) });
@@ -652,6 +648,94 @@ export function planTowers(terrain, plan, opts = {}) {
     if (!fixed) break; // room is genuinely this tight; the shortfall is declared below
   }
 
+  // ------------------------------------------------------------------
+  // NUKE DISPERSION — a soft term, spent only on freedom the objective has left.
+  //
+  // A nuke does full damage over a 5x5 and half over 11x11, it cannot be shot
+  // down, and the only counter is a rampart thick enough to eat it. So the
+  // question "how much of the RCL8 program does ONE nuke reach" is a real
+  // property of a layout, and nothing in this planner had ever looked at it. On
+  // the round-8 fleet the worst 5x5 window holds TWELVE high-value structures
+  // (E6S9 at 27,30) with a fleet median of 8, counting spawn / storage /
+  // terminal / nuker / tower and excluding the lab diamond, which is a mandated
+  // 4x4 stamp and cannot be dispersed by definition.
+  //
+  // Most of that concentration is mandated too: the hub trio is one tile of
+  // storage, terminal and link by construction (the sitter reaches all three),
+  // and the spawn fan is grown around it. What is FREE is where the towers go —
+  // and the max-min search leaves a great deal of freedom, because damage lands
+  // in 30-point steps and dozens of sets tie.
+  //
+  // So this is a strictly non-worsening post-pass, never a term in the
+  // objective: a swap is taken only when the set's whole lexicographic score is
+  // UNCHANGED (same floor, same saturation, same tie-break value) and the worst
+  // 5x5 window gets smaller. A room whose geometry gives it no such swap keeps
+  // the battery it had — the owner's "unavoidable in tight rooms" — and no hard
+  // gate, no coverage number and no refill walk can move by construction.
+  // ------------------------------------------------------------------
+  const HIGH_VALUE = ["spawn", "storage", "terminal", "nuker"];
+  const fixedHV = [];
+  for (const t of HIGH_VALUE) for (const p of plan.structures[t] || []) fixedHV.push(p);
+  /** the fullest 5x5 window over the fixed high-value mass plus this tower set */
+  const windowMax = (set) => {
+    const pts = fixedHV.concat(set.map((c) => ({ x: cands[c].x, y: cands[c].y })));
+    let mx = 0;
+    for (const a of pts) {
+      // every maximal window contains some structure, so centring on each of
+      // them and sweeping the 5x5 offsets around it covers all of them
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          const cx = a.x + ox,
+            cy = a.y + oy;
+          let n = 0;
+          for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+          if (n > mx) mx = n;
+        }
+      }
+    }
+    return mx;
+  };
+  const nukeBefore = windowMax(best);
+  let nukeAfter = nukeBefore;
+  {
+    // WHAT THE DISPERSION PASS IS ALLOWED TO SPEND, stated as a price.
+    //
+    // The weakest face and its saturation are NOT negotiable and are compared
+    // exactly: this pass may not cost the wall one point of the number the whole
+    // layer is built around. The tie-break — evenness minus refill walk and road
+    // spur — may fall by at most one damage step, which is the granularity
+    // tower damage lands in anyway, so a swap that reads as "the same battery"
+    // to the objective is allowed to also be the one a nuke reaches less of.
+    // Demanding an EXACT tie was tried first and buys nothing: `val` is a float
+    // mean and two genuinely equivalent sets almost never produce the same bits.
+    const NUKE_TIEBREAK_BUDGET = 30;
+    const same = (a, b) =>
+      (a.min >= TARGET_MIN) === (b.min >= TARGET_MIN) &&
+      a.min >= b.min &&
+      a.sat >= b.sat &&
+      a.val >= b.val - NUKE_TIEBREAK_BUDGET;
+    for (let pass = 0; pass < 6; pass++) {
+      let moved = false;
+      for (let si = 0; si < best.length; si++) {
+        const cur = best[si];
+        for (let c = 0; c < C; c++) {
+          if (c === cur || conflicts(best, c, si)) continue;
+          const trial = best.slice();
+          trial[si] = c;
+          if (!same(scoreOf(trial), bestSc)) continue;
+          const w = windowMax(trial);
+          if (w >= nukeAfter) continue;
+          best = trial;
+          nukeAfter = w;
+          moved = true;
+          break;
+        }
+        if (moved) break;
+      }
+      if (!moved) break;
+    }
+  }
+
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
 
   // M6: tower[0] is the ONLY tower the room owns from RCL3 to RCL5 — the
@@ -663,6 +747,70 @@ export function planTowers(terrain, plan, opts = {}) {
   towers.sort(
     (a, b) => refill[idx(a.x, a.y)] - refill[idx(b.x, b.y)] || a.y - b.y || a.x - b.x,
   );
+
+  // ------------------------------------------------------------------
+  // ...AND RCL5 OWNS A PAIR, WHICH IS NOT THE SAME AS OWNING THE FIRST TWO.
+  //
+  // The sort above is right about tower[0] and says nothing about tower[1] —
+  // which is array order, i.e. the second-easiest tower to refill, chosen with
+  // no reference at all to what the two of them together cover. RCL5 is a long
+  // level and a two-tower battery is the whole defence for it, so the pair is
+  // worth picking: E14S5's array pair covers its weakest wall face at 15.8%
+  // less damage than the best pair its own six towers can make.
+  //
+  // tower[0] is NOT re-opened — the RCL3-4 room owns exactly one tower and the
+  // filler has to reach it — so this is five candidates and five max-min
+  // evaluations over the cut. The partner that maximises the WEAKEST covered
+  // wall tile wins, ties on total damage and then on refill walk, so it is a
+  // deterministic function of the set. Coverage is unordered, so nothing about
+  // the RCL8 battery changes: this only decides which of the six is built
+  // second.
+  // ------------------------------------------------------------------
+  let rcl5Pair = null;
+  if (towers.length > 2 && plan.shell?.cut?.length) {
+    const cutTiles = plan.shell.cut;
+    const pairScore = (t) => {
+      let mn = Infinity;
+      let sum = 0;
+      for (const c of cutTiles) {
+        const d = towerDmg(towers[0], c) + towerDmg(t, c);
+        if (d < mn) mn = d;
+        sum += d;
+      }
+      return { mn, sum };
+    };
+    let bestI = 1;
+    let bestSc = pairScore(towers[1]);
+    for (let i = 2; i < towers.length; i++) {
+      // ...and the partner still has to be refillable. A battery is only a
+      // battery while the filler keeps it wet, so a tower past this layer's own
+      // note threshold is not offered the RCL5 slot however much wall it covers;
+      // it will be built at RCL6 with the rest.
+      if (refill[idx(towers[i].x, towers[i].y)] > REFILL_NOTE) continue;
+      const sc = pairScore(towers[i]);
+      const better =
+        sc.mn > bestSc.mn ||
+        (sc.mn === bestSc.mn &&
+          (sc.sum > bestSc.sum ||
+            (sc.sum === bestSc.sum &&
+              refill[idx(towers[i].x, towers[i].y)] < refill[idx(towers[bestI].x, towers[bestI].y)])));
+      if (better) {
+        bestI = i;
+        bestSc = sc;
+      }
+    }
+    rcl5Pair = {
+      arrayPartner: { x: towers[1].x, y: towers[1].y },
+      picked: { x: towers[bestI].x, y: towers[bestI].y },
+      minDmgArray: pairScore(towers[1]).mn,
+      minDmgPicked: bestSc.mn,
+      swapped: bestI !== 1,
+    };
+    if (bestI !== 1) {
+      const [pick] = towers.splice(bestI, 1);
+      towers.splice(1, 0, pick);
+    }
+  }
 
   // ------------------------------------------------------------------
   // ROAD FACES
@@ -850,6 +998,13 @@ export function planTowers(terrain, plan, opts = {}) {
       avgShellDmg: Math.round(sum / T),
       weakTiles: weak,
       refillDists: refills,
+      // NUKE DISPERSION — the fullest 5x5 window over spawn/storage/terminal/
+      // nuker/tower, before and after the non-worsening post-pass. The lab
+      // diamond is excluded: it is a mandated 4x4 stamp.
+      nukeWindow: { before: nukeBefore, after: nukeAfter },
+      // WHICH TOWER RCL5 GETS AS THE SECOND OF ITS PAIR, and what the array
+      // order would have given it instead — see the RCL5 block above
+      rcl5Pair,
       maxRefill,
       spreadRadius,
       newRoads: newRoads.length,

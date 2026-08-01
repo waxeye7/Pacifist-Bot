@@ -15,7 +15,7 @@
  * in both diagonal orientations, scored by hauler distance from the hub,
  * and its internal road is stitched into the layer-1 network.
  */
-import { D8, buildable, key, walkable } from "./shared.mjs";
+import { D8, buildable, key, mineralRing, mineralSeatHolds, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 
 const DEPTH_SAFE = 4;
@@ -84,22 +84,10 @@ export function planLabs(terrain, plan) {
   }
   occupied.add(key(plan.sitter.x, plan.sitter.y));
   for (const k of plan.objectTiles || []) occupied.add(k); // C1
-  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
-  // claimController/signController (both range 1) always have somewhere to
-  // stand and a creep can always get there. See the CLAIM SEAT block in
-  // layer-hub.
-  //
-  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
-  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
-  // and reserving a walkable tile there tells this layer the tile is a WALL.
-  // The first cut did exactly that and E15S5 paid for it — its tower moved off
-  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
-  // because the one tile the stitch wanted to pave was the reserved approach.
-  // A creep stands on the seat; a road may run over it; only a blocking
-  // STRUCTURE may not be placed on it.
-  const reserved = new Set();
-  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
-  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  // THE TILES NO BLOCKING STRUCTURE MAY TAKE — the controller claim seat and
+  // its approach, the mineral stand and its approach, and the upgrader park
+  // seats this room holds to its floor. See reservedTiles in shared.mjs.
+  const reserved = reservedTiles(plan);
   const roadSet = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
 
   const hauls = fieldFrom(terrain, plan.sitter, occupied);
@@ -125,23 +113,29 @@ export function planLabs(terrain, plan) {
   // checked, never the internal road, because a container under a road is legal
   // and layer 5 already prices that seat at +0.5.
   // ------------------------------------------------------------------
-  const mineralRing = [];
-  if (plan.mineral) {
-    for (const [dx, dy] of D8) {
-      const x = plan.mineral.x + dx,
-        y = plan.mineral.y + dy;
-      if (x < 1 || y < 1 || x > 48 || y > 48) continue;
-      if (!walkable(terrain, x, y)) continue;
-      if (occupied.has(key(x, y))) continue;
-      mineralRing.push(key(x, y));
-    }
+  // ------------------------------------------------------------------
+  // ...AND A SEAT NOBODY CAN WALK TO IS NOT A SEAT — THE SAME LESSON, TWICE.
+  //
+  // The first cut of this guard asked only whether the ring kept a FREE tile.
+  // E9S9 passed it and shipped an entombed mineral anyway: the diamond left
+  // 40,19 free and then the diamond, a tower and a spawn took every one of
+  // 40,19's own walkable neighbours, so the surviving seat has zero passable
+  // approaches and no creep in the room can ever occupy it. The controller
+  // learned this already (claimSeat is reserved WITH an approach); the shared
+  // predicate is the mineral's version of the same rule — see mineralSeatHolds
+  // in shared.mjs.
+  // ------------------------------------------------------------------
+  const ring = mineralRing(terrain, plan);
+  /** engine obstacles only: a container and the sitter road are walkable */
+  const standBlocked = new Set(plan.objectTiles || []);
+  for (const t of ["storage", "terminal", "link", "spawn", "tower"]) {
+    for (const p of plan.structures[t] || []) standBlocked.add(key(p.x, p.y));
   }
-  /** true when this anchor leaves the mineral at least one tile to sit on */
+  /** true when this anchor leaves the mineral a stand a creep can reach */
   const keepsMineralSeat = (ax, ay, variant) => {
-    // an already-empty ring is layer 5's honest shortfall, not ours to save
-    if (!mineralRing.length) return true;
-    const stamp = new Set(variant.labs.map(([dx, dy]) => key(ax + dx, ay + dy)));
-    return mineralRing.some((k) => !stamp.has(k));
+    const blocked = new Set(standBlocked);
+    for (const [dx, dy] of variant.labs) blocked.add(key(ax + dx, ay + dy));
+    return mineralSeatHolds(terrain, plan, blocked, ring);
   };
 
   // ------------------------------------------------------------------
@@ -449,7 +443,9 @@ export function planLabs(terrain, plan) {
     // stranded battlement is already declared elsewhere, a missing mineral
     // container is a gate nobody can excuse for it.
     if (!best && !fallback && !eatRoads && candidates.length)
-      fallback = candidates.find((c) => keepsMineralSeat(c.ax, c.ay, c.variant)) || candidates[0];
+      fallback =
+        candidates.find((c) => keepsMineralSeat(c.ax, c.ay, c.variant)) ||
+        candidates[0];
     candidates.length = 0;
   }
   if (!best && fallback) {

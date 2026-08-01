@@ -832,7 +832,19 @@ export function mobilityStats(cut, extMask, walkMask) {
  * over the 1.2 target. "Short" is not a description of that. So both walks
  * come back with the label and the prose quotes them.
  */
-function mobilityCauseDetail(terrain, cut, extMask, worst) {
+/**
+ * ...AND THE SAME DIAGNOSIS HAS TO BE AVAILABLE ON THE FINISHED ROOM.
+ *
+ * This was private, so `mobility.cause` existed in exactly one flavour: the one
+ * layer 2 takes on a mass-free interior, over layer 2's exterior, about layer
+ * 2's worst pair. 17 rooms shipped "Cause: terrain" while their own as-built
+ * metric records `structures` — E18S1 among them, where deleting our buildings
+ * drops the over-target pair count from 90 to 47 and the worst detour from 16 to
+ * 13. Layer 7 now re-runs this against the wall and the mass the room ships and
+ * publishes THAT as the cause; layer 2's label survives inside the negotiation
+ * record, where it is a true statement about the decision that was made.
+ */
+export function mobilityCauseDetail(terrain, cut, extMask, worst) {
   if (!worst) return { cause: "none", dStruct: null, dFree: null };
   const { a, b, din, dout } = worst;
   const noStructMask = new Uint8Array(2500);
@@ -1846,7 +1858,12 @@ export function planShell(terrain, plan, opts = {}) {
       if (!isFinite(d) || d === null) return "does not connect at all";
       const detour = d - dout;
       const ratio = round2(d / dout);
-      return detour <= MOBILITY_DETOUR_FLOOR
+      // a NEGATIVE detour is a real reading (the interior route is shorter than
+      // the lap around the outside) and "a -8-tile detour" is not a sentence
+      return detour <= 0
+        ? `${d} against the attacker's ${dout} — SHORTER than the attacker's own lap, so it CLEARS ` +
+          `the gate outright`
+        : detour <= MOBILITY_DETOUR_FLOOR
         ? `${d} against the attacker's ${dout} — a ${detour}-tile detour, inside the ` +
           `${MOBILITY_DETOUR_FLOOR}-tile floor, so it CLEARS the gate`
         : ratio <= MOBILITY_TARGET
@@ -1871,13 +1888,28 @@ export function planShell(terrain, plan, opts = {}) {
         `${verdictOf(cw.noStructures)}. The shell does not own the extension/road layers, so this one ` +
         `is a lead for them, not a shell miss`,
     }[mobility.cause];
-    shortfalls.push({
-      gate: "mobility",
-      // the pipeline owns the escalation ladder, so it is the pipeline that
-      // staples the per-rung evidence onto this entry (see attachRungProof).
-      // A shell-mobility declaration without `rungs` has not been proved and
-      // must not ship.
-      source: "shell",
+    // ------------------------------------------------------------------
+    // THIS IS NO LONGER A SHORTFALL OF ITS OWN. IT IS EVIDENCE FOR ONE.
+    //
+    // Layer 2 used to push a `gate:"mobility", source:"shell"` entry here and
+    // layer 7 pushed a second, `source:"built"`, from the finished room. 72 of
+    // the fleet's 172 rooms therefore shipped TWO mobility declarations, the
+    // layer-2 one first — so the number a reader saw first, the number the
+    // gallery printed first, and the number quoted in every review was the lap
+    // of a base that has not been built yet. E12S6 published "max 1.71 …
+    // between 16,4 and 24,2 the defender walks 12 … Cause: terrain" over a room
+    // whose as-built lap is 4.57, whose defender walks 32, and whose own metric
+    // records the cause as `structures`. 33 numbers, 17 causes and 9 tile pairs
+    // were stale in exactly that way, and one room cited a wall tile it does not
+    // have.
+    //
+    // A room gets ONE mobility declaration now, it is built from the room that
+    // ships, and this measurement is the negotiation record inside it — see
+    // declareMobility in layer-walls. The prose is unchanged, because the
+    // decision really was made on these numbers; what changed is that it is no
+    // longer allowed to be the headline.
+    // ------------------------------------------------------------------
+    mobility.negotiation = {
       metric: {
         exact: !mobility.sampled,
         endpoints: mobility.endpoints,
@@ -1886,6 +1918,10 @@ export function planShell(terrain, plan, opts = {}) {
         detourFloor: MOBILITY_DETOUR_FLOOR,
         maxUngated: mobility.max,
       },
+      tiles: [
+        { x: a.x, y: a.y },
+        { x: b.x, y: b.y },
+      ],
       detail:
         `defender mobility max ${mobility.maxGated} over pairs that cost more than ` +
         `${MOBILITY_DETOUR_FLOOR} tiles of detour (target ${MOBILITY_TARGET}; the ungated maximum over ` +
@@ -1910,11 +1946,7 @@ export function planShell(terrain, plan, opts = {}) {
             `ratio ${mobility.worstDetour.ratio})`
           : "") +
         `.`,
-      tiles: [
-        { x: a.x, y: a.y },
-        { x: b.x, y: b.y },
-      ],
-    });
+    };
   }
 
   // m7: a bubble tile that the cut already covers is a duplicate rampart —

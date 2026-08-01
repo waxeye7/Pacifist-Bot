@@ -48,9 +48,37 @@ export type PackedPlan = {
    * four RCLs earlier.
    */
   rs?: number[];
+  /**
+   * THE SITTER — the one tile the whole hub is built around, packed.
+   *
+   * `plan.sitter` has been in the pushed payload since the first version and
+   * NOTHING in the bot ever read it, which quietly made a large part of the
+   * planner unfalsifiable at runtime: layer 1 chooses the hub trio so that ONE
+   * tile is range-1 of storage, terminal and the hub link at once, every refill
+   * distance the planner optimises and publishes (`fieldFrom(terrain,
+   * plan.sitter, ...)`, tower[0]-is-the-easiest-to-refill, the filler tour) is
+   * measured from that tile, and the bot parked its fillers at "range 1 of
+   * storage" — any of up to eight tiles, only one of which reaches all three.
+   * A number nobody can enforce is a number nobody can check.
+   *
+   * Outside `t` for the same reason `rs` is: several loops walk Object.keys(t)
+   * and read every value as a packed tile ARRAY.
+   */
+  si?: number;
 };
 
 const unpack = (p: number) => ({ x: p % 50, y: Math.floor(p / 50) });
+
+/**
+ * The plan's sitter as a RoomPosition, or null for a room with no adopted plan
+ * (or a payload pushed before `si` existed — the callers all fall back).
+ */
+export function planSitter(room: Room): RoomPosition | null {
+  const plan = room.memory.planV2 as PackedPlan | undefined;
+  if (!plan || typeof plan.si !== "number") return null;
+  const { x, y } = unpack(plan.si);
+  return new RoomPosition(x, y, room.name);
+}
 
 /**
  * ---------------------------------------------------------------------------
@@ -292,6 +320,9 @@ export function packPlanPayload(data: any): PackedPlan {
   // better off on the legacy "first 20 at RCL3" rule than on a scrambled one.
   const rs = data.roadStage;
   if (rs && rs.length === t.road.length) out.rs = rs.slice();
+  // the refill anchor — see PackedPlan.si
+  const si = data.sitter;
+  if (si && typeof si.x === "number" && typeof si.y === "number") out.si = si.x + si.y * 50;
   return out;
 }
 
@@ -584,6 +615,36 @@ const PLACE_ORDER = [
   "extractor",
   "observer",
 ];
+
+/**
+ * ---------------------------------------------------------------------------
+ * RCL2 BUILDS EXTENSIONS BEFORE IT BUILDS REMOTE CONTAINERS.
+ *
+ * `container` sits ahead of `extension` in PLACE_ORDER and containers unlock at
+ * RCL2, so a fresh room spent its ENTIRE four-site budget on the three eco
+ * containers (two source, one controller) before siting a single extension —
+ * containers up to 27 walk from the hub, over ground with no road on it,
+ * because roads are RCL3. The room therefore runs RCL2 on 300 energy of spawn
+ * capacity while a lone builder walks half the room, and the five extensions
+ * that would let it spawn a real body wait behind three construction sites the
+ * economy cannot service yet.
+ *
+ * The containers are not wrong, they are early. At RCL2 the extensions are the
+ * whole point: five of them is +250 capacity on the tick they finish, and they
+ * sit next to the hub where the same builder is already standing. So RCL2 — and
+ * only RCL2 — swaps the two. From RCL3 the room has roads and the original order
+ * (containers first, so the miners drop into a buffer) is right again.
+ *
+ * Everything else about PLACE_ORDER is unchanged, including "spawn" opening it.
+ * ---------------------------------------------------------------------------
+ */
+const RCL2_ORDER = PLACE_ORDER.slice();
+RCL2_ORDER.splice(RCL2_ORDER.indexOf("extension"), 1);
+RCL2_ORDER.splice(RCL2_ORDER.indexOf("container"), 0, "extension");
+
+function placeOrderFor(lvl: number): string[] {
+  return lvl === 2 ? RCL2_ORDER : PLACE_ORDER;
+}
 
 /** Structures that legally share a tile — ERR_INVALID_TARGET there is
  *  terrain/edge, never a squatter, so the reclaim path must not run. */
@@ -1280,7 +1341,29 @@ export function placeFromPlanV2(room: Room): void {
 
   const state = { destroyed: false };
 
-  for (const type of PLACE_ORDER) {
+  // A PERSONAL RAMPART BEFORE ITS STRUCTURE IS DECAY WITH NOTHING UNDER IT.
+  //
+  // Ramparts unlock at RCL4 and the plan's rampart array is the shell cut PLUS
+  // the personal covers earlier layers bolted onto shallow structures. The loop
+  // below sited all of them the moment RCL4 arrived: E9S2 built 18 of its 19
+  // personal ramparts at RCL4, up to FOUR RCLs before the extension each one
+  // covers exists, decaying at 300 hp/100 ticks the whole time and holding site
+  // slots the extensions themselves wanted. A shell tile defends the room the
+  // day it goes up; a personal cover defends nothing until the thing it covers
+  // is standing. The set is the plan's own — a rampart tile that the plan also
+  // wants a blocking structure on is a personal cover, everything else is wall.
+  const plannedOccupancy: { [packed: number]: boolean } = {};
+  for (const k of Object.keys(plan.t)) {
+    if (k === "road" || k === "rampart" || k === "shellCut" || k === "labInput") continue;
+    for (const p of plan.t[k] || []) plannedOccupancy[p] = true;
+  }
+  const builtOn: { [packed: number]: boolean } = {};
+  for (const s of structures) {
+    if (s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_RAMPART) continue;
+    builtOn[s.pos.x + s.pos.y * 50] = true;
+  }
+
+  for (const type of placeOrderFor(lvl)) {
     if (budget <= 0) break;
     // SPAWN FIRST: while no spawn is standing, no other type may take a slot —
     // not the container/extension pair RCL2 unlocks, not anything. PLACE_ORDER
@@ -1325,6 +1408,8 @@ export function placeFromPlanV2(room: Room): void {
       // container squatted tower[0]).
       const packed = planned[i];
       if (placedSet[packed]) continue;
+      // see the personal-rampart note above: cover waits for the thing it covers
+      if (type === "rampart" && plannedOccupancy[packed] && !builtOn[packed]) continue;
       const { x, y } = unpack(packed);
       const res = room.createConstructionSite(x, y, type as BuildableStructureConstant);
       if (res === OK) {

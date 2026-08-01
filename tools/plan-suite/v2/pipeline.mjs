@@ -16,14 +16,14 @@
  *   7 late roads  rampart spurs + extension-face net + dead-end prune, last
  *                so they never steal a tile from the 60 extensions
  */
-import { D8, isWall, pathLen } from "./shared.mjs";
+import { D4, D8, PARK_PROTECT, isWall, pathLen } from "./shared.mjs";
 import { planHub } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, builtMobility, planShell, RADII_WIDE } from "./layer-shell.mjs";
+import { BUILT_OBSTACLES, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
-import { planWallRoads } from "./layer-walls.mjs";
+import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
 // NOTE: layer-ext's RAMPARTS_PER_RATIO / MOBILITY_RAMPART_CAP are deliberately
 // NOT imported any more. They price a defender LANE; the enclosure trade below
 // has its own published price and its own reasons — see MOBILITY_ENCLOSURE_*.
@@ -94,6 +94,11 @@ export function composePlan(d, shellOpts = {}) {
       tiles: [{ x: b.x, y: b.y }],
     });
   }
+
+  reserveParkSeats(d.terrain, plan, shellOpts.parkCap);
+  // the exact options this composition was built with, so the park-release retry
+  // below can re-compose THIS room and nothing else — see maybeReleaseParks
+  plan.meta.composeOpts = { ...shellOpts, shellCache: undefined };
 
   const tw = planTowers(d.terrain, plan, shellOpts);
   if (tw.error) plan.towerError = tw.error;
@@ -233,15 +238,39 @@ export function composePlan(d, shellOpts = {}) {
         : rf
           ? `layer 7b scanned the finished interior tile by tile and found ` +
             `${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) in the whole room, rejecting ` +
-            `${rf.search.refusedCount} more for a stated reason each. ` +
+            `${rf.search.refusedCount} distinct tile(s) for a stated reason each ` +
+            `(${rf.search.refusedExaminations} examinations — a tile re-offered on a later round is ` +
+            `logged again and counted once). ` +
+            // ------------------------------------------------------------------
+            // WHAT HAPPENED TO THE FREE TILES, INSTEAD OF AN ASSERTION ABOUT THEM.
+            //
+            // This branch used to say, whenever any free tile existed, that the
+            // remaining shallow slots "could not take any of them without failing
+            // the acceptance test". In E9S2 that is false: `moved: []` and
+            // `rampartsRetired: []` — no move was even attempted — because the
+            // room was four extensions SHORT of 60 and the backfill spent all
+            // three free tiles closing that gap first. Ranking 60/60 over a
+            // retired rampart is correct and is the planner's stated doctrine;
+            // printing it as an acceptance-test failure is not, and it flatters.
+            // The census now names the three destinations a free tile can have.
+            // ------------------------------------------------------------------
             (rf.search.freeDeepRoadFaced === 0
               ? `There is no deep tile left in this enclosure that is free, inside the wall, ` +
                 `engine-legal, already road-faced and reachable by a builder — that is a statement ` +
                 `about a completed scan of all 2,304 interior positions, not about a budget`
-              : `The ${shallowNow} that remain could not take any of them without failing the ` +
-                `acceptance test: a structure would lose its last walkable face, a road would be cut ` +
-                `off from the sitter, a battlement would be stranded, or the controller would lose a ` +
-                `claim seat or an upgrader park`)
+              : (rf.search.spentOnAdds || rf.search.spentOnMoves
+                  ? `Of those, ${rf.search.spentOnAdds} became extension(s) this room did not have at all ` +
+                    `— the backfill to ${EXT_TARGET}/${EXT_TARGET}, which outranks retiring a rampart — and ` +
+                    `${rf.search.spentOnMoves} took a relocated shallow slot. `
+                  : "") +
+                (rf.search.left === 0
+                  ? `NONE were left by the time the ${shallowNow} remaining shallow slot(s) were offered ` +
+                    `them: this room did not refuse the trade, it never had it. The deep floor the prune ` +
+                    `handed back went on the extension count first`
+                  : `The ${rf.search.left} still on the table could not be taken by the ${shallowNow} that ` +
+                    `remain without failing the acceptance test: a structure would lose its last walkable ` +
+                    `face, a road would be cut off from the sitter, a battlement would be stranded, or the ` +
+                    `controller would lose a claim seat or an upgrader park`))
           : `the placement invariant refused the remaining deep tiles (each would strand a ` +
             `structure face, a road or the wall)`;
       // THE TRADE THIS ROOM REFUSED, PRICED. A relocation retires a
@@ -316,7 +345,15 @@ export function composePlan(d, shellOpts = {}) {
         moved: rf.moved,
         rampartsRetired: rf.rampartsRetired,
         freeDeepRoadFaced: rf.search.freeDeepRoadFaced,
+        // WHERE THE FREE TILES WENT — the census the shallow note argues from.
+        // Publishing the headline without it left a reader unable to check the
+        // one sentence in that note that had been wrong (E9S2's "could not take
+        // any of them", about three tiles the backfill had already spent).
+        spentOnAdds: rf.search.spentOnAdds,
+        spentOnMoves: rf.search.spentOnMoves,
+        freeLeft: rf.search.left,
         refusedCount: rf.search.refusedCount,
+        refusedExaminations: rf.search.refusedExaminations,
         refused: rf.search.refused,
         boundRollback: rf.boundRollback,
         lapCeiling: rf.lapCeiling,
@@ -411,17 +448,73 @@ export function composePlan(d, shellOpts = {}) {
   plan.meta.counts.road = plan.structures.road.length;
   plan.meta.counts.rampart = plan.structures.rampart ? plan.structures.rampart.length : 0;
 
-  // DEFENDER MOBILITY, RE-MEASURED ON THE FINISHED BASE. The shell negotiated
-  // against an empty interior because that is all that existed at layer 2; this
-  // is the lap the garrison will actually walk at RCL8, with the whole program
-  // standing in it. It decides nothing — it is the honest number, and the gap
-  // between it and meta.shell.mobility is exactly how much of the room's
-  // mobility problem belongs to the layers that place the mass.
-  if (plan.shell) plan.meta.shell.mobilityBuilt = builtMobility(d.terrain, plan);
+  // DEFENDER MOBILITY, RE-MEASURED ON THE FINISHED BASE, belongs to the winning
+  // composition and to nothing else — see finalizeRoom in layer-walls, which is
+  // where it and every other re-derivation now happen. It used to run here, once
+  // per rung, and an all-pairs BFS over the whole wall is not a per-rung price:
+  // moving the whole truth pass onto the winner took the fleet's in-planner time
+  // from 486s back to the same order as before it existed.
   remeasureCtrlParks(d.terrain, plan);
   remeasureMineralNetwork(plan);
   declareEcoTax(plan);
   return plan;
+}
+
+/**
+ * ------------------------------------------------------------------
+ * WHICH UPGRADER SEATS THE ROOM HOLDS, AND WHY THESE ONES.
+ * ------------------------------------------------------------------
+ * Layer 1 counts the controller link's parking seats, declares the number and
+ * used to hand them to five later layers that had never heard of it: 80 rooms
+ * ate 159 seats and four shipped under the 4-seat floor this planner calls hard.
+ * The fix is a reservation, and the reservation is free ONLY if it takes the
+ * tiles the extension mass wants least — otherwise it buys the controller a seat
+ * by renting a personal rampart forever somewhere else.
+ *
+ * That is a depth question, so it cannot be answered in layer 1: reserving the
+ * seats there (by hub distance, the only ordering available before the wall
+ * exists) cost E9S2 two shallow extensions, E12S5 three and E13S6 one. Here, one
+ * layer later, the shell is drawn and the ordering can be the honest one:
+ *
+ *   1. SHALLOW seats first. A tile at depth < 4 is one the mass can only use by
+ *      bolting a personal rampart to it, so reserving it costs nothing at all —
+ *      and it is a perfectly good place for an upgrader to stand, because an
+ *      upgrader is a creep and creeps are not depth-limited.
+ *   2. then seats with NO D4 road face, for the same reason one step weaker: an
+ *      extension there costs the corridor a tile.
+ *   3. then the furthest from the hub, because the fill grows outward and wants
+ *      the near ones.
+ *   4. then reading order, so two runs on one terrain reserve one set.
+ *
+ * The floor is min(seats layer 1 counted, PARK_PROTECT), and PARK_PROTECT is the
+ * ring's own maximum — so in every room that can afford it, every seat the
+ * declaration counts is a seat the room keeps.
+ */
+function reserveParkSeats(terrain, plan, cap) {
+  const tiles = plan.meta?.ctrlParkTiles || [];
+  plan.parkReserve = [];
+  plan.meta.ctrlParkReserve = [];
+  plan.meta.ctrlParkFloor = 0;
+  if (!tiles.length || !plan.depth) return;
+  const roadSet = new Set((plan.structures.road || []).map((r) => `${r.x},${r.y}`));
+  const hub = plan.hub || plan.sitter;
+  const rank = (p) => {
+    const i = p.x + p.y * 50;
+    const deep = plan.depth[i] >= 4 ? 1 : 0;
+    const faced = D4.some(([dx, dy]) => roadSet.has(`${p.x + dx},${p.y + dy}`)) ? 1 : 0;
+    const far = hub ? Math.max(Math.abs(p.x - hub.x), Math.abs(p.y - hub.y)) : 0;
+    return [deep, faced, -far, p.y, p.x];
+  };
+  const pool = tiles
+    .map((p) => ({ p, r: rank(p) }))
+    .sort((a, b) => {
+      for (let i = 0; i < a.r.length; i++) if (a.r[i] !== b.r[i]) return a.r[i] - b.r[i];
+      return 0;
+    });
+  const n = Math.min(pool.length, typeof cap === "number" ? cap : PARK_PROTECT);
+  plan.parkReserve = pool.slice(0, n).map((e) => ({ x: e.p.x, y: e.p.y }));
+  plan.meta.ctrlParkReserve = plan.parkReserve;
+  plan.meta.ctrlParkFloor = n;
 }
 
 // ------------------------------------------------------------------
@@ -1122,7 +1215,11 @@ const rungRecord = (p, seedSkip, si) => ({
 function attachRungProof(plan, trail) {
   if (!plan?.meta?.shortfalls) return plan;
   for (const s of plan.meta.shortfalls) {
-    if (s.gate !== "mobility" || s.source !== "shell" || s.rungs) continue;
+    // ONE MOBILITY ENTRY PER ROOM NOW, and the ladder goes under the one that
+    // carries a negotiation record — a room whose enclosure never missed the
+    // target composed no rungs and has nothing to staple. See declareMobility in
+    // layer-walls for why the two entries became one.
+    if (s.gate !== "mobility" || !s.negotiated || s.rungs) continue;
     s.rungs = trail.map((r) => ({
       rung: r.rung,
       needDeepBonus: r.needDeepBonus,
@@ -1472,6 +1569,108 @@ function better(a, b, ecoCap) {
   return ga.cut < gb.cut;
 }
 
+/**
+ * ------------------------------------------------------------------
+ * THE ONE PLACE THE UPGRADER'S SEATS ARE ACTUALLY PRICED.
+ * ------------------------------------------------------------------
+ * Holding every counted seat is free in 165 of 172 rooms — measured, twice, at
+ * two different floors. In the handful that are genuinely short of deep floor it
+ * is not: E9S2 (74 deep tiles for the whole RCL8 program), E12S5 and E13S6 each
+ * pay for the reservation in SHALLOW EXTENSIONS, and a shallow extension is a
+ * personal rampart repaired forever plus a structure a ranged attacker can hit
+ * from outside the wall. That is a real trade and it is the first one in this
+ * file that the reservation cannot make on its own, because the cost only
+ * becomes visible six layers after the tiles are reserved.
+ *
+ * So it is priced here, once, on the composition the room is about to ship: if
+ * the room ships a shallow extension AND is holding more seats than the hard
+ * 4-seat floor, the same composition is re-run holding exactly four. It is kept
+ * only if it is still a complete room and it is measurably better — strictly
+ * fewer shallow extensions — and the seats it spent are named in a declaration.
+ * One extra composition, in the rooms that need it and no others.
+ *
+ * WHY FOUR. `MIN_PARKS` in layer 1 and the validator's ctrlParks floor are both
+ * 4 and always have been: below four seats the upgrader fleet is throttled by
+ * the parking rather than by the energy, which is the m9 finding this whole
+ * mechanism exists for. Above four, a seat is worth less than a forever-rampart.
+ */
+const PARK_FLOOR_HARD = 4;
+function maybeReleaseParks(d, plan) {
+  if (!plan || plan.error || !plan.meta) return plan;
+  const shallow = plan.meta.extensions?.shallow ?? 0;
+  const held = plan.meta.ctrlParkFloor ?? 0;
+  if (!shallow || held <= PARK_FLOOR_HARD || !plan.meta.composeOpts) return plan;
+  // ...AND THE FLOOR IS ON THE SEATS THE ROOM SHIPS, NOT ON THE RESERVATION.
+  //
+  // A cap is how many tiles are HELD; what the upgraders get is how many are
+  // still free once the mass has grown, and the two are not the same number.
+  // E12S5 holding 4 seats ships 7 parks and 3 shallow extensions; E12S5 holding
+  // TWO ships 5 parks — still above the floor — with 0 shallow extensions and
+  // three fewer ramparts. Refusing to look below a cap of 4 would have missed a
+  // composition that is better on every axis at once, including the one the cap
+  // exists to protect. So the walk goes all the way down and every rung is
+  // judged on what it SHIPS: complete room, parks at or above the hard floor,
+  // strictly fewer shallow slots, ties to more parks and then fewer ramparts.
+  let alt = null;
+  let altShallow = shallow;
+  for (let cap = held - 1; cap >= 0; cap--) {
+    const c = composePlan(d, { ...plan.meta.composeOpts, parkCap: cap });
+    if (c.error || !c.shell || !grade(c).complete) continue;
+    if ((c.meta.ctrlParks ?? 0) < PARK_FLOOR_HARD) continue;
+    const s = c.meta.extensions?.shallow ?? 0;
+    const better =
+      s < altShallow ||
+      (alt &&
+        s === altShallow &&
+        ((c.meta.ctrlParks ?? 0) > (alt.meta.ctrlParks ?? 0) ||
+          ((c.meta.ctrlParks ?? 0) === (alt.meta.ctrlParks ?? 0) &&
+            (c.meta.counts?.rampart ?? 1e9) < (alt.meta.counts?.rampart ?? 1e9))));
+    if (better) {
+      alt = c;
+      altShallow = s;
+    }
+    if (altShallow === 0) break; // nothing below this can do better
+  }
+  if (!alt) return plan;
+  const kept = alt.meta.ctrlParkReserve || [];
+  const gave = (plan.meta.ctrlParkReserve || []).filter(
+    (s) => !kept.some((k) => k.x === s.x && k.y === s.y),
+  );
+  alt.meta.shortfalls = alt.meta.shortfalls || [];
+  alt.meta.shortfalls.push({
+    gate: "ctrlParks",
+    kind: "released",
+    detail:
+      `UPGRADER SEATS RELEASED, PRICED: this room HOLDS ${kept.length} of the ${held} parking tile(s) ` +
+      `layer 1 counted at the controller link and gave ${gave.length} back to the extension mass ` +
+      `(${gave.map((s) => `${s.x},${s.y}`).join(" ")}) — and it still SHIPS ${alt.meta.ctrlParks} free ` +
+      `seat(s), because the mass only took the ones it needed. Holding all ${held} costs this room ` +
+      `${shallow} shallow extension(s) — ${shallow} personal rampart(s) repaired forever, and ` +
+      `${shallow} structure(s) a ranged attacker can hit from outside the wall — against ` +
+      `${altShallow} here, at ${alt.meta.counts?.rampart} total ramparts against ` +
+      `${plan.meta.counts?.rampart}. Every cap from ${held - 1} down to 0 was composed IN FULL and ` +
+      `measured; this is the best of them, judged on what it ships and never on what it reserves. ` +
+      `${PARK_FLOOR_HARD} is the floor no composition may go under because that is where the upgrader ` +
+      `fleet starts being throttled by parking rather than by energy — the same number layer 1's seat ` +
+      `search and the validator both treat as hard. The room being short of deep floor is the fact ` +
+      `underneath both columns: ${plan.shell?.deepTiles ?? "?"} deep tiles inside the widest enclosure ` +
+      `it admits.`,
+    tiles: gave.map((s) => ({ x: s.x, y: s.y })),
+    ctrlParks: {
+      held,
+      kept: kept.length,
+      released: gave.length,
+      shallowHolding: shallow,
+      shallowReleasing: altShallow,
+      parksShipped: alt.meta.ctrlParks,
+      rampartsHolding: plan.meta.counts?.rampart,
+      rampartsReleasing: alt.meta.counts?.rampart,
+      floor: PARK_FLOOR_HARD,
+    },
+  });
+  return alt;
+}
+
 export function planRoom(d) {
   const t0 = performance.now();
   let best = null;
@@ -1491,8 +1690,13 @@ export function planRoom(d) {
     if (!c) shellCaches.set(seedSkip, (c = new Map()));
     return c;
   };
-  const done = (p) => {
+  const done = (p0) => {
+    const p = maybeReleaseParks(d, p0);
     if (p && p.meta) {
+      // THE TRUTH PASS, on the composition this room ships and no other. It
+      // files the mobility declaration attachRungProof then staples the ladder
+      // to, so it has to come first.
+      finalizeRoom(d.terrain, p);
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
       declareRuntime(p, trail);

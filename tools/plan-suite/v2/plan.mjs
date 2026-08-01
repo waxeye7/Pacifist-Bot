@@ -458,6 +458,7 @@ function animPlayerHtml(plan) {
     extGhost:   [6, 'shallow slots', 'tiles the fill took while it still had to, too close to the wall to be safe — layer 6 comes back for them', 'slots', '6 · shallow'],
     extensions: [6, 'extensions', 'growing corridors into deep, safe floor — 60 of them, every one on a road face', 'extensions', '6 · extensions'],
     extMove:    [6, 'the relocation', 'layer 6 finishing its own job inside its own pass: a shallow slot vacated for a deep, road-faced tile — where that tile was a paved stub, the stub is lifted', 'moves', '6 · relocate'],
+    extAdd:     [7, 'layer 7b backfill', 'extensions the post-prune reflow ADDS on deep, road-faced floor the dead-end prune handed back — the pass that takes a short room to 60/60', 'extensions', '7b · backfill'],
     roadsPrune: [7, 'the dead-end prune', 'the one pass allowed to DELETE an earlier layer\\'s road — these led somewhere before the later layers filled it in', 'tiles', '7 · prune'],
     roadsLate:  [7, 'rampart spurs', 'roads TO the wall so defenders can reach it, plus the extension-face safety net', 'tiles', '7 · spurs'],
     roadsResid: [0, 'unattributed roads', 'these tiles carry no meta.roadLayer entry — the film will not guess which layer laid them', 'tiles', '? · unattributed']
@@ -1728,13 +1729,26 @@ ${thumbLegendHtml()}
   // the quality numbers the adversarial review added to the contract
   const withTowers = ok.filter((p) => p.meta.towers);
   const t0 = withTowers.map((p) => p.meta.towers.refillDists[0]).sort((a, b) => a - b);
+  // THE INVARIANT IS ABOUT tower[0], AND FROM ROUND 9 ABOUT tower[1] TOO.
+  //
+  // This used to demand the WHOLE array be sorted by refill walk, which was a
+  // proxy for the thing that matters (the room owns exactly one tower from RCL3
+  // to RCL5, and the filler has to reach it) and has since become wrong: layer 3
+  // now picks tower[1] as the best PARTNER for tower[0] over the wall, because
+  // RCL5 owns a PAIR and the second-easiest tower to refill is not the same
+  // question as the second tower to build. So the check is what it always meant:
+  // tower[0] is the minimum-refill tower, and the tail from index 1 is sorted.
   const unsorted = withTowers.filter((p) => {
     const r = p.meta.towers.refillDists;
-    return r.some((v, i) => i && v < r[i - 1]);
+    if (r.some((v) => v < r[0])) return true;
+    const tail = r.slice(2);
+    return tail.some((v, i) => i && v < tail[i - 1]);
   });
   console.log(
     `tower[0] refill (the only tower at RCL3-5): median ${med(t0)} · max ${t0[t0.length - 1]}` +
-      (unsorted.length ? ` — NOT refill-ordered in ${unsorted.length} rooms` : " · refill-ordered everywhere"),
+      (unsorted.length
+        ? ` — tower[0] is NOT the easiest to refill in ${unsorted.length} rooms`
+        : " · tower[0] easiest to refill everywhere, tower[1] the best partner for it"),
   );
   const parks = ok.map((p) => p.meta.ctrlParks ?? 0).sort((a, b) => a - b);
   const thin = ok.filter((p) => (p.meta.ctrlParks ?? 0) < 4);

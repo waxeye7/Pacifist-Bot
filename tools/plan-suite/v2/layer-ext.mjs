@@ -44,7 +44,17 @@
  * them: 4 rooms fleet-wide, 19 extensions). Handing that job to layer 7 does
  * NOT work — the next fallback extension takes the tile layer 7 meant to pave.
  */
-import { D4, D8, buildable, engineBuildable, isWall, key, walkable } from "./shared.mjs";
+import {
+  D4,
+  D8,
+  buildable,
+  engineBuildable,
+  isWall,
+  key,
+  mineralGuard,
+  reservedTiles,
+  walkable,
+} from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 import {
   BUILT_OBSTACLES,
@@ -491,22 +501,11 @@ export function planExtensions(terrain, plan) {
   // C1: object tiles are obstacles — never a candidate, never walkable, and
   // never something that needs a face (they are not ours to service).
   for (const k of plan.objectTiles || []) occupied.add(k);
-  // CLAIM SEAT + APPROACH — the two tiles layer 1 reserved so that
-  // claimController/signController (both range 1) always have somewhere to
-  // stand and a creep can always get there. See the CLAIM SEAT block in
-  // layer-hub.
-  //
-  // THIS IS A STRUCTURE BAN, NOT AN OBSTACLE. It deliberately does NOT go into
-  // `occupied`: that set doubles as the pathing mask and as the no-road mask,
-  // and reserving a walkable tile there tells this layer the tile is a WALL.
-  // The first cut did exactly that and E15S5 paid for it — its tower moved off
-  // 34,6 onto 33,6 and then could not be stitched to the road network at all,
-  // because the one tile the stitch wanted to pave was the reserved approach.
-  // A creep stands on the seat; a road may run over it; only a blocking
-  // STRUCTURE may not be placed on it.
-  const reserved = new Set();
-  if (plan.claimSeat) reserved.add(key(plan.claimSeat.x, plan.claimSeat.y));
-  if (plan.claimApproach) reserved.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  // THE TILES NO BLOCKING STRUCTURE MAY TAKE — the controller claim seat and
+  // its approach, the mineral stand and its approach, and the upgrader park
+  // seats this room holds to its floor. See reservedTiles in shared.mjs.
+  const reserved = reservedTiles(plan);
+  const mGuard = mineralGuard(terrain, plan);
   const sitter = plan.sitter;
   // the wall line: a corridor may never be paved ON a rampart (owner: roads
   // TO ramparts, never on them) and never THROUGH one
@@ -704,6 +703,10 @@ export function planExtensions(terrain, plan) {
     if (laneSet.has(k)) return false;
     // ...and so is the controller claim seat and its approach
     if (reserved.has(k)) return false;
+    // ...and no extension may seal the mineral off its stand. The guard answers
+    // instantly for every tile further than chebyshev 2 from the mineral, which
+    // is all but a handful in any room. See mineralGuard in shared.mjs.
+    if (!mGuard.ok({ x, y }, blockedNow)) return false;
     return !blockedNow.has(k) && !pavedTiles.has(k);
   };
   /**
@@ -1856,6 +1859,7 @@ export function planExtensions(terrain, plan) {
           // so it needs the ban restated: E11S7 and E5S6 relocated an extension
           // straight onto the reserved seat and sealed their own controller in.
           if (reserved.has(tk)) continue;
+          if (!mGuard.ok({ x, y }, blockedNow)) continue;
           if (deferShape(x, y)) continue;
           // THE ROAD FACE HAS TO ALREADY EXIST — this pass never paves. A
           // stub road ON the tile does not count as its own face.
@@ -2450,10 +2454,11 @@ const round2v = (v) => (v === null || v === undefined || !isFinite(v) ? v : Math
 export function reflowExtensions(terrain, plan, liveRoadKeys) {
   const idxOf = (x, y) => x + y * 50;
   const objectTiles = new Set(plan.objectTiles || []);
-  // both reserved tiles: the claim seat and the one walkable step into it
-  const reservedK = new Set();
-  if (plan.claimSeat) reservedK.add(key(plan.claimSeat.x, plan.claimSeat.y));
-  if (plan.claimApproach) reservedK.add(key(plan.claimApproach.x, plan.claimApproach.y));
+  // the claim seat, the mineral stand, their approaches and the protected
+  // upgrader parking — 7b places extensions like any other layer and is held
+  // to the same bans. See reservedTiles in shared.mjs.
+  const reservedK = reservedTiles(plan);
+  const mGuardR = mineralGuard(terrain, plan);
   const extensions = plan.structures.extension || [];
   const ramparts = plan.structures.rampart || [];
 
@@ -2756,7 +2761,11 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         if (isWall(terrain, x, y)) continue;
         if (depth[i] < DEPTH_SAFE) continue; // shallow floor is not an upgrade
         if (reservedK.has(k)) {
-          refusals.push({ k, why: "reserved controller claim seat" });
+          refusals.push({ k, why: "reserved controller claim seat or upgrader parking" });
+          continue;
+        }
+        if (!mGuardR.ok({ x, y }, baseBlocked)) {
+          refusals.push({ k, why: "taking it would leave the mineral no stand a creep can reach" });
           continue;
         }
         if (!engineBuildable(terrain, x, y, "extension")) {
@@ -2773,7 +2782,19 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
           }
         }
         if (!faced) {
-          refusals.push({ k, why: "no D4 road face, and this pass never paves" });
+          // ...AND "THIS PASS NEVER PAVES" WAS A SENTENCE THIS PASS REFUTES.
+          // Five rooms print a refusal saying the pass never paves next to an
+          // `added` record that paves: E9S2 refuses 35,15 for having no road
+          // face and then lays 34,15 to take it. The free-floor scan really does
+          // not pave — the priced ladder underneath it (rung B) does, and only
+          // while the room is under 60. The refusal now says which of the two is
+          // speaking.
+          refusals.push({
+            k,
+            why:
+              "no D4 road face, and the free-floor backfill never paves (the priced ladder below may " +
+              "buy one, but only while the room is still short of 60)",
+          });
           continue;
         }
         // and the builder has to be able to reach it
@@ -2808,6 +2829,13 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
 
   let free = scanFree(taken);
   const freeDeepFaced = free.length;
+  // WHAT THE FREE TILES WERE SPENT ON, kept so the shallow note can say it.
+  // E9S2 published "the 15 that remain could not take any of them without
+  // failing the acceptance test" about three tiles that were never offered to
+  // the shallow slots at all: the room was four extensions short of 60 and the
+  // backfill below spent them closing that gap first. A good reason, a different
+  // reason, and the printed one flattered.
+  const freeKeys0 = new Set(free.map((c) => c.k));
 
   // ---- (1) BACKFILL to the target ----------------------------------------
   // Nearest-to-the-hub first: the filler walks this every refill cycle, and a
@@ -2816,6 +2844,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   if (extensions.length < TARGET) {
     for (const c of ordered(free)) {
       if (extensions.length >= TARGET) break;
+      if (taken.has(c.k) || occupiedTile.has(c.k)) continue; // see rung B
       const trial = new Set(taken);
       trial.add(c.k);
       const verdict = accepts(trial, null, extensions.concat([{ x: c.x, y: c.y }]));
@@ -2873,6 +2902,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
         if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
         const i = idxOf(x, y);
         if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
         if (!engineBuildable(terrain, x, y, "extension")) continue;
@@ -2891,6 +2921,13 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     }
     for (const c of ordered(unfacedDeep)) {
       if (extensions.length >= TARGET) break;
+      // THE CANDIDATE LIST IS A SNAPSHOT AND THIS LOOP CHANGES THE BOARD.
+      // Rung B pays for a tile by PAVING one, and the tile it paves is very often
+      // another candidate in the same precomputed list — E5S3 took 32,8 by paving
+      // 32,9 and then, three candidates later, took 32,9 as well, shipping a road
+      // and an extension stacked on one tile with two orphaned road tiles behind
+      // it. Re-asking is one lookup; the alternative is a scan per acceptance.
+      if (taken.has(c.k) || occupiedTile.has(c.k)) continue;
       const pave = paveableFor(c);
       if (!pave) continue;
       const verdict = accepts(new Set([...taken, c.k]), null, extensions.concat([{ x: c.x, y: c.y }]));
@@ -2918,6 +2955,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         for (let x = 1; x <= 48; x++) {
           const k = key(x, y);
           if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
           const i = idxOf(x, y);
           if (exterior[i] || isWall(terrain, x, y)) continue;
           if (depth[i] >= DEPTH_SAFE || depth[i] < 2) continue; // deep is rung A/B; depth<2 is indefensible
@@ -2938,6 +2976,13 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       }
       for (const c of ordered(shallowCands)) {
         if (extensions.length >= TARGET) break;
+        // THE CANDIDATE LIST IS A SNAPSHOT AND THIS LOOP CHANGES THE BOARD.
+        // Rung B pays for a tile by PAVING one, and the tile it paves is very often
+        // another candidate in the same precomputed list — E5S3 took 32,8 by paving
+        // 32,9 and then, three candidates later, took 32,9 as well, shipping a road
+        // and an extension stacked on one tile with two orphaned road tiles behind
+        // it. Re-asking is one lookup; the alternative is a scan per acceptance.
+        if (taken.has(c.k) || occupiedTile.has(c.k)) continue;
         const verdict = accepts(new Set([...taken, c.k]), null, extensions.concat([{ x: c.x, y: c.y }]));
         if (!verdict.ok) {
           refusals.push({ k: c.k, why: verdict.why });
@@ -2989,6 +3034,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
         if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
         const i = idxOf(x, y);
         if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
         if (!engineBuildable(terrain, x, y, "extension")) continue;
@@ -3197,8 +3243,31 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     // else — a claim about the room has to be a claim about a search.
     search: {
       freeDeepRoadFaced: freeDeepFaced,
-      refusedCount: refusals.length,
-      refused: refusals.slice(0, REFLOW_REFUSAL_CAP).slice(0, 24),
+      // WHERE THEY WENT. `spentOnAdds` are tiles that became extensions the room
+      // did not have at all (the backfill to 60/60); `spentOnMoves` are tiles a
+      // shallow slot relocated onto; `left` is what was still on the table when
+      // the remaining shallow slots were offered it.
+      spentOnAdds: added.filter((a) => freeKeys0.has(key(a.x, a.y))).length,
+      spentOnMoves: movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
+      left: Math.max(
+        0,
+        freeDeepFaced -
+          added.filter((a) => freeKeys0.has(key(a.x, a.y))).length -
+          movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
+      ),
+      // DISTINCT TILES, not examinations. This counted `refusals.length`, which
+      // is a per-round log — E9S2 published 12 for 7 distinct tiles, E11S1 12 for
+      // 4, E12S6 43 for 9 — and the sentence it feeds says "rejecting N more for
+      // a stated reason each", which is a claim about tiles.
+      refusedCount: new Set(refusals.map((r) => r.k)).size,
+      refusedExaminations: refusals.length,
+      // one entry per tile, last verdict winning: the board a tile was finally
+      // judged against is the board the room ships.
+      refused: (() => {
+        const byTile = new Map();
+        for (const r of refusals) byTile.set(r.k, r);
+        return [...byTile.values()].slice(0, REFLOW_REFUSAL_CAP).slice(0, 24);
+      })(),
     },
     parks: parksWith(finalBlocked),
     seats: seatsWith(finalBlocked),

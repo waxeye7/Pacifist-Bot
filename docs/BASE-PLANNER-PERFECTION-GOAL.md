@@ -49,13 +49,47 @@ per room. Rise to the bar; do not lower it.
   **with one exception, the shell gate**: where an eco road (to a source, the
   controller, the mineral) crosses the cut line, the crossing tile is both road
   and rampart by necessity. That is a gate, not road spam: without it the wall
-  has a hole or the haulers have no way out. Measured on the current fleet: 257
-  road+rampart tiles, 229 of them exactly on the shell cut line, median 2 and max
-  4 per room — a gate per eco route, which is the expected shape.
+  has a hole or the haulers have no way out. Re-measured on the 172-room fleet
+  (round 9; the "257 / 229 / max 4" figures below this line were a 159-room
+  world and had drifted): **286 road+rampart tiles, 241 of them exactly on the
+  shell cut line, median 2 and max 6 per room** — the rest are 36 declared eco
+  bubbles and 9 mineral-container bubbles that happen to cover a road, all
+  accounted for. A gate per eco route, which is the expected shape.
+  **A RUN of them is not.** Where the cut turns and follows an eco lane the room
+  used to ship two or three consecutive paved rampart tiles — a prepared surface
+  along the exact line an attacker who breaks in wants to walk (E14S5 shipped
+  42,36 42,37 42,38 with bare interior floor one tile west). Layer 7 stage (5b)
+  now offers every such run the interior parallel and takes the swap when the
+  network is measurably no worse; a single CROSSING tile is never touched.
   Every OTHER road/rampart coincidence is still the anti-pattern. Spur
   roads TO rampart clusters allowed. Roads exist only for: hub kit, eco paths,
   lab road, tower faces, extension corridors, rampart spurs, shell gates. Dead
   ends pruned.
+- **Every ROOM OBJECT keeps a work seat a creep can reach.** The controller has had
+  this since the claim-seat work (one reserved range-1 tile plus one reserved
+  approach); round 9 extends it to the mineral, which is the other object a creep
+  has to stand beside. E9S9 shipped an extractor and a mineral container that NO
+  CREEP COULD EVER REACH — the mineral's only walkable neighbour was left free by
+  the lab guard and then had all eight of its OWN neighbours taken by three labs, a
+  tower and a spawn. The mineral was unharvestable forever, both structures decayed
+  forever, and the RCL6 extractor build order stalled on a site no builder could
+  stand beside. Producer side: `mineralSeat` + `mineralApproach`, reserved at layer 1
+  and honoured through `reservedTiles` by every layer that places a blocking
+  structure, plus the local `mineralSeatHolds` invariant. Validator side: a real
+  flood from the sitter that has to ARRIVE (`MINERAL ENTOMBED`, undeclarable).
+- **Nuke dispersion is a soft objective, and it is measured.** A nuke does full
+  damage over a 5x5, cannot be intercepted, and is answered only by rampart hit
+  points — so "how much of the RCL8 program does ONE warhead reach" is a real
+  property of a layout. Counted over spawn/storage/terminal/nuker/tower and
+  EXCLUDING the lab diamond (a mandated 4x4 stamp cannot be dispersed), the round-8
+  fleet's worst 5x5 window held 12 structures against a median of 8. The hub trio
+  and the spawn fan are mandated geometry; what is free is where the towers and the
+  nuker go, and both layers now spend that freedom on dispersion — layer 3 as a
+  strictly non-worsening post-pass (the weakest wall face may not move at all; the
+  tie-break may fall by at most one 30-point damage step), layer 5 as a tie-break
+  among tiles at equal haul distance. It is never bought at the cost of a hard gate,
+  and a tight room that has no such swap keeps the battery it had and says so
+  (`meta.towers.nukeWindow`).
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
@@ -191,6 +225,20 @@ Frozen fleet metrics: `docs/PLANNER-BASELINE-2026-08-01.json`
 enclosed ctrl 88 / sources 170 · mobility>1 in 18 rooms · parks min 5).
 Every cycle must move at least one number the right way without regressing others.
 
+Where the fleet stands after round 9 (172 rooms, the world this doc is now
+measured against — the 159-room numbers above are kept as the frozen baseline
+they are, not as a description of today):
+ext60 172/172 · validator 172/172 fail 0 · ramparts total 8254 · roads median 81 ·
+**shallow extensions 31** (was 30 at round 8) · upgrader parks min 4 / median 8,
+0 rooms under the 4-seat floor and **3 rooms one or two seats below their own
+layer-1 count, every one of them a priced, declared release that is strictly
+better on shallow slots AND on total ramparts** (E9S2 8→7, E13S6 8→7, E12S5 7→5;
+the last of those trades two seats for three shallow extensions and three
+ramparts) · road+rampart 286 (241 gates, median 2, max 6) · one mobility
+declaration per room, all 76 as-built and independently re-derived · worst 5x5
+high-value window 11 (was 12), mean 7.97 (was 8.37) · 0 entombed room objects ·
+two consecutive `--all-claimable` runs byte-identical (md5 2de62b05…).
+
 Known open criticisms, in priority order:
 1. **1793 extensions sit shallow and buy personal ramparts** — the owner's top new
    criterion: placement should avoid the depth≤3 band so those ramparts vanish.
@@ -198,7 +246,18 @@ Known open criticisms, in priority order:
 2. 18 rooms with defender-mobility max > 1.0 (worst ~3.2) — attacker out-walks
    defender somewhere on the wall.
 3. Escalated rooms (seed-skip) accept worse eco; the 1.6x cap is loose.
-4. Controller parks min 5 (want comfortable ≥6 where terrain allows).
+4. ~~Controller parks min 5 (want comfortable ≥6 where terrain allows).~~
+   **CLOSED, round 9, and the number in this line was never the real one.**
+   `ctrlParks` was measured at layer 1 and then eaten by five later layers that
+   had never heard of it: re-derived AS BUILT the fleet ran min **3** / median 7,
+   and four rooms (E14S2 8→3, E16S3 8→3, E18S8 8→3, E17S5 5→3) shipped under the
+   4-seat floor this planner calls hard, passing the validator only on a
+   ctrlParks declaration the pipeline had generated for them out of their own
+   damage. Layer 1 now RESERVES every seat it counts (`parkReserve`, read through
+   `reservedTiles`), so the shipped fleet is min **4** (E8S2, whose controller
+   only ever offered four) / median 8, **0 rooms below their own layer-1 count**
+   and 0 below the floor. Cost, measured: zero — identical ramparts, identical
+   60/60, identical road median.
 5. Rampart total should fall overall (8704 → meaningfully less) via deeper packing,
    not via weaker shells.
 

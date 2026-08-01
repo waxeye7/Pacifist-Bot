@@ -3,6 +3,7 @@
  * @param {Creep} creep
  **/
 import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Reachability";
+import { planSitter } from "utils/PlanV2";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -435,7 +436,26 @@ const run = function (creep) {
                 else {
                     creep.memory.full = false;
                     creep.memory.t = false;
-                    if(storage) {
+                    // BACK TO THE SITTER, NOT TO "SOMEWHERE BESIDE STORAGE".
+                    //
+                    // The planner builds the whole hub around one tile: layer 1
+                    // places storage, terminal and the hub link so that a single
+                    // position is range-1 of all three, and every refill number
+                    // it publishes and optimises — tower[0] is the easiest tower
+                    // to refill, the filler tour, the extension corridor's walk
+                    // budget — is measured from exactly that tile. `range: 1` of
+                    // storage is up to eight different tiles and only one of them
+                    // is it, so a filler that came home to the wrong one paid an
+                    // extra step on every withdraw and made the published figures
+                    // unenforceable. plan.sitter is shipped now (PlanV2 `si`);
+                    // range 0 because the sitter is a road and standing ON it is
+                    // the entire point. Falls back to the old behaviour for a
+                    // room with no adopted plan.
+                    const sitter = planSitter(creep.room);
+                    if(sitter) {
+                        creep.MoveCostMatrixRoadPrio(sitter, 0);
+                    }
+                    else if(storage) {
                         creep.MoveCostMatrixRoadPrio(storage, 1);
                     }
                 }
