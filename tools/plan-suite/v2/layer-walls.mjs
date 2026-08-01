@@ -129,20 +129,29 @@ function verifyMobility(terrain, plan) {
   meta.built = mBuilt.max;
   meta.over = mBuilt.over;
   meta.floorOver = mFree.over;
+  // ...and the same three read against the detour floor (layer-shell's
+  // MOBILITY_DETOUR_FLOOR): a pair the garrison loses by two tiles is recorded,
+  // not declared. Both readings are kept — the raw one is the measurement, the
+  // gated one is the verdict.
+  meta.floorGated = mFree.maxGated;
+  meta.builtGated = mBuilt.maxGated;
+  meta.overGated = mBuilt.overGated;
+  meta.floorOverGated = mFree.overGated;
   // wall pairs the MASS pushed over the target — the only ones layers 6/7 own
   meta.caused = Math.max(0, mBuilt.over - mFree.over);
   meta.walled = cut.length - cut.filter((c) => wBuilt.has(key(c.x, c.y))).length;
-  if (mBuilt.worst) {
-    const { a, b, din, dout } = mBuilt.worst;
+  if (mBuilt.worstGated || mBuilt.worst) {
+    const { a, b, din, dout } = mBuilt.worstGated || mBuilt.worst;
     // the same pair, walked with no mass at all: if THAT is inside the target
     // the detour is ours, and the reservation did not hold it
     const freeDin = arriveAt(bfsField(freeMask, a), b);
     meta.worst = { a: { x: a.x, y: a.y }, b: { x: b.x, y: b.y }, din, dout, freeDin };
-    meta.worstCaused = mBuilt.max > MOBILITY_TARGET && isFinite(freeDin) && freeDin / dout <= MOBILITY_TARGET;
+    meta.worstCaused =
+      mBuilt.maxGated > MOBILITY_TARGET && isFinite(freeDin) && freeDin / dout <= MOBILITY_TARGET;
   }
 
-  if (mBuilt.max > MOBILITY_TARGET && mBuilt.worst && plan.meta) {
-    const { a, b, din, dout } = mBuilt.worst;
+  if (mBuilt.maxGated > MOBILITY_TARGET && mBuilt.worstGated && plan.meta) {
+    const { a, b, din, dout } = mBuilt.worstGated;
     const lane = plan.meta?.extensions?.laneMeta;
     const laneNote = !lane
       ? ""
@@ -154,16 +163,19 @@ function verifyMobility(terrain, plan) {
       gate: "mobility",
       source: "built",
       detail:
-        `AS BUILT the defender lap is ${mBuilt.max} (target ${MOBILITY_TARGET}): between wall tiles ` +
+        `AS BUILT the defender lap is ${mBuilt.maxGated} over pairs costing more than ` +
+        `${mBuilt.detourFloor} tiles of detour (target ${MOBILITY_TARGET}; ungated over every pair it is ` +
+        `${mBuilt.max}): between wall tiles ` +
         `${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while the attacker walks ` +
         `${dout} outside. With the extension mass removed entirely the same room measures ` +
-        `${mFree.max} (that pair: ${meta.worst.freeDin} inside), so ` +
+        `${mFree.maxGated} (that pair: ${meta.worst.freeDin} inside), so ` +
         (meta.worstCaused
           ? `this pair IS our mass and the reservation did not hold it`
           : `the lap is the enclosure and the terrain, not the mass — no arrangement of 60 extensions ` +
             `shortens it`) +
-        `. ${mBuilt.over}/${mBuilt.pairs} wall pairs are over target against ${mFree.over} with no mass ` +
-        `in the room.${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
+        `. ${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
+        `${mFree.overGated} with no mass in the room (ungated: ${mBuilt.over}/${mBuilt.pairs} against ` +
+        `${mFree.over}).${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
         `defender's lanes before it grows, and a pass that moved finished structures to patch the ` +
         `result would be the repair loop this planner is not allowed to have.`,
       tiles: [

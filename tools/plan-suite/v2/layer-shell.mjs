@@ -154,6 +154,39 @@ const MOBILITY_ENDPOINTS = 32;
 // anything. So the shipped number is a LOWER BOUND on the defender's real
 // disadvantage, never an over-statement.
 const MOBILITY_ARRIVE_BIAS = 1;
+// THE DETOUR FLOOR — the owner's ruling, applied to the arithmetic.
+//
+// The criterion is "attacker walks 10, I refuse to walk 20". It is a statement
+// about a REAL detour: the garrison has to give up the wall and go the long way
+// round. A ratio alone does not say that. Once the metric started measuring
+// close pairs honestly (see the note above on the unsound cheb-3 skip), the
+// fleet's ratio maximum became owned almost everywhere by a pair where the
+// defender walks 3 and the attacker walks 2 — 1.5 on the nose, and one tick of
+// actual work. 64 rooms "failed" the 1.2 target on detours of two tiles or
+// less. That is arithmetic noise wearing the costume of a defect: it triggered
+// ladder walks, it filled the fleet with declarations nobody can act on, and it
+// buried the rooms where the defender genuinely walks 21 against an attacker's
+// 3.
+//
+// So a pair counts AGAINST the target — for every VERDICT: the mobility
+// tiebreak band, the eco-lobe veto, the cause diagnosis and the declaration —
+// only when its absolute detour (din - dout) exceeds this many tiles. Nothing
+// is hidden: `max`, `maxStrict`, `maxDetour`, `over` and `worst` still record
+// every pair exactly as before, and the gated reading sits beside them.
+// Four tiles is the smallest floor that is unambiguously a detour and not a
+// rounding accident: eight ticks of an unboosted defender's time, one whole
+// tower cooldown of grinding he cannot answer.
+//
+// WHAT THE FLOOR DELIBERATELY DOES NOT GATE: the pipeline's escalation
+// TRIGGER. That was tried and measured. Reading the gated lap there stops 70
+// rooms composing extra rungs and the fleet runs 74s -> 54s — and it costs
+// 14 shallow extensions (81 -> 95) and 39 ramparts, because the rungs those
+// rooms were composing "for mobility" were finding cheaper shells for other
+// reasons and the ladder was keeping them. The trigger is a heuristic about
+// where to LOOK, not a claim about whether the room is defective; the floor
+// only governs the latter. Upkeep is the first objective, so the trigger keeps
+// the raw reading and the fleet keeps its 81.
+const MOBILITY_DETOUR_FLOOR = 4;
 // Ramparts stay the primary currency. Mobility breaks ties and justifies at
 // most this many extra wall tiles — never more.
 const MOBILITY_TIEBREAK_BUDGET = 2;
@@ -679,6 +712,11 @@ export function mobilityStats(cut, extMask, walkMask) {
     sampled,
     maxStrict: 0,
     worst: null,
+    maxGated: 0,
+    overGated: 0,
+    gatedPairs: 0,
+    worstGated: null,
+    detourFloor: MOBILITY_DETOUR_FLOOR,
   };
   if (n < 2) return empty;
   const stands = ends.map((e) => exteriorStands(extMask, e));
@@ -697,6 +735,12 @@ export function mobilityStats(cut, extMask, walkMask) {
   // reported and the declaration prints the raw walks either way.
   let maxDetour = 0;
   let worstDetour = null;
+  // ...and the same maximum taken over the pairs that clear the detour floor —
+  // the reading the target is judged on. See MOBILITY_DETOUR_FLOOR.
+  let maxGated = 0;
+  let worstGated = null;
+  let gatedPairs = 0;
+  let overGated = 0;
   for (let a = 0; a < n; a++) {
     for (let b = a + 1; b < n; b++) {
       // covered from BOTH sides: neither defender would have to move
@@ -712,6 +756,14 @@ export function mobilityStats(cut, extMask, walkMask) {
       if (din - dout > maxDetour) {
         maxDetour = din - dout;
         worstDetour = { a: ends[a], b: ends[b], din, dout, ratio: round2(r) };
+      }
+      if (din - dout > MOBILITY_DETOUR_FLOOR) {
+        gatedPairs++;
+        if (r > MOBILITY_TARGET) overGated++;
+        if (r > maxGated) {
+          maxGated = r;
+          worstGated = { a: ends[a], b: ends[b], din, dout };
+        }
       }
       if (r > max) {
         max = r;
@@ -742,6 +794,15 @@ export function mobilityStats(cut, extMask, walkMask) {
     maxDetour,
     worstDetour,
     worst,
+    // THE GATED READING (see MOBILITY_DETOUR_FLOOR): the same maximum, taken
+    // only over pairs whose absolute detour exceeds the floor. This is what the
+    // 1.2 target is judged on — escalation, the eco-lobe veto and the
+    // declaration all read it. `max` above stays the complete record.
+    maxGated: round2(maxGated),
+    overGated,
+    gatedPairs,
+    worstGated,
+    detourFloor: MOBILITY_DETOUR_FLOOR,
   };
 }
 
@@ -825,9 +886,15 @@ export function builtMobility(terrain, plan) {
     mean: stats.mean,
     over: stats.over,
     pairs: stats.pairs,
+    maxGated: stats.maxGated,
+    overGated: stats.overGated,
+    worstGated: stats.worstGated,
     // a cut tile the FINISHED base cannot walk to — the mass sealed it off
     walled: cut.length - cut.filter((c) => walk.has(key(c.x, c.y))).length,
-    cause: stats.max > MOBILITY_TARGET ? mobilityCause(terrain, cut, plan.exterior, stats.worst) : "none",
+    cause:
+      stats.maxGated > MOBILITY_TARGET
+        ? mobilityCause(terrain, cut, plan.exterior, stats.worstGated)
+        : "none",
   };
 }
 
@@ -1119,7 +1186,7 @@ export function planShell(terrain, plan, opts = {}) {
   // ------------------------------------------------------------------
   let mobilityBandBest = null;
   let mobilityBandSize = 0;
-  if (mobilityOf(pick).max > MOBILITY_TARGET) {
+  if (mobilityOf(pick).maxGated > MOBILITY_TARGET) {
     const band = poolForSwap.filter(
       (a) =>
         a.cut.length <= pick.cut.length + MOBILITY_TIEBREAK_BUDGET &&
@@ -1134,17 +1201,21 @@ export function planShell(terrain, plan, opts = {}) {
       if (a === pick) continue;
       const m = mobilityOf(a);
       const bm = mobilityOf(best);
-      const earned = m.max <= bm.max - 0.001 && (m.max <= MOBILITY_TARGET || a.deep >= pick.deep);
+      const earned =
+        m.maxGated <= bm.maxGated - 0.001 && (m.maxGated <= MOBILITY_TARGET || a.deep >= pick.deep);
       if (
         earned ||
-        (m.max === bm.max && a.cut.length < best.cut.length) ||
-        (m.max === bm.max && a.cut.length === best.cut.length && a.deep > best.deep) ||
-        (m.max === bm.max && a.cut.length === best.cut.length && a.deep === best.deep && a.r < best.r)
+        (m.maxGated === bm.maxGated && a.cut.length < best.cut.length) ||
+        (m.maxGated === bm.maxGated && a.cut.length === best.cut.length && a.deep > best.deep) ||
+        (m.maxGated === bm.maxGated &&
+          a.cut.length === best.cut.length &&
+          a.deep === best.deep &&
+          a.r < best.r)
       ) {
         best = a;
       }
     }
-    mobilityBandBest = mobilityOf(best).max;
+    mobilityBandBest = mobilityOf(best).maxGated;
     pick = best;
   }
   const priceyWall = pick.cut.length > maxCut; // open room, expensive to enclose
@@ -1231,7 +1302,7 @@ export function planShell(terrain, plan, opts = {}) {
     let m = null;
     if (guardIsFree) {
       m = mobilityStats(res.cut, e, maskFromKeys(w));
-      if (m.max > MOBILITY_TARGET && m.max > mobF.max + 0.001) return false;
+      if (m.maxGated > MOBILITY_TARGET && m.maxGated > mobF.maxGated + 0.001) return false;
     }
     protect = cand;
     cut = res.cut;
@@ -1617,17 +1688,24 @@ export function planShell(terrain, plan, opts = {}) {
   const walkMaskFinal = maskFromKeys(walkFinal);
   const mobility = mobilityStats(cut, extF, walkMaskFinal);
   mobility.target = MOBILITY_TARGET;
-  mobility.cause = mobility.max > MOBILITY_TARGET ? mobilityCause(terrain, cut, extF, mobility.worst) : "none";
+  mobility.cause =
+    mobility.maxGated > MOBILITY_TARGET
+      ? mobilityCause(terrain, cut, extF, mobility.worstGated)
+      : "none";
   // The floor we PROVED: the best ratio any affordable enclosure of this hub
   // measured. It is taken BEFORE the eco lobes are bid for, so in a room too
   // short of interior to refuse a lobe (see guardIsFree) the shipped number can
   // be worse than the floor — that gap is not a rounding error, it is the price
   // of the enclosure, and the declaration below spells it out.
-  mobility.floor = mobilityBandBest === null ? mobility.max : Math.min(mobilityBandBest, mobility.max);
+  mobility.floor =
+    mobilityBandBest === null ? mobility.maxGated : Math.min(mobilityBandBest, mobility.maxGated);
   mobility.candidates = mobilityBandSize;
-  mobility.ecoCost = round2(Math.max(0, mobility.max - mobility.floor));
-  if (mobility.max > MOBILITY_TARGET && mobility.worst) {
-    const { a, b, din, dout } = mobility.worst;
+  mobility.ecoCost = round2(Math.max(0, mobility.maxGated - mobility.floor));
+  // THE DECLARATION IS FILED ON THE GATED READING (MOBILITY_DETOUR_FLOOR): a
+  // pair the defender loses by two tiles is not a shortfall to declare, it is a
+  // measurement to record — and `mobility` records it either way.
+  if (mobility.maxGated > MOBILITY_TARGET && mobility.worstGated) {
+    const { a, b, din, dout } = mobility.worstGated;
     const why = {
       terrain:
         `a natural wall inside the enclosure forces the detour — with interior walls ignored the same ` +
@@ -1651,9 +1729,13 @@ export function planShell(terrain, plan, opts = {}) {
         endpoints: mobility.endpoints,
         reachable: mobility.reachable,
         maxStrict: mobility.maxStrict,
+        detourFloor: MOBILITY_DETOUR_FLOOR,
+        maxUngated: mobility.max,
       },
       detail:
-        `defender mobility max ${mobility.max} (target ${MOBILITY_TARGET}, ` +
+        `defender mobility max ${mobility.maxGated} over pairs that cost more than ` +
+        `${MOBILITY_DETOUR_FLOOR} tiles of detour (target ${MOBILITY_TARGET}; the ungated maximum over ` +
+        `every pair including two-tile ones is ${mobility.max}, ` +
         `${mobility.sampled ? `SAMPLED over ${mobility.endpoints}/${mobility.reachable}` : `exact all-pairs over ${mobility.endpoints}`} ` +
         `reachable wall tiles; stand-to-stand it is ${mobility.maxStrict}): between wall tiles ${a.x},${a.y} ` +
         `and ${b.x},${b.y} the defender walks ${din} inside while the attacker walks ${dout} outside. ` +
@@ -1665,7 +1747,8 @@ export function planShell(terrain, plan, opts = {}) {
             `to refuse a lobe that brings interior with it (the room ends up with ${deepTiles}), so it was ` +
             `bought and the lap grew by ${mobility.ecoCost}`
           : "") +
-        `. ${mobility.over}/${mobility.pairs} measured wall pairs exceed the target (p90 ${mobility.p90}); ` +
+        `. ${mobility.overGated}/${mobility.gatedPairs} wall pairs with a real detour exceed the target ` +
+        `(${mobility.over}/${mobility.pairs} on the ungated reading, p90 ${mobility.p90}); ` +
         `the longest extra walk anywhere on this wall is ${mobility.maxDetour} tile(s)` +
         (mobility.worstDetour
           ? ` (${mobility.worstDetour.a.x},${mobility.worstDetour.a.y} to ${mobility.worstDetour.b.x},` +

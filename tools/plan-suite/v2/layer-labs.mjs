@@ -19,6 +19,23 @@ import { D8, buildable, key, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 
 const DEPTH_SAFE = 4;
+/**
+ * What a shallow lab is worth, in tiles of hauler distance.
+ *
+ * Pass 1 demands all ten labs at depth >= 4 and most rooms end there. Pass 2
+ * exists for the rooms where no fully-deep 4x4 pocket survives the wall-
+ * reachability promise, and it used to rank purely on hauler distance — which
+ * meant a diamond with four labs in the ranged band beat one with none by a
+ * single tile of walk. E20S3 shipped exactly that: four labs at depth 3, four
+ * personal ramparts, repaired forever, to save the lab hauler one step.
+ *
+ * A personal rampart is upkeep in perpetuity; a tile of hauler distance is one
+ * tick per trip on a route the link network mostly retires anyway. Three tiles
+ * per shallow lab is the exchange rate: it will move a diamond a short way for
+ * a dry anchor and will not drag it across the room chasing depth. Pass 1 is
+ * untouched, so no room that already ships ten deep labs can be reshuffled.
+ */
+const SHALLOW_LAB_COST = 3;
 
 function idx(x, y) {
   return x + y * 50;
@@ -126,6 +143,9 @@ export function planLabs(terrain, plan) {
 
   let best = null;
   let fallback = null;
+  let deepAnchors = 0;
+  let fallbackAnchors = 0;
+  let dryAnchors = 0;
   // Candidates in strict scan order, best-first by hauler distance; the
   // connectivity check runs on the winner and only walks down the list when it
   // fails, so a normal room pays exactly one extra BFS.
@@ -163,12 +183,33 @@ export function planLabs(terrain, plan) {
         const ends = [variant.road[0], variant.road[3]].map(([dx, dy]) => hauls[idx(ax + dx, ay + dy)]);
         const d = Math.min(...ends);
         if (d >= 9999) continue;
-        candidates.push({ ax, ay, variant, d, seq: candidates.length });
+        // how many of the ten sit in the ranged band and will rent a rampart.
+        // Always 0 on the depth>=4 pass; the term only bites on the fallback.
+        const shallow = variant.labs.filter(
+          ([dx, dy]) => depth[idx(ax + dx, ay + dy)] < DEPTH_SAFE,
+        ).length;
+        candidates.push({
+          ax,
+          ay,
+          variant,
+          d,
+          shallow,
+          score: d + shallow * SHALLOW_LAB_COST,
+          seq: candidates.length,
+        });
       }
     }
     }
-    // stable, explicit: hauler distance decides, scan order breaks every tie
-    candidates.sort((a, b) => a.d - b.d || a.seq - b.seq);
+    // hauler distance priced against personal ramparts (SHALLOW_LAB_COST),
+    // then hauler distance alone, then scan order — stable and explicit
+    candidates.sort((a, b) => a.score - b.score || a.d - b.d || a.seq - b.seq);
+    // how many anchors this pass could even see, and how many were dry — the
+    // evidence behind a shallow-lab declaration further down
+    if (minDepth === DEPTH_SAFE) deepAnchors = candidates.length;
+    else {
+      fallbackAnchors = candidates.length;
+      dryAnchors = candidates.filter((c) => c.shallow === 0).length;
+    }
     for (const c of candidates) {
       if (keepsTheWall(c.ax, c.ay, c.variant)) {
         best = c;
@@ -220,6 +261,33 @@ export function planLabs(terrain, plan) {
 
   const shallow = labs.filter((l) => depth[idx(l.x, l.y)] < DEPTH_SAFE);
 
+  // A LAB IN THE RANGED BAND IS DECLARED, NOT SWALLOWED. The caller ramparts
+  // these tiles, so no gate fires — which is exactly why the room has to say so
+  // out loud. The claim being made is "the diamond is a rigid 4x4 stamp and
+  // this room has no dry pocket that fits it", and the numbers that back it are
+  // the anchor census both passes measured.
+  if (shallow.length && plan.meta) {
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "labs",
+      kind: "shallow-lab",
+      source: "labs",
+      detail:
+        `${shallow.length}/10 labs sit inside the ranged band (depth < ${DEPTH_SAFE}) and carry personal ` +
+        `ramparts (${shallow.map((l) => `${l.x},${l.y} d${depth[idx(l.x, l.y)]}`).join(" · ")}). ` +
+        `The 10-lab diamond is a rigid 4x4 stamp ` +
+        `— it cannot be split or reshaped — and this enclosure offers ${deepAnchors} anchor(s) with all ` +
+        `ten labs at depth >= ${DEPTH_SAFE} and ${fallbackAnchors} at depth >= ${DEPTH_SAFE - 1}, of ` +
+        `which ${dryAnchors} would be fully dry. The anchor shipped was the cheapest on hauler distance ` +
+        `PLUS ${SHALLOW_LAB_COST} tiles per shallow lab, so depth was priced, not ignored; ` +
+        (deepAnchors === 0
+          ? `no dry anchor exists at any orientation, so the ramparts are the room's verdict, not a preference`
+          : `every dry anchor was refused because it seals a wall segment the garrison can walk today`) +
+        `.`,
+      tiles: shallow.map((l) => ({ x: l.x, y: l.y })),
+    });
+  }
+
   return {
     layer: "labs",
     lab: labs,
@@ -231,6 +299,8 @@ export function planLabs(terrain, plan) {
       haulDist: best.d,
       variant: variant === MAIN ? "main" : "anti",
       shallow: shallow.length,
+      // what the depth term paid for this anchor, in tiles of hauler walk
+      shallowCost: (best.shallow ?? 0) * SHALLOW_LAB_COST,
     },
   };
 }

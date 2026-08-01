@@ -45,9 +45,17 @@ per room. Rise to the bar; do not lower it.
   trivially rebuilt), while its container must be bubbled or declared.
 - Every extension has a **road on an orthogonal (D4) face** — easily accessible,
   corridor pattern, never a maze, never diagonal-only.
-- One connected road network touching every structure. No roads ON ramparts. Spur
+- One connected road network touching every structure. No roads ON ramparts —
+  **with one exception, the shell gate**: where an eco road (to a source, the
+  controller, the mineral) crosses the cut line, the crossing tile is both road
+  and rampart by necessity. That is a gate, not road spam: without it the wall
+  has a hole or the haulers have no way out. Measured on the current fleet: 257
+  road+rampart tiles, 229 of them exactly on the shell cut line, median 2 and max
+  4 per room — a gate per eco route, which is the expected shape.
+  Every OTHER road/rampart coincidence is still the anti-pattern. Spur
   roads TO rampart clusters allowed. Roads exist only for: hub kit, eco paths,
-  lab road, tower faces, extension corridors, rampart spurs. Dead ends pruned.
+  lab road, tower faces, extension corridors, rampart spurs, shell gates. Dead
+  ends pruned.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
@@ -74,6 +82,16 @@ per room. Rise to the bar; do not lower it.
 - Defender mobility: internal wall-to-wall paths must not exceed attacker external
   paths ("attacker walks 10, I refuse to walk 20") — target max ratio ≤ 1.2 per room,
   and the reviewer flags every room above 1.0 with a judgment call.
+  **The detour floor.** The owner's sentence is about a real detour, not about
+  arithmetic. A pair where the defender walks 3 and the attacker walks 2 reads
+  1.5 and costs the garrison one tick; 64 rooms "failed" the target that way. So
+  a pair only counts AGAINST the 1.2 target — for the negotiation's verdicts and
+  for declarations — when its absolute detour (inside − outside) exceeds 4 tiles.
+  Nothing is hidden: the exact metric still records `max`, `maxStrict`,
+  `maxDetour` and the full over-count over every pair, and the declaration prints
+  both readings. The escalation trigger deliberately still reads the ungated
+  number — that is a heuristic about where to look, and gating it was measured to
+  cost 14 shallow extensions and 39 ramparts for a 20s runtime win.
 - Tower coverage: equalize damage across ALL wall faces (towers fall off hard with
   range), spread, refill-distance weighted; the first-built tower (array order) must
   be the easiest to refill.
@@ -82,6 +100,13 @@ per room. Rise to the bar; do not lower it.
 
 ## Judgment criteria (the owner's voice — reviewer applies these to sampled rooms)
 
+- **Owner-spec ruling: two stamps are fixed and are not up for review.** The hub
+  trio (storage + terminal + link, all within range 1 of the sitter) and the
+  10-lab diamond are OWNER-MANDATED. A reviewer judges where they were put and
+  which way they face — hauler distance, fan clearance, depth, whether the
+  diamond plugs a doorway — and never whether they should exist or whether some
+  other internal shape would be cleverer. "The trio is a rigid stamp" and "the
+  lab diamond is a rigid 4x4" are premises of this goal, not findings against it.
 - "Placed with intent, elegant" — nothing that looks accidental, no spam, no filler.
 - "Hyper dynamic, grown from the room" — layouts must differ meaningfully across
   terrain; identical-looking rooms on different terrain = fail.
