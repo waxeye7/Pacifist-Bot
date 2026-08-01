@@ -3,6 +3,8 @@
  * @param {Creep} creep
  **/
 
+import { isUndeliverable } from "utils/Reachability";
+
 function findLocked(creep) {
 
     if(creep.room.energyAvailable == creep.room.energyCapacityAvailable && creep.room.memory.Structures) {
@@ -17,7 +19,12 @@ function findLocked(creep) {
             possibleDropOffLocations.push(storage);
         }
 
-        let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) !== 0});
+        // an extension with no walkable approach is hungry forever and is
+        // therefore always the closest hungry thing — see utils/Reachability.
+        // Live E9S2: Carrier-81022 and Carrier-727835 both locked onto
+        // extension@20,39 (walled in by four off-plan extensions) and spent
+        // their whole lives swapping places with each other two tiles away.
+        let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) !== 0 && !isUndeliverable(creep.room, building.id)});
         if(spawnAndExtensions.length > 0) {
             possibleDropOffLocations.push(creep.pos.findClosestByRange(spawnAndExtensions));
         }
@@ -46,6 +53,13 @@ const run = function (creep) {
 
 
 
+    // creep.memory.locked is sticky for the creep's whole life, so it has to
+    // be re-validated against the undeliverable list every tick.
+    if(creep.memory.locked && isUndeliverable(creep.room, creep.memory.locked)) {
+        creep.memory.locked = false;
+        creep.memory.path = false;
+        delete creep.memory.MoveTargetId;
+    }
     let lock:any = Game.getObjectById(creep.memory.locked) || findLocked(creep);
     if(lock) {
         if(lock.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {

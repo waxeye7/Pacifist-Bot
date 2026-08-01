@@ -13,6 +13,7 @@ import { getCpuPolicy } from "utils/CpuPolicy";
 import { powerDisabled, speedrunEnabled } from "utils/Features";
 import { applySpeedrunSpawnHints } from "utils/Speedrun";
 import { placeFromPlanV2 } from "utils/PlanV2";
+import { refreshUnreachable, pruneBadFill } from "utils/Reachability";
 
 function rooms() {
   /* */
@@ -289,6 +290,14 @@ function rooms() {
       // construction() still calls it too; the function is idempotent.
       if (room.memory.planV2 && Game.time % 15 === 0) {
         placeFromPlanV2(room);
+      }
+
+      // Which structures can a creep actually stand next to? Self-throttling
+      // (one flood fill per ~50 ticks) and it MUST run before the fill target
+      // pickers, which is why it sits in the room loop and not in a role.
+      refreshUnreachable(room);
+      if (Game.time % 100 === 0) {
+        pruneBadFill(room);
       }
 
       // Low RCL: build more often so extensions/containers aren't stuck waiting 1000 ticks.

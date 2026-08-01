@@ -2,6 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { isUndeliverable, isUnreachableId, blacklistFillTarget } from "utils/Reachability";
 
 /**
  * The room's real, un-reserved fill need, nearest first.
@@ -22,15 +23,36 @@
  * extensions first (they are what blocks spawning), then any tower below half.
  */
 function fillNeed(creep, excludeId?) {
+    // isUndeliverable(): an extension with no walkable approach is hungry
+    // FOREVER, which makes it permanently the nearest hungry structure to a
+    // filler standing in the hub. Without this filter the whole fill layer
+    // parks on it — E11S2 lost two loaded fillers to extension@18,36 and E9S2
+    // lost two carriers to extension@20,39, both walled in by extensions the
+    // current plan does not want. See utils/Reachability.
     let targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
         (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION)
         && s.id !== excludeId
-        && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+        && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+        && !isUndeliverable(creep.room, s.id)});
     if(targets.length == 0) {
         targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
             s.structureType == STRUCTURE_TOWER
             && s.id !== excludeId
-            && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) / 2});
+            && s.store[RESOURCE_ENERGY] < s.store.getCapacity(RESOURCE_ENERGY) / 2
+            && !isUndeliverable(creep.room, s.id)});
+    }
+    if(targets.length == 0) {
+        // Last resort: this function is the room's DELIVERY GUARANTEE, so it
+        // may never answer "nowhere to go" just because the heuristic
+        // blacklist got greedy. Retry with only the exact, physical filter -
+        // a structure with no walkable approach is still off the table, but
+        // everything else is back on it.
+        targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
+            (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION
+             || s.structureType == STRUCTURE_TOWER)
+            && s.id !== excludeId
+            && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
+            && !isUnreachableId(creep.room, s.id)});
     }
     if(targets.length == 0) {
         return null;
@@ -54,12 +76,70 @@ function fillNeed(creep, excludeId?) {
  * failure mode. Normal traffic jams resolve inside those three ticks and never
  * reach the fallback.
  */
+/**
+ * How long a filler may chase ONE target without ever getting adjacent to it
+ * before the room writes that target off. This is the catch-all behind the
+ * reachability flood fill: it also covers targets that are technically
+ * reachable but effectively not (a permanent traffic wedge, a creep parked in
+ * the only approach tile, a door that only opens when someone dies).
+ */
+const APPROACH_GIVE_UP = 50;
+
 function advanceTo(creep, target, swampPrio = false) {
     if(creep.pos.isNearTo(target)) {
         delete creep.memory.stuckAt;
         delete creep.memory.stuckFor;
+        delete creep.memory.tryT;
+        delete creep.memory.tryFor;
+        delete creep.memory.tryD;
         return;
     }
+
+    // Failed-approach ledger. Counts ticks spent making NO PROGRESS towards
+    // one target - the counter resets both when the creep arrives (above) and
+    // whenever it gets closer than it has ever been to this target, so a long
+    // walk across the base, a detour and an ordinary hub queue all keep it at
+    // zero. Only a creep that is genuinely not converging trips it, and then
+    // the target goes on the room-wide TTL blacklist so the other fillers stop
+    // walking into the same wall too.
+    //
+    // The progress term matters: without it the first live run wrote off
+    // spawn@20,40 in E11S2 and extension@45,36 in E17S4 purely because those
+    // fillers were queued behind other fillers for 30 ticks.
+    if(target && target.id) {
+        let range = creep.pos.getRangeTo(target);
+        if(creep.memory.tryT === target.id) {
+            if(range < (creep.memory.tryD === undefined ? 999 : creep.memory.tryD)) {
+                creep.memory.tryD = range;
+                creep.memory.tryFor = 0;
+            }
+            else {
+                creep.memory.tryFor = (creep.memory.tryFor || 0) + 1;
+            }
+        }
+        else {
+            creep.memory.tryT = target.id;
+            creep.memory.tryD = range;
+            creep.memory.tryFor = 0;
+        }
+        if(creep.memory.tryFor >= APPROACH_GIVE_UP) {
+            // blacklistFillTarget() refuses the room's backbone (spawn,
+            // storage, terminal), so only report what it actually took - the
+            // first live run logged fillers "giving up" on their own spawn
+            // while the blacklist had correctly ignored the request.
+            if(blacklistFillTarget(creep.room, target.id)) {
+                console.log("filler", creep.name, "gave up on", target.structureType, target.pos.x + "," + target.pos.y, "in", creep.room.name, "- blacklisted");
+            }
+            delete creep.memory.tryT;
+            delete creep.memory.tryFor;
+            delete creep.memory.tryD;
+            creep.memory.t = false;
+            creep.memory.path = false;
+            delete creep.memory.MoveTargetId;
+            return;
+        }
+    }
+
     if(creep.fatigue > 0) {
         return;
     }
@@ -301,7 +381,22 @@ const run = function (creep) {
         }
 
 
-        let target = Game.getObjectById(creep.memory.t) || creep.findFillerTarget();
+        // creep.memory.t is STICKY — it is only re-asked when the object is
+        // gone or full, so a target that turned out to be undeliverable would
+        // otherwise be held until the creep dies of old age. Drop it here.
+        let target: any = Game.getObjectById(creep.memory.t);
+        if(target && isUndeliverable(creep.room, creep.memory.t)) {
+            creep.memory.t = false;
+            creep.memory.path = false;
+            delete creep.memory.MoveTargetId;
+            delete creep.memory.tryT;
+            delete creep.memory.tryFor;
+            delete creep.memory.tryD;
+            target = null;
+        }
+        if(!target) {
+            target = creep.findFillerTarget();
+        }
         if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
             target = creep.findFillerTarget();
         }

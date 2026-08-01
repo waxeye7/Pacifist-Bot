@@ -74,6 +74,48 @@ interface GoToOpts {
  */
 const RESERVE_FILL_TTL = 25;
 
+/**
+ * ---------------------------------------------------------------------------
+ * Undeliverable targets
+ *
+ * Every picker below chooses with findClosestByRange, which does not know
+ * whether a path exists. An extension whose eight neighbours are all other
+ * extensions (the rooms are full of them: the plan moved under a built base,
+ * see utils/PlanV2) can never be filled, so it is hungry forever, so it is
+ * permanently the CLOSEST hungry thing to anything standing in the hub — and
+ * every filler in the room locks onto it and stops delivering. Live E11S2 had
+ * two fillers holding full stores pinned on extension@18,36 and E9S2 had two
+ * carriers pinned on extension@20,39, all four ping-ponging between two tiles.
+ *
+ * utils/Reachability owns the analysis (one flood fill per room per ~50 ticks)
+ * and writes room.memory.unreach; the oscillation damper in
+ * Managers/RunCreepManager writes room.memory.badFill. This file cannot import
+ * either of them — it has no imports on purpose, so that its top-level
+ * `interface Creep` still merges with the global one — so it reads the two
+ * memory shapes directly. Keep in sync with utils/Reachability.isUndeliverable.
+ * ---------------------------------------------------------------------------
+ */
+const fillTargetIsDead = (room:any, id:string):boolean => {
+    if(!room || !id || !room.memory) {
+        return false;
+    }
+    let unreach = room.memory.unreach;
+    if(unreach && unreach.ids && unreach.ids.length && unreach.ids.indexOf(id) !== -1) {
+        return true;
+    }
+    let bad = room.memory.badFill;
+    if(bad) {
+        let until = bad[id];
+        if(until) {
+            if(Game.time < until) {
+                return true;
+            }
+            delete bad[id];
+        }
+    }
+    return false;
+}
+
 /** prune dead/expired/legacy entries, and return the live list. */
 const liveReserveFill = (room:any):any[] => {
     let list = room.memory.reserveFill;
@@ -223,7 +265,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
         }
 
         for(let lab of Labs) {
-            if(lab && (lab.store[RESOURCE_ENERGY] <= 2000 - this.memory.MaxStorage*2 || lab.store[RESOURCE_ENERGY] < 1200) && !reserveFill.includes(lab.id)) {
+            if(lab && (lab.store[RESOURCE_ENERGY] <= 2000 - this.memory.MaxStorage*2 || lab.store[RESOURCE_ENERGY] < 1200) && !reserveFill.includes(lab.id) && !fillTargetIsDead(this.room, lab.id)) {
                 if(reserve) {
                     takeReserveFill(this, lab.id);
                 }
@@ -234,7 +276,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
     if(this.room.energyAvailable < this.room.energyCapacityAvailable) {
 
-        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id)});
+        let spawnAndExtensions = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id)});
         if(spawnAndExtensions.length > 0) {
             let t = this.pos.findClosestByRange(spawnAndExtensions);
             if(reserve) {
@@ -247,7 +289,7 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
     }
 
 
-    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id))});
+    let towers2 = this.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) >= 100 && !reserveFill.includes(building.id) && !fillTargetIsDead(this.room, building.id))});
     if(towers2.length > 0) {
         let t = this.pos.findClosestByRange(towers2);
         if(reserve) {

@@ -124,6 +124,16 @@ declare global {
         /** Adopted v2 plan (packed coords) — see utils/PlanV2.ts */
         planV2?: { v: number; h?: string; s?: number; t: { [structureType: string]: number[] } };
         construction?: { rampartLocations?: any; [key: string]: any };
+        /**
+         * Structures with NO walkable D8 approach — see utils/Reachability.
+         * t = tick computed, n = structure count when computed (change
+         * detector), ids = dead structure ids, p = their packed tiles.
+         */
+        unreach?: { t: number; n: number; ids: string[]; p: number[] };
+        /** id -> expiry tick. Targets creeps demonstrably failed to deliver to. */
+        badFill?: { [id: string]: number };
+        /** tick of the last at-cap off-plan reclaim pass — see utils/PlanV2. */
+        planCapReclaim?: number;
         defence?: { towerShotsInRow?: number; perimeter?: any; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;
@@ -193,6 +203,12 @@ declare global {
          * q = 1 when queued behind other haulers (claims nothing).
          */
         pickup?: { id: string; t: number; amt: number; q?: number };
+        /** recent packed positions, newest last — oscillation damper */
+        _ph?: number[];
+        /** room name the _ph history belongs to */
+        _phr?: string;
+        /** tick the damper last fired, so it does not fire every tick */
+        _oscT?: number;
     }
 
     // Syntax for adding proprties to `global` (ex "global.log")

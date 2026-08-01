@@ -1,3 +1,8 @@
+// An extension with no walkable approach is hungry forever, so it is always
+// the closest hungry structure — and this picker locks onto it for the
+// creep's whole life. See utils/Reachability.
+import { isUndeliverable } from "utils/Reachability";
+
 function findLocked(creep) {
     let terminal = creep.room.terminal;
     if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
@@ -14,7 +19,7 @@ function findLocked(creep) {
         }
     }
 
-    let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+    let spawnAndExtensions = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_SPAWN || building.structureType == STRUCTURE_EXTENSION || building.structureType == STRUCTURE_TOWER) && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0 && !isUndeliverable(creep.room, building.id)});
     if(spawnAndExtensions.length > 0) {
         let closestDropOffLocation = creep.pos.findClosestByRange(spawnAndExtensions);
         creep.memory.locked = closestDropOffLocation.id;
