@@ -758,12 +758,36 @@ function spawnFanDetail(fan, storage) {
         `rather than hidden behind a boolean.`,
     );
   }
+  // ------------------------------------------------------------------
+  // THE CONSEQUENCE IS READ OFF THE CENSUS, NOT PRINTED FROM A TEMPLATE.
+  //
+  // This paragraph used to open "three spawns inside one sector" unconditionally
+  // — in 8 rooms directly contradicting the sentence above it, which had just
+  // reported `winnerSectors: 3`. A room whose three spawns sit in three
+  // different 30° sectors and merely fail the 120° target is a completely
+  // different failure from a room whose three spawns are bunched on one face,
+  // and telling a reader the second when the census says the first is the kind
+  // of boilerplate that makes the whole channel worthless. The wording now comes
+  // from `winnerSectors` and from the worst pair's actual angle.
+  // ------------------------------------------------------------------
+  const ws = c.winnerSectors;
   parts.push(
-    `Consequence: three spawns inside one sector means the room's spawn-adjacent parking and the ` +
-      `fill routes crowd one side of the hub — the fillers queue on a single face instead of ` +
-      `touring three, and one breach, one nuke or one blocked corridor on that side reaches every ` +
-      `spawn the room has. At ${fan.minAngle}° the worst pair here is ${short}° inside that ` +
-      `bunching, and the parking, roads and rampart spend follow them.`,
+    `Consequence: ` +
+      (ws <= 1
+        ? `all three spawns sit in ONE ${c.sectorDeg}° sector, so the room's spawn-adjacent parking and ` +
+          `the fill routes crowd a single face of the hub — the fillers queue on one side instead of ` +
+          `touring three, and one breach, one nuke or one blocked corridor on that side reaches every ` +
+          `spawn the room has.`
+        : ws === 2
+          ? `the three spawns cover ${ws} of the ${c.sectorBins} ${c.sectorDeg}° sectors, so two of them ` +
+            `share a face: the parking and fill routes fan across two sides rather than three, and a ` +
+            `breach on the shared side reaches two of the room's three spawns at once.`
+          : `the three spawns DO sit in ${ws} different ${c.sectorDeg}° sectors — this is a spread that ` +
+            `misses the ${SECTOR_TARGET}° separation target, not a bunch. The cost is proportionate: the ` +
+            `closest pair is ${fan.minAngle}° apart, so their parking and fill routes overlap and the ` +
+            `filler tour saves less than a fully fanned trio would, but no single face carries the room.`) +
+      ` At ${fan.minAngle}° the worst pair here is ${short}° short of the target, and the parking, roads ` +
+      `and rampart spend follow them.`,
   );
   return parts.join(" ");
 }

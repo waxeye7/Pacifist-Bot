@@ -23,6 +23,7 @@ import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { planWallRoads } from "./layer-walls.mjs";
+import { MOBILITY_RAMPART_CAP, RAMPARTS_PER_RATIO } from "./layer-ext.mjs";
 
 export const EXT_TARGET = 60;
 
@@ -287,10 +288,29 @@ function declareEcoTax(plan) {
         `separation is ${spread} tiles (${spreadPair}), and two anchors ${spread} apart cannot both sit ` +
         `within ${anchorFloor} of any tile in the room, so a walk of at least ${anchorFloor} to the far ` +
         `one is owed by EVERY hub this room admits, not by this one.`;
+  // ------------------------------------------------------------------
+  // THE OPENER CLAIMS ONLY WHAT THE CLOSER PROVES.
+  //
+  // It used to open "hauler distances in this room are a terrain verdict, not a
+  // preference" — a claim about the whole distance, in every room that prints
+  // it. What the paragraph actually establishes is narrower and is stated at the
+  // end of it: two anchors `spread` apart cannot both sit within ceil(spread/2)
+  // of any tile, so a walk of at least that much is owed by every hub the room
+  // admits. That is a FLOOR under part of the distance, not a verdict on all of
+  // it — a hub 27 tiles from its controller in a room whose anchor floor is 12
+  // is 12 tiles of terrain and 15 tiles of everything else. The opener now says
+  // that, and the seedSkip case (where closer seats really were composed and
+  // rejected) keeps its stronger wording because there the search is the proof.
+  // ------------------------------------------------------------------
+  const opener =
+    skip > 0
+      ? `hauler distances in this room were BOUGHT, not preferred: ${bits.join("; ")}. `
+      : `hauler distances in this room are at least ${anchorFloor} tiles of terrain verdict — that is the ` +
+        `floor the anchor spread proves below, and the rest is the shape of this basin: ${bits.join("; ")}. `;
   plan.meta.shortfalls.push({
     gate: "eco",
     detail:
-      `hauler distances in this room are a terrain verdict, not a preference: ${bits.join("; ")}. ` +
+      opener +
       `The hub sits at ${hub.x},${hub.y} on the only basin that holds the program — ${basin} tiles reachable ` +
       `from the seed, core pocket ${plan.meta.coreSize ?? "?"}. ${cause} Capping this silently is the ` +
       `anti-pattern; the numbers are here so the trade can be argued with.`,
@@ -408,11 +428,22 @@ const MAX_SEED_SKIP = 8;
  * to change which cut wins.
  */
 const ESCALATE_MIN = 3;
+/** how many flat rungs the ladder walks past before it believes the bill has turned */
+const NO_GAIN_PATIENCE = 1;
 
 const rampartsOf = (p) => p?.meta?.counts?.rampart ?? 1e9;
 const roadsOf = (p) => p?.meta?.counts?.road ?? 1e9;
 const cutOf = (p) => p?.shell?.cut?.length ?? 1e9;
-const mobOf = (p) => p?.shell?.mobility?.max ?? 0;
+/**
+ * THE LADDER READS THE GATED LAP, because that is the reading everything else
+ * in the fleet is judged on: layer 2's own tiebreak, layer 2's declaration,
+ * layer 7's verdict and the suite's OVER-TARGET flag all take `maxGated` — the
+ * maximum over wall pairs whose ABSOLUTE detour clears MOBILITY_DETOUR_FLOOR.
+ * This one function read the ungated `max`, so the rung table stapled to a gated
+ * declaration quoted a different statistic than the sentence above it, and the
+ * ladder spent its premium on pairs the gate does not even look at.
+ */
+const mobOf = (p) => p?.shell?.mobility?.maxGated ?? 0;
 const mobCauseOf = (p) => p?.shell?.mobility?.cause ?? "none";
 // layer-shell's own target, restated here so the ladder can read it without
 // importing a constant that means something slightly different one day
@@ -449,17 +480,35 @@ function cheaperUpkeep(a, b) {
  * wall for personal ramparts and nothing else.
  */
 /**
- * How many extra ramparts a rung may cost when it is the rung that finally
- * brings the room inside the mobility target.
+ * WHAT A SHORTER LAP IS WORTH, IN RAMPARTS.
  *
- * Upkeep is still the first objective and a strictly-cheaper rung still wins on
- * its own merits — this is the ONLY way mobility is allowed to spend wall, and
- * it may only be spent to CLEAR the target, never to shave a ratio that stays
- * over it. Two tiles is the same premium layer 2 already pays internally
- * (MOBILITY_TIEBREAK_BUDGET), for the same reason: a garrison that can lap its
- * own wall is worth a couple of ramparts and is not worth twenty.
+ * This used to be a single number (2) behind a single condition: a rung could
+ * spend it ONLY if that rung landed the room inside the 1.2 target. The
+ * condition, not the number, was the defect. It made the premium worthless
+ * exactly where a lap is worst — a room at 7.5 whose next rung reaches 1.5 for
+ * three ramparts is refused, because 1.5 is not 1.2, while a room at 1.25 whose
+ * next rung reaches 1.2 for two ramparts is bought. E14S5 is the standing
+ * example: rung 1 measures 1.5 against the shipped 7.5, three ramparts dearer,
+ * and the ladder walked past it for a whole review cycle.
+ *
+ * The rule is now a price, and it is the fleet's ONE price for this trade — the
+ * same constants layer 6 pays for a defender lane (layer-ext RAMPARTS_PER_RATIO
+ * / MOBILITY_RAMPART_CAP): RAMPARTS_PER_RATIO permanent ramparts per 1.0 of
+ * gated lap reclaimed, never more than MOBILITY_RAMPART_CAP in total, and only
+ * ever while the incumbent is still failing the target. A room already inside
+ * the target still cannot spend a single rampart on a prettier ratio.
  */
-const MOBILITY_PREMIUM = 2;
+const MOBILITY_PREMIUM = MOBILITY_RAMPART_CAP;
+/** what this rung may spend, given what it reclaims against the base rung */
+const mobilityAllowance = (reclaimed) =>
+  reclaimed <= 0 ? 0 : Math.min(MOBILITY_RAMPART_CAP, Math.floor(RAMPARTS_PER_RATIO * reclaimed));
+/**
+ * How much shorter a rung's lap has to be before the declaration calls it an
+ * alternative. Below this the two enclosures are the same wall with a rounding
+ * difference, and reporting "a wider cut reaches 3.48 instead of 3.5" is noise.
+ */
+const MATERIAL_LAP = 0.25;
+const round2 = (v) => Math.round(v * 100) / 100;
 
 const rungRecord = (p, seedSkip, si) => ({
   seedSkip,
@@ -505,7 +554,38 @@ function attachRungProof(plan, trail) {
     // the rejected seeds, so nothing is lost by keeping the sentence readable
     const skip = plan.meta.seedSkip ?? 0;
     const mine = trail.filter((r) => r.seedSkip === skip);
+    const shipped = mobOf(plan);
+    const shippedRamparts = rampartsOf(plan);
+    // ------------------------------------------------------------------
+    // THE VERDICT IS READ OFF THE TABLE, NOT ASSERTED ABOVE IT.
+    //
+    // layer 2's cause template used to end "no cut of this basin can shorten
+    // it" whenever it diagnosed terrain — a claim about every enclosure the room
+    // admits, printed directly above a table of enclosures this room actually
+    // composed, 30 of which listed a COMPLETE rung with a materially shorter
+    // lap. E14S5 shipped 7.5 at 40 ramparts with rung 1 sitting in its own table
+    // at 1.5 for 43. The impossibility claim is gone from layer 2 (see the `why`
+    // strings there) and this is what replaces it: whatever the rungs say.
+    // ------------------------------------------------------------------
+    const better = mine
+      .filter((r) => r.complete && r.mobility < shipped - MATERIAL_LAP)
+      .sort((a, b) => a.mobility - b.mobility || a.ramparts - b.ramparts)[0];
     const best = (mine.length ? mine : trail).reduce((b, r) => (r.mobility < b.mobility ? r : b));
+    const verdict = better
+      ? `A WIDER CUT DOES SHORTEN IT, and it is in the table above: rung ${better.rung} ` +
+        `(needDeep+${better.needDeepBonus}) composed the whole RCL8 program at a lap of ${better.mobility} for ` +
+        `${better.ramparts} ramparts, ${better.ramparts - shippedRamparts} more than the ${shippedRamparts} this ` +
+        `room ships. That is over the ${mobilityAllowance(shipped - better.mobility)} rampart(s) the ` +
+        `${RAMPARTS_PER_RATIO}-per-1.0 mobility price allows for the ${round2(shipped - better.mobility)} of lap ` +
+        `it reclaims (cap ${MOBILITY_RAMPART_CAP}), so it was refused on upkeep-first policy — not on ` +
+        `impossibility. The trade is written down here so it can be argued with.`
+      : best.mobility > MOBILITY_TARGET
+        ? `No rung this room composed measured a materially shorter lap: the best of them is ${best.mobility} at ` +
+          `${best.ramparts} ramparts, still over the ${MOBILITY_TARGET} target. Within the enclosures this room ` +
+          `admits at a price it can pay, the lap is what it is.`
+        : `The best lap any of them measured is ${best.mobility} at ${best.ramparts} ramparts; it was refused ` +
+          `because the ${best.ramparts - shippedRamparts} extra rampart(s) exceed the ` +
+          `${RAMPARTS_PER_RATIO}-per-1.0 price mobility is allowed to pay (cap ${MOBILITY_RAMPART_CAP}).`;
     s.detail +=
       ` LADDER WALKED: ${mine.length} rung(s) of this seed` +
       (trail.length > mine.length ? ` (plus ${trail.length - mine.length} composition(s) on rejected seeds)` : "") +
@@ -517,51 +597,60 @@ function attachRungProof(plan, trail) {
             `mobility ${r.mobility}, ${r.ramparts} ramparts${r.complete ? "" : ", INCOMPLETE"}`,
         )
         .join(" · ") +
-      `. The best lap any of them measured is ${best.mobility} at ${best.ramparts} ramparts; ` +
-      (best.mobility > MOBILITY_TARGET
-        ? `no rung reaches the ${MOBILITY_TARGET} target at any price this room can pay`
-        : `it was refused because clearing the target there costs more than the ` +
-          `+${MOBILITY_PREMIUM}-rampart premium mobility is allowed to spend`) +
-      `.`;
+      `. ${verdict}`;
   }
   return plan;
 }
 
 /**
- * RUNTIME IS A SHORTFALL LIKE ANY OTHER.
+ * A SEARCH THAT WILL NOT CONVERGE IS A SHORTFALL LIKE ANY OTHER.
  *
  * The stated budget was "~200ms per room offline" and the fleet's real p50 is
- * ~450ms, because every room now composes up to four proof-carrying rungs
+ * around 450ms, because every room now composes up to four proof-carrying rungs
  * instead of one unexamined plan. That trade is defensible and it is written
- * down (docs/BASE-PLANNER-PERFECTION-GOAL.md); a room that takes more than a
- * WHOLE SECOND is a different thing — it is the ladder failing to converge, and
- * it should have to say so with the compositions that cost the time. E4S7 is
- * the standing example at ~2.4s across 8 seeds.
+ * down (docs/BASE-PLANNER-PERFECTION-GOAL.md). A room that composes MORE THAN
+ * ONE SEED'S WORTH of them is a different thing: no enclosure of the
+ * best-scoring confluence held the RCL8 program at any rung, so the planner
+ * walked down the ranked seed list, and every step of that walk is a complete
+ * shell negotiation plus the whole structure program. E4S7 is the standing
+ * example at 32 compositions across 8 seeds.
+ *
+ * WHY THIS IS NOT TRIGGERED ON THE CLOCK ANY MORE. It used to fire above 1000ms
+ * of wall time, and a wall clock is the one thing about a plan that is different
+ * on every run — so the declaration APPEARED AND DISAPPEARED between runs, the
+ * artifact never hashed the same twice, and "the planner is deterministic" was
+ * an unfalsifiable claim. Bucketing the prose did not fix that; the TRIGGER was
+ * the problem. The declaration is now keyed on the thing it was always actually
+ * about, which the planner controls and which is identical on every run: how
+ * many full compositions this room paid for. The stopwatch survives where it
+ * belongs — in the suite's own timing report and in the validator's note, both
+ * of which are console output that nothing hashes.
  *
  * A note, never a failure: the planner runs offline, so a slow room costs a
- * developer's patience and nothing in-game. The validator treats it the same
- * way (a note above 1000ms, not a fail).
+ * developer's patience and nothing in-game.
  */
-const RUNTIME_DECLARE_MS = 1000;
+const RUNTIME_DECLARE_COMPOSES = SHELL_ESCALATION.length;
 function declareRuntime(plan, trail) {
-  const ms = plan.meta.planMs ?? 0;
-  if (ms <= RUNTIME_DECLARE_MS) return;
+  if (trail.length <= RUNTIME_DECLARE_COMPOSES) return;
   plan.meta.shortfalls = plan.meta.shortfalls || [];
   const seeds = new Set(trail.map((r) => r.seedSkip)).size;
   const complete = trail.filter((r) => r.complete).length;
   plan.meta.shortfalls.push({
     gate: "runtime",
-    kind: "slow-room",
+    kind: "heavy-search",
     detail:
-      `PLANNING THIS ROOM TOOK ${ms}ms, over the ${RUNTIME_DECLARE_MS}ms line the suite declares at ` +
-      `(fleet p50 is roughly 450ms). The time is the escalation ladder, not a hot loop: this room ` +
-      `composed ${trail.length} full plan(s) across ${seeds} seed(s), of which ${complete} held the ` +
-      `whole RCL8 program, and it shipped from seed rank ${plan.meta.seedSkip ?? 0}. Each composition ` +
-      `is a complete shell negotiation plus the whole structure program, kept only if it measurably ` +
-      `beat the incumbent — that proof is exactly what the old sub-200ms budget was trading away. ` +
-      `The planner runs offline, so this is a note about developer patience, not about CPU in-game; ` +
-      `it is declared rather than hidden because a ladder that cannot converge is worth seeing.`,
-    runtime: { planMs: ms, compositions: trail.length, seeds, complete },
+      `THIS ROOM COMPOSED ${trail.length} COMPLETE PLANS across ${seeds} seed(s) — more than the ` +
+      `${RUNTIME_DECLARE_COMPOSES}-rung ladder a single seed is allowed, which is the line the suite ` +
+      `declares at. ${complete} of them held the whole RCL8 program, and it shipped from seed rank ` +
+      `${plan.meta.seedSkip ?? 0}. Each composition is a complete shell negotiation plus the whole ` +
+      `structure program, kept only if it measurably beat the incumbent — that proof is exactly what the ` +
+      `old sub-200ms budget was trading away, and it makes this one of the fleet's slowest rooms to plan. ` +
+      `The planner runs offline, so this is a note about developer patience, not about CPU in-game; it is ` +
+      `declared rather than hidden because a search that cannot settle on the best-scoring seat is worth ` +
+      `seeing. No wall-clock reading is quoted here on purpose: it differs on every run, and a plan that ` +
+      `hashes differently on every run cannot be checked for determinism at all. The suite prints the ` +
+      `milliseconds.`,
+    runtime: { compositions: trail.length, seeds, complete, seedSkip: plan.meta.seedSkip ?? 0 },
   });
 }
 
@@ -595,6 +684,7 @@ function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache)
   const shallowWalk = (first.meta?.extensions?.shallow ?? 0) >= ESCALATE_MIN;
   const demandWalk =
     !!first.meta?.extensions?.deepExhausted || (first.meta?.extensions?.corridorFallback ?? 0) > 0;
+  let noGainStreak = 0;
   if (shallowWalk || mobilityWalk || demandWalk) {
     for (let si = firstIdx + 1; si < SHELL_ESCALATION.length; si++) {
       const p = composePlan(d, { ...SHELL_ESCALATION[si], seedSkip, shellCache });
@@ -609,30 +699,44 @@ function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache)
       // cheaper upkeep, because upkeep is the first objective and mobility the
       // tiebreak — never the other way round
       const freeMobilityWin = rampartsOf(p) <= rampartsOf(win) && mobOf(p) < mobOf(win);
-      // ...with one bounded exception: the rung that actually CLEARS the target
-      // may cost up to MOBILITY_PREMIUM extra ramparts. A wall the garrison can
-      // lap is the difference between a defended perimeter and a decorated one,
-      // and two tiles of it is a price the fleet can pay. Note this can only
-      // fire while the incumbent is still failing — once a room is inside the
-      // target, nothing here will pay a single rampart for a prettier ratio.
-      const buysTheTarget =
-        mobOf(win) > MOBILITY_TARGET &&
-        mobOf(p) <= MOBILITY_TARGET &&
-        rampartsOf(p) <= rampartsOf(win) + MOBILITY_PREMIUM;
+      // ...with one bounded exception, priced rather than gated: while the
+      // incumbent is still failing the target, a rung may cost extra ramparts in
+      // proportion to the gated lap it RECLAIMS — see mobilityAllowance. Both
+      // sides are measured against `first`, the room's own cheapest composition,
+      // so the cap is a total and not a per-step allowance the ladder can spend
+      // four times over. A room already inside the target buys nothing here.
+      const reclaimed = mobOf(first) - mobOf(p);
+      const spend = rampartsOf(p) - rampartsOf(first);
+      const buysMobility =
+        mobOf(win) > MOBILITY_TARGET && mobOf(p) < mobOf(win) && spend <= mobilityAllowance(reclaimed);
       // A WALK THAT ONLY EXISTS TO SHORTEN THE LAP MAY NOT LENGTHEN IT. Without
       // this the rampart-first comparator turns a mobility search into a wall
       // sale: E17S9 walked for mobility, found a rung one rampart cheaper and
       // took it at 1.25 -> 2.0. A room walking for shallow structures or for
       // exhausted deep space is a different trade and keeps the old comparator.
       const mobilityRegression = !shallowWalk && !demandWalk && mobOf(p) > mobOf(win);
-      if ((buysTheTarget || cheaperUpkeep(p, win) || freeMobilityWin) && !mobilityRegression) {
+      if ((buysMobility || cheaperUpkeep(p, win) || freeMobilityWin) && !mobilityRegression) {
         win = p;
         winIdx = si;
       }
       // convex: the bill has started climbing again. A room still outside the
       // mobility target keeps walking anyway — the premium above can only be
       // spent by a rung we bothered to compose.
-      if (noGain && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break;
+      //
+      // ...AND THE CONVEXITY IS NOT EXACT, so the walk has one rung of patience.
+      // The near-convexity argument (cut grows monotonically with needDeep while
+      // personal ramparts fall, so the total is unimodal) is a tendency, not a
+      // theorem: E11S6 and E17S6 both have a FLAT rung 1 and a strictly cheaper
+      // rung 2 (28 ramparts against 36, eight personal ramparts deleted). They
+      // used to reach it by accident, because the ungated lap read 1.5 and the
+      // "still failing the target" escape hatch above kept the walk alive; the
+      // moment this file started reading the gated lap the accident stopped and
+      // they shipped nine shallow extensions each. The ladder has four rungs
+      // total, so one rung of patience costs at most one extra compose in the
+      // rooms that walk at all, and it is not an accident.
+      if (noGain) noGainStreak++;
+      else noGainStreak = 0;
+      if (noGainStreak > NO_GAIN_PATIENCE && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break;
     }
   }
   win.meta.shellEscalation = {

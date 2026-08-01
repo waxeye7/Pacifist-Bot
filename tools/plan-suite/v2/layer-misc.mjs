@@ -236,6 +236,23 @@ export function planMisc(terrain, plan) {
       extractor: extractor.length,
       mineralContainer: mineralContainer.length,
       mineralBubble: bubbles.length,
+      // ------------------------------------------------------------------
+      // THE MINER'S SEAT IS OFF THE ROAD NET ON PURPOSE, AND SAYS SO IN META.
+      //
+      // Mineral hauling is a trickle: one deposit, a long cooldown, a hauler
+      // that goes when the terminal wants it. Paving to it would cost road
+      // decay forever to save a handful of ticks a week, so this layer grows
+      // no road to the seat — a deliberate omission that has, until now, been
+      // recorded only in a source comment. Every automated reader of the plan
+      // (the road-network check, the gallery, a future consumer) sees a
+      // container that is not on the network and has no way to tell "by
+      // design" from "bug". So it is a FIELD, next to the numbers, and the
+      // validator's structures-off-network check reads it.
+      // ------------------------------------------------------------------
+      mineralOffNetwork: mineralContainer.length > 0,
+      mineralOffNetworkWhy:
+        "no road by design — mineral hauling is one trickle deposit on a long cooldown, " +
+        "and permanent road decay to reach it costs more than the walk it saves",
       factory: 0,
       powerSpawn: 0,
     },

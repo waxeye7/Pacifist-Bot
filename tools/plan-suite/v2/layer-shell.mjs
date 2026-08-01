@@ -1479,15 +1479,40 @@ export function planShell(terrain, plan, opts = {}) {
     if (walkable(terrain, x, y)) ctrlRing.push({ x, y });
   }
   const enclosedController = !outside(ctrlLink) && ctrlRing.every((p) => !outside(p));
+  // ------------------------------------------------------------------
+  // "ENCLOSED" MEANT TWO DIFFERENT THINGS AND THE HEADLINE TOOK THE FLATTERING
+  // ONE.
+  //
+  // The controller's verdict has always been strict: its LINK and every walkable
+  // tile of its ring must be inside. A source's verdict tested only the works —
+  // its container and its link — so a source whose seat is inside the wall and
+  // whose remaining three walkable ring tiles are outside it counted as
+  // enclosed, and the fleet headline said 174/318. That is a real and useful
+  // number (the works are what an attacker actually breaks), but it is not what
+  // "enclosed source" sounds like: an attacker standing on an unwalled ring tile
+  // is standing next to our miner.
+  //
+  // Both are computed, both are reported, and the STRICT one is the headline —
+  // the same rule the controller is held to.
+  // ------------------------------------------------------------------
   let enclosedSources = 0;
+  let enclosedSourceWorks = 0;
   const srcEnclosed = plan.sources.map((s) => {
     const mine = [
       ...plan.structures.container.filter((c) => chebyshev(c, s) <= 1),
       ...srcLinks.filter((l) => chebyshev(l, s) <= 2),
     ];
-    const ok = mine.length > 0 && mine.every((p) => !outside(p));
-    if (ok) enclosedSources++;
-    return ok;
+    const works = mine.length > 0 && mine.every((p) => !outside(p));
+    if (works) enclosedSourceWorks++;
+    const ring = [];
+    for (const [dx, dy] of D8) {
+      const x = s.x + dx,
+        y = s.y + dy;
+      if (walkable(terrain, x, y)) ring.push({ x, y });
+    }
+    const strict = works && ring.every((p) => !outside(p));
+    if (strict) enclosedSources++;
+    return strict;
   });
 
   // --- bubbles: eco works the shell does NOT cover get personal ramparts ---
@@ -1706,13 +1731,31 @@ export function planShell(terrain, plan, opts = {}) {
   // measurement to record — and `mobility` records it either way.
   if (mobility.maxGated > MOBILITY_TARGET && mobility.worstGated) {
     const { a, b, din, dout } = mobility.worstGated;
+    // ------------------------------------------------------------------
+    // THE CAUSE IS DIAGNOSED HERE; WHETHER ANOTHER ENCLOSURE BEATS IT IS NOT.
+    //
+    // These strings used to end in claims about every cut this room admits —
+    // "no cut of this basin can shorten it", "no candidate enclosure within the
+    // wall budget closes that bay". This function sees exactly ONE enclosure and
+    // has no standing to say that; the pipeline owns the escalation ladder and
+    // staples the composed rungs to this very declaration (attachRungProof), and
+    // in 30 rooms that table listed a COMPLETE rung with a materially shorter lap
+    // directly underneath the impossibility claim. E14S5 printed "no cut of this
+    // basin can shorten it" at 7.5 above a rung that measured 1.5.
+    //
+    // So the diagnosis stays — it is a real measurement, taken by re-walking with
+    // structures removed and then with interior walls removed — and the verdict
+    // on alternatives is left to the layer that actually composed them.
+    // ------------------------------------------------------------------
     const why = {
       terrain:
         `a natural wall inside the enclosure forces the detour — with interior walls ignored the same ` +
-        `walk is short, so no cut of this basin can shorten it; the room is a ring around a mountain`,
+        `walk is short, so the length is the basin's shape and not the mass inside it; the room is a ` +
+        `ring around a mountain`,
       shape:
         `the enclosure is concave here and the attacker is cutting across a bay the defender must walk ` +
-        `around; no candidate enclosure within the wall budget closes that bay`,
+        `around — with structures removed AND with interior walls removed the walk stays long, so it is ` +
+        `the outline of this cut, not its contents`,
       structures:
         `the planner's own mass is in the way — the same walk is short with structures removed. The ` +
         `shell does not own the extension/road layers, so this one is a lead for them, not a shell miss`,
@@ -1818,7 +1861,13 @@ export function planShell(terrain, plan, opts = {}) {
       priceyWall,
       baseCut,
       enclosedController,
+      // strict: works inside AND every walkable ring tile inside (the headline)
       enclosedSources,
+      // the older, looser reading: the container and link are inside, whatever
+      // the ring does. Kept because it is the number a besieger's shopping list
+      // actually cares about, and because dropping a metric to make a new one
+      // look good is its own kind of dishonesty.
+      enclosedSourceWorks,
       srcEnclosed,
       // interior lap ÷ exterior lap over pairs of wall tiles. max is the
       // owner's gate (<= 1.2); p90/mean say whether the whole wall is slow or

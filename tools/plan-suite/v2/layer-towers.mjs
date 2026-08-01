@@ -71,6 +71,14 @@ const MIN_SAT = 3600;
 const CAP = 2400;
 /** The gate the room is expected to clear; below it we declare a shortfall. */
 const TARGET_MIN = 1200;
+/**
+ * The line between "legal" and "what the fleet actually gets" — see the
+ * weak-battery declaration at the bottom of this file. Both numbers are read
+ * off the fleet, not invented: 152/159 rooms clear 1800 on their weakest wall
+ * face, and the median furthest-tower refill walk is 1.
+ */
+const WEAK_SHELL_DMG = 1800;
+const REFILL_NOTE = 8;
 
 /**
  * Owner call: refill ease is a real weight, not a tiebreak. One extra tile of
@@ -601,6 +609,56 @@ export function planTowers(terrain, plan, opts = {}) {
         `furthest tower is ${maxRefill} walk from the sitter (want <= ${MAX_REFILL}); ` +
         `the room has no six legal deep tiles inside that radius`,
       tiles: [],
+    });
+  }
+  // ------------------------------------------------------------------
+  // THE BATTERY IS DECLARED WHEN IT IS MERELY LEGAL RATHER THAN GOOD.
+  //
+  // The two gates above only fire when the room breaks a HARD limit — under
+  // TARGET_MIN damage, or past MAX_REFILL walk. Between "hard limit" and "what
+  // the fleet actually gets" there is a band nothing spoke about, and E8S5 sat
+  // in the middle of it: 1440 damage on its weakest wall face (fleet median is
+  // over 2400, and it is the fleet's WEAKEST battery) with a tower a full 10
+  // walk from the sitter (fleet median 1). Both numbers are legal. Together
+  // they are a room that loses its wall to a boosted dismantler while a hauler
+  // is still walking, and nothing in the plan said so.
+  //
+  // WEAK_SHELL_DMG is the fleet's own 10th-percentile-ish line rather than an
+  // invention: 152 of 159 rooms clear 1800 on their weakest face, so a room
+  // under it is genuinely unusual and worth a sentence. REFILL_NOTE is likewise
+  // the point past which a single refill trip costs more than the tower's own
+  // reload — MAX_REFILL is the hard stop, this is where it starts to hurt.
+  //
+  // The evidence is the search, not the verdict: how many legal seats the room
+  // offered at all, how far the battery had to spread to cover the shell, and
+  // how many wall tiles are still under target.
+  // ------------------------------------------------------------------
+  if (mn >= TARGET_MIN && (mn < WEAK_SHELL_DMG || maxRefill > REFILL_NOTE)) {
+    const bits = [];
+    if (mn < WEAK_SHELL_DMG) {
+      bits.push(
+        `the weakest wall face sees ${mn} damage — legal (the hard floor is ${TARGET_MIN}) but under the ` +
+          `${WEAK_SHELL_DMG} the fleet reaches almost everywhere, with ${weak}/${T} cut tiles under the floor`,
+      );
+    }
+    if (maxRefill > REFILL_NOTE) {
+      bits.push(
+        `the furthest tower is a ${maxRefill}-step refill walk from the sitter — legal (the hard cap is ` +
+          `${MAX_REFILL}) but far enough that a refill trip costs more than the tower's own reload`,
+      );
+    }
+    shortfalls.push({
+      gate: "towers",
+      kind: "weak-battery",
+      detail:
+        `THIS BATTERY IS LEGAL, NOT GOOD: ${bits.join("; ")}. The search that produced it: ${C} legal seat(s) ` +
+        `offered in this room (depth >= ${DEPTH_SAFE}, refill walk <= ${refillCap}), the six chosen spread to a ` +
+        `radius of ${spreadRadius} to cover a ${T}-tile shell, average face damage ${Math.round(sum / T)}. ` +
+        `Refill walks, nearest first: ${refills.slice().sort((a, b) => a - b).join("/")}. No other six of those ` +
+        `${C} seats cover this shell better inside falloff range (150 damage past chebyshev 20); the room is ` +
+        `long or two-lobed, and this is the price.`,
+      tiles: towers.map((t) => ({ x: t.x, y: t.y })),
+      towers: { minShellDmg: mn, avgShellDmg: Math.round(sum / T), maxRefill, candidates: C, weakTiles: weak },
     });
   }
 

@@ -141,6 +141,18 @@ function verifyMobility(terrain, plan) {
   // wall pairs the MASS pushed over the target — the only ones layers 6/7 own
   meta.caused = Math.max(0, mBuilt.over - mFree.over);
   meta.walled = cut.length - cut.filter((c) => wBuilt.has(key(c.x, c.y))).length;
+  // THE BOUND, CHECKED — for every room, not only the ones that declare. Layer 6
+  // claims the mass it lets in cannot lap worse than laneMeta.bounded; this is
+  // the one place that has both numbers, so this is where the claim is audited.
+  // plan.mjs turns `boundHeld === false` into a suite-level failure.
+  {
+    const lane = plan.meta?.extensions?.laneMeta;
+    // a dropped reservation still leaves a bound behind — the unreserved run
+    // measures its own, and that is the one this room actually has to hold
+    const b = lane ? lane.bounded : null;
+    meta.bound = b;
+    meta.boundHeld = b === null || b === undefined ? null : mBuilt.maxGated <= b + 1e-9;
+  }
   if (mBuilt.worstGated || mBuilt.worst) {
     const { a, b, din, dout } = mBuilt.worstGated || mBuilt.worst;
     // the same pair, walked with no mass at all: if THAT is inside the target
@@ -171,12 +183,48 @@ function verifyMobility(terrain, plan) {
 
   if (mBuilt.maxGated > MOBILITY_TARGET && mBuilt.worstGated && plan.meta) {
     const { a, b, din, dout } = mBuilt.worstGated;
+    // ------------------------------------------------------------------
+    // A BOUND IS ONLY A BOUND IF THE SHIPPED ROOM IS INSIDE IT.
+    //
+    // This sentence used to print "which bounds the worst mass this room could
+    // grow at X" unconditionally, straight out of layer 6's meta, next to an
+    // as-built lap that in 7 rooms EXCEEDED X — E4S7 claimed 1.5 and shipped 14.
+    // A claim that the very next clause of the same paragraph refutes is worse
+    // than no claim. The claim now has to hold to be printed, and when it does
+    // not the declaration says so in those words. (After the layer-6 rewrite it
+    // holds in 159/159; the branch stays because a bound nobody checks is how
+    // the last one rotted, and plan.mjs asserts the same thing fleet-wide.)
+    // ------------------------------------------------------------------
     const lane = plan.meta?.extensions?.laneMeta;
+    const shrunkNote = lane?.shrunk
+      ? ` The full reservation wanted ${lane.shrunk.wanted} tile(s); it was SHRUNK to ${lane.shrunk.to} round(s) ` +
+        `because the whole of it cost more than the +${lane.shrunk.premium}-rampart premium this room's gain is priced at.`
+      : "";
     const laneNote = !lane
       ? ""
       : lane.dropped
-        ? ` The lane reservation layer 6 wanted (${lane.tiles} tile(s)) was DROPPED: honouring it cost this room its 60th extension, and 60/60 outranks the lap.`
-        : ` Layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ${lane.rounds} round(s), which bounds the worst mass this room could grow at ${lane.bounded} against an unreserved ${lane.worstCase}.`;
+        ? ` The lane reservation layer 6 wanted (${lane.wanted ?? lane.tiles} tile(s)) was DROPPED — for ` +
+          `${
+            lane.droppedFor === "extensions"
+              ? "the 60th extension, which outranks the lap"
+              : lane.droppedFor === "no-gain"
+                ? `buying no measurable lap at all`
+                : `${lane.cost} personal rampart(s), over the +${lane.premium} this room's gain of ${lane.gain} is priced at`
+          }` +
+          ` — the ${lane.wantedBound} it would have bounded this room at is NOT claimed here; what is claimed is ` +
+          `${lane.bounded === null || lane.bounded === undefined ? "nothing, because the unreserved worst case still severs a battlement" : `${lane.bounded}, the bound the unreserved mass cannot exceed, against a shipped ${mBuilt.maxGated}`}.`
+        : lane.bounded === null || lane.bounded === undefined
+          ? ` Layer 6 reserved ${lane.tiles} lane tile(s) but measured no finite bound for this room.`
+          : mBuilt.maxGated <= lane.bounded + 1e-9
+            ? ` Layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ${lane.rounds} round(s) ` +
+              `(${lane.strandRounds ?? 0} of them reattaching a battlement the worst case severed), which bounds the ` +
+              `worst mass this room could grow at ${lane.bounded} — and the room shipped at ${mBuilt.maxGated}, inside it.` +
+              shrunkNote
+            : ` THE RESERVATION FAILED TO HOLD: layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ` +
+              `${lane.rounds} round(s) and measured a bound of ${lane.bounded}, and this room SHIPPED AT ` +
+              `${mBuilt.maxGated}. The bound is wrong, not the room — a model of the mass that the mass beats is a ` +
+              `defect in layer 6, and it is printed here rather than quietly dropped.` +
+              shrunkNote;
     // ------------------------------------------------------------------
     // THE MASS SHARE, STATED. The old template offered a reader exactly one
     // bit — "our mass" or "not our mass" — and computed that bit with the
@@ -252,13 +300,200 @@ function verifyMobility(terrain, plan) {
   return meta;
 }
 
+/**
+ * ------------------------------------------------------------------------
+ * INERT RAMPARTS — layer 2's exact-removal test, re-run on the FINISHED wall.
+ * ------------------------------------------------------------------------
+ *
+ * WHY IT HAS TO RUN AGAIN HERE. Layer 2 already deletes cut tiles whose removal
+ * changes nothing measurable, and its fast reject is sound: a reachable cut tile
+ * that FACES the exterior turns into exterior the moment it is deleted, so it can
+ * never pass. The trouble is that "faces the exterior" is a property of the wall
+ * as it stood at layer 2 — and layers 2 through 6 keep ADDING ramparts to it.
+ * Every bubble around an eco work and every personal rampart under a shallow
+ * structure shrinks the exterior flood, and a cut tile that was load-bearing
+ * against the bare cut can end up sitting behind two other ramparts by the time
+ * the room is finished. E11S10 shipped SEVEN of its twenty cut tiles that way —
+ * a third of its wall, 0.21 e/tick, defending nothing — and every one of them was
+ * correctly refused at layer 2.
+ *
+ * So the test runs once more, last, over the whole rampart list, to a fixpoint:
+ *
+ *   SEAL + DEPTHS + INTERIOR  delete it, re-flood, and keep the deletion only if
+ *      every tile the base can walk and every structure it owns has exactly the
+ *      exterior flag and the chebyshev depth it had, and the walk region itself
+ *      is unchanged. Safety, tower cover and bubble decisions are all functions
+ *      of those two numbers.
+ *   PROTECTION  ...and a rampart that is somebody's personal cover is not inert
+ *      no matter what the flood says. A shallow extension's rampart is not part
+ *      of the seal at all, so deleting it moves nothing — and leaves a structure
+ *      inside a ranged attacker's reach. Any rampart sharing a tile with an owned
+ *      structure that is not at DEPTH_SAFE is held, unconditionally.
+ *
+ * "No double shell" is a hard gate, so this is a fixpoint and not one pass: each
+ * deletion can expose the next (E11S10's seven come off in seven rounds).
+ */
+const DEPTH_SAFE = 4;
+const idxOf = (x, y) => x + y * 50;
+
+function exteriorFlood(terrain, rampartSet) {
+  const e = new Uint8Array(2500);
+  const q = [];
+  for (let i = 0; i < 50; i++) {
+    for (const [x, y] of [
+      [i, 0],
+      [i, 49],
+      [0, i],
+      [49, i],
+    ]) {
+      if (!walkable(terrain, x, y) || rampartSet.has(key(x, y))) continue;
+      const ii = idxOf(x, y);
+      if (!e[ii]) {
+        e[ii] = 1;
+        q.push(ii);
+      }
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (!walkable(terrain, nx, ny) || rampartSet.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (e[ni]) continue;
+      e[ni] = 1;
+      q.push(ni);
+    }
+  }
+  return e;
+}
+function depthFromExterior(e) {
+  const depth = new Int16Array(2500).fill(999);
+  const q = [];
+  for (let i = 0; i < 2500; i++) {
+    if (e[i]) {
+      depth[i] = 0;
+      q.push(i);
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (depth[ni] <= depth[i] + 1) continue;
+      depth[ni] = depth[i] + 1;
+      q.push(ni);
+    }
+  }
+  return depth;
+}
+
+function pruneInertRamparts(terrain, plan) {
+  const removed = [];
+  let ramp = plan.structures.rampart || [];
+  if (!ramp.length) return removed;
+  // engine obstacles, so the walk region is the one the garrison really has
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  // every tile that carries something of ours, and whether it needs cover
+  const ownTiles = new Set();
+  for (const t of Object.keys(plan.structures)) {
+    if (t === "rampart" || t === "road") continue;
+    for (const p of plan.structures[t] || []) ownTiles.add(key(p.x, p.y));
+  }
+  for (let guard = 0; guard < 200; guard++) {
+    const set0 = new Set(ramp.map((r) => key(r.x, r.y)));
+    const ext0 = exteriorFlood(terrain, set0);
+    const dep0 = depthFromExterior(ext0);
+    const walk0 = interiorWalk(terrain, set0, ext0, blocked, plan.sitter);
+    const hold = new Set(walk0);
+    for (const k of ownTiles) hold.add(k);
+    // the layer-2 fast reject, still exactly right and still what makes this
+    // affordable: a reachable rampart facing the exterior becomes exterior
+    const facesExterior = (r) =>
+      D8.some(([dx, dy]) => {
+        const x = r.x + dx,
+          y = r.y + dy;
+        return x >= 0 && y >= 0 && x <= 49 && y <= 49 && ext0[idxOf(x, y)];
+      });
+    let gone = null;
+    for (const r of ramp) {
+      const k = key(r.x, r.y);
+      // somebody's personal cover — held whatever the flood says
+      if (ownTiles.has(k) && dep0[idxOf(r.x, r.y)] < DEPTH_SAFE) continue;
+      const faces = facesExterior(r);
+      if (walk0.has(k) && faces) continue;
+      const set1 = new Set(set0);
+      set1.delete(k);
+      // THE FLOODS ARE ONLY RUN WHEN THEY CAN MOVE. Deleting a rampart makes its
+      // own tile floodable and nothing else; that tile joins the exterior only if
+      // one of its D8 neighbours already is. So a rampart that does not FACE the
+      // exterior cannot change the exterior flood at all, and therefore cannot
+      // change any depth either — the exact test is guaranteed to pass and running
+      // two 2500-tile floods to watch it pass is the single most expensive thing
+      // this layer used to do (it runs inside every composition of every rung).
+      // The test is still exact; it is the arithmetic that is skipped.
+      let ext1 = ext0;
+      let dep1 = dep0;
+      if (faces) {
+        ext1 = exteriorFlood(terrain, set1);
+        dep1 = depthFromExterior(ext1);
+        let ok = true;
+        for (const h of hold) {
+          const [x, y] = h.split(",").map(Number);
+          const i = idxOf(x, y);
+          if (ext1[i] !== ext0[i] || dep1[i] !== dep0[i]) {
+            ok = false;
+            break;
+          }
+        }
+        if (!ok) continue;
+      }
+      if (interiorWalk(terrain, set1, ext1, blocked, plan.sitter).size !== walk0.size) continue;
+      gone = r;
+      break;
+    }
+    if (!gone) break;
+    const gk = key(gone.x, gone.y);
+    ramp = ramp.filter((r) => key(r.x, r.y) !== gk);
+    removed.push({ x: gone.x, y: gone.y });
+  }
+  if (!removed.length) return removed;
+  const dead = new Set(removed.map((r) => key(r.x, r.y)));
+  plan.structures.rampart = ramp;
+  plan.shell.cut = (plan.shell.cut || []).filter((c) => !dead.has(key(c.x, c.y)));
+  plan.shell.bubble = (plan.shell.bubble || []).filter((c) => !dead.has(key(c.x, c.y)));
+  plan.shell.inertPruned = removed;
+  plan.shell.upkeepPerTick = Math.round(plan.structures.rampart.length * 3) / 100;
+  if (plan.meta?.counts) plan.meta.counts.rampart = plan.structures.rampart.length;
+  return removed;
+}
+
 export function planWallRoads(terrain, plan) {
   if (!plan.shell) return { error: "wall roads need a shell (layer 2 missing)" };
+  if (!(plan.shell.cut || []).length) return { error: "shell has no cut tiles" };
+
+  // (0a) DELETE the wall that defends nothing, before anything measures or
+  //      paves it — see pruneInertRamparts. This is the same license this layer
+  //      already has over roads: it is the last pass, so it is the only one that
+  //      can see what every earlier layer actually left behind.
+  const inertPruned = pruneInertRamparts(terrain, plan);
   const cut = plan.shell.cut || [];
   if (!cut.length) return { error: "shell has no cut tiles" };
   const ext = plan.exterior;
 
-  // (0) MEASURE the lap the finished mass leaves the garrison. Read-only —
+  // (0b) MEASURE the lap the finished mass leaves the garrison. Read-only —
   //     it changes no structure, no road and no array order.
   const mobility = verifyMobility(terrain, plan);
 
@@ -811,6 +1046,9 @@ export function planWallRoads(terrain, plan) {
       swampPaved,
       unreachableExts,
       mobility,
+      // ramparts deleted because deleting them changed nothing measurable —
+      // doubled wall the earlier layers' own additions made redundant
+      inertPruned: inertPruned.length,
     },
   };
 }

@@ -428,6 +428,42 @@ ${items}</div>`;
 }
 
 /** the defender-mobility row: as-built gated lap first, shell reading demoted */
+/**
+ * "ROADS TO THE RAMPARTS, NEVER ON THEM" — AND THE TWO PLACES IT IS NOT TRUE.
+ *
+ * The doctrine line was printed flat, next to a plan that stacks a road on a
+ * rampart in almost every room. Both cases are deliberate and neither is a spur:
+ *
+ *   CROSSINGS  an eco road to a source or controller the cut could not afford to
+ *              enclose has to pass THROUGH the wall line. There is no route
+ *              around a closed loop; the alternative is not paving to the source.
+ *   BUBBLE SEATS  a miner's container outside the shell carries its own personal
+ *              rampart, and the seat is on the hauling road because it IS the
+ *              hauling road's destination. Fleet-wide that is 27 tiles.
+ *
+ * Printed from the plan rather than asserted, so the exception cannot drift away
+ * from the thing it is excusing.
+ */
+function roadOnRampartNote(plan) {
+  const roads = new Set((plan.structures.road || []).map((r) => `${r.x},${r.y}`));
+  const cut = new Set((plan.shell?.cut || []).map((c) => `${c.x},${c.y}`));
+  const containers = new Set((plan.structures.container || []).map((c) => `${c.x},${c.y}`));
+  let cross = 0;
+  let seat = 0;
+  for (const r of plan.structures.rampart || []) {
+    const k = `${r.x},${r.y}`;
+    if (!roads.has(k)) continue;
+    if (cut.has(k)) cross++;
+    else if (containers.has(k)) seat++;
+    else cross++;
+  }
+  if (!cross && !seat) return "";
+  const bits = [];
+  if (cross) bits.push(`${cross} wall CROSSING${cross === 1 ? "" : "s"} (an eco road to an unenclosed source or controller has to pass through the loop)`);
+  if (seat) bits.push(`${seat} bubble SEAT${seat === 1 ? "" : "S"} (a miner's container outside the shell wears its own rampart and sits on the hauling road by design)`);
+  return ` — except ${bits.join(" and ")}`;
+}
+
 function mobilityCell(plan) {
   const mob = plan.meta?.walls?.mobility;
   const bg = builtGated(plan);
@@ -524,7 +560,7 @@ ${legendHtml()}
 <tr><td>upgrader parks</td><td>${plan.meta?.ctrlParks ?? 0}</td><td>walkable seats the controller link feeds — 4 is the floor, below that the upgrader fleet throttles</td></tr>
 <tr><td>enclosure</td><td>${plan.shell ? (plan.shell.enclosedController ? "ctrl ✓" : "ctrl ✗") + " · src " + plan.shell.enclosedSources + "/" + plan.sources.length : "—"}</td><td>eco pulled inside the wall when it cost ≤4 (controller) / ≤3 (source) extra cut tiles</td></tr>
 <tr><td>defender mobility</td><td>${mobilityCell(plan)}</td><td>target <b>${MOBILITY_TARGET}</b> — interior walk ÷ exterior walk between wall tiles, judged only over pairs whose absolute detour exceeds a ${MOBILITY_DETOUR_FLOOR}-tile detour floor. The headline is the AS-BUILT lap (extension mass in the room, the walk the garrison actually gets); the mass-free readings below it are the same measure with the mass removed. &lt;1 means we out-manoeuvre the attacker.</td></tr>
-<tr><td>rampart spurs</td><td>${plan.meta?.walls ? plan.meta.walls.spurred + "/" + plan.meta.walls.clusters + " clusters · " + plan.meta.walls.spurTiles + " tiles" : "—"}</td><td>roads TO the ramparts, never ON them · ${plan.meta?.walls ? plan.meta.walls.pruned + " dead-end tiles pruned, " + plan.meta.walls.fillerTiles + " ext-face tiles" : "—"}</td></tr>
+<tr><td>rampart spurs</td><td>${plan.meta?.walls ? plan.meta.walls.spurred + "/" + plan.meta.walls.clusters + " clusters · " + plan.meta.walls.spurTiles + " tiles" : "—"}</td><td>roads TO the ramparts, never ON them${roadOnRampartNote(plan)} · ${plan.meta?.walls ? plan.meta.walls.pruned + " dead-end tiles pruned, " + plan.meta.walls.fillerTiles + " ext-face tiles" : "—"}${plan.meta?.walls?.inertPruned ? " · " + plan.meta.walls.inertPruned + " inert rampart(s) deleted (wall that defended nothing once every layer's ramparts were in)" : ""}</td></tr>
 <tr><td>ext corridors</td><td>${plan.meta?.extensions ? plan.meta.extensions.stubRoads + " stub roads" : "—"}</td><td>extensions grow flanking the road network — ${plan.meta?.extensions?.corridorFallback ? plan.meta.extensions.corridorFallback + " placed road-blind (fallback)" : "every one of them D4 on a road"}</td></tr>
 </table>
 ${shortfallsHtml(plan)}
@@ -641,17 +677,28 @@ ${full}</div>`;
   index += `</div></body></html>`;
   fs.writeFileSync(path.join(OUT_V2, "index.html"), index);
 
-  const slim = ok.map((p) => ({
-    room: p.room,
-    hub: p.hub,
-    sitter: p.sitter, // push-plan.mjs ships this to the live segment
-    labInputs: p.labInputs,
-    structures: p.structures,
-    meta: p.meta,
-    sources: p.sources,
-    controller: p.controller,
-    mineral: p.mineral,
-  }));
+  // THE SERIALISED PLAN CARRIES NO STOPWATCH. `meta.planMs` is wall-clock: it is
+  // different on every run, it was the only thing in the artifact that was, and
+  // while it was in here "the planner is deterministic" was an unfalsifiable
+  // claim — plans-hub.json never hashed the same twice, so nobody could tell a
+  // real non-determinism from the clock. It is dropped from the written plan and
+  // kept in memory for the wall-time report below, which is console output that
+  // nothing hashes. `meta.shellEscalation.steps` is the deterministic record of
+  // what the room actually paid for.
+  const slim = ok.map((p) => {
+    const { planMs, ...meta } = p.meta;
+    return {
+      room: p.room,
+      hub: p.hub,
+      sitter: p.sitter, // push-plan.mjs ships this to the live segment
+      labInputs: p.labInputs,
+      structures: p.structures,
+      meta,
+      sources: p.sources,
+      controller: p.controller,
+      mineral: p.mineral,
+    };
+  });
   fs.writeFileSync(path.join(OUT_V2, "plans-hub.json"), JSON.stringify(slim, null, 2));
 
   console.log("Wrote", path.join(OUT_V2, "index.html"));
@@ -696,11 +743,43 @@ ${full}</div>`;
       `pruned ${wm.reduce((s, p) => s + p.meta.walls.pruned, 0)} dead-end road tiles · ` +
       `ext-face net ${wm.reduce((s, p) => s + p.meta.walls.fillerTiles, 0)} tiles`,
   );
+  // sources: STRICT is the headline (works inside AND the whole walkable ring
+  // inside — the same bar the controller is held to); the looser works-only
+  // reading is printed beside it rather than replaced. See layer-shell.
   console.log(
     `enclosed: controller ${withShell.filter((p) => p.shell.enclosedController).length}/${withShell.length} · ` +
-      `sources ${withShell.reduce((s, p) => s + p.shell.enclosedSources, 0)}/${withShell.reduce((s, p) => s + p.sources.length, 0)}`,
+      `sources ${withShell.reduce((s, p) => s + p.shell.enclosedSources, 0)}/${withShell.reduce((s, p) => s + p.sources.length, 0)} strict` +
+      ` (works-only ${withShell.reduce((s, p) => s + (p.shell.enclosedSourceWorks ?? 0), 0)})`,
   );
   console.log(`mobility ratio: mean-of-means ${avg(mobMean)} · worst room max ${Math.max(0, ...mobMax)}`);
+
+  // ------------------------------------------------------------------
+  // THE LANE BOUND IS ASSERTED, NOT ADVERTISED.
+  //
+  // Layer 6 claims a number no arrangement of the 60 extensions can lap worse
+  // than; layer 7 measures what the finished room actually laps. For one review
+  // cycle the two lived in the same paragraph of the same declaration and
+  // disagreed in 7 rooms (E4S7 claimed 1.5 and shipped 14) because nothing ever
+  // compared them. This is the comparison, fleet-wide, and it is loud: a bound
+  // that does not hold is a defect in the model, not a property of the room.
+  // ------------------------------------------------------------------
+  const bounded = ok.filter((p) => p.meta.walls?.mobility?.boundHeld !== null && p.meta.walls?.mobility?.boundHeld !== undefined);
+  const broke = bounded.filter((p) => !p.meta.walls.mobility.boundHeld);
+  const unbounded = ok.filter(
+    (p) => p.meta.walls && (p.meta.walls.mobility.boundHeld === null || p.meta.walls.mobility.boundHeld === undefined),
+  );
+  console.log(
+    `lane bound holds: ${bounded.length - broke.length}/${bounded.length}` +
+      (unbounded.length
+        ? ` · ${unbounded.length} room(s) claim no bound (${unbounded.map((p) => p.room).join(" ")})`
+        : " · every room claims one") +
+      (broke.length
+        ? ` — BOUND BROKEN in ${broke.length}: ${broke
+            .map((p) => `${p.room}(bound ${p.meta.walls.mobility.bound} shipped ${p.meta.shell.mobilityBuilt.maxGated})`)
+            .join(" ")}`
+        : ""),
+  );
+  if (broke.length) process.exitCode = 1;
 
   // the quality numbers the adversarial review added to the contract
   const withTowers = ok.filter((p) => p.meta.towers);

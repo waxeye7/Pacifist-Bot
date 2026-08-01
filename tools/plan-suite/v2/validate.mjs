@@ -194,6 +194,12 @@ const DEPTH_SAFE = 4;
 /** planRoom wall time past which a room gets a NOTE (never a fail) — see the
  *  runtime block at the bottom of checkRoom. Fleet p50 is roughly 450ms. */
 const RUNTIME_NOTE_MS = 1000;
+/** ...and the deterministic reading of the same thing: one seed's ladder is 4
+ *  compositions, so more than that means the seed list was walked. */
+const RUNTIME_NOTE_COMPOSES = 4;
+/** the "legal but not good" band a battery has to declare in — see below */
+const WEAK_SHELL_DMG = 1800;
+const REFILL_NOTE = 8;
 /** hub link + one per source + controller link. Below this the link network
  *  is not a network — a source hauls its energy by creep, forever. */
 const MIN_LINKS = 4;
@@ -360,6 +366,14 @@ const normGate = (g) => GATE_ALIAS[String(g || "").toLowerCase()] || String(g ||
  * six of them are the room's entire answer to a siege. There is no note that
  * makes that right, so `{gate:"towers", kind:"shallow-tower"}` is not a
  * declaration, it is laundering, and it is refused here.
+ *
+ * Note what this list does and does not say. It refuses to let a declaration
+ * EXCUSE a violation on these gates; it does not forbid the channel. Layer 3
+ * files `{gate:"towers", kind:"weak-battery"}` on rooms whose battery is legal
+ * but poor (under 1800 damage on the weakest face, or a refill walk over 8) —
+ * there is no violation there for it to launder, and a room that ships the
+ * fleet's weakest wall face in silence is exactly the failure mode the
+ * shortfall channel exists for. It is still held to the evidence rule below.
  */
 const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "towers"]);
 
@@ -843,6 +857,44 @@ export function checkRoom(plan, terrain, objects) {
   for (const f of raw) (excused(f) ? notes : fails).push(f.msg);
 
   // ------------------------------------------------------------------
+  // A BATTERY THAT IS MERELY LEGAL HAS TO SAY SO.
+  //
+  // Everything above this line is re-derived from terrain and geometry, on the
+  // principle that the validator never trusts the planner's own meta. This check
+  // deliberately does trust it, and the trust runs the SAFE way: it reads the
+  // planner's own tower numbers and fails the room when they are poor and the
+  // plan said nothing. A planner that lied about its damage would not be caught
+  // here — but a planner that measured 1440 on its weakest wall face, the worst
+  // in the fleet, and shipped it in silence is exactly what this catches, and
+  // that is what actually happened (E8S5).
+  //
+  // Not routed through `fail()`: gate "towers" is UNDECLARABLE for shallow
+  // towers, so a violation raised on that gate could never be excused by
+  // anything and the room would fail no matter what it declared. This is the
+  // opposite shape — declaring is precisely how a room passes it.
+  // ------------------------------------------------------------------
+  const tw = plan.meta?.towers;
+  if (tw && typeof tw.minShellDmg === "number") {
+    const weak = tw.minShellDmg < WEAK_SHELL_DMG;
+    const farRefill = (tw.maxRefill ?? 0) > REFILL_NOTE;
+    if (weak || farRefill) {
+      const declaredWeak = declared.some(
+        (sf) => sf && normGate(sf.gate) === "towers" && sf.kind === "weak-battery",
+      );
+      const why = [
+        weak ? `weakest wall face ${tw.minShellDmg} < ${WEAK_SHELL_DMG}` : null,
+        farRefill ? `furthest tower refill walk ${tw.maxRefill} > ${REFILL_NOTE}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      (declaredWeak ? notes : fails).push(
+        `battery legal-not-good (${why})` +
+          (declaredWeak ? " — declared" : " and UNDECLARED: a weak battery shipped in silence"),
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
   // RUNTIME — a NOTE, never a fail.
   //
   // The planner runs offline, so a slow room costs a developer's patience and
@@ -853,13 +905,28 @@ export function checkRoom(plan, terrain, objects) {
   // The pipeline declares these rooms on gate "runtime"; this is the
   // independent check that the number in the plan actually is over the line,
   // and it is reported whether or not the plan remembered to declare it.
+  //
+  // IT COUNTS COMPOSITIONS, NOT MILLISECONDS. `meta.planMs` was the one field in
+  // plans-hub.json that changed on every run — it made the determinism claim
+  // uncheckable, so the suite stopped writing it (the raw reading survives in the
+  // suite's own console timing report). What is left in the plan is what the
+  // planner controls and what actually costs the time: how many complete plans
+  // the room composed, on `meta.shellEscalation.steps` for a single seed and on
+  // the runtime declaration's own `runtime.compositions` when it walked more.
+  // A raw `planMs` from some other producer is still honoured.
   // ------------------------------------------------------------------
   const planMs = plan.meta?.planMs;
+  const rtDecl = declared.find((sf) => sf && normGate(sf.gate) === "runtime");
+  const composes = rtDecl?.runtime?.compositions ?? plan.meta?.shellEscalation?.steps ?? 0;
   if (typeof planMs === "number" && planMs > RUNTIME_NOTE_MS) {
-    const declaredRuntime = declared.some((sf) => sf && normGate(sf.gate) === "runtime");
     notes.push(
       `SLOW ROOM — planMs ${planMs} over the ${RUNTIME_NOTE_MS}ms line` +
-        (declaredRuntime ? " (declared)" : " and NOT declared by the planner"),
+        (rtDecl ? " (declared)" : " and NOT declared by the planner"),
+    );
+  } else if (composes > RUNTIME_NOTE_COMPOSES) {
+    notes.push(
+      `HEAVY SEARCH — ${composes} complete compositions, over the ${RUNTIME_NOTE_COMPOSES} one seed's ladder ` +
+        `costs` + (rtDecl ? " (declared)" : " and NOT declared by the planner"),
     );
   }
 
