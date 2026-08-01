@@ -1,6 +1,20 @@
 import construction from "./rooms.construction";
 function spawning(room: any) {
     if(Game.cpu.bucket < 1000) return;
+
+    // Cold start / freshly claimed room: the structure cache has not been built
+    // yet (rooms.ts + roomFunctions.ts are what normally seed it), so
+    // room.memory.Structures is undefined and every `room.memory.Structures.X`
+    // read below - plus the WRITES done by room.findSpawn()/findStorage() and
+    // the `delete room.memory.Structures.spawn` a few lines down - throw a
+    // TypeError and take the whole spawn loop out for that room. Every function
+    // in this file is reached through here, so seeding the object once at the
+    // entry point makes the single-level reads downstream safe. Nested reads
+    // (e.g. `.towers.length`) still need their own guard.
+    if(!room.memory.Structures) {
+        room.memory.Structures = {};
+    }
+
     if(!room.memory.spawn_list) {
         room.memory.spawn_list = [];
     }
@@ -652,7 +666,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     // gate below (builders, repairers, upgraders, the colonise claimer) read
     // 2000 while the room actually sat on 937k (live E11S5, RCL4, zero
     // upgraders). findStorage() stays as the pre-storage fallback.
-    let storage = room.storage || Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+    let storage = room.storage || Game.getObjectById(room.memory.Structures?.storage) || room.findStorage();
 
     let resourceData = _.get(room.memory, ['resources']);
 
@@ -1294,7 +1308,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 5:
-            let bin:any = Game.getObjectById(room.memory.Structures.bin);
+            let bin:any = Game.getObjectById(room.memory.Structures?.bin);
             if(EnergyManagers < 1 && storage && bin && bin.store.getFreeCapacity() == 0) {
                 let name = 'EnergyManager-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.unshift([CARRY,MOVE], name, {memory: {role: 'EnergyManager'}});
@@ -1716,7 +1730,14 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     }
 
-    if(healers < 1 && room.memory.Structures.towers.length === 0) {
+    // `.towers` is a separate array that only rooms.defence.ts fills in, so it can
+    // still be undefined even once Structures itself exists (cold start, or a room
+    // whose defence pass has not run yet) - `.towers.length` then throws.
+    // "cache says nothing" == "no towers known" == length 0, which is the correct
+    // fallback here: a room with no towers has no automated healing, so the
+    // wounded-creep healer below is exactly what we want. Matches the
+    // `!towers || towers.length == 0` test already used in rooms.ts.
+    if(healers < 1 && (room.memory.Structures?.towers?.length ?? 0) === 0) {
         let myCreeps = room.find(FIND_MY_CREEPS);
         let woundedCreeps = _.filter(myCreeps, (c:any) => c.hits < c.hitsMax);
         if(woundedCreeps.length > 0) {
@@ -1742,7 +1763,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    if(room.memory.Structures.controllerLink && room.controller.level !== 8 && room.controller.level >= 3) {
+    if(room.memory.Structures?.controllerLink && room.controller.level !== 8 && room.controller.level >= 3) {
         let controllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
         if(Game.time % 70 < 12 && controllerLink && controllerLink.store[RESOURCE_ENERGY] <= 100 && storage && storage.store[RESOURCE_ENERGY] > 1000) {
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2662,7 +2683,7 @@ function spawnFirstInLine(room, spawn) {
     // has no spawn-filling branch at all, so the old version of this block sat a
     // fresh EnergyManager next to a full storage doing literally nothing while
     // the spawn stayed empty (E17S4, RCL5, 26k banked, spawn on 64).
-    let storage = Game.getObjectById(room.memory.Structures.storage);
+    let storage = Game.getObjectById(room.memory.Structures?.storage);
     let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
     // a carrier can drop into storage/spawn too, so it counts as "something can
     // still move energy" for the last-resort rung below ("FakeFiller" is a
@@ -2770,7 +2791,7 @@ function spawnFirstInLine(room, spawn) {
                 && Game.time - (room.memory.lastShrink || 0) > 40;
             if(spawnAttempt == -6) {
 
-                let storage = Game.getObjectById(room.memory.Structures.storage);
+                let storage = Game.getObjectById(room.memory.Structures?.storage);
                 if(room.controller.level >= 4 && storage && room.energyAvailable >= 100 && room.energyAvailable <= 1000 && room.energyCapacityAvailable > 400 && room.find(FIND_MY_CREEPS, {filter: c => c.memory.role == "filler"}).length == 0) {
                     let body = [MOVE,CARRY];
                     if(room.controller.level === 7)
@@ -3113,7 +3134,7 @@ function minerOnTheWay(room, sourceId):boolean {
 }
 
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
-    let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
+    let storage = Game.getObjectById(room.memory.Structures?.storage) || room.findStorage();
 
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {

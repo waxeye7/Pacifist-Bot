@@ -28,6 +28,15 @@ export interface FeatureFlags {
    * OFF = legacy per-tick rescan sorted by amount (A/B baseline).
    */
   pickupLock: boolean;
+  /**
+   * Source-map error stack traces (ErrorMapper).
+   * Default OFF. Building the SourceMapConsumer means pulling a ~1.5MB
+   * main.js.map into the heap mid-tick; on shard3 that spike reliably kills the
+   * isolate ("isolate disposed"), so error LOGGING itself was taking the bot
+   * down. Off = log the raw stack, which is free. Only turn this on locally /
+   * temporarily when you actually need the original symbol names.
+   */
+  sourceMaps: boolean;
 }
 
 const DEFAULTS: FeatureFlags = {
@@ -38,6 +47,7 @@ const DEFAULTS: FeatureFlags = {
   minCutWalls: true,
   squareWalls: false,
   pickupLock: true,
+  sourceMaps: false,
 };
 
 export function getFeatures(): FeatureFlags {
@@ -52,6 +62,7 @@ export function getFeatures(): FeatureFlags {
   if (f.minCutWalls === undefined) f.minCutWalls = true;
   if (f.squareWalls === undefined) f.squareWalls = false;
   if (f.pickupLock === undefined) f.pickupLock = true;
+  if (f.sourceMaps === undefined) f.sourceMaps = false;
   return f;
 }
 
@@ -83,4 +94,14 @@ export function placeFromPlanEnabled(): boolean {
 
 export function minCutWallsEnabled(): boolean {
   return getFeatures().minCutWalls !== false;
+}
+
+/**
+ * Source-mapped error stacks. Default OFF (opt-in only) - see FeatureFlags.sourceMaps.
+ * Also honours the shorthand `Memory.enableSourceMaps = true` so it can be flipped
+ * from the console without touching the features object.
+ */
+export function sourceMapsEnabled(): boolean {
+  if ((Memory as any).enableSourceMaps === true) return true;
+  return getFeatures().sourceMaps === true;
 }

@@ -210,12 +210,33 @@ export function planMisc(terrain, plan) {
         }
       }
     } else {
+      // A DECLARATION THAT CANNOT EXCUSE ANYTHING IS NOT A DECLARATION.
+      //
+      // This entry used to carry `tiles: [mineral]` and no `kind`, and it was
+      // unable to excuse the violation it exists for, twice over. The container
+      // count failure is raised TILE-LESS (validate.mjs `fail("containers",
+      // "count", ...)`), and arbitration's tiled branch requires the failure to
+      // list tiles that the declaration also lists — so a tiled declaration
+      // falls straight through `continue`. The tile-less branch then requires
+      // `d.kind === f.kind`, and this entry named no kind at all.
+      //
+      // So it is filed the way the channel actually reads: kind "count",
+      // tile-less, with the coordinates kept in the prose where a reader needs
+      // them anyway. This only ever fires for a mineral whose whole ring is
+      // natural wall — layer 4 no longer takes the last seat (layer-labs
+      // keepsMineralSeat), so a room reaching here has genuinely been beaten by
+      // its terrain, which is exactly what the channel is for.
       shortfalls.push({
         gate: "containers",
+        kind: "count",
+        source: "misc",
         detail:
-          `mineral ${mineral.x},${mineral.y} has no free walkable ring tile — ` +
-          `no miner seat, so no mineral container`,
-        tiles: [{ x: mineral.x, y: mineral.y }],
+          `mineral ${mineral.x},${mineral.y} has no free walkable ring tile — every one of its eight D8 ` +
+          `neighbours is natural wall, off the 1..48 build band, or already carries a planned structure, ` +
+          `so there is nowhere for the mineral miner to stand. No miner seat means no mineral container, ` +
+          `and the room therefore ships one container short of sources+1+mineral. The extractor still ` +
+          `lands on ${mineral.x},${mineral.y} (it is the one structure allowed on an object tile); what ` +
+          `is lost is the buffer, so mineral output has to be hauled straight off the extractor tile.`,
       });
     }
   }

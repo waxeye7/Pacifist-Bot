@@ -13,6 +13,15 @@ function RunAllCreepsManager() {
     }
 
 
+    // Cold start (fresh server / wiped Memory): the engine only creates
+    // Memory.creeps once a creep has existed, and nothing else in the bot seeds
+    // it (MemoryManager does not), so Object.keys(undefined) throws and takes the
+    // whole creep loop down. Seed it here, before the sweeps below that also
+    // `delete Memory.creeps[name]` and test `name in Memory.creeps`.
+    if(!Memory.creeps) {
+        Memory.creeps = {};
+    }
+
     let executeCreepScriptsLaterList = [];
     const creepNames = Object.keys(Memory.creeps);
     for(let name of creepNames) {

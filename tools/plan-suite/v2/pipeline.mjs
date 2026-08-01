@@ -113,6 +113,16 @@ export function composePlan(d, shellOpts = {}) {
   else {
     plan.structures.lab = lb.lab;
     plan.labInputs = lb.labInputs;
+    // In a cramped room the diamond is allowed to sit on eco road (layer-labs
+    // pass 3/4, guarded by a re-derivation of the whole network). A road tile
+    // under a lab conducts nothing, so it comes OUT of the plan and out of the
+    // provenance map — leaving it in would ship a road the validator counts,
+    // the renderer draws, and no creep can ever walk.
+    if (lb.removeRoads?.length) {
+      const gone = new Set(lb.removeRoads.map((r) => `${r.x},${r.y}`));
+      plan.structures.road = plan.structures.road.filter((r) => !gone.has(`${r.x},${r.y}`));
+      for (const k of gone) delete plan.meta.roadLayer[k];
+    }
     plan.structures.road.push(...lb.roads);
     tagRoads(4, lb.roads);
     if (lb.shallowLabs.length) plan.structures.rampart.push(...lb.shallowLabs);
@@ -746,6 +756,11 @@ const rungRecord = (p, seedSkip, si) => ({
   cut: cutOf(p),
   complete: p?.shell ? grade(p).complete : false,
   ecoCost: ecoCost(p),
+  // the program this composition actually held — the evidence behind an
+  // extension shortfall (see declareExtShortfall). Counted, never inferred.
+  ext: (p?.structures?.extension || []).length,
+  lab: (p?.structures?.lab || []).length,
+  tower: (p?.structures?.tower || []).length,
 });
 
 /**
@@ -881,6 +896,97 @@ function declareRuntime(plan, trail) {
       `hashes differently on every run cannot be checked for determinism at all. The suite prints the ` +
       `milliseconds.`,
     runtime: { compositions: trail.length, seeds, complete, seedSkip: plan.meta.seedSkip ?? 0 },
+  });
+}
+
+/**
+ * A ROOM SHORT ON EXTENSIONS SAYS SO, WITH THE SEARCH ATTACHED.
+ *
+ * 60/60 is the standing requirement and until this world every claimable room
+ * met it, so the planner had never had to file the declaration the validator
+ * has always been willing to accept. `extensions|count` is deliberately NOT in
+ * the validator's UNDECLARABLE_PAIRS — extensions are a CAPACITY, a genuinely
+ * cramped room can fit 56 and no more — while `labs|count`, `towers|count` and
+ * `spawn|count` are. That asymmetry is the whole design: the exact-program
+ * pieces are what every other system in this repo is written against, so when a
+ * room cannot hold everything, the piece that gives is the one the doctrine
+ * says may give.
+ *
+ * E9S2 in the new world is the first room to need it: 175 walkable tiles inside
+ * the best enclosure it admits, and the RCL8 program wants ~87 blocking
+ * structures plus the corridor that services them. It ships ten labs and 56
+ * extensions. The alternative the planner used to ship — 60 extensions and NO
+ * LABS — is not the better room, it is the same shortfall moved onto a gate that
+ * is not allowed to carry it.
+ *
+ * The declaration is refused by the validator's evidence rule unless it
+ * quantifies something, so it carries the whole ladder: every composition this
+ * room paid for, what program each held, and the best extension count reached
+ * anywhere in the search together with what that composition gave up for it.
+ */
+function declareExtShortfall(plan, trail) {
+  if (!plan || !plan.meta || plan.error) return;
+  const got = extCount(plan);
+  if (got >= EXT_TARGET) return;
+  const labs = (plan.structures?.lab || []).length;
+  // the whole search, best-extensions first — including the compositions that
+  // bought extensions by dropping a piece that is not allowed to be dropped
+  const ranked = trail.slice().sort((a, b) => b.ext - a.ext || b.lab - a.lab);
+  const bestExt = ranked[0];
+  const seeds = new Set(trail.map((r) => r.seedSkip)).size;
+  // what the room actually has to work with, re-counted here rather than taken
+  // from any layer's own bookkeeping
+  let interior = 0;
+  let deep = 0;
+  if (plan.exterior && plan.depth && plan.terrain) {
+    for (let y = 1; y <= 48; y++) {
+      for (let x = 1; x <= 48; x++) {
+        const i = x + y * 50;
+        if (Number(plan.terrain.charAt(i)) & 1) continue; // wall
+        if (plan.exterior[i]) continue;
+        interior++;
+        if (plan.depth[i] >= 4) deep++;
+      }
+    }
+  }
+  const s = plan.structures || {};
+  const blocking = ["extension", "lab", "tower", "spawn", "storage", "terminal", "nuker", "observer", "link"]
+    .reduce((n, t) => n + (s[t] || []).length, 0);
+  const roads = (s.road || []).length;
+  const tradeoff =
+    bestExt && bestExt.ext > got
+      ? `The best extension count this search REACHED anywhere is ${bestExt.ext} (seed rank ` +
+        `${bestExt.seedSkip}, rung ${bestExt.rung}) — and that composition held ${bestExt.lab} lab(s) and ` +
+        `${bestExt.tower} tower(s). Labs and towers are exact-program pieces the validator will not let a ` +
+        `note excuse (UNDECLARABLE_PAIRS), and rightly: a room with no lab diamond cannot boost, ever. So ` +
+        `that plan is not a better room, it is this same shortfall moved onto a gate that may not carry it.`
+      : `No composition in this search reached more than ${got} extensions at any seed or any rung.`;
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  plan.meta.shortfalls.push({
+    gate: "extensions",
+    kind: "count",
+    source: "pipeline",
+    detail:
+      `EXTENSIONS SHORT: this room ships ${got} of ${EXT_TARGET}. The enclosure it admits holds ` +
+      `${interior} walkable interior tile(s), ${deep} of them at depth >= 4, and the RCL8 program it DID ` +
+      `place already occupies ${blocking} blocking tile(s) plus ${roads} road tile(s) — the corridor is ` +
+      `not optional, every extension owes a D4 road face. ${trail.length} complete composition(s) were ` +
+      `paid for across ${seeds} seed(s) and all four rungs of the shell ladder (a wider bubble is the one ` +
+      `lever that buys interior, and it was pulled to the end). ${tradeoff} The ${labs} lab(s), ` +
+      `${(s.tower || []).length} tower(s), ${(s.spawn || []).length} spawn(s), storage, terminal, nuker ` +
+      `and observer are all present, so nothing was quietly dropped to make this number smaller; the ` +
+      `${EXT_TARGET - got} missing extension(s) are the room, not a placement that gave up early.`,
+    count: got,
+    rungs: trail.map((r) => ({
+      seedSkip: r.seedSkip,
+      rung: r.rung,
+      needDeepBonus: r.needDeepBonus,
+      ext: r.ext,
+      lab: r.lab,
+      tower: r.tower,
+      ramparts: r.ramparts,
+      cut: r.cut,
+    })),
   });
 }
 
@@ -1049,6 +1155,7 @@ export function planRoom(d) {
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
       declareRuntime(p, trail);
+      declareExtShortfall(p, trail);
     }
     return p;
   };

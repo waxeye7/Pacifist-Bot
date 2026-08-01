@@ -282,6 +282,20 @@ function verifyMobility(terrain, plan) {
       ? ` The full reservation wanted ${lane.shrunk.wanted} tile(s); it was SHRUNK to ${lane.shrunk.to} round(s) ` +
         `because the whole of it cost more than the +${lane.shrunk.premium}-rampart premium this room's gain is priced at.`
       : "";
+    // WHAT THE BOUND IS A CLAIM ABOUT, when the relocation pass lifted a stub.
+    // The worst-case model reads a corridor stub as permanently walkable floor;
+    // layer 6's relocation pass ends by standing extensions on some of them, so
+    // the bound is re-derived over the corridor that actually SHIPS (see the
+    // re-measure block at the end of layer-ext). Saying so here is the
+    // difference between a bound and a bound-shaped number: E11S7 measured 11.5
+    // before its five lifted stubs and 13.5 after, and shipped 13.5.
+    const stubNote =
+      lane?.stubsLifted && lane.boundBeforeStubs !== undefined && lane.boundBeforeStubs !== null
+        ? ` This bound is measured over the corridor this room SHIPS: layer 6's relocation pass stood ` +
+          `${lane.stubsLifted} extension(s) on tiles the worst-case model had read as permanent corridor ` +
+          `stub, so the model was re-derived with them blocked — ${lane.boundBeforeStubs} before, ` +
+          `${lane.bounded === null || lane.bounded === undefined ? "no finite bound" : lane.bounded} after.`
+        : "";
     const laneNote = !lane
       ? ""
       : lane.dropped
@@ -301,6 +315,7 @@ function verifyMobility(terrain, plan) {
             ? ` Layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ${lane.rounds} round(s) ` +
               `(${lane.strandRounds ?? 0} of them reattaching a battlement the worst case severed), which bounds the ` +
               `worst mass this room could grow at ${lane.bounded} — and the room shipped at ${mBuilt.maxGated}, inside it.` +
+              stubNote +
               shrunkNote
             : ` THE RESERVATION FAILED TO HOLD: layer 6 reserved ${lane.tiles} lane tile(s) (${lane.deep} deep) over ` +
               `${lane.rounds} round(s) and measured a bound of ${lane.bounded}, and this room SHIPPED AT ` +

@@ -1327,6 +1327,37 @@ export function planExtensions(terrain, plan) {
   // no longer capable and therefore no longer blocked: the bound tightens as the
   // lane grows, which is exactly the loop's progress measure.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // ...AND THE MODEL HAS TO SURVIVE THE END OF THIS LAYER, NOT JUST THE START
+  // OF IT.
+  //
+  // These three are hoisted out of the block below so the RE-MEASUREMENT after
+  // the relocation pass can reach them. The reason there has to be one:
+  // `extCapable` returns false for a tile in `pavedTiles`, so the worst-case
+  // model treats every corridor stub as permanently walkable floor. The
+  // end-of-layer relocation pass then LIFTS STUBS — that is the case its own
+  // header calls "the case that makes the whole pass work" — and stands an
+  // extension on the tile. Every tile it takes that way is mass the bound never
+  // modelled.
+  //
+  // E11S7 is the worked example and it is not marginal: all FIVE of its
+  // relocations took a stub (23,4->20,8 · 17,21->19,21 · 11,5->17,9 ·
+  // 11,10->16,9 · 12,14->13,12, every one `tookStub:true`), layer 6 printed a
+  // bound of 11.5, and the room shipped at 13.5 — the suite's only broken bound
+  // in the fleet, and the reason it exits 1. The bound was not "nearly right":
+  // it was a claim about a corridor the room does not ship.
+  //
+  // The fix is to re-derive the bound over the corridor that SHIPS, with the
+  // lifted stubs blocked. That keeps the audit's meaning exactly (shipped lap
+  // <= bound, over a blocked set that is a strict superset of the shipped mass)
+  // and costs one extra all-pairs pass in the rooms that actually took a stub.
+  // Blocking every paved deep tile up front was the other candidate and it is
+  // worse: the stubs ARE the corridor, so pre-blocking them severs the interior
+  // walk and hands most of the fleet a "no bound claimed" it has not earned.
+  // ------------------------------------------------------------------
+  let boundBlocked = null;
+  let boundWalk = null;
+  let strandsIn = null;
   if (shellCut.length) {
     /**
      * The worst base layer 6 could build: every capable tile taken at once.
@@ -1338,13 +1369,13 @@ export function planExtensions(terrain, plan) {
      * rounds times every rung of two ladders, for an answer that changes by a
      * handful of tiles.
      */
-    const boundBlocked = new Set(walkBlocked);
+    boundBlocked = new Set(walkBlocked);
     for (let x = 1; x <= 48; x++) {
       for (let y = 1; y <= 48; y++) if (extCapable(x, y)) boundBlocked.add(key(x, y));
     }
-    const boundWalk = () => maskFromKeys(interiorWalk(terrain, cutSet, ext, boundBlocked, sitter));
+    boundWalk = () => maskFromKeys(interiorWalk(terrain, cutSet, ext, boundBlocked, sitter));
     /** cut tiles the empty room reaches and this mask does not */
-    const strandsIn = (mask) => freeReach.filter((c) => !mask[idx(c.x, c.y)]);
+    strandsIn = (mask) => freeReach.filter((c) => !mask[idx(c.x, c.y)]);
     /** what a lane step gives up, in extension slots */
     const lanePenalty = (x, y) => {
       const k = key(x, y);
@@ -1947,6 +1978,41 @@ export function planExtensions(terrain, plan) {
         // honest one.
       }
       if (!moved) break;
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // THE BOUND, RE-DERIVED OVER THE CORRIDOR THE ROOM SHIPS.
+  //
+  // See the hoist note above `if (shellCut.length)`. Every stub the relocation
+  // pass lifted is a tile the worst-case model counted as walkable corridor and
+  // the finished room fills with an extension, so the number measured before the
+  // pass is a claim about a base this room does not build. Re-measure with those
+  // tiles blocked; nothing else moves, and a room that took no stub pays nothing.
+  //
+  // The strand rule is unchanged and still absolute: if blocking the lifted
+  // stubs severs a battlement the empty room could reach, this room has NO
+  // finite bound and says so (`bounded = null`), rather than quoting the maximum
+  // over the pairs that happened to survive. layer-walls prints "measured no
+  // finite bound for this room" for exactly that case.
+  // ------------------------------------------------------------------
+  const liftedStubs = relocated.filter((r) => r.tookStub).map((r) => key(r.to.x, r.to.y));
+  if (boundBlocked && liftedStubs.length) {
+    let added = 0;
+    for (const k of liftedStubs)
+      if (!boundBlocked.has(k)) {
+        boundBlocked.add(k);
+        added++;
+      }
+    if (added) {
+      const mask = boundWalk();
+      const strands = strandsIn(mask);
+      const m2 = strands.length ? null : mobilityStats(shellCut, ext, mask);
+      laneInfo.boundBeforeStubs = laneInfo.bounded;
+      laneInfo.bounded = m2 ? m2.maxGated : null;
+      laneInfo.boundedUngated = m2 ? m2.max : null;
+      laneInfo.stranded = strands.length;
+      laneInfo.stubsLifted = added;
     }
   }
 
