@@ -4,9 +4,11 @@ Everything here talks to the **local disposable test server** (docker compose):
 
 | container | role |
 | --- | --- |
-| `local-screeps-server-screeps-1` | game server (host `127.0.0.1:23025` → container `21025`) |
+| `local-screeps-server-screeps-1` | game server (host `127.0.0.1:23456` → container `21025`) |
 | `local-screeps-server-mongo-1` | mongo, db `screeps` |
 | `local-screeps-server-redis-1` | redis |
+
+> **Port moved 23025 → 23456** (2026-08): Windows reserved the 23025 range (`netsh int ipv4 show excludedportrange protocol=tcp`), so docker compose remaps the host side. If pushes/API calls start failing with `ECONNREFUSED`, confirm the current host port with `docker ps --format "{{.Names}}\t{{.Ports}}"` — the `local-screeps-server-screeps-1` row shows `127.0.0.1:<host>->21025/tcp` — then update `screeps.json` dests and `SCREEPS_API`.
 
 Mods: `screepsmod-mongo`, `screepsmod-auth`, `screepsmod-admin-utils`, `screepsmod-map-tool`, `screepsmod-history`.
 
@@ -20,7 +22,7 @@ reads the matching entry from the gitignored `screeps.json`.
 
 | Target | `screeps.json` dest | Server | Command | Who owns it |
 | --- | --- | --- | --- | --- |
-| **local** | `pacifist` / `pserver` / `pacifist2` / `waxeye` / `race` | `http://127.0.0.1:23025` (docker compose, this machine) | `npm run push-pacifist` | this repo — disposable, reset freely |
+| **local** | `pacifist` / `pserver` / `pacifist2` / `waxeye` / `race` | `http://127.0.0.1:23456` (docker compose, this machine) | `npm run push-pacifist` | this repo — disposable, reset freely |
 | **vps** | `vps` (fallback `vps-ip`) | `http://screeps.marlyman123.com`, fallback `http://100.67.41.31:21025` | `npm run push-vps` / `npm run push-vps-ip` | the `big_vps` repo — **hands off** |
 | **live** | `main` | `https://screeps.com` (official MMO) | `npm run push-main` | the owner — never push unattended |
 
@@ -81,7 +83,7 @@ strings, not secrets (see the root `README.md` for the full local block):
 
 ```jsonc
 "race": { "token": "local-pacifist-race-token-001", "protocol": "http",
-          "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" }
+          "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" }
 ```
 
 ```bash
@@ -308,7 +310,7 @@ Then, in order — every step matters:
 7. `docker restart local-screeps-server-screeps-1` (terrain cache).
 8. Recreate the users + redis `auth_` tokens (§0), push code, set `activeWorld`.
 9. **`system.resumeSimulation()`** — the clock is still paused from step 1. Confirm with
-   `curl -s http://127.0.0.1:23025/api/game/time` twice.
+   `curl -s http://127.0.0.1:23456/api/game/time` twice.
 10. `system.setTickDuration(50)` if it is not already 50 ms (that is this server's setting;
     `utils.getTickRate()` is deprecated and returns only a warning — use
     `system.getTickDuration().then(d => d)`, since the CLI helper does not await a bare
@@ -365,7 +367,7 @@ No server restart or tick pause is needed — the processor picks the room up on
 ## 5. Handy API endpoints (no auth needed on this server)
 
 ```bash
-curl -s http://127.0.0.1:23025/api/game/time
-curl -s "http://127.0.0.1:23025/api/game/room-objects?room=E11S5&shard=shard0"
-curl -s "http://127.0.0.1:23025/api/game/room-terrain?room=E11S5&encoded=1"
+curl -s http://127.0.0.1:23456/api/game/time
+curl -s "http://127.0.0.1:23456/api/game/room-objects?room=E11S5&shard=shard0"
+curl -s "http://127.0.0.1:23456/api/game/room-terrain?room=E11S5&encoded=1"
 ```

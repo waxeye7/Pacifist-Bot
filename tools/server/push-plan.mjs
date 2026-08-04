@@ -15,20 +15,25 @@
  * plan.mjs gets its terrain and its source/controller/mineral positions out of
  * the LOCAL docker mongo (shared.mjs fetchRoomsFromMongo → `docker exec
  * local-screeps-server-mongo-1 mongosh`). The VPS test server has no such
- * handle from here: it is reachable over the tailnet on HTTP only, the repo is
- * forbidden from SSHing to it (tools/server/README.md), and vanilla 4.3.0
- * serves no /api/game/room-objects. So a room over there could never be
- * planned, and the bot fell back to legacy stamp construction — which is what
- * put two parallel road networks into W1N1 (see rooms.construction.ts).
+ * handle from here: it is reachable over the tailnet on HTTP only and the repo
+ * is forbidden from SSHing to it (tools/server/README.md). So a room over there
+ * could never be planned, and the bot fell back to legacy stamp construction —
+ * which is what put two parallel road networks into W1N1 (see
+ * rooms.construction.ts).
  *
- * --live closes that with the two channels the server DOES offer:
+ * --live closes that with two plain HTTP GETs:
  *   terrain  GET /api/game/room-terrain?room=<r>&encoded=1 — the same
  *            2,500-char string the mongo `rooms.terrain` doc carries, so it
  *            drops straight into the planner's `d.terrain`.
- *   objects  the websocket `subscribe room:<r>` snapshot. The first frame after
- *            a subscribe is the FULL object set for the room (later frames are
- *            deltas), which is all the planner wants: source, controller and
- *            mineral positions.
+ *   objects  GET /api/game/room-objects?room=<r> with X-Token auth. The VPS
+ *            serves this now (it did not when --live was written), so one
+ *            request replaces the old 25 s websocket subscribe. The planner
+ *            only wants source / controller / mineral positions out of it.
+ *            Servers without the endpoint fall back to the websocket
+ *            `subscribe room:<r>` snapshot, whose first frame is the full
+ *            object set for the room.
+ * Both channels are answered by the game process rather than by the bot, so
+ * they keep working when the uploaded code is broken.
  * Those two make the exact `{room, terrain, objects}` shape planRoom() takes,
  * so the plan produced here is the same artifact plan.mjs would have written —
  * same pipeline, same layers, same escalation ladder — for a room whose data
@@ -99,15 +104,48 @@ async function fetchTerrain(cfg, room) {
   return entry.terrain;
 }
 
+const PLAN_TYPES = new Set(["source", "controller", "mineral"]);
+
 /**
- * Source / controller / mineral positions, off the websocket room snapshot.
+ * Source / controller / mineral positions.
  *
- * Vanilla 4.3.0 has no REST room-objects endpoint, and the console would mean
- * asking the BOT for the answer — which fails exactly when the bot is broken.
- * The socket is served by the game process itself, so it answers whether or not
- * any code is running.
+ * Preferred path is the REST endpoint `GET /api/game/room-objects?room=X`
+ * (X-Token auth) — one request, no ws dependency, no 25 s subscribe wait. Both
+ * the local server and the VPS (4.3.0 + mods) serve it now. Like the socket it
+ * is answered by the game process, not by the bot, so it still works when the
+ * uploaded code is broken.
+ *
+ * Servers that don't expose it fall through to the websocket snapshot below.
  */
+async function fetchRoomObjectsRest(cfg, room) {
+  const res = await fetch(`${cfg.base}/api/game/room-objects?room=${room}`, {
+    headers: { "X-Token": cfg.token, "X-Username": cfg.token },
+  });
+  if (!res.ok) throw new Error(`room-objects ${room}: HTTP ${res.status}`);
+  const json = await res.json().catch(() => ({}));
+  // the VPS answers {ok:1, objects:[...]}; the local server's mod answers
+  // {objects:[...], users:{...}} with no `ok` at all — both are fine
+  if (!json || json.ok === 0 || !Array.isArray(json.objects)) {
+    throw new Error(`room-objects ${room}: unusable response ${JSON.stringify(json).slice(0, 200)}`);
+  }
+  const out = json.objects
+    .filter((o) => o && PLAN_TYPES.has(o.type))
+    .map((o) => ({ type: o.type, x: o.x, y: o.y, room }));
+  if (!out.length) throw new Error(`room-objects ${room} carried no source/controller/mineral`);
+  return out;
+}
+
 async function fetchRoomObjects(cfg, room) {
+  try {
+    return await fetchRoomObjectsRest(cfg, room);
+  } catch (e) {
+    console.log(`${room}: REST room-objects unavailable (${e.message}) — falling back to websocket`);
+    return await fetchRoomObjectsWs(cfg, room);
+  }
+}
+
+/** Legacy path: subscribe to `room:X` on the game websocket and take frame 1. */
+async function fetchRoomObjectsWs(cfg, room) {
   const { default: WebSocket } = await import("ws");
   const { gunzipSync } = await import("zlib");
   const url = cfg.base.replace(/^http/, "ws") + "/socket/websocket";

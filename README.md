@@ -50,7 +50,7 @@ script is just `rollup -c --environment DEST:<destination>`.
 
 | Target | Destination(s) | Server | Command |
 |---|---|---|---|
-| **local** | `pacifist` (also `pserver`, `pacifist2`, `waxeye`, `race`) | local Docker private server, `http://127.0.0.1:23025` | `npm run push-pacifist` |
+| **local** | `pacifist` (also `pserver`, `pacifist2`, `waxeye`, `race`) | local Docker private server, `http://127.0.0.1:23456` | `npm run push-pacifist` |
 | **vps** | `vps` (fallback `vps-ip`) | tailnet test server, `http://screeps.marlyman123.com` (fallback `http://100.67.41.31:21025`) | `npm run push-vps` (fallback `npm run push-vps-ip`) |
 | **live** | `main` | official MMO, `https://screeps.com` | `npm run push-main` |
 
@@ -92,11 +92,11 @@ writes into the server's redis/mongo (`auth_<token>`), so they can be pasted ver
 
 ```jsonc
 // screeps.json (gitignored) — local destinations
-"pacifist":   { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
-"pserver":    { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
-"pacifist2":  { "token": "local-pacifist2-user-token-001", "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
-"waxeye":     { "token": "local-waxeye-token-001",         "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
-"race":       { "token": "local-pacifist-race-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" }
+"pacifist":   { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" },
+"pserver":    { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" },
+"pacifist2":  { "token": "local-pacifist2-user-token-001", "protocol": "http", "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" },
+"waxeye":     { "token": "local-waxeye-token-001",         "protocol": "http", "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" },
+"race":       { "token": "local-pacifist-race-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23456, "path": "/", "branch": "main" }
 ```
 
 ```jsonc

@@ -441,7 +441,7 @@ Known open criticisms, in priority order:
   `npx tsc --noEmit` must pass).
 - Node: repo default resolves to fnm v12 — use `fnm exec --using 22 node` for
   planner scripts and `"C:/Program Files/nodejs/node.exe"` for fetch-based scripts.
-- Local server: docker `local-screeps-server-*`, API http://127.0.0.1:23025,
+- Local server: docker `local-screeps-server-*`, API http://127.0.0.1:23456,
   mongo has all terrain. Bot users: pacifist (token in redis key
   `auth_local-pacifist-user-token-001`), pacifist-race, waxeye.
   Push code: `npm run push-pserver && npm run push-pacifist && npm run push-waxeye`.

@@ -155,7 +155,7 @@ trend line — commit them, including for reverted cycles.
 - `--pick --force` → 8 slots, constraints re-verified independently against mongo (§3).
 - `--seed --dry-run` → **16/16 seeds OK, zero preflight problems** (both users resolve,
   every room free, every terrain hash still matching the freeze, every room planned).
-- `--watch --once` against the live API (`http://127.0.0.1:23025`) → polled real rooms,
+- `--watch --once` against the live API (`http://127.0.0.1:23456`) → polled real rooms,
   recorded RCL2–6 milestones, wrote and re-read the ledger, exited `all-reached-target`.
 - `--report` over that ledger → correct stats plus the expected
   `INSUFFICIENT RUNS … single orientation only` guardrail verdicts.

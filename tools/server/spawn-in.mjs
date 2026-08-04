@@ -34,7 +34,7 @@ if (NODE_MAJOR < 18) {
 
 const MONGO_CONTAINER = process.env.SCREEPS_MONGO_CONTAINER || "local-screeps-server-mongo-1";
 const MONGO_DB = process.env.SCREEPS_MONGO_DB || "screeps";
-const API_BASE = process.env.SCREEPS_API || "http://127.0.0.1:23025";
+const API_BASE = process.env.SCREEPS_API || "http://127.0.0.1:23456";
 const PLANS_FILE =
   process.env.SCREEPS_PLANS ||
   path.join(__dirname, "..", "plan-suite", "out-v2", "plans-hub.json");

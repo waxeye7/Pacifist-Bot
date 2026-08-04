@@ -59,7 +59,7 @@ if (NODE_MAJOR < 18) {
 const D = {
   mongoContainer: process.env.SCREEPS_MONGO_CONTAINER || "local-screeps-server-mongo-1",
   mongoDb: process.env.SCREEPS_MONGO_DB || "screeps",
-  api: process.env.SCREEPS_API || "http://127.0.0.1:23025",
+  api: process.env.SCREEPS_API || "http://127.0.0.1:23456",
   shard: "shard0",
   benchmarks: path.join(REPO, "docs", "BENCHMARK-ROOMS.json"),
   ledgerDir: path.join(REPO, "docs", "speedrun-ledger"),
