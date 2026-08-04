@@ -420,8 +420,8 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * payload threw it away. push-plan.mjs now folds that provenance into an RCL
  * per road tile and ships it as `roadStage`, a parallel int array in the same
  * order as `structures.road`; packPlanPayload keeps it as `plan.rs`. Measured
- * on out-v2/plans-hub.json (172 rooms) the arterial set is 35 tiles in E16S1,
- * 53 in E12S9, 45 in E9S2 — median 39, max 85 of 123 — where the old prefix
+ * on out-v2/plans-hub.json (172 rooms) the arterial set is 38 tiles in E16S1,
+ * 54 in E12S9, 47 in E9S2 — median 44, max 87 of 123 — where the old prefix
  * bought 20 tiles of whatever was nearest.
  *
  * SELECTION, NOT RE-SORT. The staged tiles are taken in the array's existing
@@ -430,8 +430,49 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * RAW provenance is NOT connected — 65 of 172 rooms break, because layer 1
  * lines run through tiles a later layer laid: E11S1's eco line to its far
  * source is bridged at 33,41 and 36,41 by layer-6 corridor tiles. push-plan
- * repairs that offline by demoting the bridge tiles into the arterial set, 145
- * tiles across the fleet, and verifies the result before it ships.)
+ * repairs that offline by demoting the bridge tiles into the arterial set and
+ * verifies the result before it ships.)
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT "ARTERIAL" IS ACTUALLY A PROMISE OF — read this before believing the
+ * phrase "the roads a hauler actually walks" anywhere in this file, because
+ * that phrase was written as a description of the intent and was for a while
+ * measurably false.
+ *
+ * CONNECTED IS NOT THE SAME AS USEFUL. The provenance split plus the bridge
+ * repair gives a network the sitter can walk, which is what auditRoadPrefix
+ * checks — and a network can be perfectly connected while stopping two tiles
+ * short of the container it was laid for. Re-derived over the 172-room
+ * snapshot, the RCL3 set failed to reach an eco terminal in 8 rooms: source
+ * containers E14S5 42,39 (3 tiles short), E18S4 27,20 (2), E3S5 16,15 (2),
+ * E17S5 44,35 (2), E21S9 5,32 (1), and controller containers E15S4 13,14 (1),
+ * E16S6 16,19 (1), E8S6 15,25 (1). Small gaps at the END of a 30-tile line the
+ * room paid for in full, on the exact tile a hauler stands on every cycle.
+ *
+ * Worse for the containers specifically: the only face-road guarantee was for
+ * `extension[0..9]`, and containers are built a whole RCL EARLIER than those
+ * extensions (RCL2 vs RCL3). 29 RCL2 containers across 27 rooms had a planned
+ * road on a D4 face and that road staged RCL4 — E16S6's controller container
+ * 16,19 finished at RCL2 with its serving tile 16,20 two whole RCLs away.
+ *
+ * push-plan.mjs roadStageFor now guarantees, in this order:
+ *   · every layer<=3 tile (eco kit + tower spurs);
+ *   · one D4 face road per `extension[0..9]`;
+ *   · one D4 face road per container built at RCL2 (the two source containers
+ *     and the controller container — plannedTilesFor defers the mineral one to
+ *     RCL6, so it is neither built at RCL2 nor guaranteed here);
+ *   · a connected chain from the hub to each of those same containers;
+ *   · bridge repair over all of the above, so the result stays a network.
+ *
+ * Cost of the last two: 49 road tiles moved into RCL3 across 32 of 172 rooms,
+ * max 4 in a room. Two caveats it is worth being straight about. (a) A road
+ * cannot be staged with the container it serves, because typeAllowedAtRcl gates
+ * road at lvl >= 3 — the guarantee is "at the first RCL a road may exist", so
+ * RCL2 is still walked on bare ground. (b) The guarantee only ever RE-STAGES
+ * roads the planner already placed; it never invents one. 220 RCL2 containers
+ * in 145 rooms have no planned D4 road face at all and get nothing here — that
+ * is a planner question, not a staging one.
+ * ---------------------------------------------------------------------------
  *
  * `plan.rs` is indexed off `plan.t.road` itself, so any caller that hands us a
  * REORDERED or SHORTENED road array (plannedTilesFor can drop an element — the
@@ -580,9 +621,16 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] 
 // whose entire premise is "it's all about defence".
 //
 // Ramparts are RCL4+ and roads RCL3+, so the practical schedule is now:
-// RCL3 builds the whole ARTERIAL set — the eco kit and the tower spurs, the
-// roads a hauler actually walks, connected and staged by the planner (see
-// roadsForRcl; median 39 tiles, max 85) — and from RCL4 the shell goes up
+// RCL3 builds the whole ARTERIAL set — the eco kit, the tower spurs, a face
+// road for each of the ten RCL3 extensions and for each of the three
+// containers the room already built at RCL2, and a connected chain from the
+// hub out to each of those containers (see roadsForRcl, which spells out what
+// that set does and does not promise; median 44 tiles, max 87). It is worth
+// stating the promise precisely rather than as "the roads a hauler actually
+// walks", which is what this comment used to say and which was false in 8
+// rooms — E14S5's arterial stopped 3 tiles short of the source container at
+// 42,39, E16S6's stopped 1 short of the controller container at 16,19 — until
+// push-plan.mjs was made to guarantee it. From RCL4 the shell goes up
 // before the remaining roads. That is the right trade in both directions: the
 // arterials are the ones that pay per tick and they now land a whole RCL
 // earlier than the old "first 20 by distance, the rest at RCL4" schedule, while

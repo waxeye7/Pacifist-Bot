@@ -673,7 +673,29 @@ export function planTowers(terrain, plan, opts = {}) {
   // the battery it had — the owner's "unavoidable in tight rooms" — and no hard
   // gate, no coverage number and no refill walk can move by construction.
   // ------------------------------------------------------------------
-  const HIGH_VALUE = ["spawn", "storage", "terminal", "nuker"];
+  // ------------------------------------------------------------------
+  // WHAT THIS PASS CAN SEE, SAID OUT LOUD — AND WHAT IT THEREFORE MAY NOT CLAIM.
+  //
+  // This array used to read ["spawn","storage","terminal","nuker"] and the field
+  // it fed was published as `nukeWindow`, documented as "the fullest 5x5 window
+  // over spawn/storage/terminal/nuker/tower". The nuker is placed by layer 5,
+  // TWO LAYERS LATER, so `plan.structures.nuker` is empty every single time this
+  // runs and the published number counted spawn/storage/terminal/tower only.
+  // Measured: the shipped window exceeds the published `after` by exactly 1 in
+  // 145 of 172 rooms (E6S1 and E6S9 ship 11 and published 10), and the nuker
+  // sits inside its own room's worst 5x5 in 154 of 172 — so the freedom layer 5
+  // was told to spend on dispersion was being spent blind, and the goal doc's
+  // fleet headline (worst 11, mean 7.97, which is the TRUE number) was
+  // inconsistent with the per-room meta it summarised (max 10, mean 7.13).
+  //
+  // The nuker is dropped from this list because it is not a lie waiting to
+  // happen — it is an empty array — and the number this pass produces is
+  // republished under a name that says what it is: `towerDispersion`, the
+  // freedom LAYER 3 had and what it spent. `meta.towers.nukeWindow` is
+  // recomputed after layer 5 over the full set (see recomputeNukeWindow in
+  // pipeline.mjs) and the validator re-derives it from the shipped structures.
+  // ------------------------------------------------------------------
+  const HIGH_VALUE = ["spawn", "storage", "terminal"];
   const fixedHV = [];
   for (const t of HIGH_VALUE) for (const p of plan.structures[t] || []) fixedHV.push(p);
   /** the fullest 5x5 window over the fixed high-value mass plus this tower set */
@@ -697,6 +719,16 @@ export function planTowers(terrain, plan, opts = {}) {
   };
   const nukeBefore = windowMax(best);
   let nukeAfter = nukeBefore;
+  /** what the dispersion search actually tried, so a room that fails can say so */
+  const nukeSearch = {
+    singleSwapsTried: 0,
+    singleSwapsScoreTied: 0,
+    pairSwapsTried: 0,
+    pairSwapsScoreTied: 0,
+    rounds: 0,
+    improvedBy: 0,
+    pairImproved: 0,
+  };
   {
     // WHAT THE DISPERSION PASS IS ALLOWED TO SPEND, stated as a price.
     //
@@ -714,29 +746,174 @@ export function planTowers(terrain, plan, opts = {}) {
       a.min >= b.min &&
       a.sat >= b.sat &&
       a.val >= b.val - NUKE_TIEBREAK_BUDGET;
-    for (let pass = 0; pass < 6; pass++) {
-      let moved = false;
+    // ------------------------------------------------------------------
+    // A REAL ATTEMPT, NOT A GESTURE.
+    //
+    // This was a FIRST-IMPROVEMENT single-slot hill climb: it took the first
+    // swap that helped and restarted, and it stopped the moment no single slot
+    // could move alone. 93 of 172 rooms still put >= 3 of 6 towers within
+    // chebyshev 2 of the sitter and SIX put 5 of 6 — E11S6, E14S1, E1S7, E2S5,
+    // E3S5, E6S1 — and in all six this pass reported `before == after`, i.e. it
+    // looked and found nothing. Those same six hold the fleet's worst nuke
+    // windows (E6S1 11, E11S6 10, E1S7 10). "I tried and there was nothing" is
+    // a claim about a search, so the search has to be worth the claim:
+    //
+    //   BEST-IMPROVEMENT, not first. A first-improvement step can take a swap
+    //     that saves one and blocks the swap that would have saved three.
+    //   PAIRWISE, when singles stall. A clump is frequently held in place by
+    //     two towers that each individually have nowhere to go — moving either
+    //     alone breaks the max-min floor — while the pair has somewhere to go
+    //     together. Bounded: it runs only after single swaps converge, and only
+    //     over the score-tied candidate lists that the single pass already
+    //     built, so the cost is a few thousand window evaluations in the worst
+    //     room and none at all in a room the singles already solved.
+    //
+    // The price is unchanged and non-negotiable: the weakest face and the
+    // saturation are compared exactly, and the tie-break may fall by at most one
+    // damage step. A room that still cannot move DECLARES, with these counters
+    // as the evidence (see the clump shortfall below).
+    // ------------------------------------------------------------------
+    for (let pass = 0; pass < 8; pass++) {
+      nukeSearch.rounds++;
+      let bestTrial = null;
+      let bestW = nukeAfter;
       for (let si = 0; si < best.length; si++) {
         const cur = best[si];
         for (let c = 0; c < C; c++) {
           if (c === cur || conflicts(best, c, si)) continue;
           const trial = best.slice();
           trial[si] = c;
+          nukeSearch.singleSwapsTried++;
           if (!same(scoreOf(trial), bestSc)) continue;
+          nukeSearch.singleSwapsScoreTied++;
           const w = windowMax(trial);
-          if (w >= nukeAfter) continue;
-          best = trial;
-          nukeAfter = w;
-          moved = true;
-          break;
+          if (w < bestW) {
+            bestW = w;
+            bestTrial = trial;
+          }
         }
-        if (moved) break;
       }
-      if (!moved) break;
+      if (!bestTrial) break;
+      best = bestTrial;
+      nukeAfter = bestW;
     }
+    // ...and now the pairs, for the clumps a single tower cannot leave alone.
+    //
+    // BOUNDED ON PURPOSE, TWICE OVER. It runs only in a room that is still
+    // holding a window at or above NUKE_PAIR_FLOOR — the fleet median, i.e.
+    // exactly the rooms the finding is about — and each slot offers at most
+    // NUKE_PAIR_K partners, ranked by the window their own single swap would
+    // leave (ties by candidate index, so the ranking is deterministic). Without
+    // both caps this is 15 slot-pairs times two candidate lists of ~50, which is
+    // tens of thousands of max-min evaluations for a soft objective.
+    const NUKE_PAIR_FLOOR = 8;
+    const NUKE_PAIR_K = 12;
+    for (let pass = 0; pass < 3 && nukeAfter >= NUKE_PAIR_FLOOR; pass++) {
+      let bestTrial = null;
+      let bestW = nukeAfter;
+      // the score-tied replacements available to each slot, ranked and capped
+      const tied = [];
+      for (let si = 0; si < best.length; si++) {
+        const list = [];
+        for (let c = 0; c < C; c++) {
+          if (c === best[si] || conflicts(best, c, si)) continue;
+          const trial = best.slice();
+          trial[si] = c;
+          if (!same(scoreOf(trial), bestSc)) continue;
+          list.push({ c, w: windowMax(trial) });
+        }
+        list.sort((a, b) => a.w - b.w || a.c - b.c);
+        tied.push(list.slice(0, NUKE_PAIR_K).map((e) => e.c));
+      }
+      for (let si = 0; si < best.length; si++) {
+        for (let sj = si + 1; sj < best.length; sj++) {
+          for (const ci of tied[si]) {
+            for (const cj of tied[sj]) {
+              if (ci === cj) continue;
+              const trial = best.slice();
+              trial[si] = ci;
+              trial[sj] = cj;
+              // conflicts() is a pairwise test against the CURRENT set, so a
+              // two-slot move has to be re-checked against the set it makes
+              if (conflicts(trial, ci, si) || conflicts(trial, cj, sj)) continue;
+              nukeSearch.pairSwapsTried++;
+              if (!same(scoreOf(trial), bestSc)) continue;
+              nukeSearch.pairSwapsScoreTied++;
+              const w = windowMax(trial);
+              if (w < bestW) {
+                bestW = w;
+                bestTrial = trial;
+              }
+            }
+          }
+        }
+      }
+      if (!bestTrial) break;
+      best = bestTrial;
+      nukeAfter = bestW;
+      nukeSearch.pairImproved++;
+    }
+    nukeSearch.improvedBy = nukeBefore - nukeAfter;
   }
 
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+
+  // ------------------------------------------------------------------
+  // THE CLUMP, MEASURED AND DECLARED.
+  //
+  // 93 of 172 rooms put >= 3 of 6 towers within chebyshev 2 of the sitter and
+  // six put FIVE of six (E11S6, E14S1, E1S7, E2S5, E3S5, E6S1). Some of that is
+  // mandated — the towers cover the wall from inside and the interior is small —
+  // and some of it is the max-min objective having no opinion about where a
+  // tie goes. The dispersion pass above is the opinion; this is the record of
+  // what it managed, and a room that clumped anyway now says so with the search
+  // counters rather than leaving the reader to notice.
+  // ------------------------------------------------------------------
+  const clumped = towers.filter(
+    (t) => Math.max(Math.abs(t.x - plan.sitter.x), Math.abs(t.y - plan.sitter.y)) <= 2,
+  );
+  const towerClump = {
+    withinCheb2OfSitter: clumped.length,
+    tiles: clumped.map((t) => ({ x: t.x, y: t.y })),
+  };
+  /**
+   * At what clump size a room owes the reader the search it ran.
+   *
+   * FIVE, not four. 93 of 172 rooms hold 3 of 6 towers inside chebyshev 2 and
+   * 34 hold 4 — at those densities the shape is the interior, not a choice, and
+   * a channel that fires 34 times about "some towers are near the hub" is noise
+   * competing with the eco and mobility declarations for the same reader. The
+   * finding is about the six rooms that put FIVE of six in one 5x5-sized huddle
+   * and reported `before == after` while doing it; that is the number this
+   * declares, and it declares all six.
+   */
+  const CLUMP_NOTE = 5;
+  if (clumped.length >= CLUMP_NOTE && plan.meta) {
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "towers",
+      kind: "clump",
+      source: "towers",
+      detail:
+        `${clumped.length} of ${towers.length} towers sit within chebyshev 2 of the sitter ` +
+        `(${clumped.map((t) => `${t.x},${t.y}`).join(" · ")}), which is the shape a single nuke is ` +
+        `cheapest against. The dispersion post-pass is a strictly non-worsening swap search — the ` +
+        `weakest wall face and the saturation are compared EXACTLY and only the tie-break may move, by ` +
+        `at most one 30-point damage step — and on this room it ran ${nukeSearch.rounds} single-swap ` +
+        `round(s) over ${nukeSearch.singleSwapsTried} candidate swap(s), of which ` +
+        `${nukeSearch.singleSwapsScoreTied} were score-tied and therefore legal to take, plus ` +
+        `${nukeSearch.pairSwapsTried} two-slot swap(s) (${nukeSearch.pairSwapsScoreTied} score-tied) for ` +
+        `the clumps no single tower can leave alone. It took the window from ${nukeBefore} to ` +
+        `${nukeAfter} over this layer's own set (spawn/storage/terminal/tower — the nuker does not exist ` +
+        `yet and the true window is recomputed after layer 5). ` +
+        (nukeSearch.improvedBy > 0
+          ? `The room did move.`
+          : `Nothing moved: every legal swap either left the window where it was or cost the wall ` +
+            `damage, and buying dispersion with the weakest face is the one trade this layer may not ` +
+            `make. The battery is where the wall put it.`),
+      tiles: clumped.map((t) => ({ x: t.x, y: t.y })),
+    });
+  }
 
   // M6: tower[0] is the ONLY tower the room owns from RCL3 to RCL5 — the
   // stretch where a single unrefilled tower is the difference between holding
@@ -941,8 +1118,18 @@ export function planTowers(terrain, plan, opts = {}) {
     const bits = [];
     if (mn < WEAK_SHELL_DMG) {
       bits.push(
+        // THE NUMBERS IN THIS CLAUSE ARE ABOUT LAYER 2's CUT, AND NOW SAY SO.
+        // E15S5 shipped "1350 damage ... 0/20 cut tiles" over a wall that is 19
+        // tiles and weakest at 1410; E5S6 quoted 26 against a shipped 23. The
+        // shipped reading is prepended to this declaration in layer 7 (see
+        // declareShippedBattery), but a sentence that needs a later paragraph to
+        // stop being wrong is a sentence that should have carried its own
+        // denominator. Layer 7's inert prune and the single-removal seal
+        // reconciliation both change WHICH tiles are the wall, and this layer
+        // runs before either.
         `the weakest wall face sees ${mn} damage — legal (the hard floor is ${TARGET_MIN}) but under the ` +
-          `${WEAK_SHELL_DMG} the fleet reaches almost everywhere, with ${weak}/${T} cut tiles under the floor`,
+          `${WEAK_SHELL_DMG} the fleet reaches almost everywhere, with ${weak}/${T} of the cut tiles ` +
+          `layer 2 handed this layer under the floor`,
       );
     }
     if (maxRefill > REFILL_NOTE) {
@@ -983,6 +1170,10 @@ export function planTowers(terrain, plan, opts = {}) {
         maxRefill,
         candidates: C,
         weakTiles: weak,
+        // THE DENOMINATOR THIS LAYER'S NUMBERS ARE OVER — layer 2's cut, before
+        // the prune and the seal reconciliation. Layer 7 quotes it when it
+        // prepends the shipped reading, so the two walls are never conflated.
+        declaredCutTiles: T,
         search: escalation,
       },
     });
@@ -998,10 +1189,28 @@ export function planTowers(terrain, plan, opts = {}) {
       avgShellDmg: Math.round(sum / T),
       weakTiles: weak,
       refillDists: refills,
-      // NUKE DISPERSION — the fullest 5x5 window over spawn/storage/terminal/
-      // nuker/tower, before and after the non-worsening post-pass. The lab
-      // diamond is excluded: it is a mandated 4x4 stamp.
-      nukeWindow: { before: nukeBefore, after: nukeAfter },
+      // ------------------------------------------------------------------
+      // THE FREEDOM THIS LAYER HAD, AND WHAT IT SPENT IT ON.
+      //
+      // Named for what it measures: the fullest 5x5 window over the mass LAYER 3
+      // CAN SEE — spawn / storage / terminal / tower — before and after its
+      // non-worsening dispersion post-pass. The lab diamond is excluded because
+      // it is a mandated 4x4 stamp; the NUKER is excluded because layer 5 has not
+      // placed it yet, which is precisely the bug that made the old `nukeWindow`
+      // field here wrong in 145 of 172 rooms.
+      //
+      // `meta.towers.nukeWindow` — the real metric, over spawn / storage /
+      // terminal / NUKER / tower — is written after layer 5 by
+      // recomputeNukeWindow in pipeline.mjs, and validate.mjs re-derives it from
+      // the shipped structure lists rather than trusting either field.
+      // ------------------------------------------------------------------
+      towerDispersion: {
+        before: nukeBefore,
+        after: nukeAfter,
+        counted: ["spawn", "storage", "terminal", "tower"],
+        search: nukeSearch,
+      },
+      towerClump,
       // WHICH TOWER RCL5 GETS AS THE SECOND OF ITS PAIR, and what the array
       // order would have given it instead — see the RCL5 block above
       rcl5Pair,

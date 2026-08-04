@@ -821,6 +821,275 @@ export function mobilityStats(cut, extMask, walkMask) {
  *               different cut.
  */
 /**
+ * ------------------------------------------------------------------------
+ * THE LIFT TEST — the only cause attribution this planner is allowed to make.
+ * ------------------------------------------------------------------------
+ * `mobilityCauseDetail` below answers a question about ONE PAIR with a
+ * RELATIVE threshold (`dStruct * 1.15 <= din`), and that combination is blind
+ * to the exact thing the gate is judged on: MOBILITY_DETOUR_FLOOR. A structure
+ * that adds ONE tile to a walk is "not the mass" under a 15% rule — and one
+ * tile is the entire breach when it takes a pair from a 4-tile detour (not
+ * judged) to a 5-tile detour (judged, and over target).
+ *
+ * That is not hypothetical. Four rooms shipped the sentence "THE PRIMARY CAUSE
+ * IS THE ENCLOSURE AND THE TERRAIN, not the mass" over a miss that is entirely
+ * ours:
+ *
+ *   E16S5  as shipped maxGated 2.25 over 2 gated pairs. Lift every non-hub
+ *          structure: maxGated 0, 0 gated pairs. Lift ONLY THE OBSERVER —
+ *          one tile, at 24,32 — and it is still 0. The whole miss is a
+ *          structure whose own placement rule is "takes the furthest leftover
+ *          tile", i.e. the one building in the game whose position is free.
+ *   E12S3  2.25 shipped. Lift the lab diamond (33,17…33,19) alone: 0.
+ *   E15S4  1.44 · E4S8 1.7 — same shape, zero gated pairs with our non-hub
+ *          mass lifted.
+ *
+ * Three of those four simultaneously carried `cause: "structures"` in the same
+ * declaration object whose prose said "not the mass". A structured field and
+ * the sentence beside it may not disagree, so BOTH now come from this one test.
+ *
+ * WHAT IT IS. Lift the structures we chose where to put — extensions, towers,
+ * labs, the nuker, the observer — and re-run the WHOLE metric, not one pair.
+ * If the gate clears with them lifted, the cause is our structures, and the
+ * guilty class is named by lifting classes one at a time. The hub trio and the
+ * spawn fan are NOT liftable: storage/terminal/link are one mandated tile of
+ * each by construction (the sitter reaches all three) and the spawns are grown
+ * around them, so "the room would be quicker without its storage" is not a
+ * finding, it is a category error.
+ *
+ * WHY THE WHOLE METRIC AND NOT THE WORST PAIR. Lifting a structure can hand the
+ * maximum to a different pair. A test that only re-walks the incumbent worst
+ * pair would report "fixed" while the room still misses, which is the same
+ * flattering direction the 15% rule failed in.
+ */
+/** structures whose position this planner chose, and can therefore be blamed */
+export const LIFTABLE = ["extension", "tower", "lab", "nuker", "observer"];
+/** ...and the ones it did not: the mandated core. */
+export const MANDATED = ["spawn", "storage", "terminal", "link"];
+
+/** the interior walk mask for `plan` with `classes` lifted out of the room */
+function liftedMask(terrain, plan, wallSet, ext, classes) {
+  const blocked = new Set(plan.objectTiles || []);
+  const lift = new Set(classes);
+  for (const t of BUILT_OBSTACLES) {
+    if (lift.has(t)) continue;
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  return maskFromKeys(interiorWalk(terrain, wallSet, ext, blocked, plan.sitter));
+}
+
+/**
+ * Run the lift test on the finished room.
+ *
+ * `wallSet` / `ext` are the SHIPPED wall and the SHIPPED exterior flood (see
+ * shippedFlood in layer-walls) — the same board the as-built reading is taken
+ * on, because a cause attribution about a different board is the defect this
+ * function exists to replace.
+ *
+ * Returns the cause label, the lap with everything liftable lifted, and — when
+ * the gate clears — the classes that own the miss, cheapest evidence first.
+ */
+export function mobilityLift(terrain, plan, cut, ext, wallSet, shippedWorst) {
+  const present = LIFTABLE.filter((t) => (plan.structures[t] || []).length > 0);
+  const out = {
+    cause: "none",
+    present,
+    liftedLap: null,
+    liftedOverGated: null,
+    liftedGatedPairs: null,
+    clears: false,
+    classes: [],
+    solo: [],
+    perClass: {},
+  };
+  if (!cut.length) return out;
+  const all = mobilityStats(cut, ext, liftedMask(terrain, plan, wallSet, ext, present));
+  out.liftedLap = all.maxGated;
+  out.liftedOverGated = all.overGated;
+  out.liftedGatedPairs = all.gatedPairs;
+  out.clears = all.maxGated <= MOBILITY_TARGET;
+  if (!out.clears) {
+    // Our own mass is not enough to explain it. Fall through to the pair-level
+    // diagnosis, which separates a natural wall inside the enclosure (terrain)
+    // from a concave cut the attacker simply cuts across (shape) — asked about
+    // the LIFTED board's worst pair, so the answer is about what is left after
+    // our structures are out of the way.
+    const w = all.worstGated || all.worst || shippedWorst || null;
+    const d = mobilityCauseDetail(terrain, cut, ext, w);
+    out.cause = d.cause === "structures" ? "shape" : d.cause;
+    out.residual = { dStruct: d.dStruct, dFree: d.dFree, pair: w ? { a: w.a, b: w.b } : null };
+    return out;
+  }
+  out.cause = "structures";
+  // ---- WHICH structures. One class at a time, cheapest evidence first. ----
+  // The prefilter is a soundness argument, not an optimisation: if lifting class
+  // c leaves the SHIPPED worst gated pair walking exactly as far as it did, that
+  // pair's ratio is unchanged and still over target, so maxGated cannot have
+  // dropped below the target and c cannot be a solo cause. One BFS decides it;
+  // the full all-pairs metric is then only paid for by the survivors.
+  const fullMask = liftedMask(terrain, plan, wallSet, ext, []);
+  const shippedDin =
+    shippedWorst && isFinite(shippedWorst.din) ? shippedWorst.din : null;
+  for (const c of present) {
+    const mask = liftedMask(terrain, plan, wallSet, ext, [c]);
+    let din = null;
+    if (shippedWorst) din = arriveAt(bfsField(mask, shippedWorst.a), shippedWorst.b);
+    out.perClass[c] = { pairDin: isFinite(din) ? din : null };
+    if (shippedDin !== null && isFinite(din) && din >= shippedDin) continue;
+    const st = mobilityStats(cut, ext, mask);
+    out.perClass[c].lap = st.maxGated;
+    if (st.maxGated <= MOBILITY_TARGET) out.solo.push(c);
+  }
+  if (out.solo.length) {
+    out.classes = out.solo.slice();
+    return out;
+  }
+  // No single class does it: accumulate, in the order that shortens the shipped
+  // worst pair most, until the gate clears. That set is what a reader has to
+  // move to fix the room, and it is measured rather than asserted.
+  const ranked = present
+    .slice()
+    .sort((a, b) => {
+      const pa = out.perClass[a]?.pairDin ?? Infinity;
+      const pb = out.perClass[b]?.pairDin ?? Infinity;
+      return pa - pb || LIFTABLE.indexOf(a) - LIFTABLE.indexOf(b);
+    });
+  const acc = [];
+  for (const c of ranked) {
+    acc.push(c);
+    if (acc.length === present.length) break;
+    const st = mobilityStats(cut, ext, liftedMask(terrain, plan, wallSet, ext, acc));
+    if (st.maxGated <= MOBILITY_TARGET) break;
+  }
+  out.classes = acc;
+  void fullMask;
+  return out;
+}
+
+/**
+ * ------------------------------------------------------------------------
+ * A PLACEMENT VETO THAT COSTS ONE PASS OVER EIGHT NEIGHBOURS.
+ * ------------------------------------------------------------------------
+ * Layers 4 and 5 place structures on tiles they are otherwise free to choose,
+ * and neither had a mobility term of any kind. E16S5's observer is the proof
+ * that this matters at one-tile resolution, and re-running the all-pairs metric
+ * per candidate is not affordable (79 free deep tiles in that room alone).
+ *
+ * It does not have to be. A tile is provably FREE — blocking it changes not one
+ * interior distance — when every pair of its walkable neighbours is already
+ * connected around it at no extra cost. A path through t reads (…, u, t, v, …)
+ * and pays 2 steps; if u and v are D8-adjacent the bypass pays 1 (strictly
+ * shorter), and if they share any other walkable neighbour w the bypass pays 2
+ * (identical). If that holds for every pair, no shortest path anywhere in the
+ * room gets longer and the walk region cannot be split either — so the metric
+ * is bit-identical with or without a structure standing there.
+ *
+ * The consequence is that the expensive test is only ever paid for by the
+ * handful of candidates that sit in a genuine corridor pinch, which is exactly
+ * the set the veto is about.
+ */
+export function detourFreeTile(walkMask, tx, ty) {
+  const nb = [];
+  for (const [dx, dy] of D8) {
+    const x = tx + dx,
+      y = ty + dy;
+    if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+    if (walkMask[idx(x, y)]) nb.push({ x, y });
+  }
+  for (let i = 0; i < nb.length; i++) {
+    for (let j = i + 1; j < nb.length; j++) {
+      const u = nb[i],
+        v = nb[j];
+      if (Math.max(Math.abs(u.x - v.x), Math.abs(u.y - v.y)) <= 1) continue;
+      let bridged = false;
+      for (const [dx, dy] of D8) {
+        const wx = u.x + dx,
+          wy = u.y + dy;
+        if (wx === tx && wy === ty) continue;
+        if (wx < 0 || wy < 0 || wx > 49 || wy > 49) continue;
+        if (!walkMask[idx(wx, wy)]) continue;
+        if (Math.max(Math.abs(wx - v.x), Math.abs(wy - v.y)) <= 1) {
+          bridged = true;
+          break;
+        }
+      }
+      if (!bridged) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The same argument for a STAMP: a whole tile set is free when blocking it
+ * lengthens nothing. Proved the same way, one tile at a time against the mask
+ * the previous tiles have already been removed from — if tile k is bypassable
+ * once tiles 1..k-1 are gone, the whole set is (each removal is distance-
+ * preserving on the board the next one is judged against, and distance-
+ * preserving composes).
+ */
+export function detourFreeSet(walkMask, tiles) {
+  const mask = walkMask.slice();
+  for (const t of tiles) {
+    if (!mask[idx(t.x, t.y)]) continue; // not in the walk region: blocks nothing
+    if (!detourFreeTile(mask, t.x, t.y)) return false;
+    mask[idx(t.x, t.y)] = 0;
+  }
+  return true;
+}
+
+/**
+ * The gated reading of the board a mid-pipeline layer can see, with `extra`
+ * tiles blocked. Used by the placement veto in layers 4 and 5 when the cheap
+ * proof above comes back false: the candidate has to be measured.
+ *
+ * This is the layer-2 wall and the layer-2 exterior on purpose — layer 4 cannot
+ * measure a wall layer 7 has not reconciled yet — so it is a claim about the
+ * board the placing layer is standing on, and the as-built declaration in layer
+ * 7 remains the number of record.
+ */
+export function boardMobility(terrain, plan, extra) {
+  const cut = plan.shell?.cut || [];
+  if (!cut.length || !plan.exterior) return null;
+  const wallSet = new Set(cut.map((c) => key(c.x, c.y)));
+  for (const r of plan.structures.rampart || []) wallSet.add(key(r.x, r.y));
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  if (extra) for (const k of extra) blocked.add(k);
+  const walk = interiorWalk(terrain, wallSet, plan.exterior, blocked, plan.sitter);
+  return mobilityStats(cut, plan.exterior, maskFromKeys(walk));
+}
+
+/** the walk mask a placement veto measures its candidates against */
+export function boardWalkMask(terrain, plan, extra) {
+  const cut = plan.shell?.cut || [];
+  if (!cut.length || !plan.exterior) return null;
+  const wallSet = new Set(cut.map((c) => key(c.x, c.y)));
+  for (const r of plan.structures.rampart || []) wallSet.add(key(r.x, r.y));
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  if (extra) for (const k of extra) blocked.add(k);
+  return maskFromKeys(interiorWalk(terrain, wallSet, plan.exterior, blocked, plan.sitter));
+}
+
+/**
+ * Did adding this candidate CREATE or WORSEN a gated-over-target pair?
+ * The ruling the veto implements, in one predicate: a candidate that takes a
+ * room from inside the target to outside it, or that pushes an already-missing
+ * room's lap up, loses. A candidate that changes neither is free.
+ */
+export function breachesGate(base, trial) {
+  if (!base || !trial) return false;
+  if (trial.maxGated > MOBILITY_TARGET && base.maxGated <= MOBILITY_TARGET) return true;
+  if (trial.maxGated > base.maxGated + 1e-9) return true;
+  if (trial.overGated > base.overGated) return true;
+  return false;
+}
+
+/**
  * The cause, AND the two walks it was diagnosed from.
  *
  * This used to return a bare label, and the declaration it feeds then

@@ -15,6 +15,7 @@ import {
   GOLDEN,
   fetchRoomsFromMongo,
   fetchAllClaimableRooms,
+  planStructureHash,
 } from "./shared.mjs";
 import {
   renderRoomSvg,
@@ -264,46 +265,192 @@ function animNotes(plan) {
         ? ` · ${m.extensions.corridorFallback} placed road-blind (fallback)`
         : " · every one of them D4 on a road");
   }
-  // Layer 6's relocation pass, captioned from its own record. `relocated` is
-  // per-move and auditable (from, to, closer, tookStub), so the aggregate is
-  // counted here and the individual moves ride the step labels; a room that
-  // relocated nothing gets neither stage nor caption.
+  // ------------------------------------------------------------------
+  // THE RELOCATION CAPTIONS COUNT THE MOVES THE FILM ACTUALLY PLAYS.
+  //
+  // TWO PASSES RELOCATE AND THE FILM DRAWS BOTH. export-anim.mjs builds its
+  // `extGhost`/`extMove` steps from the UNION of `meta.extensions.relocated`
+  // (layer 6's own end-of-pass rescue) and `meta.extensions.reflow.moved`
+  // (layer 7b, once the dead-end prune has handed the corridor back as floor).
+  // These two captions were built from `relocated` alone, so E12S6's banner
+  // read "3 slots ... layer 6 came back for" and "3 moves onto deep floor"
+  // over a film that plays SIX extGhost tiles and SIX extMove tiles — 3 + 3.
+  // Fleet-wide the undercount is 48 moves in 18 rooms. A caption that counts
+  // fewer beats than the film plays is exactly the bug this file exists to
+  // avoid, so the totals are the union and each pass is named for its share.
+  //
+  // THE TWO RECORDS ARE NOT THE SAME SHAPE, AND ARE NOT AVERAGED TOGETHER.
+  // Layer 6 publishes `closer` (a hub-walk delta) and `tookStub`; layer 7b
+  // publishes `fromDepth`/`toDepth`/`paved` and no hub walk at all. So the
+  // "nearer the hub" arithmetic is stated over layer 6's subset ONLY and says
+  // so, and layer 7b's share is stated in the depths it publishes. Mixing them
+  // would put a mean over two different quantities.
+  // ------------------------------------------------------------------
   const rel = m.extensions?.relocated || [];
-  if (rel.length) {
+  const rfw = m.extensions?.reflow || {};
+  const mv7 = (rfw.moved || []).filter((r) => r && r.from && r.to);
+  const moves = rel.length + mv7.length;
+  if (moves) {
     const nearer = rel.filter((r) => r.closer > 0);
     const farther = rel.filter((r) => r.closer < 0);
     const stubs = rel.filter((r) => r.tookStub).length;
     const best = nearer.length ? Math.max(...nearer.map((r) => r.closer)) : 0;
-    // meta.extensions.shallow is counted AFTER the pass has spliced out every
-    // slot it moved, so it is what is still shallow in the shipped room — not
-    // the size of the pass's input list.
+    const level = rel.length - nearer.length - farther.length;
+    // meta.extensions.shallow is counted AFTER BOTH passes have spliced out
+    // every slot they moved, so it is what is still shallow in the shipped
+    // room — not the size of either pass's input list.
+    const who = [];
+    if (rel.length) who.push(`${rel.length} layer 6 came back for at the end of its own pass`);
+    if (mv7.length) {
+      who.push(
+        `${mv7.length} the layer 7b reflow could only reach once the dead-end prune had handed the corridor back as floor`,
+      );
+    }
     n.extGhost =
-      `${rel.length} slot${rel.length === 1 ? "" : "s"} the fill took too close to the wall, and layer 6 came back for` +
+      `${moves} slot${moves === 1 ? "" : "s"} the fill took too close to the wall, and a later pass came back for` +
+      ` — ${who.join(" · ")}` +
       (typeof m.extensions.shallow === "number"
         ? m.extensions.shallow
           ? ` · ${m.extensions.shallow} more stay shallow in the shipped room`
           : " · every shallow slot in the room was rescued"
         : "");
-    const level = rel.length - nearer.length - farther.length;
+
+    const parts = [];
+    if (rel.length) {
+      parts.push(
+        `layer 6 moved ${rel.length} — ` +
+          (nearer.length
+            ? `${nearer.length} landed nearer the hub (up to ${best} step${best === 1 ? "" : "s"})`
+            : "none landed nearer the hub") +
+          (farther.length ? `, ${farther.length} farther out` : "") +
+          (level ? `, ${level} at the same walk` : "") +
+          // WHAT `tookStub` IS, SAID STRAIGHT. It means the DESTINATION tile
+          // carried a corridor stub in layer 6's own working road set, which
+          // the same pass then deleted before the layer published anything.
+          // Measured over the shipped fleet: 98 of the 99 layer-6 relocations
+          // took a stub, and NOT ONE of the 98 destinations has a
+          // meta.roadLayer entry or is drawn as a road in any frame of any
+          // film (E12S6 29,7 · 29,6 · 30,5 among them). The old caption said
+          // "N lifted a stub road" over a road no viewer has ever seen. The
+          // lift is real, it is just not a thing the film can show — what it
+          // costs is the lane bound, re-derived below with those tiles
+          // blocked, because the worst-case model had counted them walkable.
+          (stubs
+            ? `, and ${stubs} of them landed on corridor layer 6 had paved and took back inside the same pass (never a road in the shipped plan, so no frame draws one)`
+            : ""),
+      );
+    }
+    if (mv7.length) {
+      const dF = mv7.map((r) => r.fromDepth).filter((v) => typeof v === "number");
+      const dT = mv7.map((r) => r.toDepth).filter((v) => typeof v === "number");
+      const span = (a) => (a.length ? (Math.min(...a) === Math.max(...a) ? `${a[0]}` : `${Math.min(...a)}-${Math.max(...a)}`) : "?");
+      const retired = (rfw.rampartsRetired || []).length;
+      parts.push(
+        `layer 7b moved ${mv7.length} — depth ${span(dF)} → ${span(dT)}` +
+          (retired ? `, retiring ${retired} personal rampart${retired === 1 ? "" : "s"}` : "") +
+          // layer 7b never publishes a hub walk, so this half of the total
+          // carries no "nearer the hub" claim at all rather than a guessed one
+          ` (7b records depths, not a hub walk, so these are not counted with layer 6's steps)`,
+      );
+    }
     n.extMove =
-      `${rel.length} move${rel.length === 1 ? "" : "s"} onto deep floor · ` +
-      (nearer.length
-        ? `${nearer.length} landed nearer the hub (up to ${best} step${best === 1 ? "" : "s"})`
-        : "none landed nearer the hub") +
-      (farther.length ? `, ${farther.length} farther out` : "") +
-      (level ? `, ${level} at the same walk` : "") +
-      (stubs ? ` · ${stubs} lifted a stub road` : "") +
+      `${moves} move${moves === 1 ? "" : "s"} onto deep floor · ` +
+      parts.join(" · ") +
       // The lap the relocation is blamed for, when layer 6 published both ends
       // of it: E11S7 lifts five stubs and re-derives its bound over the
-      // corridor the room ships, 11.5 -> 13.5. Printed only when the two
-      // numbers exist and differ — a room that paid nothing says nothing.
+      // corridor the room ships, 12 -> 14 (`boundBeforeStubs` -> `bounded`;
+      // that room's floor is 11.5 and its as-built lap 13.5, which are two
+      // other numbers and are not these). Four rooms print this clause —
+      // E11S7 12->14, E13S2 0->2.43, E9S4 2.6->2.8, E9S9 2.06->2.31. Printed
+      // only when the two numbers exist and differ; a room that paid nothing
+      // says nothing.
       (typeof m.extensions.laneMeta?.boundBeforeStubs === "number" &&
       typeof m.extensions.laneMeta?.bounded === "number" &&
       m.extensions.laneMeta.bounded !== m.extensions.laneMeta.boundBeforeStubs
-        ? ` · re-measuring the lane bound over the lifted stubs took it ${m.extensions.laneMeta.boundBeforeStubs} → ${m.extensions.laneMeta.bounded}`
+        ? ` · re-measuring the lane bound with the lifted stubs blocked took it ${m.extensions.laneMeta.boundBeforeStubs} → ${m.extensions.laneMeta.bounded}`
         : "");
   }
   return n;
+}
+
+/**
+ * Clip one shortfall `detail` down to a banner line, without paraphrasing it.
+ *
+ * The layers write long — the longest detail in the fleet is 4,402 characters —
+ * and a ticker that carries them whole is a wall of text nobody reads at the end
+ * of a 40-second film. So: whitespace collapsed, then the FIRST SENTENCE if it
+ * fits inside the budget, otherwise a hard clip at the budget on a word
+ * boundary with an ellipsis. Nothing is rewritten and nothing is summarised —
+ * the words are the layer's own, in the layer's own order, and the full text is
+ * two inches down the same page in the Declared shortfalls card, which the
+ * ticker's own header points at.
+ *
+ * The sentence split requires a period followed by whitespace or end of string,
+ * so "max 1.71 over pairs" and "depth >= 4" do not split mid-number.
+ */
+const SHORTFALL_CLIP = 160;
+function clipShortfall(detail) {
+  const s = String(detail ?? "").replace(/\s+/g, " ").trim();
+  if (!s) return "(this shortfall carries no detail text)";
+  const stop = s.search(/\.(\s|$)/);
+  if (stop >= 0 && stop + 1 <= SHORTFALL_CLIP) return s.slice(0, stop + 1);
+  if (s.length <= SHORTFALL_CLIP) return s;
+  let cut = s.slice(0, SHORTFALL_CLIP);
+  const sp = cut.lastIndexOf(" ");
+  if (sp > SHORTFALL_CLIP / 2) cut = cut.slice(0, sp);
+  return cut + "…";
+}
+
+/**
+ * THE FILM CARRIED NONE OF THE HONEST-SHORTFALL TEXT.
+ *
+ * `animNotes` above builds a caption set out of counts and never touches
+ * `meta.shortfalls` or `meta.notes`. The room PAGE prints every declared
+ * shortfall verbatim (shortfallsHtml) and every planner note (notesHtml), and
+ * the index badges both — but 114 of the 172 rooms carry at least one shortfall
+ * and a viewer who watched the film and nothing else saw zero of them. E12S6
+ * declares a weak battery and a missed mobility gate; its film ended on "plan
+ * complete — this last frame IS the shipped plan, tile for tile" and said
+ * nothing about either. "Every shortfall must be loud" is not a claim the suite
+ * can make while its most watchable artifact is silent about all of them.
+ *
+ * ONE LINE PER DECLARED SHORTFALL, AT THE END OF THE FILM, and only there: the
+ * ticker is hidden until the last placement has landed, so it reads as the
+ * coda to the completion card rather than as a warning that hangs over the
+ * whole replay. The most any room needs is four rows (E12S5).
+ *
+ * IT IS A POINTER, NOT A REPLACEMENT. Each row is gate tag + a clipped first
+ * sentence (see clipShortfall) and the header says where the full text is. The
+ * ticker MUST NOT become the canonical rendering of a declaration — that is the
+ * shortfall card's job, and a summary that quietly replaces the declaration is
+ * the same laundering the declaration channel exists to prevent.
+ *
+ * NOTES GET A COUNT AND NOT A ROW, deliberately, for the reason notesHtml gives
+ * at length: a note is not a shortfall and must never read as one. The film says
+ * how many observations the layers recorded and sends the viewer to the card.
+ *
+ * A room with no shortfalls emits no ticker at all — not an empty box. The page
+ * says "no declared shortfalls" in words because an empty section there is
+ * indistinguishable from a missing one; the film has the completion card
+ * carrying that weight already.
+ */
+function animShortfallTicker(plan) {
+  const list = (plan.meta?.shortfalls || []).filter((s) => s && typeof s === "object");
+  if (!list.length) return "";
+  const rows = list
+    .map((s) => {
+      const tag = [s.gate, s.kind, s.source].filter(Boolean).map(esc).join(" · ") || "(untagged gate)";
+      return `<div class="asf-row"><span class="asf-gate">${tag}</span><span class="asf-txt">${esc(clipShortfall(s.detail))}</span></div>`;
+    })
+    .join("\n");
+  const nnt = (plan.meta?.notes || []).length;
+  const foot = nnt
+    ? `<div class="asf-foot">…and ${nnt} planner note${nnt === 1 ? "" : "s"} on this page. A note is not a shortfall: it is an observation and it excuses nothing.</div>`
+    : "";
+  return `<div class="anim-sf" id="animSf" hidden>
+<div class="asf-head">Declared shortfalls &middot; ${list.length} &mdash; gates this plan knowingly failed. Clipped to one line each; every word of every one is on this page under &ldquo;Declared shortfalls&rdquo;.</div>
+${rows}
+${foot}</div>`;
 }
 
 /**
@@ -406,6 +553,7 @@ function animPlayerHtml(plan) {
 </div>
 <div class="stages" id="animStages"></div>
 <div class="anim-label" id="animLabel">loading anim/${plan.room}.json &hellip;</div>
+${animShortfallTicker(plan)}
 </div>
 <script>
 (function () {
@@ -474,6 +622,16 @@ function animPlayerHtml(plan) {
   // SIX road stages, one per pipeline layer that lays road, plus the layer-7
   // prune which UNPAINTS — and layer 6's relocation, which does the same thing
   // to an extension ghost.
+  //
+  // extAdd IS AN EXTENSION AND HAS TO PAINT LIKE ONE. It got a STAGE_INFO entry
+  // and a step emitter (export-anim, layer 7b's backfill) and was never added
+  // here, so kindFor returned null for it and paintTile fell all the way
+  // through to paintRect: 21 tiles across the three rooms that use the pass —
+  // E5S3 9, E9S2 6, E9S7 6 — ended the film as flat yellow squares instead of
+  // extension sprites, and they are STILL flat in the LAST frame, under a HUD
+  // line that reads "this last frame IS the shipped plan, tile for tile". Same
+  // class of bug as the sitter and the seed above, and the same standard: a
+  // stage that survives to the final frame must paint the thing it is.
   var STAGE_KIND = {
     roads: '#road', roadsTwr: '#road', roadsLab: '#road', roadsMisc: '#road',
     roadsExt: '#road', roadsLate: '#road', roadsResid: '#road',
@@ -481,15 +639,21 @@ function animPlayerHtml(plan) {
     seed: '#seed',
     ramparts: '#rampart', towers: 'tower', labs: 'lab',
     nuker: 'nuker', observer: 'observer', extractor: 'extractor',
-    extensions: 'extension',
+    extensions: 'extension', extAdd: 'extension',
     extGhost: '#extghost', extMove: '#unghost'
   };
-  // stages whose steps are expanded back into ONE PLACEMENT PER TILE
+  // stages whose steps are expanded back into ONE PLACEMENT PER TILE.
+  // extAdd is listed for the same reason it is in STAGE_KIND: it is the same
+  // kind of beat as the extensions stage, one structure at a time. export-anim
+  // happens to push its adds one cell per step today, so the expansion is a
+  // no-op on the current films — but the rate readout under the bar reads
+  // EXPAND to decide between "tiles/sec here" and "bands/sec here", and it was
+  // calling layer 7b's backfill a band.
   var EXPAND = {
     claims: 1, roads: 1, roadsTwr: 1, roadsLab: 1, roadsMisc: 1, roadsExt: 1,
     roadsPrune: 1, roadsLate: 1, roadsResid: 1,
     ramparts: 1, towers: 1, labs: 1,
-    nuker: 1, observer: 1, extractor: 1, extensions: 1,
+    nuker: 1, observer: 1, extractor: 1, extensions: 1, extAdd: 1,
     extGhost: 1, extMove: 1
   };
   // scaffold stages that live on the LATE scaffold canvas (dimmed at the wall)
@@ -850,6 +1014,9 @@ function animPlayerHtml(plan) {
   var elSpeedVal = document.getElementById('animSpeedVal');
   var elRate = document.getElementById('animRate');
   var elTrails = document.getElementById('animTrails');
+  // the shortfall ticker is emitted server-side (animShortfallTicker) and is
+  // ABSENT — not empty — in a room that declared none, so every use is guarded
+  var elSf = document.getElementById('animSf');
 
   /**
    * Roads and ramparts go UNDER the structures, exactly as the gallery stacks
@@ -957,6 +1124,11 @@ function animPlayerHtml(plan) {
     elLabel.textContent = done
       ? 'plan complete — this last frame IS the shipped plan, tile for tile'
       : steps[cur.s].label;
+    // ...and the shipped plan is a plan with declared misses in it. The ticker
+    // rides the completion state, not the route taken to it (same rule the
+    // '__done' title card follows in seek): scrub to the end, press next-stage
+    // off the last layer, or let it play out, and the declarations are there.
+    if (elSf) elSf.hidden = !done;
     elBar.style.width = (100 * i / plc.length) + '%';
     // the scaffolding stages are paced a WHOLE BAND at a time, so "tiles/sec"
     // would be a lie there by two orders of magnitude
@@ -1306,6 +1478,23 @@ td,th{border:1px solid #333;padding:6px 10px}
 .stage.past{color:#9ab;border-color:#333}
 .stage.on{background:#12303f;color:#8cf;border-color:#2b6a86;box-shadow:0 0 0 1px #2b6a8666}
 .anim-label{margin-top:8px;font-size:13px;color:#cde;min-height:18px}
+/* the end-of-film shortfall ticker (animShortfallTicker). Built out of the
+   anim banner's own geometry — same left rule, same radius, same 11.5px note
+   type — in the shortfall card's amber rather than the banner's blue, so it
+   reads as "this is the declaration channel" at a glance and not as one more
+   layer caption. The [hidden] rule is written out rather than left to the UA
+   sheet: the ticker being invisible until the last placement lands is the
+   whole design, and it must not be one stylesheet-specificity accident away
+   from hanging over the entire replay. */
+.anim-sf{margin-top:10px;background:#171310;border:1px solid #3a2a1c;border-left:3px solid #a4642a;
+         border-radius:0 6px 6px 0;padding:8px 12px}
+.anim-sf[hidden]{display:none}
+.asf-head{color:#ffb454;font-size:11.5px;letter-spacing:.4px;line-height:1.45;margin-bottom:6px}
+.asf-row{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-top:1px solid #241b13}
+.asf-gate{flex:0 0 auto;color:#ffb454;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;
+          white-space:nowrap;min-width:132px}
+.asf-txt{color:#dcdcdc;font-size:11.5px;line-height:1.45;font-variant-numeric:tabular-nums}
+.asf-foot{margin-top:6px;color:#7f96a3;font-size:11px;line-height:1.4}
 .sf-card{margin-top:16px;max-width:1100px}
 .sf-card h3{color:#ffb454}
 .sf-lead{margin:0 0 12px;color:#9ab;font-size:12.5px;line-height:1.5}
@@ -1432,6 +1621,79 @@ function pruneOrphanArtifacts(rooms) {
       ? `stale artifacts pruned: ${gone.length} file(s) for rooms outside this ${rooms.length}-room run — ${gone.join(" ")}`
       : `stale artifacts: none pruned — thumbs/ and anim/ hold nothing outside this ${rooms.length}-room run`,
   );
+
+}
+
+/**
+ * ------------------------------------------------------------------
+ * ...AND "NOT ORPHANED" IS NOT THE SAME AS "NOT STALE".
+ * ------------------------------------------------------------------
+ * The prune above only asks whether a file belongs to a room in this run. It
+ * never asked whether the file DESCRIBES this run — and this suite does not
+ * write the animations at all (`export-anim.mjs --all` does), so a normal
+ * planner run leaves every anim/<room>.json describing the PREVIOUS plan while
+ * the gallery player states, on screen, that "this last frame IS the shipped
+ * plan, tile for tile".
+ *
+ * Round 10 walked into exactly that: after a planner change, an independent
+ * final-frame check read 152/172 — 20 rooms whose film painted an observer,
+ * five roads and a handful of extensions the shipped plan does not have, with
+ * no warning anywhere. The films were not wrong about anything; they were
+ * answers to a question nobody had re-asked.
+ *
+ * MTIME WAS TRIED FIRST AND IS USELESS HERE. plans-hub.json is rewritten on
+ * every suite run, so every film reads "older" the moment you re-plan — even
+ * when two runs are byte-identical, which is the normal case and the one the
+ * determinism gate is about. A check that fires on every clean run is a check
+ * the reader learns to skip.
+ *
+ * So it is CONTENT: `planStructureHash` (shared.mjs) over type-and-tile only,
+ * sorted, written into each film by export-anim.mjs and re-derived here from the
+ * plan just written. A film with no `planHash` is a film from before this
+ * existed and is reported as unstamped rather than silently trusted. It stays a
+ * loud line rather than a failure because a partial-room run legitimately leaves
+ * the other 171 films describing plans that are still perfectly current, and
+ * because the suite does not write films — it cannot fix what it is reporting.
+ */
+function warnStaleAnimations(plans) {
+  const animDir = path.join(OUT_V2, "anim");
+  if (!fs.existsSync(animDir)) return;
+  const stale = [];
+  const missing = [];
+  const unstamped = [];
+  for (const p of plans) {
+    const f = path.join(animDir, `${p.room}.json`);
+    if (!fs.existsSync(f)) {
+      missing.push(p.room);
+      continue;
+    }
+    let film;
+    try {
+      film = JSON.parse(fs.readFileSync(f, "utf8"));
+    } catch {
+      stale.push(p.room);
+      continue;
+    }
+    if (!film.planHash) unstamped.push(p.room);
+    else if (film.planHash !== planStructureHash(p)) stale.push(p.room);
+  }
+  const show = (a) => `${a.slice(0, 12).join(" ")}${a.length > 12 ? " …" : ""}`;
+  if (stale.length || missing.length || unstamped.length) {
+    console.log(
+      `ANIMATIONS DO NOT MATCH THIS PLAN — ${stale.length} stale, ${missing.length} missing, ` +
+        `${unstamped.length} unstamped, of ${plans.length}. The gallery player states on screen that its ` +
+        `last frame IS the shipped plan tile for tile; for those rooms it is not. ` +
+        `Run: node tools/plan-suite/v2/export-anim.mjs --all` +
+        (stale.length ? `\n  stale: ${show(stale)}` : "") +
+        (missing.length ? `\n  missing: ${show(missing)}` : "") +
+        (unstamped.length ? `\n  unstamped (written before films carried a plan digest): ${show(unstamped)}` : ""),
+    );
+  } else {
+    console.log(
+      `animations: ${plans.length}/${plans.length} carry this plan's structure digest — the last frame of ` +
+        `every film is the plan this run just wrote`,
+    );
+  }
 }
 
 function main() {
@@ -1645,6 +1907,9 @@ ${thumbLegendHtml()}
     };
   });
   fs.writeFileSync(path.join(OUT_V2, "plans-hub.json"), JSON.stringify(slim, null, 2));
+  // ...and now, with the plan on disk, is the only honest moment to ask whether
+  // the films still describe it. See warnStaleAnimations.
+  warnStaleAnimations(slim);
 
   console.log("Wrote", path.join(OUT_V2, "index.html"));
   console.log("OK", ok.length, "/", plans.length);
@@ -1696,7 +1961,58 @@ ${thumbLegendHtml()}
       `sources ${withShell.reduce((s, p) => s + p.shell.enclosedSources, 0)}/${withShell.reduce((s, p) => s + p.sources.length, 0)} strict` +
       ` (works-only ${withShell.reduce((s, p) => s + (p.shell.enclosedSourceWorks ?? 0), 0)})`,
   );
-  console.log(`mobility ratio: mean-of-means ${avg(mobMean)} · worst room max ${Math.max(0, ...mobMax)}`);
+  // ------------------------------------------------------------------
+  // THE FLEET LINE HAS TO QUOTE THE READING THE GATE APPLIES TO.
+  //
+  // This printed `mobility ratio: ... worst room max 11` off
+  // `p.shell.mobility.max` — layer 2's MASS-FREE negotiation reading, taken on
+  // the bare cut before a single extension exists. The comment over the
+  // per-room caption in animNotes (search "WHICH READING, AND WHY NOT THE
+  // OTHER ONE") forbids exactly this substitution by name, and cites exactly
+  // this room: E11S7 reads 11 on layer 2's number and 13.5 AS BUILT. The
+  // caption obeyed the rule and the fleet summary broke it one screen later,
+  // so the suite's own headline understated its worst room by 2.5.
+  //
+  // Same precedence animNotes uses: meta.walls.mobility.builtGated, falling
+  // back to meta.shell.mobilityBuilt.maxGated. (On the current fleet all 172
+  // rooms carry the first, so the fallback is insurance against an older plan,
+  // not a live path.)
+  //
+  // A ZERO IS NOT A GOOD ROOM, IT IS AN UNJUDGED ONE — 96 of the 172 rooms
+  // have no pair of wall tiles whose absolute detour clears the 4-tile floor,
+  // so the gate judged nothing and the lap is 0. Averaging those in would
+  // divide a real number by a fleet that mostly did not take the measurement,
+  // so the mean is over the rooms that were judged and the count of the rest
+  // is printed beside it. Layer 2's number is kept on its own line, labelled
+  // as the pre-mass negotiation reading, because it is what the wall was
+  // BOUGHT on — it is just not what the wall is JUDGED on.
+  // ------------------------------------------------------------------
+  const builtLap = (p) => {
+    const w = p.meta?.walls?.mobility?.builtGated;
+    if (typeof w === "number") return w;
+    const s = p.meta?.shell?.mobilityBuilt?.maxGated;
+    return typeof s === "number" ? s : null;
+  };
+  const laps = ok.map(builtLap).filter((v) => v !== null);
+  const judgedRooms = ok
+    .filter((p) => (builtLap(p) ?? 0) > 0)
+    // worst first, ties broken by room name so the pick is deterministic
+    .sort((a, b) => builtLap(b) - builtLap(a) || (a.room < b.room ? -1 : 1));
+  const judged = judgedRooms.map(builtLap);
+  const overTgt = judged.filter((v) => v > MOBILITY_TARGET).length;
+  console.log(
+    `defender mobility AS BUILT (gated lap — extension mass in place, only pairs whose detour clears the ` +
+      `${MOBILITY_DETOUR_FLOOR}-tile floor judged; this is the reading the ${MOBILITY_TARGET} target applies to): ` +
+      (judged.length
+        ? `worst ${judged[0]} (${judgedRooms[0].room}) · mean ${avg(judged)} over the ${judged.length} room(s) ` +
+          `any pair was judged in · ${overTgt} of them over target`
+        : "no room in this run had a single pair to judge") +
+      ` · ${laps.length - judged.length} room(s) judged nothing (lap 0)`,
+  );
+  console.log(
+    `  layer 2's pre-mass negotiation reading, for contrast only — bare cut, no extension mass, ungated: ` +
+      `mean-of-means ${avg(mobMean)} · worst room max ${Math.max(0, ...mobMax)}`,
+  );
 
   // ------------------------------------------------------------------
   // THE LANE BOUND IS ASSERTED, NOT ADVERTISED.

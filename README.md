@@ -41,3 +41,80 @@ Feel free to submit pull requests or create issues for bugs and feature requests
 ## License
 
 This project is released into the public domain using the Unlicense. This means you are free to copy, modify, publish, use, compile, sell, or distribute this software, either in source code form or as a compiled binary, for any purpose, commercial or non-commercial, and by any means. For more information, please refer to <http://unlicense.org>.
+
+
+## Deploy targets
+
+Three servers. Each is a named destination in `screeps.json`; every `npm run push-*`
+script is just `rollup -c --environment DEST:<destination>`.
+
+| Target | Destination(s) | Server | Command |
+|---|---|---|---|
+| **local** | `pacifist` (also `pserver`, `pacifist2`, `waxeye`, `race`) | local Docker private server, `http://127.0.0.1:23025` | `npm run push-pacifist` |
+| **vps** | `vps` (fallback `vps-ip`) | tailnet test server, `http://screeps.marlyman123.com` (fallback `http://100.67.41.31:21025`) | `npm run push-vps` (fallback `npm run push-vps-ip`) |
+| **live** | `main` | official MMO, `https://screeps.com` | `npm run push-main` |
+
+Local extras: `npm run push-pacifist2` and `npm run push-waxeye` push the same code to the
+second/third accounts on the local server (used for A/B runs — see `tools/server/README.md`).
+Watch mode exists for each: `npm run watch-pserver`, `npm run watch-vps`, `npm run watch-main`.
+
+`npm run push-race` (dest `race`, user `pacifist-race`) is **special**: it carries the frozen
+**control build** for the early-game speedrun campaign. Do not push to it as part of normal
+work — it only changes when the campaign deliberately re-baselines. See
+`docs/speedrun-ledger/CONTROL.md`.
+
+### VPS test server notes (`vps`)
+
+- Screeps **v4.3.0**, tick duration **300 ms** — deliberately fast for testing.
+- Reachable **ONLY over the Tailscale tailnet**: `http://screeps.marlyman123.com`, fallback
+  `http://100.67.41.31:21025`. There is no public access; off the tailnet both URLs fail.
+- The server is owned and managed by a **separate Claude instance via the `big_vps` repo**
+  (`C:/Users/stemm/Documents/GitHub/big_vps`). From this repo: **do not SSH to it, do not
+  change server config, mods, or world state** — code uploads only.
+- Status caveat (from `big_vps/logs/2026-08-01-screeps.md`): the `screeps.marlyman123.com`
+  A record still points at the public IP and the nginx proxy is not up yet, so **`vps-ip`
+  (`npm run push-vps-ip`) is the destination that works today**; switch back to
+  `npm run push-vps` once that DNS/proxy work lands.
+
+### Where the tokens go
+
+`screeps.json` is **gitignored**, so it is not in the repo — the entries below are added by
+hand on this machine (this repo has no checked-in sample file; copy the snippet below).
+
+- **VPS token (pending).** On the VPS, in the Screeps CLI, run `auth.createAuthToken('<user>')`
+  and paste the result over `PASTE-VPS-TOKEN-HERE` in the `token` field of **both** the `vps`
+  and `vps-ip` entries of `screeps.json`.
+- **Live screeps.com token.** `main.token` in `screeps.json` (paste over
+  `PASTE-LIVE-TOKEN-HERE` if the entry is fresh). Never upload to screeps.com unattended.
+
+The local dests need no secrets — their tokens are fixed strings this repo's tooling also
+writes into the server's redis/mongo (`auth_<token>`), so they can be pasted verbatim:
+
+```jsonc
+// screeps.json (gitignored) — local destinations
+"pacifist":   { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
+"pserver":    { "token": "local-pacifist-user-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
+"pacifist2":  { "token": "local-pacifist2-user-token-001", "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
+"waxeye":     { "token": "local-waxeye-token-001",         "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" },
+"race":       { "token": "local-pacifist-race-token-001",  "protocol": "http", "hostname": "127.0.0.1", "port": 23025, "path": "/", "branch": "main" }
+```
+
+```jsonc
+// screeps.json (gitignored — add these two entries alongside "main" and the local dests)
+"vps": {
+  "token": "PASTE-VPS-TOKEN-HERE",
+  "protocol": "http",
+  "hostname": "screeps.marlyman123.com",
+  "port": 80,
+  "path": "/",
+  "branch": "main"
+},
+"vps-ip": {
+  "token": "PASTE-VPS-TOKEN-HERE",
+  "protocol": "http",
+  "hostname": "100.67.41.31",
+  "port": 21025,
+  "path": "/",
+  "branch": "main"
+}
+```

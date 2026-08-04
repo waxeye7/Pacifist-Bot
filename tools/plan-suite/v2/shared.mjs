@@ -3,6 +3,7 @@
  * Intentionally tiny — no layout logic here.
  */
 import { execSync } from "child_process";
+import { createHash } from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -229,7 +230,7 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  *
  * A seat is worth more than the three tiles of hauler walk an extension saves by
  * standing on it: it throttles the upgrader fleet for the life of the room. So
- * the seats are protected down to a floor, and the floor is what layer 1
+ * the seats are protected down to a floor, and the DEFAULT floor is what layer 1
  * measured, capped at PARK_PROTECT — a room whose controller only ever offered
  * five seats is held to five, and one that offered eight is held to eight.
  *
@@ -238,6 +239,30 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  * measurement above says the price of the veto is zero: the fleet ships the same
  * ramparts, the same shallow count and the same 172/172 extensions with the
  * whole ring held as it did with three quarters of it held.
+ *
+ * ---------------------------------------------------------------------------
+ * "THE DEFAULT" IS DOING REAL WORK IN THAT SENTENCE — THREE ROOMS ARE BELOW IT.
+ * ---------------------------------------------------------------------------
+ * This paragraph used to read "the floor IS what layer 1 measured, capped at
+ * PARK_PROTECT", full stop, while E12S5 ships `meta.ctrlParkFloor = 2`. Both
+ * statements were true about different things and the reader was given no way
+ * to tell: the cap is the DEFAULT reservation, and `maybeReleaseParks` in
+ * pipeline.mjs may lower it — once, on the composition the room is about to
+ * ship, and only when the room is paying for the reservation in SHALLOW
+ * EXTENSIONS (a personal rampart repaired forever plus a structure a ranged
+ * attacker can reach). Three rooms took that trade: E12S5 (7 -> 5 seats),
+ * E13S6 (8 -> 7) and E9S2 (8 -> 7), each with a `ctrlParks` declaration naming
+ * the tiles it gave back and what it bought.
+ *
+ * What is NEVER lowered is PARK_FLOOR_HARD = 4, which is MIN_PARKS in layer 1
+ * and the validator's `ctrlparks` gate: the release pass is judged on the seats
+ * the room SHIPS, not on the size of the reservation, and a composition that
+ * ships under four is rejected outright. E12S5 holds 2 and ships 5.
+ *
+ * So: `ctrlParkFloor` is what this room reserved, `ctrlParks` is what it ships,
+ * and `ctrlParkFloorWhy` (written next to it) says which of the two rules
+ * produced the number. A doc sentence that needs a footnote to stop being wrong
+ * is a doc sentence with a missing clause.
  */
 /**
  * How many of layer 1's counted upgrader seats are held against every later
@@ -425,3 +450,44 @@ print(JSON.stringify(claim));
 }
 
 export const GOLDEN = ["E2S7", "E5S1", "E5S7", "E1S4", "E9S8"];
+
+/**
+ * ---------------------------------------------------------------------------
+ * THE ONE DIGEST THAT SAYS "THIS FILM IS OF THIS PLAN".
+ * ---------------------------------------------------------------------------
+ * `plan.mjs` writes plans-hub.json and `export-anim.mjs` re-plans every room to
+ * write the films, and until round 10 nothing compared the two. A planner change
+ * between the two commands leaves the gallery playing a film of a base that no
+ * longer exists, under a HUD line asserting the last frame IS the shipped plan
+ * tile for tile — which is exactly the state 20 rooms were in when an
+ * independent final-frame check read 152/172.
+ *
+ * mtime does not work: plans-hub.json is rewritten on every suite run, so the
+ * films read "older" the moment you re-plan even when the output is
+ * byte-identical. This is the content comparison instead, and it is deliberately
+ * about the FINAL FRAME's subject matter and nothing else:
+ *
+ *   - structure TYPE and TILE only — no meta, no shortfalls, no build order.
+ *     A film is a claim about what stands where at the end; re-sorting the road
+ *     array is a real change to the build order and not a change to that claim,
+ *     and a false alarm on a build-order change would train the reader to ignore
+ *     the alarm.
+ *   - sorted (type, then y, then x) so two producers that agree about the room
+ *     agree about the digest regardless of the order they emit in.
+ *
+ * Both callers import THIS function. Two copies of a hash is a hash that
+ * eventually disagrees with itself about nothing.
+ */
+export function planStructureHash(plan) {
+  const st = plan.structures || {};
+  const parts = [];
+  for (const type of Object.keys(st).sort()) {
+    const tiles = (st[type] || [])
+      .map((p) => [p.y, p.x])
+      .sort((a, b) => a[0] - b[0] || a[1] - b[1])
+      .map(([y, x]) => `${x},${y}`)
+      .join(" ");
+    parts.push(`${type}:${tiles}`);
+  }
+  return createHash("sha1").update(parts.join("|")).digest("hex").slice(0, 16);
+}

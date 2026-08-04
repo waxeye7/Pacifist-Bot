@@ -17,8 +17,45 @@
  */
 import { D8, buildable, key, mineralRing, mineralSeatHolds, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
+import {
+  boardMobility,
+  boardWalkMask,
+  breachesGate,
+  detourFreeSet,
+  MOBILITY_TARGET,
+} from "./layer-shell.mjs";
 
 const DEPTH_SAFE = 4;
+/**
+ * What the diamond will pay, in tiles of hauler walk, to stop plugging the
+ * defender's doorway.
+ *
+ * E12S3 ships an as-built gated lap of 2.25 against a 1.2 target and declares
+ * it "THE ENCLOSURE AND THE TERRAIN, not the mass". Re-derived: removing the
+ * lab diamond ALONE (33,17…33,19) takes the room to maxGated 0 over 0 judged
+ * pairs. The whole miss is this stamp, and this layer had no mobility term of
+ * any kind — the anchor was scored on hauler distance, personal ramparts and
+ * eaten road, and nothing else.
+ *
+ * So the wall-reachability promise above (`keepsTheWall`) gains a sibling: an
+ * anchor may not CREATE or WORSEN a gated-over-target pair. It is a veto and
+ * not a score, for the same reason `keepsTheWall` is — but it is a veto with a
+ * stated price, because the lab hauler's walk is a real recurring cost and a
+ * diamond dragged across the room to save a lap is the same anti-pattern in
+ * the other direction. Six tiles is the budget; past it the room keeps the
+ * plugging anchor and DECLARES it with the structure named.
+ */
+const LAB_MOBILITY_BUDGET = 6;
+/**
+ * The hauler walk above which a diamond owes the reader a census.
+ *
+ * Fleet median is 2 and p90 is 4. E9S9 ships 17 — labs at 32,12, hub at 37,22 —
+ * and every reagent load pays it forever, with no word anywhere in the plan
+ * about why. A number that is an order of magnitude off the fleet is either a
+ * defect or a verdict, and the difference is whether the room can show what it
+ * refused. 8 is deliberately well clear of p90 so a normal room says nothing.
+ */
+const LAB_HAUL_NOTE = 8;
 /**
  * What a shallow lab is worth, in tiles of hauler distance.
  *
@@ -320,7 +357,53 @@ export function planLabs(terrain, plan) {
     return true;
   };
 
+  // ------------------------------------------------------------------
+  // ...AND THE SAME PROMISE ABOUT THE DEFENDER'S LAP. See LAB_MOBILITY_BUDGET.
+  //
+  // The proof is the cheap one: a set of tiles is FREE when blocking it
+  // lengthens no interior walk, which `detourFreeSet` establishes from the
+  // eight neighbours of each tile without touching the all-pairs metric. In an
+  // open pocket that is every anchor and this guard costs nothing. Only a
+  // diamond sitting in a genuine corridor pinch — which is the whole point — is
+  // ever measured, and those measurements are capped.
+  // ------------------------------------------------------------------
+  const mobBase = plan.shell?.cut?.length ? boardMobility(terrain, plan, null) : null;
+  const mobMask = mobBase ? boardWalkMask(terrain, plan) : null;
+  /** how many all-pairs re-derivations one room may spend on the lap veto */
+  const LAP_VETO_BUDGET = 16;
+  let lapSpend = 0;
+  const lapVeto = { measured: 0, provedFree: 0, refused: 0, budgetSpent: false };
+  /** true when this anchor creates or worsens a gated-over-target pair */
+  const breachesTheLap = (ax, ay, variant) => {
+    if (!mobBase || !mobMask) return false;
+    const tiles = variant.labs.map(([dx, dy]) => ({ x: ax + dx, y: ay + dy }));
+    if (detourFreeSet(mobMask, tiles)) {
+      lapVeto.provedFree++;
+      return false;
+    }
+    if (lapSpend >= LAP_VETO_BUDGET) {
+      lapVeto.budgetSpent = true;
+      return true; // conservative: undecided counts as breaching, and is declared
+    }
+    lapSpend++;
+    lapVeto.measured++;
+    const trial = boardMobility(
+      terrain,
+      plan,
+      tiles.map((t) => key(t.x, t.y)),
+    );
+    const bad = breachesGate(mobBase, trial);
+    if (bad) lapVeto.refused++;
+    return bad;
+  };
+
   let best = null;
+  /** the cheapest anchor of THIS pass that fails ONLY the lap veto */
+  let lapRefused = null;
+  /** ...and the first pass's, kept in case no pass ever produces a clean one */
+  let lapFallback = null;
+  /** why the anchors cheaper than the winner lost, for the haul census */
+  const refusedCensus = { wall: 0, mineral: 0, network: 0, lap: 0 };
   let fallback = null;
   let deepAnchors = 0;
   let fallbackAnchors = 0;
@@ -423,17 +506,64 @@ export function planLabs(terrain, plan) {
       }
     } else eatAnchors = Math.max(eatAnchors, candidates.length);
     for (const c of candidates) {
-      if (!keepsTheWall(c.ax, c.ay, c.variant)) continue;
-      if (!keepsMineralSeat(c.ax, c.ay, c.variant)) continue;
+      if (!keepsTheWall(c.ax, c.ay, c.variant)) {
+        refusedCensus.wall++;
+        continue;
+      }
+      if (!keepsMineralSeat(c.ax, c.ay, c.variant)) {
+        refusedCensus.mineral++;
+        continue;
+      }
       const work = roadWork(c.ax, c.ay, c.variant);
       if (!keepsTheNetwork(work)) {
         eatBlockedByNet++;
+        refusedCensus.network++;
+        continue;
+      }
+      // ...and the lap. Everything else about this anchor is legal, so this is
+      // the last question and it is the one E12S3 was never asked.
+      if (breachesTheLap(c.ax, c.ay, c.variant)) {
+        refusedCensus.lap++;
+        if (!lapRefused) {
+          c.work = work;
+          lapRefused = c;
+        }
         continue;
       }
       c.work = work;
       best = c;
       break;
     }
+    // ------------------------------------------------------------------
+    // THE VETO HAS A PRICE AND THE PRICE IS ENFORCED HERE.
+    //
+    // A diamond that has to walk six tiles further to stop plugging a doorway
+    // is worth it; one that has to walk twenty is not, and pretending otherwise
+    // would trade a measured lap for an unmeasured haul paid on every reagent
+    // load forever. Past the budget the room keeps the plugging anchor and the
+    // declaration below names it — which is the outcome the ruling asks for and
+    // is strictly better than the silence this layer shipped.
+    // ------------------------------------------------------------------
+    if (best && lapRefused && best.score - lapRefused.score > LAB_MOBILITY_BUDGET) {
+      best.lapTradeRefused = {
+        x: lapRefused.ax,
+        y: lapRefused.ay,
+        d: lapRefused.d,
+        cost: Math.round((best.score - lapRefused.score) * 100) / 100,
+      };
+      const kept = lapRefused;
+      kept.lapTradeRefused = best.lapTradeRefused;
+      kept.cleanAnchor = { x: best.ax, y: best.ay, d: best.d };
+      kept.keptDespiteLap = true;
+      best = kept;
+    }
+    // A pass whose every legal anchor plugs a doorway keeps its cheapest one as
+    // a LAST RESORT, remembered exactly like `fallback` above so the pass ladder
+    // still runs: a room may well have a clean anchor one depth down, and a lap
+    // veto is not a reason to skip the search that would find it. If no later
+    // pass produces anything, the remembered anchor is taken back and declared.
+    if (!best && lapRefused && !lapFallback) lapFallback = lapRefused;
+    lapRefused = null;
     // A room whose every deep diamond seals a wall segment has beaten the
     // stamp, not the check. Remember the deepest pass's plain winner and fall
     // through to depth 3; if that pass has nothing either, take the remembered
@@ -451,6 +581,14 @@ export function planLabs(terrain, plan) {
   if (!best && fallback) {
     fallback.work = roadWork(fallback.ax, fallback.ay, fallback.variant);
     best = fallback;
+  }
+  // TEN LABS BEAT NO LABS, HERE TOO. The lap veto is the last guard to give way
+  // — after the wall promise and the mineral seat have both already fallen back
+  // — and when it does, it gives way loudly (see the declaration below).
+  if (!best && lapFallback) {
+    best = lapFallback;
+    best.keptDespiteLap = true;
+    best.lapNoAlternative = true;
   }
   if (!best)
     return {
@@ -502,6 +640,78 @@ export function planLabs(terrain, plan) {
     });
   }
 
+  // ------------------------------------------------------------------
+  // THE DIAMOND THAT PLUGS THE DOORWAY SAYS SO, WITH THE STRUCTURE NAMED.
+  //
+  // This is the E12S3 channel. The room ships an over-target defender lap whose
+  // entire cause is these ten tiles, and the mobility declaration in layer 7 now
+  // names the class (the lift test) — but the layer that CHOSE the tiles is the
+  // one that can say what else was on offer and what it would have cost, so it
+  // says it here and layer 7's declaration is the verdict.
+  // ------------------------------------------------------------------
+  if (best.keptDespiteLap && plan.meta) {
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "mobility",
+      kind: "placement",
+      source: "labs",
+      detail:
+        `the LAB DIAMOND at anchor ${ax},${ay} creates or worsens a gated-over-target defender pair on ` +
+        `this layer's board — the room laps ${mobBase ? mobBase.maxGated : "?"} against a ` +
+        `${MOBILITY_TARGET} target with the ten tiles empty — and it is shipped anyway. ` +
+        (best.lapNoAlternative
+          ? `No anchor in this enclosure clears the veto at any orientation or depth this layer searches: ` +
+            `${lapVeto.refused} anchor(s) were measured and refused, ${lapVeto.provedFree} more were ` +
+            `proved to change no interior distance at all and lost on other grounds` +
+            (lapVeto.budgetSpent
+              ? `, and the ${LAP_VETO_BUDGET}-measurement budget was exhausted, after which an undecided ` +
+                `anchor counts as breaching — the conservative direction`
+              : ``) +
+            `. The diamond is a rigid 4x4 stamp; ten labs beat no labs, so the room takes the lap.`
+          : `A clean anchor DOES exist, at ${best.cleanAnchor.x},${best.cleanAnchor.y} (hauler distance ` +
+            `${best.cleanAnchor.d} against this one's ${best.d}), and it was REFUSED because it costs ` +
+            `${best.lapTradeRefused.cost} tile(s) of hauler walk — over the ${LAB_MOBILITY_BUDGET}-tile ` +
+            `budget this veto is priced at. Every reagent load pays hauler distance forever; the lap is ` +
+            `declared here and in layer 7's mobility entry, and the trade is written down so it can be ` +
+            `argued with.`),
+      tiles: labs.map((l) => ({ x: l.x, y: l.y })),
+    });
+  }
+
+  // ------------------------------------------------------------------
+  // A HAUL DISTANCE AN ORDER OF MAGNITUDE OFF THE FLEET OWES A CENSUS.
+  //
+  // E9S9's diamond sits 17 hauler tiles from the hub against a fleet median of
+  // 2 and a p90 of 4 — labs at 32,12, hub at 37,22 — and every reagent load pays
+  // it forever. The number was published (`labsMeta.haulDist`) and nothing said
+  // whether it was a defect or a verdict. The difference is exactly whether the
+  // room can show what it refused, so here is the refusal census: the anchors
+  // this layer walked past on its way out to 17, and which guard killed each.
+  // ------------------------------------------------------------------
+  if (best.d >= LAB_HAUL_NOTE && plan.meta) {
+    const cheaper = refusedCensus.wall + refusedCensus.mineral + refusedCensus.network + refusedCensus.lap;
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "labs",
+      kind: "lab-haul",
+      source: "labs",
+      detail:
+        `the lab diamond is ${best.d} hauler tile(s) from the hub (anchor ${ax},${ay}, ${variant === MAIN ? "main" : "anti"} ` +
+        `orientation) — the fleet median is 2 and p90 is 4, and every reagent load pays this walk forever. ` +
+        `It is the cheapest anchor that survived every guard, not the cheapest anchor: candidates are ` +
+        `examined in strict score order and the search stops at the first survivor, so the ${cheaper} ` +
+        `anchor(s) refused ahead of it all scored at or below it — ${refusedCensus.wall} because ` +
+        `the stamp would strand a wall segment the garrison can walk today, ${refusedCensus.mineral} ` +
+        `because it would leave the mineral no seat a creep can reach, ${refusedCensus.network} because ` +
+        `eating its roads would split the network, and ${refusedCensus.lap} because it would create or ` +
+        `worsen a gated-over-target defender pair. The enclosure offers ${deepAnchors} anchor(s) with all ` +
+        `ten labs at depth >= ${DEPTH_SAFE} and ${fallbackAnchors} at depth >= ${DEPTH_SAFE - 1}. The ` +
+        `scoring is hauler distance plus ${SHALLOW_LAB_COST} per shallow lab plus ${ROAD_EAT_COST} per ` +
+        `eaten road tile, so the walk was minimised subject to those guards and this is what was left.`,
+      tiles: [{ x: ax, y: ay }],
+    });
+  }
+
   // A DIAMOND THAT ATE ECO ROAD SAYS SO. The room ships all ten labs and no
   // gate fires — the network is re-derived whole by the guard above — but a
   // layer-1 road tile was displaced, which is a real (small) cost paid on the
@@ -549,6 +759,23 @@ export function planLabs(terrain, plan) {
       shallowCost: (best.shallow ?? 0) * SHALLOW_LAB_COST,
       // what the road term paid, same units
       roadEatCost: (best.eats ?? 0) * ROAD_EAT_COST,
+      // THE LAP VETO, PUBLISHED — see LAB_MOBILITY_BUDGET and the E12S3 note.
+      lapVeto: {
+        target: MOBILITY_TARGET,
+        baseLap: mobBase ? mobBase.maxGated : null,
+        measured: lapVeto.measured,
+        provedFree: lapVeto.provedFree,
+        refused: lapVeto.refused,
+        budget: LAP_VETO_BUDGET,
+        budgetSpent: lapVeto.budgetSpent,
+        kept: !!best.keptDespiteLap,
+        noAlternative: !!best.lapNoAlternative,
+        cleanAnchor: best.cleanAnchor || null,
+        tradeCost: best.lapTradeRefused ? best.lapTradeRefused.cost : null,
+      },
+      // ...and why the anchors cheaper than this one lost, which is the only
+      // evidence a haul-distance declaration can be made of
+      refusedCheaper: { ...refusedCensus },
     },
   };
 }

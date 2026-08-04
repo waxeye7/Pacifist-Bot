@@ -3133,11 +3133,51 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     const w = interiorWalk(terrain, rampartSet, exterior, b, plan.sitter);
     return mobilityStats(cutRaw, exterior, maskFromKeys(w)).maxGated;
   };
+  // ------------------------------------------------------------------
+  // ...AND THE CEILING IS CAPPED, BECAUSE OTHERWISE IT IS INVERTED.
+  //
+  // `lapCeiling = lapBeforeMoves` says "this pass may not make the lap worse".
+  // Stated that way it sounds unarguable. Read against a room that is already
+  // failing by a factor of eleven it is the opposite: THE WORSE A ROOM'S LAP
+  // ALREADY IS, THE MORE POWER IT HAS TO BLOCK REAL UPKEEP SAVINGS.
+  //
+  // E11S7 is the case. Target 1.2, as-built lap 13.5. Five shallow extensions
+  // (12,3 · 13,3 · 14,3 · 15,3 · 16,3 — pressed in a row under the north wall at
+  // depth 2) could each move onto free deep floor, retiring FIVE personal
+  // ramparts at 0.15 e/tick of forever-upkeep. The pass refused all five,
+  // because taking them reads 14 instead of 13.5: a 3.7% change in a number the
+  // room misses by 1025%, bought with five ramparts repaired for the life of the
+  // base. That is optimising a metric while the layout gets worse, which is the
+  // named anti-pattern.
+  //
+  // THE CAP, AS RULED. A room already MORE THAN TWICE the target may not refuse
+  // a rampart-retiring trade that worsens its lap by 10% or less. Inside 2x the
+  // target the strict ceiling stands untouched — there the difference between
+  // 1.67 and 1.89 is the difference between nearly making the gate and not, and
+  // E15S2 (1.67, three ramparts) keeps refusing exactly as it does today.
+  //
+  // WHAT IS NOT RELAXED: layer 6's published BOUND. That is a proof about the
+  // worst mass this enclosure can grow and this pass is inside it, full stop —
+  // so the slack is granted against the room's own incumbent lap and then
+  // clipped back to the bound. In E11S7 the bound is 14 and the relaxed ceiling
+  // is 14.85, so the room takes the five ramparts, ships at 14, and the bound
+  // still holds. A slack that broke the bound would be buying upkeep with a
+  // claim, which is worse than buying it with a lap.
+  // ------------------------------------------------------------------
+  /** past this multiple of the target, a lap is failed rather than tight */
+  const CEILING_STRICT_BAND = 2 * MOBILITY_TARGET;
+  /** ...and this much relative worsening is what a retired rampart is worth */
+  const CEILING_SLACK = 0.1;
   const boundRollback = [];
   let lapCeiling = null;
+  let lapCeilingSlack = null;
   let lapFinal = null;
   if (movedLog.length) {
     lapCeiling = lapBeforeMoves;
+    if (lapBeforeMoves > CEILING_STRICT_BAND) {
+      lapCeilingSlack = round2v(lapBeforeMoves * (1 + CEILING_SLACK));
+      lapCeiling = lapCeilingSlack;
+    }
     if (laneBound !== null && laneBound !== undefined) lapCeiling = Math.min(lapCeiling, laneBound);
     let lap = lapNow();
     while (lap > lapCeiling + 1e-9 && movedLog.length) {
@@ -3230,6 +3270,12 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     added,
     boundRollback,
     lapCeiling: round2v(lapCeiling),
+    // the relaxed ceiling this room was entitled to (null when it is inside 2x
+    // the target and the strict rule applies), and the bound that clipped it
+    lapCeilingSlack,
+    lapCeilingStrictBand: CEILING_STRICT_BAND,
+    lapCeilingSlackPct: Math.round(CEILING_SLACK * 100),
+    lapCeilingBound: laneBound === undefined ? null : laneBound,
     lapBeforeMoves: round2v(lapBeforeMoves),
     lapAfterMoves: lapFinal,
     roads: newRoads,

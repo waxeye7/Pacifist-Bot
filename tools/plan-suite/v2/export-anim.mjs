@@ -20,7 +20,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { OUT_V2, fetchRoomsFromMongo, walkable } from "./shared.mjs";
+import { OUT_V2, fetchRoomsFromMongo, planStructureHash, walkable } from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
 import { distField, growBasin } from "./layer-hub.mjs";
 import { planRoom } from "./pipeline.mjs";
@@ -664,6 +664,36 @@ export function buildAnim(room, terrain, plan) {
     );
   }
 
+  // ------------------------------------------------------------------
+  // WHERE A LAYER-7b MOVE LANDED, DECIDED PER MOVE FROM THE PLAN.
+  //
+  // Every pass-7 move used to get "[layer 7b, on floor the dead-end prune
+  // handed back]" appended unconditionally, and for most of them it is false.
+  // E12S6 moves three slots and exactly ONE of the three (28,13) stands on a
+  // tile the prune deleted — meta.roadLayer tags 28,13 as a layer-4 road and
+  // the shipped plan has no road there, which is what "the prune handed it
+  // back" means. The other two reached their tiles by PAVING their own road
+  // face (26,11 paved 27,11 · 27,20 paved 26,20) onto floor that was simply
+  // free; the move record's own `paved` field says so, and the room's own note
+  // agrees with it — `reflow.freeDeepRoadFaced: 1`.
+  //
+  // rp.pruned is the same set the roadsPrune stage erases on screen, so this
+  // tag is checkable against the film frame by frame rather than asserted.
+  // Fleet-wide over the 48 pass-7 moves: 39 land on prune-freed floor, 6 paved
+  // their own face, and 3 (E13S2 16,38 · 14,36 · 15,36) did neither — deep
+  // floor that was already free AND already road-faced. No move is in two of
+  // those buckets: the three tests are applied in that order and are disjoint
+  // on the shipped fleet (0 moves are both prune-freed and paving). The `paved`
+  // clause below still prints the paved tile in every case, so precedence here
+  // loses no fact.
+  //
+  // NOT USED, deliberately: `reflow.spentOnMoves`. It is the reflow's own
+  // budget counter, not a count of prune-freed destinations — E13S2 spends 6
+  // against 3 prune-freed tiles — so tagging a tile from it would be exactly
+  // the unchecked assertion this block replaces.
+  // ------------------------------------------------------------------
+  const prunedKeys = new Set(rp.pruned.map((t) => `${t.x},${t.y}`));
+
   // ...and now the origins are vacated, one labelled move at a time. A room
   // with relocatedCount 0 emits nothing here and never gets the stage (push
   // ignores an empty cell list, and meta.stageOrder is built from the steps).
@@ -680,12 +710,49 @@ export function buildAnim(room, terrain, plan) {
           : d < 0
             ? `${-d} step${d === -1 ? "" : "s"} farther out`
             : "no change in hub walk";
+    // ----------------------------------------------------------------
+    // WHAT `tookStub` IS, AND WHY THE CAPTION MAY NOT SAY "LIFTING THE STUB
+    // ROAD THAT WAS THERE".
+    //
+    // layer-ext.mjs sets `tookStub: !!t.paved` on a layer-6 relocation: the
+    // DESTINATION tile carried a corridor stub in layer 6's own working
+    // `pavedTiles`/`roadSet`, and the relocation deletes that stub in the same
+    // breath as it stands the extension on it. The delete happens INSIDE layer
+    // 6's pass, before pipeline.mjs takes the layer's road set, so the stub
+    // never reaches `meta.roadLayer` and never reaches `structures.road`.
+    //
+    // Measured over the shipped fleet, not guessed: 98 of the 99 layer-6
+    // relocations carry tookStub, and for ALL 98 the destination has no
+    // meta.roadLayer entry, is not a shipped road, and is not painted by any
+    // roads* step of any film (E12S6's 29,7 · 29,6 · 30,5 are three of them).
+    // So the old caption narrated a road being lifted off a tile on which no
+    // frame of any film has ever drawn a road, and it did it on the one
+    // artifact whose entire selling point is "this is what actually happened".
+    //
+    // The lift is real; it is just not visible, and it is not free. The tile
+    // was reserved corridor the worst-case lane model counted as WALKABLE, so
+    // layer 6 re-derives its own bound with the lifted stubs blocked
+    // (`laneMeta.boundBeforeStubs` -> `laneMeta.bounded`; E11S7 lifts five and
+    // goes 12 -> 14). That is what the viewer can check, so that is what the
+    // caption says.
+    // ----------------------------------------------------------------
+    const where =
+      r.pass !== 7
+        ? ""
+        : prunedKeys.has(`${r.to.x},${r.to.y}`)
+          ? " [layer 7b, on floor the dead-end prune handed back — this tile was road until the prune deleted it]"
+          : r.paved
+            ? " [layer 7b, on deep floor that was already free; the move had to pave its own road face, so the prune freed nothing here]"
+            : " [layer 7b, on deep floor that was already free and already road-faced — neither prune nor paving involved]";
     sb.push(
       "extMove",
       `relocate (${r.from.x},${r.from.y}) → (${r.to.x},${r.to.y}) — onto deep floor, ${trade}` +
-        (r.tookStub ? ", lifting the stub road that was there" : "") +
+        (r.tookStub
+          ? ", taking back a corridor stub layer 6 paved earlier in this same pass — it is in no shipped plan " +
+            "and no frame of this film, and what it costs is the lane bound, re-measured with it blocked"
+          : "") +
         (r.paved ? `, paving ${r.paved.x},${r.paved.y} to give it a road face` : "") +
-        (r.pass === 7 ? " [layer 7b, on floor the dead-end prune handed back]" : ""),
+        where,
       sb.flat([r.from], "#ff4444"),
     );
   }
@@ -857,6 +924,24 @@ async function main() {
     const anim = buildAnim(d.room, d.terrain, plan);
     const colors = anim.colors;
     delete anim.colors;
+
+    // ------------------------------------------------------------------
+    // WHICH PLAN THIS FILM IS OF — stamped, so staleness is checkable.
+    //
+    // This file re-plans the room itself, and plan.mjs writes plans-hub.json
+    // from its own run; nothing ever compared the two. A planner change between
+    // the two commands leaves 172 films describing a base that no longer exists,
+    // under a HUD line asserting the last frame IS the shipped plan tile for
+    // tile — and round 10 shipped exactly that state for 20 rooms before an
+    // independent check caught it.
+    //
+    // mtime was tried first and is useless: plans-hub.json is rewritten on every
+    // suite run, so the films are "older" the moment you re-plan, byte-identical
+    // output or not. The honest comparison is CONTENT, and the content that
+    // matters to a final frame is the structure lists. plan.mjs re-derives this
+    // same digest from the record it wrote and says so when they differ.
+    // ------------------------------------------------------------------
+    anim.planHash = planStructureHash(plan);
 
     const file = path.join(outDir, `${d.room}.json`);
     const json = JSON.stringify(anim);

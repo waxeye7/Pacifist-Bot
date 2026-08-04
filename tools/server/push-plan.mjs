@@ -42,7 +42,7 @@
 import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, "..", "..");
@@ -251,13 +251,96 @@ async function api(cfg, method, endpoint, body) {
  * REJECTED — doing the repair in the bot: it is a 0-1 BFS over ~130 tiles that
  * would run on every placement pass (every 15 ticks, every planned room) to
  * recompute a constant of the plan. This side runs once per push.
+ *
+ * ---------------------------------------------------------------------------
+ * WHAT THE ARTERIAL SET ACTUALLY GUARANTEES. Four things, in the order the
+ * passes below run, because "roads a hauler actually walks" was for a while a
+ * description of the INTENT rather than of the output and two of the four had
+ * to be added after the fact:
+ *
+ *   1. every road tile whose provenance layer is <= 3 (eco kit + tower spurs);
+ *   2. one D4 face road for each of `extension[0..9]`, the ten extensions a
+ *      room owns at RCL3;
+ *   3. one D4 face road for each container the room builds at RCL2 — the two
+ *      source containers and the controller container (29 tiles, 27 rooms);
+ *   4. a connected chain from the hub to every one of those same containers,
+ *      because a face road is not the same as a route to it (9 tiles, 5 rooms);
+ *
+ * and then, over all of the above, the bridge repair that makes the result a
+ * network the hub can walk rather than a set of disconnected intentions.
+ *
+ * (3) and (4) are the same three tiles per room approached from two directions,
+ * and both were missing: the set covered `extension[0..9]` and stopped, so the
+ * containers — built at RCL2, a whole level EARLIER than those extensions —
+ * had no guarantee at all. Fleet-wide the two add 49 road tiles to RCL3 across
+ * 32 of the 172 rooms, max 4 in one room (E17S5), against an arterial set of
+ * 7,870 of 14,053 tiles. See the pass comments for the rooms and the numbers.
  * ---------------------------------------------------------------------------
  */
 const ARTERIAL_LAYER = 3; // eco kit + tower spurs
-const ARTERIAL_RCL = 3; // roads unlock at RCL3 — the earliest they can be built
+/**
+ * RCL3 is where a road can FIRST be built in this bot. Not a game rule —
+ * vanilla CONTROLLER_STRUCTURES.road is 2500 from RCL0 — but a bot policy:
+ * PlanV2.typeAllowedAtRcl("road") is `lvl >= 3` and roadsForRcl returns []
+ * below 3. So "staged with the thing it serves" can never mean RCL2 for a
+ * road, no matter what the thing it serves is built at; the earliest legal
+ * road stage is 3, and that is what every guarantee in this function promises.
+ */
+const ARTERIAL_RCL = 3;
 const REST_RCL = 4; // unchanged from the schedule this replaces
 /** CONTROLLER_STRUCTURES.extension[3] — the extensions a room owns at RCL3 */
 const RCL3_EXTENSIONS = 10;
+/** the four orthogonal neighbours — a "face", the same reading the extension
+ *  and container guarantees below both use */
+const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+/**
+ * ---------------------------------------------------------------------------
+ * THE CONTAINERS THE ROOM BUILDS AT RCL2 — which are also, exactly, its eco
+ * terminals. One set, two names, and it is worth spelling out why they
+ * coincide, because the two findings this function answers came in as separate
+ * complaints and turned out to be about the same three tiles per room.
+ *
+ * The planner emits containers as [source, source, controller, mineral].
+ * CONTROLLER_STRUCTURES.container is 5 from RCL2, so the RCL cap never binds —
+ * what actually decides the RCL2 build set is PlanV2.plannedTilesFor, which
+ * DROPS the mineral container below RCL6 (the extractor that gives it a purpose
+ * is RCL6; median chebyshev 17 from the hub, max 38). Everything it leaves is
+ * built at RCL2 and everything it leaves is an eco terminal: a hauler withdraws
+ * from it every cycle from the tick the room hits RCL2.
+ *
+ * So this mirrors plannedTilesFor's structural test verbatim rather than
+ * assuming the [src, src, ctrl, mineral] order — including its tie rule (take
+ * the LAST extractor-adjacent container, because E8S3's controller at 21,29
+ * sits 3 tiles from its mineral at 23,26 and its genuine CONTROLLER container
+ * at 24,26 is therefore also mineral-adjacent; "drop all candidates" would take
+ * E8S3's controller container out of the set it most needs to be in). If the
+ * two ever disagree, the bot builds a container this side never promised a road
+ * to, which is precisely the bug below.
+ *
+ * Measured on the 172-room snapshot: every room plans exactly 4 containers and
+ * exactly 1 extractor, so this returns 3 tiles in 172/172 rooms — 2 source
+ * containers and 1 controller container.
+ * ---------------------------------------------------------------------------
+ */
+function rcl2Containers(plan) {
+  const planned = plan.structures.container || [];
+  const extractors = plan.structures.extractor || [];
+  // no extractor planned — plannedTilesFor defers nothing, so the room really
+  // does build all four at RCL2 and all four want the guarantee
+  if (!planned.length || !extractors.length) return planned.slice();
+  let drop = -1;
+  for (let i = 0; i < planned.length; i++) {
+    for (const e of extractors) {
+      if (Math.abs(planned[i].x - e.x) <= 1 && Math.abs(planned[i].y - e.y) <= 1) {
+        drop = i; // keep scanning: the LAST match is the mineral one
+        break;
+      }
+    }
+  }
+  if (drop < 0) return planned.slice();
+  return planned.slice(0, drop).concat(planned.slice(drop + 1));
+}
 
 function roadStageFor(plan) {
   const roads = plan.structures.road || [];
@@ -268,6 +351,35 @@ function roadStageFor(plan) {
   );
   const index = new Map();
   roads.forEach((r, i) => index.set(r.x + r.y * 50, i));
+
+  /**
+   * Promote ONE D4 face road of `t` into the arterial set, unless a D4 face is
+   * already arterial. Returns 1 if it promoted a tile, 0 if the tile was
+   * already served or the planner never laid a face road next to it.
+   *
+   * Cheapest ROAD-ARRAY INDEX wins, and index is the tie-break for a reason
+   * beyond determinism: `structures.road` is BFS-ordered outward from the
+   * sitter, so the lowest index among a tile's faces is the one nearest the hub
+   * in the road graph — i.e. the face whose own chain back to the arterial
+   * network is likely the shortest, which is what the bridge repair below then
+   * has to pay for.
+   *
+   * Both callers run BEFORE that bridge repair on purpose: a promoted face is
+   * an arterial like any other and its own path back to the hub gets bridged
+   * with the rest, so neither pass can leave a road tile nothing can walk to.
+   */
+  const faceGuarantee = (t) => {
+    const faces = [];
+    for (const [dx, dy] of D4) {
+      const i = index.get(t.x + dx + (t.y + dy) * 50);
+      if (i !== undefined) faces.push(i);
+    }
+    if (!faces.length) return 0; // no planned road face at all — not ours to fix
+    if (faces.some((i) => stage[i] <= ARTERIAL_RCL)) return 0;
+    faces.sort((p, q) => p - q);
+    stage[faces[0]] = ARTERIAL_RCL;
+    return 1;
+  };
 
   // ---------------------------------------------------------------------
   // THE ARTERIAL SET HAS TO COVER THE EXTENSIONS THE ROOM ACTUALLY BUILDS.
@@ -280,26 +392,57 @@ function roadStageFor(plan) {
   // 21,24 / 21,25) with no road within D8 until RCL4 — a filler walking swamp
   // and bare ground to the tiles it refills every single cycle, at the level
   // where the room has no storage and no link network to soften it.
-  //
-  // One D4 face per extension, cheapest index first so the choice is a function
-  // of the plan and not of iteration luck. It runs BEFORE the bridge repair
-  // below on purpose: a demoted face is an arterial like any other and its own
-  // path back to the hub gets bridged with the rest.
   // ---------------------------------------------------------------------
   const exts = (plan.structures.extension || []).slice(0, RCL3_EXTENSIONS);
   let extFaced = 0;
-  for (const e of exts) {
-    const faces = [];
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-      const i = index.get(e.x + dx + (e.y + dy) * 50);
-      if (i !== undefined) faces.push(i);
-    }
-    if (!faces.length) continue; // no planned road face at all — not ours to fix
-    if (faces.some((i) => stage[i] <= ARTERIAL_RCL)) continue;
-    faces.sort((p, q) => p - q);
-    stage[faces[0]] = ARTERIAL_RCL;
-    extFaced++;
-  }
+  for (const e of exts) extFaced += faceGuarantee(e);
+
+  // ---------------------------------------------------------------------
+  // AND THE CONTAINERS THE ROOM BUILDS AT RCL2 — THE SAME GUARANTEE, ONE RCL
+  // EARLIER IN THE THING BEING SERVED.
+  //
+  // The pass above covered `extension[0..9]` and stopped there, which was an
+  // arbitrary place to stop: containers are built at RCL2, a whole level BEFORE
+  // those extensions exist, and they got no face guarantee at all. 29 of the
+  // fleet's 516 RCL2 containers, across 27 of the 172 rooms, had a planned road
+  // on a D4 face and that road staged RCL4 — so the container stood finished at
+  // RCL2 with its serving tile two whole RCLs away. E16S6 is the clean example:
+  // its controller container 16,19 is built at RCL2, its face road 16,20 was
+  // RCL4, and the diagonal 17,20 that also serves it was RCL4 too, so the
+  // upgrader haul ran over bare ground from RCL2 to RCL4. The rest, all
+  // source-side unless marked: E12S1 28,11 + 36,24 · E12S2 22,26 (ctrl) ·
+  // E12S5 15,11 (ctrl) · E12S6 35,14 · E13S5 24,17 · E13S6 10,29 · E15S3 8,6 ·
+  // E15S8 19,32 · E15S9 40,27 · E16S2 4,22 · E17S1 20,27 · E17S5 44,35 +
+  // 26,32 (ctrl) · E18S6 27,8 · E19S7 42,41 · E1S5 33,22 · E21S3 37,20 ·
+  // E21S6 31,26 (ctrl) · E21S9 5,32 · E2S3 40,36 · E2S5 21,41 · E3S7 37,23 ·
+  // E4S6 18,31 · E5S4 32,17 · E6S8 41,15 · E7S2 27,39 · E9S2 35,5.
+  //
+  // "STAGED WITH IT" MEANS RCL3, NOT RCL2. The container is RCL2 and the road
+  // cannot be: PlanV2.typeAllowedAtRcl hard-gates road at lvl >= 3 (see
+  // ARTERIAL_RCL). So the promise this makes is the honest one — the face road
+  // lands at the FIRST RCL a road is allowed to exist, one level after the
+  // container rather than two or three. RCL2 still walks that container on bare
+  // ground; nothing here can change that without changing the bot's road gate.
+  //
+  // WHY D4 AND NOT D8, given the game lets a hauler withdraw from any of the 8
+  // neighbours and walk diagonally between them. Two reasons. (1) Consistency:
+  // this is the extension guarantee's own convention and the two now share a
+  // function, so there is one rule in this file instead of two. (2) Under a D8
+  // reading only 8 containers look stranded — and they are EXACTLY the 8 that
+  // the reachability guarantee below already fixes (E14S5 42,39, E15S4 13,14,
+  // E16S6 16,19, E17S5 44,35, E18S4 27,20, E21S9 5,32, E3S5 16,15, E8S6 15,25),
+  // so a D8 rule here would be dead code. D4 is the reading that actually buys
+  // something: a road square-on to the container, which is where a hauler
+  // arriving along an orthogonal line stops.
+  //
+  // Cost is bounded and small — at most one tile per container, and because the
+  // container itself CONDUCTS in the bridge BFS below, a promoted face that
+  // hangs off an already-reachable container costs exactly that one tile.
+  // ---------------------------------------------------------------------
+  const ecoTerminals = rcl2Containers(plan);
+  let c2Faced = 0;
+  for (const c of ecoTerminals) c2Faced += faceGuarantee(c);
+
   // containers and the hub structures conduct, exactly as the bot's
   // auditRoadPrefix has it — the generous reading, so we only ever bridge a
   // gap the bot would also call a gap
@@ -311,65 +454,170 @@ function roadStageFor(plan) {
   if (!seedTile) return stage; // no hub to measure from — ship the raw split
   const seed = seedTile.x + seedTile.y * 50;
 
-  // 0-1 BFS from the hub over the road graph: an arterial (or a conductor)
-  // costs 0 to enter, any other road tile costs 1. The parent chain of an
-  // arterial is therefore the cheapest way to reach it, and every non-arterial
-  // on that chain is a bridge the arterial network needs.
-  const dist = new Map([[seed, 0]]);
-  const parent = new Map();
-  const buckets = new Map([[0, [seed]]]);
-  let d = 0;
-  let maxD = 0;
-  while (d <= maxD) {
-    const bucket = buckets.get(d) || [];
-    while (bucket.length) {
-      const cur = bucket.pop();
-      if ((dist.get(cur) ?? Infinity) < d) continue;
-      const x = cur % 50;
-      const y = Math.floor(cur / 50);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          if (!dx && !dy) continue;
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
-          const np = nx + ny * 50;
-          const i = index.get(np);
-          const isRoad = i !== undefined;
-          const isConductor = conduct.has(np);
-          if (!isRoad && !isConductor) continue;
-          const free = isConductor || stage[i] <= ARTERIAL_RCL;
-          const nd = d + (free ? 0 : 1);
-          if (nd < (dist.get(np) ?? Infinity)) {
-            dist.set(np, nd);
-            parent.set(np, cur);
-            if (!buckets.has(nd)) buckets.set(nd, []);
-            buckets.get(nd).push(np);
-            if (nd > maxD) maxD = nd;
+  /**
+   * 0-1 BFS from the hub over the road graph: an arterial (or a conductor)
+   * costs 0 to enter, any other road tile costs 1. The parent chain of a tile
+   * is therefore the cheapest way to reach it, and every non-arterial on that
+   * chain is a bridge the arterial network needs.
+   *
+   * Reads `stage` live, so it must be RE-RUN after anything promotes tiles —
+   * a chain answered off a stale snapshot is still correct (it is a superset of
+   * what is needed) but no longer minimal, and the RCL3 road budget is real.
+   */
+  const zeroOneBfs = () => {
+    const dist = new Map([[seed, 0]]);
+    const parent = new Map();
+    const buckets = new Map([[0, [seed]]]);
+    let d = 0;
+    let maxD = 0;
+    while (d <= maxD) {
+      const bucket = buckets.get(d) || [];
+      while (bucket.length) {
+        const cur = bucket.pop();
+        if ((dist.get(cur) ?? Infinity) < d) continue;
+        const x = cur % 50;
+        const y = Math.floor(cur / 50);
+        for (let dx = -1; dx <= 1; dx++) {
+          for (let dy = -1; dy <= 1; dy++) {
+            if (!dx && !dy) continue;
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+            const np = nx + ny * 50;
+            const i = index.get(np);
+            const isRoad = i !== undefined;
+            const isConductor = conduct.has(np);
+            if (!isRoad && !isConductor) continue;
+            const free = isConductor || stage[i] <= ARTERIAL_RCL;
+            const nd = d + (free ? 0 : 1);
+            if (nd < (dist.get(np) ?? Infinity)) {
+              dist.set(np, nd);
+              parent.set(np, cur);
+              if (!buckets.has(nd)) buckets.set(nd, []);
+              buckets.get(nd).push(np);
+              if (nd > maxD) maxD = nd;
+            }
           }
         }
       }
+      d++;
     }
-    d++;
-  }
+    return parent;
+  };
 
-  let bridged = 0;
-  for (let i = 0; i < roads.length; i++) {
-    if (stage[i] > ARTERIAL_RCL) continue;
-    let cur = roads[i].x + roads[i].y * 50;
+  /**
+   * Walk the cheapest-parent chain from `from` back to the hub and promote
+   * every non-arterial road on it. Returns how many tiles it promoted.
+   *
+   * This only ever re-stages tiles the planner ALREADY put in
+   * `structures.road` — `index.get` is the sole way a tile gets touched, and a
+   * chain step that lands on terrain, on a conductor, or on nothing at all is
+   * skipped. This pass must never invent a road the planner did not place: the
+   * bot builds `structures.road` and reads `roadStage` as a parallel array, so
+   * a phantom tile here has nowhere to land.
+   */
+  const promoteChain = (parent, from) => {
+    let promoted = 0;
+    let cur = from;
     while (cur !== undefined && cur !== seed) {
       const j = index.get(cur);
       if (j !== undefined && stage[j] > ARTERIAL_RCL) {
         stage[j] = ARTERIAL_RCL;
-        bridged++;
+        promoted++;
       }
       cur = parent.get(cur);
     }
+    return promoted;
+  };
+
+  let bridged = 0;
+  const bridgeParent = zeroOneBfs();
+  for (let i = 0; i < roads.length; i++) {
+    if (stage[i] > ARTERIAL_RCL) continue;
+    bridged += promoteChain(bridgeParent, roads[i].x + roads[i].y * 50);
   }
+
+  // ---------------------------------------------------------------------
+  // THE ARTERIAL SET MUST REACH EVERY ECO TERMINAL, NOT JUST EVERY ARTERIAL.
+  //
+  // The bridge loop above starts from tiles that are ALREADY arterial and joins
+  // them up. That makes the arterial set connected — which is the invariant the
+  // bot's auditRoadPrefix checks — but connected is not the same as USEFUL, and
+  // the claim this staging is sold on (PlanV2 PLACE_ORDER: "RCL3 builds the
+  // roads a hauler actually walks") is a claim about the terminals, not about
+  // the network's internal consistency. A container is not a road, so it is
+  // never a seed of that loop, and in 8 of the 172 rooms the layer-1 eco line
+  // stopped a handful of tiles short of the terminal it was laid for and
+  // nothing noticed:
+  //
+  //   source containers      E14S5 42,39 (3 unpaved tiles short) ·
+  //                          E18S4 27,20 (2) · E3S5 16,15 (2) ·
+  //                          E17S5 44,35 (2) · E21S9 5,32 (1)
+  //   controller containers  E15S4 13,14 (1) · E16S6 16,19 (1) · E8S6 15,25 (1)
+  //
+  // Small gaps, and that is the point: 1 to 3 tiles, at the end of a 30-tile
+  // arterial the room paid for in full, on the exact tile a hauler stands on
+  // every single cycle from RCL2. E14S5's far miner walked the last 3 tiles of
+  // its haul over bare ground until RCL4 while the other 40 tiles of that same
+  // line were roaded at RCL3.
+  //
+  // The fix is the same machinery, one more set of seeds: run the 0-1 BFS's
+  // parent chain from each eco terminal too. Because the BFS charges 1 per
+  // not-yet-arterial road tile and 0 for arterials and conductors, the chain it
+  // returns is a CHEAPEST one — the fewest new RCL3 tiles that join this
+  // terminal to what the room is already building. Not a blanket promotion:
+  // 9 tiles over the whole fleet. 164 of the 172 rooms already reach all three
+  // terminals and pay nothing, and of the 8 that do not, three (E16S6 16,19,
+  // E17S5 44,35, E21S9 5,32) are already paid for by the container-face pass
+  // above and its bridging — they are exactly the rooms that showed up in BOTH
+  // findings. So this pass fires in 5 rooms: E14S5 (3 tiles), E18S4 (2),
+  // E3S5 (2), E15S4 (1), E8S6 (1).
+  //
+  // THE BFS IS RE-RUN RATHER THAN REUSED, and honestly it buys nothing on this
+  // snapshot — swapping `zeroOneBfs()` for `bridgeParent` here gives a
+  // byte-identical result in all 172 rooms. It is kept because the cheap thing
+  // is the wrong-by-default thing: the bridge loop has just promoted tiles, so
+  // a pre-bridge parent chain can route a terminal down a corridor that is now
+  // more expensive than the one the room is already building, and buy tiles it
+  // did not need. That never happens here, but "never happens on the 172 rooms
+  // I looked at" is not a property of the algorithm, and the cost of insuring
+  // against it is one 0-1 BFS over ~130 tiles in a script that already parses
+  // an 8 MB JSON once per push.
+  //
+  // TWO APPROXIMATIONS THAT REMAIN, BOTH DELIBERATE:
+  //  1. The terminals share one (post-bridge) snapshot, so terminal 2's chain
+  //     does not get to reuse tiles terminal 1 just promoted. Doing that
+  //     properly is a Steiner tree; the chains overlap heavily in practice
+  //     because they share the hub end, and at 9 tiles fleet-wide there is
+  //     nothing left to win.
+  //  2. Ties in the BFS fall out of its fixed neighbour scan (dx then dy,
+  //     -1..1) and its LIFO buckets, not out of a global reading-order sort of
+  //     equal-cost paths. That is deterministic — the same plan in gives the
+  //     same stage array out, verified byte-for-byte over all 172 rooms — but
+  //     it is "deterministic", not "provably the lexicographically first
+  //     shortest chain". Nothing downstream depends on which equal chain wins.
+  //
+  // START AT THE TERMINAL'S PARENT, NOT AT THE TERMINAL. Road and container are
+  // both non-obstacle in Screeps, so they legally share a tile and the planner
+  // sometimes uses that: E3S9 has a layer-7 (rampart spur) road planned UNDER
+  // all three of its eco containers — 32,16, 31,26 and 45,8 — and E14S1 one
+  // under 23,17. Seeding the walk on the container tile made `index.get` find
+  // those roads and promote them, 24 tiles across 20 rooms whose terminals were
+  // never stranded in the first place. A creep stands on a container whether or
+  // not there is a road under it; what this guarantee is about is the tiles it
+  // walks to GET there. The road under the terminal stays at RCL4 with the rest
+  // of its layer.
+  // ---------------------------------------------------------------------
+  let ecoGuarded = 0;
+  const ecoParent = zeroOneBfs();
+  for (const c of ecoTerminals) ecoGuarded += promoteChain(ecoParent, ecoParent.get(c.x + c.y * 50));
+
   // for the log line only — JSON.stringify drops properties hung off an array,
   // so this never reaches the segment
   stage.bridged = bridged;
   stage.extFaced = extFaced;
+  stage.c2Faced = c2Faced;
+  stage.ecoGuarded = ecoGuarded;
   return stage;
 }
 
@@ -507,8 +755,10 @@ async function main() {
   console.log(
     `plan for ${room} -> segment ${SEGMENT} (${data.length} bytes) hash ${payload.planHash} ` +
       `shellCut ${payload.shellCut.length} labInputs ${(payload.labInputs || []).length} ` +
-      `roads ${roadStage.length} (${arterials} arterial at RCL${ARTERIAL_RCL}, ` +
-      `${roadStage.bridged || 0} of them bridge tiles) ok`,
+      `roads ${roadStage.length} (${arterials} arterial at RCL${ARTERIAL_RCL}: ` +
+      `${roadStage.bridged || 0} bridge, ${roadStage.extFaced || 0} extension faces, ` +
+      `${roadStage.c2Faced || 0} RCL2-container faces, ` +
+      `${roadStage.ecoGuarded || 0} eco-terminal reach) ok`,
   );
 
   if (args.includes("--adopt")) {
@@ -519,7 +769,17 @@ async function main() {
   }
 }
 
-main().catch((e) => {
-  console.error(e.message);
-  process.exit(1);
-});
+// Only run the push when this file IS the entry point. The staging functions
+// above are the thing an offline check wants to exercise, and a check that
+// re-implements them proves nothing about what actually ships — the RCL3
+// arterial findings (E14S5, E16S6 et al, below) were all found by re-deriving
+// a COPY of roadStageFor, which is exactly how a copy drifts from the original.
+// Importing this module now gets you the real functions and no side effects.
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  main().catch((e) => {
+    console.error(e.message);
+    process.exit(1);
+  });
+}
+
+export { roadStageFor, stagedOrphans, ARTERIAL_RCL, ARTERIAL_LAYER, REST_RCL, RCL3_EXTENSIONS };

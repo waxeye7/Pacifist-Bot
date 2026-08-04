@@ -31,18 +31,26 @@ reads the matching entry from the gitignored `screeps.json`.
   per wall-clock minute for long-horizon tests.
 * **Tailnet-only.** It is reachable exclusively over the owner's Tailscale tailnet
   (`http://screeps.marlyman123.com`, fallback `http://100.67.41.31:21025`); the public IP
-  refuses `:21025` and firewalld only allows 22/80/443. Nothing here works off the tailnet.
+  refuses `:21025` and firewalld only allows 80/443 (SSH is tailnet-only too, since the
+  2026-08-02 lockdown). Nothing here works off the tailnet.
 * **Managed by a separate Claude via the `big_vps` repo**
   (`C:/Users/stemm/Documents/GitHub/big_vps`, see `logs/2026-08-01-screeps.md` there).
   From this repo: **do not SSH to the box, do not run its CLI, do not change mods, systemd
   units, tick rate or world state.** The only allowed interaction is uploading code with
   `npm run push-vps`. Server-side changes go through the big_vps Claude.
-* As of `big_vps/logs/2026-08-01-screeps.md`, `screeps.marlyman123.com` still resolves to the
-  public IP and the nginx proxy is not deployed, so **`npm run push-vps-ip` is the one that
-  works today**.
+* **`screeps.marlyman123.com` now works** (verified 2026-08-05): DNS resolves to the tailnet
+  IP `100.67.41.31`, and nginx proxies the vhost to the browser client, which forwards
+  `/api`, `/socket` and `/room-history` to the backend. Both `push-vps` and `push-vps-ip`
+  are viable; prefer `push-vps`.
+* **The read API is live and same-origin** — `GET /api/version` and
+  `/api/game/room-terrain?room=W1N1&encoded=1` return data with no auth. Room *contents*
+  (`/api/game/room-objects`, `/api/game/room-overview`, `/api/user/memory`) need an
+  `X-Token` header.
 * **Token is pending.** `screeps.json` carries `PASTE-VPS-TOKEN-HERE` in both the `vps` and
-  `vps-ip` entries; the owner replaces it with the output of `auth.createAuthToken('<user>')`
-  run in that server's CLI. Until then `push-vps` will 401.
+  `vps-ip` entries; the owner replaces it with the output of `auth.createAuthToken('pacifist')`
+  run in that server's CLI. Until then `push-vps` and the authenticated reads 401.
+* This bot already owns **W1N1** on that server (~53 CPU/tick as of 2026-08-05); `market`
+  owns W2N2 and W1N3.
 * None of the tooling in this folder (`live-view.mjs`, `race.mjs`, `spawn-in.mjs`,
   `push-*.mjs`) targets the VPS — they all hardcode the local docker/mongo/redis stack.
 

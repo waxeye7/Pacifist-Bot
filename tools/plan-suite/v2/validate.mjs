@@ -2199,6 +2199,79 @@ export function checkRoom(plan, terrain, objects) {
   }
 
   // ------------------------------------------------------------------
+  // THE NUKE WINDOW, RE-DERIVED — because nothing here had ever read it.
+  //
+  // `meta.towers.nukeWindow` was published for two rounds as "the fullest 5x5
+  // window over spawn/storage/terminal/nuker/tower". It was produced by layer 3,
+  // which runs before the nuker exists, so the array it summed was empty and the
+  // number was the window over spawn/storage/terminal/tower — wrong by exactly
+  // +1 in 145 of 172 rooms, with the true fleet worst at 11 (E6S1 36,23 and
+  // E6S9 27,30) against a published 10. The reason it survived two rounds is in
+  // this file: THE VALIDATOR NEVER READ THE KEY. A published metric no gate
+  // re-derives is a metric that rots, and the goal document says exactly that
+  // about `meta.shell.cut`.
+  //
+  // So it is re-derived here from `plan.structures`, on the definition the goal
+  // document states — the lab diamond is excluded because a mandated 4x4 stamp
+  // cannot be dispersed by definition — and a room whose published field
+  // disagrees FAILS. This is a trust check on the producer, like the sitter and
+  // `stale-cut` checks above, not a quality bar: a room is allowed a fat window,
+  // it is not allowed to publish a thin one.
+  // ------------------------------------------------------------------
+  {
+    const NW_TYPES = ["spawn", "storage", "terminal", "nuker", "tower"];
+    const pts = [];
+    for (const t of NW_TYPES) for (const p of s[t] || []) pts.push({ x: p.x, y: p.y });
+    let mx = 0;
+    for (const a of pts) {
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          const cx = a.x + ox,
+            cy = a.y + oy;
+          if (cx < 0 || cy < 0 || cx > 49 || cy > 49) continue;
+          let n = 0;
+          for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+          if (n > mx) mx = n;
+        }
+      }
+    }
+    const nw = plan.meta?.towers?.nukeWindow;
+    if (pts.length) {
+      if (!nw || typeof nw.value !== "number") {
+        fails.push(
+          `NUKE WINDOW UNPUBLISHED — the shipped high-value mass (${NW_TYPES.join("/")}) has a worst 5x5 ` +
+            `of ${mx} and meta.towers.nukeWindow carries no re-derivable \`value\`. The field this ` +
+            `replaced was measured before the nuker was placed; an unmeasured field is how that happened.`,
+        );
+      } else if (nw.value !== mx) {
+        fails.push(
+          `NUKE WINDOW STALE — meta.towers.nukeWindow.value is ${nw.value}, re-derived over the shipped ` +
+            `${NW_TYPES.join("/")} it is ${mx}` +
+            (nw.counted && nw.counted.join("/") !== NW_TYPES.join("/")
+              ? ` (the field says it counted ${nw.counted.join("/")})`
+              : ""),
+        );
+      } else {
+        // ...and the two fields must not be confusable: layer 3's own
+        // before/after is over a strictly smaller set, so it can never exceed
+        // the real window. If it does, one of them is measuring the wrong thing.
+        const td = plan.meta?.towers?.towerDispersion;
+        if (td && typeof td.after === "number" && td.after > mx) {
+          fails.push(
+            `TOWER DISPERSION INCONSISTENT — meta.towers.towerDispersion.after is ${td.after} over ` +
+              `${(td.counted || []).join("/") || "an unstated set"}, which EXCEEDS the ${mx} measured over ` +
+              `the strictly larger ${NW_TYPES.join("/")}. A subset cannot hold more.`,
+          );
+        }
+        // NO NOTE ON SUCCESS. `notes` is the DECLARED-SHORTFALL channel — a note
+        // pulls the room into that report and prints every shortfall it carries
+        // — so an unconditional "agrees" would put all 172 rooms in a list whose
+        // whole value is that it is short. Agreement is the silent case.
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
   // RUNTIME — a NOTE, never a fail.
   //
   // The planner runs offline, so a slow room costs a developer's patience and

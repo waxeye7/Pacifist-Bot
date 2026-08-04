@@ -27,8 +27,33 @@
  */
 import { D4, D8, borderLegal, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
+import {
+  boardMobility,
+  boardWalkMask,
+  breachesGate,
+  detourFreeTile,
+  MOBILITY_TARGET,
+} from "./layer-shell.mjs";
 
 const DEPTH_SAFE = 4;
+/**
+ * How many extra steps of filler walk the NUKER will pay to stop breaching the
+ * defender's gate.
+ *
+ * The nuker's rule is "nearest the hub by walk" and the reason is real — 300k
+ * energy and 5k ghodium are carried into it by hand — so the veto below is not
+ * allowed to drag it across the room. Six steps is the same order as the tower
+ * refill note threshold and it is a bounded, stated price rather than a free
+ * one. Past it the room keeps the near tile and DECLARES, with the alternative
+ * named, because a silent 20-step haul is a worse outcome than an argued lap.
+ */
+const NUKER_MOBILITY_BUDGET = 6;
+/**
+ * The OBSERVER pays no such premium and gets no such budget. Its placement rule
+ * is literally "takes the furthest leftover tile" — the only structure in the
+ * game whose position is irrelevant to what it does — so any non-breaching
+ * candidate outranks any breaching one, full stop. See the veto note below.
+ */
 
 function idx(x, y) {
   return x + y * 50;
@@ -178,27 +203,194 @@ export function planMisc(terrain, plan) {
     for (const q of hvPts) if (Math.abs(q.x - p.x) <= 2 && Math.abs(q.y - p.y) <= 2) n++;
     return n;
   };
+  // ------------------------------------------------------------------
+  // THE DEFENDER'S GATE IS A PLACEMENT CONSTRAINT, AND THIS LAYER NEVER KNEW IT.
+  //
+  // E16S5 ships an as-built gated lap of 2.25 against a 1.2 target, over 2
+  // judged pairs, and declares it "THE ENCLOSURE AND THE TERRAIN, not the mass".
+  // Re-derived: with every non-hub structure of ours lifted the room laps 0 —
+  // and with ONLY THE OBSERVER lifted it also laps 0. The whole miss is the
+  // single tile at 24,32. The named pair 21,28↔21,33 walks 9 inside with it and
+  // 8 without: one tile, which is exactly the tile that crosses the 4-tile
+  // detour floor and turns an unjudged pair into a judged, failing one.
+  //
+  // The room had 79 free deep interior tiles and 16 of them leave it inside the
+  // target; the nearest is 24,33, ONE STEP AWAY. The sort below was
+  // `b.d - a.d` and nothing else — furthest by walk, with no mobility term at
+  // all — so the layer picked the corridor plug over sixteen tiles that cost
+  // the same nothing.
+  //
+  // THE RULE, AS RULED: a candidate that CREATES or WORSENS a gated-over-target
+  // pair loses. Two structures here are subject to it (the extractor has no
+  // choice of tile at all — it is built on the mineral), and they are subject to
+  // it differently, because their placement rules are not equally serious:
+  // the observer pays no premium for its tile and therefore gets no budget to
+  // breach with, while the nuker's haul distance is a real recurring cost and is
+  // given a bounded one (NUKER_MOBILITY_BUDGET).
+  //
+  // WHAT IT COSTS TO RUN. Almost nothing, because almost every candidate is
+  // provably free: `detourFreeTile` proves that blocking a tile changes not one
+  // interior distance, from its eight neighbours alone (see layer-shell). Only
+  // the candidates sitting in a genuine pinch — the ones this veto is about —
+  // are ever measured with the all-pairs metric, and those are capped.
+  // ------------------------------------------------------------------
+  const cutTiles = plan.shell?.cut || [];
+  /** how many all-pairs re-measurements one room may spend on this veto */
+  const VETO_BUDGET = 24;
+  let vetoSpend = 0;
+  const mobBase = cutTiles.length ? boardMobility(terrain, plan, null) : null;
+  /**
+   * The walk region the cheap proof is taken against, kept CURRENT.
+   *
+   * `detourFreeTile` is a statement about one board, and this layer commits a
+   * tile (the nuker) before it judges the next one (the observer). A tile that
+   * is bypassable on the empty board can stop being bypassable once the bypass
+   * itself is built on — so the mask is advanced as tiles are committed rather
+   * than reused, and where a committed tile was NOT proved free (i.e. it may
+   * have split something) the region is re-derived from scratch instead of
+   * having one bit cleared.
+   */
+  let liveMask = cutTiles.length ? boardWalkMask(terrain, plan) : null;
+  const vetoLog = { measured: 0, provedFree: 0, refused: [], budgetSpent: false };
+  /**
+   * Does standing a structure on `c` breach the gate, given `already` (a list of
+   * tile keys this layer has committed to since `mobBase` was taken)?
+   *
+   * `null` means "could not be decided inside the budget" and is treated by the
+   * callers as a breach, so the veto is conservative in the direction that keeps
+   * the declaration honest: a candidate we could not clear is not silently
+   * accepted as clear.
+   */
+  /**
+   * Blocking this tile provably changes not one interior distance — either it
+   * is outside the walk region entirely or every pair of its walkable
+   * neighbours is already connected around it at no extra cost. See
+   * detourFreeTile in layer-shell for why that is a proof and not a heuristic.
+   */
+  const provedFree = (c) =>
+    !liveMask || !liveMask[c.x + c.y * 50] || detourFreeTile(liveMask, c.x, c.y);
+  const breaches = (c, already, base) => {
+    if (!mobBase || !liveMask) return false;
+    const k = key(c.x, c.y);
+    if (provedFree(c)) {
+      vetoLog.provedFree++;
+      return false;
+    }
+    if (vetoSpend >= VETO_BUDGET) {
+      vetoLog.budgetSpent = true;
+      return true;
+    }
+    vetoSpend++;
+    vetoLog.measured++;
+    const trial = boardMobility(terrain, plan, [...already, k]);
+    const bad = breachesGate(base || mobBase, trial);
+    if (bad) {
+      vetoLog.refused.push({
+        x: c.x,
+        y: c.y,
+        lap: trial ? trial.maxGated : null,
+        wasLap: (base || mobBase).maxGated,
+      });
+    }
+    return bad;
+  };
+
   // nuker: nearest the hub by walk — fillers haul 300k energy into it
   const byNear = cands
     .slice()
     .sort((a, b) => a.d - b.d || window5(a) - window5(b) || a.x - b.x || a.y - b.y);
-  const nuker =
-    byNear.find((c) => offRing(c) && !seals(c, occupied)) ||
-    byNear.find((c) => !seals(c, occupied)) ||
-    byNear[0];
+  const nukerLegal = (c) => offRing(c) && !seals(c, occupied);
+  /** what the old rule would have taken, kept so the trade can be priced */
+  const nukerUnvetoed =
+    byNear.find(nukerLegal) || byNear.find((c) => !seals(c, occupied)) || byNear[0];
+  let nuker = nukerUnvetoed;
+  let nukerMobility = null;
+  if (mobBase && nukerUnvetoed && breaches(nukerUnvetoed, [], mobBase)) {
+    // the near tile breaches. Look for the nearest that does not, inside the
+    // stated haul budget; past the budget the room keeps the near tile and says
+    // so with both numbers.
+    const alt =
+      byNear.find(
+        (c) =>
+          c !== nukerUnvetoed &&
+          c.d <= nukerUnvetoed.d + NUKER_MOBILITY_BUDGET &&
+          nukerLegal(c) &&
+          !breaches(c, [], mobBase),
+      ) || null;
+    if (alt) {
+      nuker = alt;
+      nukerMobility = {
+        moved: true,
+        from: { x: nukerUnvetoed.x, y: nukerUnvetoed.y },
+        to: { x: alt.x, y: alt.y },
+        haulCost: alt.d - nukerUnvetoed.d,
+        budget: NUKER_MOBILITY_BUDGET,
+      };
+    } else {
+      nukerMobility = {
+        moved: false,
+        kept: { x: nukerUnvetoed.x, y: nukerUnvetoed.y },
+        budget: NUKER_MOBILITY_BUDGET,
+        baseLap: mobBase.maxGated,
+      };
+    }
+  }
   occupied.add(key(nuker.x, nuker.y));
+  // advance the board the cheap proof is taken against (see liveMask): a tile
+  // that was proved free removes exactly itself from the region, and one that
+  // was not may have split something, so that case is re-derived.
+  if (liveMask) {
+    if (provedFree(nuker)) liveMask[nuker.x + nuker.y * 50] = 0;
+    else liveMask = boardWalkMask(terrain, plan, [key(nuker.x, nuker.y)]);
+  }
 
   // observer: needs no access, so it takes the furthest leftover tile —
   // but prefer one already served by a road so nothing is stranded.
+  //
+  // ...AND IT DOES NOT GET TO BREACH THE GATE FOR THE PRIVILEGE. See the veto
+  // note above: this is the E16S5 fix. The mobility filter is the OUTERMOST
+  // tier — ahead of the road preference and ahead of the controller-ring
+  // preference — because those two are worth a tile of walk and this is worth a
+  // judged, failing pair on the wall.
   const byFar = cands
     .filter((c) => c !== nuker)
     .sort((a, b) => b.d - a.d || a.x - b.x || a.y - b.y);
-  const observer =
-    byFar.find((c) => offRing(c) && nearRoad(c) && !seals(c, occupied)) ||
-    byFar.find((c) => offRing(c) && !seals(c, occupied)) ||
-    byFar.find((c) => nearRoad(c) && !seals(c, occupied)) ||
-    byFar.find((c) => !seals(c, occupied)) ||
-    byFar[0];
+  const nukerKey = key(nuker.x, nuker.y);
+  const obsBase = mobBase ? boardMobility(terrain, plan, [nukerKey]) : null;
+  const obsLegal = (c) => !seals(c, occupied);
+  const pickObserver = (mobilityFiltered) => {
+    const ok = (c) =>
+      obsLegal(c) && (!mobilityFiltered || !breaches(c, [nukerKey], obsBase || mobBase));
+    return (
+      byFar.find((c) => offRing(c) && nearRoad(c) && ok(c)) ||
+      byFar.find((c) => offRing(c) && ok(c)) ||
+      byFar.find((c) => nearRoad(c) && ok(c)) ||
+      byFar.find((c) => ok(c)) ||
+      null
+    );
+  };
+  const observerUnvetoed = pickObserver(false) || byFar[0];
+  let observer = mobBase ? pickObserver(true) : observerUnvetoed;
+  let observerMobility = null;
+  if (!observer) {
+    // nothing in the room clears the veto — the observer has to stand somewhere,
+    // so it takes the old pick and the room declares it below.
+    observer = observerUnvetoed;
+    if (mobBase) {
+      observerMobility = {
+        moved: false,
+        kept: { x: observer.x, y: observer.y },
+        baseLap: (obsBase || mobBase).maxGated,
+      };
+    }
+  } else if (observerUnvetoed && (observer.x !== observerUnvetoed.x || observer.y !== observerUnvetoed.y)) {
+    observerMobility = {
+      moved: true,
+      from: { x: observerUnvetoed.x, y: observerUnvetoed.y },
+      to: { x: observer.x, y: observer.y },
+      haulCost: observer.d - observerUnvetoed.d,
+    };
+  }
   occupied.add(key(observer.x, observer.y));
 
   // road faces, stitched to the network by hub-field descent (same pattern
@@ -253,6 +445,56 @@ export function planMisc(terrain, plan) {
   const bubbles = [];
   const bubbleRejected = [];
   const shortfalls = [];
+
+  // ------------------------------------------------------------------
+  // A VETO THAT COULD NOT BE HONOURED IS DECLARED, NOT SWALLOWED.
+  //
+  // The two cases are different and are said differently. The NUKER may keep a
+  // breaching tile because the alternative costs more haul than its stated
+  // budget — that is a priced trade and the price is printed. The OBSERVER has
+  // no such excuse: if it keeps a breaching tile it is because the room offered
+  // no other tile at all, and that claim is a claim about a completed scan.
+  // ------------------------------------------------------------------
+  if (nukerMobility && nukerMobility.moved === false) {
+    shortfalls.push({
+      gate: "mobility",
+      kind: "placement",
+      source: "misc",
+      detail:
+        `the NUKER keeps ${nukerMobility.kept.x},${nukerMobility.kept.y} even though standing there ` +
+        `creates or worsens a gated-over-target defender pair on this layer's board (the room laps ` +
+        `${nukerMobility.baseLap} against a ${MOBILITY_TARGET} target with the tile empty). No candidate ` +
+        `within ${nukerMobility.budget} extra step(s) of filler walk clears the gate, and the nuker's ` +
+        `placement rule is haul distance for a real reason — 300k energy and 5k ghodium are carried into ` +
+        `it by hand — so the room pays the lap rather than the haul. ` +
+        (vetoLog.measured
+          ? `${vetoLog.measured} candidate(s) were measured with the full all-pairs metric and ` +
+            `${vetoLog.provedFree} more were proved to change no interior distance at all.`
+          : `Every other candidate was proved to change no interior distance at all, so none of them was ` +
+            `the problem either.`),
+      tiles: [{ x: nukerMobility.kept.x, y: nukerMobility.kept.y }],
+    });
+  }
+  if (observerMobility && observerMobility.moved === false) {
+    shortfalls.push({
+      gate: "mobility",
+      kind: "placement",
+      source: "misc",
+      detail:
+        `the OBSERVER keeps ${observerMobility.kept.x},${observerMobility.kept.y} even though standing ` +
+        `there creates or worsens a gated-over-target defender pair (the room laps ` +
+        `${observerMobility.baseLap} against a ${MOBILITY_TARGET} target with the tile empty). The ` +
+        `observer pays nothing for its position and is therefore given no budget to breach with, so this ` +
+        `is not a trade: it is a scan of every deep, unoccupied, engine-legal, non-sealing tile in the ` +
+        `enclosure (${cands.length} candidate(s)) coming back with none that clears. ` +
+        (vetoLog.budgetSpent
+          ? `The measurement budget of ${VETO_BUDGET} all-pairs re-derivations was exhausted first, so ` +
+            `candidates past it were treated as breaching — the conservative direction, which can keep a ` +
+            `tile this note then declares but can never hide one.`
+          : `${vetoLog.measured} candidate(s) were measured with the full all-pairs metric.`),
+      tiles: [{ x: observerMobility.kept.x, y: observerMobility.kept.y }],
+    });
+  }
   const mineral = plan.mineral;
   if (mineral) {
     extractor.push({ x: mineral.x, y: mineral.y });
@@ -355,6 +597,22 @@ export function planMisc(terrain, plan) {
     miscMeta: {
       nukerHubDist: nuker.d,
       observerHubDist: observer.d,
+      // THE MOBILITY VETO, PUBLISHED. What it moved, what it refused and what it
+      // cost, so the E16S5 class of defect is checkable from the artifact rather
+      // than reconstructible only by re-running the planner.
+      mobilityVeto: {
+        target: MOBILITY_TARGET,
+        baseLap: mobBase ? mobBase.maxGated : null,
+        baseOverGated: mobBase ? mobBase.overGated : null,
+        candidates: cands.length,
+        measured: vetoLog.measured,
+        provedFree: vetoLog.provedFree,
+        budget: VETO_BUDGET,
+        budgetSpent: vetoLog.budgetSpent,
+        refused: vetoLog.refused.slice(0, 12),
+        nuker: nukerMobility,
+        observer: observerMobility,
+      },
       extractor: extractor.length,
       mineralContainer: mineralContainer.length,
       mineralBubble: bubbles.length,

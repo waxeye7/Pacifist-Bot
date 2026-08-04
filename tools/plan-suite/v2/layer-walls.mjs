@@ -52,6 +52,7 @@ import {
   interiorWalk,
   maskFromKeys,
   mobilityCauseDetail,
+  mobilityLift,
   mobilityStats,
   pickBattlements,
 } from "./layer-shell.mjs";
@@ -269,6 +270,42 @@ function verifyMobility(terrain, plan) {
   }
 
   // ------------------------------------------------------------------
+  // THE LIFT TEST — see mobilityLift in layer-shell for why the old attribution
+  // could not be trusted and what this replaces.
+  //
+  // In one sentence: `mFree` above lifts the EXTENSIONS and nothing else, so
+  // four rooms told a reader "the enclosure and the terrain, not the mass" about
+  // a miss caused entirely by our own observer (E16S5, one tile at 24,32) or our
+  // own lab diamond (E12S3). Both of those are structures this planner chose the
+  // position of; neither is an extension; and the sentence was therefore true
+  // about the measurement and false about the room.
+  //
+  // The lift test asks the question a reader is actually asking — "is this the
+  // terrain's fault or ours?" — by lifting everything of ours that is not the
+  // mandated hub trio and the spawn fan, and re-running the WHOLE metric. It is
+  // paid for only by rooms that miss the target, and it is the sole source of
+  // both `meta.cause` and the sentence that reports it, so the two cannot
+  // disagree the way they did in three of those four rooms.
+  // ------------------------------------------------------------------
+  const lift =
+    mBuilt.maxGated > MOBILITY_TARGET
+      ? mobilityLift(terrain, plan, cut, ext, wallSet, mBuilt.worstGated || mBuilt.worst || null)
+      : null;
+  if (lift) {
+    meta.lift = {
+      cause: lift.cause,
+      clears: lift.clears,
+      liftedLap: lift.liftedLap,
+      liftedOverGated: lift.liftedOverGated,
+      liftedGatedPairs: lift.liftedGatedPairs,
+      classes: lift.classes,
+      solo: lift.solo,
+      present: lift.present,
+      perClass: lift.perClass,
+    };
+  }
+
+  // ------------------------------------------------------------------
   // ONE DECLARATION PER ROOM, BUILT FIRST.
   //
   // Two entries used to be filed for one question — layer 2's, about a mass-free
@@ -393,8 +430,21 @@ function verifyMobility(terrain, plan) {
     const MASS_SHARE_PCT = 30;
     /** ...and below which it is not a share at all */
     const MASS_MINOR_PCT = 10;
-    // does this pair miss the gate with the whole mass lifted out of the room?
-    const bareAlreadyOver = share !== null && !meta.worstCaused;
+    // ------------------------------------------------------------------
+    // WHO IS ALLOWED TO SAY "THE TERRAIN DID IT". Not this line any more.
+    //
+    // `meta.worstCaused` is a statement about the EXTENSION mass and one pair.
+    // It was the selector for the sentence below, which is a statement about
+    // every structure in the room — so E16S5 printed "THE PRIMARY CAUSE IS THE
+    // ENCLOSURE AND THE TERRAIN, not the mass" over a miss that is one observer
+    // tile, and E12S3 printed it over its own lab diamond. The selector is now
+    // the lift test (see meta.lift above), which lifts every structure whose
+    // position this planner chose and re-runs the whole metric: the enclosure
+    // only gets the headline when the room misses WITHOUT any of our
+    // freely-placed mass in it.
+    // ------------------------------------------------------------------
+    const liftClears = !!(lift && lift.clears);
+    const bareAlreadyOver = share !== null && !liftClears;
     const massShare =
       share === null
         ? `THE MASS SHARE, measured: with the extension mass removed this pair is not connected at all, ` +
@@ -433,11 +483,49 @@ function verifyMobility(terrain, plan) {
       share === null
         ? ""
         : meta.worstCaused
-          ? ` On bare terrain this pair CLEARS the gate — ${causedWhy} — so the room did not fail here ` +
-            `until we grew into it.`
-          : ` On bare terrain this pair already misses (${round2(freeDin / dout)} over ` +
-            `${freeDetour} tile(s) of detour), so the room was over target before the first ` +
-            `extension landed.`;
+          ? ` With every EXTENSION removed this pair CLEARS the gate — ${causedWhy} — so the room did ` +
+            `not fail here until the mass grew into it.`
+          : ` With every EXTENSION removed this pair still misses (${round2(freeDin / dout)} over ` +
+            `${freeDetour} tile(s) of detour) — but "extensions" is not the same list as "our ` +
+            `structures", and the sentence that used to stand here said the room "was over target ` +
+            `before the first extension landed", which is a claim about a board that also had no labs, ` +
+            `no towers, no nuker and no observer on it. See THE LIFT TEST below for the one that was ` +
+            `actually asked.`;
+    // ------------------------------------------------------------------
+    // THE LIFT TEST, IN THE DECLARATION. Same numbers as meta.lift, and the
+    // sole authority for the `cause` field on this entry.
+    // ------------------------------------------------------------------
+    const NAME = {
+      extension: "the extension mass",
+      tower: "the tower battery",
+      lab: "the lab diamond",
+      nuker: "the nuker",
+      observer: "the observer",
+    };
+    const nameOf = (c) => NAME[c] || c;
+    const liftNote = !lift
+      ? ""
+      : ` THE LIFT TEST: lift every structure whose position this planner chose — ` +
+        `${lift.present.length ? lift.present.map(nameOf).join(", ") : "nothing, the room has none"} — ` +
+        `leaving only the mandated hub trio and the spawn fan, and re-run the whole metric: the room ` +
+        `laps ${lift.liftedLap} over ${lift.liftedOverGated}/${lift.liftedGatedPairs} judged pairs. ` +
+        (lift.clears
+          ? `THAT CLEARS THE ${MOBILITY_TARGET} TARGET, so this miss is OURS, not the terrain's` +
+            (lift.solo.length
+              ? ` — and ${lift.solo.length === 1 ? "one class does it alone" : "each of these does it alone"}: ` +
+                `lifting ${lift.solo.map(nameOf).join(" or ")} and nothing else takes the room to ` +
+                `${lift.solo.map((c) => lift.perClass[c]?.lap).join("/")}. That is where the next fix goes.`
+              : lift.classes.length
+                ? ` — no single class does it alone; the smallest set measured that does is ` +
+                  `${lift.classes.map(nameOf).join(" + ")}.`
+                : `.`)
+          : `THAT STILL MISSES, so the enclosure and the terrain own this lap and no arrangement of the ` +
+            `structures we place fixes it` +
+            (lift.residual
+              ? ` — with the interior's natural walls lifted as well the residual pair walks ` +
+                `${lift.residual.dFree === null || !isFinite(lift.residual.dFree) ? "nowhere (it does not connect)" : lift.residual.dFree}, ` +
+                `which is what makes the label "${lift.cause}".`
+              : `.`));
     // ------------------------------------------------------------------
     // THE CAUSE, RE-DIAGNOSED ON THE ROOM THAT SHIPS.
     //
@@ -451,8 +539,15 @@ function verifyMobility(terrain, plan) {
     const builtCause = worst
       ? mobilityCauseDetail(terrain, cut, ext, worst)
       : { cause: "none", dStruct: null, dFree: null };
-    meta.cause = builtCause.cause;
+    // THE LABEL COMES FROM THE LIFT TEST, NOT FROM THE PAIR WALKS. The two walks
+    // below stay because they are genuinely informative about the worst pair,
+    // and they are the evidence `causeLine` quotes — but the VERDICT is the
+    // whole-room test, so the structured field and the prose above are the same
+    // computation and can no longer contradict each other (they did, in three of
+    // the four rooms that carried the false attribution).
+    meta.cause = lift ? lift.cause : builtCause.cause;
     meta.causeWalks = { noStructures: builtCause.dStruct, noWalls: builtCause.dFree };
+    meta.pairCause = builtCause.cause;
     const walkVerdict = (d) => {
       if (d === null || !isFinite(d)) return "does not connect at all";
       const detour = d - dout;
@@ -470,9 +565,14 @@ function verifyMobility(terrain, plan) {
             `STILL OVER the ${MOBILITY_TARGET} target`;
     };
     const causeLine = worst
-      ? ` CAUSE, as built: ${builtCause.cause} — with every structure of ours lifted out the same pair ` +
-        `walks ${walkVerdict(builtCause.dStruct)}, and with the interior's natural walls lifted out as ` +
-        `well it walks ${walkVerdict(builtCause.dFree)}.`
+      ? ` CAUSE, as built: ${lift ? lift.cause : builtCause.cause} — the worst pair alone, for evidence: ` +
+        `with every structure of ours lifted out it walks ${walkVerdict(builtCause.dStruct)}, and with ` +
+        `the interior's natural walls lifted out as well it walks ${walkVerdict(builtCause.dFree)}.` +
+        (lift && builtCause.cause !== lift.cause
+          ? ` (That PAIR reads "${builtCause.cause}"; the room's verdict is the whole-metric lift test ` +
+            `above, which is what the label states — a single pair can be fixed while the room still ` +
+            `misses on another one.)`
+          : ``)
       : "";
     // ------------------------------------------------------------------
     // THE NEGOTIATION RECORD — layer 2's declaration, demoted to evidence.
@@ -522,7 +622,21 @@ function verifyMobility(terrain, plan) {
             shippedWallLap: shipLap === null ? null : round2(shipLap),
           }
         : null,
-      cause: builtCause.cause,
+      // ONE COMPUTATION BEHIND BOTH. See meta.lift and `liftNote`: this field
+      // and the sentence that reports it are the same test, so the round-8/9
+      // failure — `cause: "structures"` sitting inside a declaration whose prose
+      // says "not the mass" — cannot recur.
+      cause: lift ? lift.cause : builtCause.cause,
+      lift: lift
+        ? {
+            clears: lift.clears,
+            liftedLap: lift.liftedLap,
+            liftedOverGated: lift.liftedOverGated,
+            liftedGatedPairs: lift.liftedGatedPairs,
+            classes: lift.classes,
+            solo: lift.solo,
+          }
+        : null,
       detail:
         (mBuilt.maxGated > MOBILITY_TARGET
           ? `AS BUILT the defender lap is ${mBuilt.maxGated} over pairs costing more than ` +
@@ -536,7 +650,7 @@ function verifyMobility(terrain, plan) {
           ? `: between wall tiles ${a.x},${a.y} and ${b.x},${b.y} the garrison walks ${din} inside while ` +
             `the attacker walks ${dout} outside. `
           : `: no pair of wall tiles detours far enough to be judged, so there is no worst pair to name. `) +
-        (worst ? `${massShare}${causedNote}${causeLine} ` : "") +
+        (worst ? `${massShare}${causedNote}${liftNote}${causeLine} ` : `${liftNote} `) +
         `${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
         `${mFree.overGated} with no mass in the room (ungated: ${mBuilt.over}/${mBuilt.pairs} against ` +
         `${mFree.over}).${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
@@ -1460,13 +1574,27 @@ function declareShippedBattery(plan, dmg) {
       already.towers.shippedMinShellDmg === dmg.min &&
       already.towers.shippedCutTiles === dmg.tiles;
     if (same) return;
-    already.detail +=
-      ` AS SHIPPED, on the wall this room actually has: the weakest sealing tile takes ${dmg.min} ` +
+    // ------------------------------------------------------------------
+    // THE SHIPPED READING LEADS. It used to be APPENDED, which is the whole of
+    // round-9 finding #6: E15S5's declaration opens "the weakest wall face sees
+    // 1350 damage ... 0/20 cut tiles" over a room that ships 1410 over 19, and
+    // the correction sat six sentences later behind a wall of search prose.
+    // Every number a reader meets first has to be a number the room has. Layer
+    // 3's text is not edited — it is the record of the search that chose the
+    // battery, and a record rewritten to agree with the outcome is not one — it
+    // is demoted, verbatim, behind the reading of record.
+    // ------------------------------------------------------------------
+    already.detail =
+      `AS SHIPPED, on the wall this room actually has: the weakest sealing tile takes ${dmg.min} ` +
       `damage${dmg.worst ? ` (${dmg.worst.x},${dmg.worst.y})` : ""} over ${dmg.tiles} cut tile(s), ` +
-      `averaging ${dmg.avg}, with ${dmg.weak} of them under the ${TARGET_MIN} floor. The numbers above ` +
-      `are layer 3's, measured over the cut it was handed before layer 7's inert prune and the ` +
-      `single-removal seal reconciliation changed which tiles are the wall; they are kept because they ` +
-      `are what the battery was chosen on.`;
+      `averaging ${dmg.avg}, with ${dmg.weak} of them under the ${TARGET_MIN} floor. THAT IS THE ` +
+      `NUMBER OF RECORD — re-derived here, after layer 7's inert prune and the single-removal seal ` +
+      `reconciliation have both changed which tiles are the wall.` +
+      ` — · — THE SEARCH THAT CHOSE THIS BATTERY, verbatim from layer 3 and measured over the ` +
+      `${already.towers?.declaredCutTiles ?? "earlier"}-tile cut layer 2 handed it, which is a different ` +
+      `wall: "` +
+      already.detail +
+      `"`;
     already.towers = {
       ...(already.towers || {}),
       shippedMinShellDmg: dmg.min,
@@ -2429,6 +2557,84 @@ export function planWallRoads(terrain, plan) {
  * run's DECISIONS safe to keep — and what it produces that matters is a refusal
  * reason measured on the tiles the room ships.
  */
+/**
+ * ------------------------------------------------------------------------
+ * THE NUKE WINDOW, MEASURED OVER THE SET IT IS DEFINED AS.
+ * ------------------------------------------------------------------------
+ * The goal document defines the metric as "the fullest 5x5 window, counted over
+ * spawn / storage / terminal / NUKER / tower, excluding the lab diamond (a
+ * mandated 4x4 stamp cannot be dispersed)". `meta.towers.nukeWindow` was
+ * produced by layer 3, which runs two layers before the nuker is placed, so the
+ * array it iterated was empty and the published number was the window over
+ * spawn/storage/terminal/tower. Measured on the round-9 fleet: the shipped
+ * window exceeds the published `after` by exactly 1 in 145 of 172 rooms; E6S1
+ * and E6S9 ship 11 and published 10; and the nuker lands inside its own room's
+ * worst 5x5 in 154 of 172. The fleet headline in the goal doc (worst 11, mean
+ * 7.97) was the TRUE number and was therefore inconsistent with the per-room
+ * field it was summarising (max 10, mean 7.13).
+ *
+ * So the field is written HERE, from the shipped structure lists, after every
+ * layer that places one of them has run. Layer 3's own before/after survives as
+ * `meta.towers.towerDispersion` — the freedom that layer had and what it spent
+ * — which is a true statement about a different set, published under a name
+ * that says so. validate.mjs re-derives this from `plan.structures` and fails
+ * the room if the two disagree, so neither field can rot again without the
+ * suite noticing.
+ */
+const NUKE_WINDOW_TYPES = ["spawn", "storage", "terminal", "nuker", "tower"];
+function recomputeNukeWindow(plan) {
+  if (!plan.meta?.towers) return;
+  const pts = [];
+  for (const t of NUKE_WINDOW_TYPES) {
+    for (const p of plan.structures[t] || []) pts.push({ x: p.x, y: p.y, t });
+  }
+  let mx = 0;
+  let at = null;
+  // every maximal window contains some structure, so centring on each of them
+  // and sweeping the 5x5 offsets around it covers all of them
+  for (const a of pts) {
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        const cx = a.x + ox,
+          cy = a.y + oy;
+        if (cx < 0 || cy < 0 || cx > 49 || cy > 49) continue;
+        let n = 0;
+        for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+        if (n > mx || (n === mx && at && (cy < at.y || (cy === at.y && cx < at.x)))) {
+          mx = n;
+          at = { x: cx, y: cy };
+        }
+      }
+    }
+  }
+  const inWindow = at
+    ? pts.filter((p) => Math.abs(p.x - at.x) <= 2 && Math.abs(p.y - at.y) <= 2)
+    : [];
+  const nuker = (plan.structures.nuker || [])[0] || null;
+  plan.meta.towers.nukeWindow = {
+    // the number of record: the worst 5x5 over the shipped high-value mass
+    value: mx,
+    center: at,
+    counted: NUKE_WINDOW_TYPES.slice(),
+    // ...and what is IN it, so the number can be argued with tile by tile
+    holds: inWindow.map((p) => ({ x: p.x, y: p.y, type: p.t })),
+    // the one structure layer 3 could not see, and whether it is in the window
+    nuker: nuker ? { x: nuker.x, y: nuker.y } : null,
+    nukerInWindow: !!(nuker && at && Math.abs(nuker.x - at.x) <= 2 && Math.abs(nuker.y - at.y) <= 2),
+    // what layer 3 measured, over the set layer 3 had — kept so the difference
+    // between "the freedom this layer spent" and "the room's exposure" is one
+    // subtraction rather than an argument
+    towerOnly: plan.meta.towers.towerDispersion
+      ? plan.meta.towers.towerDispersion.after
+      : null,
+    note:
+      `the fullest 5x5 window over ${NUKE_WINDOW_TYPES.join("/")}, excluding the lab diamond (a ` +
+      `mandated 4x4 stamp cannot be dispersed). Measured on the SHIPPED structures after layer 5, ` +
+      `which is the first moment the nuker exists; meta.towers.towerDispersion is layer 3's own ` +
+      `before/after over spawn/storage/terminal/tower and is a different, smaller set by construction.`,
+  };
+}
+
 export function finalizeRoom(terrain, plan) {
   if (!plan || plan.error || !plan.shell || !(plan.shell.cut || []).length) return plan;
   if (plan.meta?.finalized) return plan;
@@ -2466,7 +2672,25 @@ export function finalizeRoom(terrain, plan) {
   // ...and the same reading in the field the gallery and the census headline.
   // It used to be taken in composePlan, i.e. once per rung and before this pass
   // could move the wall under it.
-  if (plan.meta?.shell) plan.meta.shell.mobilityBuilt = builtMobility(terrain, plan);
+  if (plan.meta?.shell) {
+    plan.meta.shell.mobilityBuilt = builtMobility(terrain, plan);
+    // ONE CAUSE PER ROOM. `builtMobility` labels the worst pair with the old
+    // pair-level heuristic; verifyMobility above has just run the whole-room
+    // lift test on the same board. Two structured fields disagreeing about one
+    // room is the exact defect the lift test exists to end (E16S5 shipped
+    // `mobilityBuilt.cause: "terrain"` over a miss that is one observer tile),
+    // so the verdict is copied here and the pair-level label is kept beside it
+    // under a name that says what it is about.
+    if (plan.meta.shell.mobilityBuilt && mobility && mobility.cause) {
+      plan.meta.shell.mobilityBuilt.pairCause = plan.meta.shell.mobilityBuilt.cause;
+      plan.meta.shell.mobilityBuilt.cause = mobility.cause;
+      plan.meta.shell.mobilityBuilt.lift = mobility.lift || null;
+    }
+  }
+
+  // THE NUKE WINDOW, over a set that finally includes the nuker — see
+  // recomputeNukeWindow. Layer 3 published a field it could not measure.
+  recomputeNukeWindow(plan);
 
   const sealedFloor = noteSealedFloor(terrain, plan, plan.meta?.extensions?.shallow);
   if (plan.meta?.walls) plan.meta.walls.sealedFloor = sealedFloor;

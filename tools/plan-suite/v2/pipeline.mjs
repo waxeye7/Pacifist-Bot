@@ -281,6 +281,32 @@ export function composePlan(d, shellOpts = {}) {
       // forever-ramparts for 0.5 of a lap the room already declares as failed
       // at 13.5 ... the plan never states it."
       const rb = rf && rf.boundRollback ? rf.boundRollback : [];
+      const bounded = plan.meta.extensions?.laneMeta?.bounded;
+      const hasBound = bounded !== null && bounded !== undefined;
+      // WHICH CEILING ACTUALLY BOUND, said in the room's own numbers. There are
+      // three and the reader needs to know which one refused the trade: the lap
+      // the room already had, the RELAXED version of it a badly-failing room is
+      // entitled to (see CEILING_STRICT_BAND in layer-ext — the E11S7 fix), and
+      // layer 6's published bound, which is a proof and is never relaxed.
+      const whichCeiling = !rf
+        ? ""
+        : rf.lapCeilingSlack !== null && rf.lapCeilingSlack !== undefined
+          ? hasBound && rf.lapCeiling === bounded
+            ? ` — and that ceiling is layer 6's BOUND (${bounded}), not this room's incumbent lap: at ` +
+              `${rf.lapBeforeMoves} against a ${MOBILITY_TARGET} target this room is past ` +
+              `${rf.lapCeilingStrictBand}x the target, so it was entitled to worsen its lap by ` +
+              `${rf.lapCeilingSlackPct}% (to ${rf.lapCeilingSlack}) to retire ramparts — and the bound ` +
+              `clipped it back, because a bound is a proof about the mass and buying upkeep with a claim ` +
+              `is worse than buying it with a lap`
+            : ` — the relaxed ceiling this room was entitled to (${rf.lapCeilingSlack}, i.e. ` +
+              `${rf.lapCeilingSlackPct}% worse than the ${rf.lapBeforeMoves} it already had, which a room ` +
+              `past ${rf.lapCeilingStrictBand}x the target may spend on retiring ramparts)`
+          : hasBound && rf.lapCeiling === bounded
+            ? ` — the bound layer 6 reserved lanes to prove`
+            : ` — the lap the room already had with all 60 extensions standing. This room is inside ` +
+              `${rf.lapCeilingStrictBand}x the ${MOBILITY_TARGET} target, where the strict rule ` +
+              `applies: near the gate the difference between making it and not is worth more than the ` +
+              `rampart, and an upkeep pass may not spend the garrison's legs to buy upkeep`;
       const tradeNote = rb.length
         ? ` TRADE REFUSED, PRICED: ${rb.length} further shallow slot(s) could have moved onto free deep ` +
           `floor — ${rb
@@ -289,14 +315,27 @@ export function composePlan(d, shellOpts = {}) {
           `${Math.round(rb.length * 3) / 100} e/tick of forever-upkeep. Taking them would have moved the ` +
           `as-built gated defender lap from ${rf.lapBeforeMoves} to ${rb[0].wouldLap}, past this room's ` +
           `ceiling of ${rf.lapCeiling}` +
-          (plan.meta.extensions?.laneMeta?.bounded !== null &&
-          plan.meta.extensions?.laneMeta?.bounded !== undefined
-            ? ` (the bound layer 6 reserved lanes to prove)`
-            : ` (the lap the room already had with all 60 extensions standing — an upkeep pass may not ` +
-              `spend the garrison's legs to buy upkeep)`) +
+          whichCeiling +
           `. The room keeps the ramparts and keeps the lap. The trade is written down so it can be ` +
           `argued with.`
-        : "";
+        : rf && rf.lapCeilingSlack !== null && rf.lapCeilingSlack !== undefined && rf.moved?.length
+          ? // ...and the trade a badly-failing room DID take, priced the same way.
+            // Silence here would hide the other half of the same decision.
+            ` LAP SLACK SPENT, PRICED: this room laps ${rf.lapBeforeMoves} against a ` +
+            `${MOBILITY_TARGET} target — past ${rf.lapCeilingStrictBand}x it, i.e. failed rather ` +
+            `than tight — so the relocation pass was allowed to worsen the lap by up to ` +
+            `${rf.lapCeilingSlackPct}% of it, ${rf.lapCeilingSlack}, in exchange for retiring personal ` +
+            `ramparts` +
+            (rf.lapCeilingBound !== null &&
+            rf.lapCeilingBound !== undefined &&
+            rf.lapCeiling < rf.lapCeilingSlack
+              ? `, CLIPPED to ${rf.lapCeiling} by layer 6's published bound — the slack is spendable ` +
+                `against this room's own incumbent lap and never against a proof`
+              : ` (ceiling ${rf.lapCeiling})`) +
+            `, and it shipped at ${rf.lapAfterMoves}. Refusing that trade is how a room ends up renting ` +
+            `forever-ramparts to protect a few percent of a number it already misses by an order of ` +
+            `magnitude.`
+          : "";
       plan.meta.notes.push(
         `SHALLOW EXTENSIONS: ${shallowNow} of ${total} sit at depth < 4 and rent a personal rampart ` +
           `forever. ${l6note}${l7note}` +
@@ -357,6 +396,15 @@ export function composePlan(d, shellOpts = {}) {
         refused: rf.search.refused,
         boundRollback: rf.boundRollback,
         lapCeiling: rf.lapCeiling,
+        // ...and WHICH ceiling that was. A published number a reader cannot
+        // trace back to a rule is how the E11S7 refusal stayed invisible for two
+        // rounds: `lapCeiling: 13.5` next to a target of 1.2 looks like a typo
+        // until you know it is the room's own incumbent lap. See the ceiling cap
+        // note in layer-ext.
+        lapCeilingSlack: rf.lapCeilingSlack,
+        lapCeilingStrictBand: rf.lapCeilingStrictBand,
+        lapCeilingSlackPct: rf.lapCeilingSlackPct,
+        lapCeilingBound: rf.lapCeilingBound,
         lapBeforeMoves: rf.lapBeforeMoves,
         lapAfterMoves: rf.lapAfterMoves,
       };
@@ -515,6 +563,29 @@ function reserveParkSeats(terrain, plan, cap) {
   plan.parkReserve = pool.slice(0, n).map((e) => ({ x: e.p.x, y: e.p.y }));
   plan.meta.ctrlParkReserve = plan.parkReserve;
   plan.meta.ctrlParkFloor = n;
+  // ------------------------------------------------------------------
+  // THE NUMBER SAYS WHICH RULE MADE IT.
+  //
+  // `ctrlParkFloor` had exactly one documented rule — "what layer 1 measured,
+  // capped at PARK_PROTECT" (shared.mjs) — and E12S5 ships 2, because
+  // maybeReleaseParks re-composed the room with a lower cap and that
+  // composition was better on every axis including the one the cap protects.
+  // Both facts were published and neither field said which was which, so the
+  // pair read as a contradiction. It is written down now instead.
+  // ------------------------------------------------------------------
+  plan.meta.ctrlParkFloorCap = typeof cap === "number" ? cap : PARK_PROTECT;
+  plan.meta.ctrlParkFloorWhy =
+    typeof cap === "number" && cap < PARK_PROTECT
+      ? `${n} = the seat-release pass's cap of ${cap}${
+          pool.length < cap ? ` clipped to the ${pool.length} seat(s) the ring actually offers` : ""
+        } — this room was RE-COMPOSED at a lower reservation because holding the full count cost it ` +
+        `shallow extensions (see the ctrlParks 'released' declaration; the hard 4-seat floor is on what ` +
+        `the room SHIPS and is never lowered)`
+      : `${n} = ${
+          pool.length <= PARK_PROTECT
+            ? `every one of the ${pool.length} seat(s) layer 1 counted at the controller link`
+            : `PARK_PROTECT, the ring's own maximum, out of the ${pool.length} seat(s) layer 1 counted`
+        } — the default rule, unreduced`;
 }
 
 // ------------------------------------------------------------------
