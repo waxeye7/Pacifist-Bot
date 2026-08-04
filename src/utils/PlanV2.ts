@@ -508,18 +508,35 @@ function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number
  * per 1000 ticks. Deliberately NOT PathFinder: this must never be a per-tick
  * cost on shard3, and an approximate answer is enough for a warning.
  *
- * Containers and the hub structures conduct — the generous reading, matching
- * how the finding was re-derived, so we only ever warn on a real break.
+ * WHAT CONDUCTS: WHAT A CREEP CAN STAND ON.
+ *
+ * This used to add `storage` and `spawn` to the conducting set, on the grounds
+ * that it was "the generous reading ... so we only ever warn on a real break".
+ * Both of those are in the engine's OBSTACLE_OBJECT_TYPES: a creep has never
+ * been able to stand on a spawn or a storage, so a prefix that is "connected"
+ * only by crossing one is not connected, and the warning this function exists
+ * to raise was being suppressed by the very tiles a hauler has to walk around.
+ * Off-line re-derivation over walkable conductors found 57 stage-3 road tiles
+ * across 18 rooms behind such a gap, one of them an eco terminal (E7S4's source
+ * container 37,12, with the spawn at 31,17 in the way). The planner-side pass
+ * that stages the arterial has been corrected the same way, in lockstep, so this
+ * audit and the thing it audits still agree about what a road network is.
+ *
+ * Containers still conduct — a container is not an obstacle. The seed is the
+ * SITTER, which is the hub tile a creep actually occupies.
  */
 function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[]): void {
   if (!prefix.length) return;
   const conduct: { [packed: number]: boolean } = {};
   for (const p of prefix) conduct[p] = true;
-  for (const k of ["container", "storage", "spawn"]) {
-    for (const p of plan.t[k] || []) conduct[p] = true;
-  }
-  // seed from the hub (storage tile) — the sitter stands on/next to it
-  const seed = plan.t.storage && plan.t.storage.length ? plan.t.storage[0] : undefined;
+  for (const p of plan.t.container || []) conduct[p] = true;
+  // seed from the tile the creep stands on, not the one it withdraws from
+  const seed =
+    plan.si !== undefined
+      ? plan.si
+      : plan.t.storage && plan.t.storage.length
+        ? plan.t.storage[0]
+        : undefined;
   if (seed === undefined) return;
   const seen: { [packed: number]: boolean } = { [seed]: true };
   const queue: number[] = [seed];

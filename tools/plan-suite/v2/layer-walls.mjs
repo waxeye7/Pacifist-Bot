@@ -56,7 +56,7 @@ import {
   mobilityStats,
   pickBattlements,
 } from "./layer-shell.mjs";
-import { TARGET_MIN, WEAK_SHELL_DMG, shellDamage } from "./layer-towers.mjs";
+import { MAX_REFILL, REFILL_NOTE, TARGET_MIN, WEAK_SHELL_DMG, shellDamage } from "./layer-towers.mjs";
 import { reflowExtensions } from "./layer-ext.mjs";
 
 /** a 1-tile rampart in a crack is not a defensive position worth a road */
@@ -182,6 +182,15 @@ function verifyMobility(terrain, plan) {
   meta.builtGated = mBuilt.maxGated;
   meta.overGated = mBuilt.overGated;
   meta.floorOverGated = mFree.overGated;
+  // ...and the RECORD's own worst, which the verdict is allowed to be quieter
+  // than but never allowed to hide. See RANGED_RANGE in layer-shell.
+  meta.maxDetour = mBuilt.maxDetour;
+  meta.worstDetour = mBuilt.worstDetour;
+  meta.maxStrict = mBuilt.maxStrict;
+  meta.coveredPairs = mBuilt.coveredPairs;
+  meta.maxCovered = mBuilt.maxCovered;
+  meta.maxCoveredDetour = mBuilt.maxCoveredDetour;
+  meta.worstCovered = mBuilt.worstCovered;
   // wall pairs the MASS pushed over the target — the only ones layers 6/7 own
   meta.caused = Math.max(0, mBuilt.over - mFree.over);
   meta.walled = cut.length - cut.filter((c) => wBuilt.has(key(c.x, c.y))).length;
@@ -326,6 +335,70 @@ function verifyMobility(terrain, plan) {
   // misses the target OR when the negotiation missed it, so a room whose mass
   // fixed a lap layer 2 could not still publishes the ladder it walked.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // WHAT WAS ATTEMPTED, BEFORE ANY OF THIS IS ALLOWED TO BE A DECLARATION.
+  //
+  // The old closing sentence was "Nothing is relocated to chase this number ...
+  // a pass that moved finished structures to patch the result would be the
+  // repair loop this planner is not allowed to have." That is a good rule about
+  // an UNCONDITIONAL repair loop, and it was being used to excuse four rooms
+  // whose own lift test named ONE sufficient class and a lifted lap of 0
+  // (E12S3 1.69 [extension], E15S2 1.67 [extension], E17S8 1.31 [extension],
+  // E4S8 1.50 [tower] — one tower, one tile). The rule now binds the other way:
+  // when the lift test says the miss is ours, the planner has to try, and the
+  // declaration has to say what the attempt cost.
+  //
+  //   THE BATTERY   layer 3 reads the lap the way layer 5 already read it for
+  //                 the observer and the nuker, and swaps seats inside its own
+  //                 non-negotiable price (weakest face and saturation exact).
+  //                 meta.towers.mobilityVeto is that search.
+  //   THE MASS      layer 7b's pass (2c) relocates extensions off the mass-free
+  //                 route between the worst gated pair — capped, one-for-one,
+  //                 deep and road-faced targets only, and ONLY when lifting the
+  //                 whole mass clears the gate.
+  //                 meta.extensions.reflow.mobilityRepair is that search.
+  // ------------------------------------------------------------------
+  const rep = plan.meta?.extensions?.reflow?.mobilityRepair || null;
+  const tv = plan.meta?.towers?.mobilityVeto || null;
+  const repairNote =
+    ` WHAT WAS ATTEMPTED: ` +
+    (!rep || !rep.ran
+      ? `the extension mass was NOT relocated, and the room's own instrument is why — lifting every ` +
+        `extension out of this room leaves the gated lap at ` +
+        `${rep && rep.liftedLap !== null && rep.liftedLap !== undefined ? rep.liftedLap : "the same place"}, ` +
+        `so the mass is not what is in the way and moving it would be chasing the number. `
+      : rep.moved
+        ? `layer 7b relocated ${rep.moved} extension(s) to buy this lap back — ${rep.lapBefore} before, ` +
+          `${rep.lapAfter} after — over ${rep.rounds} round(s), ${rep.trials} legal one-for-one move(s) ` +
+          `measured against the whole metric and not just the worst pair, every target deep and ` +
+          `road-faced so not one rampart and not one extension slot was spent. `
+        : `layer 7b TRIED and could not: lifting every extension clears this room (${rep.liftedLap}), so ` +
+          `the mass owns the lap, and ${rep.rounds} round(s) examined the ${rep.blockersSeen} extension(s) ` +
+          `standing on the mass-free route between the worst pair and measured ${rep.trials} legal ` +
+          `relocation(s) of them onto deep road-faced floor. None shortened the gated lap. ` +
+          `${rep.refused.length ? `The last refusal: ${rep.refused[rep.refused.length - 1].why}. ` : ""}`) +
+    (tv && tv.checked
+      ? tv.provedFree
+        ? `The tower battery is provably free of this: blocking its six tiles cannot lengthen any interior ` +
+          `walk — every pair of their walkable neighbours is already connected around them — so no seat of ` +
+          `it is in the way. `
+        : tv.breached
+          ? `The tower battery DOES cost this room gated pairs — on layer 2's board the empty room reads ` +
+            `${tv.baseLap} over ${tv.baseOver} over-target pair(s) and the battery takes it to ` +
+            `${tv.lapWithBattery} over ${tv.overWithBattery}` +
+            `${tv.lapWithBattery === tv.baseLap ? " (the same maximum, on more pairs)" : ""} — and layer 3 ` +
+            `could not move it: ${tv.tried} single-slot swap(s) examined, ${tv.scoreTied} of them ` +
+            `affordable on the weakest wall face and the saturation, ${tv.affordable} of those also ` +
+            `non-worsening for the nuke window and the refill walk, and none cleared the gate. `
+          : `The tower battery was measured against the lap and does not breach it (${tv.baseLap} over ` +
+            `${tv.baseOver} pair(s) without it, ${tv.lapWithBattery} over ${tv.overWithBattery} with)` +
+            `${tv.moved ? `, after ${tv.moved} seat(s) moved to keep it that way` : ""}. `
+      : ``) +
+    `Nothing else is relocated to chase this number: layer 6 reserves the defender's lanes before it ` +
+    `grows, and an UNCONDITIONAL pass that moved finished structures to patch the result would be the ` +
+    `repair loop this planner is not allowed to have. What is allowed is the bounded, lift-directed ` +
+    `attempt above — bounded because the instrument that triggers it is a whole-room test this room ` +
+    `publishes and a reader can re-run.`;
   const neg = plan.shell?.mobility?.negotiation || null;
   const negMissed = !!neg;
   if ((mBuilt.maxGated > MOBILITY_TARGET || negMissed) && plan.meta) {
@@ -653,9 +726,7 @@ function verifyMobility(terrain, plan) {
         (worst ? `${massShare}${causedNote}${liftNote}${causeLine} ` : `${liftNote} `) +
         `${mBuilt.overGated}/${mBuilt.gatedPairs} real-detour wall pairs are over target against ` +
         `${mFree.overGated} with no mass in the room (ungated: ${mBuilt.over}/${mBuilt.pairs} against ` +
-        `${mFree.over}).${laneNote} Nothing is relocated to chase this number: layer 6 reserves the ` +
-        `defender's lanes before it grows, and a pass that moved finished structures to patch the ` +
-        `result would be the repair loop this planner is not allowed to have.` +
+        `${mFree.over}).${laneNote}${repairNote}` +
         negBlock,
       tiles: worst
         ? [
@@ -665,6 +736,96 @@ function verifyMobility(terrain, plan) {
         : [],
       mass: { adds: share, bareLap: mFree.maxGated, builtLap: mBuilt.maxGated, bareDin: freeDin, din, dout },
     });
+  }
+
+  // ------------------------------------------------------------------
+  // THE PAIR THE VERDICT EXCUSED — declared when it is worse than the verdict.
+  //
+  // `coversStands` (layer-shell, RANGED_RANGE) excuses a pair of wall tiles when
+  // a defender standing on either one already covers every exterior tile an
+  // attacker can stand on to grind the other: he answers the grind without
+  // walking, so the lap is not repositioning work. That argument is sound and it
+  // is not the whole truth, because the garrison still has to make that walk to
+  // CONSOLIDATE — and until round 10 the pair was deleted before a single
+  // statistic was accumulated, so E7S5 shipped `max 1.5 · maxDetour 1 · cause
+  // "none"` and no shortfall at all over the worst pair in the fleet: 35 tiles
+  // inside against 2 outside, an absolute detour of 33 at a ratio of 17.5.
+  //
+  // The exclusion stays (it is the right rule for the gate) and the silence
+  // does not. When the excused pair is over target, over the detour floor, AND
+  // worse than anything the verdict judged, the room says so in its own
+  // declaration with both walks, the lift test that says whose fault it is, and
+  // the coverage argument that says why it is not gated.
+  // ------------------------------------------------------------------
+  const cov = mBuilt.worstCovered;
+  if (
+    plan.meta &&
+    cov &&
+    cov.detour > mBuilt.detourFloor &&
+    cov.ratio > MOBILITY_TARGET &&
+    cov.ratio > mBuilt.maxGated + 1e-9
+  ) {
+    const cd = mobilityCauseDetail(terrain, cut, ext, cov);
+    const covLift = mobilityLift(terrain, plan, cut, ext, wallSet, cov);
+    const say = (d) =>
+      d === null || !isFinite(d) ? "does not connect at all" : `${d}`;
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "mobility",
+      kind: "covered-detour",
+      cause: covLift.cause,
+      detail:
+        `THE WORST PAIR ON THIS WALL IS NOT THE PAIR THE GATE JUDGED, and this is the room saying so. ` +
+        `Between cut tiles ${cov.a.x},${cov.a.y} and ${cov.b.x},${cov.b.y} — chebyshev ` +
+        `${Math.max(Math.abs(cov.a.x - cov.b.x), Math.abs(cov.a.y - cov.b.y))} apart — the garrison walks ` +
+        `${cov.din} inside while the attacker walks ${cov.dout} outside: an absolute detour of ${cov.detour} ` +
+        `tiles at a ratio of ${cov.ratio}, against a ${MOBILITY_TARGET} target. ` +
+        `WHY IT IS NOT GATED: a RampartDefender's ranged attack reaches 3, and every exterior tile an ` +
+        `attacker can stand on to grind either of these two is inside that reach from the other, so nobody ` +
+        `has to make this walk to ANSWER a grind — he shoots from where he stands. The walk is real ` +
+        `anyway: it is what consolidating the garrison onto one of these two tiles costs. ` +
+        `THE VERDICT, for contrast: over the ${mBuilt.gatedPairs} pair(s) this room's gate does judge ` +
+        `(absolute detour over the ${mBuilt.detourFloor}-tile floor, not mutually covered) the lap is ` +
+        `${mBuilt.maxGated}${mBuilt.maxGated > MOBILITY_TARGET ? ", which is over target and declared above" : ", inside the target"}. ` +
+        `${mBuilt.coveredPairs} of this wall's ${mBuilt.pairs} pairs are excused by coverage; this is the ` +
+        `worst of them. ` +
+        `WHOSE FAULT: lift every structure whose position this planner chose ` +
+        `(${covLift.present.length ? covLift.present.join(", ") : "none — the room has none"}) and re-run the ` +
+        `whole metric — the room laps ${covLift.liftedLap}, and this same pair walks ` +
+        `${say(cd.dStruct)} with our structures out of the way and ${say(cd.dFree)} with the interior's ` +
+        `natural walls lifted out as well. ` +
+        (cd.dStruct !== null && isFinite(cd.dStruct) && cd.dStruct >= cov.din
+          ? `Our mass adds NOTHING to it: the enclosure and the terrain own every tile of this walk, and no ` +
+            `arrangement of the structures we place shortens it by one step. ` +
+            (cd.dFree !== null && isFinite(cd.dFree) && cd.dFree * 2 <= cov.din
+              ? `Letting the garrison walk THROUGH the interior's natural walls takes the same pair to ` +
+                `${cd.dFree}, so what is between these two tiles is a mountain: the only thing that could ` +
+                `shorten this walk is a different cut, one that goes round it instead of across it.`
+              : `Even with the interior's natural walls lifted the pair walks ` +
+                `${cd.dFree === null || !isFinite(cd.dFree) ? "nowhere — it does not connect" : cd.dFree}, ` +
+                `so this is the shape of the enclosure itself and not one obstacle in it.`) +
+            ` Layer 2 negotiated this enclosure on ramparts, and it is not offered the lap of a pair no ` +
+            `defender has to walk to answer a grind.`
+          : `Our mass adds ${cov.din - cd.dStruct} tile(s) of it; the remaining ${cd.dStruct} are the ` +
+            `enclosure and the terrain.`),
+      tiles: [
+        { x: cov.a.x, y: cov.a.y },
+        { x: cov.b.x, y: cov.b.y },
+      ],
+      record: {
+        din: cov.din,
+        dout: cov.dout,
+        detour: cov.detour,
+        ratio: cov.ratio,
+        gatedLap: mBuilt.maxGated,
+        coveredPairs: mBuilt.coveredPairs,
+        pairs: mBuilt.pairs,
+        liftedLap: covLift.liftedLap,
+        noStructures: cd.dStruct === null || !isFinite(cd.dStruct) ? null : cd.dStruct,
+        noWalls: cd.dFree === null || !isFinite(cd.dFree) ? null : cd.dFree,
+      },
+    });
+    meta.coveredDetourDeclared = true;
   }
   return meta;
 }
@@ -1357,6 +1518,100 @@ function remeasureShell(terrain, plan, reason) {
   mFree.target = MOBILITY_TARGET;
   for (const f of ["cause", "floor", "candidates", "ecoCost"]) if (f in prev) mFree[f] = prev[f];
   plan.shell.mobilityShippedFree = mFree;
+
+  // ------------------------------------------------------------------
+  // ENCLOSURE, RE-DERIVED OVER THE SHIPPED RAMPART UNION.
+  //
+  // `srcEnclosed` / `enclosedSources` / `enclosedController` were computed by
+  // layer 2 against layer 2's exterior — i.e. against the min-cut ring, before
+  // one eco bubble, one personal rampart or one adopted seal tile existed. The
+  // sentence this function writes into `plan.shell.remeasured` says that "the
+  // exterior — and every metric taken against it — is re-derived over the union
+  // rather than over the min-cut ring layer 2 negotiated". These three were not,
+  // and they disagreed with the shipped board in 41 of 344 sources: the fleet
+  // headline UNDERSTATED the enclosure by 39 sources, and one room (E13S4,
+  // source 19,3) OVER-claimed — `srcEnclosed: true` next to a bare, unramparted,
+  // exterior-flood tile at 19,2, directly adjacent to the source, with the other
+  // two seats ramparted. An over-claim is the half that matters: the strict
+  // reading is what "enclosed source" means to a reader, and 19,2 is a tile an
+  // attacker stands on next to our miner.
+  //
+  // Both readings are kept, exactly as they are for the battery: layer 2's is
+  // the record of what the enclosure was NEGOTIATED on, and this one is what the
+  // room ships.
+  // ------------------------------------------------------------------
+  {
+    const outside = (p) => !!extFinal[idxOf(p.x, p.y)];
+    const walkableRing = (o) => {
+      const ring = [];
+      for (const [dx, dy] of D8) {
+        const x = o.x + dx,
+          y = o.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        if (walkable(terrain, x, y)) ring.push({ x, y });
+      }
+      return ring;
+    };
+    // the link program's own convention, mirrored exactly from layer-shell: the
+    // array is [hub, ...perSource, controller], so the source links are the
+    // middle slice and the controller's link is the last entry.
+    const links = plan.structures.link || [];
+    const srcLinks = links.slice(1, Math.max(1, links.length - 1));
+    const ctrlLink = links.length > 1 ? links[links.length - 1] : null;
+    let enclosedSources = 0;
+    let enclosedSourceWorks = 0;
+    const srcEnclosed = (plan.sources || []).map((s) => {
+      const mine = [
+        ...(plan.structures.container || []).filter((c) => chebyshev(c, s) <= 1),
+        ...srcLinks.filter((l) => chebyshev(l, s) <= 2),
+      ];
+      const works = mine.length > 0 && mine.every((p) => !outside(p));
+      if (works) enclosedSourceWorks++;
+      const strict = works && walkableRing(s).every((p) => !outside(p));
+      if (strict) enclosedSources++;
+      return strict;
+    });
+    // ------------------------------------------------------------------
+    // ...AND enclosedController IS DELIBERATELY NOT RE-DERIVED HERE.
+    //
+    // It is the same arithmetic and it is a different QUESTION. "The controller
+    // is enclosed" is a claim about the SHELL: the enclosure the escalation
+    // ladder priced was wide enough to take the controller in, at a cost the
+    // room paid in cut tiles. Taken against the shipped rampart union it becomes
+    // a claim about coverage instead, and every controller in the fleet passes
+    // it — because the controller's stand-denial ring IS ramparts, so its ring
+    // tiles are never in the exterior flood by construction. Re-deriving it here
+    // reads 172/172 and means nothing: a controller sitting outside the wall in
+    // its own sealed one-tile pocket is not "enclosed" in the sense the number
+    // is quoted for, and the fleet headline (91/172) would become a tautology.
+    //
+    // The source verdict does not have that problem: a source's works and ring
+    // being inside the union is exactly the operational claim ("no attacker
+    // stands next to my miner"), and it is what round 10 found E13S4 lying about.
+    // ------------------------------------------------------------------
+    void ctrlLink;
+    plan.shell.enclosedAtNegotiation = {
+      sources: plan.shell.enclosedSources,
+      sourceWorks: plan.shell.enclosedSourceWorks,
+      srcEnclosed: plan.shell.srcEnclosed,
+    };
+    plan.shell.enclosedSources = enclosedSources;
+    plan.shell.srcEnclosed = srcEnclosed;
+    // ...and the works-only reading stays on layer 2's basis for the same reason
+    // the controller does: every source work carries a bubble rampart by the time
+    // the room ships, so "the works are not in the exterior flood" is true in
+    // 344/344 by construction and answers nothing. Layer 2's number answers the
+    // question it was asked — did the ENCLOSURE take the works in.
+    void enclosedSourceWorks;
+    plan.shell.enclosureBasis =
+      `SOURCES re-derived at finalizeRoom over the SHIPPED rampart union (every cut tile, bubble, ` +
+      `stand-denial and personal rampart the room ships), not over the min-cut ring layer 2 negotiated — ` +
+      `a source counts as enclosed on the strict reading, its works AND every walkable tile of its ring ` +
+      `inside the wall. shell.enclosedAtNegotiation keeps layer 2's reading, which is the one the ` +
+      `enclosure was BOUGHT on. enclosedController is NOT re-derived on this basis and the comment in ` +
+      `layer-walls says why: against the union it is a tautology, because the controller's own ` +
+      `stand-denial ring is made of ramparts.`;
+  }
 
   const dmg = shellDamage(plan.structures.tower || [], cut);
   plan.shell.shippedShellDmg = dmg;
@@ -2635,6 +2890,142 @@ function recomputeNukeWindow(plan) {
   };
 }
 
+/**
+ * ------------------------------------------------------------------------
+ * THE REFILL WALK, RE-DERIVED ON THE BASE THE ROOM SHIPS.
+ * ------------------------------------------------------------------------
+ * `meta.towers.refillDists` is measured by layer 3, which is the only layer
+ * that can explain the battery — and layer 3 runs before the labs, the nuker,
+ * the observer and sixty extensions exist. Every one of those is an
+ * OBSTACLE_OBJECT_TYPE, so the walk layer 3 measures is a walk across an empty
+ * room. It is a pre-mass number nobody re-derived, which is the exact defect
+ * shape this round closed three times over (the upgrader parks eaten by later
+ * layers, the nuke window measured before the nuker, the lap measured before
+ * the mass): a published metric, taken early, never checked, with the
+ * validator's cross-check written to reproduce the PRODUCER's board rather
+ * than the shipped one.
+ *
+ * Fleet effect when it was measured honestly: 15 of 172 rooms walk further than
+ * they published, up to +3, and the count over the 8-step REFILL_NOTE line goes
+ * 15 -> 17. Two of the extra rooms shipped no shortfall at all (E12S4 published
+ * maxRefill 7 and walked 9; E18S3 published 6 and walked 9) while E8S4, at the
+ * same as-built number, did declare — so the threshold was real and two rooms
+ * were under it in silence.
+ *
+ * So the number of record is taken here, last, on the whole as-built board, and
+ * layer 3's own reading is kept beside it under a name that says what it is.
+ * The walk is `arriveAt` semantics on purpose: the filler stands NEXT to the
+ * tower (a tower is an obstacle, it cannot stand on it), which is the same
+ * scale layer 3 and the validator both use.
+ */
+function recomputeRefill(terrain, plan) {
+  const tw = plan.meta?.towers;
+  const towers = plan.structures?.tower || [];
+  if (!tw || !towers.length || !plan.sitter) return;
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
+  }
+  const field = walkFieldFrom(terrain, plan.sitter, blocked);
+  const dists = towers.map((t) => {
+    const v = field[idx(t.x, t.y)];
+    if (v < REFILL_UNREACHED) return v;
+    let best = REFILL_UNREACHED;
+    for (const [dx, dy] of D8) {
+      const x = t.x + dx,
+        y = t.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const w = field[idx(x, y)];
+      if (w < REFILL_UNREACHED && w + 1 < best) best = w + 1;
+    }
+    return best;
+  });
+  const atPlacement = tw.refillDists;
+  tw.refillDistsAtPlacement = atPlacement;
+  tw.maxRefillAtPlacement = tw.maxRefill;
+  tw.refillDists = dists;
+  tw.maxRefill = Math.max(...dists);
+  tw.refillUnreachable = dists.filter((d) => d >= REFILL_UNREACHED).length;
+  tw.refillBasis =
+    `re-derived at finalizeRoom over the WHOLE as-built board — every OBSTACLE_OBJECT_TYPE the room ` +
+    `ships blocks (spawn, extension, link, storage, tower, observer, lab, terminal, nuker) plus the ` +
+    `source / controller / mineral tiles; roads, containers and our own ramparts are walkable. Layer 3's ` +
+    `reading, over the board it could see, is kept as refillDistsAtPlacement.`;
+  return { dists, atPlacement };
+}
+
+/** BFS walk field from `origin`, D8, `blocked` a Set of "x,y" keys. */
+function walkFieldFrom(terrain, origin, blocked) {
+  const dist = new Int16Array(2500).fill(REFILL_UNREACHED);
+  dist[idx(origin.x, origin.y)] = 0;
+  const q = [idx(origin.x, origin.y)];
+  let qi = 0;
+  while (qi < q.length) {
+    const i = q[qi++];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (!walkable(terrain, nx, ny) || blocked.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (dist[ni] <= dist[i] + 1) continue;
+      dist[ni] = dist[i] + 1;
+      q.push(ni);
+    }
+  }
+  return dist;
+}
+const REFILL_UNREACHED = 9999;
+
+/**
+ * ...and the declaration that goes with it. REFILL_NOTE is layer 3's own line
+ * ("legal, not good"), so a room that crosses it on the SHIPPED board owes the
+ * same sentence — whether or not layer 3 had any reason to speak.
+ */
+function declareShippedRefill(plan, re) {
+  const tw = plan.meta?.towers;
+  if (!tw || !re) return;
+  const max = tw.maxRefill;
+  if (max <= REFILL_NOTE) return;
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  const already = plan.meta.shortfalls.find((sf) => sf && sf.kind === "weak-battery");
+  const grew = tw.maxRefillAtPlacement !== null && max > tw.maxRefillAtPlacement;
+  const line =
+    `AS BUILT the furthest tower is a ${max}-step refill walk from the sitter` +
+    (tw.refillUnreachable ? ` (${tw.refillUnreachable} tower(s) the filler cannot reach at all)` : "") +
+    ` — over the ${REFILL_NOTE}-step line at which a refill trip costs more than the tower's own reload ` +
+    `(the hard cap is ${MAX_REFILL}). Walks, nearest first: ${dstr(tw.refillDists)}. ` +
+    (grew
+      ? `Layer 3 measured ${tw.maxRefillAtPlacement} for the same battery and was not wrong about its own ` +
+        `board: it runs before the labs, the nuker, the observer and sixty extensions exist, and all of ` +
+        `those are obstacles. The ${max} is what the filler walks around the finished base ` +
+        `(${dstr(tw.refillDistsAtPlacement)} at placement).`
+      : `Layer 3 measured the same ${tw.maxRefillAtPlacement} with the battery standing in its own way, ` +
+        `and the finished mass adds nothing to it.`) +
+    ` The tower layer's own repair search is quoted in the layer-3 record below where there is one; ` +
+    `nothing is relocated HERE, because moving a tower after the wall, the roads and the nuke window ` +
+    `have all been measured against it would invalidate three declarations to fix one.`;
+  if (already) {
+    already.detail = `${line} — · — ${already.detail}`;
+    already.towers = { ...(already.towers || {}), shippedMaxRefill: max, shippedRefillDists: tw.refillDists };
+    return;
+  }
+  plan.meta.shortfalls.push({
+    gate: "towers",
+    kind: "weak-battery",
+    detail: `THIS BATTERY IS LEGAL, NOT GOOD. ${line}`,
+    tiles: (plan.structures.tower || []).map((t) => ({ x: t.x, y: t.y })),
+    towers: {
+      shippedMaxRefill: max,
+      shippedRefillDists: tw.refillDists,
+      atPlacement: tw.maxRefillAtPlacement,
+    },
+  });
+}
+const dstr = (a) => (a || []).slice().sort((x, y) => x - y).join("/");
+
 export function finalizeRoom(terrain, plan) {
   if (!plan || plan.error || !plan.shell || !(plan.shell.cut || []).length) return plan;
   if (plan.meta?.finalized) return plan;
@@ -2692,9 +3083,17 @@ export function finalizeRoom(terrain, plan) {
   // recomputeNukeWindow. Layer 3 published a field it could not measure.
   recomputeNukeWindow(plan);
 
+  // ...and the refill walk, over a board that finally includes the mass. See
+  // recomputeRefill: the same defect shape, on the one battery number nobody
+  // had ever re-measured.
+  declareShippedRefill(plan, recomputeRefill(terrain, plan));
+
   const sealedFloor = noteSealedFloor(terrain, plan, plan.meta?.extensions?.shallow);
   if (plan.meta?.walls) plan.meta.walls.sealedFloor = sealedFloor;
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;
+  // layer 6's worst-case blocked set, handed to layer 7b so it could re-derive
+  // the bound it beat. Nothing downstream reads it and nothing serialises it.
+  delete plan.extBoundModel;
   return plan;
 }

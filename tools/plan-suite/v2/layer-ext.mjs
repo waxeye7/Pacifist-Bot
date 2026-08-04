@@ -1450,7 +1450,21 @@ export function planExtensions(terrain, plan) {
         path = shortestLane(freeMask, t, (i) => !!boundMask[i], lanePenalty);
         if (!path) break; // even the empty room cannot reach it — not ours
       } else {
-        if (m.maxGated <= laneFloor || !m.worstGated) break;
+        // ...OR the RECORD misses while the verdict does not. `coversStands`
+        // excuses a pair from the gate when a defender on either tile already
+        // covers the other's exterior stands (layer-shell, RANGED_RANGE) — a
+        // true statement about answering a grind and a false one about the wall,
+        // because consolidating the garrison still costs that walk. E7S5's worst
+        // pair is exactly that shape and the lane greedy never looked at it,
+        // because `maxGated` said the room was clean. It looks now: the pair is
+        // priced by what the MASS costs it like every other candidate, so a lane
+        // is only opened when our own structures are what is in the way, and a
+        // room whose detour is pure enclosure still scores zero and is left
+        // alone (that is what `LANE_MIN_GAIN` is for).
+        const rec = m.worstDetour;
+        const recordMiss =
+          !!rec && rec.din - rec.dout > m.detourFloor && rec.din / rec.dout > MOBILITY_TARGET;
+        if ((m.maxGated <= laneFloor || !m.worstGated) && !recordMiss) break;
         // WHICH PAIR TO OPEN. The max-RATIO pair is the gate, but it is a tail
         // statistic and it is frequently owned by two wall tiles four apart where
         // the garrison walks 3 and the attacker walks 2 — arithmetic that reads
@@ -2043,6 +2057,18 @@ export function planExtensions(terrain, plan) {
       laneInfo.stubsLifted = added;
     }
   }
+  // ------------------------------------------------------------------
+  // THE BOUND MODEL, HANDED FORWARD TO LAYER 7b.
+  //
+  // Layer 7b relocates extensions after this layer has published its bound, and
+  // it inherits the same obligation this layer already discharges twice above:
+  // when the shipped mass moves onto a tile the worst-case model did not have
+  // blocked, the bound is RE-DERIVED over a blocked set that is still a strict
+  // superset of the shipped mass, exactly as `liftedStubs` does. It cannot do
+  // that from a number, so it is handed the set. Transient — finalizeRoom drops
+  // it, and nothing serialises it.
+  // ------------------------------------------------------------------
+  if (boundBlocked) plan.extBoundModel = { blocked: Array.from(boundBlocked) };
 
   // BUILD ORDER, ON THE BASE WE ACTUALLY BUILT.
   //
@@ -3164,6 +3190,32 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // still holds. A slack that broke the bound would be buying upkeep with a
   // claim, which is worse than buying it with a lap.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // ...AND A TARGET IS A LICENCE UP TO ITSELF.
+  //
+  // The two ceilings above are both INCUMBENT-relative, and read against a room
+  // that already laps ZERO they collapse to "change nothing, ever". E12S6 is the
+  // case: lap 0, layer-6 bound 0, and nine extensions pressed into the shallow
+  // band each carrying a personal rampart. Five of them could move onto free deep
+  // floor; the pass refused all five, because taking them reads 0.5 instead of 0
+  // — a number a hundred percent inside a 1.2 target, bought against five
+  // ramparts repaired for the life of the base. That is the same inversion the
+  // slack above was ruled on, at the other end of the scale: the room is not
+  // failing, so there is nothing to protect, and the ceiling was protecting it
+  // anyway. A gate at 1.2 says every lap at or under 1.2 is acceptable; the
+  // ceiling may not be tighter than the gate it serves.
+  //
+  // THE BOUND IS STILL NOT SPENT — IT IS RE-DERIVED. Clipping the ceiling to
+  // layer 6's published bound was the round-9 answer and it re-imports the same
+  // inversion through a different door (E11S7's bound equals its incumbent lap,
+  // so the clip refuses all five of ITS ramparts too). What layer 6 does when
+  // its own relocation pass invalidates its model is re-measure the model over
+  // the corridor that ships — see `liftedStubs` — and that is what happens here:
+  // the moved-to tiles are added to the worst-case blocked set and the bound is
+  // taken again. The blocked set is still a strict superset of the shipped mass,
+  // so the audit in layer 7 means exactly what it meant before, and the number it
+  // audits against is one this pass has earned rather than one it has spent.
+  // ------------------------------------------------------------------
   /** past this multiple of the target, a lap is failed rather than tight */
   const CEILING_STRICT_BAND = 2 * MOBILITY_TARGET;
   /** ...and this much relative worsening is what a retired rampart is worth */
@@ -3172,26 +3224,289 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   let lapCeiling = null;
   let lapCeilingSlack = null;
   let lapFinal = null;
+  let boundRederived = null;
   if (movedLog.length) {
     lapCeiling = lapBeforeMoves;
     if (lapBeforeMoves > CEILING_STRICT_BAND) {
       lapCeilingSlack = round2v(lapBeforeMoves * (1 + CEILING_SLACK));
       lapCeiling = lapCeilingSlack;
     }
-    if (laneBound !== null && laneBound !== undefined) lapCeiling = Math.min(lapCeiling, laneBound);
-    let lap = lapNow();
-    while (lap > lapCeiling + 1e-9 && movedLog.length) {
-      const mv = movedLog.pop();
+    // never tighter than the gate this ceiling serves
+    lapCeiling = Math.max(lapCeiling, MOBILITY_TARGET);
+    // ------------------------------------------------------------------
+    // ROLL BACK THE GUILTY MOVE, NOT THE MOST RECENT ONE.
+    //
+    // This loop used to `pop()`: last move in, first move out, until the lap was
+    // under the ceiling. Moves are independent — each one takes one extension
+    // off one shallow tile and puts it on one deep one — and LIFO order has
+    // nothing to do with which of them costs the lap. E12S6 is the proof: three
+    // moves, all three refused, and the recorded `wouldLap` is 1.63 for all
+    // three because popping the first two changed the lap by NOTHING. One move
+    // (22,18 -> 22,7) owned the whole miss; the pass threw away two innocent
+    // rampart retirements to reach it.
+    //
+    // So each round measures what removing EACH surviving move would give and
+    // undoes the dearest one, most recent first on a tie. It costs one all-pairs
+    // pass per surviving move per round and it only runs in the rooms that are
+    // over the ceiling at all (four in this fleet); above `ROLLBACK_EXACT_MAX`
+    // moves it falls back to the old LIFO order rather than paying O(k^2).
+    // ------------------------------------------------------------------
+    const ROLLBACK_EXACT_MAX = 14;
+    const undo = (mv) => {
       const i = extensions.findIndex((e) => e.x === mv.to.x && e.y === mv.to.y);
       if (i >= 0) extensions.splice(i, 1, { x: mv.from.x, y: mv.from.y });
       taken.delete(key(mv.to.x, mv.to.y));
       occupiedTile.delete(key(mv.to.x, mv.to.y));
       occupiedTile.add(key(mv.from.x, mv.from.y));
+    };
+    const redo = (mv) => {
+      const i = extensions.findIndex((e) => e.x === mv.from.x && e.y === mv.from.y);
+      if (i >= 0) extensions.splice(i, 1, { x: mv.to.x, y: mv.to.y });
+      taken.add(key(mv.to.x, mv.to.y));
+      occupiedTile.add(key(mv.to.x, mv.to.y));
+      occupiedTile.delete(key(mv.from.x, mv.from.y));
+    };
+    let lap = lapNow();
+    while (lap > lapCeiling + 1e-9 && movedLog.length) {
+      let pick = movedLog.length - 1;
+      if (movedLog.length > 1 && movedLog.length <= ROLLBACK_EXACT_MAX) {
+        let bestLap = Infinity;
+        for (let i = movedLog.length - 1; i >= 0; i--) {
+          undo(movedLog[i]);
+          const trial = lapNow();
+          redo(movedLog[i]);
+          if (trial < bestLap - 1e-9) {
+            bestLap = trial;
+            pick = i;
+          }
+        }
+      }
+      const mv = movedLog.splice(pick, 1)[0];
+      undo(mv);
       // the trade, priced: one forever-rampart refused, and what it would have cost
-      boundRollback.push({ ...mv, wouldLap: round2v(lap), ceiling: round2v(lapCeiling) });
+      boundRollback.push({
+        ...mv,
+        wouldLap: round2v(lap),
+        ceiling: round2v(lapCeiling),
+        // which of the surviving moves this was — LIFO is the fallback, not the rule
+        pickedBy: movedLog.length + 1 > ROLLBACK_EXACT_MAX ? "lifo" : "dearest",
+      });
       lap = lapNow();
     }
     lapFinal = round2v(lap);
+    // ---- THE BOUND, RE-DERIVED OVER THE MASS THIS PASS SHIPS ----------------
+    // Only when the moves actually beat layer 6's published number, and only
+    // over a blocked set that still contains every extension the room ships:
+    // the worst case layer 6 measured, plus every tile this pass moved onto.
+    // The new bound cannot be lower (blocking more can only lengthen a walk) and
+    // cannot be under the shipped lap (the shipped mass is a subset of what is
+    // blocked), so `boundHeld` in layer 7 keeps its exact meaning.
+    if (
+      laneBound !== null &&
+      laneBound !== undefined &&
+      lapFinal > laneBound + 1e-9 &&
+      plan.extBoundModel &&
+      plan.meta?.extensions?.laneMeta
+    ) {
+      const blocked = new Set(plan.extBoundModel.blocked);
+      let added = 0;
+      for (const mv of movedLog) {
+        const k = key(mv.to.x, mv.to.y);
+        if (!blocked.has(k)) {
+          blocked.add(k);
+          added++;
+        }
+      }
+      const bw = maskFromKeys(interiorWalk(terrain, rampartSet, exterior, blocked, plan.sitter));
+      // ...and the same "a model with a hole in its sample has no bound" rule
+      // layer 6 applies: a cut tile the EMPTY room reaches and the worst case
+      // does not has an infinite lap, so the maximum over the survivors bounds
+      // nothing and the room publishes no bound at all.
+      const freeReachMask = maskFromKeys(
+        interiorWalk(terrain, rampartSet, exterior, new Set(objectTiles), plan.sitter),
+      );
+      const stranded = cutRaw.filter(
+        (c) => freeReachMask[idxOf(c.x, c.y)] && !bw[idxOf(c.x, c.y)],
+      ).length;
+      const m2 = stranded ? null : mobilityStats(cutRaw, exterior, bw);
+      const lm = plan.meta.extensions.laneMeta;
+      boundRederived = {
+        before: laneBound,
+        after: m2 ? m2.maxGated : null,
+        movedToAdded: added,
+        stranded,
+        shipped: lapFinal,
+      };
+      lm.boundBeforeReflow = laneBound;
+      lm.bounded = m2 ? m2.maxGated : null;
+      lm.boundedUngated = m2 ? m2.max : null;
+      lm.boundReflowAdded = added;
+      lm.boundReflowStranded = stranded;
+    }
+  }
+
+  // ---- (2c) THE LIFT TEST'S VERDICT BINDS --------------------------------
+  //
+  // Layer 7 runs a whole-room LIFT TEST on the finished base and publishes it
+  // inside the mobility declaration: lift every structure whose position this
+  // planner chose, re-run the entire metric, and if the gate CLEARS then the
+  // miss is ours. Four rooms shipped a declaration whose own evidence said so —
+  // E12S3 1.69, E15S2 1.67, E17S8 1.31 with `solo: [extension]` and a lifted lap
+  // of 0, and E12S3's own prose reading "THAT CLEARS THE 1.2 TARGET, so this
+  // miss is OURS, not the terrain's ... one class does it alone ... That is
+  // where the next fix goes." A declaration is an accepted exception only when
+  // the thing is genuinely impossible, and the plan itself said it was not.
+  //
+  // THE OLD SENTENCE, AND WHY IT IS NARROWED RATHER THAN DELETED. The mobility
+  // declaration used to end "Nothing is relocated to chase this number ... a
+  // pass that moved finished structures to patch the result would be the repair
+  // loop this planner is not allowed to have." The concern is real: an
+  // unconditional repair loop optimises a metric and lets the layout rot, which
+  // is the named anti-pattern. What makes this pass not that:
+  //
+  //   IT ONLY RUNS WHEN THE ROOM'S OWN INSTRUMENT SAYS THE MASS IS THE CAUSE.
+  //     Lifting every extension has to take the room INSIDE the target. If the
+  //     enclosure or the terrain owns the lap, this pass does not run at all and
+  //     the declaration is unchanged.
+  //   IT MAY NOT COST A SLOT. Every move is a one-for-one relocation onto a
+  //     deep, engine-legal, road-faced tile through the same `accepts` invariant
+  //     the rest of this file uses; 60/60 never moves.
+  //   IT MAY NOT COST A RAMPART. Targets are DEPTH_SAFE, so no move buys cover.
+  //   IT IS CAPPED. At most MOBILITY_RELOCATE_MAX moves, only ever aimed at
+  //     extensions standing on the mass-free route between the worst gated
+  //     pair, and every accepted move must strictly lower the gated lap.
+  //   IT DECLARES EITHER WAY. What it tried and what it cost is published as
+  //     `reflow.mobilityRepair`, and layer 7's declaration quotes it.
+  // ------------------------------------------------------------------
+  /** at most this many extensions may be moved to buy the gate back */
+  const MOBILITY_RELOCATE_MAX = 6;
+  /** ...and at most this many (extension, target) pairs measured per round */
+  const MOBILITY_RELOCATE_TRIALS = 24;
+  const mobilityRepair = {
+    ran: false,
+    lapBefore: null,
+    lapAfter: null,
+    liftedLap: null,
+    rounds: 0,
+    blockersSeen: 0,
+    trials: 0,
+    moved: 0,
+    refused: [],
+  };
+  {
+    const statsNow = () => {
+      const b = new Set(objectTiles);
+      for (const t of BUILT_OBSTACLES) {
+        for (const p of plan.structures[t] || []) b.add(key(p.x, p.y));
+      }
+      return mobilityStats(
+        cutRaw,
+        exterior,
+        maskFromKeys(interiorWalk(terrain, rampartSet, exterior, b, plan.sitter)),
+      );
+    };
+    const massFreeMask = () => {
+      const b = new Set(objectTiles);
+      for (const t of BUILT_OBSTACLES) {
+        if (t === "extension") continue;
+        for (const p of plan.structures[t] || []) b.add(key(p.x, p.y));
+      }
+      return maskFromKeys(interiorWalk(terrain, rampartSet, exterior, b, plan.sitter));
+    };
+    let st = cutRaw.length ? statsNow() : null;
+    if (st && st.maxGated > MOBILITY_TARGET) {
+      mobilityRepair.lapBefore = round2v(st.maxGated);
+      const freeM = massFreeMask();
+      const lifted = mobilityStats(cutRaw, exterior, freeM);
+      mobilityRepair.liftedLap = round2v(lifted.maxGated);
+      if (lifted.maxGated <= MOBILITY_TARGET) {
+        mobilityRepair.ran = true;
+        for (
+          let round = 0;
+          round < MOBILITY_RELOCATE_MAX && st.maxGated > MOBILITY_TARGET;
+          round++
+        ) {
+          mobilityRepair.rounds++;
+          const w = st.worstGated;
+          if (!w) break;
+          // the route the garrison WOULD walk with no extension in the room —
+          // whatever of ours is standing on it is what is in the way
+          const route = shortestLane(freeM, w.a, w.b, () => 0);
+          if (!route || !route.length) break;
+          const onRoute = new Set(route);
+          const blockers = extensions.filter((e) => onRoute.has(idxOf(e.x, e.y)));
+          mobilityRepair.blockersSeen += blockers.length;
+          if (!blockers.length) break;
+          const order = deepTargets();
+          let pick = null;
+          let pickLap = st.maxGated;
+          let trials = 0;
+          for (const b of blockers) {
+            if (trials >= MOBILITY_RELOCATE_TRIALS) break;
+            const from = key(b.x, b.y);
+            for (const c of order) {
+              if (trials >= MOBILITY_RELOCATE_TRIALS) break;
+              if (taken.has(c.k)) continue;
+              const nextList = extensions
+                .filter((e) => key(e.x, e.y) !== from)
+                .concat([{ x: c.x, y: c.y }]);
+              const verdict = accepts(new Set([...taken, c.k]), [from], nextList);
+              if (!verdict.ok) continue;
+              trials++;
+              mobilityRepair.trials++;
+              // measure it for real: a move that shortens THIS pair can hand the
+              // maximum to another one, which is the flattering direction
+              const i = extensions.findIndex((e) => key(e.x, e.y) === from);
+              extensions.splice(i, 1, { x: c.x, y: c.y });
+              const trial = statsNow();
+              extensions.splice(i, 1, { x: b.x, y: b.y });
+              if (trial.maxGated < pickLap - 1e-9) {
+                pickLap = trial.maxGated;
+                pick = { from: b, to: c, lap: trial.maxGated };
+              }
+            }
+          }
+          if (!pick) {
+            mobilityRepair.refused.push({
+              pair: [
+                { x: w.a.x, y: w.a.y },
+                { x: w.b.x, y: w.b.y },
+              ],
+              lap: round2v(st.maxGated),
+              why: `no legal one-for-one relocation of the ${blockers.length} extension(s) standing on ` +
+                `this route onto deep, road-faced floor shortened the gated lap`,
+            });
+            break;
+          }
+          const fi = extensions.findIndex((e) => key(e.x, e.y) === key(pick.from.x, pick.from.y));
+          extensions.splice(fi, 1, { x: pick.to.x, y: pick.to.y });
+          taken.add(pick.to.k);
+          occupiedTile.add(pick.to.k);
+          occupiedTile.delete(key(pick.from.x, pick.from.y));
+          if (pick.to.pave) {
+            occupiedTile.add(pick.to.pave.k);
+            roadKeysNow.add(pick.to.pave.k);
+            liveRoadKeys.add(pick.to.pave.k);
+            baseRoadsInWalk.add(pick.to.pave.k);
+            newRoads.push({ x: pick.to.pave.x, y: pick.to.pave.y });
+          }
+          movedLog.push({
+            from: { x: pick.from.x, y: pick.from.y },
+            to: { x: pick.to.x, y: pick.to.y },
+            fromDepth: depth[idxOf(pick.from.x, pick.from.y)],
+            toDepth: pick.to.depth,
+            paved: pick.to.pave ? { x: pick.to.pave.x, y: pick.to.pave.y } : null,
+            // tagged so the rollback loop above — which has already run — and the
+            // reader can both tell an upkeep move from a mobility one
+            reason: "mobility",
+            lapAfter: round2v(pick.lap),
+          });
+          mobilityRepair.moved++;
+          st = statsNow();
+        }
+        mobilityRepair.lapAfter = round2v(st.maxGated);
+      }
+    }
   }
 
   // ---- (3) RETIRE the personal ramparts the moves made pointless ----------
@@ -3276,8 +3591,18 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     lapCeilingStrictBand: CEILING_STRICT_BAND,
     lapCeilingSlackPct: Math.round(CEILING_SLACK * 100),
     lapCeilingBound: laneBound === undefined ? null : laneBound,
+    // ...and the floor under both of them: a ceiling may never be tighter than
+    // the gate it serves (see the header above this block).
+    lapCeilingFloor: MOBILITY_TARGET,
+    // when this pass beat layer 6's published bound, the bound it re-derived
+    // over the worst case PLUS its own moved-to tiles — never spent, re-earned
+    boundRederived,
     lapBeforeMoves: round2v(lapBeforeMoves),
     lapAfterMoves: lapFinal,
+    // the lift test's verdict, acted on — see pass (2c). `ran: false` means the
+    // room's own instrument said the mass is NOT the cause and this pass stood
+    // down; `ran: true` with `moved: 0` means it tried and nothing was legal.
+    mobilityRepair,
     roads: newRoads,
     shallowRamparts,
     moved: movedLog,

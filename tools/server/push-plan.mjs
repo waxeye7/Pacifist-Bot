@@ -300,9 +300,9 @@ async function api(cfg, method, endpoint, body) {
  *   2. one D4 face road for each of `extension[0..9]`, the ten extensions a
  *      room owns at RCL3;
  *   3. one D4 face road for each container the room builds at RCL2 — the two
- *      source containers and the controller container (29 tiles, 27 rooms);
+ *      source containers and the controller container (30 tiles, 28 rooms);
  *   4. a connected chain from the hub to every one of those same containers,
- *      because a face road is not the same as a route to it (9 tiles, 5 rooms);
+ *      because a face road is not the same as a route to it (6 tiles, 3 rooms);
  *
  * and then, over all of the above, the bridge repair that makes the result a
  * network the hub can walk rather than a set of disconnected intentions.
@@ -310,9 +310,17 @@ async function api(cfg, method, endpoint, body) {
  * (3) and (4) are the same three tiles per room approached from two directions,
  * and both were missing: the set covered `extension[0..9]` and stopped, so the
  * containers — built at RCL2, a whole level EARLIER than those extensions —
- * had no guarantee at all. Fleet-wide the two add 49 road tiles to RCL3 across
- * 32 of the 172 rooms, max 4 in one room (E17S5), against an arterial set of
- * 7,870 of 14,053 tiles. See the pass comments for the rooms and the numbers.
+ * had no guarantee at all. Fleet-wide the two add 36 road tiles to RCL3 across
+ * 31 of the 172 rooms, max 3 in one room (E14S5), against an arterial set of
+ * 7,924 of 14,103 tiles.
+ *
+ * EVERY NUMBER IN THIS HEADER IS PRINTED BY `--census`, and that is the only
+ * reason it is allowed to be here. The previous set was hand-transcribed from an
+ * off-line re-derivation of a fleet that has been re-planned since, and two of
+ * them were wrong by one ("12 RCL2-built containers across 10 rooms" reached the
+ * goal document off a comment that itself said 29/27; the arterial split read
+ * 7,870 of 14,053 against a measured 7,871 of 14,055). Re-run --census after any
+ * change to this file or to the planner and paste what it says.
  * ---------------------------------------------------------------------------
  */
 const ARTERIAL_LAYER = 3; // eco kit + tower spurs
@@ -441,19 +449,20 @@ function roadStageFor(plan) {
   //
   // The pass above covered `extension[0..9]` and stopped there, which was an
   // arbitrary place to stop: containers are built at RCL2, a whole level BEFORE
-  // those extensions exist, and they got no face guarantee at all. 29 of the
-  // fleet's 516 RCL2 containers, across 27 of the 172 rooms, had a planned road
-  // on a D4 face and that road staged RCL4 — so the container stood finished at
-  // RCL2 with its serving tile two whole RCLs away. E16S6 is the clean example:
-  // its controller container 16,19 is built at RCL2, its face road 16,20 was
-  // RCL4, and the diagonal 17,20 that also serves it was RCL4 too, so the
-  // upgrader haul ran over bare ground from RCL2 to RCL4. The rest, all
-  // source-side unless marked: E12S1 28,11 + 36,24 · E12S2 22,26 (ctrl) ·
-  // E12S5 15,11 (ctrl) · E12S6 35,14 · E13S5 24,17 · E13S6 10,29 · E15S3 8,6 ·
-  // E15S8 19,32 · E15S9 40,27 · E16S2 4,22 · E17S1 20,27 · E17S5 44,35 +
-  // 26,32 (ctrl) · E18S6 27,8 · E19S7 42,41 · E1S5 33,22 · E21S3 37,20 ·
-  // E21S6 31,26 (ctrl) · E21S9 5,32 · E2S3 40,36 · E2S5 21,41 · E3S7 37,23 ·
-  // E4S6 18,31 · E5S4 32,17 · E6S8 41,15 · E7S2 27,39 · E9S2 35,5.
+  // those extensions exist, and they got no face guarantee at all. On the fleet
+  // this pass currently ships against, 30 RCL2 containers across 28 of the 172
+  // rooms have a planned road on a D4 face and that road staged RCL4 — so the
+  // container would stand finished at RCL2 with its serving tile two whole RCLs
+  // away. E16S6 is the shape: its controller container is built at RCL2, its
+  // face road was RCL4, and the diagonal that also serves it was RCL4 too, so
+  // the upgrader haul ran over bare ground from RCL2 to RCL4.
+  //
+  // NO ROOM LIST HERE ANY MORE, ON PURPOSE. This comment used to name all 27
+  // rooms and their tiles. That list was a snapshot of one artifact, the fleet
+  // has been re-planned several times since, and a stale list of rooms reads
+  // exactly like a live one. `--census` prints the current counts and the tiles
+  // are in the shipped `roadStage` array; a reader who wants the rooms should
+  // ask the artifact, not this file.
   //
   // "STAGED WITH IT" MEANS RCL3, NOT RCL2. The container is RCL2 and the road
   // cannot be: PlanV2.typeAllowedAtRcl hard-gates road at lvl >= 3 (see
@@ -481,14 +490,35 @@ function roadStageFor(plan) {
   let c2Faced = 0;
   for (const c of ecoTerminals) c2Faced += faceGuarantee(c);
 
-  // containers and the hub structures conduct, exactly as the bot's
-  // auditRoadPrefix has it — the generous reading, so we only ever bridge a
-  // gap the bot would also call a gap
+  // ---------------------------------------------------------------------
+  // WHAT CONDUCTS: WHAT A CREEP CAN STAND ON. NOTHING ELSE.
+  //
+  // This set used to be ["storage", "spawn", "container"] — described as "the
+  // generous reading, exactly as the bot's auditRoadPrefix has it, so we only
+  // ever bridge a gap the bot would also call a gap". Both halves were true and
+  // the premise was wrong: STRUCTURE_SPAWN and STRUCTURE_STORAGE are in the
+  // engine's OBSTACLE_OBJECT_TYPES. No creep has ever stood on either of them.
+  // A hauler cannot walk THROUGH the storage to get from one side of the hub to
+  // the other, and a road network that is "connected" only because the graph let
+  // it cross a spawn is not connected.
+  //
+  // The cost of that was invisible by construction, because the BRIDGE PASS
+  // below and the CHECK (`stagedOrphans`) shared the wrong graph — so the check
+  // could never catch the pass. Re-derived over walkable conductors only, at
+  // stage <= 3 over all 172 rooms, 57 arterial road tiles across 18 rooms sit
+  // behind a 1-2 tile unpaved gap, and one of them is an ECO TERMINAL: E7S4's
+  // source container 37,12, where the spawn at 31,17 sits between the stage-3
+  // roads at 30,17 and 32,17. The claim this staging is sold on — "0 unreachable
+  // eco terminals at stage <= 3" — was 1, not 0, and the check that produced the
+  // 0 was standing on the same spawn.
+  //
+  // A container is genuinely walkable (it is not an obstacle) so it stays. The
+  // SEED moves with the rule: the hub tile a creep actually occupies is the
+  // SITTER, not the storage it withdraws from.
+  // ---------------------------------------------------------------------
   const conduct = new Set();
-  for (const k of ["storage", "spawn", "container"]) {
-    for (const t of plan.structures[k] || []) conduct.add(t.x + t.y * 50);
-  }
-  const seedTile = (plan.structures.storage || [])[0];
+  for (const t of plan.structures.container || []) conduct.add(t.x + t.y * 50);
+  const seedTile = plan.sitter || (plan.structures.storage || [])[0];
   if (!seedTile) return stage; // no hub to measure from — ship the raw split
   const seed = seedTile.x + seedTile.y * 50;
 
@@ -584,32 +614,31 @@ function roadStageFor(plan) {
   // the claim this staging is sold on (PlanV2 PLACE_ORDER: "RCL3 builds the
   // roads a hauler actually walks") is a claim about the terminals, not about
   // the network's internal consistency. A container is not a road, so it is
-  // never a seed of that loop, and in 8 of the 172 rooms the layer-1 eco line
-  // stopped a handful of tiles short of the terminal it was laid for and
-  // nothing noticed:
-  //
-  //   source containers      E14S5 42,39 (3 unpaved tiles short) ·
-  //                          E18S4 27,20 (2) · E3S5 16,15 (2) ·
-  //                          E17S5 44,35 (2) · E21S9 5,32 (1)
-  //   controller containers  E15S4 13,14 (1) · E16S6 16,19 (1) · E8S6 15,25 (1)
+  // never a seed of that loop, and the layer-1 eco line can stop a handful of
+  // tiles short of the terminal it was laid for with nothing noticing.
   //
   // Small gaps, and that is the point: 1 to 3 tiles, at the end of a 30-tile
   // arterial the room paid for in full, on the exact tile a hauler stands on
-  // every single cycle from RCL2. E14S5's far miner walked the last 3 tiles of
-  // its haul over bare ground until RCL4 while the other 40 tiles of that same
-  // line were roaded at RCL3.
+  // every single cycle from RCL2. A far miner walking the last 3 tiles of its
+  // haul over bare ground until RCL4, while the other 40 tiles of that same line
+  // are roaded at RCL3, is the whole finding.
   //
   // The fix is the same machinery, one more set of seeds: run the 0-1 BFS's
   // parent chain from each eco terminal too. Because the BFS charges 1 per
   // not-yet-arterial road tile and 0 for arterials and conductors, the chain it
   // returns is a CHEAPEST one — the fewest new RCL3 tiles that join this
   // terminal to what the room is already building. Not a blanket promotion:
-  // 9 tiles over the whole fleet. 164 of the 172 rooms already reach all three
-  // terminals and pay nothing, and of the 8 that do not, three (E16S6 16,19,
-  // E17S5 44,35, E21S9 5,32) are already paid for by the container-face pass
-  // above and its bridging — they are exactly the rooms that showed up in BOTH
-  // findings. So this pass fires in 5 rooms: E14S5 (3 tiles), E18S4 (2),
-  // E3S5 (2), E15S4 (1), E8S6 (1).
+  // `--census` currently reports 6 tiles across 3 rooms, because most rooms
+  // already reach all three terminals and pay nothing, and several of the ones
+  // that do not have already been paid for by the container-face pass above and
+  // its bridging.
+  //
+  // ...AND THE GRAPH IT ASKS THE QUESTION ON IS NOW THE RIGHT ONE. Until round
+  // 10 both this pass and its check let a creep walk through the spawn and the
+  // storage, and the claim published off it — "0 unreachable eco terminals at
+  // stage <= 3" — was 1: E7S4's source container 37,12, with the spawn at 31,17
+  // between the stage-3 roads at 30,17 and 32,17. Fleet-wide 57 stage-3 tiles
+  // across 18 rooms sat behind such a gap. See the `conduct` note above.
   //
   // THE BFS IS RE-RUN RATHER THAN REUSED, and honestly it buys nothing on this
   // snapshot — swapping `zeroOneBfs()` for `bridgeParent` here gives a
@@ -668,11 +697,13 @@ function roadStageFor(plan) {
 function stagedOrphans(plan, stage, rcl) {
   const roads = plan.structures.road || [];
   const selected = roads.filter((r, i) => stage[i] <= rcl);
+  // WALKABLE CONDUCTORS ONLY — see the long note over `conduct` in roadStageFor.
+  // This check and the pass it checks used to share a graph in which a creep
+  // walked through the spawn, which is how the pass's own claim went unaudited
+  // for two rounds.
   const conduct = new Set(selected.map((t) => t.x + t.y * 50));
-  for (const k of ["container", "storage", "spawn"]) {
-    for (const t of plan.structures[k] || []) conduct.add(t.x + t.y * 50);
-  }
-  const seedTile = (plan.structures.storage || [])[0];
+  for (const t of plan.structures.container || []) conduct.add(t.x + t.y * 50);
+  const seedTile = plan.sitter || (plan.structures.storage || [])[0];
   if (!seedTile) return 0;
   const seed = seedTile.x + seedTile.y * 50;
   const seen = new Set([seed]);
@@ -697,8 +728,120 @@ function stagedOrphans(plan, stage, rcl) {
   return selected.filter((t) => !seen.has(t.x + t.y * 50)).length;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * THE FLEET CENSUS — because a number quoted in a comment is a number that rots.
+ * ---------------------------------------------------------------------------
+ * Every count this file's header states about the staging ("29 tiles, 27 rooms",
+ * "7,870 of 14,053") was hand-transcribed from an off-line re-derivation of a
+ * fleet that has since been re-planned four times, and round 10 caught two of
+ * them wrong by one. They are all derivable from `plans-hub.json` by running the
+ * same functions the push runs, so:
+ *
+ *   node tools/server/push-plan.mjs --census
+ *
+ * prints them, and the header quotes what it prints. Same rule the goal document
+ * now follows: if a number appears in prose, something has to be able to print it.
+ */
+function census() {
+  const plansPath = path.join(REPO, "tools", "plan-suite", "out-v2", "plans-hub.json");
+  const plans = JSON.parse(fs.readFileSync(plansPath, "utf8"));
+  let roads = 0;
+  let arterial = 0;
+  let c2Tiles = 0;
+  let c2Rooms = 0;
+  let ecoTiles = 0;
+  let ecoRooms = 0;
+  let bothTiles = 0;
+  let bothRooms = 0;
+  let bothMax = 0;
+  let bothMaxRoom = null;
+  let extFaced = 0;
+  let bridged = 0;
+  let orphanTiles = 0;
+  let orphanRooms = 0;
+  let unreachTerminals = 0;
+  const unreachRooms = [];
+  for (const plan of plans) {
+    if (!plan || !plan.structures) continue;
+    const stage = roadStageFor(plan);
+    roads += stage.length;
+    arterial += stage.filter((s) => s <= ARTERIAL_RCL).length;
+    extFaced += stage.extFaced || 0;
+    bridged += stage.bridged || 0;
+    c2Tiles += stage.c2Faced || 0;
+    if (stage.c2Faced) c2Rooms++;
+    ecoTiles += stage.ecoGuarded || 0;
+    if (stage.ecoGuarded) ecoRooms++;
+    const both = (stage.c2Faced || 0) + (stage.ecoGuarded || 0);
+    bothTiles += both;
+    if (both) bothRooms++;
+    if (both > bothMax) {
+      bothMax = both;
+      bothMaxRoom = plan.room;
+    }
+    const o = stagedOrphans(plan, stage, ARTERIAL_RCL);
+    if (o) {
+      orphanTiles += o;
+      orphanRooms++;
+    }
+    // ...and the claim the staging is SOLD on: can a creep walk from the sitter
+    // to every eco terminal over stage<=3 roads and containers alone?
+    const sel = new Set(
+      (plan.structures.road || []).filter((r, i) => stage[i] <= ARTERIAL_RCL).map((t) => t.x + t.y * 50),
+    );
+    for (const c of plan.structures.container || []) sel.add(c.x + c.y * 50);
+    const seedTile = plan.sitter || (plan.structures.storage || [])[0];
+    if (!seedTile) continue;
+    const seed = seedTile.x + seedTile.y * 50;
+    const seen = new Set([seed]);
+    const q = [seed];
+    while (q.length) {
+      const cur = q.pop();
+      const x = cur % 50;
+      const y = Math.floor(cur / 50);
+      for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+          if (!dx && !dy) continue;
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+          const np = nx + ny * 50;
+          if (seen.has(np) || !sel.has(np)) continue;
+          seen.add(np);
+          q.push(np);
+        }
+      }
+    }
+    const bad = rcl2Containers(plan).filter((c) => !seen.has(c.x + c.y * 50));
+    if (bad.length) {
+      unreachTerminals += bad.length;
+      unreachRooms.push(`${plan.room}(${bad.map((c) => `${c.x},${c.y}`).join(" ")})`);
+    }
+  }
+  console.log(`push-plan road-staging census over ${plans.length} rooms`);
+  console.log(`  arterial (stage <= ${ARTERIAL_RCL}): ${arterial} of ${roads} road tiles`);
+  console.log(`  extension[0..${RCL3_EXTENSIONS - 1}] faces promoted: ${extFaced}`);
+  console.log(`  RCL2-container faces promoted: ${c2Tiles} tiles across ${c2Rooms} rooms`);
+  console.log(`  eco-terminal reach chains: ${ecoTiles} tiles across ${ecoRooms} rooms`);
+  console.log(
+    `  the two container passes together: ${bothTiles} tiles across ${bothRooms} rooms, max ` +
+      `${bothMax} in one room (${bothMaxRoom})`,
+  );
+  console.log(`  bridge repair: ${bridged} tiles`);
+  console.log(
+    `  stagedOrphans (walkable conductors: road + container, seeded at the sitter): ` +
+      `${orphanTiles} tiles in ${orphanRooms} rooms`,
+  );
+  console.log(
+    `  eco terminals a creep cannot reach at stage <= ${ARTERIAL_RCL}: ${unreachTerminals}` +
+      (unreachRooms.length ? ` — ${unreachRooms.join(" ")}` : ""),
+  );
+}
+
 async function main() {
   const args = process.argv.slice(2);
+  if (args.includes("--census")) return census();
   const room = args.find((a) => !a.startsWith("--"));
   if (!room) {
     console.error(

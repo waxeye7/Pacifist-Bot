@@ -1154,6 +1154,17 @@ export function checkRoom(plan, terrain, objects) {
           .map((c) => key(c.x, c.y))
       : [],
   );
+  // ...and the tiles a {gate:"misc", kind:"off-network"} declaration names. Read
+  // off the RAW list on purpose: this is not an excuse for a violation, it is the
+  // plan telling the checker which class of structure it is claiming an
+  // enumerated exception for, and the arbitration below polices the excuses.
+  const mineralOffNetworkDeclared = new Set();
+  for (const sf of (plan.meta && plan.meta.shortfalls) || []) {
+    if (!sf || sf.gate !== "misc" || sf.kind !== "off-network") continue;
+    for (const t of sf.tiles || []) {
+      if (t && Number.isInteger(t.x) && Number.isInteger(t.y)) mineralOffNetworkDeclared.add(key(t.x, t.y));
+    }
+  }
   for (const t of OWNED) {
     for (const p of s[t] || []) if (ext[idx(p.x, p.y)]) leaks.push(`${t}@${p.x},${p.y}`);
   }
@@ -1263,11 +1274,32 @@ export function checkRoom(plan, terrain, objects) {
   for (const t of OWNED) {
     for (const p of s[t] || []) {
       const k = key(p.x, p.y);
-      // m11: the mineral seat is deliberately off-network (no road by design)
-      if (t === "container" && mineralSeat.has(k)) continue;
+      // ------------------------------------------------------------------
+      // THE MINERAL SEAT'S EXEMPTION IS THE PLAN'S TO CLAIM, NOT THIS FILE'S
+      // TO GRANT.
+      //
+      // This used to be an unconditional `continue` with a comment ("m11: the
+      // mineral seat is deliberately off-network (no road by design)") and no
+      // plan in the fleet declared anything of the kind — 133 rooms shipped an
+      // undeclared exception to a hard gate, excused by one line of the
+      // checker's own source. The decision is right and it is the PLAN's
+      // decision, so the plan now files {gate:"misc", kind:"off-network"} naming
+      // the seat tile (see remeasureMineralNetwork in pipeline.mjs) and this
+      // exemption reads it. A room that ships an off-network mineral seat in
+      // silence now fails the road gate like anything else.
+      // ------------------------------------------------------------------
+      // A declared seat is exempt. An UNDECLARED one is held to the same rule as
+      // every other structure below — most mineral seats do end up touching a
+      // corridor another layer laid, and those need no declaration at all.
+      if (t === "container" && mineralSeat.has(k) && mineralOffNetworkDeclared.has(k)) continue;
       if (comp.has(k)) continue; // containers ARE network nodes
       const touch = D8.some(([dx, dy]) => comp.has(key(p.x + dx, p.y + dy)));
-      if (!touch) stranded.push(`${t}@${p.x},${p.y}`);
+      if (!touch) {
+        stranded.push(
+          `${t}@${p.x},${p.y}` +
+            (t === "container" && mineralSeat.has(k) ? " (mineral seat, UNDECLARED)" : ""),
+        );
+      }
     }
   }
   if (stranded.length) {
@@ -2138,19 +2170,80 @@ export function checkRoom(plan, terrain, objects) {
         worst = c;
       }
     }
-    // The filler's walk to each tower, re-derived. Obstacle set mirrors
-    // layer-towers.mjs's `blockers`: the structures a creep cannot cross plus the
-    // room objects. Towers, labs and the rest are deliberately NOT in it — they
-    // are not in the planner's field either, because they did not exist when it
-    // was measured, and a tower does not block the walk to itself.
+    // ------------------------------------------------------------------
+    // THE FILLER'S WALK, RE-DERIVED ON THE BOARD THE ROOM SHIPS.
+    //
+    // THE BOARD THIS USED TO USE WAS THE PRODUCER'S. The obstacle set mirrored
+    // layer-towers.mjs's `blockers` — storage / terminal / link / spawn and the
+    // room objects — with a comment saying the rest were "not in the planner's
+    // field either, because they did not exist when it was measured". That is
+    // true and it is the wrong reason: a cross-check written to reproduce the
+    // producer's board can only ever confirm the producer's arithmetic, never
+    // its premise. It reproduced `refillDists` in 159/159 rooms and was blind to
+    // the fact that 15 of them walk further than that, because the OTHER FIVE
+    // TOWERS, the labs, the nuker, the observer and sixty extensions are all
+    // OBSTACLE_OBJECT_TYPES and every one of them stands in the walk. Two rooms
+    // shipped a silent shortfall behind it (E12S4, E18S3 — both published a
+    // legal walk and both walked 9).
+    //
+    // So it is taken here on the RCL8 board, with everything standing, and the
+    // plan's own reading has to agree with it. `arriveAt` semantics: the filler
+    // stands NEXT to the tower, because a tower is an obstacle.
+    // ------------------------------------------------------------------
     const refillBlocked = new Set(objectTiles);
-    for (const t of ["storage", "terminal", "link", "spawn"]) {
+    for (const t of [
+      "storage",
+      "terminal",
+      "link",
+      "spawn",
+      "tower",
+      "lab",
+      "extension",
+      "nuker",
+      "observer",
+    ]) {
       for (const p of s[t] || []) refillBlocked.add(key(p.x, p.y));
     }
     const refillField = walkField(terrain, sitter, refillBlocked);
-    const refillDists = (s.tower || []).map((t) => refillField[idx(t.x, t.y)]);
+    const arriveRefill = (t) => {
+      const v = refillField[idx(t.x, t.y)];
+      if (v < 9999) return v;
+      let best = 9999;
+      for (const [dx, dy] of D8) {
+        const x = t.x + dx,
+          y = t.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        const w = refillField[idx(x, y)];
+        if (w < 9999 && w + 1 < best) best = w + 1;
+      }
+      return best;
+    };
+    const refillDists = (s.tower || []).map((t) => arriveRefill(t));
     const maxRefill = refillDists.length ? Math.max(...refillDists) : 0;
     const unreachable = refillDists.filter((d) => d >= 9999).length;
+    // ...and the plan has to publish the number it walks. This is the cross-check
+    // the old board could not make: a producer that measures early and never
+    // re-derives is exactly the failure this block exists to catch, and it cannot
+    // catch it while sharing the producer's premise.
+    {
+      const pub = plan.meta?.towers?.refillDists;
+      const bad =
+        !Array.isArray(pub) ||
+        pub.length !== refillDists.length ||
+        pub.some((v, i) => v !== refillDists[i]);
+      // Pushed straight onto `fails`, like every other check in this block: the
+      // arbitration loop has already run by the time this code executes, and
+      // `towers` is an UNDECLARABLE gate anyway — no declaration may excuse a
+      // published number that is not the number the room walks.
+      if (bad && (s.tower || []).length) {
+        fails.push(
+          `towers/refill-stale — refillDists is not the walk this room ships: the plan says ` +
+            `[${Array.isArray(pub) ? pub.join(",") : "absent"}], the as-built board gives ` +
+            `[${refillDists.join(",")}] (BFS from the sitter with every OBSTACLE_OBJECT_TYPE standing, ` +
+            `arrival-at-tile)`,
+        );
+      }
+    }
 
     const planMin = typeof tw?.minShellDmg === "number" ? tw.minShellDmg : null;
     const planRefill = typeof tw?.maxRefill === "number" ? tw.maxRefill : null;

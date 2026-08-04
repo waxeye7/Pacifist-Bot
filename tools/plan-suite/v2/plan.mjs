@@ -804,18 +804,27 @@ ${animShortfallTicker(plan)}
    * filled opaquely, and ctxFor put it on the structures canvas where no fade
    * dims it and no stage erases it.
    *
-   * Counted off the films themselves (the seed tile is in every anim/*.json as
-   * the one cell of the seed step; plans-hub.json does not carry it at all —
-   * the slim writer drops it): 24 of the 203 films end with it still visible,
-   * 20 of them in the current 172-room fleet. 14 sit on top of a road the room
-   * does ship — E17S4 21,18 · E12S6 28,10 · E9S7 11,14 · E15S2 17,23 · E6S3
-   * 12,18 among them — and 10 on bare floor (E12S3 30,22 · E13S9 17,35 ·
-   * E17S8 17,40 · E19S7 32,38 · E1S9 19,30 · E2S1 27,16 · E2S2 30,31 · E4S3
-   * 24,25, plus E11S10 and E12S0 from the retired world). The other 179 are
-   * not correct, only lucky: a structure happens to land on the seed tile
-   * later and paints over the square on the same canvas. All 24 sat under a
-   * HUD that reads "plan complete — this last frame IS the shipped plan, tile
-   * for tile".
+   * WHAT WAS COUNTED, AND WHEN. This census is a HISTORICAL SNAPSHOT of the
+   * artifact the bug was found on — 203 films, including rooms (E11S10, E12S0)
+   * that no longer exist in the claimable world — and it is not re-derivable
+   * against today's fleet, because the bug it counts is fixed and the fleet has
+   * been re-planned several times since. It used to end "24 of the 203 films
+   * end with it still visible, 20 of them in the current 172-room fleet", and
+   * that second number was wrong twice over: its own tile lists add up to 22
+   * current, and an independent scan of a later artifact found 19. A number
+   * that cannot be printed by anything should not be stated as if it were
+   * current, so the fleet-relative claim is withdrawn and the snapshot is
+   * labelled as one.
+   *
+   * On that snapshot: 24 of the 203 films ended with the seed still visible —
+   * 14 of them on top of a road the room does ship (E17S4 21,18 · E12S6 28,10 ·
+   * E9S7 11,14 · E15S2 17,23 · E6S3 12,18 among them) and 10 on bare floor
+   * (E12S3 30,22 · E13S9 17,35 · E17S8 17,40 · E19S7 32,38 · E1S9 19,30 ·
+   * E2S1 27,16 · E2S2 30,31 · E4S3 24,25, plus E11S10 and E12S0 from the
+   * retired world). The other 179 were not correct, only lucky: a structure
+   * happens to land on the seed tile later and paints over the square on the
+   * same canvas. All 24 sat under a HUD that reads "plan complete — this last
+   * frame IS the shipped plan, tile for tile".
    *
    * The two rejections recorded for the sitter hold here word for word.
    * Rejected: dropping the seed beat. It is the decision layer 1 is built
@@ -2013,6 +2022,56 @@ ${thumbLegendHtml()}
     `  layer 2's pre-mass negotiation reading, for contrast only — bare cut, no extension mass, ungated: ` +
       `mean-of-means ${avg(mobMean)} · worst room max ${Math.max(0, ...mobMax)}`,
   );
+  // ------------------------------------------------------------------
+  // ...AND THE COMPLETE RECORD, WHICH IS NOT THE VERDICT.
+  //
+  // `coversStands` excuses a pair of wall tiles from the GATE when a defender on
+  // either one already covers everything an attacker can stand on to grind the
+  // other. Until round 10 it excused the pair from the RECORD as well — the
+  // statistic was never accumulated — and E7S5 shipped `max 1.5 · maxDetour 1 ·
+  // cause "none"` and no shortfall at all over the worst pair in the fleet
+  // (35 in / 2 out, a 33-tile detour at 17.5). The record now carries every pair
+  // and the fleet headline carries both numbers, because the difference between
+  // them is exactly the thing that was hidden.
+  // ------------------------------------------------------------------
+  {
+    const rec = ok
+      .map((p) => ({ room: p.room, m: p.meta?.walls?.mobility }))
+      .filter((r) => r.m && typeof r.m.built === "number");
+    const byMax = rec.slice().sort((a, b) => b.m.built - a.m.built || (a.room < b.room ? -1 : 1));
+    const byDet = rec.slice().sort((a, b) => b.m.maxDetour - a.m.maxDetour || (a.room < b.room ? -1 : 1));
+    const declared = ok.filter((p) =>
+      (p.meta?.shortfalls || []).some((d) => d && d.gate === "mobility" && d.kind === "covered-detour"),
+    );
+    console.log(
+      `  the COMPLETE record (every connected pair, including the ones coverage excuses from the gate): ` +
+        `worst ratio ${byMax.length ? `${byMax[0].m.built} (${byMax[0].room})` : "—"} · worst absolute ` +
+        `detour ${byDet.length ? `${byDet[0].m.maxDetour} tiles (${byDet[0].room})` : "—"} · ` +
+        `${declared.length} room(s) declare mobility/covered-detour` +
+        (declared.length ? ` (${declared.map((p) => p.room).join(" ")})` : ""),
+    );
+  }
+  // ------------------------------------------------------------------
+  // THE TOWER-CLUMP CENSUS, PRINTED. The goal document's anti-pattern section
+  // quotes this histogram, and round 10 caught it quoting "93 of 172 rooms hold
+  // 3 of 6 towers inside chebyshev 2" against a measured 91 — a number that
+  // matched neither the cumulative nor the exact reading of the planner's own
+  // published `towerClump.withinCheb2OfSitter`. Anything a document states about
+  // the fleet has to be printable, so it is printed.
+  // ------------------------------------------------------------------
+  {
+    const hist = [0, 0, 0, 0, 0, 0, 0];
+    for (const p of ok) {
+      const n = p.meta?.towers?.towerClump?.withinCheb2OfSitter;
+      if (typeof n === "number") hist[n]++;
+    }
+    const cum = (k) => hist.slice(k).reduce((a, b) => a + b, 0);
+    console.log(
+      `tower clump within chebyshev 2 of the sitter — exact {${hist
+        .map((v, i) => `${i}:${v}`)
+        .join(" ")}} · cumulative >=3 ${cum(3)} · >=4 ${cum(4)} · >=5 ${cum(5)}`,
+    );
+  }
 
   // ------------------------------------------------------------------
   // THE LANE BOUND IS ASSERTED, NOT ADVERTISED.
@@ -2044,7 +2103,24 @@ ${thumbLegendHtml()}
 
   // the quality numbers the adversarial review added to the contract
   const withTowers = ok.filter((p) => p.meta.towers);
-  const t0 = withTowers.map((p) => p.meta.towers.refillDists[0]).sort((a, b) => a - b);
+  // WHICH ARRAY THE ORDER INVARIANT IS ABOUT. `refillDists` is now the AS-BUILT
+  // walk, re-derived at finalizeRoom over the RCL8 board (see recomputeRefill in
+  // layer-walls). The build order is a claim about RCL3-5, when the room owns one
+  // tower, ten extensions and nothing else — so the invariant is checked against
+  // `refillDistsAtPlacement`, which is that board, and the as-built maximum is
+  // reported beside it because that is the walk the finished room pays.
+  // Three arrays, three boards, and the order invariant belongs to the first:
+  //   refillDistsUnblocked   the RCL3-era board — hub kit only, no towers yet.
+  //                          This is what the build order is chosen on.
+  //   refillDistsAtPlacement layer 3's own reading with all six towers standing
+  //                          in each other's way.
+  //   refillDists            AS BUILT at RCL8, the number of record.
+  const placementOf = (p) =>
+    p.meta.towers.refillDistsUnblocked ||
+    p.meta.towers.refillDistsAtPlacement ||
+    p.meta.towers.refillDists;
+  const t0 = withTowers.map((p) => placementOf(p)[0]).sort((a, b) => a - b);
+  const t8 = withTowers.map((p) => Math.max(...p.meta.towers.refillDists)).sort((a, b) => a - b);
   // THE INVARIANT IS ABOUT tower[0], AND FROM ROUND 9 ABOUT tower[1] TOO.
   //
   // This used to demand the WHOLE array be sorted by refill walk, which was a
@@ -2055,17 +2131,40 @@ ${thumbLegendHtml()}
   // question as the second tower to build. So the check is what it always meant:
   // tower[0] is the minimum-refill tower, and the tail from index 1 is sorted.
   const unsorted = withTowers.filter((p) => {
-    const r = p.meta.towers.refillDists;
+    const r = placementOf(p);
     if (r.some((v) => v < r[0])) return true;
     const tail = r.slice(2);
     return tail.some((v, i) => i && v < tail[i - 1]);
   });
+  const farBuilt = withTowers.filter((p) => p.meta.towers.maxRefill > 8);
   console.log(
-    `tower[0] refill (the only tower at RCL3-5): median ${med(t0)} · max ${t0[t0.length - 1]}` +
+    `tower[0] refill (the only tower at RCL3-5, on the RCL3-era board): median ${med(t0)} · max ` +
+      `${t0[t0.length - 1]}` +
       (unsorted.length
         ? ` — tower[0] is NOT the easiest to refill in ${unsorted.length} rooms`
         : " · tower[0] easiest to refill everywhere, tower[1] the best partner for it"),
   );
+  console.log(
+    `furthest-tower refill AS BUILT (RCL8 board, every obstacle standing): median ${med(t8)} · max ` +
+      `${t8[t8.length - 1]} · ${farBuilt.length} room(s) over the 8-step note` +
+      (farBuilt.length
+        ? ` — all declared: ${farBuilt
+            .map((p) => `${p.room}:${p.meta.towers.maxRefill}`)
+            .join(" ")}`
+        : ""),
+  );
+  {
+    const silent = farBuilt.filter(
+      (p) =>
+        !(p.meta.shortfalls || []).some((d) => d && d.gate === "towers" && d.kind === "weak-battery"),
+    );
+    if (silent.length) {
+      console.log(
+        `  REFILL SHORTFALL UNDECLARED in ${silent.length} room(s): ${silent.map((p) => p.room).join(" ")}`,
+      );
+      process.exitCode = 1;
+    }
+  }
   const parks = ok.map((p) => p.meta.ctrlParks ?? 0).sort((a, b) => a - b);
   const thin = ok.filter((p) => (p.meta.ctrlParks ?? 0) < 4);
   console.log(

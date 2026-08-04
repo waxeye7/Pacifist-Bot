@@ -126,6 +126,21 @@ export const MOBILITY_TARGET = 1.2;
 // the other. (Chebyshev <= 2 always satisfies it — a stand is within 1 of its
 // wall tile — so this is strictly the old rule minus the unsound cheb-3 band,
 // plus the cheb-3 pairs whose terrain leaves no stand out of reach.)
+//
+// ...AND IT MAY EXCUSE A PAIR FROM THE VERDICT, NEVER FROM THE RECORD.
+// It used to `continue` the pair BEFORE a single statistic was accumulated, and
+// two comments in this file asserted the opposite in so many words. The cost of
+// that was not theoretical: E7S5 shipped `max 1.5 · maxDetour 1 · cause "none"`
+// and no shortfall of any kind over a wall whose garrison walks 35 tiles
+// between two cut tiles the attacker crosses in 2 — an absolute detour of 33 and
+// a ratio of 17.5, the worst pair in the fleet, deleted before it was measured.
+// The exclusion is sound as an argument about REPOSITIONING (a defender on
+// either tile shoots anything grinding the other, so he never makes that walk to
+// answer a grind) and it is worthless as an argument about the wall, because the
+// garrison still has to make that walk to consolidate. So the record carries
+// every pair and the gate carries the exclusion — and a room whose record is
+// this much worse than its verdict declares the difference (see
+// `coveredDetour` and the mobility/covered-detour shortfall in layer-walls).
 const RANGED_RANGE = 3;
 // Endpoint budget. The metric is EXACT all-pairs over every reachable cut tile
 // up to this many endpoints — which covers the entire fleet (largest cut 75).
@@ -136,24 +151,39 @@ const RANGED_RANGE = 3;
 // 4.5 against a true 6.0) and let E19S8 slip under the 1.2 gate undeclared.
 const MOBILITY_EXACT_MAX = 90;
 const MOBILITY_ENDPOINTS = 32;
-// THE EXTERIOR ARRIVAL BIAS.
+// THE EXTERIOR ARRIVAL BIAS — REMOVED FROM THE VERDICT (round-10 ruling).
 //
-// Both laps are measured tile-a-to-tile-b. The defender OCCUPIES both wall
-// tiles, so `arriveAt` finds b in his own field and charges him nothing extra.
-// The attacker occupies neither — he stands on the exterior tile beside each —
-// so `arriveAt` fell through to the neighbour scan and charged him a phantom
-// final step onto a tile he never sets foot on. That step inflated every
-// exterior lap by one tile and flattered every ratio in the fleet (E20S3 read
-// 7.5 against 10.0).
+// Both laps are measured tile-a-to-tile-b with the same primitive (`arriveAt`).
+// The defender OCCUPIES both wall tiles, so his field contains b and he is
+// charged nothing extra. The attacker occupies neither, so `arriveAt` falls
+// through to the neighbour scan and charges him one step at each end onto tiles
+// he never sets foot on: `raw` is his stand-to-stand work plus two.
 //
-// Charging him NOTHING at either end is the fully symmetric model (his true
-// work is stand-to-stand, i.e. raw - 2); it is reported as `maxStrict` on every
-// measurement so the stricter truth is on the record. The gate deliberately
-// uses raw - 1, the conservative half: at raw - 2 a pair of wall tiles four
-// apart can measure an exterior lap of 1 and the ratio stops describing
-// anything. So the shipped number is a LOWER BOUND on the defender's real
-// disadvantage, never an over-statement.
-const MOBILITY_ARRIVE_BIAS = 1;
+// There were three candidate denominators and this planner has now shipped all
+// three, so the trade is worth stating once:
+//
+//   raw - 2  his TRUE stand-to-stand work, and the harshest reading. It is
+//            published as `maxStrict` on every measurement, so the strict truth
+//            is always on the record. It is not the gate because at raw - 2 a
+//            pair of wall tiles four apart can measure an exterior lap of 1 and
+//            the ratio stops describing anything.
+//   raw - 1  the half-measure this planner used for two rounds. It is one tile
+//            below the detour floor's own granularity, and that is exactly the
+//            defect: it inflates EVERY pair's absolute detour by one, so pairs
+//            at a TRUE detour of 4 — the doc's own definition of "arithmetic
+//            noise wearing the costume of a defect" — were promoted over the
+//            >4 floor. Nine rooms carried a full declaration for one such pair
+//            (E8S9: published 8 in / 3 out, detour 5; unbiased 8 in / 4 out,
+//            detour exactly 4, which does not clear).
+//   raw      SHIPPED. The two laps are then measured by the identical rule on
+//            both sides of the ratio, the detour is a true detour, and the
+//            number is a strict LOWER BOUND on the defender's disadvantage —
+//            the gate can never fire on an artefact of the measurement, only on
+//            work the garrison genuinely does. `maxStrict` carries the upper
+//            bound beside it in the same object.
+//
+// Fleet effect of removing the bias: rooms over the 1.2 target 75 -> 64.
+const MOBILITY_ARRIVE_BIAS = 0;
 // THE DETOUR FLOOR — the owner's ruling, applied to the arithmetic.
 //
 // The criterion is "attacker walks 10, I refuse to walk 20". It is a statement
@@ -171,8 +201,10 @@ const MOBILITY_ARRIVE_BIAS = 1;
 // So a pair counts AGAINST the target — for every VERDICT: the mobility
 // tiebreak band, the eco-lobe veto, the cause diagnosis and the declaration —
 // only when its absolute detour (din - dout) exceeds this many tiles. Nothing
-// is hidden: `max`, `maxStrict`, `maxDetour`, `over` and `worst` still record
-// every pair exactly as before, and the gated reading sits beside them.
+// is hidden, and as of round 10 that sentence is true: `max`, `maxStrict`,
+// `maxDetour`, `over`, `pairs`, `worst` and `worstDetour` are accumulated over
+// EVERY connected pair — including the ones `coversStands` excuses from the
+// verdict — and the gated reading sits beside them.
 // Four tiles is the smallest floor that is unambiguously a detour and not a
 // rounding accident: eight ticks of an unboosted defender's time, one whole
 // tower cooldown of grinding he cannot answer.
@@ -717,6 +749,12 @@ export function mobilityStats(cut, extMask, walkMask) {
     gatedPairs: 0,
     worstGated: null,
     detourFloor: MOBILITY_DETOUR_FLOOR,
+    maxDetour: 0,
+    worstDetour: null,
+    coveredPairs: 0,
+    maxCovered: 0,
+    maxCoveredDetour: 0,
+    worstCovered: null,
   };
   if (n < 2) return empty;
   const stands = ends.map((e) => exteriorStands(extMask, e));
@@ -741,21 +779,42 @@ export function mobilityStats(cut, extMask, walkMask) {
   let worstGated = null;
   let gatedPairs = 0;
   let overGated = 0;
+  // ...and the worst pair the VERDICT excuses, so the difference between the
+  // record and the verdict is a published number rather than a deletion.
+  let coveredPairs = 0;
+  let maxCovered = 0;
+  let maxCoveredDetour = 0;
+  let worstCovered = null;
   for (let a = 0; a < n; a++) {
     for (let b = a + 1; b < n; b++) {
-      // covered from BOTH sides: neither defender would have to move
-      if (coversStands(ends[a], stands[b]) && coversStands(ends[b], stands[a])) continue;
       const din = arriveAt(inF[a], ends[b]);
       const raw = arriveAt(outF[a], ends[b]);
       if (!isFinite(din) || !isFinite(raw)) continue;
       const dout = raw - MOBILITY_ARRIVE_BIAS;
       if (dout <= 0) continue;
       const r = din / dout;
+      // ---- THE RECORD. Every connected pair, no exclusions. ----
       ratios.push(r);
       if (raw - 2 > 0 && din / (raw - 2) > maxStrict) maxStrict = din / (raw - 2);
       if (din - dout > maxDetour) {
         maxDetour = din - dout;
         worstDetour = { a: ends[a], b: ends[b], din, dout, ratio: round2(r) };
+      }
+      if (r > max) {
+        max = r;
+        worst = { a: ends[a], b: ends[b], din, dout };
+      }
+      // ---- THE VERDICT. Covered from BOTH sides: neither defender would have
+      // to move to answer a grind on the other tile, so the pair is excused
+      // here — and ONLY here. See RANGED_RANGE.
+      if (coversStands(ends[a], stands[b]) && coversStands(ends[b], stands[a])) {
+        coveredPairs++;
+        if (r > maxCovered) {
+          maxCovered = r;
+          worstCovered = { a: ends[a], b: ends[b], din, dout, detour: din - dout, ratio: round2(r) };
+        }
+        if (din - dout > maxCoveredDetour) maxCoveredDetour = din - dout;
+        continue;
       }
       if (din - dout > MOBILITY_DETOUR_FLOOR) {
         gatedPairs++;
@@ -764,10 +823,6 @@ export function mobilityStats(cut, extMask, walkMask) {
           maxGated = r;
           worstGated = { a: ends[a], b: ends[b], din, dout };
         }
-      }
-      if (r > max) {
-        max = r;
-        worst = { a: ends[a], b: ends[b], din, dout };
       }
     }
   }
@@ -795,14 +850,23 @@ export function mobilityStats(cut, extMask, walkMask) {
     worstDetour,
     worst,
     // THE GATED READING (see MOBILITY_DETOUR_FLOOR): the same maximum, taken
-    // only over pairs whose absolute detour exceeds the floor. This is what the
-    // 1.2 target is judged on — escalation, the eco-lobe veto and the
-    // declaration all read it. `max` above stays the complete record.
+    // only over pairs whose absolute detour exceeds the floor AND that
+    // `coversStands` does not excuse. This is what the 1.2 target is judged on —
+    // escalation, the eco-lobe veto and the declaration all read it. `max` above
+    // is the complete record and includes everything this line leaves out.
     maxGated: round2(maxGated),
     overGated,
     gatedPairs,
     worstGated,
     detourFloor: MOBILITY_DETOUR_FLOOR,
+    // ...and the exact size of that difference: how many pairs the verdict
+    // excused, and the worst of them. A room whose record is materially worse
+    // than its verdict has to say so — see the mobility/covered-detour
+    // shortfall in layer-walls, which is filed off exactly these fields.
+    coveredPairs,
+    maxCovered: round2(maxCovered),
+    maxCoveredDetour,
+    worstCovered,
   };
 }
 
@@ -1208,6 +1272,17 @@ export function builtMobility(terrain, plan) {
     maxGated: stats.maxGated,
     overGated: stats.overGated,
     worstGated: stats.worstGated,
+    // THE COMPLETE RECORD, carried alongside the verdict — `max` and `maxGated`
+    // used to be the only two numbers that reached the gallery, and a room whose
+    // worst pair is excused by coversStands published neither of them honestly.
+    maxStrict: stats.maxStrict,
+    maxDetour: stats.maxDetour,
+    worstDetour: stats.worstDetour,
+    worst: stats.worst,
+    coveredPairs: stats.coveredPairs,
+    maxCovered: stats.maxCovered,
+    maxCoveredDetour: stats.maxCoveredDetour,
+    worstCovered: stats.worstCovered,
     // a cut tile the FINISHED base cannot walk to — the mass sealed it off
     walled: cut.length - cut.filter((c) => walk.has(key(c.x, c.y))).length,
     cause:

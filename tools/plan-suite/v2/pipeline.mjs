@@ -405,8 +405,19 @@ export function composePlan(d, shellOpts = {}) {
         lapCeilingStrictBand: rf.lapCeilingStrictBand,
         lapCeilingSlackPct: rf.lapCeilingSlackPct,
         lapCeilingBound: rf.lapCeilingBound,
+        // ...and the floor under every ceiling: 1.2 is the gate, so 1.2 is also
+        // the least a ceiling may be. See the ceiling-floor note in layer-ext —
+        // E12S6 refused five forever-ramparts to hold a lap of 0 at 0.
+        lapCeilingFloor: rf.lapCeilingFloor,
+        // when the pass beat layer 6's bound, the bound it RE-DERIVED over the
+        // worst case plus its own moved-to tiles (never spent, re-earned)
+        boundRederived: rf.boundRederived,
         lapBeforeMoves: rf.lapBeforeMoves,
         lapAfterMoves: rf.lapAfterMoves,
+        // the lift test's verdict acted on, or the reason it was not — layer 7's
+        // mobility declaration quotes this rather than asserting that nothing is
+        // ever relocated to chase the number
+        mobilityRepair: rf.mobilityRepair,
       };
       plan.meta.counts.extension = plan.structures.extension.length;
     }
@@ -627,7 +638,47 @@ function remeasureMineralNetwork(plan) {
     : `no road by design — mineral hauling is one trickle deposit on a long cooldown, and permanent road ` +
       `decay to reach it costs more than the walk it saves. Re-derived over the finished road set: no ` +
       `tile D8 of the seat carries road or container.`;
+  // ------------------------------------------------------------------
+  // ...AND AN EXEMPTION THAT LIVES ONLY IN THE CHECKER IS NOT AN EXEMPTION.
+  //
+  // The road gate reads "one connected road network touching every structure",
+  // and it enumerates its exceptions. This one was not among them: it existed as
+  // a single hardcoded line in validate.mjs ("the mineral seat is deliberately
+  // off-network (no road by design)") and NO plan's meta.shortfalls said a word,
+  // in any of the 133 rooms it applies to. The decision is defensible — that is
+  // what `mineralOffNetworkWhy` above argues, and the argument holds — but a
+  // decision the artifact does not declare is one a reader has to find in the
+  // checker's source, and a checker that exempts a class the plan never claims
+  // is a checker writing the plan's declarations for it.
+  //
+  // So the room declares it, per room, and the validator's exemption READS the
+  // declaration instead of asserting it.
+  // ------------------------------------------------------------------
+  if (misc.mineralOffNetwork) {
+    plan.meta.shortfalls = plan.meta.shortfalls || [];
+    plan.meta.shortfalls.push({
+      gate: "misc",
+      kind: "off-network",
+      detail:
+        `THE MINERAL SEAT IS OFF THE ROAD NETWORK, BY DESIGN. The container at ${seat.x},${seat.y} ` +
+        `(mineral ${plan.mineral.x},${plan.mineral.y}) has no road and no other container on any of its ` +
+        `eight neighbours, re-derived over the FINISHED road set — layer 5's own reading is taken before ` +
+        `the extension corridors, the rampart spurs and the swamp paving exist, and in a good part of the ` +
+        `fleet one of those runs past the seat and puts it on the network after all (this room is not one ` +
+        `of them; meta.misc.mineralSeatNetTiles is the empty list that says so). ` +
+        `WHY IT IS NOT PAVED: a mineral is one deposit on a ${MINERAL_COOLDOWN_NOTE}-tick regeneration ` +
+        `cooldown behind an extractor on a 5-tick cooldown, so the seat is visited a few times an hour, ` +
+        `and a road decays whether or not anything walks it. The walk saved does not pay the decay, and ` +
+        `the goal document's own rule for the mineral is that its proximity "barely matters". ` +
+        `WHAT IS GUARANTEED ANYWAY: the seat is reachable — the mineral work stand is re-derived from the ` +
+        `sitter over the engine's obstacles in every room and the validator re-derives it too — and the ` +
+        `container is a network NODE for everything else, so nothing else in the room is stranded by it.`,
+      tiles: [{ x: seat.x, y: seat.y }],
+    });
+  }
 }
+/** MINERAL_REGEN_TIME, quoted so the sentence above cannot drift from the game */
+const MINERAL_COOLDOWN_NOTE = 50000;
 
 // ------------------------------------------------------------------
 // THE UPGRADER SEATS, COUNTED ON THE FINISHED ROOM.

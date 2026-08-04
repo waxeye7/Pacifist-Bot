@@ -37,6 +37,13 @@
  */
 import { D4, D8, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
+import {
+  MOBILITY_TARGET,
+  boardMobility,
+  boardWalkMask,
+  breachesGate,
+  detourFreeSet,
+} from "./layer-shell.mjs";
 
 const N_TOWERS = 6;
 const DEPTH_SAFE = 4;
@@ -48,7 +55,9 @@ const DEPTH_SAFE = 4;
  * inside the window, so the tower fires eight times per siege and then stands
  * there. 10 is the hard ceiling, 8 is what the scoring actually aims at.
  */
-const MAX_REFILL = 10;
+export const MAX_REFILL = 10;
+/** `fieldFrom`'s unreachable sentinel (layer-hub's INF) — a walk, not a number */
+const REFILL_INF = 999;
 /** Only relaxed when a room genuinely has no six legal tiles inside 10. */
 const RELAX_REFILL = [12, 14, 18];
 
@@ -78,7 +87,7 @@ export const TARGET_MIN = 1200;
  * face, and the median furthest-tower refill walk is 1.
  */
 export const WEAK_SHELL_DMG = 1800;
-const REFILL_NOTE = 8;
+export const REFILL_NOTE = 8;
 
 /**
  * Owner call: refill ease is a real weight, not a tiebreak. One extra tile of
@@ -729,6 +738,38 @@ export function planTowers(terrain, plan, opts = {}) {
     improvedBy: 0,
     pairImproved: 0,
   };
+  /**
+   * ...and the same for the self-blocked refill repair below: what it measured
+   * before, what it tried, what the price refused, and where it ended. A room
+   * that still walks past REFILL_NOTE quotes these counters in its declaration.
+   */
+  const refillSearch = {
+    before: null,
+    after: null,
+    rounds: 0,
+    tried: 0,
+    scoreTied: 0,
+    dispersionOk: 0,
+    moved: 0,
+  };
+  /**
+   * ...and for the defender-lap veto: whether the battery was even capable of
+   * lengthening a walk, what it read if it was, and what the search cost.
+   */
+  const mobilityVeto = {
+    checked: false,
+    provedFree: false,
+    baseLap: null,
+    baseOver: null,
+    lapWithBattery: null,
+    overWithBattery: null,
+    breached: false,
+    rounds: 0,
+    tried: 0,
+    scoreTied: 0,
+    affordable: 0,
+    moved: 0,
+  };
   {
     // WHAT THE DISPERSION PASS IS ALLOWED TO SPEND, stated as a price.
     //
@@ -854,9 +895,216 @@ export function planTowers(terrain, plan, opts = {}) {
       nukeSearch.pairImproved++;
     }
     nukeSearch.improvedBy = nukeBefore - nukeAfter;
+
+    // ------------------------------------------------------------------
+    // THE REFILL WALK, MEASURED WITH THE BATTERY STANDING IN IT.
+    //
+    // `refill` above is a field taken from the sitter over a board that blocks
+    // storage / terminal / link / spawn and the room objects — and NOT the six
+    // towers, because when it is computed there are no towers yet. That is the
+    // right field to GATHER candidates on (a tile's reachability is a property
+    // of the tile) and it is the wrong one to PUBLISH, because a tower is an
+    // OBSTACLE_OBJECT_TYPE and the other five stand between the filler and this
+    // one. 91 of 172 rooms hold three or more towers inside chebyshev 2 of the
+    // sitter, so this is not an edge case: the battery routinely walls itself in.
+    //
+    // Two rooms shipped a silent shortfall because of it. E12S4 published
+    // refillDists [1,7,2,2,3,4] and walks [1,9,2,2,3,4]; E18S3 published
+    // [1,4,2,3,4,6] and walks [1,4,2,3,4,9]. Both are over the 8-step
+    // REFILL_NOTE line the fleet declares on, and neither said a word — while
+    // E8S4, at the same as-built number, did. Lifting the towers out of the
+    // as-built board reproduces the published array exactly in both rooms, so
+    // the towers are the whole difference.
+    //
+    // So the number this layer publishes is the SELF-BLOCKED one, and when it
+    // breaks the note the layer does what it already does for nuke dispersion:
+    // it searches its own candidate list for a seat that fixes it, under a price
+    // it may not exceed — the weakest face and the saturation compared exactly
+    // (`same`), and the nuke window not worsened. Layer 7 re-derives the same
+    // walk over the FULL as-built board (labs, extensions, the nuker and the
+    // observer are obstacles too) and that reading is the number of record.
+    // ------------------------------------------------------------------
+    const arriveField = (f, t) => {
+      const v = f[idx(t.x, t.y)];
+      if (v < REFILL_INF) return v;
+      let bestD = REFILL_INF;
+      for (const [dx, dy] of D8) {
+        const x = t.x + dx,
+          y = t.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        const w = f[idx(x, y)];
+        if (w < REFILL_INF && w + 1 < bestD) bestD = w + 1;
+      }
+      return bestD;
+    };
+    /** the filler's walk to each seat of `set`, with all of `set` standing */
+    const selfBlockedRefills = (set) => {
+      const blk = new Set(impassable);
+      for (const c of set) blk.add(key(cands[c].x, cands[c].y));
+      const f = fieldFrom(terrain, plan.sitter, blk);
+      return set.map((c) => arriveField(f, cands[c]));
+    };
+    refillSearch.before = Math.max(...selfBlockedRefills(best));
+    refillSearch.after = refillSearch.before;
+    if (refillSearch.before > REFILL_NOTE) {
+      for (let pass = 0; pass < 4 && refillSearch.after > REFILL_NOTE; pass++) {
+        refillSearch.rounds++;
+        let pick = null;
+        let pickMax = refillSearch.after;
+        // EVERY SLOT, not just the slow one. The walk is long precisely BECAUSE
+        // the other five towers are standing in it, so the seat that has to move
+        // is frequently not the seat that is far away — E12S4's furthest tower is
+        // walled in by the two beside the sitter. Six slots times this room's
+        // candidate list is a few hundred score evaluations, and only the handful
+        // that clear the price above pay for a distance field.
+        for (let si = 0; si < best.length; si++)
+        for (let c = 0; c < C; c++) {
+          if (c === best[si] || conflicts(best, c, si)) continue;
+          const trial = best.slice();
+          trial[si] = c;
+          refillSearch.tried++;
+          // THE PRICE, and it is not quite the dispersion pass's price. The
+          // weakest wall face and the saturation are compared EXACTLY, as
+          // always — those are what the layer is for. The remaining tie-break
+          // `val` is "evenness minus refill walk minus road spur", i.e. a
+          // number that already contains the quantity being repaired, so
+          // holding it fixed while explicitly buying refill walk would be
+          // refusing the trade on the grounds that it is a trade. It is free
+          // here and nowhere else.
+          const sc = scoreOf(trial);
+          if ((sc.min >= TARGET_MIN) !== (bestSc.min >= TARGET_MIN)) continue;
+          if (sc.min < bestSc.min || sc.sat < bestSc.sat) continue;
+          refillSearch.scoreTied++;
+          if (windowMax(trial) > nukeAfter) continue;
+          refillSearch.dispersionOk++;
+          const mx = Math.max(...selfBlockedRefills(trial));
+          if (mx < pickMax) {
+            pickMax = mx;
+            pick = trial;
+          }
+        }
+        if (!pick) break;
+        best = pick;
+        refillSearch.after = pickMax;
+        refillSearch.moved++;
+      }
+      nukeAfter = windowMax(best);
+    }
+
+    // ------------------------------------------------------------------
+    // THE BATTERY READS THE DEFENDER'S LAP — because the lift test says it has to.
+    //
+    // Layer 7 runs a whole-room LIFT TEST on the finished base: lift every
+    // structure whose position this planner chose, re-run the entire mobility
+    // metric, and if the gate clears then the miss is ours and the guilty class
+    // is named by lifting classes one at a time. It is an honest instrument —
+    // round 10 reproduced every one of its per-class numbers independently — and
+    // that is exactly what made the old behaviour indefensible: rooms shipped a
+    // mobility DECLARATION whose own evidence said "lifting the tower battery
+    // alone takes this room to 0", and the planner filed it as an accepted
+    // exception. E4S8 was the sharpest: one tower, one tile, 1.5 against a 1.2
+    // target — in a layer that already enumerates 600-1400 tower swaps per room
+    // for nuke dispersion and had simply never read a lap.
+    //
+    // A declaration is an accepted exception only when the thing is genuinely
+    // impossible. So the attempt happens HERE, where the tower positions are
+    // still free, under the same non-negotiable price as everything else in this
+    // block: the weakest wall face and the saturation compared exactly.
+    //
+    // WHY THIS IS AFFORDABLE. `detourFreeSet` proves, in one pass over eight
+    // neighbours per tile, that blocking a tile set cannot lengthen any interior
+    // walk — so the expensive all-pairs measurement is only paid for by the
+    // handful of batteries that sit in a genuine corridor pinch, and the swap
+    // search is only paid for by the ones that then actually breach.
+    // ------------------------------------------------------------------
+    const walkBase = boardWalkMask(terrain, plan, null);
+    const towerTilesOf = (set) => set.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+    const keysOf = (set) => set.map((c) => key(cands[c].x, cands[c].y));
+    if (walkBase && plan.shell?.cut?.length) {
+      mobilityVeto.checked = true;
+      if (detourFreeSet(walkBase, towerTilesOf(best))) {
+        mobilityVeto.provedFree = true;
+      } else {
+        const base = boardMobility(terrain, plan, null);
+        let trial = boardMobility(terrain, plan, keysOf(best));
+        mobilityVeto.baseLap = base ? base.maxGated : null;
+        mobilityVeto.baseOver = base ? base.overGated : null;
+        mobilityVeto.lapWithBattery = trial ? trial.maxGated : null;
+        mobilityVeto.overWithBattery = trial ? trial.overGated : null;
+        if (base && trial && breachesGate(base, trial)) {
+          mobilityVeto.breached = true;
+          // Bounded on purpose: only score-tied, dispersion-non-worsening
+          // candidates are ever measured, and at most MOBILITY_TRIALS of them.
+          const MOBILITY_TRIALS = 48;
+          for (let pass = 0; pass < 3 && mobilityVeto.breached; pass++) {
+            mobilityVeto.rounds++;
+            let pick = null;
+            let pickLap = trial.maxGated;
+            let measured = 0;
+            for (let si = 0; si < best.length && measured < MOBILITY_TRIALS; si++) {
+              for (let c = 0; c < C && measured < MOBILITY_TRIALS; c++) {
+                if (c === best[si] || conflicts(best, c, si)) continue;
+                const t2 = best.slice();
+                t2[si] = c;
+                mobilityVeto.tried++;
+                if (!same(scoreOf(t2), bestSc)) continue;
+                mobilityVeto.scoreTied++;
+                if (windowMax(t2) > nukeAfter) continue;
+                if (Math.max(...selfBlockedRefills(t2)) > Math.max(refillSearch.after, REFILL_NOTE))
+                  continue;
+                mobilityVeto.affordable++;
+                if (detourFreeSet(walkBase, towerTilesOf(t2))) {
+                  pick = t2;
+                  pickLap = 0;
+                  measured++;
+                  break;
+                }
+                measured++;
+                const m2 = boardMobility(terrain, plan, keysOf(t2));
+                if (m2 && m2.maxGated < pickLap - 1e-9) {
+                  pickLap = m2.maxGated;
+                  pick = t2;
+                }
+              }
+              if (pick && pickLap <= MOBILITY_TARGET) break;
+            }
+            if (!pick) break;
+            best = pick;
+            mobilityVeto.moved++;
+            nukeAfter = windowMax(best);
+            refillSearch.after = Math.max(...selfBlockedRefills(best));
+            trial = boardMobility(terrain, plan, keysOf(best));
+            mobilityVeto.lapWithBattery = trial ? trial.maxGated : null;
+            mobilityVeto.overWithBattery = trial ? trial.overGated : null;
+            mobilityVeto.breached = !!(base && trial && breachesGate(base, trial));
+          }
+        }
+      }
+    }
   }
 
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+  // ...and the walk the filler really makes at this layer, republished over the
+  // six seats that ship. See the block above; layer 7 re-derives it again over
+  // the whole as-built base and that reading replaces this one.
+  const selfBlockedField = (() => {
+    const blk = new Set(impassable);
+    for (const t of towers) blk.add(key(t.x, t.y));
+    return fieldFrom(terrain, plan.sitter, blk);
+  })();
+  const refillAt = (t) => {
+    const v = selfBlockedField[idx(t.x, t.y)];
+    if (v < REFILL_INF) return v;
+    let bestD = REFILL_INF;
+    for (const [dx, dy] of D8) {
+      const x = t.x + dx,
+        y = t.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const w = selfBlockedField[idx(x, y)];
+      if (w < REFILL_INF && w + 1 < bestD) bestD = w + 1;
+    }
+    return bestD;
+  };
 
   // ------------------------------------------------------------------
   // THE CLUMP, MEASURED AND DECLARED.
@@ -921,6 +1169,12 @@ export function planTowers(terrain, plan, opts = {}) {
   // the SET, so the order costs nothing to fix: sort by refill walk and the
   // first tower built is always the one the filler reaches soonest. Ties go
   // by (y,x) so two runs on the same terrain emit the same array.
+  // WHICH FIELD ORDERS THEM — and it is deliberately NOT the self-blocked one
+  // the layer publishes. tower[0] is built at RCL3, in a room that owns ten
+  // extensions, no labs, no nuker, no observer and no other tower; the walk that
+  // decides which tower the filler should reach first is the walk on THAT board,
+  // which is exactly the pre-mass field. Ordering by the RCL8 walk instead put
+  // tower[0] behind five towers that do not exist yet in two rooms.
   towers.sort(
     (a, b) => refill[idx(a.x, a.y)] - refill[idx(b.x, b.y)] || a.y - b.y || a.x - b.x,
   );
@@ -963,6 +1217,7 @@ export function planTowers(terrain, plan, opts = {}) {
       // battery while the filler keeps it wet, so a tower past this layer's own
       // note threshold is not offered the RCL5 slot however much wall it covers;
       // it will be built at RCL6 with the rest.
+      // ...on the same RCL5-era board as the sort above, not the RCL8 one
       if (refill[idx(towers[i].x, towers[i].y)] > REFILL_NOTE) continue;
       const sc = pairScore(towers[i]);
       const better =
@@ -1058,7 +1313,7 @@ export function planTowers(terrain, plan, opts = {}) {
     if (s < TARGET_MIN) weak++;
     sum += s;
   }
-  const refills = towers.map((t) => refill[idx(t.x, t.y)]);
+  const refills = towers.map((t) => refillAt(t));
   const maxRefill = Math.max(...refills);
   const cx = towers.reduce((a, t) => a + t.x, 0) / N_TOWERS;
   const cy = towers.reduce((a, t) => a + t.y, 0) / N_TOWERS;
@@ -1135,7 +1390,21 @@ export function planTowers(terrain, plan, opts = {}) {
     if (maxRefill > REFILL_NOTE) {
       bits.push(
         `the furthest tower is a ${maxRefill}-step refill walk from the sitter — legal (the hard cap is ` +
-          `${MAX_REFILL}) but far enough that a refill trip costs more than the tower's own reload`,
+          `${MAX_REFILL}) but far enough that a refill trip costs more than the tower's own reload. ` +
+          `THAT WALK IS MEASURED WITH THE BATTERY STANDING IN IT (the other five towers are obstacles; ` +
+          `over the pre-mass field this layer gathers candidates on it reads ` +
+          `${Math.max(...towers.map((t) => refill[idx(t.x, t.y)]))}), and a repair was ATTEMPTED: ` +
+          (refillSearch.rounds
+            ? `${refillSearch.rounds} round(s) over this room's ${C} legal seat(s), ${refillSearch.tried} ` +
+              `single-slot swap(s) examined, ${refillSearch.scoreTied} of them score-tied and therefore ` +
+              `affordable, ${refillSearch.dispersionOk} of those also non-worsening for the nuke window — ` +
+              (refillSearch.moved
+                ? `${refillSearch.moved} seat(s) moved, taking the walk from ${refillSearch.before} to ` +
+                  `${refillSearch.after}, and this is where it stopped`
+                : `and not one of them shortened the walk without costing the weakest wall face, which is ` +
+                  `the trade this layer may not make`)
+            : `none was needed at this layer — it measured ${refillSearch.before} here and layer 7's ` +
+              `as-built re-derivation is what pushed it over`),
       );
     }
     shortfalls.push({
@@ -1215,6 +1484,14 @@ export function planTowers(terrain, plan, opts = {}) {
       // order would have given it instead — see the RCL5 block above
       rcl5Pair,
       maxRefill,
+      // the pre-mass field this layer GATHERED candidates on, kept beside the
+      // self-blocked walk it now publishes so the difference is one subtraction
+      refillDistsUnblocked: towers.map((t) => refill[idx(t.x, t.y)]),
+      refillSearch,
+      // the defender-lap veto's own record — see the block above planTowers's
+      // dispersion search. `provedFree` means the six tiles cannot lengthen one
+      // interior walk and nothing had to be measured.
+      mobilityVeto,
       spreadRadius,
       newRoads: newRoads.length,
       candidates: C,
