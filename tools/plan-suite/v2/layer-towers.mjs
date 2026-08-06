@@ -86,7 +86,7 @@ const RELAX_REFILL = [12, 14, 18];
  * costs 6 damage of fleet-mean minimum for 35 tiles of filler walk, which was
  * not a trade worth making while the max-min is the owner's stated criterion.
  */
-const MIN_SAT = 3600;
+export const MIN_SAT = 3600;
 /**
  * Concavity knob for the tie-break's evenness term. Damage past CAP is free
  * extra, so a set cannot win the tie-break by stacking a fourth tower's worth
@@ -921,19 +921,59 @@ export function planTowers(terrain, plan, opts = {}) {
     pairs: 0,
     pairTiles: [],
     crossings: [],
-    // THE STANDING COST OF THE PRIOR, on the room's primary objective. See the
-    // block below: `reachable` is the saturated weakest face a single swap ACROSS
-    // the prior can reach with every instrument this layer owns read on the trial
-    // and none of them worse, `held` is what the room ships, and `forgone` is the
-    // difference the fleet is choosing to leave on the table this round.
+    // THE STANDING COST OF THE PRIOR, on the room's primary objective — and it
+    // is stated ON THE BOARD THE ROOM SHIPS, which is not the board this layer
+    // searches on.
+    //
+    // Until round 15 `held` was `scoreOf(best).sat` — the weakest face of the
+    // wall LAYER 2 handed this layer — published under a field doc that says
+    // "`held` is what the room ships". It was equal to `meta.towers.minShellDmg`
+    // in 172/172 rooms and never to `meta.towers.shippedMinShellDmg`, which sits
+    // in the same object; the two disagree in five rooms (E15S5 E21S8 E2S6 E3S6
+    // E6S4) because layer 7's inert prune and its single-removal seal
+    // reconciliation both change which tiles carry the line. That is exactly the
+    // defect the comment three lines below claims to be avoiding, one level up:
+    // a record describing a wall the room does not build.
+    //
+    // So there are two readings and both ship, the same way `minShellDmg` and
+    // `shippedMinShellDmg` both ship:
+    //   · `atLayer3` — the board the DECISION was made on. This layer's search
+    //     could not have consulted any other, and the refusal it records is only
+    //     explicable against it.
+    //   · `held` / `offerOnShipped` / `reachable` / `forgone` — re-derived in
+    //     finalizeRoom (layer-walls) over `meta.shell.cut` x `structures.tower`
+    //     with the engine falloff, the same arithmetic and the same call
+    //     (`shellDamage`) that produces `shippedMinShellDmg`. That is the OUTCOME
+    //     the criticism is about, and it is the only one of the two a reader can
+    //     re-derive from the shipped board alone.
+    // `reachable` never drops below `held` — the room may always keep what it
+    // has — so `forgone` stays non-negative; when the layer-3 offer reads WORSE
+    // on the shipped wall, `offerOnShipped` carries the raw number and `forgone`
+    // is 0, which is the honest statement that the prior costs this room nothing
+    // on the board it ships.
     satAcrossPrior: {
+      // filled by finalizeRoom — see basis
       held: null,
       reachable: null,
       forgone: 0,
+      // the layer-3 offer (`seat` in, `leaves` out) re-read on the shipped wall,
+      // raw and unclamped; null when this layer found no crossing offer at all
+      offerOnShipped: null,
+      // the board the search itself ran on, kept because the decision is only
+      // explicable against it
+      atLayer3: { held: null, reachable: null, forgone: 0 },
       tried: 0,
       crossOffered: 0,
       seat: null,
       leaves: null,
+      basis:
+        `held/offerOnShipped/reachable/forgone are re-derived in finalizeRoom over the SHIPPED wall ` +
+        `(meta.shell.cut) and the SHIPPED battery (structures.tower) with the engine falloff — 600 at ` +
+        `chebyshev <= 5, -30 per tile to 150 at >= 20 — capped at the ${MIN_SAT} saturation ceiling, the ` +
+        `same call that produces meta.towers.shippedMinShellDmg. atLayer3 keeps the reading the search ` +
+        `was actually made on (layer 2's cut, meta.towers.minShellDmg), because a refusal is only ` +
+        `explicable against the board that saw it. seat/leaves/tried/crossOffered are the layer-3 ` +
+        `search's own census and are stated on that board.`,
     },
   };
   /** the three readings a crossing has to prove it does not worsen */
@@ -1341,17 +1381,26 @@ export function planTowers(terrain, plan, opts = {}) {
   //
   // This layer exists to maximise the damage on the WEAKEST cut tile, and the
   // prior is holding eighteen rooms one falloff step under what their own
-  // candidate list can reach: E2S8 3570/3600, E3S1 1200/1260, E15S5 1350/1410,
-  // E11S9 1560/1620, E8S6 2670/2730 and thirteen more at +30. In every one of
-  // them the swap that closes the gap clears the price this layer can price —
-  // the floor is never lowered, the 5x5 window over the mass layer 3 can see
-  // does not grow, the tower-only 5x5 does not grow, the self-blocked filler
-  // walk does not grow, the interior is still whole — and is refused by
-  // D8-adjacency and by nothing else.
+  // candidate list can reach — E11S7 E11S9 E15S5 E17S2 E17S3 E18S4 E19S8 E19S9
+  // E1S1 E21S8 E2S8 E3S1 E4S3 E5S2 E7S8 E8S6 E9S3 E9S9, each +30 except E11S9
+  // and E15S5 at +60, so +600 of fleet weakest-face. (Round 14 published the
+  // same eighteen rooms with a +660 total and named E3S1 and E8S6 at +60; both
+  // of those rooms move by one falloff step, +30, and the per-room list is what
+  // the fleet sum has to add up to. 600 it is.) In every one of them the swap
+  // that closes the gap clears the price this layer can price — the floor is
+  // never lowered, the 5x5 window over the mass layer 3 can see does not grow,
+  // the tower-only 5x5 does not grow, the self-blocked filler walk does not
+  // grow, the interior is still whole — and is refused by D8-adjacency and by
+  // nothing else.
+  //
+  // (This eighteen is the layer-3 board's count. What the RECORD below publishes
+  // is narrower and is stated on the SHIPPED wall: the swap has to survive
+  // `crossingProven` as well, and layer 7's prune and seal reconciliation get to
+  // move the wall afterwards. See `satAcrossPrior.basis`.)
   //
   // AND IT IS STILL NOT TAKEN, because "the price this layer can price" is not
   // the price. Taking all eighteen was built and measured on the whole fleet:
-  // the weakest-face sum rises 418770 -> 419430, and the SHIPPED nuke window
+  // the weakest-face sum rises 418770 -> 419370, and the SHIPPED nuke window
   // (meta.towers.nukeWindow, recomputed after layer 5 over spawn / storage /
   // terminal / NUKER / tower) rises in seven rooms — E8S6 8 -> 10, E18S4 9 -> 10,
   // E17S2 / E19S9 / E5S2 / E7S8 / E9S3 each 8 -> 9 — and E12S4's as-built refill
@@ -1370,14 +1419,20 @@ export function planTowers(terrain, plan, opts = {}) {
   // decision, which is a layer-5 change and not this round's.
   // ------------------------------------------------------------------
   {
-    // scored on the board that SHIPS, not on `bestSc` — the dispersion, refill
+    // scored on the BATTERY that ships, not on `bestSc` — the dispersion, refill
     // and mobility passes all move towers after the descent set `bestSc`, and a
     // record that describes a set the room does not build is the defect this
-    // planner keeps finding in itself.
+    // planner keeps finding in itself. The WALL under it is still layer 2's,
+    // which is the other half of the same defect and is why finalizeRoom re-takes
+    // these numbers; this reading is filed as `atLayer3` and says so.
     const shipSc = scoreOf(best);
     const caps = crossCaps(best);
-    adjacency.satAcrossPrior.held = shipSc.sat;
-    adjacency.satAcrossPrior.reachable = shipSc.sat;
+    // ...and this search is on LAYER 2's cut, because that is the only wall that
+    // exists yet. The reading goes under `atLayer3` and finalizeRoom re-takes the
+    // same three numbers over the wall the room ships — see the record's `basis`.
+    const l3 = adjacency.satAcrossPrior.atLayer3;
+    l3.held = shipSc.sat;
+    l3.reachable = shipSc.sat;
     for (let si = 0; si < best.length; si++) {
       for (let c = 0; c < C; c++) {
         if (c === best[si] || occupied2(best, c, si)) continue;
@@ -1385,17 +1440,16 @@ export function planTowers(terrain, plan, opts = {}) {
         trial[si] = c;
         adjacency.satAcrossPrior.tried++;
         const sc = scoreOf(trial);
-        if (sc.min < shipSc.min || sc.sat <= adjacency.satAcrossPrior.reachable) continue;
+        if (sc.min < shipSc.min || sc.sat <= l3.reachable) continue;
         if (!conflicts(best, c, si)) continue; // a non-crossing lift is the descent's job
         adjacency.satAcrossPrior.crossOffered++;
         if (!crossingProven(trial, caps)) continue;
-        adjacency.satAcrossPrior.reachable = sc.sat;
+        l3.reachable = sc.sat;
         adjacency.satAcrossPrior.seat = { x: cands[c].x, y: cands[c].y };
         adjacency.satAcrossPrior.leaves = { x: cands[best[si]].x, y: cands[best[si]].y };
       }
     }
-    adjacency.satAcrossPrior.forgone =
-      adjacency.satAcrossPrior.reachable - adjacency.satAcrossPrior.held;
+    l3.forgone = l3.reachable - l3.held;
   }
 
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));

@@ -2272,6 +2272,32 @@ export function planShell(terrain, plan, opts = {}) {
     // decision really was made on these numbers; what changed is that it is no
     // longer allowed to be the headline.
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // ...AND EVERY NUMBER THE PARAGRAPH QUOTES IS A FIELD BESIDE IT.
+    //
+    // `detail` is a hand-typed sentence and it stays one: the enclosure really
+    // was chosen on these readings and a record edited to agree with the outcome
+    // is not a record. But a paragraph whose numbers exist nowhere else is a
+    // paragraph no audit can check — round 15 replaced E11S2's with the exact
+    // OPPOSITE claim ("COMFORTABLY INSIDE the target on every pair") and the
+    // whole fleet passed clean, four words above a generated sentence that
+    // contradicted it.
+    //
+    // The fix is not to generate the sentence. It is to publish, structured and
+    // beside it, every quantity the sentence quotes — so the two can be compared
+    // token by token, and a paragraph that quotes a number this record does not
+    // carry is a paragraph about some other room. Six of them were already here
+    // (`maxUngated`, `maxStrict`, `endpoints`, `reachable`, `detourFloor` and the
+    // pair tiles); the target, both pair walks, both counterfactual walks with
+    // their detours and ratios, the proved floor, the band it was proved over,
+    // the tiebreak budget, all four pair counts, the p90, the longest detour and
+    // its tiles, and the eco-lobe figures were not.
+    // ------------------------------------------------------------------
+    /** a counterfactual walk exactly as `verdictOf` prints it */
+    const walkLeaf = (d) => {
+      if (!isFinite(d) || d === null) return { d: null, dout, detour: null, ratio: null };
+      return { d, dout, detour: d - dout, ratio: round2(d / dout) };
+    };
     mobility.negotiation = {
       metric: {
         exact: !mobility.sampled,
@@ -2280,11 +2306,58 @@ export function planShell(terrain, plan, opts = {}) {
         maxStrict: mobility.maxStrict,
         detourFloor: MOBILITY_DETOUR_FLOOR,
         maxUngated: mobility.max,
+        // the gated reading the sentence opens on, and the line it is judged
+        // against — carried rather than imported, so the paragraph is read
+        // against the target that was in force when it was written
+        maxGated: mobility.maxGated,
+        target: MOBILITY_TARGET,
+        // the four pair counts the sentence prints as two fractions
+        overGated: mobility.overGated,
+        gatedPairs: mobility.gatedPairs,
+        over: mobility.over,
+        pairs: mobility.pairs,
+        p90: mobility.p90,
+        maxDetour: mobility.maxDetour,
       },
       tiles: [
         { x: a.x, y: a.y },
         { x: b.x, y: b.y },
       ],
+      // the worst gated pair's own two walks — "the defender walks N inside
+      // while the attacker walks M outside"
+      walk: { din, dout },
+      // the two counterfactual re-walks the CAUSE clause quotes, each with the
+      // detour and ratio `verdictOf` derives from it. `d: null` is a walk that
+      // does not connect at all, which the sentence says in words and prints no
+      // number for.
+      causeWalks: {
+        noStructures: walkLeaf(cw.noStructures),
+        noWalls: walkLeaf(cw.noWalls),
+      },
+      // the proved floor, the band it was proved over, and the price of that band
+      floor: mobility.floor,
+      candidates: mobilityBandSize || 1,
+      tiebreakBudget: MOBILITY_TIEBREAK_BUDGET,
+      // the longest extra walk anywhere on this wall, and the pair that owns it
+      worstDetour: mobility.worstDetour
+        ? {
+            a: { x: mobility.worstDetour.a.x, y: mobility.worstDetour.a.y },
+            b: { x: mobility.worstDetour.b.x, y: mobility.worstDetour.b.y },
+            din: mobility.worstDetour.din,
+            dout: mobility.worstDetour.dout,
+            ratio: mobility.worstDetour.ratio,
+          }
+        : null,
+      // ...and the eco-lobe clause, which only three rooms in the fleet print
+      eco:
+        mobility.ecoCost > 0
+          ? {
+              ecoCost: mobility.ecoCost,
+              bareDeep: pick.deep,
+              needDeep,
+              deepTiles,
+            }
+          : null,
       detail:
         `defender mobility max ${mobility.maxGated} over pairs that cost more than ` +
         `${MOBILITY_DETOUR_FLOOR} tiles of detour (target ${MOBILITY_TARGET}; the ungated maximum over ` +

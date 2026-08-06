@@ -56,7 +56,15 @@ import {
   mobilityStats,
   pickBattlements,
 } from "./layer-shell.mjs";
-import { CLUMP_NOTE, MAX_REFILL, REFILL_NOTE, TARGET_MIN, WEAK_SHELL_DMG, shellDamage } from "./layer-towers.mjs";
+import {
+  CLUMP_NOTE,
+  MAX_REFILL,
+  MIN_SAT,
+  REFILL_NOTE,
+  TARGET_MIN,
+  WEAK_SHELL_DMG,
+  shellDamage,
+} from "./layer-towers.mjs";
 import { reflowExtensions } from "./layer-ext.mjs";
 import { renderCutReason, renderDecl } from "./declprose.mjs";
 
@@ -617,6 +625,21 @@ function verifyMobility(terrain, plan) {
             cause: plan.shell.mobility.cause,
             tiles: neg.tiles,
             metric: neg.metric,
+            // ...and the rest of layer 2's own measurements, carried whole. The
+            // paragraph below quotes all of them and until round 15 carried none
+            // of them: the pair walks, both counterfactual re-walks with the
+            // detour and ratio the CAUSE clause prints, the proved floor, the
+            // candidate band and what it was allowed to cost, the longest detour
+            // and its pair, and the eco-lobe figures. See the block over
+            // `mobility.negotiation` in layer-shell: a quoted number with no leaf
+            // beside it is a quotation this declaration's audit cannot check.
+            walk: neg.walk ?? null,
+            causeWalks: neg.causeWalks ?? null,
+            floor: neg.floor ?? null,
+            candidates: neg.candidates ?? null,
+            tiebreakBudget: neg.tiebreakBudget ?? null,
+            worstDetour: neg.worstDetour ?? null,
+            eco: neg.eco ?? null,
             shippedWallLap: shipLap === null ? null : round2(shipLap),
             // layer 2's paragraph, VERBATIM — the thing the negotiation block
             // quotes. It used to be reached through the plan; it is a field now,
@@ -1915,6 +1938,62 @@ function remeasureShell(terrain, plan, reason) {
 
 /**
  * ------------------------------------------------------------------------
+ * WHAT THE D8-ADJACENCY PRIOR COSTS — RE-READ ON THE BOARD THAT SHIPS.
+ * ------------------------------------------------------------------------
+ * `meta.towers.adjacency.satAcrossPrior` is layer 3's finding: a single tower
+ * swap ACROSS the prior would lift the weakest wall face, every instrument that
+ * layer owns says it is free, and the room does not take it. Layer 3 measured
+ * it on the only wall that existed when it ran — layer 2's min-cut — and
+ * published `held` under a field doc reading "what the room ships". It was
+ * `meta.towers.minShellDmg` in 172/172 rooms and `meta.towers.shippedMinShellDmg`
+ * in none: the two disagree in five rooms (E15S5 E21S8 E2S6 E3S6 E6S4) because
+ * the inert prune and the single-removal seal reconciliation above BOTH move the
+ * line. A cost stated about a wall the room does not build is the same defect
+ * `shippedMinShellDmg`, `mobilityBuilt`, `nukeWindow` and `maxRefill` were each
+ * added to close, arriving one object deeper.
+ *
+ * So it is re-taken here, where the wall is final, with the same call and the
+ * same falloff that produce `shippedMinShellDmg`:
+ *   · `held`           — the weakest face of `meta.shell.cut` under the SHIPPED
+ *                        battery, saturation-capped at MIN_SAT.
+ *   · `offerOnShipped` — the SAME reading with layer 3's offered seat standing
+ *                        and the tower it displaces gone. Raw: it is allowed to
+ *                        come out lower than `held`, and in one room it does.
+ *   · `reachable`      — `max(held, offerOnShipped)`. Holding what the room
+ *                        already holds is always available, so this never drops
+ *                        below `held` and `forgone` is never negative. When the
+ *                        offer reads worse on the shipped wall the honest
+ *                        statement is "the prior costs this room nothing", with
+ *                        `offerOnShipped` carrying the number that says why.
+ * `atLayer3` keeps layer 3's reading untouched — the refusal was made on that
+ * board and is only explicable against it.
+ *
+ * The offer is only re-read when `leaves` is genuinely one of the six shipped
+ * towers. If it is not, no swap of the shipped battery is being described and
+ * the pass refuses to invent one rather than measuring a seventh tower.
+ */
+function rebindSatAcrossPrior(plan) {
+  const ap = plan.meta?.towers?.adjacency?.satAcrossPrior;
+  if (!ap) return;
+  const towers = plan.structures?.tower || [];
+  const cutNow = plan.shell?.cut || [];
+  const cap = (v) => (v < MIN_SAT ? v : MIN_SAT);
+  const held = cap(shellDamage(towers, cutNow).min);
+  let offer = null;
+  if (ap.seat && ap.leaves) {
+    const kept = towers.filter((t) => !(t.x === ap.leaves.x && t.y === ap.leaves.y));
+    if (kept.length === towers.length - 1) {
+      offer = cap(shellDamage(kept.concat([{ x: ap.seat.x, y: ap.seat.y }]), cutNow).min);
+    }
+  }
+  ap.held = held;
+  ap.offerOnShipped = offer;
+  ap.reachable = offer !== null && offer > held ? offer : held;
+  ap.forgone = ap.reachable - ap.held;
+}
+
+/**
+ * ------------------------------------------------------------------------
  * WALL THAT IS NOT LOAD-BEARING, AND WHY IT IS STILL THERE.
  * ------------------------------------------------------------------------
  * "No double shell" is a hard gate, and a cut tile whose single removal does
@@ -2766,7 +2845,19 @@ export function planWallRoads(terrain, plan) {
   //     holes, and a tile paved here is a genuine connector that the prune,
   //     which judges by adjacency to structures, would have deleted again.
   // ------------------------------------------------------------------
-  let swampPaved = 0;
+  // ...and PAVING A HOLE IS NOT ALWAYS LAYING A TILE. `paveHole` closes a hole
+  // either by laying a new road (which gets a `swampPave` sub-kind, and is a
+  // tile this pass is answerable for) or by taking a road the prune had already
+  // deleted back off the `pruned` set — which lays nothing, changes no tile's
+  // provenance, and leaves the tile belonging to whichever pass or layer really
+  // laid it. Counting both under one number is what made E18S8 publish
+  // `laidByKind.swampPave` 3 against a two-tile shipped set and a lost set of
+  // zero: one of the three "paved" holes was layer 1's own road, resurrected.
+  // The hole count keeps its name and its meaning; the LAID count is separate
+  // and is the one the laid === shipped + lost identity is stated on.
+  let swampPaved = 0; // holes closed
+  let swampPaveLaid = 0; // ...of which new tiles this pass laid
+  const swampPaveRestored = []; // ...and the roads it un-deleted instead
   kindNow = "swampPave";
   {
     const live = new Set();
@@ -2830,16 +2921,18 @@ export function planWallRoads(terrain, plan) {
       if (pruned.has(k)) {
         pruned.delete(k);
         nodes.add(k);
-        return true;
+        return "restored";
       }
-      return addRoad(x, y);
+      return addRoad(x, y) ? "laid" : null;
     };
     for (const h of cands.sort((a, b) => a.y - b.y || a.x - b.x)) {
       if (!isHole(h.x, h.y)) continue;
-      if (paveHole(h.x, h.y)) {
-        live.add(key(h.x, h.y));
-        swampPaved++;
-      }
+      const how = paveHole(h.x, h.y);
+      if (!how) continue;
+      live.add(key(h.x, h.y));
+      swampPaved++;
+      if (how === "laid") swampPaveLaid++;
+      else swampPaveRestored.push({ x: h.x, y: h.y });
     }
     }
   }
@@ -2899,6 +2992,13 @@ export function planWallRoads(terrain, plan) {
   // failure reverts the tile. A single crossing tile is never touched.
   // ------------------------------------------------------------------
   let alongCutMoved = 0;
+  // ...and, exactly as with the swamp holes above, a swap whose interior
+  // parallel is ALREADY a road lays no tile: it un-prunes one. `alongCutMoved`
+  // counts swaps taken (which is what the declaration is about); this counts the
+  // tiles the pass is answerable for in the laid === shipped + lost identity. No
+  // room in the fleet is currently in that branch, which is precisely why it is
+  // worth splitting before one is.
+  let alongCutLaid = 0;
   // ------------------------------------------------------------------
   // ...AND WHEN THE SWAP IS REFUSED, THE ROOM SAYS WHY. The pass published
   // exactly one number, `alongCutMoved`, and five rooms ship a run of two paved
@@ -3136,6 +3236,7 @@ export function planWallRoads(terrain, plan) {
         newRoads.push({ x: target.x, y: target.y });
         roadSet.add(target.k);
         roadKind[target.k] = "alongCutMoved";
+        alongCutLaid++;
       } else {
         pruned.delete(target.k);
       }
@@ -3174,14 +3275,31 @@ export function planWallRoads(terrain, plan) {
   // (E9S2's 35,15 lost its 34,15 face exactly this way). And it must not be
   // pushed twice: if the tile is still sitting in `plan.structures.road` as a
   // ghost, un-pruning it IS the whole edit.
+  //
+  // ...and THE REFLOW NEVER RECORDED WHAT IT LAID. The `laidByKind` map below
+  // was built from this layer's five hand-kept counters and 7b was not one of
+  // them, so the fleet shipped `reflow` laid 0 / shipped 20 / lost 5 across
+  // seven rooms — a pass that ships twenty tiles and admits to none of them, in
+  // the very map whose purpose is to make "laid" answerable. It keeps its own
+  // counters now, on the same laid/restored split as the swamp holes: the
+  // "already" test is the whole live road set (`roadSet`), not just
+  // `plan.structures.road`, because a tile THIS layer paved a moment ago and
+  // 7b then re-chose is equally not a new tile — pushing it into `newRoads` a
+  // second time would ship the same square twice and relabel its provenance.
+  let reflowLaid = 0;
+  const reflowRestored = [];
   if (reflow.roads.length) {
-    const already = new Set(plan.structures.road.map((r) => key(r.x, r.y)));
     for (const rd of reflow.roads) {
       const k = key(rd.x, rd.y);
+      const already = roadSet.has(k);
       pruned.delete(k);
-      if (!already.has(k)) {
+      if (!already) {
+        roadSet.add(k);
         newRoads.push(rd);
         roadKind[k] = "reflow";
+        reflowLaid++;
+      } else {
+        reflowRestored.push({ x: rd.x, y: rd.y });
       }
     }
   }
@@ -3224,12 +3342,36 @@ export function planWallRoads(terrain, plan) {
   // to surviving tiles — the same map the film and the note read, so all three
   // reconcile by construction.
   // ------------------------------------------------------------------
+  // ...AND "EVERY COUNTER" HAS TO MEAN EVERY COUNTER. Two of the seven sub-kinds
+  // were missing from `laidByKind` entirely — 7b's reflow (which shipped twenty
+  // tiles across seven rooms against a laid count of zero, because the map was
+  // built from five hand-listed locals and 7b was not one of them) and the
+  // deferred-conduct bridge (which runs in finalizeRoom, after this function has
+  // already returned, and appeared in neither map). And two of the five that WERE
+  // listed counted events rather than tiles: `swampPaved` counts holes closed and
+  // `alongCutMoved` counts swaps taken, either of which can be satisfied by
+  // un-deleting a road instead of laying one. E18S8 shipped `swampPave` laid 3 /
+  // shipped 2 / lost 0 on exactly that.
+  //
+  // The three maps below now key on the same seven kinds, always, with the empty
+  // ones present and zero — a kind that is missing from a map is a kind a reader
+  // cannot tell apart from a kind the room did not use — and `laid === shipped +
+  // lost` holds per kind per room, with every lost tile named. The event counters
+  // (`swampPaved`, `alongCutMoved`, `spurred`, `stitched`) keep their own names
+  // and their own meanings beside them, and the tiles that were restored rather
+  // than laid are published so the difference between the two is a list and not
+  // a subtraction.
+  // ------------------------------------------------------------------
   // ...and the tiles that went MISSING between laid and shipped, named. A count
   // difference nobody can point at is exactly the "claim about a board nobody
   // shipped" this pair of figures exists to close, so the arithmetic is made to
   // state itself: laid === shipped + lost, tile for tile.
   const lostByKind = {};
   const laidTilesByKind = {};
+  for (const kind of ROAD_KINDS) {
+    lostByKind[kind] = [];
+    laidTilesByKind[kind] = [];
+  }
   for (const k of Object.keys(roadKind)) {
     const kind = roadKind[k];
     (laidTilesByKind[kind] = laidTilesByKind[kind] || []).push(k);
@@ -3245,6 +3387,10 @@ export function planWallRoads(terrain, plan) {
     });
   const shippedByKind = {};
   const shippedTilesByKind = {};
+  for (const kind of ROAD_KINDS) {
+    shippedByKind[kind] = 0;
+    shippedTilesByKind[kind] = [];
+  }
   for (const k of Object.keys(roadKindKept)) {
     const kind = roadKindKept[k];
     shippedByKind[kind] = (shippedByKind[kind] || 0) + 1;
@@ -3313,12 +3459,16 @@ export function planWallRoads(terrain, plan) {
       spurTilesLost: asTiles(lostByKind.spur),
       // the same reconciliation for every other late-road pass that counts as it
       // paves — one shape, one place, no per-counter special cases
+      // laid === shipped + lost, per kind, for all seven kinds. `conductBridge`
+      // is 0 here and filled by finalizeRoom, which is the pass that lays it.
       laidByKind: {
         spur: spurTiles,
         stitch: stitchTiles,
         extFace: fillerTiles,
-        swampPave: swampPaved,
-        alongCutMoved,
+        swampPave: swampPaveLaid,
+        alongCutMoved: alongCutLaid,
+        reflow: reflowLaid,
+        conductBridge: 0,
       },
       shippedByKind,
       lostByKind: Object.fromEntries(
@@ -3327,6 +3477,16 @@ export function planWallRoads(terrain, plan) {
       laidTilesByKind: Object.fromEntries(
         Object.keys(laidTilesByKind).map((kind) => [kind, asTiles(laidTilesByKind[kind])]),
       ),
+      // ...and the tiles a pass CLOSED ITS JOB WITH WITHOUT LAYING ANYTHING: a
+      // road an earlier prune had deleted, taken back off the pruned set. They
+      // are not laid tiles and they keep whatever provenance they already had,
+      // so they belong to no kind's laid set — but the gap between the event
+      // counters and the laid counts is exactly this list, and a gap nobody can
+      // point at is the defect these maps exist to close.
+      restoredByKind: {
+        swampPave: swampPaveRestored,
+        reflow: reflowRestored,
+      },
       servedFree,
       unreachedClusters,
       fillerTiles,
@@ -3863,6 +4023,7 @@ export function finalizeRoom(terrain, plan) {
   if (shipDmg) declareShippedBattery(plan, shipDmg);
   declareUnreachableCut(plan, st.unreachableAtLayer2 || 0);
   noteRedundantCut(terrain, plan, rec?.sealCritical, allInertPruned);
+  rebindSatAcrossPrior(plan);
 
   // ...AND THE NETWORK IS RE-DERIVED WITHOUT THE CONTAINER THAT IS NOT BUILT
   // YET. See bridgeDeferredConduct: two rooms joined their road network through
@@ -3906,7 +4067,36 @@ export function finalizeRoom(terrain, plan) {
         }
         if (plan.meta.walls) {
           plan.meta.walls.roadKind = plan.meta.walls.roadKind || {};
+          const prevKind = plan.meta.walls.roadKind[k];
           plan.meta.walls.roadKind[k] = "conductBridge";
+          // ...AND THE PER-KIND BOOKS ARE KEPT HERE TOO. This pass lays a road
+          // after planWallRoads has returned, so it is the one kind that has to
+          // write its own row in the laid/shipped/lost maps — and until round 15
+          // it wrote none of them: three tiles in three rooms that the sub-kind
+          // map named and the census that reconciles the sub-kind map did not.
+          // Nothing prunes after this point, so every tile laid here ships and
+          // the identity closes with an empty lost set.
+          const w = plan.meta.walls;
+          w.laidByKind = w.laidByKind || {};
+          w.shippedByKind = w.shippedByKind || {};
+          w.lostByKind = w.lostByKind || {};
+          w.laidTilesByKind = w.laidTilesByKind || {};
+          // A tile another kind is SHIPPING cannot arrive here — the bridge only
+          // ever paves tiles absent from `structures.road` — but if one ever did,
+          // it would leave that kind's laid count standing against a shipped set
+          // it has just been taken out of. It goes into that kind's lost list,
+          // which is what "laid and not shipped under this kind" means.
+          if (prevKind && prevKind !== "conductBridge") {
+            w.shippedByKind[prevKind] = Math.max(0, (w.shippedByKind[prevKind] || 0) - 1);
+            (w.lostByKind[prevKind] = w.lostByKind[prevKind] || []).push({ x: t.x, y: t.y });
+          }
+          w.laidByKind.conductBridge = (w.laidByKind.conductBridge || 0) + 1;
+          w.shippedByKind.conductBridge = (w.shippedByKind.conductBridge || 0) + 1;
+          w.lostByKind.conductBridge = w.lostByKind.conductBridge || [];
+          (w.laidTilesByKind.conductBridge = w.laidTilesByKind.conductBridge || []).push({
+            x: t.x,
+            y: t.y,
+          });
         }
       }
       if (relaid.length && plan.meta?.walls?.conductBridge) {
@@ -4435,6 +4625,14 @@ export const LATE_KINDS = {
 };
 /** printing order for the breakdown — the layer's own job order */
 export const LATE_ORDER = Object.keys(LATE_KINDS);
+/**
+ * The seven passes that lay a layer-7 road, in the same order and from the same
+ * table the film captions off. `unclassified` is deliberately NOT one of them:
+ * it is the label for a tile no pass claimed, so a per-kind laid/shipped/lost
+ * census that reserved a slot for it would be reserving a slot for a bug. It
+ * still shows up in `shippedByKind` the moment one occurs, which is the point.
+ */
+export const ROAD_KINDS = LATE_ORDER.filter((k) => k !== "unclassified");
 
 /**
  * The layer-7 road tally, read off meta.roadLayer + meta.walls.roadKind.

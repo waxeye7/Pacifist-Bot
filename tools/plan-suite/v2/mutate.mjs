@@ -60,7 +60,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { checkRoom, ecoWalks } from "./validate.mjs";
+import { checkRoom, ecoWalks, witnessPromiseUnbacked, witnessSilentlyTypeOnly, RECORD_LEAF_STATS } from "./validate.mjs";
 // the producer's own renderer — the round-14 record cases plant a lie in a
 // declaration's structured record and then regenerate `detail` from it, which is
 // exactly the attack the reviewers used: the prose-identity gate is satisfied by
@@ -2263,6 +2263,622 @@ run("r13/F8-untriggered-gate", R, (p) => {
       d.tiles = [...(d.tiles || []), { x: st.x, y: st.y }];
     }, "neither a container nor this room's extractor");
   }
+}
+
+
+// ===========================================================================
+// ROUND 15 — THE WITNESSED HALF, THE UN-INVENTORIED META, AND THE PROSE
+// CHANNELS NOBODY READ.
+//
+// Round 14 closed the DERIVED half of every declaration record. Round 15's
+// reviewers went one indirection deeper and found the same shape three times
+// over:
+//
+//   · the WITNESSED half was type-only. `SEARCH_COUNTER` told 94 leaves'
+//     worth of readers that "the census it belongs to closes arithmetically
+//     around it" and the closure existed for ONE declaration kind. E11S6 could
+//     ship 900 score-tied swaps out of 755 tried, render the sentence, and pass
+//     172/172.
+//   · `meta.towers.adjacency` — the whole tower-adjacency prior, whose
+//     `forgone` sum the goal document quotes as a fleet figure — had no reader
+//     at all. Nine mutations escaped in one sweep.
+//   · 165 of the fleet's 177 planner NOTES were unchecked prose, and
+//     `meta.notes = []` passed every room in the fleet.
+//
+// Every case below is one of those escapes, planted the way its reviewer
+// planted it — and where the defect is in a record, the paragraph is
+// regenerated from the mutated record with the shipped renderer, so producer
+// and validator agree byte for byte and only the content is left standing.
+// ===========================================================================
+{
+  const planted15 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+  };
+  const withDecl15 = (gate, kind, pred) =>
+    anyRoom((p) => {
+      const d = declOf(p, gate, kind);
+      return d ? !pred || pred(d, p) : false;
+    });
+
+  // ---- B1: THE 26 IMPOSSIBLE-ARITHMETIC LEAVES ---------------------------
+  //
+  // Each of these is a number that CANNOT be what it says it is, given another
+  // number on the same record. Every one of them passed 172/172 before this
+  // round, because the bound the inventory stated for it was implemented for
+  // `spawnFan|sector` and described as applying to all eighteen kinds.
+  const arith = [
+    // [name, gate, kind, predicate, edit, expected]
+    ["towers-clump-scoreTied-exceeds-tried", "towers", "clump",
+      (d) => typeof d.dispersion?.search?.singleSwapsTried === "number",
+      (d) => { d.dispersion.search.singleSwapsScoreTied = d.dispersion.search.singleSwapsTried + 145; },
+      "singleSwapsScoreTied"],
+    ["towers-clump-pairTied-out-of-zero-pair-swaps", "towers", "clump",
+      (d) => d.dispersion?.search?.pairSwapsTried === 0,
+      (d) => { d.dispersion.search.pairSwapsScoreTied = 500; },
+      "pairSwapsScoreTied"],
+    ["towers-clump-pairImproved-exceeds-pairSwaps", "towers", "clump",
+      (d) => typeof d.dispersion?.search?.pairSwapsTried === "number",
+      (d) => { d.dispersion.search.pairImproved = d.dispersion.search.pairSwapsTried + 9; },
+      "pairImproved"],
+    ["towers-clump-improvedBy-not-the-subtraction", "towers", "clump",
+      (d) => typeof d.dispersion?.search?.improvedBy === "number",
+      (d) => { d.dispersion.search.improvedBy = d.dispersion.search.improvedBy + 7; },
+      "improvedBy"],
+    ["towers-clump-within-exceeds-total-at-layer3", "towers", "clump",
+      (d) => typeof d.dispersion?.totalAtLayer3 === "number",
+      (d) => { d.dispersion.withinAtLayer3 = d.dispersion.totalAtLayer3 + 3; },
+      "withinAtLayer3"],
+    ["towers-clump-total-at-layer3-over-the-program", "towers", "clump",
+      (d) => typeof d.dispersion?.totalAtLayer3 === "number",
+      (d) => { d.dispersion.totalAtLayer3 = 99; },
+      "totalAtLayer3"],
+    ["towers-clump-windowBefore-under-windowAfter", "towers", "clump",
+      (d) => typeof d.dispersion?.windowBefore === "number",
+      (d) => { d.dispersion.windowBefore = 0; },
+      "windowBefore"],
+    ["towers-clump-tiebreak-budget-invented", "towers", "clump",
+      (d) => typeof d.dispersion?.tiebreakBudget === "number",
+      (d) => { d.dispersion.tiebreakBudget = 999; },
+      "tiebreakBudget"],
+    ["battery-refill-moved-exceeds-tried", "towers", "weak-battery",
+      (d) => typeof d.towers?.refillSearch?.tried === "number",
+      (d) => { d.towers.refillSearch.moved = d.towers.refillSearch.tried + 4; },
+      "refillSearch.moved"],
+    ["battery-refill-scoreTied-exceeds-tried", "towers", "weak-battery",
+      (d) => typeof d.towers?.refillSearch?.tried === "number",
+      (d) => { d.towers.refillSearch.scoreTied = d.towers.refillSearch.tried + 11; },
+      "refillSearch.scoreTied"],
+    ["battery-refill-dispersionOk-exceeds-tried", "towers", "weak-battery",
+      (d) => typeof d.towers?.refillSearch?.tried === "number",
+      (d) => { d.towers.refillSearch.dispersionOk = d.towers.refillSearch.tried + 2; },
+      "refillSearch.dispersionOk"],
+    ["battery-refill-crossOffered-exceeds-tried", "towers", "weak-battery",
+      (d) => typeof d.towers?.refillSearch?.tried === "number",
+      (d) => { d.towers.refillSearch.crossOffered = d.towers.refillSearch.tried + 1; },
+      "refillSearch.crossOffered"],
+    ["battery-refill-pass-got-longer", "towers", "weak-battery",
+      (d) => typeof d.towers?.refillSearch?.before === "number",
+      (d) => { d.towers.refillSearch.after = d.towers.refillSearch.before + 3; },
+      "refillSearch.(before|after)"],
+    ["battery-refill-moved-nothing-but-improved", "towers", "weak-battery",
+      (d) => d.towers?.refillSearch?.moved === 0 && d.towers.refillSearch.before === d.towers.refillSearch.after,
+      (d) => { d.towers.refillSearch.moved = 2; },
+      "refillSearch.moved"],
+    ["battery-search-improvements-exceed-rounds", "towers", "weak-battery",
+      (d) => typeof d.towers?.search?.rounds === "number",
+      (d) => { d.towers.search.improvements = d.towers.search.rounds + 5; },
+      "search.improvements"],
+    ["battery-search-starts-exceed-restart-budget", "towers", "weak-battery",
+      (d) => typeof d.towers?.search?.restarts === "number",
+      (d) => { d.towers.search.starts = d.towers.search.restarts + 1; d.towers.starts = d.towers.search.starts; },
+      "search.starts"],
+    ["battery-search-improved-downhill", "towers", "weak-battery",
+      (d) => typeof d.towers?.search?.improvedFrom === "number",
+      (d) => { d.towers.search.improvedTo = d.towers.search.improvedFrom - 300; },
+      "search.improved(From|To)"],
+    ["battery-search-zero-improvements-moved-the-number", "towers", "weak-battery",
+      (d) => d.towers?.search?.improvements === 0,
+      (d) => { d.towers.search.improvedTo = d.towers.search.improvedFrom + 600; },
+      "search.improvedTo"],
+    ["battery-weakTiles-exceed-the-cut", "towers", "weak-battery",
+      (d) => typeof d.towers?.declaredCutTiles === "number",
+      (d) => { d.towers.weakTiles = d.towers.declaredCutTiles + 6; },
+      "towers.weakTiles"],
+    ["battery-min-face-above-the-mean", "towers", "weak-battery",
+      (d) => typeof d.towers?.avgShellDmg === "number",
+      (d) => { d.towers.minShellDmg = d.towers.avgShellDmg + 300; },
+      "towers.(min|avg)ShellDmg"],
+    ["battery-layer3-cut-smaller-than-the-shipped-one", "towers", "weak-battery",
+      (d) => typeof d.battery?.cutTiles === "number",
+      (d) => { d.towers.declaredCutTiles = Math.max(0, d.battery.cutTiles - 5); },
+      "towers.declaredCutTiles"],
+    ["battery-unblocked-walk-longer-than-the-blocked-one", "towers", "weak-battery",
+      (d) => typeof d.towers?.maxRefill === "number",
+      (d) => { d.towers.maxRefillUnblocked = d.towers.maxRefill + 4; },
+      "maxRefillUnblocked"],
+    ["battery-placement-walks-lose-a-tower", "towers", "weak-battery",
+      (d) => Array.isArray(d.battery?.refillDistsAtPlacement),
+      (d) => { d.battery.refillDistsAtPlacement = d.battery.refillDistsAtPlacement.slice(0, 4); },
+      "refillDistsAtPlacement"],
+    ["battery-inert-prune-disagrees-with-the-prune", "towers", "weak-battery",
+      (d) => typeof d.battery?.inertPruned === "number",
+      (d) => { d.battery.inertPruned = d.battery.inertPruned + 9; },
+      "battery.inertPruned"],
+    ["shallow-outcomes-do-not-account-for-the-slots", "extensions", "shallow",
+      (d) => typeof d.shallowExt?.impossible === "number",
+      (d) => { d.shallowExt.impossible = d.shallowExt.impossible + 3; },
+      "shallowExt"],
+    ["shallow-refusal-list-shorter-than-its-count", "extensions", "shallow",
+      (d) => Array.isArray(d.shallowExt?.search?.refused) && d.shallowExt.search.refused.length > 1,
+      (d) => { d.shallowExt.search.refused = d.shallowExt.search.refused.slice(1); },
+      "refused"],
+    ["shallow-shared-target-slots-exceed-the-slots", "extensions", "shallow",
+      (d) => typeof d.shallowExt?.count === "number",
+      (d) => { d.shallowExt.search.sharedTargetSlots = d.shallowExt.count + 4; },
+      "sharedTargetSlots"],
+    ["shallow-interior-band-is-not-48x48", "extensions", "shallow",
+      (d) => typeof d.shallowExt?.search?.interiorTiles === "number",
+      (d) => { d.shallowExt.search.interiorTiles = 4000; },
+      "interiorTiles"],
+    ["eco-core-bigger-than-the-basin", "eco", null,
+      (d) => typeof d.eco?.basin === "number",
+      (d) => { d.eco.coreSize = d.eco.basin + 40; },
+      "eco.coreSize"],
+    ["eco-core-disagrees-with-its-own-meta", "eco", null,
+      (d) => typeof d.eco?.coreSize === "number",
+      (d) => { d.eco.coreSize = d.eco.coreSize - 1; },
+      "eco.coreSize"],
+    ["labs-blocked-anchors-exceed-the-anchors", "labs", "lab-road-eat",
+      (d) => typeof d.labs?.eatAnchors === "number",
+      (d) => { d.labs.eatBlockedByNet = d.labs.eatAnchors + 7; },
+      "eatBlockedByNet"],
+    ["mobility-lane-deep-exceeds-lane-tiles", "mobility", null,
+      (d) => typeof d.lane?.tiles === "number",
+      (d) => { d.lane.deep = d.lane.tiles + 9; },
+      "lane.deep"],
+    ["mobility-lane-shrunk-grew", "mobility", null,
+      (d) => typeof d.lane?.shrunk?.wanted === "number",
+      (d) => { d.lane.shrunk.to = d.lane.shrunk.wanted + 5; },
+      "lane.shrunk"],
+    ["mobility-lane-strand-rounds-exceed-rounds", "mobility", null,
+      (d) => typeof d.lane?.rounds === "number",
+      (d) => { d.lane.strandRounds = d.lane.rounds + 3; },
+      "lane.strandRounds"],
+    ["mobility-room-ships-outside-its-own-lane-bound", "mobility", null,
+      (d) => typeof d.lane?.bounded === "number" && typeof d.mass?.builtLap === "number",
+      (d) => { d.lane.bounded = 0; },
+      "lane.bounded"],
+    ["mobility-mass-repair-moved-more-than-it-tried", "mobility", null,
+      (d) => typeof d.repair?.mass?.trials === "number",
+      (d) => { d.repair.mass.moved = d.repair.mass.trials + 6; },
+      "repair.mass.moved"],
+    ["mobility-mass-repair-ran-no-round-but-tried", "mobility", null,
+      (d) => d.repair?.mass?.rounds === 0,
+      (d) => { d.repair.mass.trials = 40; d.repair.mass.blockersSeen = 12; },
+      "repair.mass"],
+    ["mobility-mass-repair-round-that-tried-nothing", "mobility", null,
+      (d) => d.repair?.mass?.rounds === 0 && d.repair.mass.trials === 0,
+      (d) => { d.repair.mass.rounds = 9; },
+      "repair.mass.rounds"],
+    ["mobility-tower-veto-affordable-exceeds-tried", "mobility", null,
+      (d) => typeof d.repair?.tower?.tried === "number",
+      (d) => { d.repair.tower.affordable = d.repair.tower.tried + 3; },
+      "repair.tower.affordable"],
+    ["mobility-tower-veto-proved-a-swap-it-could-not-afford", "mobility", null,
+      (d) => d.repair?.tower?.provedFree === false && (d.repair.tower.affordable || 0) === 0,
+      (d) => { d.repair.tower.provedFree = true; },
+      "repair.tower.provedFree"],
+    ["mobility-tower-veto-battery-shortened-the-lap", "mobility", null,
+      (d) => typeof d.repair?.tower?.baseLap === "number",
+      (d) => { d.repair.tower.lapWithBattery = 0; },
+      "repair.tower.(baseLap|lapWithBattery)"],
+    ["mobility-tower-veto-disagrees-with-its-own-meta", "mobility", null,
+      (d) => typeof d.repair?.tower?.tried === "number",
+      (d) => { d.repair.tower.tried = d.repair.tower.tried + 1000; },
+      "repair.tower.tried"],
+    ["mobility-negotiated-reachable-exceeds-endpoints", "mobility", null,
+      (d) => typeof d.negotiated?.metric?.endpoints === "number",
+      (d) => { d.negotiated.metric.reachable = d.negotiated.metric.endpoints + 12; },
+      "negotiated.metric.(endpoints|reachable)"],
+    ["mobility-negotiated-strict-below-ungated", "mobility", null,
+      (d) => typeof d.negotiated?.metric?.maxUngated === "number",
+      (d) => { d.negotiated.metric.maxStrict = 0; },
+      "negotiated.metric.max(Strict|Ungated)"],
+    ["mobility-negotiated-overGated-exceeds-gatedPairs", "mobility", null,
+      (d) => typeof d.negotiated?.metric?.gatedPairs === "number",
+      (d) => { d.negotiated.metric.overGated = d.negotiated.metric.gatedPairs + 4; },
+      "negotiated.metric.overGated"],
+    ["mobility-negotiated-p90-above-the-maximum", "mobility", null,
+      (d) => typeof d.negotiated?.metric?.p90 === "number",
+      (d) => { d.negotiated.metric.p90 = d.negotiated.metric.maxUngated + 5; },
+      "negotiated.metric.p90"],
+    ["mobility-negotiated-counterfactual-walk-longer-than-the-real-one", "mobility", null,
+      (d) => typeof d.negotiated?.causeWalks?.noStructures?.d === "number",
+      (d) => { d.negotiated.causeWalks.noStructures.d = d.negotiated.walk.din + 8; },
+      "causeWalks.noStructures.d"],
+    ["mobility-negotiated-counterfactual-ratio-is-not-the-quotient", "mobility", null,
+      (d) => typeof d.negotiated?.causeWalks?.noWalls?.ratio === "number",
+      (d) => { d.negotiated.causeWalks.noWalls.ratio = 9.9; },
+      "causeWalks.noWalls.ratio"],
+    ["mobility-negotiated-worst-detour-ratio-is-not-the-quotient", "mobility", null,
+      (d) => typeof d.negotiated?.worstDetour?.ratio === "number",
+      (d) => { d.negotiated.worstDetour.ratio = 42; },
+      "worstDetour.ratio"],
+    ["mobility-negotiated-maxDetour-is-not-the-subtraction", "mobility", null,
+      (d) => typeof d.negotiated?.metric?.maxDetour === "number",
+      (d) => { d.negotiated.metric.maxDetour = d.negotiated.metric.maxDetour + 4; },
+      "maxDetour"],
+    ["mobility-negotiated-floor-and-lap-do-not-reconcile", "mobility", null,
+      (d) => typeof d.negotiated?.floor === "number" && !d.negotiated.eco,
+      (d) => { d.negotiated.floor = d.negotiated.floor / 2; },
+      "negotiated.(floor|lap)"],
+    ["mobility-ladder-cap-invented", "mobility", null,
+      (d) => typeof d.ladder?.cap === "number",
+      (d) => { d.ladder.cap = 99; },
+      "ladder.cap"],
+    ["mobility-ladder-ramparts-not-the-ones-built", "mobility", null,
+      (d) => typeof d.ladder?.shippedRamparts === "number",
+      (d) => { d.ladder.shippedRamparts = d.ladder.shippedRamparts + 10; },
+      "ladder.shippedRamparts"],
+    ["mobility-ladder-trail-shorter-than-the-rungs", "mobility", null,
+      (d) => Array.isArray(d.ladder?.rungs) && d.ladder.rungs.length > 1,
+      (d) => { d.ladder.trailLength = d.ladder.rungs.length - 1; },
+      "trailLength|rung"],
+    ["mobility-shipped-wall-lap-longer-than-the-bare-board", "mobility", null,
+      (d) => typeof d.negotiated?.shippedWallLap === "number",
+      (d) => { d.negotiated.shippedWallLap = (d.mass?.bareLap || 0) + 5; },
+      "shippedWallLap"],
+    ["ctrlparks-released-holding-cheaper-than-releasing", "ctrlParks", "released",
+      (d) => typeof d.ctrlParks?.rampartsHolding === "number",
+      (d) => { d.ctrlParks.rampartsHolding = 10; },
+      "rampartsHolding"],
+    ["ctrlparks-released-rejections-exceed-the-walk", "ctrlParks", "released",
+      (d) => Array.isArray(d.ctrlParks?.composedCaps),
+      (d) => { d.ctrlParks.rejectedError = d.ctrlParks.composedCaps.length + 4; },
+      "rejection"],
+    ["ctrlparks-seats-sealing-exceeds-considered", "ctrlParks", "seats",
+      (d) => typeof d.ctrlParks?.census?.considered === "number",
+      (d) => { d.ctrlParks.census.sealing = d.ctrlParks.census.considered + 3; },
+      "sealing"],
+  ];
+  for (const [name, gate, kind, pred, edit, expect] of arith) {
+    run(`r15/B1-${name}`, withDecl15(gate, kind, pred), planted15(gate, kind, edit), expect);
+  }
+
+  // ---- B2: THE PROMISE-VS-IMPLEMENTATION SELF-CHECK -----------------------
+  //
+  // Not a plan mutation: the file's own load-time assertion. A witnessed leaf
+  // whose `why` states a bound and which carries no closure must stop the file
+  // from starting at all. It is tested the only way an assertion of that shape
+  // can be — by feeding the checker a leaf of exactly that description.
+  //
+  // It cannot be tested by breaking a PLAN, so it is tested directly: the
+  // function `assertRecordInventory` runs at load is handed a leaf of exactly
+  // the shape the rule refuses (a stated bound with no closure), a leaf of the
+  // shape it allows (an honest type-only sentence), and one whose sentence is
+  // GENERATED from real closures. Loading validate.mjs at the top of this file
+  // already proved the real inventory passes; this proves the rule has teeth.
+  {
+    const name = "r15/B2-a-promised-or-silent-bound-is-refused-at-load";
+    const promised = { klass: "witnessed", why: "a counter over a finished search; the bound is that it may not exceed the pool it was drawn from", closures: [] };
+    const honest = { klass: "witnessed", why: "a counter over a finished search, and THAT IS THE WHOLE BOUND — nothing on this record closes around it", closures: [] };
+    const backed = { klass: "witnessed", why: "a counter over a finished search, and it may not exceed `pool`", closures: [{ op: "le", other: "pool" }] };
+    const silent = { klass: "witnessed", why: "a counter over a finished search that nothing on the shipped board records", closures: [] };
+    const fails15 = [];
+    if (!witnessPromiseUnbacked(promised)) fails15.push("a `why` stating a bound with NO closure was accepted");
+    if (witnessPromiseUnbacked(honest)) fails15.push("an honest type-only `why` was rejected");
+    if (witnessPromiseUnbacked(backed)) fails15.push("a `why` whose bound IS implemented was rejected");
+    // ...and the second half of the rule: silence is not honesty either.
+    if (!witnessSilentlyTypeOnly(silent)) fails15.push("a closure-less `why` that never says it is type-only was accepted");
+    if (witnessSilentlyTypeOnly(honest)) fails15.push("a `why` that DOES say it is type-only was rejected");
+    if (witnessSilentlyTypeOnly(backed)) fails15.push("a `why` with an implemented closure was asked to declare itself type-only");
+    if (!RECORD_LEAF_STATS || !(RECORD_LEAF_STATS.closured > 0)) {
+      fails15.push(`the inventory reports ${JSON.stringify(RECORD_LEAF_STATS)} — no leaf carries a closure at all`);
+    }
+    results.push({
+      name,
+      room: "-",
+      caught: fails15.length === 0,
+      matched: fails15.length === 0,
+      expect: "(the load-time promise check has teeth)",
+      fails: fails15,
+      note: `${RECORD_LEAF_STATS.closured} witnessed leaf/leaves carry an implemented closure`,
+    });
+  }
+
+  // ---- B3: `meta.towers.adjacency` — THE NINE ESCAPES --------------------
+  const adjRoom = anyRoom((p) => p.meta?.towers?.adjacency?.satAcrossPrior);
+  const pairRoom = anyRoom((p) => (p.meta?.towers?.adjacency?.pairs || 0) > 0);
+  run("r15/B3-adjacency-deleted-outright", adjRoom, (p) => {
+    delete p.meta.towers.adjacency;
+  }, "meta.towers.adjacency");
+  run("r15/B3-satAcrossPrior-subobject-deleted", adjRoom, (p) => {
+    delete p.meta.towers.adjacency.satAcrossPrior;
+  }, "satAcrossPrior");
+  run("r15/B3-held-falsified", adjRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.held += 300;
+  }, "satAcrossPrior.held");
+  run("r15/B3-held-rebound-to-layer-3s-board", anyRoom(
+    (p) => p.meta?.towers?.adjacency?.satAcrossPrior && p.meta.towers.minShellDmg !== p.meta.towers.shippedMinShellDmg,
+  ), (p) => {
+    // THE ROUND-14 DEFECT, RE-PLANTED. `held` used to be layer 3's reading of
+    // its own pre-prune cut, published under a field doc reading "what the room
+    // ships". Five rooms differ; this is one of them.
+    p.meta.towers.adjacency.satAcrossPrior.held = p.meta.towers.minShellDmg;
+  }, "satAcrossPrior.(held|forgone|reachable)"),
+  run("r15/B3-reachable-falsified", adjRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.reachable += 600;
+  }, "satAcrossPrior.(reachable|forgone)");
+  run("r15/B3-forgone-inflated", adjRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.forgone = 900;
+  }, "satAcrossPrior.forgone");
+  run("r15/B3-forgone-goes-negative", adjRoom, (p) => {
+    const sap = p.meta.towers.adjacency.satAcrossPrior;
+    sap.forgone = -30;
+    sap.reachable = sap.held - 30;
+  }, "satAcrossPrior");
+  run("r15/B3-offerOnShipped-falsified", anyRoom(
+    (p) => typeof p.meta?.towers?.adjacency?.satAcrossPrior?.offerOnShipped === "number",
+  ), (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.offerOnShipped += 240;
+  }, "offerOnShipped");
+  run("r15/B3-atLayer3-deleted", adjRoom, (p) => {
+    delete p.meta.towers.adjacency.satAcrossPrior.atLayer3;
+  }, "atLayer3");
+  run("r15/B3-atLayer3-rebound-to-the-shipped-board", anyRoom(
+    (p) => p.meta?.towers?.adjacency?.satAcrossPrior?.atLayer3 && p.meta.towers.minShellDmg !== p.meta.towers.shippedMinShellDmg,
+  ), (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.atLayer3.held = p.meta.towers.shippedMinShellDmg;
+  }, "atLayer3");
+  run("r15/B3-basis-string-dropped", adjRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.basis = "yes";
+  }, "basis");
+  run("r15/B3-priorHeld-flipped", adjRoom, (p) => {
+    p.meta.towers.adjacency.priorHeld = !p.meta.towers.adjacency.priorHeld;
+  }, "priorHeld");
+  run("r15/B3-pairs-emptied", pairRoom, (p) => {
+    p.meta.towers.adjacency.pairs = 0;
+    p.meta.towers.adjacency.priorHeld = true;
+  }, "pairs");
+  run("r15/B3-pairTiles-emptied", pairRoom, (p) => {
+    p.meta.towers.adjacency.pairTiles = [];
+  }, "pairTiles");
+  run("r15/B3-pairs-invented-on-a-room-with-none", anyRoom((p) => p.meta?.towers?.adjacency?.pairs === 0), (p) => {
+    const t = p.structures.tower;
+    p.meta.towers.adjacency.pairs = 1;
+    p.meta.towers.adjacency.pairTiles = [[{ x: t[0].x, y: t[0].y }, { x: t[1].x, y: t[1].y }]];
+  }, "pair");
+  run("r15/B3-crossings-emptied", anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).length), (p) => {
+    p.meta.towers.adjacency.crossings = [];
+  }, "adjacency");
+  run("r15/B3-crossing-refillTo-falsified", anyRoom(
+    (p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => typeof c.refillTo === "number"),
+  ), (p) => {
+    for (const c of p.meta.towers.adjacency.crossings) if (typeof c.refillTo === "number") c.refillTo -= 3;
+  }, "refill");
+  run("r15/B3-crossing-lands-on-no-tower", anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).length), (p) => {
+    p.meta.towers.adjacency.crossings[0].to = { x: 1, y: 1 };
+  }, "crossing");
+  run("r15/B3-crossOffered-exceeds-tried", adjRoom, (p) => {
+    const sap = p.meta.towers.adjacency.satAcrossPrior;
+    sap.crossOffered = (sap.tried || 0) + 5;
+  }, "crossOffered");
+
+  // ---- B4: THE PER-KIND LATE-ROAD BOOKS ----------------------------------
+  const kindRoom = anyRoom((p) => p.meta?.walls?.laidByKind && Object.keys(p.meta.walls.laidByKind).length);
+  run("r15/B4-laidByKind-deleted", kindRoom, (p) => {
+    delete p.meta.walls.laidByKind;
+  }, "laidByKind");
+  run("r15/B4-lostByKind-deleted", kindRoom, (p) => {
+    delete p.meta.walls.lostByKind;
+  }, "lostByKind");
+  run("r15/B4-a-kind-drops-out-of-one-book", kindRoom, (p) => {
+    // THE REFLOW SHAPE: shipped and lost recorded, laid never was.
+    const k = Object.keys(p.meta.walls.shippedByKind)[0];
+    delete p.meta.walls.laidByKind[k];
+  }, "laidByKind");
+  run("r15/B4-laid-does-not-equal-shipped-plus-lost", anyRoom(
+    (p) => Object.entries(p.meta?.walls?.laidByKind || {}).some(([, v]) => v > 0),
+  ), (p) => {
+    const k = Object.entries(p.meta.walls.laidByKind).find(([, v]) => v > 0)[0];
+    p.meta.walls.laidByKind[k] += 3;
+  }, "laid|survives");
+  run("r15/B4-shipped-count-disagrees-with-the-provenance-map", anyRoom(
+    (p) => Object.entries(p.meta?.walls?.shippedByKind || {}).some(([, v]) => v > 0),
+  ), (p) => {
+    const k = Object.entries(p.meta.walls.shippedByKind).find(([, v]) => v > 0)[0];
+    p.meta.walls.shippedByKind[k] += 1;
+  }, "shippedByKind");
+  run("r15/B4-laid-tile-list-shorter-than-its-count", anyRoom(
+    (p) => Object.entries(p.meta?.walls?.laidTilesByKind || {}).some(([, v]) => Array.isArray(v) && v.length > 1),
+  ), (p) => {
+    const k = Object.entries(p.meta.walls.laidTilesByKind).find(([, v]) => Array.isArray(v) && v.length > 1)[0];
+    p.meta.walls.laidTilesByKind[k] = p.meta.walls.laidTilesByKind[k].slice(1);
+  }, "laidTilesByKind");
+  run("r15/B4-a-lost-tile-that-is-live", anyRoom(
+    (p) => Object.entries(p.meta?.walls?.shippedByKind || {}).some(([, v]) => v > 0),
+  ), (p) => {
+    const k = Object.entries(p.meta.walls.shippedByKind).find(([, v]) => v > 0)[0];
+    const live = Object.keys(p.meta.walls.roadKind).find((t) => p.meta.walls.roadKind[t] === k);
+    const [x, y] = live.split(",").map(Number);
+    p.meta.walls.lostByKind[k] = [...(p.meta.walls.lostByKind[k] || []), { x, y }];
+    p.meta.walls.laidByKind[k] += 1;
+    p.meta.walls.laidTilesByKind[k] = [...(p.meta.walls.laidTilesByKind[k] || [])];
+  }, "lostByKind|laidTilesByKind");
+  run("r15/B4-restored-tile-that-is-not-on-the-board", anyRoom(
+    (p) => p.meta?.walls?.restoredByKind && Object.values(p.meta.walls.restoredByKind).some((v) => (v || []).length),
+  ), (p) => {
+    const k = Object.entries(p.meta.walls.restoredByKind).find(([, v]) => (v || []).length)[0];
+    p.meta.walls.restoredByKind[k] = [{ x: 1, y: 1 }];
+  }, "restoredByKind");
+  run("r15/B4-spurTiles-deleted", R, (p) => {
+    delete p.meta.walls.spurTiles;
+  }, "spurTiles");
+  run("r15/B4-spurTilesShipped-deleted", R, (p) => {
+    delete p.meta.walls.spurTilesShipped;
+  }, "spurTilesShipped");
+
+  // ---- B5: THE ALONG-CUT DISPATCH FIELDS AND SCOPE ------------------------
+  const refRoom = anyRoom((p) => (p.meta?.walls?.alongCutRefused || []).length);
+  run("r15/B5-refusal-kind-relabelled", anyRoom(
+    (p) => (p.meta?.walls?.alongCutRefused || []).some((r) => r.kind === "seat"),
+  ), (p) => {
+    for (const r of p.meta.walls.alongCutRefused) if (r.kind === "seat") r.kind = "breaks-network";
+  }, "`kind`");
+  run("r15/B5-network-refusal-relabelled-no-parallel", anyRoom(
+    (p) => (p.meta?.walls?.alongCutRefused || []).some((r) => r.kind === "breaks-network"),
+  ), (p) => {
+    for (const r of p.meta.walls.alongCutRefused) if (r.kind === "breaks-network") r.kind = "no-parallel";
+  }, "`kind`|`offered`");
+  run("r15/B5-offered-tiles-invented", anyRoom(
+    (p) => (p.meta?.walls?.alongCutRefused || []).some((r) => Array.isArray(r.offered) && r.offered.length),
+  ), (p) => {
+    for (const r of p.meta.walls.alongCutRefused) if (Array.isArray(r.offered) && r.offered.length) r.offered = [{ x: 1, y: 1 }];
+  }, "`offered`");
+  run("r15/B5-offered-list-dropped-off-a-network-refusal", anyRoom(
+    (p) => (p.meta?.walls?.alongCutRefused || []).some((r) => r.kind === "breaks-network" && Array.isArray(r.offered)),
+  ), (p) => {
+    for (const r of p.meta.walls.alongCutRefused) if (r.kind === "breaks-network") delete r.offered;
+  }, "`offered`");
+  run("r15/B5-alongCutScope-narrowed-to-the-cut", anyRoom((p) => p.meta?.walls?.alongCutScope), (p) => {
+    p.meta.walls.alongCutScope = "cut";
+  }, "alongCutScope");
+  run("r15/B5-alongCutScope-deleted", anyRoom((p) => p.meta?.walls?.alongCutScope), (p) => {
+    delete p.meta.walls.alongCutScope;
+  }, "alongCutScope");
+  run("r15/B5-conductBridge-relaid-invented", anyRoom((p) => p.meta?.walls?.conductBridge?.added?.length), (p) => {
+    p.meta.walls.conductBridge.relaid = [{ x: 1, y: 1, wasLayer: 1 }];
+  }, "relaid");
+  run("r15/B5-conductBridge-relaid-wasLayer-after-the-bridge", anyRoom(
+    (p) => (p.meta?.walls?.conductBridge?.relaid || []).length,
+  ), (p) => {
+    for (const t of p.meta.walls.conductBridge.relaid) t.wasLayer = 9;
+  }, "wasLayer");
+  void refRoom;
+
+  // ---- B6: THE PLANNER NOTES ---------------------------------------------
+  const noteRoom = (head) => anyRoom((p) => (p.meta?.notes || []).some((n) => typeof n === "string" && n.startsWith(head)));
+  const editNote = (head, f) => (p) => {
+    p.meta.notes = p.meta.notes.map((n) => (typeof n === "string" && n.startsWith(head) ? f(n, p) : n));
+  };
+  const dropNote = (head) => (p) => {
+    p.meta.notes = p.meta.notes.filter((n) => !(typeof n === "string" && n.startsWith(head)));
+  };
+  run("r15/B6-every-note-deleted", R, (p) => {
+    p.meta.notes = [];
+  }, "PLANNER NOTE");
+  const NOTE_HEADS = [
+    ["NO CUT TILE IS REDUNDANT", "redundant"],
+    ["CUT TILES THAT ARE NOT SINGLY LOAD-BEARING", "SINGLY LOAD-BEARING|redundantCut"],
+    ["SEALED INTERIOR FLOOR", "SEALED INTERIOR FLOOR"],
+    ["ROAD ON RAMPART, CLASSIFIED", "ROAD ON RAMPART"],
+    ["ROAD LAID FOR A CONTAINER", "CONTAINER|conductBridge"],
+    ["SHALLOW EXTENSIONS", "SHALLOW EXTENSIONS"],
+  ];
+  for (const [head, expect] of NOTE_HEADS) {
+    run(`r15/B6-note-deleted-${head.slice(0, 18).replace(/\W+/g, "-")}`, noteRoom(head), dropNote(head), expect);
+  }
+  run("r15/B6-redundant-cut-note-contradicts-its-record", noteRoom("NO CUT TILE IS REDUNDANT"),
+    editNote("NO CUT TILE IS REDUNDANT", (n) => n.replace(/every one of this room's \d+ cut tile\(s\)/, "every one of this room's 4 cut tile(s)")),
+    "NO CUT TILE IS REDUNDANT");
+  run("r15/B6-not-singly-note-deflates-the-count", noteRoom("CUT TILES THAT ARE NOT SINGLY LOAD-BEARING"),
+    editNote("CUT TILES THAT ARE NOT SINGLY LOAD-BEARING", (n) => n.replace(/^CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: \d+ of/, "CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: 1 of")),
+    "SINGLY LOAD-BEARING");
+  run("r15/B6-sealed-floor-note-halves-itself", noteRoom("SEALED INTERIOR FLOOR"),
+    editNote("SEALED INTERIOR FLOOR", (n) => n.replace(/^SEALED INTERIOR FLOOR: \d+ tile\(s\)/, "SEALED INTERIOR FLOOR: 1 tile(s)")),
+    "SEALED INTERIOR FLOOR");
+  run("r15/B6-road-rampart-note-moves-the-headline-taxonomy", noteRoom("ROAD ON RAMPART, CLASSIFIED"),
+    editNote("ROAD ON RAMPART, CLASSIFIED", (n) => n.replace(/(\d+) CONTROLLER STAND-DENIAL RING tile\(s\)/, "0 CONTROLLER STAND-DENIAL RING tile(s)")),
+    "ROAD ON RAMPART");
+  run("r15/B6-container-road-note-names-the-wrong-tile", noteRoom("ROAD LAID FOR A CONTAINER"),
+    editNote("ROAD LAID FOR A CONTAINER", (n) => n.replace(/plain road tile\(s\) \([^)]*\)/, "plain road tile(s) (1,1)")),
+    "CONTAINER");
+  run("r15/B6-shallow-note-inflates-the-program", noteRoom("SHALLOW EXTENSIONS"),
+    editNote("SHALLOW EXTENSIONS", (n) => n.replace(/^SHALLOW EXTENSIONS: (\d+) of \d+/, "SHALLOW EXTENSIONS: $1 of 99")),
+    "SHALLOW EXTENSIONS");
+  run("r15/B6-a-priced-refusal-a-reader-is-never-shown", anyRoom(
+    (p) => (p.meta?.notes || []).some((n) => typeof n === "string" && n.startsWith("CUT TILES THAT ARE NOT SINGLY")) &&
+      Object.keys(p.meta?.shell?.redundantCut?.reasons || {}).length > 1,
+  ), editNote("CUT TILES THAT ARE NOT SINGLY LOAD-BEARING", (n, p) => {
+    const k = Object.keys(p.meta.shell.redundantCut.reasons)[0];
+    return n.split(k).join("99,99");
+  }), "never\\s+names it|prices");
+
+  // ---- B7: negotiated.detail — THE PARAGRAPH INSIDE THE RECORD -----------
+  const negRoom = withDecl15("mobility", null, (d) => typeof d.negotiated?.detail === "string");
+  run("r15/B7-negotiated-detail-rewritten-to-the-opposite-claim", negRoom, planted15("mobility", null, (d) => {
+    // THE OWNER'S OWN E11S2 REWRITE, verbatim in shape: the paragraph says the
+    // room clears the gate everywhere, four words before the generated sentence
+    // that reconciles a 1.56 lap against the shipped wall.
+    d.negotiated.detail =
+      "defender mobility max 0.42 over pairs that cost more than 4 tiles of detour (target 1.2; the " +
+      "ungated maximum over every pair including two-tile ones is 0.42, exact all-pairs over 37 " +
+      "reachable wall tiles; stand-to-stand it is 0.9): this room is COMFORTABLY INSIDE the target on " +
+      "every pair, the garrison out-walks the attacker everywhere on the wall.";
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-lap-deflated", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/^defender mobility max [\d.]+/, "defender mobility max 0.9");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-quotes-an-unsourced-number", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail += " Priced against 7 alternative walls.";
+  }), "no clause of layer 2's own template accounts for");
+  run("r15/B7-negotiated-detail-worst-pair-swapped", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/between wall tiles \d+,\d+ and \d+,\d+/, "between wall tiles 3,3 and 44,44");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-cause-word-changed", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/Cause: [a-z]+/, "Cause: shape");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-endpoints-inflated", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/over (\d+) reachable wall tiles/, "over 999 reachable wall tiles");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-fraction-inverted", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/\((\d+)\/(\d+) on the ungated reading/, "($2/$1 on the ungated reading");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-closing-pair-detached-from-worstDetour", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/(the longest extra walk anywhere on this wall is \d+ tile\(s\) \()\d+,\d+ to \d+,\d+/, "$12,2 to 4,4");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-ratio-is-not-the-quotient", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = d.negotiated.detail.replace(/, ratio [\d.]+\)\.?$/, ", ratio 1.01).");
+  }), "negotiated.detail");
+  run("r15/B7-negotiated-detail-emptied", negRoom, planted15("mobility", null, (d) => {
+    d.negotiated.detail = "";
+  }), "negotiated.detail|MIN_DETAIL|not a paragraph");
+
+  // ---- B8: ctrlParks composedCaps — CRITICISM 4 THROUGH THE RECORD -------
+  const capRoom = withDecl15("ctrlParks", "released", (d) => Array.isArray(d.ctrlParks?.composedCaps));
+  run("r15/B8-composedCaps-one-rung-claiming-every-rung", capRoom, planted15("ctrlParks", "released", (d) => {
+    d.ctrlParks.composedCaps = [d.ctrlParks.composedFrom];
+    d.ctrlParks.composedTo = d.ctrlParks.composedFrom;
+  }), "composedCaps|composedTo");
+  run("r15/B8-composedCaps-emptied", capRoom, planted15("ctrlParks", "released", (d) => {
+    d.ctrlParks.composedCaps = [];
+  }), "composedCaps");
+  run("r15/B8-composedCaps-nonsense-descent", capRoom, planted15("ctrlParks", "released", (d) => {
+    d.ctrlParks.composedCaps = [99, 1, 7, 7, -3];
+    d.ctrlParks.composedFrom = 99;
+    d.ctrlParks.composedTo = -3;
+  }), "composedCaps|composedTo|composedFrom");
+  run("r15/B8-composedCaps-skips-a-rung", capRoom, planted15("ctrlParks", "released", (d) => {
+    const c = d.ctrlParks.composedCaps;
+    if (c.length < 3) throw new Error("needs a trail to skip a rung of");
+    d.ctrlParks.composedCaps = [c[0], ...c.slice(2)];
+  }), "composedCaps");
+  run("r15/B8-winning-cap-was-never-composed", capRoom, planted15("ctrlParks", "released", (d) => {
+    d.ctrlParks.winningCap = Math.max(...d.ctrlParks.composedCaps) + 5;
+  }), "winningCap|composedCaps");
+  run("r15/B8-composedTo-detached-from-the-trail", capRoom, planted15("ctrlParks", "released", (d) => {
+    d.ctrlParks.composedTo = d.ctrlParks.composedCaps[0];
+  }), "composedTo|composedCaps");
+
+  // ---- B9: labs.refused.network — THE DORMANT CROSS-KIND IDENTITY --------
+  run("r15/B9-lab-haul-network-refusals-with-no-twin-record", withDecl15("labs", "lab-haul",
+    (d) => typeof d.labs?.refused?.network === "number",
+  ), planted15("labs", "lab-haul", (d) => {
+    d.labs.refused.network = 4;
+  }), "refused.network|dormant|cross-kind");
 }
 
 // ===========================================================================
