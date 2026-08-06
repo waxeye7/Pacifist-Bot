@@ -374,22 +374,24 @@ function animNotes(plan) {
 }
 
 /**
- * Clip one shortfall `detail` down to a banner line, without paraphrasing it.
+ * Clip one ticker line — a shortfall `detail` or a planner note — down to a
+ * banner line, without paraphrasing it.
  *
- * The layers write long — the longest detail in the fleet is 4,402 characters —
- * and a ticker that carries them whole is a wall of text nobody reads at the end
+ * The layers write long — the longest detail in the fleet is 4,402 characters,
+ * and the notes are no shorter: E7S9's kept-ring-rampart note is over 900 — and
+ * a ticker that carries them whole is a wall of text nobody reads at the end
  * of a 40-second film. So: whitespace collapsed, then the FIRST SENTENCE if it
  * fits inside the budget, otherwise a hard clip at the budget on a word
  * boundary with an ellipsis. Nothing is rewritten and nothing is summarised —
  * the words are the layer's own, in the layer's own order, and the full text is
- * two inches down the same page in the Declared shortfalls card, which the
- * ticker's own header points at.
+ * two inches down the same page in the Declared shortfalls or Planner notes
+ * card, which the ticker's own headers point at.
  *
  * The sentence split requires a period followed by whitespace or end of string,
  * so "max 1.71 over pairs" and "depth >= 4" do not split mid-number.
  */
 const SHORTFALL_CLIP = 160;
-function clipShortfall(detail) {
+function clipTickerLine(detail) {
   const s = String(detail ?? "").replace(/\s+/g, " ").trim();
   if (!s) return "(this shortfall carries no detail text)";
   const stop = s.search(/\.(\s|$)/);
@@ -414,43 +416,80 @@ function clipShortfall(detail) {
  * nothing about either. "Every shortfall must be loud" is not a claim the suite
  * can make while its most watchable artifact is silent about all of them.
  *
- * ONE LINE PER DECLARED SHORTFALL, AT THE END OF THE FILM, and only there: the
- * ticker is hidden until the last placement has landed, so it reads as the
- * coda to the completion card rather than as a warning that hangs over the
- * whole replay. The most any room needs is four rows (E12S5).
+ * ONE LINE PER DECLARED SHORTFALL — and, since this was extended, one line per
+ * PLANNER NOTE — AT THE END OF THE FILM, and only there: the ticker is hidden
+ * until the last placement has landed, so it reads as the coda to the
+ * completion card rather than as a warning that hangs over the whole replay.
+ * Four shortfall rows was the fleet high-water mark (E12S5); notes run a little
+ * longer (E7S9 ships three), which is still a coda and not a document.
  *
  * IT IS A POINTER, NOT A REPLACEMENT. Each row is gate tag + a clipped first
- * sentence (see clipShortfall) and the header says where the full text is. The
+ * sentence (see clipTickerLine) and the header says where the full text is. The
  * ticker MUST NOT become the canonical rendering of a declaration — that is the
  * shortfall card's job, and a summary that quietly replaces the declaration is
  * the same laundering the declaration channel exists to prevent.
  *
- * NOTES GET A COUNT AND NOT A ROW, deliberately, for the reason notesHtml gives
- * at length: a note is not a shortfall and must never read as one. The film says
- * how many observations the layers recorded and sends the viewer to the card.
+ * NOTES USED TO GET A COUNT AND NOT A ROW, AND A COUNT IS NOT A CHANNEL. The
+ * argument for it was that a note must never read as a shortfall — which is
+ * right, and is not an argument for silence. What it actually produced: E7S9's
+ * film ended on "…and 3 planner notes on this page", a bare integer, while the
+ * material those notes carry is the reason its wall is the shape it is. One of
+ * them is the kept ring rampart — a cut tile that is NOT singly load-bearing and
+ * is kept anyway, because deleting it promotes another rampart into the seal and
+ * every cut-shaped metric in the room would be re-derived over a different wall,
+ * at 0.03 e/tick of forever-upkeep. That is a deliberate, priced, published
+ * decision about the shipped plan, it lives in meta.notes and
+ * shell.redundantCut.reasons and NOT in meta.shortfalls, and a viewer who
+ * watched the film saw the digit 3.
  *
- * A room with no shortfalls emits no ticker at all — not an empty box. The page
- * says "no declared shortfalls" in words because an empty section there is
+ * So notes get rows now, in their OWN row set, under their own header, in the
+ * notes card's blue rather than the shortfall card's amber, with every tag
+ * prefixed by the word "note". The two channels are adjacent because that is
+ * where a viewer will read them; they are never interleaved, never counted
+ * together, and the notes header repeats in words that a note excuses nothing.
+ * Same one-line clip as a shortfall, same pointer discipline, same "the full
+ * text is on this page" — the identical treatment is the point: the film stops
+ * deciding which of the planner's two output channels is worth quoting.
+ *
+ * A ROOM WITH NEITHER emits no ticker at all — not an empty box. The page says
+ * "no declared shortfalls" in words because an empty section there is
  * indistinguishable from a missing one; the film has the completion card
- * carrying that weight already.
+ * carrying that weight already. A room with notes and no shortfalls now DOES get
+ * a ticker, which it did not before, and it gets the blue rule instead of the
+ * amber one plus a header that opens by saying this room declares no shortfalls
+ * — an amber box appearing at the end of a clean room's film would read as an
+ * accusation, which is the same confusion in the other direction.
  */
 function animShortfallTicker(plan) {
   const list = (plan.meta?.shortfalls || []).filter((s) => s && typeof s === "object");
-  if (!list.length) return "";
+  const notes = (plan.meta?.notes || []).filter((n) => typeof n === "string" && n.length);
+  if (!list.length && !notes.length) return "";
   const rows = list
     .map((s) => {
       const tag = [s.gate, s.kind, s.source].filter(Boolean).map(esc).join(" · ") || "(untagged gate)";
-      return `<div class="asf-row"><span class="asf-gate">${tag}</span><span class="asf-txt">${esc(clipShortfall(s.detail))}</span></div>`;
+      return `<div class="asf-row"><span class="asf-gate">${tag}</span><span class="asf-txt">${esc(clipTickerLine(s.detail))}</span></div>`;
     })
     .join("\n");
-  const nnt = (plan.meta?.notes || []).length;
-  const foot = nnt
-    ? `<div class="asf-foot">…and ${nnt} planner note${nnt === 1 ? "" : "s"} on this page. A note is not a shortfall: it is an observation and it excuses nothing.</div>`
+  // layers write notes as "TOPIC: sentence." — the shouted topic becomes the tag
+  // column so a note row scans like a shortfall row, and the word "note" is
+  // welded to the front of it so it can never be read as a gate name.
+  const nrows = notes
+    .map((n) => {
+      const m = /^([A-Z][A-Z0-9 \-/]{3,60}):\s*([\s\S]+)$/.exec(n);
+      const tag = m ? `note · ${esc(m[1])}` : "note";
+      return `<div class="asf-row asf-nrow"><span class="asf-gate asf-ngate">${tag}</span><span class="asf-txt">${esc(clipTickerLine(m ? m[2] : n))}</span></div>`;
+    })
+    .join("\n");
+  const head = list.length
+    ? `<div class="asf-head">Declared shortfalls &middot; ${list.length} &mdash; gates this plan knowingly failed. Clipped to one line each; every word of every one is on this page under &ldquo;Declared shortfalls&rdquo;.</div>
+${rows}`
     : "";
-  return `<div class="anim-sf" id="animSf" hidden>
-<div class="asf-head">Declared shortfalls &middot; ${list.length} &mdash; gates this plan knowingly failed. Clipped to one line each; every word of every one is on this page under &ldquo;Declared shortfalls&rdquo;.</div>
-${rows}
-${foot}</div>`;
+  const nhead = notes.length
+    ? `<div class="asf-head asf-nhead">${list.length ? "" : "This room declares no shortfalls. "}Planner notes &middot; ${notes.length} &mdash; observations the layers recorded. <b>A note is not a shortfall</b>: it is attached to no gate and it excuses nothing. Clipped to one line each; every word of every one is on this page under &ldquo;Planner notes&rdquo;.</div>
+${nrows}`
+    : "";
+  return `<div class="anim-sf${list.length ? "" : " asf-notesonly"}" id="animSf" hidden>
+${head}${list.length && notes.length ? "\n" : ""}${nhead}</div>`;
 }
 
 /**
@@ -649,9 +688,37 @@ ${animShortfallTicker(plan)}
   // no-op on the current films — but the rate readout under the bar reads
   // EXPAND to decide between "tiles/sec here" and "bands/sec here", and it was
   // calling layer 7b's backfill a band.
+  //
+  // AND THE seed STAGE WAS LEFT BEHIND BY THAT EXACT FIX. It is one tile — the
+  // stage is a single sb.push of a single cell — and it is not scaffolding: it
+  // survives into the last frame as the dashed yellow ring paintSeed draws. It
+  // has a STAGE_INFO entry, a STAGE_KIND entry, a STAGE_RATES entry and a
+  // STAGE_SCAFFOLD entry saying false, and it was in none of the EXPAND table,
+  // so for its entire beat the HUD read "≈ 1.1 bands/sec here" underneath a
+  // caption about ONE tile. The tiles painted correctly — this was never the
+  // extAdd bug — the film simply lied about its own units, which in a film whose
+  // last frame claims to be the shipped plan "tile for tile" is not a rounding
+  // error, it is the one thing the reader is being asked to trust.
+  //
+  // A TABLE KEPT IN SYNC BY HAND IS A TABLE THAT DRIFTS. This is the third stage
+  // to be added to some of these six tables and not the others (sitter, seed,
+  // extAdd, and seed again here), and the reason it keeps happening is that
+  // every omission FALLS BACK to something plausible instead of failing: a
+  // missing STAGE_INFO gives a de-underscored name, a missing STAGE_KIND gave
+  // extAdd flat yellow rectangles, a missing STAGE_RATES gives 1x, a missing
+  // EXPAND gives the wrong noun. So the omission is now made impossible to keep:
+  // export-anim THROWS if an emitted stage is missing from either table it owns
+  // (see the orphan check there), and the player checks EXPAND against the
+  // exporter's own stageScaffold map at load — see the drift check in the fetch
+  // handler below. The rule that check enforces is the invariant this table has
+  // always silently had: scaffolding is paced a band at a time and everything
+  // that is NOT scaffolding is placed one tile at a time, so EXPAND[s] and
+  // stageScaffold[s] must be exact opposites for every stage in the film.
+  // Comments do not survive the next stage; a check does.
   var EXPAND = {
     claims: 1, roads: 1, roadsTwr: 1, roadsLab: 1, roadsMisc: 1, roadsExt: 1,
     roadsPrune: 1, roadsLate: 1, roadsResid: 1,
+    seed: 1,
     ramparts: 1, towers: 1, labs: 1,
     nuker: 1, observer: 1, extractor: 1, extensions: 1, extAdd: 1,
     extGhost: 1, extMove: 1
@@ -1010,6 +1077,10 @@ ${animShortfallTicker(plan)}
   var holdUntil = 0, pauseUntil = 0, playing = true, speed = 1, trails = true;
   var stageStart = {}, stageTiles = {}, tileRun = [], stageOrder = [], curStage = null;
   var rates = {}, scaff = {}, fadeAAt = Infinity, fadeBAt = Infinity;
+  // stages where EXPAND disagrees with the exporter's scaffold flag — see the
+  // drift check in the fetch handler. Empty on a healthy film; when it is not
+  // empty the HUD says so out loud rather than printing a confident wrong unit.
+  var expandDrift = {};
   var elPlay = document.getElementById('animPlay');
   var elCount = document.getElementById('animCount');
   var elLabel = document.getElementById('animLabel');
@@ -1023,8 +1094,9 @@ ${animShortfallTicker(plan)}
   var elSpeedVal = document.getElementById('animSpeedVal');
   var elRate = document.getElementById('animRate');
   var elTrails = document.getElementById('animTrails');
-  // the shortfall ticker is emitted server-side (animShortfallTicker) and is
-  // ABSENT — not empty — in a room that declared none, so every use is guarded
+  // the shortfall/notes ticker is emitted server-side (animShortfallTicker) and
+  // is ABSENT — not empty — in a room that has neither a declared shortfall nor
+  // a planner note to carry, so every use of it is guarded
   var elSf = document.getElementById('animSf');
 
   /**
@@ -1142,7 +1214,12 @@ ${animShortfallTicker(plan)}
     // the scaffolding stages are paced a WHOLE BAND at a time, so "tiles/sec"
     // would be a lie there by two orders of magnitude
     elRate.textContent = '≈ ' + (TILE_RATE * rateOf(active) * speed).toFixed(1) +
-      (EXPAND[active] ? ' tiles/sec here' : ' bands/sec here');
+      (EXPAND[active] ? ' tiles/sec here' : ' bands/sec here') +
+      // never silently. The unit follows EXPAND because the PACING follows
+      // EXPAND — printing the exporter's scaffold flag instead would just move
+      // the lie — so when the two disagree the readout says the number under it
+      // is not to be trusted rather than picking a side.
+      (expandDrift[active] ? ' — UNIT UNVERIFIED: this stage is on the wrong side of EXPAND (see console)' : '');
     var kids = elStages.children;
     for (var k = 0; k < kids.length; k++) {
       var sg = kids[k].getAttribute('data-stage');
@@ -1240,6 +1317,29 @@ ${animShortfallTicker(plan)}
         var meta = a.meta || {};
         rates = meta.stageRates || {};
         scaff = meta.stageScaffold || {};
+
+        // THE HARD CHECK THAT MAKES THE EXPAND OMISSION IMPOSSIBLE TO KEEP.
+        // stageScaffold is written by export-anim for exactly the stages this
+        // film contains, so it is the one list of stages that cannot go stale —
+        // it is derived from the steps, not typed out. EXPAND is typed out. Any
+        // stage where the two disagree is a table that drifted: a non-scaffold
+        // stage missing from EXPAND films a whole chunk as one placement and
+        // reports "bands/sec" for tiles (this is what the seed stage did), and a
+        // scaffold stage listed in EXPAND would crawl a 400-tile flood one cell
+        // at a time. Both are loud in the console AND on the HUD, because a
+        // console message nobody opens devtools for is a comment with extra
+        // steps. Nothing is auto-corrected: guessing which of the two tables was
+        // right is how a film ends up confidently wrong again.
+        if (meta.stageScaffold) {
+          var drift = [];
+          for (var ds in scaff) if (!scaff[ds] !== !!EXPAND[ds]) { drift.push(ds); expandDrift[ds] = 1; }
+          if (drift.length) {
+            console.error('anim ' + ROOM + ': EXPAND disagrees with meta.stageScaffold for [' +
+              drift.join(', ') + ']. Every non-scaffold stage must be in EXPAND and no scaffold ' +
+              'stage may be — fix the EXPAND table in plan.mjs. Until then the pacing and the ' +
+              'rate readout for those stages are wrong.');
+          }
+        }
 
         // EXPAND THE CHUNKS. export-anim packs 2-3 tiles per step to fit a
         // memory segment; that is packaging, and the film should not inherit it.
@@ -1507,16 +1607,27 @@ td,th{border:1px solid #333;padding:6px 10px}
    layer caption. The [hidden] rule is written out rather than left to the UA
    sheet: the ticker being invisible until the last placement lands is the
    whole design, and it must not be one stylesheet-specificity accident away
-   from hanging over the entire replay. */
+   from hanging over the entire replay.
+   THE NOTE ROWS BORROW THE GEOMETRY AND NOTHING ELSE. Same row, same tag
+   column, same clip — and the notes card's #79c0ff throughout, because on this
+   page amber has meant "declared shortfall" everywhere else and the one thing
+   these rows must never do is read as gates. When a room has notes and no
+   shortfalls the whole box turns blue too (.asf-notesonly): the left rule is
+   the biggest colour in the component and leaving it amber would put a
+   shortfall-coloured bar at the end of a film with no shortfalls in it. */
 .anim-sf{margin-top:10px;background:#171310;border:1px solid #3a2a1c;border-left:3px solid #a4642a;
          border-radius:0 6px 6px 0;padding:8px 12px}
 .anim-sf[hidden]{display:none}
+.anim-sf.asf-notesonly{background:#101820;border-color:#23323d;border-left-color:#2b6a86}
 .asf-head{color:#ffb454;font-size:11.5px;letter-spacing:.4px;line-height:1.45;margin-bottom:6px}
+.asf-nhead{color:#79c0ff;margin-top:10px}
+.anim-sf.asf-notesonly .asf-nhead{margin-top:0}
 .asf-row{display:flex;gap:8px;align-items:baseline;padding:3px 0;border-top:1px solid #241b13}
+.asf-nrow{border-top-color:#1c2630}
 .asf-gate{flex:0 0 auto;color:#ffb454;font-size:10.5px;letter-spacing:.6px;text-transform:uppercase;
           white-space:nowrap;min-width:132px}
+.asf-ngate{color:#79c0ff;white-space:normal;max-width:210px}
 .asf-txt{color:#dcdcdc;font-size:11.5px;line-height:1.45;font-variant-numeric:tabular-nums}
-.asf-foot{margin-top:6px;color:#7f96a3;font-size:11px;line-height:1.4}
 .sf-card{margin-top:16px;max-width:1100px}
 .sf-card h3{color:#ffb454}
 .sf-lead{margin:0 0 12px;color:#9ab;font-size:12.5px;line-height:1.5}
@@ -2201,11 +2312,63 @@ ${thumbLegendHtml()}
       process.exitCode = 1;
     }
   }
+  // ------------------------------------------------------------------
+  // THE THREE FLEET TOTALS THE GOAL DOCUMENT QUOTES AND NOTHING PRINTED.
+  //
+  // The doc's baseline block opens "every number in this block is printed by
+  // plan.mjs --all-claimable, validate.mjs or push-plan.mjs --census". It was
+  // false for exactly three of them — the fleet rampart total, the fleet
+  // shallow-extension total and the count of declared shortfalls — which had to
+  // be re-derived by hand from the artifact every round, and a number
+  // re-transcribed by hand every round is a number that is wrong every other
+  // round. (`validate.mjs` prints `declared-shortfall N`, but that counts ROOMS
+  // carrying a note row, which is a different quantity and was being read as if
+  // it were this one.) The rule this planner holds itself to is that if a number
+  // appears in prose, something has to be able to print it. So:
+  // ------------------------------------------------------------------
+  {
+    const ramparts = ok.reduce((s, p) => s + (p.structures.rampart || []).length, 0);
+    const shallowByRoom = ok
+      .map((p) => {
+        const d = (p.meta.shortfalls || []).find(
+          (x) => x && x.gate === "extensions" && x.kind === "shallow",
+        );
+        return d ? `${p.room}:${d.shallowExt?.count ?? "?"}` : null;
+      })
+      .filter(Boolean);
+    const shallow = ok.reduce((s, p) => {
+      const d = (p.meta.shortfalls || []).find(
+        (x) => x && x.gate === "extensions" && x.kind === "shallow",
+      );
+      return s + (d?.shallowExt?.count ?? 0);
+    }, 0);
+    const decls = ok.reduce((s, p) => s + (p.meta.shortfalls || []).length, 0);
+    const notes = ok.reduce((s, p) => s + (p.meta.notes || []).length, 0);
+    console.log(
+      `FLEET TOTALS: ramparts ${ramparts} · shallow extensions ${shallow}` +
+        (shallowByRoom.length ? ` (${shallowByRoom.join(" ")})` : "") +
+        ` · declared shortfalls ${decls} · planner notes ${notes} · roads ` +
+        `${ok.reduce((s, p) => s + (p.structures.road || []).length, 0)}`,
+    );
+  }
   const parks = ok.map((p) => p.meta.ctrlParks ?? 0).sort((a, b) => a - b);
   const thin = ok.filter((p) => (p.meta.ctrlParks ?? 0) < 4);
+  // ...AND WHICH ROOMS ACTUALLY RELEASE SEATS, PRINTED. The goal document, this
+  // file's own PARK_PROTECT comment and criticism 4 all named THREE rooms and
+  // all three named E13S6, which holds 8 of the 8 its seat search counted, eats
+  // 0 and ships 0 shallow extensions — it never enters the release pass. The
+  // doc's own two figures for it disagreed with each other, which is the tell.
+  // Nothing printed the list, so nothing could contradict it; now something does.
+  const released = ok
+    .filter((p) => (p.meta.shortfalls || []).some((d) => d && d.gate === "ctrlParks" && d.kind === "released"))
+    .map((p) => {
+      const d = (p.meta.shortfalls || []).find((x) => x && x.gate === "ctrlParks" && x.kind === "released");
+      return `${p.room}:${d.ctrlParks?.held ?? "?"}of${d.ctrlParks?.held + d.ctrlParks?.released || "?"}->ships${d.ctrlParks?.parksShipped ?? p.meta.ctrlParks}`;
+    });
   console.log(
     `upgrader parks: min ${parks[0]} · median ${med(parks)}` +
-      (thin.length ? ` — THIN: ${thin.map((p) => `${p.room}:${p.meta.ctrlParks}`).join(" ")}` : ""),
+      (thin.length ? ` — THIN: ${thin.map((p) => `${p.room}:${p.meta.ctrlParks}`).join(" ")}` : "") +
+      ` · released in ${released.length} room(s)${released.length ? `: ${released.join(" ")}` : ""}`,
   );
   // the eco gates, and the fleet they were measured off — the line pipeline.mjs
   // has always claimed the suite prints and never did.

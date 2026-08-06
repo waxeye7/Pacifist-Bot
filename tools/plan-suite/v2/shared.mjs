@@ -241,7 +241,7 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  * whole ring held as it did with three quarters of it held.
  *
  * ---------------------------------------------------------------------------
- * "THE DEFAULT" IS DOING REAL WORK IN THAT SENTENCE — THREE ROOMS ARE BELOW IT.
+ * "THE DEFAULT" IS DOING REAL WORK IN THAT SENTENCE — TWO ROOMS ARE BELOW IT.
  * ---------------------------------------------------------------------------
  * This paragraph used to read "the floor IS what layer 1 measured, capped at
  * PARK_PROTECT", full stop, while E12S5 ships `meta.ctrlParkFloor = 2`. Both
@@ -250,8 +250,8 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  * pipeline.mjs may lower it — once, on the composition the room is about to
  * ship, and only when the room is paying for the reservation in SHALLOW
  * EXTENSIONS (a personal rampart repaired forever plus a structure a ranged
- * attacker can reach). Three rooms took that trade: E12S5 (7 -> 5 seats),
- * E13S6 (8 -> 7) and E9S2 (8 -> 7), each with a `ctrlParks` declaration naming
+ * attacker can reach). Two rooms took that trade: E12S5 (7 -> 5 seats) and
+ * E9S2 (8 -> 7), each with a `ctrlParks` declaration naming
  * the tiles it gave back and what it bought.
  *
  * What is NEVER lowered is PARK_FLOOR_HARD = 4, which is MIN_PARKS in layer 1

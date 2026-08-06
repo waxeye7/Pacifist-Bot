@@ -2774,11 +2774,19 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // this pass is willing to move a shallow extension onto.
   // ------------------------------------------------------------------
   const refusals = [];
+  // THE SIZE OF THE SWEEP, COUNTED RATHER THAN ASSERTED. The declaration used to
+  // say "all 2,304 interior positions" from a hardcoded literal in the prose, so
+  // if these loop bounds had ever changed the sentence would have gone on
+  // claiming a number nothing produced. It is a census field now, incremented by
+  // the sweep itself, and the paragraph prints what the sweep actually did.
+  let interiorSwept = 0;
   const scanFree = (skipKeys) => {
     const out = [];
+    let swept = 0;
     for (let y = 1; y <= 48; y++) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
+        swept++;
         if (skipKeys && skipKeys.has(k)) continue;
         if (occupiedTile.has(k)) continue;
         if (objectTiles.has(k)) continue;
@@ -2831,6 +2839,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         out.push({ x, y, k, depth: depth[i] });
       }
     }
+    interiorSwept = swept;
     return out;
   };
 
@@ -2853,6 +2862,223 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       .map((c) => ({ x: c.x, y: c.y, k: c.k, depth: c.depth, r: rank(c) }))
       .sort((a, b) => a.r - b.r || a.y - b.y || a.x - b.x);
 
+  const newRoads = [];
+  const shallowRamparts = [];
+  const roadKeysNow = new Set(liveRoadKeys);
+
+  // ------------------------------------------------------------------
+  // WHAT "THE NETWORK" IS, AND WHY IT WAS NEVER JUST ROADS.
+  //
+  // `paveableFor` below refuses to lay a road that does not JOIN the network,
+  // on the entirely correct ground that a road nothing can reach conducts
+  // nothing and the validator hard-fails it. What it got wrong is the
+  // membership test: it asked for a ROAD D8-adjacent to the new tile, and the
+  // rule it has to satisfy asks for no such thing. The validator's own
+  // orphan-road derivation (`roadComponent`, validate.mjs) floods the conduct
+  // graph from the sitter over ROADS AND CONTAINERS — a container is a walkable
+  // tile the haulers already stand on, and a road hanging off one is connected
+  // in exactly the sense that rule means and in exactly the sense a creep
+  // experiences.
+  //
+  // Guessing at a stricter rule than the one being enforced is not caution, it
+  // is a silent cap, and this one cost real tiles. E12S6 34,13 and 35,13 are
+  // deep, free, engine-legal, unreserved interior floor that both pass every
+  // other gate: 34,13 is one plain pave (35,13) from the network, and 35,13 is
+  // D8 of the source container at 35,14, which is itself D8 of the paved
+  // corridor at 34,15 / 35,15. Both were thrown away for having no ROAD
+  // neighbour, so this room's entire one-pave class came out EMPTY, all seven of
+  // its shallow slots were offered exactly ONE target (the road-faced 22,7,
+  // which at most one of them could ever have taken), and the declaration
+  // printed seven independent prices for one opportunity. The trade it refused:
+  // one plain road decays at 0.001 e/tick, the personal rampart the move retires
+  // decays at 0.030 — a factor of THIRTY — and taking it moves the gated lap by
+  // nothing at all.
+  //
+  // So the test is now a MIRROR of the rule it must satisfy rather than a
+  // producer-side invention. Mirroring is also what keeps a pave from shipping
+  // an orphan: the tile is accepted only when it lands on the same component
+  // the validator will flood.
+  //
+  // THE CACHE IS KEYED ON `roadKeysNow.size` PLUS AN EPOCH, and the epoch is
+  // there because a size alone is a correctness bug waiting for a second
+  // caller. Containers never move in this pass, an extension can never land on
+  // a live road tile (`occupiedTile` holds every one of them), and everywhere
+  // but `retirePave` roads are only ever ADDED — so for every one of those the
+  // size is a faithful fingerprint. `retirePave` is the exception: it can
+  // delete a road and then put it straight back, which produces two DIFFERENT
+  // road sets of the same size in the same call, and a size-keyed cache would
+  // hand the second one the first one's component. So that function bumps the
+  // epoch on every mutation it makes and the two together are the key. Any
+  // future pass that moves a container or blocks a road must key this on more
+  // than either.
+  // ------------------------------------------------------------------
+  /** exactly validate.mjs's BLOCKING list — a road under one of these is dead */
+  const conductBlocked = new Set(objectTiles);
+  for (const t of [
+    "spawn",
+    "extension",
+    "tower",
+    "storage",
+    "terminal",
+    "link",
+    "lab",
+    "nuker",
+    "observer",
+    "extractor",
+  ]) {
+    for (const p of plan.structures[t] || []) conductBlocked.add(key(p.x, p.y));
+  }
+  let netEpoch = 0;
+  let netCacheKey = "";
+  let netCache = new Set();
+  /** the conducting component: roads + containers + the sitter, flooded D8 */
+  const conductNet = () => {
+    const cacheKey = `${roadKeysNow.size}:${netEpoch}`;
+    if (netCacheKey === cacheKey) return netCache;
+    const net = new Set();
+    for (const k of roadKeysNow) if (!conductBlocked.has(k)) net.add(k);
+    for (const c of plan.structures.container || []) net.add(key(c.x, c.y));
+    const sk = key(plan.sitter.x, plan.sitter.y);
+    net.add(sk);
+    const comp = new Set([sk]);
+    const q = [{ x: plan.sitter.x, y: plan.sitter.y }];
+    for (let qi = 0; qi < q.length; qi++) {
+      const cur = q[qi];
+      for (const [dx, dy] of D8) {
+        const x = cur.x + dx,
+          y = cur.y + dy;
+        const k = key(x, y);
+        if (comp.has(k) || !net.has(k)) continue;
+        comp.add(k);
+        q.push({ x, y });
+      }
+    }
+    netCacheKey = cacheKey;
+    netCache = comp;
+    return comp;
+  };
+
+  /** a tile a road may be laid on: free floor, inside the wall, net-adjacent */
+  const paveableFor = (t) => {
+    const net = conductNet();
+    for (const [dx, dy] of D4) {
+      const px = t.x + dx,
+        py = t.y + dy;
+      const pk = key(px, py);
+      if (px < 1 || py < 1 || px > 48 || py > 48) continue;
+      if (roadKeysNow.has(pk) || occupiedTile.has(pk) || objectTiles.has(pk)) continue;
+      if (reservedK.has(pk)) continue;
+      if (isWall(terrain, px, py)) continue; // never tunnel the wall to reach floor
+      if (exterior[idxOf(px, py)]) continue;
+      if (!baseWalk[idxOf(px, py)]) continue;
+      // it has to JOIN the network, or it is a road to nowhere — and "the
+      // network" is the validator's conducting component, see the header above
+      let joins = false;
+      for (const [ax, ay] of D8) {
+        if (net.has(key(px + ax, py + ay))) {
+          joins = true;
+          break;
+        }
+      }
+      if (joins) return { x: px, y: py, k: pk };
+    }
+    return null;
+  };
+
+  // ------------------------------------------------------------------
+  // TAKING A PAVE BACK, WHEN THE MOVE THAT BOUGHT IT IS TAKEN BACK.
+  //
+  // Only the lap rollback calls this, and it is the one place in this file where
+  // a road this pass laid can stop being wanted. It refuses in two cases rather
+  // than one, because both of them are hard validator fails:
+  //
+  //   · SOMETHING ELSE IS STANDING ON THE FACE. Once the road exists, any later
+  //     placement in this pass may have taken a tile D4 of it and be relying on
+  //     it for the road face `extensions|off-road` demands. Pulling it then
+  //     trades an orphan road for an off-road extension, which is not a fix.
+  //   · SOMETHING ELSE IS HANGING OFF IT. A pave is a leaf when it is laid, but
+  //     a second pave may since have joined the network THROUGH it, and pulling
+  //     the first strands the second. That is re-derived rather than reasoned
+  //     about: pull it, re-flood the conducting component, and put it straight
+  //     back if any road this pass laid has fallen off.
+  //
+  // Pre-existing roads need no such check — every one of them was connected
+  // before this tile existed, and nothing here deletes anything else.
+  // ------------------------------------------------------------------
+  const retirePave = (p) => {
+    const pk = key(p.x, p.y);
+    if (!roadKeysNow.has(pk)) return false;
+    for (const e of extensions) {
+      if (Math.abs(e.x - p.x) + Math.abs(e.y - p.y) === 1) return false;
+    }
+    const at = newRoads.findIndex((r) => r.x === p.x && r.y === p.y);
+    if (at < 0) return false; // not ours to retire
+    roadKeysNow.delete(pk);
+    liveRoadKeys.delete(pk);
+    baseRoadsInWalk.delete(pk);
+    occupiedTile.delete(pk);
+    newRoads.splice(at, 1);
+    netEpoch++; // the road set changed shape, not just size — see conductNet
+    const net = conductNet();
+    for (const r of newRoads) {
+      if (net.has(key(r.x, r.y))) continue;
+      roadKeysNow.add(pk);
+      liveRoadKeys.add(pk);
+      baseRoadsInWalk.add(pk);
+      occupiedTile.add(pk);
+      newRoads.splice(at, 0, { x: p.x, y: p.y });
+      netEpoch++;
+      return false;
+    }
+    return true;
+  };
+
+  // ------------------------------------------------------------------
+  // THE OTHER HALF OF THE CANDIDATE SET, WHICH NOTHING USED TO COUNT.
+  //
+  // `scanFree` above returns the ROAD-FACED free deep tiles and that is the only
+  // number the search census ever published. The declaration meanwhile opened by
+  // claiming the pass had swept for free deep floor "already road-faced OR ONE
+  // PAVE AWAY" and then reported one class — so the second class was never
+  // counted, never reported and never priced, and a reader had no way to tell
+  // that it was empty because the room had none or empty because nobody looked.
+  // In E12S6 it was neither: the class was non-empty and the membership test
+  // above was throwing it away.
+  //
+  // This is that class, factored out of `deepTargets` so that the census and the
+  // relocation pass are provably looking at THE SAME SET. A count that is
+  // re-derived by a second copy of the scan is a count that can drift, and a
+  // declaration whose numbers drift from the search they describe is the whole
+  // defect being closed here.
+  // ------------------------------------------------------------------
+  const scanOnePave = (skipKeys) => {
+    const out = [];
+    for (let y = 1; y <= 48; y++) {
+      for (let x = 1; x <= 48; x++) {
+        const k = key(x, y);
+        if (skipKeys && skipKeys.has(k)) continue;
+        if (occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
+        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
+        const i = idxOf(x, y);
+        if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
+        if (!engineBuildable(terrain, x, y, "extension")) continue;
+        if (!baseWalk[i]) continue;
+        let isFaced = false;
+        for (const [dx, dy] of D4) {
+          const fk = key(x + dx, y + dy);
+          if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
+            isFaced = true;
+            break;
+          }
+        }
+        if (isFaced) continue; // that is the road-faced class, counted separately
+        if (!paveableFor({ x, y })) continue;
+        out.push({ x, y, k, depth: depth[i] });
+      }
+    }
+    return out;
+  };
+
   let free = scanFree(taken);
   const freeDeepFaced = free.length;
   // WHAT THE FREE TILES WERE SPENT ON, kept so the shallow note can say it.
@@ -2862,6 +3088,12 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // backfill below spent them closing that gap first. A good reason, a different
   // reason, and the printed one flattered.
   const freeKeys0 = new Set(free.map((c) => c.k));
+  // ...and the same census for the one-pave class, taken on the SAME board —
+  // before the backfill spends anything — so the two numbers are comparable.
+  // This is why the pave machinery above was hoisted over the backfill: measured
+  // after it, the second class would silently be the leftovers of the first.
+  const onePave0 = scanOnePave(taken);
+  const freeDeepOnePave = onePave0.length;
 
   // ---- (1) BACKFILL to the target ----------------------------------------
   // Nearest-to-the-hub first: the filler walks this every refill cycle, and a
@@ -2893,34 +3125,9 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // pay it. Both reviewers who built E9S2 to 60 used one of these two rungs for
   // their last tile: one added a road at 34,15 to reach 35,15, the other took
   // 34,4 at depth 3 with one rampart, "exactly like the room's other 15".
-  const newRoads = [];
-  const shallowRamparts = [];
-  const roadKeysNow = new Set(liveRoadKeys);
-  /** a tile a road may be laid on: free floor, inside the wall, net-adjacent */
-  const paveableFor = (t) => {
-    for (const [dx, dy] of D4) {
-      const px = t.x + dx,
-        py = t.y + dy;
-      const pk = key(px, py);
-      if (px < 1 || py < 1 || px > 48 || py > 48) continue;
-      if (roadKeysNow.has(pk) || occupiedTile.has(pk) || objectTiles.has(pk)) continue;
-      if (reservedK.has(pk)) continue;
-      if (isWall(terrain, px, py)) continue; // never tunnel the wall to reach floor
-      if (exterior[idxOf(px, py)]) continue;
-      if (!baseWalk[idxOf(px, py)]) continue;
-      // it has to JOIN the network, or it is a road to nowhere
-      let joins = false;
-      for (const [ax, ay] of D8) {
-        if (roadKeysNow.has(key(px + ax, py + ay))) {
-          joins = true;
-          break;
-        }
-      }
-      if (joins) return { x: px, y: py, k: pk };
-    }
-    return null;
-  };
-
+  // (`newRoads`, `roadKeysNow`, `paveableFor` and `scanOnePave` are declared
+  // ABOVE the backfill now — see the census block, which has to count the
+  // one-pave class on the same board the road-faced class was counted on.)
   if (extensions.length < TARGET) {
     // rung B — deep floor one paved tile from the net: costs a road, no rampart
     const unfacedDeep = [];
@@ -3055,31 +3262,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   /** deep, free, engine-legal targets: faced ones first, then one-pave ones */
   const deepTargets = () => {
     const faced = ordered(scanFree(taken)).map((c) => ({ ...c, pave: null }));
-    const unfaced = [];
-    for (let y = 1; y <= 48; y++) {
-      for (let x = 1; x <= 48; x++) {
-        const k = key(x, y);
-        if (taken.has(k) || occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
-        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
-        const i = idxOf(x, y);
-        if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
-        if (!engineBuildable(terrain, x, y, "extension")) continue;
-        if (!baseWalk[i]) continue;
-        let isFaced = false;
-        for (const [dx, dy] of D4) {
-          const fk = key(x + dx, y + dy);
-          if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
-            isFaced = true;
-            break;
-          }
-        }
-        if (isFaced) continue; // already in `faced`
-        const pave = paveableFor({ x, y });
-        if (!pave) continue;
-        unfaced.push({ x, y, k, depth: depth[i] });
-      }
-    }
-    return faced.concat(ordered(unfaced).map((c) => ({ ...c, pave: paveableFor(c) })));
+    return faced.concat(ordered(scanOnePave(taken)).map((c) => ({ ...c, pave: paveableFor(c) })));
   };
   for (let guard = 0; guard < 96; guard++) {
     const slots = extensions.filter(shallowOf);
@@ -3283,6 +3466,16 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       }
       const mv = movedLog.splice(pick, 1)[0];
       undo(mv);
+      // ...AND A ROLLED-BACK PAVE IS AN ORPHAN ROAD UNLESS IT GOES BACK TOO.
+      // `undo` restores the extension and nothing else, which was harmless while
+      // no relocation could ever pay a pave — the one-pave class was empty in
+      // every room because of the membership bug above. It is not harmless now:
+      // a move that bought a road and was then refused for the lap would leave
+      // that road standing with the extension it was bought for gone, and a road
+      // serving nothing is exactly the `road|orphan-road` hard fail. So the pave
+      // is taken back with the move, and only when taking it back is provably
+      // safe — see `retirePave`.
+      const paveTakenBack = mv.paved ? retirePave(mv.paved) : false;
       // the trade, priced: one forever-rampart refused, and what it would have cost
       boundRollback.push({
         ...mv,
@@ -3290,6 +3483,8 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         ceiling: round2v(lapCeiling),
         // which of the surviving moves this was — LIFO is the fallback, not the rule
         pickedBy: movedLog.length + 1 > ROLLBACK_EXACT_MAX ? "lifo" : "dearest",
+        // whether the road this move bought went back with it, when it bought one
+        paveRetired: mv.paved ? paveTakenBack : null,
       });
       lap = lapNow();
     }
@@ -3683,6 +3878,17 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   const shallowRefused = [];
   if (shallowSurvivors.length) {
     const order = deepTargets();
+    // ...AND THE RECORD SAYS WHICH CLASS, BECAUSE THE TWO ARE PRICED DIFFERENTLY.
+    // `targets` alone reads as one undifferentiated pile, and it is not one: a
+    // road-faced target is free to move onto, a one-pave target costs a plain
+    // road at 0.001 e/tick against the 0.030 rampart it retires. Every E12S6
+    // slot published `targets: 1` while the room's one-pave class was being
+    // silently discarded upstream, and nothing in the record could have told a
+    // reader whether that 1 meant "one class was empty" or "nobody looked at
+    // it". Split, both counts published, and the sum is still `targets`.
+    const targetsFaced = order.filter((c) => !c.pave).length;
+    const targetsOnePave = order.length - targetsFaced;
+    const byClass = `${targetsFaced} already road-faced and ${targetsOnePave} one plain pave away`;
     for (const s of shallowSurvivors) {
       const from = key(s.x, s.y);
       let examined = 0;
@@ -3714,6 +3920,9 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         y: s.y,
         depth: depth[idxOf(s.x, s.y)],
         targets: order.length,
+        // the same number, split by what a move onto it would COST — see above
+        targetsFaced,
+        targetsOnePave,
         examined,
         // the cheapest LEGAL target and what it would cost the lap, when one
         // exists; null when the room has no legal deep target at all
@@ -3722,22 +3931,73 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         lapNow: round2v(lapNow()),
         why: !order.length
           ? `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
-            `scan over all 48x48 interior tiles returned an empty candidate list, so there is nowhere ` +
-            `for this slot to go`
+            `scan over all ${interiorSwept} interior tiles returned an empty candidate list in BOTH ` +
+            `classes, so there is nowhere for this slot to go`
           : legalButLap
-            ? `the cheapest legal deep target is ${legalButLap.x},${legalButLap.y} and standing this ` +
-              `extension there takes the as-built gated defender lap to ${legalButLap.lap}, past this ` +
-              `room's ceiling of ${lapCeiling === null ? "n/a" : round2v(lapCeiling)}`
-            : `all ${examined} deep target(s) offered were refused by the shipped-board test: ` +
-              `${[...reasons.entries()].map(([w, n]) => `${n}x ${w}`).join(" · ") || "no reason recorded"}`,
+            ? `of the ${order.length} deep target(s) offered (${byClass}) the cheapest legal one is ` +
+              `${legalButLap.x},${legalButLap.y} and standing this extension there takes the as-built ` +
+              `gated defender lap to ${legalButLap.lap}, past this room's ceiling of ` +
+              `${lapCeiling === null ? "n/a" : round2v(lapCeiling)}`
+            : `all ${examined} deep target(s) offered (${byClass}) were refused by the shipped-board ` +
+              `test: ${[...reasons.entries()].map(([w, n]) => `${n}x ${w}`).join(" · ") || "no reason recorded"}`,
       });
     }
   }
+
+  // ------------------------------------------------------------------
+  // ONE TILE, SEVEN PRICES — WHICH IS ONE OPPORTUNITY, NOT SEVEN TRADES.
+  //
+  // Every one of E12S6's seven surviving shallow slots quoted `bestLegal`
+  // 22,7 and the declaration printed all seven prices side by side, as though
+  // the room were refusing seven separate rampart retirements at 1.63 lap each.
+  // It is refusing ONE. At most one extension can stand on 22,7, so the binding
+  // constraint on the other six is SUPPLY — there is no second tile — and the
+  // lap those six quote is a price for a thing that was never on sale. Stacking
+  // it seven times overstates the case the declaration is making, and a
+  // declaration that overstates its own case is not evidence.
+  //
+  // So the collision is a published field. It is the tile itself, as a plain
+  // `x,y` string, because the paragraph that reads it names the tile; the count
+  // rides alongside for the same reason. Ordered most-shared first with the tile
+  // key as the tiebreak, so two rooms with the same board publish the same tile.
+  // ------------------------------------------------------------------
+  const sharedTargetPick = (() => {
+    const byTile = new Map();
+    for (const s of shallowRefused) {
+      if (!s.bestLegal) continue;
+      const k = key(s.bestLegal.x, s.bestLegal.y);
+      byTile.set(k, (byTile.get(k) || 0) + 1);
+    }
+    const ranked = [...byTile.entries()]
+      .filter(([, n]) => n >= 2)
+      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+    return ranked.length ? { k: ranked[0][0], n: ranked[0][1] } : null;
+  })();
+  const sharedTarget = sharedTargetPick ? sharedTargetPick.k : null;
+  const sharedTargetSlots = sharedTargetPick ? sharedTargetPick.n : 0;
+
+  // WHAT IS STILL ON THE TABLE IN THE ONE-PAVE CLASS, re-scanned against the
+  // board this room ships rather than subtracted from the opening census. A
+  // candidate can leave that class without being taken — the commonest way is
+  // that its neighbour took it as ITS pave, which is exactly what 35,13 is in
+  // E12S6 — so `freeDeepOnePave - paveTaken` would be a fiction. This is a
+  // second search, and it answers the question a reader actually has: could the
+  // room still do it again?
+  const paveLeft = scanOnePave(taken).length;
+  const paveTaken =
+    added.filter((a) => a.paved).length + movedLog.filter((m) => m.paved).length;
 
   return {
     added,
     // per surviving shallow slot: the post-search evidence a declaration quotes
     shallowRefused,
+    // ...and the collision between those slots, hoisted to the top of the record
+    // because the shortfall builder in pipeline.mjs lifts it straight onto
+    // `shallowExt` for the paragraph. It is also inside `search`, which is where
+    // a validator re-deriving the census will look for it; both readers get the
+    // same value from the same derivation rather than two of them.
+    sharedTarget,
+    sharedTargetSlots,
     boundRollback,
     lapCeiling: round2v(lapCeiling),
     // the relaxed ceiling this room was entitled to (null when it is inside 2x
@@ -3768,11 +4028,24 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     // impossibility declaration downstream may quote these numbers and nothing
     // else — a claim about the room has to be a claim about a search.
     search: {
+      // HOW BIG THE SWEEP WAS, counted by the sweep — see `interiorSwept`. The
+      // paragraph used to assert 2,304 from a literal typed into the prose.
+      interiorTiles: interiorSwept,
       freeDeepRoadFaced: freeDeepFaced,
-      // WHERE THEY WENT. `spentOnAdds` are tiles that became extensions the room
-      // did not have at all (the backfill to 60/60); `spentOnMoves` are tiles a
-      // shallow slot relocated onto; `left` is what was still on the table when
-      // the remaining shallow slots were offered it.
+      // ...AND THE CLASS THE OPENER CLAIMED TO HAVE SWEPT FOR AND THEN NEVER
+      // MENTIONED AGAIN. The declaration said layer 7b looked for free deep
+      // floor "already road-faced OR ONE PAVE AWAY" and reported exactly one of
+      // those two numbers, so the second class was invisible in every room: a
+      // reader could not tell an empty class from an unexamined one, and in
+      // E12S6 it was neither — it held 34,13, a tile the room takes for free
+      // now. Counted on the same pre-backfill board as the road-faced class.
+      freeDeepOnePave,
+      // WHERE THE ROAD-FACED ONES WENT. `spentOnAdds` are tiles that became
+      // extensions the room did not have at all (the backfill to 60/60);
+      // `spentOnMoves` are tiles a shallow slot relocated onto; `left` is what
+      // was still on the table when the remaining shallow slots were offered it.
+      // All three are the ROAD-FACED class only; the one-pave class is accounted
+      // for separately below, because the two cost different money.
       spentOnAdds: added.filter((a) => freeKeys0.has(key(a.x, a.y))).length,
       spentOnMoves: movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
       left: Math.max(
@@ -3781,6 +4054,18 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
           added.filter((a) => freeKeys0.has(key(a.x, a.y))).length -
           movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
       ),
+      // WHERE THE ONE-PAVE ONES WENT. `paveTaken` counts the placements that
+      // actually bought a road — one road each, which is why it is also the
+      // number of road tiles this pass added for a face — and `paveLeft` is the
+      // class re-scanned against the shipped board (see above: the arithmetic
+      // does not close, and it should not, because a candidate can be consumed
+      // as its neighbour's pave).
+      paveTaken,
+      paveLeft,
+      // when 2+ surviving shallow slots quote the same cheapest legal target,
+      // the tile they are all queueing for — see the header above the pick
+      sharedTarget,
+      sharedTargetSlots,
       // DISTINCT TILES, not examinations. This counted `refusals.length`, which
       // is a per-round log — E9S2 published 12 for 7 distinct tiles, E11S1 12 for
       // 4, E12S6 43 for 9 — and the sentence it feeds says "rejecting N more for

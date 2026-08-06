@@ -24,6 +24,7 @@ import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
+import { renderDecl } from "./declprose.mjs";
 // NOTE: layer-ext's RAMPARTS_PER_RATIO / MOBILITY_RAMPART_CAP are deliberately
 // NOT imported any more. They price a defender LANE; the enclosure trade below
 // has its own published price and its own reasons — see MOBILITY_ENCLOSURE_*.
@@ -224,8 +225,9 @@ export function composePlan(d, shellOpts = {}) {
         : "";
       const l7note = l7moved
         ? `Layer 7b then re-ran the search over the board the room SHIPS — the dead-end prune had by ` +
-          `then handed back ${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) that did not ` +
-          `exist as floor when layer 6 looked — and moved ${l7moved} more ` +
+          `then handed back ${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) and ` +
+          `${rf.search.freeDeepOnePave} more that are one plain pave from the conducting network, none ` +
+          `of which existed as usable floor when layer 6 looked — and moved ${l7moved} more ` +
           `(${rf.moved.map((m) => `${m.from.x},${m.from.y}(d${m.fromDepth})->${m.to.x},${m.to.y}(d${m.toDepth})`).join(" ")})` +
           `${rf.rampartsRetired.length ? `, retiring ${rf.rampartsRetired.length} personal rampart(s)` : ""}. `
         : "";
@@ -238,8 +240,13 @@ export function composePlan(d, shellOpts = {}) {
       const cause = !shallowNow
         ? `every shallow slot this room laid was relocated onto deep floor; it ships none`
         : rf
-          ? `layer 7b scanned the finished interior tile by tile and found ` +
-            `${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) in the whole room, rejecting ` +
+          ? `layer 7b scanned all ${rf.search.interiorTiles} interior positions tile by tile and found ` +
+            `${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) and ` +
+            `${rf.search.freeDeepOnePave} one plain pave from the conducting network — BOTH CLASSES, ` +
+            `counted separately, which is the round-12 correction: this note reported only the ` +
+            `road-faced one while claiming to have swept for both, and the class it did not report ` +
+            `held a tile E12S6 could have taken for free. ${rf.search.paveTaken} of the one-pave tiles ` +
+            `were taken and ${rf.search.paveLeft} were left. It rejected ` +
             `${rf.search.refusedCount} distinct tile(s) for a stated reason each ` +
             `(${rf.search.refusedExaminations} examinations — a tile re-offered on a later round is ` +
             `logged again and counted once). ` +
@@ -256,23 +263,27 @@ export function composePlan(d, shellOpts = {}) {
             // printing it as an acceptance-test failure is not, and it flatters.
             // The census now names the three destinations a free tile can have.
             // ------------------------------------------------------------------
-            (rf.search.freeDeepRoadFaced === 0
+            (rf.search.freeDeepRoadFaced === 0 && rf.search.freeDeepOnePave === 0
               ? `There is no deep tile left in this enclosure that is free, inside the wall, ` +
-                `engine-legal, already road-faced and reachable by a builder — that is a statement ` +
-                `about a completed scan of all 2,304 interior positions, not about a budget`
+                `engine-legal, reachable by a builder and either road-faced or one pave from the ` +
+                `network — that is a statement about a completed scan of all ` +
+                `${rf.search.interiorTiles} interior positions, not about a budget`
               : (rf.search.spentOnAdds || rf.search.spentOnMoves
                   ? `Of those, ${rf.search.spentOnAdds} became extension(s) this room did not have at all ` +
                     `— the backfill to ${EXT_TARGET}/${EXT_TARGET}, which outranks retiring a rampart — and ` +
                     `${rf.search.spentOnMoves} took a relocated shallow slot. `
                   : "") +
-                (rf.search.left === 0
-                  ? `NONE were left by the time the ${shallowNow} remaining shallow slot(s) were offered ` +
-                    `them: this room did not refuse the trade, it never had it. The deep floor the prune ` +
-                    `handed back went on the extension count first`
-                  : `The ${rf.search.left} still on the table could not be taken by the ${shallowNow} that ` +
-                    `remain without failing the acceptance test: a structure would lose its last walkable ` +
-                    `face, a road would be cut off from the sitter, a battlement would be stranded, or the ` +
-                    `controller would lose a claim seat or an upgrader park`))
+                (rf.search.left === 0 && rf.search.paveLeft === 0
+                  ? `NONE of either class were left by the time the ${shallowNow} remaining shallow ` +
+                    `slot(s) were offered them: this room did not refuse the trade, it never had it. The ` +
+                    `deep floor the prune handed back went on the extension count first`
+                  : `The ${rf.search.left} road-faced and ${rf.search.paveLeft} one-pave tile(s) still on ` +
+                    `the table could not be taken by the ${shallowNow} that remain without failing the ` +
+                    `acceptance test or the lap ceiling: a structure would lose its last walkable face, a ` +
+                    `road would be cut off from the sitter, a battlement would be stranded, the ` +
+                    `controller would lose a claim seat or an upgrader park, or the move would take the ` +
+                    `gated defender lap past this room's ceiling. The declaration beside this note prices ` +
+                    `each one per slot`))
           : `the placement invariant refused the remaining deep tiles (each would strand a ` +
             `structure face, a road or the wall)`;
       // THE TRADE THIS ROOM REFUSED, PRICED. A relocation retires a
@@ -373,36 +384,21 @@ export function composePlan(d, shellOpts = {}) {
         const impossible = sr.filter((s) => !s.targets).length;
         const priced = sr.filter((s) => s.bestLegal).length;
         const refusedByTest = sr.filter((s) => s.targets && !s.bestLegal).length;
-        plan.meta.shortfalls.push({
+        // THE PARAGRAPH IS GENERATED — see declprose.mjs. The opener used to
+        // claim layer 7b swept for free deep floor "already road-faced OR ONE
+        // PAVE AWAY" and then report only the already-faced count; the one-pave
+        // class was never counted, never reported and never priced, and in
+        // E12S6 it held a tile the room could have taken for free. A search
+        // scope stated in prose and reported by nothing is exactly what a
+        // generated paragraph makes impossible: the template prints the fields,
+        // so a field that does not exist is a sentence that cannot be written.
+        const sfShallow = {
           gate: "extensions",
           kind: "shallow",
-          detail:
-            `SHALLOW EXTENSIONS DECLARED: ${shallowNow} of this room's ${total} extension(s) stand at ` +
-            `depth < ${DEPTH_SAFE} and each rents a personal rampart forever — ` +
-            `${Math.round(shallowNow * 3) / 100} e/tick of upkeep that never ends, and ` +
-            `${shallowNow} structure(s) a ranged attacker can hit from outside the wall. This is a cost ` +
-            `the room took because it could not do better, and here is the search that says so, re-run ` +
-            `at the end against the board this room ships. ` +
-            `THE CANDIDATE SCAN: layer 7b swept all 2,304 interior positions for free, deep, ` +
-            `engine-legal floor that is already road-faced or one pave away, and found ` +
-            `${rf ? rf.search.freeDeepRoadFaced : 0} already-faced free deep tile(s), of which ` +
-            `${rf ? rf.search.spentOnAdds : 0} went to the backfill (extensions this room did not have ` +
-            `at all, which outranks retiring a rampart), ${rf ? rf.search.spentOnMoves : 0} took a ` +
-            `relocated shallow slot, and ${rf ? rf.search.left : 0} were still on the table. ` +
-            `PER SLOT, AND THE OUTCOMES ARE DIFFERENT FACTS: ${impossible} slot(s) had NO deep target ` +
-            `of any kind, ${refusedByTest} had targets that the shipped-board acceptance test refused ` +
-            `(a structure loses its last walkable face, a road is cut from the sitter, a battlement is ` +
-            `stranded, the controller loses a claim seat or a park), and ${priced} had a LEGAL target ` +
-            `whose cost is the defender lap. ` +
-            sr
-              .map((s) => `${s.x},${s.y} (depth ${s.depth}, ${s.targets} target(s) offered): ${s.why}`)
-              .join(" · ") +
-            `. WHAT IS NOT CLAIMED: that no arrangement of sixty extensions could ever do better — this ` +
-            `is a statement about the completed post-prune search on this enclosure, priced, and it is ` +
-            `here so the trade can be argued with instead of capped in silence.`,
           tiles,
           count: shallowNow,
-          // the structured form the validator re-derives against
+          // the structured form the validator re-derives against, and the sole
+          // source of every word of the paragraph
           shallowExt: {
             count: shallowNow,
             total,
@@ -411,8 +407,17 @@ export function composePlan(d, shellOpts = {}) {
             refusedByTest,
             priced,
             slots: sr,
+            search: (rf && rf.search) || {},
+            // when several surviving slots quote the SAME cheapest legal
+            // target, at most one of them can ever take it — the binding
+            // constraint on the rest is supply, not the lap, and a paragraph
+            // that prints N independent prices for one opportunity is
+            // overstating its own case
+            sharedTarget: (rf && rf.sharedTarget) || null,
           },
-        });
+        };
+        sfShallow.detail = renderDecl(sfShallow);
+        plan.meta.shortfalls.push(sfShallow);
       }
     }
     if (total < EXT_TARGET) {
@@ -602,7 +607,13 @@ export function composePlan(d, shellOpts = {}) {
  *
  * That is a depth question, so it cannot be answered in layer 1: reserving the
  * seats there (by hub distance, the only ordering available before the wall
- * exists) cost E9S2 two shallow extensions, E12S5 three and E13S6 one. Here, one
+ * exists) cost E9S2 two shallow extensions and E12S5 three. (This used to name a
+ * third room, E13S6, and it was wrong in four separate places across the repo
+ * and the goal document: E13S6 ships 8 parks against a floor of 8 with 0 eaten
+ * and 0 shallow extensions — it never enters the release pass at all. The
+ * counterfactual itself is unverifiable by construction, since nothing in a
+ * finished plan records what a differently-ordered layer 1 would have cost, so
+ * treat the two numbers that remain as the historical note they are.) Here, one
  * layer later, the shell is drawn and the ordering can be the honest one:
  *
  *   1. SHALLOW seats first. A tile at depth < 4 is one the mass can only use by
@@ -726,29 +737,30 @@ function remeasureMineralNetwork(plan) {
   // ------------------------------------------------------------------
   if (misc.mineralOffNetwork) {
     plan.meta.shortfalls = plan.meta.shortfalls || [];
-    plan.meta.shortfalls.push({
+    // GENERATED — see declprose.mjs. The paragraph was one of 233 that carried
+    // no machine-checkable clause at all; it now prints its own record and the
+    // validator regenerates it.
+    const sfMineral = {
       gate: "misc",
       kind: "off-network",
-      detail:
-        `THE MINERAL SEAT IS OFF THE ROAD NETWORK, BY DESIGN. The container at ${seat.x},${seat.y} ` +
-        `(mineral ${plan.mineral.x},${plan.mineral.y}) has no road and no other container on any of its ` +
-        `eight neighbours, re-derived over the FINISHED road set — layer 5's own reading is taken before ` +
-        `the extension corridors, the rampart spurs and the swamp paving exist, and in a good part of the ` +
-        `fleet one of those runs past the seat and puts it on the network after all (this room is not one ` +
-        `of them; meta.misc.mineralSeatNetTiles is the empty list that says so). ` +
-        `WHY IT IS NOT PAVED: a mineral is one deposit on a ${MINERAL_COOLDOWN_NOTE}-tick regeneration ` +
-        `cooldown behind an extractor on a 5-tick cooldown, so the seat is visited a few times an hour, ` +
-        `and a road decays whether or not anything walks it. The walk saved does not pay the decay, and ` +
-        `the goal document's own rule for the mineral is that its proximity "barely matters". ` +
-        `WHAT IS GUARANTEED ANYWAY: the seat is reachable — the mineral work stand is re-derived from the ` +
-        `sitter over the engine's obstacles in every room and the validator re-derives it too — and the ` +
-        `container is a network NODE for everything else, so nothing else in the room is stranded by it.`,
       tiles: [{ x: seat.x, y: seat.y }],
-    });
+      offNetwork: {
+        mineral: { x: plan.mineral.x, y: plan.mineral.y },
+        seats: 1,
+        netTiles: (misc.mineralSeatNetTiles || []).length,
+        roads: (plan.structures.road || []).length,
+        regenTicks: MINERAL_COOLDOWN_NOTE,
+        extractorCooldown: EXTRACTOR_COOLDOWN_NOTE,
+      },
+    };
+    sfMineral.detail = renderDecl(sfMineral);
+    plan.meta.shortfalls.push(sfMineral);
   }
 }
 /** MINERAL_REGEN_TIME, quoted so the sentence above cannot drift from the game */
 const MINERAL_COOLDOWN_NOTE = 50000;
+/** EXTRACTOR_COOLDOWN, same reason — the paragraph reads it out of the record */
+const EXTRACTOR_COOLDOWN_NOTE = 5;
 
 // ------------------------------------------------------------------
 // THE UPGRADER SEATS, COUNTED ON THE FINISHED ROOM.
@@ -930,9 +942,11 @@ function remeasureCtrlParks(terrain, plan) {
 let FLEET_CTRL_WALK_MEDIAN = 10;
 let FLEET_SRC_SUM_MEDIAN = 26;
 let FLEET_MEDIANS_MEASURED = null;
+const ECO_CTRL_ABS = 25;
+const ECO_SRC_ABS = 60;
 const ECO_REL_MULT = 2;
-let ECO_CTRL_WALK_GATE = Math.min(25, ECO_REL_MULT * FLEET_CTRL_WALK_MEDIAN);
-let ECO_SRC_SUM_GATE = Math.min(60, ECO_REL_MULT * FLEET_SRC_SUM_MEDIAN);
+let ECO_CTRL_WALK_GATE = Math.min(ECO_CTRL_ABS, ECO_REL_MULT * FLEET_CTRL_WALK_MEDIAN);
+let ECO_SRC_SUM_GATE = Math.min(ECO_SRC_ABS, ECO_REL_MULT * FLEET_SRC_SUM_MEDIAN);
 
 /**
  * Called by the suite once the whole run is planned. `rooms` is the shipped
@@ -950,8 +964,8 @@ export function setFleetMedians(plans) {
   const srcSum = med(ok.map((p) => p.meta.pathSourcesSum ?? 0));
   FLEET_CTRL_WALK_MEDIAN = ctrlWalk;
   FLEET_SRC_SUM_MEDIAN = srcSum;
-  ECO_CTRL_WALK_GATE = Math.min(25, ECO_REL_MULT * ctrlWalk);
-  ECO_SRC_SUM_GATE = Math.min(60, ECO_REL_MULT * srcSum);
+  ECO_CTRL_WALK_GATE = Math.min(ECO_CTRL_ABS, ECO_REL_MULT * ctrlWalk);
+  ECO_SRC_SUM_GATE = Math.min(ECO_SRC_ABS, ECO_REL_MULT * srcSum);
   FLEET_MEDIANS_MEASURED = { rooms: ok.length, ctrlWalk, srcSum };
   return {
     rooms: ok.length,
@@ -990,33 +1004,10 @@ function declareEcoTax(plan) {
   const skip = plan.meta?.seedSkip ?? 0;
   if (pc <= ECO_CTRL_WALK_GATE && ps <= ECO_SRC_SUM_GATE && skip <= 0) return;
   const hub = plan.hub;
-  const bits = [];
-  if (pc > ECO_CTRL_WALK_GATE) {
-    bits.push(
-      `the controller is a ${pc}-tile walk ${bearing(hub, plan.controller)} of the hub, ` +
-        `${pc - FLEET_CTRL_WALK_MEDIAN} over the fleet median of ${FLEET_CTRL_WALK_MEDIAN} ` +
-        `(${Math.round((pc / FLEET_CTRL_WALK_MEDIAN) * 100) / 100}x it; the gate is ${ECO_CTRL_WALK_GATE}, ` +
-        `whichever is lower of the absolute 25 and ${ECO_REL_MULT}x the median) — every upgrader ` +
-        `trip and every controller-link haul pays it`,
-    );
-  }
-  if (ps > ECO_SRC_SUM_GATE) {
-    bits.push(
-      `the source paths sum to ${ps} (${plan.sources
-        .map((s) => bearing(hub, s))
-        .join(" + ")}), ${ps - FLEET_SRC_SUM_MEDIAN} over the fleet median of ${FLEET_SRC_SUM_MEDIAN} ` +
-        `(${Math.round((ps / FLEET_SRC_SUM_MEDIAN) * 100) / 100}x it; the gate is ${ECO_SRC_SUM_GATE}, ` +
-        `whichever is lower of the absolute 60 and ${ECO_REL_MULT}x the median) — ` +
-        `paid on every miner rotation and every container haul`,
-    );
-  }
-  if (skip > 0) {
-    bits.push(
-      `the hub sits on seed rank ${skip}: the ${skip} better-scoring confluence(s) in this room could not ` +
-        `hold the RCL8 program at any rung of the shell ladder, so the planner walked down the list and ` +
-        `bought the distance instead of shipping a room short on extensions`,
-    );
-  }
+  // NOTE: the three over-the-gate clauses used to be assembled here as strings.
+  // They are generated by `renderEco` now, and the conditions that SELECT them
+  // are re-derived there from the record's own numbers rather than carried as
+  // booleans — a record must not be able to claim a clause it has not earned.
   const basin = plan.basin?.length ?? 0;
   // ------------------------------------------------------------------
   // THE CAUSAL CLAUSE IS GENERATED, NOT ASSERTED.
@@ -1126,34 +1117,33 @@ function declareEcoTax(plan) {
       }
     }
   }
-  const chebFloor = Math.ceil(spread / 2);
+  // ------------------------------------------------------------------
+  // ...AND SO WAS THE CHEBYSHEV BRANCH. THIS IS THE ROUND-12 CORRECTION.
+  //
+  // Round 11 fixed the WALK branch and left this one alone, and the same defect
+  // was sitting in it the whole time: the separation is measured between anchor
+  // TILES while the distances it bounds are RING-SEEDED — `distField` seeds the
+  // anchor's whole walkable ring at zero — so a step is saved at each end and
+  // the honest bound is ceil((d - 2) / 2), not ceil(d / 2).
+  //
+  // Seven rooms took this branch and every one of them declared a floor one
+  // tile above what its geometry supports: E12S1 14, E13S4 19, E15S9 16,
+  // E16S5 18, E19S5 19, E2S6 17, E7S5 18. E13S4's is the one that proves it —
+  // it told the owner "two anchors 37 apart cannot both sit within 19 of any
+  // tile in the room" while 26,21 is plain walkable floor with a ring walk of
+  // 18 to the controller AND 18 to source 0. A floor that overstates is not a
+  // conservative error; it tells the owner the room is closer to optimal than it
+  // is, which is the flattering direction, and it is the exact sentence the eco
+  // bullet claims to have closed.
+  // ------------------------------------------------------------------
+  const chebFloor = Math.ceil(Math.max(0, spread - 2) / 2);
   const walkFloor = walkSpread === null ? null : Math.ceil(walkSpread / 2);
   const useWalk = walkFloor !== null && walkFloor > chebFloor;
   const anchorFloor = useWalk ? walkFloor : chebFloor;
-  const floorProof = useWalk
-    ? `the widest separation is ${walkSpread} tiles OF WALK (${walkPair}; they are only ${spread} apart ` +
-      `as the crow flies, and the difference is the terrain between them), and two anchors ${walkSpread} ` +
-      `apart on foot cannot both sit within ${walkFloor} steps of any tile in the room, so a walk of at ` +
-      `least ${walkFloor} to the far one is owed by EVERY hub this room admits, not by this one. THE ` +
-      `SEPARATION IS MEASURED IN THE SAME METRIC AS THE DISTANCES IT BOUNDS: min over every tile t of ` +
-      `(steps from t to the first anchor's work ring + steps from t to the second's), which is exactly ` +
-      `the ring-seeded field \`pathController\` and \`pathSourcesSum\` are read off. It used to be a ` +
-      `single-neighbour-to-single-neighbour path, a strictly larger quantity, and the floor it produced ` +
-      `overstated 15 of the fleet's 38 eco declarations`
-    : `the widest separation is ${spread} tiles (${spreadPair}), and two anchors ${spread} apart cannot ` +
-      `both sit within ${chebFloor} of any tile in the room, so a walk of at least ${chebFloor} to the ` +
-      `far one is owed by EVERY hub this room admits, not by this one` +
-      (walkSpread === null
-        ? ` (measured as chebyshev: at least one anchor pair in this room has no walkable path between ` +
-          `them at all, so a walk bound is not derivable)`
-        : ` (the walk separation is ${walkSpread}, which bounds no higher than the chebyshev one here)`);
-  const cause =
-    skip > 0
-      ? `${skip} closer-scoring seat(s) WERE tried and rejected — none of them held the RCL8 program at ` +
-        `any rung of the shell ladder — so this distance was bought, not preferred.`
-      : `NO closer seat was rejected: this hub is seed rank 0 of ${plan.meta.seedPool ?? "?"} scored ` +
-        `confluences and it composed the whole RCL8 program on its own ladder, so the eco score was ` +
-        `never overruled by anything. The anchors are genuinely far apart in this room — ${floorProof}.`;
+  // NOTE: the floor proof and the causal clause used to be built here as
+  // strings. They now live in `renderEco` (declprose.mjs), generated from the
+  // `eco` record below, because a paragraph assembled beside a record is a
+  // paragraph that can disagree with it — see the block above the push.
   // ------------------------------------------------------------------
   // THE OPENER CLAIMS ONLY WHAT THE CLOSER PROVES.
   //
@@ -1168,43 +1158,57 @@ function declareEcoTax(plan) {
   // that, and the seedSkip case (where closer seats really were composed and
   // rejected) keeps its stronger wording because there the search is the proof.
   // ------------------------------------------------------------------
-  const opener =
-    skip > 0
-      ? `hauler distances in this room were BOUGHT, not preferred: ${bits.join("; ")}. `
-      : `hauler distances in this room are at least ${anchorFloor} tiles of terrain verdict — that is the ` +
-        `floor the anchor spread proves below, and the rest is the shape of this basin: ${bits.join("; ")}. `;
-  plan.meta.shortfalls.push({
+  // ------------------------------------------------------------------
+  // THE PARAGRAPH IS GENERATED FROM THE RECORD BELOW, NOT WRITTEN HERE.
+  //
+  // Everything the sentence used to say — the two bearing clauses, the seed-rank
+  // clause, the basin, the floor proof and its basis — is a field on `eco` now,
+  // and `renderDecl` turns those fields into the paragraph. The validator calls
+  // the SAME function on the record this plan publishes and fails the room if
+  // the shipped paragraph is not what it produces.
+  //
+  // WHY. The old rule was that every audited number had to be QUOTED in the
+  // prose, and `quoted()` asked only whether the numeral occurred anywhere in
+  // the string. A reviewer rewrote a declaration's paragraph to assert the
+  // opposite of its own audit and appended "[audit tokens: ...]" with the
+  // numerals in it; the room passed. A paragraph that merely CONTAINS its
+  // numbers is not a paragraph that says them.
+  // ------------------------------------------------------------------
+  const sf = {
     gate: "eco",
-    detail:
-      opener +
-      `The hub sits at ${hub.x},${hub.y} on the only basin that holds the program — ${basin} tiles reachable ` +
-      `from the seed, core pocket ${plan.meta.coreSize ?? "?"}. ${cause} Capping this silently is the ` +
-      `anti-pattern; the numbers are here so the trade can be argued with. ` +
-      // AUDITED FACTS, QUOTED. The validator re-derives every one of these and
-      // fails the room on a mismatch — and it also requires each of them to
-      // appear in this paragraph, because correcting a structured block while
-      // the prose still says something else is the same lie in a quieter place.
-      // The conditional clauses above only print a distance when it is over its
-      // gate, so this line is where the short ones get said out loud.
-      `AUDITED FACTS, re-derivable and therefore quoted here in full: the controller walk from storage is ` +
-      `${pc} tile(s), the source path sum is ${ps}, the widest anchor separation is ${spread} as the crow ` +
-      `flies and ${walkSpread === null ? "not walkable at all" : `${walkSpread} of walk`} in the same ` +
-      `ring-seeded metric those two distances are measured in, and the floor that proves below them is ` +
-      `${anchorFloor} (basis: ${useWalk ? "walk" : "chebyshev"}).`,
     tiles: [{ x: hub.x, y: hub.y }],
     eco: {
       pathController: pc,
       pathSourcesSum: ps,
       seedSkip: skip,
       basin,
+      coreSize: plan.meta.coreSize ?? null,
       seedPool: plan.meta.seedPool ?? null,
       anchorSpread: spread,
       anchorWalkSpread: walkSpread,
       anchorFloorBasis: useWalk ? "walk" : "chebyshev",
       fleetMediansMeasured: FLEET_MEDIANS_MEASURED,
       anchorWalkFloor: anchorFloor,
+      // ...and the inputs the PROSE needs, which used to live only in this
+      // function's locals. A claim the paragraph makes has to be a field
+      // somebody can check; that is the whole contract of declprose.mjs.
+      chebFloor,
+      walkFloor,
+      spreadPair,
+      walkPair,
+      ctrlBearing: plan.controller ? bearing(hub, plan.controller) : null,
+      srcBearings: (plan.sources || []).map((src) => bearing(hub, src)),
+      ctrlMedian: FLEET_CTRL_WALK_MEDIAN,
+      srcMedian: FLEET_SRC_SUM_MEDIAN,
+      ctrlGate: ECO_CTRL_WALK_GATE,
+      srcGate: ECO_SRC_SUM_GATE,
+      ctrlAbs: ECO_CTRL_ABS,
+      srcAbs: ECO_SRC_ABS,
+      relMult: ECO_REL_MULT,
     },
-  });
+  };
+  sf.detail = renderDecl(sf);
+  plan.meta.shortfalls.push(sf);
 }
 
 export const extCount = (p) => p?.structures?.extension?.length ?? 0;
@@ -1482,51 +1486,77 @@ function attachRungProof(plan, trail) {
     const shipped = mobOf(plan);
     const shippedRamparts = rampartsOf(plan);
     // ------------------------------------------------------------------
-    // THE VERDICT IS READ OFF THE TABLE, NOT ASSERTED ABOVE IT.
+    // THE VERDICT IS READ OFF THE TABLE, NOT ASSERTED ABOVE IT — AND THE TABLE IS
+    // NOW A FIELD, NOT A CLOSURE.
     //
-    // layer 2's cause template used to end "no cut of this basin can shorten
-    // it" whenever it diagnosed terrain — a claim about every enclosure the room
+    // layer 2's cause template used to end "no cut of this basin can shorten it"
+    // whenever it diagnosed terrain — a claim about every enclosure the room
     // admits, printed directly above a table of enclosures this room actually
-    // composed, 30 of which listed a COMPLETE rung with a materially shorter
-    // lap. E14S5 shipped 7.5 at 40 ramparts with rung 1 sitting in its own table
-    // at 1.5 for 43. The impossibility claim is gone from layer 2 (see the `why`
-    // strings there) and this is what replaces it: whatever the rungs say.
+    // composed, 30 of which listed a COMPLETE rung with a materially shorter lap.
+    // E14S5 shipped 7.5 at 40 ramparts with rung 1 sitting in its own table at 1.5
+    // for 43. The impossibility claim is gone from layer 2 and this replaced it:
+    // whatever the rungs say.
+    //
+    // What this function then did was `s.detail += " LADDER WALKED: …"`, and that
+    // is the defect being closed here. A second writer appending to a finished
+    // paragraph is exactly the shape that produced three structurally different
+    // `towers/weak-battery` paragraphs under one kind, and under the generated-
+    // prose contract it is not merely untidy, it is a hard failure: the validator
+    // renders the published record and gets a paragraph with NO ladder in it,
+    // while the plan ships one with a ladder concatenated on the end, so every
+    // room that walked a ladder fails prose identity. The four numbers the verdict
+    // was chosen from — the shipped lap, the shipped rampart bill, the rung table
+    // and the trail length — plus the four thresholds it prices with, were all
+    // closures over this function and appeared in the shipped plan nowhere.
+    //
+    // So the pipeline publishes `s.ladder` and RE-RENDERS. `renderMobility`
+    // recomputes `better` and `best` from `ladder.rungs` every time, so a record
+    // whose own table contains a materially shorter complete rung cannot print the
+    // "nothing shorter exists" sentence, whatever this function believed.
     // ------------------------------------------------------------------
-    const better = mine
-      .filter((r) => r.complete && r.mobility < shipped - MATERIAL_LAP)
-      .sort((a, b) => a.mobility - b.mobility || a.ramparts - b.ramparts)[0];
-    const best = (mine.length ? mine : trail).reduce((b, r) => (r.mobility < b.mobility ? r : b));
-    const verdict = better
-      ? `A WIDER CUT DOES SHORTEN IT, and it is in the table above: rung ${better.rung} ` +
-        `(needDeep+${better.needDeepBonus}) composed the whole RCL8 program at a lap of ${better.mobility} for ` +
-        `${better.ramparts} ramparts, ${better.ramparts - shippedRamparts} more than the ${shippedRamparts} this ` +
-        `room ships. That is over the ${mobilityAllowance(shipped - better.mobility)} rampart(s) the ` +
-        `${MOBILITY_ENCLOSURE_PER_RATIO}-per-1.0 mobility price allows for the ${round2(shipped - better.mobility)} of lap ` +
-        `it reclaims (cap ${MOBILITY_ENCLOSURE_CAP}` +
-        (shipped <= MOBILITY_BUY_FLOOR
-          ? `, and this room's shipped lap of ${shipped} is not over the ${MOBILITY_BUY_FLOOR} floor below which wall may not be spent on lap at all`
-          : "") +
-        `), so it was refused on upkeep-first policy — not on ` +
-        `impossibility. The trade is written down here so it can be argued with.`
-      : best.mobility > MOBILITY_TARGET
-        ? `No rung this room composed measured a materially shorter lap: the best of them is ${best.mobility} at ` +
-          `${best.ramparts} ramparts, still over the ${MOBILITY_TARGET} target. Within the enclosures this room ` +
-          `admits at a price it can pay, the lap is what it is.`
-        : `The best lap any of them measured is ${best.mobility} at ${best.ramparts} ramparts; it was refused ` +
-          `because the ${best.ramparts - shippedRamparts} extra rampart(s) exceed the ` +
-          `${MOBILITY_ENCLOSURE_PER_RATIO}-per-1.0 price mobility is allowed to pay (cap ${MOBILITY_ENCLOSURE_CAP}).`;
-    s.detail +=
-      ` LADDER WALKED: ${mine.length} rung(s) of this seed` +
-      (trail.length > mine.length ? ` (plus ${trail.length - mine.length} composition(s) on rejected seeds)` : "") +
-      ` — ` +
-      mine
-        .map(
-          (r) =>
-            `rung ${r.rung} (needDeep+${r.needDeepBonus}): ` +
-            `mobility ${r.mobility}, ${r.ramparts} ramparts${r.complete ? "" : ", INCOMPLETE"}`,
-        )
-        .join(" · ") +
-      `. ${verdict}`;
+    s.ladder = {
+      // the rungs of the SHIPPED seed — the ones that were a real alternative.
+      // `s.rungs` above carries every composition including the rejected seeds.
+      rungs: mine.map((r) => ({
+        rung: r.rung,
+        needDeepBonus: r.needDeepBonus,
+        mobility: r.mobility,
+        ramparts: r.ramparts,
+        complete: r.complete,
+      })),
+      trailLength: trail.length,
+      shippedLap: shipped,
+      shippedRamparts,
+      // the four prices the verdict is argued with, carried rather than imported
+      // for the same reason `metric.target` is: this planner reprices the
+      // enclosure trade, and a paragraph rendered after a reprice must not
+      // silently restate it in today's currency.
+      perRatio: MOBILITY_ENCLOSURE_PER_RATIO,
+      cap: MOBILITY_ENCLOSURE_CAP,
+      buyFloor: MOBILITY_BUY_FLOOR,
+      materialLap: MATERIAL_LAP,
+      target: MOBILITY_TARGET,
+      // ...and the trail-wide best, which is the ONLY thing the rung table above
+      // cannot answer from itself: when this seed contributed no rung at all,
+      // `best` came from the whole trail. One source per situation, never blended.
+      fallbackBest: mine.length
+        ? null
+        : trail.length
+          ? (() => {
+              const r = trail.reduce((b, x) => (x.mobility < b.mobility ? x : b));
+              return {
+                rung: r.rung,
+                needDeepBonus: r.needDeepBonus,
+                mobility: r.mobility,
+                ramparts: r.ramparts,
+                complete: r.complete,
+              };
+            })()
+          : null,
+    };
+    // RE-RENDER, do not append. `renderDecl` is a pure function of `s`, and `s`
+    // is only now complete.
+    s.detail = renderDecl(s);
   }
   return plan;
 }
@@ -1560,10 +1590,30 @@ function attachRungProof(plan, trail) {
  */
 const RUNTIME_DECLARE_COMPOSES = SHELL_ESCALATION.length;
 function declareRuntime(plan, trail) {
-  if (trail.length <= RUNTIME_DECLARE_COMPOSES) return;
-  plan.meta.shortfalls = plan.meta.shortfalls || [];
+  // ------------------------------------------------------------------
+  // THE COUNT IS PUBLISHED WHETHER OR NOT IT IS DECLARED, and that is the
+  // difference between an obligation and a courtesy.
+  //
+  // The validator's runtime obligation used to fall back to
+  // `meta.shellEscalation.steps` when no declaration was present — and that
+  // field counts the rungs of ONE seed, while this declaration is about every
+  // composition the room paid for across all of them. E12S5 composed 7 plans
+  // over 2 seeds and its shipped seed walked 1 rung, so deleting the
+  // declaration took the re-derived trigger from 7 to 1 and the obligation
+  // stopped firing: the only witness to the number was the declaration the
+  // check was supposed to be able to demand. A trigger that reads the thing it
+  // is auditing is not a trigger.
+  //
+  // So the count is published unconditionally, before the threshold is applied,
+  // and the schema gate makes its absence a hard fail. The declaration then
+  // carries the same number in its own record, where the content audit compares
+  // the two.
+  // ------------------------------------------------------------------
   const seeds = new Set(trail.map((r) => r.seedSkip)).size;
   const complete = trail.filter((r) => r.complete).length;
+  plan.meta.compositions = { total: trail.length, seeds, complete };
+  if (trail.length <= RUNTIME_DECLARE_COMPOSES) return;
+  plan.meta.shortfalls = plan.meta.shortfalls || [];
   plan.meta.shortfalls.push({
     gate: "runtime",
     kind: "heavy-search",
@@ -1821,7 +1871,7 @@ function better(a, b, ecoCap) {
  * ------------------------------------------------------------------
  * Holding every counted seat is free in 165 of 172 rooms — measured, twice, at
  * two different floors. In the handful that are genuinely short of deep floor it
- * is not: E9S2 (74 deep tiles for the whole RCL8 program), E12S5 and E13S6 each
+ * is not: E9S2 (74 deep tiles for the whole RCL8 program) and E12S5 each
  * pay for the reservation in SHALLOW EXTENSIONS, and a shallow extension is a
  * personal rampart repaired forever plus a structure a ranged attacker can hit
  * from outside the wall. That is a real trade and it is the first one in this

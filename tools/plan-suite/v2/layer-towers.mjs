@@ -37,6 +37,14 @@
  */
 import { D4, D8, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
+// DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
+// Both of this layer's declarations used to build their paragraph inline out of
+// the search's own locals, which is exactly the shape that let a paragraph and
+// its record drift: the numbers in the sentence came from variables, the numbers
+// in the audit came from fields, and nothing ever compared the two. `renderDecl`
+// generates the paragraph FROM the published record, and the validator runs the
+// same function on the record the plan ships and requires the result to be equal.
+import { renderDecl } from "./declprose.mjs";
 import {
   MOBILITY_TARGET,
   boardMobility,
@@ -101,6 +109,42 @@ const ROAD_W = 60;
 const DIAG_FACE_W = 90;
 /** above this the candidate set is thinned by 2x2 block, geometry preserved */
 const MAX_CANDS = 260;
+/**
+ * WHAT THE NUKE-DISPERSION POST-PASS MAY SPEND ON THE TIE-BREAK, and it lives at
+ * module scope now because the clump DECLARATION quotes it. It used to be a
+ * `const` buried inside the dispersion block and the declaration said "one
+ * 30-point damage step" as a hand-typed literal — two copies of one number, in
+ * two scopes, with nothing keeping them equal. That is the same defect class as
+ * a paragraph that quotes its own record from memory, so the number has exactly
+ * one home and both the search and the generated prose read it from here.
+ *
+ * The value is one damage step, which is the granularity tower damage lands in
+ * anyway: a swap that reads as "the same battery" to the objective is allowed to
+ * also be the one a nuke reaches less of. Demanding an EXACT tie was tried first
+ * and buys nothing — `val` is a float mean and two genuinely equivalent sets
+ * almost never produce the same bits.
+ */
+const NUKE_TIEBREAK_BUDGET = 30;
+
+/**
+ * At what clump size a room owes the reader the search it ran.
+ *
+ * FIVE, not four. 93 of 172 rooms hold 3 of 6 towers inside chebyshev 2 and
+ * 34 hold 4 — at those densities the shape is the interior, not a choice, and
+ * a channel that fires 34 times about "some towers are near the hub" is noise
+ * competing with the eco and mobility declarations for the same reader. The
+ * finding is about the six rooms that put FIVE of six in one 5x5-sized huddle
+ * and reported `before == after` while doing it; that is the number this
+ * declares, and it declares all six.
+ *
+ * EXPORTED, and at module scope, because layer 7 re-derives the huddle over the
+ * board the room actually ships and the generated paragraph re-derives "is this
+ * room over the line" from the count and the line together. Two copies of a
+ * threshold in two files is how a declaration and its audit end up disagreeing
+ * about what triggered it, which is the whole of the defect this planner keeps
+ * finding in itself; there is one copy and both readers import it.
+ */
+export const CLUMP_NOTE = 5;
 
 function idx(x, y) {
   return x + y * 50;
@@ -781,7 +825,8 @@ export function planTowers(terrain, plan, opts = {}) {
     // to the objective is allowed to also be the one a nuke reaches less of.
     // Demanding an EXACT tie was tried first and buys nothing: `val` is a float
     // mean and two genuinely equivalent sets almost never produce the same bits.
-    const NUKE_TIEBREAK_BUDGET = 30;
+    // NUKE_TIEBREAK_BUDGET is at module scope because the clump declaration
+    // quotes it — see the comment there.
     const same = (a, b) =>
       (a.min >= TARGET_MIN) === (b.min >= TARGET_MIN) &&
       a.min >= b.min &&
@@ -1124,43 +1169,57 @@ export function planTowers(terrain, plan, opts = {}) {
     withinCheb2OfSitter: clumped.length,
     tiles: clumped.map((t) => ({ x: t.x, y: t.y })),
   };
-  /**
-   * At what clump size a room owes the reader the search it ran.
-   *
-   * FIVE, not four. 93 of 172 rooms hold 3 of 6 towers inside chebyshev 2 and
-   * 34 hold 4 — at those densities the shape is the interior, not a choice, and
-   * a channel that fires 34 times about "some towers are near the hub" is noise
-   * competing with the eco and mobility declarations for the same reader. The
-   * finding is about the six rooms that put FIVE of six in one 5x5-sized huddle
-   * and reported `before == after` while doing it; that is the number this
-   * declares, and it declares all six.
-   */
-  const CLUMP_NOTE = 5;
   if (clumped.length >= CLUMP_NOTE && plan.meta) {
     plan.meta.shortfalls = plan.meta.shortfalls || [];
-    plan.meta.shortfalls.push({
+    // ------------------------------------------------------------------
+    // THE RECORD FIRST, THE PARAGRAPH SECOND, AND THE PARAGRAPH FROM THE RECORD.
+    //
+    // The prose this replaces was ~20 lines of template literal interpolating
+    // `clumped.length`, `nukeSearch.*`, `nukeBefore` and `nukeAfter` straight out
+    // of this function's locals — none of which was published anywhere a reader
+    // or the validator could check them against. The counters existed (they went
+    // into `towersMeta.towerDispersion`) but the SENTENCE did not read them: it
+    // read the variables, and the two were kept equal by nothing but the fact
+    // that they happened to be typed on adjacent lines.
+    //
+    // Two records go on the entry instead. `clump` is the huddle itself, and it
+    // is deliberately in the shape finalizeRoom will OVERWRITE it with once the
+    // whole base is placed — this layer's reading is honest about the board this
+    // layer can see, and the shipped reading is the one of record. `dispersion`
+    // is what this layer's non-worsening post-pass actually tried, which is the
+    // half of the claim the round-8 finding was about: six rooms put five of six
+    // towers in one huddle and every one of them reported `before == after`
+    // while the prose asserted the search had run.
+    // ------------------------------------------------------------------
+    const sf = {
       gate: "towers",
       kind: "clump",
       source: "towers",
-      detail:
-        `${clumped.length} of ${towers.length} towers sit within chebyshev 2 of the sitter ` +
-        `(${clumped.map((t) => `${t.x},${t.y}`).join(" · ")}), which is the shape a single nuke is ` +
-        `cheapest against. The dispersion post-pass is a strictly non-worsening swap search — the ` +
-        `weakest wall face and the saturation are compared EXACTLY and only the tie-break may move, by ` +
-        `at most one 30-point damage step — and on this room it ran ${nukeSearch.rounds} single-swap ` +
-        `round(s) over ${nukeSearch.singleSwapsTried} candidate swap(s), of which ` +
-        `${nukeSearch.singleSwapsScoreTied} were score-tied and therefore legal to take, plus ` +
-        `${nukeSearch.pairSwapsTried} two-slot swap(s) (${nukeSearch.pairSwapsScoreTied} score-tied) for ` +
-        `the clumps no single tower can leave alone. It took the window from ${nukeBefore} to ` +
-        `${nukeAfter} over this layer's own set (spawn/storage/terminal/tower — the nuker does not exist ` +
-        `yet and the true window is recomputed after layer 5). ` +
-        (nukeSearch.improvedBy > 0
-          ? `The room did move.`
-          : `Nothing moved: every legal swap either left the window where it was or cost the wall ` +
-            `damage, and buying dispersion with the weakest face is the one trade this layer may not ` +
-            `make. The battery is where the wall put it.`),
+      detail: "",
       tiles: clumped.map((t) => ({ x: t.x, y: t.y })),
-    });
+      clump: {
+        within: clumped.length,
+        total: towers.length,
+        cheb: 2,
+        sitter: { x: plan.sitter.x, y: plan.sitter.y },
+        // the line this channel speaks at, ON THE RECORD, so the renderer can
+        // re-derive "is this room over it" instead of being told
+        note: CLUMP_NOTE,
+      },
+      dispersion: {
+        // layer 3's own reading, kept beside the shipped one finalizeRoom writes
+        // so a room whose towers moved afterwards can say which number is which
+        withinAtLayer3: clumped.length,
+        totalAtLayer3: towers.length,
+        windowBefore: nukeBefore,
+        windowAfter: nukeAfter,
+        counted: ["spawn", "storage", "terminal", "tower"],
+        tiebreakBudget: NUKE_TIEBREAK_BUDGET,
+        search: { ...nukeSearch },
+      },
+    };
+    sf.detail = renderDecl(sf);
+    plan.meta.shortfalls.push(sf);
   }
 
   // M6: tower[0] is the ONLY tower the room owns from RCL3 to RCL5 — the
@@ -1370,82 +1429,76 @@ export function planTowers(terrain, plan, opts = {}) {
   // how many wall tiles are still under target.
   // ------------------------------------------------------------------
   if (mn >= TARGET_MIN && (mn < WEAK_SHELL_DMG || maxRefill > REFILL_NOTE)) {
-    const bits = [];
-    if (mn < WEAK_SHELL_DMG) {
-      bits.push(
-        // THE NUMBERS IN THIS CLAUSE ARE ABOUT LAYER 2's CUT, AND NOW SAY SO.
-        // E15S5 shipped "1350 damage ... 0/20 cut tiles" over a wall that is 19
-        // tiles and weakest at 1410; E5S6 quoted 26 against a shipped 23. The
-        // shipped reading is prepended to this declaration in layer 7 (see
-        // declareShippedBattery), but a sentence that needs a later paragraph to
-        // stop being wrong is a sentence that should have carried its own
-        // denominator. Layer 7's inert prune and the single-removal seal
-        // reconciliation both change WHICH tiles are the wall, and this layer
-        // runs before either.
-        `the weakest wall face sees ${mn} damage — legal (the hard floor is ${TARGET_MIN}) but under the ` +
-          `${WEAK_SHELL_DMG} the fleet reaches almost everywhere, with ${weak}/${T} of the cut tiles ` +
-          `layer 2 handed this layer under the floor`,
-      );
-    }
-    if (maxRefill > REFILL_NOTE) {
-      bits.push(
-        `the furthest tower is a ${maxRefill}-step refill walk from the sitter — legal (the hard cap is ` +
-          `${MAX_REFILL}) but far enough that a refill trip costs more than the tower's own reload. ` +
-          `THAT WALK IS MEASURED WITH THE BATTERY STANDING IN IT (the other five towers are obstacles; ` +
-          `over the pre-mass field this layer gathers candidates on it reads ` +
-          `${Math.max(...towers.map((t) => refill[idx(t.x, t.y)]))}), and a repair was ATTEMPTED: ` +
-          (refillSearch.rounds
-            ? `${refillSearch.rounds} round(s) over this room's ${C} legal seat(s), ${refillSearch.tried} ` +
-              `single-slot swap(s) examined, ${refillSearch.scoreTied} of them score-tied and therefore ` +
-              `affordable, ${refillSearch.dispersionOk} of those also non-worsening for the nuke window — ` +
-              (refillSearch.moved
-                ? `${refillSearch.moved} seat(s) moved, taking the walk from ${refillSearch.before} to ` +
-                  `${refillSearch.after}, and this is where it stopped`
-                : `and not one of them shortened the walk without costing the weakest wall face, which is ` +
-                  `the trade this layer may not make`)
-            : `none was needed at this layer — it measured ${refillSearch.before} here and layer 7's ` +
-              `as-built re-derivation is what pushed it over`),
-      );
-    }
-    shortfalls.push({
+    // ------------------------------------------------------------------
+    // EVERYTHING THE PARAGRAPH SAYS IS NOW A FIELD SOMEBODY CAN CHECK.
+    //
+    // What stood here was ~60 lines of template literal that read `mn`, `weak`,
+    // `T`, `C`, `refillCap`, `spreadRadius`, `sum`, `refills`, `seenSet.size`,
+    // `PAIR_K`, `ESC_ROUNDS`, `refillSearch.*` and `escalation.*` directly out of
+    // planTowers's scope — and then published a SIX-FIELD `towers` block beside
+    // it. The paragraph and the record therefore had almost nothing in common:
+    // twenty-odd numerals in the prose, six in the audit, and the only thing
+    // holding them together was that one author typed both. That is the exact
+    // failure the declprose module exists to close, and this declaration was its
+    // worst instance in the planner.
+    //
+    // So the record comes first and carries EVERY input the paragraph uses,
+    // including the four thresholds it is judged against. The thresholds are on
+    // the record on purpose: the two conditional clauses (weak face, far refill)
+    // are selected by the renderer comparing `minShellDmg` against
+    // `weakShellDmg` and `maxRefill` against `refillNote`, not by a boolean this
+    // function sets — a record must not be able to claim a clause it has not
+    // earned, and a clause selected by the producer is a claim with no evidence
+    // behind it.
+    //
+    // NOTE THE DENOMINATOR. Every number in here is over the cut LAYER 2 handed
+    // this layer, before layer 7's inert prune and the single-removal seal
+    // reconciliation have moved the wall. E15S5 shipped "1350 damage ... 0/20
+    // cut tiles" over a wall that is 19 tiles and weakest at 1410; E5S6 quoted
+    // 26 against a shipped 23. `declaredCutTiles` is what makes that denominator
+    // explicit, and the as-shipped reading is a SEPARATE record (`sf.battery`,
+    // attached at finalizeRoom) rather than a correction glued onto this text.
+    // ------------------------------------------------------------------
+    const sf = {
       gate: "towers",
       kind: "weak-battery",
-      detail:
-        `THIS BATTERY IS LEGAL, NOT GOOD: ${bits.join("; ")}. The search that produced it: ${C} legal seat(s) ` +
-        `offered in this room (depth >= ${DEPTH_SAFE}, refill walk <= ${refillCap}), the six chosen spread to a ` +
-        `radius of ${spreadRadius} to cover a ${T}-tile shell, average face damage ${Math.round(sum / T)}. ` +
-        `Refill walks, nearest first: ${refills.slice().sort((a, b) => a - b).join("/")}. ` +
-        // WHAT WAS SEARCHED, not what is optimal. C-choose-6 is astronomical and
-        // this is a hill-climb; the sentence says so.
-        `WHAT WAS SEARCHED (this is a bounded hill-climb over ${C} seats, not a proof of optimality): ` +
-        `greedy from ${seenSet.size} distinct start(s), each descended by single-slot steepest descent to a ` +
-        `local optimum, then pairwise ejection` +
-        (escalation.ran
-          ? ` re-entered on ALL ${escalation.starts} of those optima plus ${escalation.restarts} ` +
-            `deterministically-seeded random legal batteries, and run to ` +
-            `${escalation.converged ? "convergence" : `the ${ESC_ROUNDS}-round bound WITHOUT converging`} with the ` +
-            `partner list widened to ${escalation.pairK} — ${escalation.rounds} swap round(s) in total, which ` +
-            (escalation.improvedTo > escalation.improvedFrom
-              ? `lifted the weakest face from ${escalation.improvedFrom} to ${escalation.improvedTo}`
-              : `found nothing better than the ${escalation.improvedFrom} the cheap search had already settled on`) +
-            `. This escalation runs precisely because the room was about to make this declaration`
-          : ` for 3 rounds on the winner (partner list ${PAIR_K})`) +
-        `. No set the search REACHED covers this shell better inside falloff range (150 damage past ` +
-        `chebyshev 20); the room is long or two-lobed, and this is the price.`,
+      detail: "",
       tiles: towers.map((t) => ({ x: t.x, y: t.y })),
       towers: {
         minShellDmg: mn,
         avgShellDmg: Math.round(sum / T),
-        maxRefill,
-        candidates: C,
         weakTiles: weak,
-        // THE DENOMINATOR THIS LAYER'S NUMBERS ARE OVER — layer 2's cut, before
-        // the prune and the seal reconciliation. Layer 7 quotes it when it
-        // prepends the shipped reading, so the two walls are never conflated.
         declaredCutTiles: T,
+        // the walk with the battery standing in its own way, and the pre-mass
+        // walk the candidate gather was done on — one subtraction apart, and the
+        // paragraph is only allowed to quote the second because it is here
+        maxRefill,
+        maxRefillUnblocked: Math.max(...towers.map((t) => refill[idx(t.x, t.y)])),
+        refillDists: refills.slice(),
+        // the seat list and the filters that produced it
+        candidates: C,
+        depthSafe: DEPTH_SAFE,
+        refillCap,
+        spreadRadius,
+        // what the hill-climb reached, in the shape the honest sentence needs:
+        // distinct starts, the partner width of the cheap pair move, and the
+        // hard round bound the escalation stops at
+        starts: seenSet.size,
+        pairK: PAIR_K,
+        escRounds: ESC_ROUNDS,
+        // THE LINES THIS DECLARATION IS JUDGED AGAINST, on the record so the
+        // renderer can re-derive which clauses it has earned
+        targetMin: TARGET_MIN,
+        weakShellDmg: WEAK_SHELL_DMG,
+        refillNote: REFILL_NOTE,
+        maxRefillHard: MAX_REFILL,
+        // the two searches whose counters the paragraph quotes
+        refillSearch: { ...refillSearch },
         search: escalation,
       },
-    });
+    };
+    sf.detail = renderDecl(sf);
+    shortfalls.push(sf);
   }
 
   return {

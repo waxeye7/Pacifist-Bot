@@ -256,10 +256,18 @@ async function api(cfg, method, endpoint, body) {
  * spurs). The payload shipped `structures` and nothing else, so the bot fell
  * back to a schedule of its own — "first 20 by BFS distance at RCL3, all of
  * them at RCL4" — which spends RCL3 on hub filler and leaves the hub->source
- * and hub->controller lines unpaved. Measured over the 172-room fleet snapshot
- * in out-v2/plans-hub.json, the arterial set this function produces is 35 tiles
- * in E16S1, 53 in E12S9, 45 in E9S2 — median 39, max 85 of E12S6's 123 —
- * against a 20-tile prefix, at the level where a hauler walks them every tick.
+ * and hub->controller lines unpaved. The arterial set this function produces is
+ * printed, per-room quantiles and all, by `--census` — see the ARTERIAL SIZE
+ * line there.
+ *
+ * IT USED TO BE FOUR HAND-TRANSCRIBED PER-ROOM NUMBERS ("35 tiles in E16S1, 53
+ * in E12S9, 45 in E9S2 — median 39, max 85"), sitting eight lines above a
+ * sentence claiming EVERY NUMBER IN THIS HEADER IS PRINTED BY `--census`. All
+ * five were stale — the true readings were 39/54/47, median 44, max 87 — and
+ * the census did not print any of them, so the claim was false about exactly the
+ * numbers that were wrong. A figure quoted in a comment is a figure that rots;
+ * the fix is not to re-transcribe it, it is to make something print it, which
+ * is what the census line now does.
  *
  * WHAT IS SHIPPED: `roadStage`, a parallel int array in the same order and of
  * the same length as `structures.road`, holding the RCL each tile is wanted at.
@@ -283,8 +291,11 @@ async function api(cfg, method, endpoint, body) {
  *      tiles a later pass laid — E11S1's eco line to its far source is bridged
  *      at 33,41 and 36,41 by layer-6 corridor tiles. So the bridges are found
  *      here, offline, where there is CPU to do it properly, and demoted into
- *      the arterial set (145 tiles across the fleet); after that all 172 rooms
- *      are connected under the same audit the bot runs.
+ *      the arterial set — `--census` prints how many, on the "bridge repair"
+ *      line, and the number this sentence used to state (145) had drifted to a
+ *      third of the truth. Same rule as everywhere else in this header now: if
+ *      it is a number, something prints it. After the repair all 172 rooms are
+ *      connected under the same audit the bot runs.
  *
  * REJECTED — doing the repair in the bot: it is a 0-1 BFS over ~130 tiles that
  * would run on every placement pass (every 15 ticks, every planned room) to
@@ -312,7 +323,7 @@ async function api(cfg, method, endpoint, body) {
  * containers — built at RCL2, a whole level EARLIER than those extensions —
  * had no guarantee at all. Fleet-wide the two add 36 road tiles to RCL3 across
  * 31 of the 172 rooms, max 3 in one room (E14S5), against an arterial set of
- * 7,924 of 14,103 tiles.
+ * 7,919 of 14,102 tiles.
  *
  * EVERY NUMBER IN THIS HEADER IS PRINTED BY `--census`, and that is the only
  * reason it is allowed to be here. The previous set was hand-transcribed from an
@@ -370,11 +381,76 @@ const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
  * ---------------------------------------------------------------------------
  */
 function rcl2Containers(plan) {
+  return containersForRcl(plan, CONTAINER_RCL);
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * THE CONTAINERS THAT ACTUALLY EXIST AT `lvl`. The general form of the function
+ * above, and the ONLY thing anything on this side may use to build a conductor
+ * set.
+ *
+ * It used to be that `rcl2Containers` was the RCL-aware reading and every OTHER
+ * consumer — the bridge BFS's `conduct` set, `stagedOrphans`, the census's
+ * reachability check, and the bot's own auditRoadPrefix — reached straight into
+ * the raw `plan.structures.container` array. That is four places asserting that
+ * a room at RCL3 can walk over four containers when PlanV2.plannedTilesFor only
+ * lets it build three.
+ *
+ * WHY THAT IS WORSE THAN A NORMAL OFF-BY-ONE: THE AUDIT SHARED THE GRAPH WITH
+ * THE THING IT AUDITS, SO IT REPORTED ZERO BY CONSTRUCTION. `stagedOrphans` and
+ * the census both answered "is this staged road reachable / is this eco terminal
+ * reachable" on the same too-generous graph the promotion pass had just used to
+ * decide it did not need to promote anything. Two functions agreeing with each
+ * other is not evidence; it is the same mistake counted twice. This is the exact
+ * failure mode as the spawn/storage conductor bug of round 10, one round later
+ * and one tile over — which is the argument for a single shared helper rather
+ * than a second correct copy.
+ *
+ * What it costs on the shipped fleet: E5S1 plans containers at 7,9 / 30,13 /
+ * 28,33 / 29,30 with its mineral+extractor at 30,31, so 29,30 is the mineral
+ * container and is not built until RCL6. At RCL3-5 the eco terminal at 28,33 is
+ * only reachable by standing on 29,30, and the staged roads at 28,31 / 28,32 /
+ * 29,34 hang off nothing. Every one of those was invisible while the checker
+ * stood on a container the room had not built.
+ *
+ * Three rules apply, in this order, and they are PlanV2's rules — mirrored here
+ * rather than imported because PlanV2 is TypeScript and this is a plain node
+ * script, which means the two CAN drift and this comment is the only thing
+ * stopping it:
+ *   · typeAllowedAtRcl("container") is `lvl >= 2` — nothing at all at RCL0/1;
+ *   · plannedTilesFor defers the extractor-adjacent (mineral) container below
+ *     RCL6, taking the LAST candidate on a tie (see the E8S3 note above);
+ *   · CONTROLLER_STRUCTURES.container caps the count.
+ *
+ * CONTAINER IS THE ONLY CONDUCTOR THERE IS, and that is a deliberate reading of
+ * the engine, not an oversight: everything else in a plan is either a road (in
+ * `stage`, filtered separately and already RCL-aware) or in
+ * OBSTACLE_OBJECT_TYPES. Rampart and extractor are technically walkable and are
+ * still NOT in the set — adding a conductor can only ever make this audit
+ * quieter, and a quieter audit is precisely what we have just spent two rounds
+ * digging back out.
+ * ---------------------------------------------------------------------------
+ */
+/** PlanV2.typeAllowedAtRcl("container") */
+const CONTAINER_RCL = 2;
+/** PlanV2.EXTRACTOR_RCL — the RCL that gives the mineral container a purpose */
+const EXTRACTOR_RCL = 6;
+/** CONTROLLER_STRUCTURES.container. It is 5 from RCL1 and every room in the
+ *  snapshot plans exactly 4, so this has never bound — applied anyway so that a
+ *  planner which one day emits a fifth container cannot make this side claim a
+ *  conductor the bot is not allowed to build. */
+const CONTAINER_CAP = 5;
+
+function containersForRcl(plan, lvl) {
+  if (lvl < CONTAINER_RCL) return [];
   const planned = plan.structures.container || [];
   const extractors = plan.structures.extractor || [];
-  // no extractor planned — plannedTilesFor defers nothing, so the room really
-  // does build all four at RCL2 and all four want the guarantee
-  if (!planned.length || !extractors.length) return planned.slice();
+  // at/after RCL6 nothing is deferred; with no extractor planned there is
+  // nothing to defer AGAINST, so the room really does build all four at RCL2
+  if (lvl >= EXTRACTOR_RCL || !planned.length || !extractors.length) {
+    return planned.slice(0, CONTAINER_CAP);
+  }
   let drop = -1;
   for (let i = 0; i < planned.length; i++) {
     for (const e of extractors) {
@@ -384,8 +460,11 @@ function rcl2Containers(plan) {
       }
     }
   }
-  if (drop < 0) return planned.slice();
-  return planned.slice(0, drop).concat(planned.slice(drop + 1));
+  if (drop < 0) return planned.slice(0, CONTAINER_CAP);
+  return planned
+    .slice(0, drop)
+    .concat(planned.slice(drop + 1))
+    .slice(0, CONTAINER_CAP);
 }
 
 function roadStageFor(plan) {
@@ -515,9 +594,19 @@ function roadStageFor(plan) {
   // A container is genuinely walkable (it is not an obstacle) so it stays. The
   // SEED moves with the rule: the hub tile a creep actually occupies is the
   // SITTER, not the storage it withdraws from.
+  //
+  // ...AND ONLY THE CONTAINERS THAT EXIST YET. Round 11 fixed WHICH TYPES
+  // conduct and left WHEN alone, so this set was still built from the raw
+  // `plan.structures.container` array — all four tiles — while this whole pass
+  // is deciding an RCL3 staging, and PlanV2.plannedTilesFor does not let a room
+  // build the mineral container until RCL6. The bridge BFS was therefore free to
+  // route an arterial THROUGH a container that will not exist for three more
+  // levels, and then declare the chain already free. Same shape of error as the
+  // spawn above, same invisibility: `stagedOrphans` checked the result on the
+  // same over-generous graph. See containersForRcl.
   // ---------------------------------------------------------------------
   const conduct = new Set();
-  for (const t of plan.structures.container || []) conduct.add(t.x + t.y * 50);
+  for (const t of containersForRcl(plan, ARTERIAL_RCL)) conduct.add(t.x + t.y * 50);
   const seedTile = plan.sitter || (plan.structures.storage || [])[0];
   if (!seedTile) return stage; // no hub to measure from — ship the raw split
   const seed = seedTile.x + seedTile.y * 50;
@@ -640,6 +729,21 @@ function roadStageFor(plan) {
   // between the stage-3 roads at 30,17 and 32,17. Fleet-wide 57 stage-3 tiles
   // across 18 rooms sat behind such a gap. See the `conduct` note above.
   //
+  // AND IT WAS STILL NOT 0 AFTER THAT, WHICH IS THE POINT. Round 10 fixed WHICH
+  // TYPES conduct and republished "0 unreachable eco terminals"; round 13 fixed
+  // WHEN they conduct (containersForRcl) and it is 1 — E5S1's controller
+  // container 28,33, reachable at RCL3 only by standing on the mineral container
+  // at 29,30 that PlanV2 does not build until RCL6. This pass cannot repair it:
+  // its 0-1 BFS never reaches 28,33's neighbourhood at all on the honest graph,
+  // so there is no parent chain to promote and nothing here invents a road the
+  // planner did not place. It is a PLANNER finding surfaced by an honest audit,
+  // and it is left visible in `--census` and in the push warning rather than
+  // hidden behind a conductor that does not exist yet. The lesson to keep: each
+  // time this number was published as 0 it was 0 because the checker was
+  // standing on the same wrong graph as the pass — not because the rooms were
+  // fine. Do not publish this figure again without asking what the checker is
+  // allowed to walk on.
+  //
   // THE BFS IS RE-RUN RATHER THAN REUSED, and honestly it buys nothing on this
   // snapshot — swapping `zeroOneBfs()` for `bridgeParent` here gives a
   // byte-identical result in all 172 rooms. It is kept because the cheap thing
@@ -690,21 +794,76 @@ function roadStageFor(plan) {
 
 /**
  * The bot's own connectivity audit, run here so a plan that would make it warn
- * never reaches the segment. Returns the number of staged road tiles the hub
- * cannot walk to — 0 in all 172 rooms of the fleet snapshot this was built
- * against, where the unrepaired provenance filter broke 65 of them.
+ * never reaches the segment. Returns the staged road tiles the hub cannot walk
+ * to AT `rcl` — as {x,y} objects, because "3 tiles in 2 rooms" is a number that
+ * cannot be acted on and a tile list is.
+ *
+ * TWO WAYS THIS FUNCTION USED TO LIE, BOTH FIXED HERE:
+ *
+ * (1) IT SHARED ITS GRAPH WITH THE THING IT AUDITS. The conductor set was built
+ * from the raw `plan.structures.container` array, exactly as roadStageFor's
+ * bridge BFS was, so when that pass decided a chain was already reachable by
+ * standing on a container the room has not built yet, this check stood on the
+ * same container and agreed. An audit that shares its graph with the pass it
+ * audits reports zero by construction — it is not measuring the pass, it is
+ * re-running it. That is how the round-10 spawn bug and this round's mineral
+ * container both shipped with a green check next to them. The conductor set now
+ * comes from containersForRcl(plan, rcl) and from nowhere else.
+ *
+ * (2) IT WAS ONLY EVER CALLED AT RCL3. `--census` and the push path both passed
+ * ARTERIAL_RCL and stopped, so RCL4 through RCL8 — every level the room spends
+ * the overwhelming majority of its life at — were completely unaudited. That is
+ * not a safe omission just because stage only holds 3 and 4: the CONDUCTOR set
+ * changes with RCL independently of the road set (the mineral container joins at
+ * RCL6), so "reachable at RCL3" and "reachable at RCL5" are different questions
+ * with different answers, and nothing was asking the second one. Both callers
+ * now sweep 3..8 and report per level.
+ */
+/** every RCL at which a road may exist (typeAllowedAtRcl gates road at >= 3) —
+ *  the full range both audits below sweep, not just the arterial level */
+const AUDIT_RCLS = [3, 4, 5, 6, 7, 8];
+
+/**
+ * ...AND THE ONE GAP A ROAD CANNOT CLOSE, READ OFF THE PLAN.
+ *
+ * The planner re-derives this same graph and PAVES the join where a join can be
+ * paved (see bridgeDeferredConduct in layer-walls). TWO rooms have a join that
+ * cannot be paved by anybody, and in both the reason is the same one: E5S3's
+ * north-east extension pocket meets the rest of its network on the single tile
+ * 32,11, and E2S5's eastern run on 27,23 — each of those tiles is where that
+ * room's mineral container goes, and the engine allows one structure per tile,
+ * so no arrangement of roads closes either before RCL6.
+ *
+ * (This sentence said ONE room for exactly as long as it took E2S5 to recompose
+ * — which it did in the same round, on an unrelated fix — and the count was
+ * never derived from anything. It is written out here because a reader wants the
+ * shape of the exception, and the COUNT is printed by `--census`; if the two ever
+ * disagree again, believe the census.)
+ *
+ * A creep still walks it: containers are not obstacles and neither is bare
+ * floor, so the cost is one extra tick per crossing and nothing is unreachable.
+ * That is a PAVING GAP and it is a different fact from an orphan, so it is
+ * reported as one — read out of the plan's own published record, which the
+ * validator re-derives from terrain and fails the room over if it is not true.
+ * The alternative is a guarantee that says "0 orphans" by quietly meaning
+ * something narrower, which is the shape of defect this whole audit exists for.
  */
 function stagedOrphans(plan, stage, rcl) {
   const roads = plan.structures.road || [];
   const selected = roads.filter((r, i) => stage[i] <= rcl);
-  // WALKABLE CONDUCTORS ONLY — see the long note over `conduct` in roadStageFor.
-  // This check and the pass it checks used to share a graph in which a creep
-  // walked through the spawn, which is how the pass's own claim went unaudited
-  // for two rounds.
+  // WALKABLE CONDUCTORS ONLY, AND ONLY THE ONES THAT EXIST AT `rcl` — see the
+  // long note over `conduct` in roadStageFor and over containersForRcl, plus
+  // the UNPAVED tiles the plan publishes as a paving gap. Those are bare floor
+  // a creep walks at 2 ticks instead of 1; they conduct because a creep does not
+  // need a road, and they are named in the plan and re-derived by the validator
+  // rather than assumed here.
   const conduct = new Set(selected.map((t) => t.x + t.y * 50));
-  for (const t of plan.structures.container || []) conduct.add(t.x + t.y * 50);
+  for (const t of containersForRcl(plan, rcl)) conduct.add(t.x + t.y * 50);
+  for (const t of plan.meta?.walls?.conductBridge?.gapTiles || []) {
+    if (t && Number.isInteger(t.x)) conduct.add(t.x + t.y * 50);
+  }
   const seedTile = plan.sitter || (plan.structures.storage || [])[0];
-  if (!seedTile) return 0;
+  if (!seedTile) return [];
   const seed = seedTile.x + seedTile.y * 50;
   const seen = new Set([seed]);
   const queue = [seed];
@@ -725,7 +884,85 @@ function stagedOrphans(plan, stage, rcl) {
       }
     }
   }
-  return selected.filter((t) => !seen.has(t.x + t.y * 50)).length;
+  return selected.filter((t) => !seen.has(t.x + t.y * 50));
+}
+
+/**
+ * Can a creep walk from the sitter to every eco terminal using only the
+ * structures that exist at `rcl`? Returns the terminals it cannot reach.
+ *
+ * This is the claim the whole staging is SOLD on, and it lived inline in
+ * `census()` as a hand-inlined copy of the BFS in `stagedOrphans` — with, of
+ * course, the same raw-container conductor set, so the check and the pass agreed
+ * with each other for the same reason two copies of a wrong number agree. It is
+ * a function now, called at every RCL 3..8, because the terminal set itself
+ * MOVES with the RCL: below RCL6 there are three terminals and the mineral
+ * container is neither a terminal nor a stepping stone; from RCL6 it is both.
+ *
+ * ...AND THE MINERAL SEAT IS NOT HELD TO IT, BECAUSE THE PLAN SAYS SO OUT LOUD.
+ *
+ * Honest conductors made this check true and immediately made it wrong in the
+ * other direction: from RCL6 the mineral container is a terminal, and the
+ * planner deliberately lays NO ROAD to it in 133 of 172 rooms. That is not an
+ * oversight, it is a priced decision with a declaration attached — the plan
+ * files `{gate:"misc", kind:"off-network"}` naming the seat tile, and the
+ * validator's own road gate reads exactly that declaration to grant exactly this
+ * exemption (a mineral is one deposit on a 50,000-tick cooldown; the walk saved
+ * does not pay a road's decay). Counting those 133 as staging failures would be
+ * this check reporting a decision the plan already reported, in a channel that
+ * cannot tell the two apart.
+ *
+ * So the exemption is READ, never assumed: a mineral seat that has NOT declared
+ * itself is held to the rule like every other terminal, which is the same split
+ * the validator draws. One declaration, honoured by both readers.
+ */
+function unreachableTerminals(plan, stage, rcl) {
+  const declaredOffNetwork = new Set();
+  for (const sf of plan.meta?.shortfalls || []) {
+    if (!sf || sf.gate !== "misc" || sf.kind !== "off-network") continue;
+    for (const t of sf.tiles || []) {
+      if (t && Number.isInteger(t.x) && Number.isInteger(t.y)) declaredOffNetwork.add(t.x + t.y * 50);
+    }
+  }
+  // BUILT is one question, CHECKED is another. Everything standing at this RCL
+  // conducts — a container a creep can walk over is a container a creep can walk
+  // over, declaration or not — but only the terminals the plan has NOT excused
+  // are held to the reachability rule.
+  const built = containersForRcl(plan, rcl);
+  const terminals = built.filter((t) => !declaredOffNetwork.has(t.x + t.y * 50));
+  if (!terminals.length) return [];
+  const conduct = new Set(
+    (plan.structures.road || []).filter((r, i) => stage[i] <= rcl).map((t) => t.x + t.y * 50),
+  );
+  for (const t of built) conduct.add(t.x + t.y * 50);
+  // ...and the published paving gap, for the same reason stagedOrphans honours
+  // it: a creep walks bare floor, and the tile is named and re-derived.
+  for (const t of plan.meta?.walls?.conductBridge?.gapTiles || []) {
+    if (t && Number.isInteger(t.x)) conduct.add(t.x + t.y * 50);
+  }
+  const seedTile = plan.sitter || (plan.structures.storage || [])[0];
+  if (!seedTile) return [];
+  const seed = seedTile.x + seedTile.y * 50;
+  const seen = new Set([seed]);
+  const queue = [seed];
+  while (queue.length) {
+    const cur = queue.pop();
+    const x = cur % 50;
+    const y = Math.floor(cur / 50);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = nx + ny * 50;
+        if (seen.has(np) || !conduct.has(np)) continue;
+        seen.add(np);
+        queue.push(np);
+      }
+    }
+  }
+  return terminals.filter((t) => !seen.has(t.x + t.y * 50));
 }
 
 /**
@@ -748,6 +985,12 @@ function census() {
   const plans = JSON.parse(fs.readFileSync(plansPath, "utf8"));
   let roads = 0;
   let arterial = 0;
+  /**
+   * PER-ROOM ARTERIAL SIZES, so the header does not have to transcribe four of
+   * them by hand and get all four wrong. See the header's own rule: if a number
+   * appears in prose, something has to be able to print it.
+   */
+  const arterialPerRoom = [];
   let c2Tiles = 0;
   let c2Rooms = 0;
   let ecoTiles = 0;
@@ -758,10 +1001,11 @@ function census() {
   let bothMaxRoom = null;
   let extFaced = 0;
   let bridged = 0;
-  let orphanTiles = 0;
-  let orphanRooms = 0;
-  let unreachTerminals = 0;
-  const unreachRooms = [];
+  // one row per audited RCL — see AUDIT_RCLS
+  const perRcl = {};
+  for (const lvl of AUDIT_RCLS) {
+    perRcl[lvl] = { orphanTiles: 0, orphanRooms: [], unreach: 0, unreachRooms: [], mineral: 0 };
+  }
   // ...and the one figure in this file's header that NOTHING re-derived. It was
   // published as "220 RCL2 containers across 145 rooms" for two rounds, in this
   // file and in the goal document, and it is 218 across 143. A number in prose
@@ -773,7 +1017,9 @@ function census() {
     if (!plan || !plan.structures) continue;
     const stage = roadStageFor(plan);
     roads += stage.length;
-    arterial += stage.filter((s) => s <= ARTERIAL_RCL).length;
+    const arterialHere = stage.filter((s) => s <= ARTERIAL_RCL).length;
+    arterial += arterialHere;
+    arterialPerRoom.push({ room: plan.room, n: arterialHere, roads: (plan.structures.road || []).length });
     extFaced += stage.extFaced || 0;
     bridged += stage.bridged || 0;
     c2Tiles += stage.c2Faced || 0;
@@ -787,37 +1033,31 @@ function census() {
       bothMax = both;
       bothMaxRoom = plan.room;
     }
-    const o = stagedOrphans(plan, stage, ARTERIAL_RCL);
-    if (o) {
-      orphanTiles += o;
-      orphanRooms++;
-    }
-    // ...and the claim the staging is SOLD on: can a creep walk from the sitter
-    // to every eco terminal over stage<=3 roads and containers alone?
-    const sel = new Set(
-      (plan.structures.road || []).filter((r, i) => stage[i] <= ARTERIAL_RCL).map((t) => t.x + t.y * 50),
-    );
-    for (const c of plan.structures.container || []) sel.add(c.x + c.y * 50);
-    const seedTile = plan.sitter || (plan.structures.storage || [])[0];
-    if (!seedTile) continue;
-    const seed = seedTile.x + seedTile.y * 50;
-    const seen = new Set([seed]);
-    const q = [seed];
-    while (q.length) {
-      const cur = q.pop();
-      const x = cur % 50;
-      const y = Math.floor(cur / 50);
-      for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
-          if (!dx && !dy) continue;
-          const nx = x + dx;
-          const ny = y + dy;
-          if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
-          const np = nx + ny * 50;
-          if (seen.has(np) || !sel.has(np)) continue;
-          seen.add(np);
-          q.push(np);
-        }
+    // EVERY LEVEL, NOT JUST RCL3. Both of these used to be asked once, at
+    // ARTERIAL_RCL, which quietly meant RCL4-8 — where a room spends nearly all
+    // of its life — were never audited at all. `stage` only ever holds 3 or 4 so
+    // the ROAD set stops changing after RCL4, but the CONDUCTOR set does not:
+    // the mineral container arrives at RCL6 and changes both what a creep can
+    // stand on and (from RCL6) what counts as a terminal it has to reach. Two
+    // different questions, and only the first was being asked.
+    for (const lvl of AUDIT_RCLS) {
+      const row = perRcl[lvl];
+      const orphans = stagedOrphans(plan, stage, lvl);
+      if (orphans.length) {
+        row.orphanTiles += orphans.length;
+        row.orphanRooms.push(`${plan.room}(${orphans.map((t) => `${t.x},${t.y}`).join(" ")})`);
+      }
+      const bad = unreachableTerminals(plan, stage, lvl);
+      if (bad.length) {
+        row.unreach += bad.length;
+        row.unreachRooms.push(`${plan.room}(${bad.map((c) => `${c.x},${c.y}`).join(" ")})`);
+        // SPLIT OUT THE MINERAL CONTAINER, because from RCL6 it dominates this
+        // column and it is a different KIND of finding. Derived from the same
+        // containersForRcl rather than re-testing extractor adjacency, so there
+        // is still exactly one definition of "the deferred container" on this
+        // side: it is the tile that is in the RCL6 set and not in the RCL2 one.
+        const early = new Set(rcl2Containers(plan).map((c) => c.x + c.y * 50));
+        row.mineral += bad.filter((c) => !early.has(c.x + c.y * 50)).length;
       }
     }
     {
@@ -834,14 +1074,18 @@ function census() {
         noFaceRooms++;
       }
     }
-    const bad = rcl2Containers(plan).filter((c) => !seen.has(c.x + c.y * 50));
-    if (bad.length) {
-      unreachTerminals += bad.length;
-      unreachRooms.push(`${plan.room}(${bad.map((c) => `${c.x},${c.y}`).join(" ")})`);
-    }
   }
   console.log(`push-plan road-staging census over ${plans.length} rooms`);
   console.log(`  arterial (stage <= ${ARTERIAL_RCL}): ${arterial} of ${roads} road tiles`);
+  {
+    const sorted = arterialPerRoom.slice().sort((x, y) => x.n - y.n);
+    const q = (frac) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * frac))];
+    const worst = sorted[sorted.length - 1];
+    console.log(
+      `  ARTERIAL SIZE per room: min ${sorted[0].n} (${sorted[0].room}) · median ${q(0.5).n} · ` +
+        `p90 ${q(0.9).n} · max ${worst.n} of ${worst.roads} (${worst.room})`,
+    );
+  }
   console.log(`  extension[0..${RCL3_EXTENSIONS - 1}] faces promoted: ${extFaced}`);
   console.log(`  RCL2-container faces promoted: ${c2Tiles} tiles across ${c2Rooms} rooms`);
   console.log(`  eco-terminal reach chains: ${ecoTiles} tiles across ${ecoRooms} rooms`);
@@ -850,18 +1094,44 @@ function census() {
       `${bothMax} in one room (${bothMaxRoom})`,
   );
   console.log(`  bridge repair: ${bridged} tiles`);
-  console.log(
-    `  stagedOrphans (walkable conductors: road + container, seeded at the sitter): ` +
-      `${orphanTiles} tiles in ${orphanRooms} rooms`,
-  );
-  console.log(
-    `  eco terminals a creep cannot reach at stage <= ${ARTERIAL_RCL}: ${unreachTerminals}` +
-      (unreachRooms.length ? ` — ${unreachRooms.join(" ")}` : ""),
-  );
+  // PER RCL, AND NAMING THE TILES. A single "0 tiles in 0 rooms" line at RCL3
+  // was the entire published evidence for this staging being sound, and it was
+  // 0 partly because it was measured on the pass's own graph and partly because
+  // nobody asked about RCL4-8 at all. A per-level table with the rooms and tiles
+  // in it cannot be summarised into a green tick by accident.
+  console.log(`  per-RCL audit (walkable conductors: road + container-at-that-RCL, seeded at the sitter):`);
+  for (const lvl of AUDIT_RCLS) {
+    const row = perRcl[lvl];
+    console.log(
+      `    RCL${lvl}: staged road orphans ${row.orphanTiles} tiles in ${row.orphanRooms.length} rooms` +
+        (row.orphanRooms.length ? ` — ${row.orphanRooms.join(" ")}` : "") +
+        `; unreachable eco terminals ${row.unreach} in ${row.unreachRooms.length} rooms` +
+        (row.mineral ? ` (${row.mineral} of them the mineral container)` : "") +
+        (row.unreachRooms.length ? ` — ${row.unreachRooms.join(" ")}` : ""),
+    );
+  }
   console.log(
     `  RCL2 containers with NO planned D4 road face (a planner question, not a staging one): ` +
       `${noFaceTiles} across ${noFaceRooms} rooms`,
   );
+  // THE PAVING GAPS, COUNTED — see the header over pavingGapTiles. The header
+  // used to state the count in prose ("One room in the fleet…") and it was wrong
+  // within the same round, because nothing derived it. Now something does.
+  {
+    const gaps = plans
+      .filter((p) => (p.meta?.walls?.conductBridge?.gapTiles || []).length)
+      .map((p) => {
+        const cb = p.meta.walls.conductBridge;
+        return `${p.room}(${cb.gapTiles.map((t) => `${t.x},${t.y}`).join(" ")}; ${(cb.stranded || []).length} road tile(s) behind it)`;
+      });
+    const paved = plans
+      .filter((p) => (p.meta?.walls?.conductBridge?.added || []).length)
+      .map((p) => `${p.room}(${p.meta.walls.conductBridge.added.map((t) => `${t.x},${t.y}`).join(" ")})`);
+    console.log(
+      `  RCL-deferred conduct: ${paved.length} room(s) PAVED the join${paved.length ? ` — ${paved.join(" ")}` : ""}` +
+        `; ${gaps.length} room(s) publish an unpaveable PAVING GAP${gaps.length ? ` — ${gaps.join(" ")}` : ""}`,
+    );
+  }
 }
 
 async function main() {
@@ -919,14 +1189,27 @@ async function main() {
 
   // per-road-tile RCL, parallel to structures.road — see roadStageFor
   const roadStage = roadStageFor(plan);
-  const orphans = stagedOrphans(plan, roadStage, ARTERIAL_RCL);
-  if (orphans) {
-    // The bot logs this same count at RCL3 and then builds the stubs anyway.
-    // Better to see it here, once, with the room in front of you.
-    console.warn(
-      `WARNING ${room}: ${orphans} staged RCL${ARTERIAL_RCL} road tiles are not ` +
-        `connected to the hub — the bot's auditRoadPrefix will say so too`,
-    );
+  // EVERY RCL, WITH THE TILES. This warned once, at RCL3, with a bare count —
+  // so a room whose network only breaks at RCL5 pushed silently, and a room that
+  // did warn told you a number you could not go and look at. Both audits are
+  // cheap (one BFS over ~130 tiles each) and this runs once per push.
+  for (const lvl of AUDIT_RCLS) {
+    const orphans = stagedOrphans(plan, roadStage, lvl);
+    if (orphans.length) {
+      // The bot logs this same count at RCL3 and then builds the stubs anyway.
+      // Better to see it here, once, with the room in front of you.
+      console.warn(
+        `WARNING ${room}: ${orphans.length} staged RCL${lvl} road tiles are not connected to ` +
+          `the hub — ${orphans.map((t) => `${t.x},${t.y}`).join(" ")}`,
+      );
+    }
+    const stranded = unreachableTerminals(plan, roadStage, lvl);
+    if (stranded.length) {
+      console.warn(
+        `WARNING ${room}: ${stranded.length} eco terminals a creep cannot reach at RCL${lvl} — ` +
+          stranded.map((c) => `${c.x},${c.y}`).join(" "),
+      );
+    }
   }
 
   const payload = {
@@ -988,4 +1271,14 @@ if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) 
   });
 }
 
-export { roadStageFor, stagedOrphans, ARTERIAL_RCL, ARTERIAL_LAYER, REST_RCL, RCL3_EXTENSIONS };
+export {
+  roadStageFor,
+  stagedOrphans,
+  unreachableTerminals,
+  containersForRcl,
+  AUDIT_RCLS,
+  ARTERIAL_RCL,
+  ARTERIAL_LAYER,
+  REST_RCL,
+  RCL3_EXTENSIONS,
+};

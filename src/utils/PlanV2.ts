@@ -419,10 +419,12 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * 5 = the mineral run, 6 = extension corridors, 7 = rampart spurs) and the
  * payload threw it away. push-plan.mjs now folds that provenance into an RCL
  * per road tile and ships it as `roadStage`, a parallel int array in the same
- * order as `structures.road`; packPlanPayload keeps it as `plan.rs`. Measured
- * on out-v2/plans-hub.json (172 rooms) the arterial set is 38 tiles in E16S1,
- * 54 in E12S9, 47 in E9S2 — median 44, max 87 of 123 — where the old prefix
- * bought 20 tiles of whatever was nearest.
+ * order as `structures.road`; packPlanPayload keeps it as `plan.rs`. The size of
+ * that set, per room and fleet-wide, is printed by `push-plan.mjs --census` on
+ * its ARTERIAL SIZE line — quoting it here was tried for two rounds and one of
+ * the four numbers was wrong every time, because a figure in a comment has
+ * nothing that can re-derive it. The old prefix bought 20 tiles of whatever was
+ * nearest.
  *
  * SELECTION, NOT RE-SORT. The staged tiles are taken in the array's existing
  * BFS order, so what the room builds is still a connected network reachable
@@ -528,12 +530,36 @@ function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number
  *
  * Containers still conduct — a container is not an obstacle. The seed is the
  * SITTER, which is the hub tile a creep actually occupies.
+ *
+ * ...AND ONLY THE CONTAINERS THAT EXIST AT `lvl`. That correction fixed WHICH
+ * TYPES conduct and left WHEN alone: the set was still built from the raw
+ * `plan.t.container` array while this function is auditing a specific RCL, and
+ * plannedTilesFor a few lines down does not let the room build the mineral
+ * container until RCL6. So this audit walked over a structure the room has not
+ * been allowed to place for another three levels — and it did so in lockstep
+ * with push-plan.mjs's roadStageFor, which built its bridge graph the same way.
+ *
+ * WHICH IS THE REAL LESSON HERE, AND IT IS THE SECOND TIME: AN AUDIT THAT
+ * SHARES ITS GRAPH WITH THE THING IT AUDITS REPORTS ZERO BY CONSTRUCTION. It is
+ * not checking the pass, it is re-running it and agreeing with itself. Both the
+ * spawn/storage bug above and this one shipped behind a green "0 orphans" that
+ * was produced by the same wrong graph that caused the orphans. The two sides
+ * still have to agree about what a road network IS (they model the same game),
+ * but they must agree by both being right, not by sharing a mistake — which is
+ * why the RCL rule now lives in exactly one function per side
+ * (conductorsForRcl here, containersForRcl there) and nothing else is allowed
+ * to touch `plan.t.container` when it means "what a creep can stand on".
+ *
+ * On the shipped fleet the honest graph finds E5S1: containers 7,9 / 30,13 /
+ * 28,33 / 29,30 with the extractor at 30,31, so 29,30 is the deferred mineral
+ * one — and at RCL3 the eco terminal 28,33 is only reachable by standing on it,
+ * leaving the staged roads 28,31 / 28,32 / 29,34 hanging off nothing.
  */
-function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[]): void {
+function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[], lvl: number): void {
   if (!prefix.length) return;
   const conduct: { [packed: number]: boolean } = {};
   for (const p of prefix) conduct[p] = true;
-  for (const p of plan.t.container || []) conduct[p] = true;
+  for (const p of conductorsForRcl(plan, lvl)) conduct[p] = true;
   // seed from the tile the creep stands on, not the one it withdraws from
   const seed =
     plan.si !== undefined
@@ -564,7 +590,7 @@ function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[]): void {
   for (const p of prefix) if (!seen[p]) orphans++;
   if (orphans) {
     logAlways(
-      `planV2 ${room.name}: ${orphans}/${prefix.length} RCL3 road tiles are not connected to ` +
+      `planV2 ${room.name}: ${orphans}/${prefix.length} RCL${lvl} road tiles are not connected to ` +
         `the hub — the plan's road array is not BFS-ordered (re-run the planner and re-push)`,
     );
   }
@@ -625,6 +651,51 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] 
   }
   if (drop < 0) return planned;
   return planned.slice(0, drop).concat(planned.slice(drop + 1));
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * WHAT A CREEP CAN STAND ON AT `lvl`, AND THAT THE ROOM HAS ACTUALLY BUILT.
+ *
+ * The single definition of the conducting set for every connectivity question
+ * asked on this side. It exists because there used to be no definition at all —
+ * callers wrote `for (const p of plan.t.container || [])` inline and thereby
+ * asserted two things they had not checked: that container is the only walkable
+ * planned structure (true, and worth stating), and that every planned container
+ * exists at every RCL (false — plannedTilesFor above defers the mineral one to
+ * RCL6, and typeAllowedAtRcl allows none at all below RCL2).
+ *
+ * The rules are composed rather than restated, so a new deferral in
+ * plannedTilesFor or a new gate in typeAllowedAtRcl is picked up here for free.
+ * That matters more than it looks: the last two connectivity bugs in this file
+ * were both "someone added a rule in one place and a graph somewhere else did
+ * not hear about it".
+ *
+ * CONTAINER IS THE WHOLE LIST, and that is a reading of the engine rather than
+ * an omission. Everything else a plan contains is either a road (handled by the
+ * caller, which knows its own RCL road set) or a member of
+ * OBSTACLE_OBJECT_TYPES: spawn, extension, storage, tower, link, terminal, lab,
+ * nuker, observer, constructedWall. Rampart and extractor are technically
+ * walkable and are still NOT here — adding a conductor can only ever make these
+ * audits quieter, and quiet is exactly the failure mode being fixed. If one is
+ * ever added it goes in this array, gets its typeAllowedAtRcl gate for free,
+ * and every audit changes together.
+ * ---------------------------------------------------------------------------
+ */
+const CONDUCTOR_TYPES = [STRUCTURE_CONTAINER as string];
+
+function conductorsForRcl(plan: PackedPlan, lvl: number): number[] {
+  const out: number[] = [];
+  for (const type of CONDUCTOR_TYPES) {
+    if (!typeAllowedAtRcl(type, lvl)) continue;
+    const planned = plannedTilesFor(plan, type, lvl);
+    if (!planned.length) continue;
+    const caps = (CONTROLLER_STRUCTURES as any)[type];
+    const cap = caps ? caps[lvl] || 0 : planned.length;
+    const limit = Math.min(cap, planned.length);
+    for (let i = 0; i < limit; i++) out.push(planned[i]);
+  }
+  return out;
 }
 
 // Priority order, not build order per se: the first types in this list get
@@ -1372,7 +1443,12 @@ export function placeFromPlanV2(room: Room): void {
   // exactly the room that stays busy building them.
   if (lvl === 3 && Game.time % 1000 < 15) {
     const roads = plan.t.road || [];
-    auditRoadPrefix(room, plan, roadsForRcl(plan, roads, lvl));
+    // still RCL3 ONLY, and deliberately: from RCL4 the road budget is the whole
+    // array, so there is no prefix decision left to get wrong, and this runs
+    // in-game where a BFS per tick is a real cost. The offline side
+    // (push-plan.mjs --census) sweeps 3..8 because it can afford to and because
+    // the CONDUCTOR set keeps changing after RCL3 even when the road set stops.
+    auditRoadPrefix(room, plan, roadsForRcl(plan, roads, lvl), lvl);
   }
 
   // ConstructionSite.remove() only lands at the end of the tick, so the sites

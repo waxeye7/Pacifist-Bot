@@ -804,11 +804,42 @@ export function buildAnim(room, terrain, plan) {
   // meta is additive — old players ignore it and fall back to a flat rate.
   const present = [];
   for (const s of sb.steps) if (!present.includes(s.stage)) present.push(s.stage);
+  /**
+   * A STAGE THAT EXISTS IN ONE TABLE AND NOT THE OTHERS IS THE STANDING BUG OF
+   * THIS FILE, AND THE `??` DEFAULTS BELOW ARE WHAT HID IT EVERY TIME.
+   *
+   * The stage vocabulary is written out by hand in five places — the emitters
+   * here, STAGE_RATES, STAGE_SCAFFOLD, and (over in plan.mjs, inside the player
+   * script) STAGE_INFO / STAGE_KIND / EXPAND. Every single time a stage has been
+   * added, at least one of the six was missed, and every single time the miss was
+   * SILENT: `STAGE_RATES[s] ?? 1` gives the new stage a plausible pace, `?? false`
+   * gives it a plausible canvas, a missing STAGE_KIND entry gave extAdd 21 flat
+   * yellow squares in the last frame, and a missing EXPAND entry gave `seed` a
+   * HUD reading of "≈1.1 bands/sec here" for a stage that paints ONE TILE.
+   * Plausible-but-wrong is the worst failure mode a film about honesty can have.
+   *
+   * So the defaults stop being a quiet fallback and become an assertion. This
+   * THROWS rather than warning: a fleet run is 172 rooms and a warning on room 1
+   * scrolls off long before the run ends, whereas the fix is always one line in a
+   * table twenty lines up. The three tables the player owns cannot be reached
+   * from here (they live in a template string in plan.mjs and are checked in the
+   * browser against the stageScaffold map this very block writes — see the
+   * EXPAND drift check in plan.mjs), so this covers the two that are ours.
+   */
+  const orphan = present.filter((s) => !(s in STAGE_RATES) || !(s in STAGE_SCAFFOLD));
+  if (orphan.length) {
+    throw new Error(
+      `export-anim: stage(s) [${orphan.join(", ")}] are emitted but missing from ` +
+        `STAGE_RATES and/or STAGE_SCAFFOLD in this file. Add them there (and check ` +
+        `STAGE_INFO / STAGE_KIND / EXPAND in plan.mjs, which the player owns) — a ` +
+        `defaulted stage films at the wrong pace on the wrong canvas and says nothing about it.`,
+    );
+  }
   const stageRates = {};
   const stageScaffold = {};
   for (const s of present) {
-    stageRates[s] = STAGE_RATES[s] ?? 1;
-    stageScaffold[s] = STAGE_SCAFFOLD[s] ?? false;
+    stageRates[s] = STAGE_RATES[s];
+    stageScaffold[s] = STAGE_SCAFFOLD[s];
   }
 
   return {
