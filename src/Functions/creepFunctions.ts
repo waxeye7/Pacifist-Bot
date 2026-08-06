@@ -2297,6 +2297,35 @@ const pathHasNoStep = (path:any):boolean => {
     return !path || !path.path || path.path.length == 0;
 }
 
+/**
+ * The goal position of a Move* primitive, whatever shape the caller passed.
+ *
+ * Every one of them builds its PathFinder goal as `{pos: target.pos}`, which is
+ * right for a game object and silently UNDEFINED for a bare RoomPosition - and
+ * PathFinder then throws inside its own _.map over the goals ("Cannot read
+ * properties of undefined (reading 'x')" at toWorldPosition), which kills the
+ * creep's whole tick, every tick. planSitter() returns a RoomPosition and
+ * filler.ts hands it straight to MoveCostMatrixRoadPrio(): live E7S2 and W1N2
+ * lost their fillers on every trip home for exactly this. movePathFallback()
+ * has always accepted both shapes, so both shapes are the contract - the
+ * search sites just never got the same treatment.
+ *
+ * Returns null when there is nothing pathable in `target` at all, so the caller
+ * can decline the search instead of feeding PathFinder a hole.
+ */
+const goalPos = (creep:any, target:any):any => {
+    let pos = (target && target.pos) ? target.pos : target;
+    // some callers keep a target position in memory, where it survives as a
+    // plain {x,y,roomName} object with none of RoomPosition's methods on it
+    if(pos && typeof pos.x === "number" && typeof pos.y === "number") {
+        if(typeof pos.getRangeTo !== "function") {
+            pos = new RoomPosition(pos.x, pos.y, pos.roomName || creep.room.name);
+        }
+        return pos;
+    }
+    return null;
+}
+
 /** one greedy step towards targetPos through a legal neighbouring tile. */
 const stepTowardsByHand = (creep:any, targetPos:any, rotation:number):void => {
     let terrain = creep.room.getTerrain();
@@ -2362,14 +2391,12 @@ const movePathFallback = (creep:any, target:any, range:number):void => {
         creep.memory.pfStuckFor = 0;
     }
 
-    let targetPos = (target && target.pos) ? target.pos : target;
-    // some callers keep a target position in memory, where it survives as a
-    // plain {x,y,roomName} object with none of RoomPosition's methods on it
-    if(targetPos && typeof targetPos.getRangeTo !== "function" && typeof targetPos.x === "number") {
-        targetPos = new RoomPosition(targetPos.x, targetPos.y, targetPos.roomName || creep.room.name);
+    let targetPos = goalPos(creep, target);
+    if(!targetPos) {
+        return;
     }
 
-    if(creep.memory.pfStuckFor >= PF_WEDGED_AFTER && targetPos && targetPos.roomName === creep.room.name) {
+    if(creep.memory.pfStuckFor >= PF_WEDGED_AFTER && targetPos.roomName === creep.room.name) {
         // a wedge the greedy step below does NOT clear is worth a line: creeps
         // walled in by their own hub (live E11S5 26,23 - eight neighbours of
         // extension/lab/spawn, whatever spawns into that pocket never leaves)
@@ -2381,7 +2408,7 @@ const movePathFallback = (creep:any, target:any, range:number):void => {
         return;
     }
 
-    creep.moveTo(targetPos || target, {range: range, reusePath: 5});
+    creep.moveTo(targetPos, {range: range, reusePath: 5});
     creep.memory.moving = true;
 }
 
@@ -2397,8 +2424,12 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             if(this.memory.fleeing || this.room.memory.danger) {
                 costMatrix = roomCallbackRoadPrioFlee;
             }
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
@@ -2619,8 +2650,12 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
             let costMatrix = roomCallbackSafeToSource;
 
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
@@ -2829,8 +2864,12 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
             let costMatrix:any = roomCallbackRoadPrioUpgraderInPosition;
 
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 3,
@@ -2991,8 +3030,12 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
         }
 
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 3,
@@ -3127,8 +3170,12 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             this.memory.path = false;
         }
         if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 3,
@@ -3425,8 +3472,12 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
             }
 
 
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
@@ -3909,8 +3960,12 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
                 costMatrix = roomCallbackAvoidInvaders;
             }
 
+            let targetPos = goalPos(this, target);
+            if(!targetPos) {
+                return;
+            }
             let path = PathFinder.search(
-                this.pos, {pos:target.pos, range:range},
+                this.pos, {pos:targetPos, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,
