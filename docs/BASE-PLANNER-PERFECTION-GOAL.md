@@ -201,11 +201,11 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **170/170 caught** (90/90 at round 11, 64/64 at round
+  The mutation suite is at **171/171 caught** (90/90 at round 11, 64/64 at round
   10), against a 172/172 clean baseline on the unmutated artifact; every one of
   them was written because a reviewer landed the mutation first. Round 12 added
-  **80**, and the block is grouped by the finding that produced it: C1 8/8 ·
-  C2 14/14 · M3 16/16 · M4 17/17 · M5 17/17 · M1 3/3 · M2 3/3 · F1 2/2.
+  **81**, and the block is grouped by the finding that produced it: C1 8/8 ·
+  C2 15/15 · M3 16/16 · M4 17/17 · M5 17/17 · M1 4/4 · M2 3/3 · F1 2/2.
   The suite lives outside the repo tree — it is a splice into a scratch runner
   that reads the shipped artifact through `PLANS_FILE` — so **the count is not
   printed by any committed tool**, which is exactly the rot m1 and m2 below are
@@ -270,7 +270,7 @@ per room. Rise to the bar; do not lower it.
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
   `plans-hub.json` over consecutive `--all-claimable` runs of the shipped tree
-  on the 172-room world: two consecutive full-fleet runs byte-identical, md5
+  on the 172-room world: three consecutive full-fleet runs byte-identical, md5
   **`c9ac380797f5eecadd4dc78bb890cc96`** (round 12, as shipped — this is the
   number `md5sum tools/plan-suite/out-v2/plans-hub.json` prints today).
   (`391686904ebdc39c2745ae5a741c6726` was round 11 and is retired with it, as
@@ -306,9 +306,13 @@ per room. Rise to the bar; do not lower it.
   | 11 (round 11) | 116.2s | 91.8s | 350.7ms | 840.3ms | 7398.1ms (E1S8) |
   | 12 (round 11) | 99.4s | 92.0s | 350.7ms | 840.3ms | 7398.1ms (E1S8) |
   | 13 (round 12) | 106.0s | 99.6s | — | — | — |
+  | 14 (round 12) | 94.1s | 88.5s | — | — | — |
 
-  Row 13 is what the suite's own `SUITE WALL CLOCK` line printed on the round-12
-  shipping run, and nothing more. The per-room quantiles are dashes for a reason
+  Rows 13 and 14 are what the suite's own `SUITE WALL CLOCK` line printed on
+  round-12 runs, and nothing more; 14 is the latest, and the two differ by 12s of
+  wall clock for byte-identical output in the same way runs 8–10 did, which is
+  the point the paragraph below this table has been making since round 9.
+  The per-room quantiles are dashes for a reason
   that is worth saying rather than hiding: `planMs` is deliberately not
   serialised (see the determinism bullet), so the p50/p90/max columns exist ONLY
   in the console output of the run that produced them and **cannot be re-derived
@@ -317,10 +321,12 @@ per room. Rise to the bar; do not lower it.
   source. Round 12 adds one measured pass per audited declaration kind — the
   validator now regenerates eight kinds of declaration prose from the record and
   compares (finding M3/M4/F2/F5) — and that cost is on the VALIDATOR's clock,
-  not the planner's. The in-planner total moved 92.0s → 99.6s, which is inside
-  the 91.8–171.7s band this table has been quoting since round 9; no attribution
-  of that 7.6s is offered here, because none was measured, and a guessed cause
-  in this table is the same defect as a guessed metric anywhere else in it.
+  not the planner's. The in-planner total read 99.6s and then 88.5s across two
+  round-12 runs of byte-identical output, straddling round 11's 92.0s and well
+  inside the 88.5–171.7s band this table has been quoting since round 9; no
+  attribution of the difference is offered here, because none was measured, and a
+  guessed cause in this table is the same defect as a guessed metric anywhere
+  else in it.
 
   Round 11 adds two measured passes to the planner — layer 3 now reads the
   defender lap before it settles the battery, and re-measures its refill walk
@@ -328,7 +334,7 @@ per room. Rise to the bar; do not lower it.
   removing the arrive bias took 19 rooms out of the over-target set and with them
   the escalation rungs they were composing.
 
-  **In-planner 91.8–171.7s; end to end 99.4–202.1s.** Runs 8, 9 and 10 are a
+  **In-planner 88.5–171.7s; end to end 94.1–202.1s.** Runs 8, 9 and 10 are a
   consecutive determinism triple and differ by 12s of wall clock for
   byte-identical output, exactly as runs 3 and 4 did for 59s — the spread is
   machine load and not planner variance, so quote the range, never a single
@@ -935,20 +941,36 @@ Known open criticisms, in priority order:
    positives at RCL6-8** from containers the audit was counting before they were
    built. All at 0 today, at all six levels.
 
-   **The honest scope, stated rather than rounded off:** "0 orphans" is true with
-   two named PAVING GAPS conducting — E5S3 `32,11` and E2S5 `27,23`, each the
-   single tile on which a pocket of the network meets the rest, and each the tile
-   the mineral container occupies. The engine allows one structure per tile, so no
-   arrangement of roads closes either before RCL6. A creep still walks it —
-   containers are not obstacles and neither is bare floor — so the cost is one
-   extra tick per crossing and nothing is unreachable. That is a different fact
-   from an orphan, so it is published as one, in the plan's own
+   **The honest scope, stated rather than rounded off — AND PRINTED, which is the
+   only version of "stated" this document accepts any more.** `--census` ends on:
+
+   `RCL-deferred conduct: 1 room(s) PAVED the join — E5S1(28,30); 2 room(s) publish an unpaveable PAVING GAP — E2S5(27,23; 11 road tile(s) behind it) E5S3(32,11; 5 road tile(s) behind it)`
+
+   So "0 orphans at RCL 3 through 8" is true with **one room paving its join
+   (E5S1 `28,30`) and two rooms conducting over a PAVING GAP — E2S5 `27,23`, 11
+   road tiles behind it, and E5S3 `32,11`, 5 road tiles behind it.** Each gap is
+   the single tile on which a pocket of the network meets the rest, and each is
+   the tile the mineral container occupies. The engine allows one structure per
+   tile, so no arrangement of roads closes either before RCL6. A creep still
+   walks it — containers are not obstacles and neither is bare floor — so the
+   cost is one extra tick per crossing and nothing is unreachable. That is a
+   different fact from an orphan, so it is published as one, in the plan's own
    `meta.walls.conductBridge.gapTiles`, and the validator re-derives it from
    terrain and fails the room if it is not true. The alternative is a guarantee
    that says "0 orphans" by quietly meaning something narrower.
-   (`push-plan.mjs`'s own comment still says "One room in the fleet has a join
-   that cannot be paved by anybody"; E2S5's recomposition this round made it two,
-   and that comment is stale.)
+
+   **AND THE GAP ITSELF NEEDED A GATE, BECAUSE A GAP IS ALSO AN EXCUSE.** A tile
+   named as a paving gap CONDUCTS in the audit — that is what naming it buys — so
+   a room could publish a stretch of BARE FLOOR as a gap and have its orphans
+   conduct away, which is a room declining to pave and calling it geometry. The
+   validator refuses a gap tile that carries no structure: a gap is a tile the
+   engine will not let you pave, not a tile the planner did not. Mutation
+   `M1-gap-tile-is-bare-floor` bites.
+   (The stale `push-plan.mjs` header comment that said "One room in the fleet has
+   a join that cannot be paved by anybody" — written when E5S3 was the only one,
+   and left standing when E2S5's recomposition made it two — is corrected. It is
+   the same rot as m1 and m2, in a source comment instead of in this file, and it
+   is fixed the same way: something prints the count now.)
 
    **The "road-array prefix invariant 172/172" line that used to stand here was
    false in the literal reading and true in the one that matters.** A strict
@@ -1114,7 +1136,7 @@ now makes it impossible rather than what was patched:
    nobody writes a test for a key being there. There is now a **SCHEMA PRESENCE
    GATE**: 14 required meta paths, absence is a HARD FAIL, and it runs BEFORE
    anything reads them, so the order of operations makes the substitution
-   impossible rather than merely detected. 14 mutations, all bite.
+   impossible rather than merely detected. 15 mutations, all bite.
 15. **(M1/F3) THE AUDIT SHARED ITS GRAPH WITH THE PASS IT AUDITS — AGAIN.** This
    is criticism 6's defect a second time, in the same file, on a different axis.
    The RCL3 conduct graph walked THROUGH the RCL6-deferred mineral container,
@@ -1129,7 +1151,12 @@ now makes it impossible rather than what was patched:
    publishes a verified PAVING GAP instead (see criticism 6 for the scope, and
    for E2S5, which became a second one this round). A new validator gate
    re-derives the whole thing from terrain, and it was proved by re-running it
-   against the PREVIOUS artifact, where it bites. 3 mutations, all bite.
+   against the PREVIOUS artifact, where it bites. **And the gap is itself gated,
+   because a gap that conducts is an excuse that conducts**: a gap tile must
+   carry a structure, or it is bare floor the planner declined to pave rather
+   than a tile the engine forbids paving. The census prints the whole census —
+   1 room paved, 2 rooms gapped, with the road count behind each. 4 mutations,
+   all bite, including `M1-gap-tile-is-bare-floor`.
 16. **(M2) THE ECO FLOOR WAS ONE TOO HIGH IN SEVEN ROOMS, AND IT WAS THE SAME
    MISTAKE THIS DOCUMENT ALREADY WROTE UP ONCE.** The optimization bullet above
    says it in full: a floor measured in a different metric from the distances it
@@ -1233,9 +1260,28 @@ now makes it impossible rather than what was patched:
    by the suite's `upgrader parks: … released in N room(s): …` line, which names
    E12S5 and E9S2 and nothing else. A number in prose that no tool re-derives rots
    exactly like a metric no gate re-derives, and the fix for both is the same:
-   make something print it. **That principle is not yet fully applied to this
-   document** — see the `[artifact only]` markers in the status block above, which
-   are the three figures still standing on nothing but a script someone ran once.
+   make something print it.
+
+   **AND THE PRINCIPLE WAS THEN APPLIED TO THE REST OF THE BLOCK, WHICH IS WHERE
+   IT SHOULD HAVE STARTED.** Auditing this document against the three commands
+   found that its own opening claim — "every number in this block is printed by
+   `plan.mjs --all-claimable`, `validate.mjs` or `push-plan.mjs --census`" — was
+   false for the fleet **rampart total**, the fleet **shallow-extension total**
+   and the count of **declared shortfalls**, all three of which were hand-copied
+   out of the artifact every round by whoever was writing that round's doc. Worse
+   than un-printed: the third one LOOKED printed, because `validate.mjs` ends on
+   `declared-shortfall 121` and 121 counts ROOMS that pass carrying a note, not
+   declarations, so a reader checking the doc against the tool would have found a
+   number, compared it to 303, and had no way to know which of them was wrong.
+   The suite now prints a `FLEET TOTALS:` line carrying all five figures, the
+   census prints the paving-gap census, and the claim at the head of the status
+   block is true as written for the first time. Every remaining figure in this
+   file that a tool does NOT print is now named as such where it stands — the
+   runtime table's per-room quantiles (`planMs` is deliberately not serialised),
+   the mutation count (the harness is a scratchpad splice reading `PLANS_FILE`;
+   **nothing committed runs it**, and that is an open gap, not a gate), and
+   E16S2 `22,32`'s "after" deltas, which cannot be re-derived from an artifact the
+   tile no longer appears in.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 
