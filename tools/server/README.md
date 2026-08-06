@@ -184,6 +184,20 @@ and no mineral**. The other **172 rooms all carry 2 sources + controller + miner
 (`bus: false`) — that is the planner's test surface and the number `plan.mjs --all-claimable`
 should report.
 
+Those 172 rooms are also what the two committed planner gates run against, both of which read
+terrain and room objects straight out of this mongo:
+
+```bash
+fnm exec --using 22 node tools/plan-suite/v2/validate.mjs   # every shipped plan must pass
+fnm exec --using 22 node tools/plan-suite/v2/mutate.mjs     # the validator must BITE (~4s)
+```
+
+`mutate.mjs` breaks a shipped plan on purpose, one defect class at a time, and requires the
+validator to fail with the expected message — a clean 172/172 baseline plus every mutation
+caught. Both honour `PLANS_FILE=<path>` to run against a candidate artifact, and neither ever
+writes `out-v2/plans-hub.json`. `mutate.mjs` exits 1 on a gate failure and 2 if the mongo dump
+comes back short (a partial dump is an infrastructure fault, not a verdict).
+
 Sector spread (a sector is 10 × 10): `E0S0` 100 · `E1S0` 100 · `E2S0` 20 · `E0S1` 10 ·
 `E1S1` 10 · `E2S1` 2 · `W0S0` 1.
 

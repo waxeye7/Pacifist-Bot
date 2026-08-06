@@ -201,15 +201,34 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **171/171 caught** (90/90 at round 11, 64/64 at round
+  The mutation suite is at **189/189 caught** (90/90 at round 11, 64/64 at round
   10), against a 172/172 clean baseline on the unmutated artifact; every one of
   them was written because a reviewer landed the mutation first. Round 12 added
   **81**, and the block is grouped by the finding that produced it: C1 8/8 ·
-  C2 15/15 · M3 16/16 · M4 17/17 · M5 17/17 · M1 4/4 · M2 3/3 · F1 2/2.
-  The suite lives outside the repo tree — it is a splice into a scratch runner
-  that reads the shipped artifact through `PLANS_FILE` — so **the count is not
-  printed by any committed tool**, which is exactly the rot m1 and m2 below are
-  about, and it is named here as an open gap rather than dressed up.
+  C2 14/14 · M3 16/16 · M4 17/17 · M5 17/17 · M1 4/4 · M2 3/3 · F1 2/2.
+  (C2 was quoted as 15 here through round 13 — the eight figures summed to 82
+  against a stated total of 81, and committing the harness is what made the
+  discrepancy checkable. The harness counts 14.)
+  **The harness is now committed at `tools/plan-suite/v2/mutate.mjs`** — run it
+  with `fnm exec --using 22 node tools/plan-suite/v2/mutate.mjs` (~4s; honours
+  `PLANS_FILE`, never writes the artifact, exits 1 on any escape or on a dirty
+  baseline, 2 on a short mongo dump). It replaces the scratchpad splice this
+  section used to name as an open gap: the count above is printed by a committed
+  tool. The 189 are the 171 that splice carried plus **18 recovered** from the
+  round-8, round-10 and round-13 side harnesses, which the consolidation had
+  silently dropped — four `nukeWindow` cases (off-by-one, deleted value, deleted
+  object, and the nuker moved with the published value carried forward),
+  `towerDispersion` inconsistent with the strictly larger set it is a subset of,
+  the mobility declaration's own `metric.target` falsified and its paragraph
+  APPENDED to rather than re-rendered, and eleven structural ones
+  (container/extractor/tower counts, a `labInputs` entry that is not a lab, the
+  `x=49` bound, the engine border rule on the `y=48` edge, a sitter on natural
+  wall, the cut's own rampart deleted, a shallow structure's personal rampart
+  deleted, an unramparted container at attacker depth, and a shallow tower given
+  its own rampart plus a `towers` declaration — the laundering that a personal
+  rampart is a depth argument).
+  Consolidating it was itself the finding: the count in a doc is not a gate, and
+  three rounds of harness lived only in scratch directories.
 - **A DECLARATION IS EVIDENCE, SO ITS CONTENT IS A GATE.** Through round 10 the
   evidence rule was a SHAPE rule — at least 40 characters of prose, at least two
   distinct numbers — and any numbers at all satisfied it. Three reviewer edits
@@ -1277,11 +1296,12 @@ now makes it impossible rather than what was patched:
    census prints the paving-gap census, and the claim at the head of the status
    block is true as written for the first time. Every remaining figure in this
    file that a tool does NOT print is now named as such where it stands — the
-   runtime table's per-room quantiles (`planMs` is deliberately not serialised),
-   the mutation count (the harness is a scratchpad splice reading `PLANS_FILE`;
-   **nothing committed runs it**, and that is an open gap, not a gate), and
-   E16S2 `22,32`'s "after" deltas, which cannot be re-derived from an artifact the
-   tile no longer appears in.
+   runtime table's per-room quantiles (`planMs` is deliberately not serialised)
+   and E16S2 `22,32`'s "after" deltas, which cannot be re-derived from an artifact
+   the tile no longer appears in. The **mutation count** was on that list too —
+   the harness was a scratchpad splice and nothing committed ran it. It is now
+   `tools/plan-suite/v2/mutate.mjs`, it prints
+   `BASELINE 172/172 clean · MUTATIONS 189/189 bite`, and that gap is closed.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 

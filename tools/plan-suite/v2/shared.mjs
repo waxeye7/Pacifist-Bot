@@ -415,14 +415,28 @@ print(JSON.stringify(out));
   const p = path.join(__dirname, "_dump-rooms.js");
   fs.writeFileSync(p, script);
   execSync(`docker cp "${p}" local-screeps-server-mongo-1:/tmp/dump-rooms-v2.js`);
-  const raw = execSync(
-    `docker exec local-screeps-server-mongo-1 mongosh --quiet --file /tmp/dump-rooms-v2.js`,
-    { encoding: "utf8", maxBuffer: 80e6 },
-  );
-  const start = raw.indexOf("[");
-  const end = raw.lastIndexOf("]");
-  if (start < 0) throw new Error("mongo dump failed: " + raw.slice(0, 200));
-  return JSON.parse(raw.slice(start, end + 1));
+  // The dump intermittently returns a truncated result (~1 run in 8 during the
+  // round-13 harness work — one room of 172, no error). A short dump read as
+  // truth turns into a false mass-failure downstream, so a result smaller than
+  // the request is retried, and only a stable shortfall (rooms genuinely absent
+  // from mongo) is returned.
+  for (let attempt = 0; ; attempt++) {
+    const raw = execSync(
+      `docker exec local-screeps-server-mongo-1 mongosh --quiet --file /tmp/dump-rooms-v2.js`,
+      { encoding: "utf8", maxBuffer: 80e6 },
+    );
+    const start = raw.indexOf("[");
+    const end = raw.lastIndexOf("]");
+    if (start < 0) throw new Error("mongo dump failed: " + raw.slice(0, 200));
+    const out = JSON.parse(raw.slice(start, end + 1));
+    if (out.length >= rooms.length || attempt >= 3) {
+      // a stable shortfall is legitimate (rooms genuinely absent from mongo,
+      // e.g. highway names in a hand-passed list) — warn, don't invent an error
+      if (out.length < rooms.length)
+        console.error(`fetchRoomsFromMongo: short dump persisted (${out.length}/${rooms.length}) after ${attempt + 1} attempts`);
+      return out;
+    }
+  }
 }
 
 export function fetchAllClaimableRooms() {
