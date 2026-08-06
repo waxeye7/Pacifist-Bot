@@ -3345,6 +3345,82 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     }
   }
 
+  // ---- (2b2) A ROLLED-BACK SLOT GETS A SECOND TARGET, NOT A SHRUG ---------
+  //
+  // The rollback above throws away a MOVE. It does not throw away the FACT that
+  // the slot is shallow and that deep floor exists — and the pass that produced
+  // the move stops at the first target `accepts()` will take, in a preference
+  // order that knows nothing about the lap. So one unlucky first choice retires
+  // the whole trade.
+  //
+  // E1S8 is the case, and it was the reviewer's number-one open criticism: the
+  // room's only shallow extension is 4,11 (depth 3, personal rampart forever),
+  // the pass moved it to 17,14, the lap ceiling refused THAT tile, and the slot
+  // stayed shallow. 18,16 was free the whole time — depth 5, two already-paved
+  // D4 faces at 17,16 and 18,17, not reserved, cheb 24 from the mineral — and
+  // taking it leaves the gated lap at exactly 4.00 and the ungated at 4.50, the
+  // numbers the room ships anyway. A free trade was on the table and the search
+  // never looked at the second candidate.
+  //
+  // So every rolled-back slot is offered the rest of the order, and a candidate
+  // is taken only if the lap AFTER it is inside the same ceiling the rollback
+  // enforced. That is strictly safer than the move it replaces: the ceiling is
+  // re-measured, not assumed. Nothing here can make the lap worse than the
+  // rollback already guaranteed, and each success retires one personal rampart.
+  if (boundRollback.length && lapCeiling !== null) {
+    for (const rb of boundRollback.slice()) {
+      const from = key(rb.from.x, rb.from.y);
+      // still ours, still shallow? (a later rollback may have moved things)
+      if (!extensions.some((e) => e.x === rb.from.x && e.y === rb.from.y)) continue;
+      const order = deepTargets();
+      let placed = null;
+      for (const c of order) {
+        if (taken.has(c.k)) continue;
+        if (c.x === rb.to.x && c.y === rb.to.y) continue; // the one that was refused
+        const nextList = extensions
+          .filter((e) => key(e.x, e.y) !== from)
+          .concat([{ x: c.x, y: c.y }]);
+        if (!accepts(new Set([...taken, c.k]), [from], nextList).ok) continue;
+        // measure the lap FOR REAL with this candidate standing
+        const i = extensions.findIndex((e) => key(e.x, e.y) === from);
+        extensions.splice(i, 1, { x: c.x, y: c.y });
+        const trial = lapNow();
+        if (trial > lapCeiling + 1e-9) {
+          extensions.splice(i, 1, { x: rb.from.x, y: rb.from.y });
+          continue;
+        }
+        placed = { c, lap: trial };
+        break;
+      }
+      if (!placed) continue;
+      const c = placed.c;
+      taken.add(c.k);
+      occupiedTile.add(c.k);
+      occupiedTile.delete(from);
+      if (c.pave) {
+        occupiedTile.add(c.pave.k);
+        roadKeysNow.add(c.pave.k);
+        liveRoadKeys.add(c.pave.k);
+        baseRoadsInWalk.add(c.pave.k);
+        newRoads.push({ x: c.pave.x, y: c.pave.y });
+      }
+      movedLog.push({
+        from: { x: rb.from.x, y: rb.from.y },
+        to: { x: c.x, y: c.y },
+        fromDepth: depth[idxOf(rb.from.x, rb.from.y)],
+        toDepth: c.depth,
+        paved: c.pave ? { x: c.pave.x, y: c.pave.y } : null,
+        // tagged so a reader can tell a first-choice move from a rescued one
+        reason: "second-target",
+        rolledBackFrom: { x: rb.to.x, y: rb.to.y },
+        lapAfter: round2v(placed.lap),
+      });
+      rb.rescuedTo = { x: c.x, y: c.y };
+      rb.rescuedLap = round2v(placed.lap);
+      lapFinal = round2v(placed.lap);
+    }
+  }
+
   // ---- (2c) THE LIFT TEST'S VERDICT BINDS --------------------------------
   //
   // Layer 7 runs a whole-room LIFT TEST on the finished base and publishes it
@@ -3581,8 +3657,87 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   };
   extensions.sort((a, b) => buildCost(a) - buildCost(b) || a.y - b.y || a.x - b.x);
 
+  // ---- (4) THE SHALLOW SLOTS THAT STAYED, AND WHAT WAS ON THE TABLE -------
+  //
+  // 28 shallow extensions shipped across 5 rooms with ZERO declarations of any
+  // kind — the fleet's whole shortfall channel contained no shallow-extension
+  // entry at all — while the goal document's own criticism claims each one
+  // "carries a declaration that reports the post-prune search". Silent capping
+  // is the named anti-pattern and this was it: a personal rampart repaired for
+  // the life of the base, a structure a ranged attacker can hit from outside
+  // the wall, and no sentence anywhere saying the planner had looked.
+  //
+  // So the search is re-run once, at the end, PER SURVIVING SLOT, against the
+  // board the room ships — and the result is evidence a downstream declaration
+  // can quote and a validator can re-derive. Three outcomes and they are
+  // different facts, so they are recorded as different facts:
+  //   · no deep target exists at all (the room has no free deep tile that is
+  //     road-faced or one pave away) — genuinely impossible, and that is what
+  //     E12S6, E2S3 and E9S2 turn out to be;
+  //   · targets exist but every one of them is refused by `accepts` — the room
+  //     would lose a battlement, a face, a seat or the network by taking one;
+  //   · targets exist and are legal but taking one costs the lap more than this
+  //     room's ceiling allows — which is a priced trade, and the price is the
+  //     number the declaration has to print.
+  const shallowSurvivors = extensions.filter(shallowOf);
+  const shallowRefused = [];
+  if (shallowSurvivors.length) {
+    const order = deepTargets();
+    for (const s of shallowSurvivors) {
+      const from = key(s.x, s.y);
+      let examined = 0;
+      let legalButLap = null;
+      const reasons = new Map();
+      for (const c of order) {
+        if (taken.has(c.k)) continue;
+        examined++;
+        const nextList = extensions
+          .filter((e) => key(e.x, e.y) !== from)
+          .concat([{ x: c.x, y: c.y }]);
+        const verdict = accepts(new Set([...taken, c.k]), [from], nextList);
+        if (!verdict.ok) {
+          const w = String(verdict.why || "refused").replace(/\d+,\d+/g, "<tile>");
+          reasons.set(w, (reasons.get(w) || 0) + 1);
+          continue;
+        }
+        // legal — so the only thing left that can refuse it is the lap ceiling
+        const i = extensions.findIndex((e) => key(e.x, e.y) === from);
+        extensions.splice(i, 1, { x: c.x, y: c.y });
+        const trial = lapNow();
+        extensions.splice(i, 1, { x: s.x, y: s.y });
+        if (legalButLap === null || trial < legalButLap.lap) {
+          legalButLap = { x: c.x, y: c.y, lap: round2v(trial) };
+        }
+      }
+      shallowRefused.push({
+        x: s.x,
+        y: s.y,
+        depth: depth[idxOf(s.x, s.y)],
+        targets: order.length,
+        examined,
+        // the cheapest LEGAL target and what it would cost the lap, when one
+        // exists; null when the room has no legal deep target at all
+        bestLegal: legalButLap,
+        ceiling: lapCeiling === null ? null : round2v(lapCeiling),
+        lapNow: round2v(lapNow()),
+        why: !order.length
+          ? `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
+            `scan over all 48x48 interior tiles returned an empty candidate list, so there is nowhere ` +
+            `for this slot to go`
+          : legalButLap
+            ? `the cheapest legal deep target is ${legalButLap.x},${legalButLap.y} and standing this ` +
+              `extension there takes the as-built gated defender lap to ${legalButLap.lap}, past this ` +
+              `room's ceiling of ${lapCeiling === null ? "n/a" : round2v(lapCeiling)}`
+            : `all ${examined} deep target(s) offered were refused by the shipped-board test: ` +
+              `${[...reasons.entries()].map(([w, n]) => `${n}x ${w}`).join(" · ") || "no reason recorded"}`,
+      });
+    }
+  }
+
   return {
     added,
+    // per surviving shallow slot: the post-search evidence a declaration quotes
+    shallowRefused,
     boundRollback,
     lapCeiling: round2v(lapCeiling),
     // the relaxed ceiling this room was entitled to (null when it is inside 2x

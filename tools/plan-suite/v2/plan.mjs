@@ -1403,23 +1403,36 @@ ${items}</div>`;
  * from the thing it is excusing.
  */
 function roadOnRampartNote(plan) {
-  const roads = new Set((plan.structures.road || []).map((r) => `${r.x},${r.y}`));
-  const cut = new Set((plan.shell?.cut || []).map((c) => `${c.x},${c.y}`));
-  const containers = new Set((plan.structures.container || []).map((c) => `${c.x},${c.y}`));
-  let cross = 0;
-  let seat = 0;
-  for (const r of plan.structures.rampart || []) {
-    const k = `${r.x},${r.y}`;
-    if (!roads.has(k)) continue;
-    if (cut.has(k)) cross++;
-    else if (containers.has(k)) seat++;
-    else cross++;
-  }
-  if (!cross && !seat) return "";
+  // ONE CLASSIFIER, IN THE PLANNER. This used to be a private two-class count
+  // ending in `else cross++`, and that catch-all mislabelled 17 fleet tiles that
+  // are neither crossings nor seats. See classifyRoadRamparts in layer-walls:
+  // the class it could not see is the controller's stand-denial ring, and the
+  // fifth bucket (`unclassified`) is now printed rather than absorbed.
+  const rr = plan.meta?.walls?.roadRampart;
+  if (!rr || !rr.total) return "";
   const bits = [];
-  if (cross) bits.push(`${cross} wall CROSSING${cross === 1 ? "" : "s"} (an eco road to an unenclosed source or controller has to pass through the loop)`);
-  if (seat) bits.push(`${seat} bubble SEAT${seat === 1 ? "" : "S"} (a miner's container outside the shell wears its own rampart and sits on the hauling road by design)`);
-  return ` — except ${bits.join(" and ")}`;
+  if (rr.crossing)
+    bits.push(
+      `${rr.crossing} wall CROSSING${rr.crossing === 1 ? "" : "s"} (an eco road to an unenclosed source or controller has to pass through the loop)`,
+    );
+  if (rr.seat)
+    bits.push(
+      `${rr.seat} bubble SEAT${rr.seat === 1 ? "" : "S"} (a miner's container outside the shell wears its own rampart and sits on the hauling road by design)`,
+    );
+  if (rr.ring)
+    bits.push(
+      `${rr.ring} controller STAND-DENIAL RING tile${rr.ring === 1 ? "" : "s"} (the ring is ramparted so no claim creep can stand by the controller, and the lane to the controller crosses it)`,
+    );
+  if (rr.cover)
+    bits.push(
+      `${rr.cover} personal-COVER tile${rr.cover === 1 ? "" : "s"} (a shallow structure of ours wearing its own rampart on a paved tile)`,
+    );
+  if (rr.unclassified)
+    bits.push(
+      `<b>${rr.unclassified} UNCLASSIFIED</b> — a paved rampart that is not on the cut, carries nothing and is not on the ring; this bucket is supposed to be empty`,
+    );
+  if (!bits.length) return "";
+  return ` — except ${bits.join(", ")}`;
 }
 
 function mobilityCell(plan) {
@@ -1962,6 +1975,29 @@ ${thumbLegendHtml()}
       `pruned ${wm.reduce((s, p) => s + p.meta.walls.pruned, 0)} dead-end road tiles · ` +
       `ext-face net ${wm.reduce((s, p) => s + p.meta.walls.fillerTiles, 0)} tiles`,
   );
+  // ROAD + RAMPART, FLEET-WIDE, IN FIVE CLASSES. The published taxonomy had two
+  // classes and a catch-all `else` that folded 17 tiles into "wall crossing";
+  // the accounting closed because the residue was hidden, not because it was
+  // zero. See classifyRoadRamparts in layer-walls. `unclassified` is printed
+  // whether or not it is 0 — a residue bucket you only hear about when it is
+  // empty is not a check.
+  {
+    const rrs = wm.map((p) => p.meta.walls.roadRampart).filter(Boolean);
+    if (rrs.length) {
+      const sum = (f) => rrs.reduce((s, r) => s + r[f], 0);
+      const per = rrs.map((r) => r.total).sort((a, b) => a - b);
+      const med = per.length ? per[Math.floor(per.length / 2)] : 0;
+      console.log(
+        `road+rampart: ${sum("total")} tile(s) — ${sum("crossing")} wall crossings on the cut · ` +
+          `${sum("seat")} bubble seats (container) · ${sum("ring")} controller stand-denial ring · ` +
+          `${sum("cover")} personal cover · ${sum("unclassified")} UNCLASSIFIED · ` +
+          `median ${med} max ${per.length ? per[per.length - 1] : 0} per room` +
+          (sum("crossing") + sum("seat") + sum("ring") + sum("cover") + sum("unclassified") === sum("total")
+            ? " — the accounting closes"
+            : " — THE ACCOUNTING DOES NOT CLOSE"),
+      );
+    }
+  }
   // sources: STRICT is the headline (works inside AND the whole walkable ring
   // inside — the same bar the controller is held to); the looser works-only
   // reading is printed beside it rather than replaced. See layer-shell.

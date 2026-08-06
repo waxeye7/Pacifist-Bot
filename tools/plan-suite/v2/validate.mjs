@@ -406,6 +406,179 @@ function walkField(terrain, origin, impassable) {
   return dist;
 }
 
+// ====================================================================
+// THE DEFENDER-MOBILITY METRIC, RE-DERIVED HERE.
+//
+// Nothing in this file had ever read a mobility number. That is how a room
+// could publish a `mobility/covered-detour` declaration quoting a 33-tile
+// detour at ratio 17.5 and have every one of those numbers rewritten to 4/999
+// and 0.11 without a single gate noticing — the reviewer's mutation N1, which
+// passed `1/1 · fail 0`. It is also how `cause: "structures"` shipped on a room
+// whose own lap is 0.
+//
+// So the metric is transcribed here from the definition the goal document and
+// layer-shell state, and NOT imported from layer-shell: importing the
+// producer's own function would make the audit agree with the producer by
+// construction, which is the one thing an audit may not do. The transcription
+// is checked the same way `walkField` is — it reproduces every published
+// mobility field in 172/172 rooms, and that agreement is the test that the
+// mirror is still a mirror.
+//
+// THE DEFINITION, in one place:
+//   endpoints  the cut tiles the garrison's own walk region can reach;
+//   defender   D8 walk over the interior INCLUDING ramparts (we walk our own
+//              ramparts) and EXCLUDING our obstacles (nobody walks a spawn);
+//   attacker   D8 walk over the exterior only — a rampart has no door;
+//   arriveAt   a field read at a tile that may be off-mask costs one extra
+//              step; both endpoints are wall tiles so both graphs pay it;
+//   coverage   a pair is excused from the VERDICT (never from the record) when
+//              a defender on either tile is within ranged range 3 of every
+//              exterior tile an attacker could grind the other from;
+//   floor      a pair is judged only when its ABSOLUTE detour exceeds 4 tiles.
+// ====================================================================
+const MOB_TARGET = 1.2;
+const MOB_DETOUR_FLOOR = 4;
+const MOB_RANGED_RANGE = 3;
+/** removed from the verdict in round 10; kept named so the transcription is legible */
+const MOB_ARRIVE_BIAS = 0;
+/** past this many reachable cut tiles the producer samples, and an audit cannot follow */
+const MOB_EXACT_MAX = 90;
+const mround2 = (v) => Math.round(v * 100) / 100;
+
+function mobBfs(mask, from) {
+  const dist = new Int16Array(2500).fill(-1);
+  const fi = idx(from.x, from.y);
+  dist[fi] = 0;
+  const q = [fi];
+  let qi = 0;
+  while (qi < q.length) {
+    const i = q[qi++];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    const d = dist[i] + 1;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (dist[ni] >= 0 || !mask[ni]) continue;
+      dist[ni] = d;
+      q.push(ni);
+    }
+  }
+  return dist;
+}
+
+function mobArrive(f, t) {
+  const ti = idx(t.x, t.y);
+  if (f[ti] >= 0) return f[ti];
+  let best = Infinity;
+  for (const [dx, dy] of D8) {
+    const nx = t.x + dx,
+      ny = t.y + dy;
+    if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+    const v = f[nx + ny * 50];
+    if (v >= 0 && v + 1 < best) best = v + 1;
+  }
+  return best;
+}
+
+const mobCheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+
+/** exterior tiles an attacker can stand on to grind the wall tile `t` */
+function mobStands(extMask, t) {
+  const out = [];
+  for (const [dx, dy] of D8) {
+    const x = t.x + dx,
+      y = t.y + dy;
+    if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+    if (extMask[x + y * 50]) out.push({ x, y });
+  }
+  return out;
+}
+const mobCovers = (from, stands) => stands.every((s) => mobCheb(from, s) <= MOB_RANGED_RANGE);
+
+/**
+ * The whole metric. `cut` is the endpoint list, `extMask` the attacker's board,
+ * `walkMask` the defender's. Returns `sampled: true` and nothing else when the
+ * producer's own endpoint budget would have kicked in — the audit declines
+ * rather than compares two different measurements (0 rooms in this fleet).
+ */
+function mobilityMetric(cut, extMask, walkMask) {
+  const reachable = cut.filter((c) => walkMask[idx(c.x, c.y)]);
+  if (reachable.length > MOB_EXACT_MAX) return { sampled: true };
+  const ends = reachable.slice().sort((a, b) => a.x - b.x || a.y - b.y);
+  const n = ends.length;
+  const out = {
+    sampled: false,
+    endpoints: n,
+    reachable: reachable.length,
+    max: 0,
+    pairs: 0,
+    over: 0,
+    maxDetour: 0,
+    maxGated: 0,
+    overGated: 0,
+    gatedPairs: 0,
+    worstGated: null,
+    worst: null,
+    coveredPairs: 0,
+    maxCovered: 0,
+    worstCovered: null,
+  };
+  if (n < 2) return out;
+  const stands = ends.map((e) => mobStands(extMask, e));
+  const inF = ends.map((e) => mobBfs(walkMask, e));
+  const outF = ends.map((e) => mobBfs(extMask, e));
+  let ratios = 0;
+  let max = 0;
+  for (let a = 0; a < n; a++) {
+    for (let b = a + 1; b < n; b++) {
+      const din = mobArrive(inF[a], ends[b]);
+      const raw = mobArrive(outF[a], ends[b]);
+      if (!isFinite(din) || !isFinite(raw)) continue;
+      const dout = raw - MOB_ARRIVE_BIAS;
+      if (dout <= 0) continue;
+      const r = din / dout;
+      ratios++;
+      if (r > MOB_TARGET) out.over++;
+      if (din - dout > out.maxDetour) out.maxDetour = din - dout;
+      if (r > max) {
+        max = r;
+        out.worst = { a: ends[a], b: ends[b], din, dout };
+      }
+      if (mobCovers(ends[a], stands[b]) && mobCovers(ends[b], stands[a])) {
+        out.coveredPairs++;
+        if (r > out.maxCovered) {
+          out.maxCovered = r;
+          out.worstCovered = {
+            a: ends[a],
+            b: ends[b],
+            din,
+            dout,
+            detour: din - dout,
+            ratio: mround2(r),
+          };
+        }
+        continue;
+      }
+      if (din - dout > MOB_DETOUR_FLOOR) {
+        out.gatedPairs++;
+        if (r > MOB_TARGET) out.overGated++;
+        if (r > out.maxGated) {
+          out.maxGated = r;
+          out.worstGated = { a: ends[a], b: ends[b], din, dout };
+        }
+      }
+    }
+  }
+  out.pairs = ratios;
+  out.max = mround2(max);
+  out.maxGated = mround2(out.maxGated);
+  out.maxCovered = mround2(out.maxCovered);
+  return out;
+}
+
 /**
  * Gate names are normalised so a declaration written the obvious way still
  * matches: "link"/"links", "container"/"containers", "extension"/"extensions".
@@ -580,6 +753,51 @@ const UNDECLARABLE = new Set(["engine", "stack", "object", "bounds", "core", "to
  * note it. The SHORTFALL half of the same gate (`ctrlparks|count`, a room that
  * genuinely cannot seat four upgraders) stays declarable, which is the same
  * split as labs/count vs labs/geometry one block up.
+ *
+ * ------------------------------------------------------------------------
+ * ...AND THE ROUND-11 AUDIT: EVERY MESSAGE THAT SAYS "INVARIANT" IS ON THIS LIST
+ * ------------------------------------------------------------------------
+ * `misc|mineral-seat` is the finding that forced the audit. The MINERAL ENTOMBED
+ * message ends with the words "a room object's work seat is a placement
+ * invariant, not a shortfall"; the block comment above it says UNDECLARABLE; the
+ * goal document says "(MINERAL ENTOMBED, undeclarable)". Three assertions and
+ * zero enforcement — a reviewer entombed E11S4's mineral, added
+ * `{gate:"misc", kind:"mineral-seat", tiles:[the whole ring]}` with plausible
+ * prose, and the entombment DISAPPEARED from the fail list; with the collateral
+ * gates declared too the room validated `pass 1/1 · fail 0` on the same summary
+ * line that printed `minerals entombed 1`. The gate cannot be blanket-
+ * undeclarable because 133 rooms legitimately file `misc|off-network`, so the
+ * missing item was always the pair, and here it is.
+ *
+ * Finding one and stopping would be the same mistake in a new place, so every
+ * (gate, kind) this file raises was re-read against its own message, and every
+ * one that states a WRONG rather than a SHORT is now named:
+ *
+ *   `shell|stale-cut`, `shell|cut-not-rampart`, `shell|cut-rampart-rejected` —
+ *      meta.shell.cut disagreeing with the wall the room ships is a false
+ *      statement about the plan, exactly like `ctrlparks|stale-claim`. Every
+ *      shell metric in this file is computed over `cut`; a declaration excusing
+ *      a stale one would be excusing all of them at once.
+ *   `shell|ctrl-ring` — the mandated stand-denial ring. "Controller outside the
+ *      wall: rampart ONLY its adjacent ring" is the doctrine the room's whole
+ *      answer to a claim-attack rests on, and a gap in it is an attacker's
+ *      stand, not a capacity the room ran out of.
+ *   `ctrlparks|no-ctrl-link`, `ctrlparks|ctrl-link-disagreement` — the same
+ *      broken-pointer class as `ctrlparks|bad-ctrl-link`, which was already here.
+ *   `count|over-cap`, `count|unknown-type` — a 61st extension is not a room that
+ *      ran out of space, and a structure type this planner does not know about
+ *      is not a shortfall in anything.
+ *   `extensions|unreachable` — an extension no creep can walk to cannot be
+ *      filled. Wrong, not short; the SHORT half of that gate is
+ *      `extensions|count`, which stays declarable and is the point of the whole
+ *      channel.
+ *   `road|off-network` — subtle, and the same laundering shape as the mineral
+ *      seat. A stranded structure IS declarable, but through `misc|off-network`,
+ *      which is read tile-by-tile at the exemption site and is now content-
+ *      audited (the named tile has to BE a mineral seat and to actually have no
+ *      road). Declaring the gate the violation is raised on would skip both
+ *      checks and excuse the class wholesale. One channel, and it is the audited
+ *      one.
  */
 const UNDECLARABLE_PAIRS = new Set([
   "spawn|count",
@@ -597,6 +815,18 @@ const UNDECLARABLE_PAIRS = new Set([
   // the controller's 2..3 seat band, is a broken pointer — the same class of thing
   // as a planted factory, not a room that ran out of space. Same refusal.
   "ctrlparks|bad-ctrl-link",
+  // --- the round-11 audit; see the block comment above for each one ---
+  "misc|mineral-seat",
+  "shell|stale-cut",
+  "shell|cut-not-rampart",
+  "shell|cut-rampart-rejected",
+  "shell|ctrl-ring",
+  "ctrlparks|no-ctrl-link",
+  "ctrlparks|ctrl-link-disagreement",
+  "count|over-cap",
+  "count|unknown-type",
+  "extensions|unreachable",
+  "road|off-network",
 ]);
 
 /**
@@ -1509,8 +1739,33 @@ export function checkRoom(plan, terrain, objects) {
     // The `stale` filter above is cut ⊇ sealCritical: every rampart that carries
     // the seal has to appear in the declared cut. That is one of the two
     // containments the goal document asks for — "meta.shell.cut must BE the wall
-    // ... the validator fails any room where the two disagree" — and BE is an
-    // equality, not a superset. A reviewer padded E11S8's meta.shell.cut with ten
+    // ... the validator fails any room where the two disagree".
+    //
+    // WHAT "BE THE WALL" ACTUALLY MEANS HERE, STATED PRECISELY (round-11
+    // correction). This comment used to say "BE is an equality, not a superset",
+    // and then check only one direction — while the shipped fleet has 21 rooms
+    // whose cut is a strict SUPERSET of the tiles that are singly seal-critical
+    // (45 tiles; worst E9S2 at 21 declared against 14 sealing). Reading the two
+    // together, the file asserted an equality it did not hold and did not test.
+    //
+    // The equality is the wrong bar and always was. Removal-criticality is a
+    // SINGLE-tile test — delete one rampart, does the exterior reach the sitter
+    // — and a wall with any doubled corner has tiles that are load-bearing only
+    // as a pair, which no single-removal test can see. Demanding cut ==
+    // sealCritical would fail exactly the rooms whose wall is thickest where the
+    // terrain is thinnest.
+    //
+    // So the claim is a SUPERSET WITH PER-TILE JUSTIFICATION, and both halves
+    // are enforced:
+    //   ⊇  every singly seal-critical rampart is in the cut (the `stale` filter
+    //      immediately above);
+    //   and every EXTRA tile is a planned rampart the engine will build (the two
+    //      filters below), and carries a named reason in the plan's own
+    //      `redundantCut` record — layer 7 re-runs the single-removal test on
+    //      the shipped board and writes, per tile, why the deletion was refused.
+    //      A reader who wants to know why the cut is 21 and the seal is 14 gets
+    //      fourteen sentences, not an assertion.
+    // A reviewer padded E11S8's meta.shell.cut with ten
     // tiles that carry no rampart at all (2,2 through 15,2, every one of them in
     // the exterior flood, i.e. bare floor OUTSIDE the wall) and this validator
     // exited 0, because a phantom cut tile is a tile the `stale` filter never
@@ -2153,6 +2408,8 @@ export function checkRoom(plan, terrain, objects) {
   // than as a very large number.
   // ------------------------------------------------------------------
   const tw = plan.meta?.towers;
+  /** the battery numbers, hoisted for the declaration content audit below */
+  let batteryDerived = null;
   {
     const scored = sealTiles.length
       ? sealTiles
@@ -2248,6 +2505,98 @@ export function checkRoom(plan, terrain, objects) {
     const planMin = typeof tw?.minShellDmg === "number" ? tw.minShellDmg : null;
     const planRefill = typeof tw?.maxRefill === "number" ? tw.maxRefill : null;
     const say = (v) => (v === null ? "absent" : String(v));
+    // ...and the same scoring over the WHOLE published cut, which is the basis
+    // `shippedMinShellDmg` and the shipped-battery declaration are stated on.
+    // The two bases are different quantities — the cut is a superset of the
+    // tiles that actually carry the seal — so they are kept apart by name
+    // rather than compared to each other.
+    const cutAllPts = (plan.meta?.shell?.cut || []).map((c) => ({ x: c.x, y: c.y }));
+    const faceDmg = (c) => {
+      let d = 0;
+      for (const t of s.tower || []) {
+        const r = chebyshev(t, c);
+        d += r <= 5 ? 600 : r >= 20 ? 150 : 600 - (r - 5) * 30;
+      }
+      return d;
+    };
+    batteryDerived = {
+      refillDists,
+      maxRefill,
+      /** weakest tile that actually carries the seal — what the gate is judged on */
+      sealMinShellDmg: measured,
+      /** weakest tile of the published cut — what the plan states about its wall */
+      minShellDmg: cutAllPts.length ? Math.min(...cutAllPts.map(faceDmg)) : null,
+      avgShellDmg: cutAllPts.length
+        ? Math.round(cutAllPts.reduce((sum, c) => sum + faceDmg(c), 0) / cutAllPts.length)
+        : null,
+      cutTiles: cutAllPts.length,
+    };
+
+    // ------------------------------------------------------------------
+    // ...AND THE TWO SUMMARY FIELDS THAT WERE READ AND NEVER CHECKED.
+    //
+    // `refillDists` is cross-checked above, element by element. `maxRefill` is
+    // the field the census headline and the goal document actually quote ("max
+    // 11"), and until now it was read at exactly one place — inside a message
+    // string — so setting E7S5's to 99 against a real 5 validated `1/1 · fail 0`.
+    // `minShellDmg` had the identical shape: read into `planMin`, printed, never
+    // compared. Both are trivially derivable here and both are now derived. A
+    // published summary of a re-derived array must agree with the array, or the
+    // summary is the number that rots while the array stays honest.
+    //
+    // Undeclarable by construction, like every other check in this block: they
+    // are pushed straight onto `fails` after arbitration has run, and "towers"
+    // is a gate no declaration may excuse.
+    // ------------------------------------------------------------------
+    if ((s.tower || []).length) {
+      if (planRefill !== null && planRefill !== maxRefill) {
+        fails.push(
+          `towers/refill-stale — meta.towers.maxRefill is ${planRefill}, and the furthest tower on the ` +
+            `board this room ships is a ${maxRefill}-step walk from the sitter (walks ` +
+            `[${refillDists.join(",")}]). This is the field the census headline and the goal document ` +
+            `quote; it is a summary of the array checked above and it must agree with it.`,
+        );
+      } else if (planRefill === null && Array.isArray(tw?.refillDists)) {
+        fails.push(
+          `towers/refill-stale — meta.towers publishes refillDists but no maxRefill, and maxRefill is ` +
+            `the number every summary of this room quotes. The re-derived value is ${maxRefill}.`,
+        );
+      }
+      // `minShellDmg` is deliberately NOT compared here: it is layer 3's
+      // decision-time reading over the cut layer 3 was given, the plan says so
+      // in those words, and the declaration prints both. What IS a claim about
+      // the room that ships is `shippedMinShellDmg`, and that is re-derived —
+      // over the same basis the producer uses for it, the whole published cut.
+      const cutAll = cutAllPts;
+      if (cutAll.length) {
+        let sMin = null;
+        let sWorst = null;
+        for (const c of cutAll) {
+          const d = faceDmg(c);
+          if (sMin === null || d < sMin) {
+            sMin = d;
+            sWorst = c;
+          }
+        }
+        const pubShip = tw?.shippedMinShellDmg;
+        if (typeof pubShip === "number" && pubShip !== sMin) {
+          fails.push(
+            `towers/battery-stale — meta.towers.shippedMinShellDmg is ${pubShip}, and the weakest tile of ` +
+              `the ${cutAll.length}-tile cut this room ACTUALLY SHIPS takes ${sMin}` +
+              (sWorst ? ` (${sWorst.x},${sWorst.y})` : "") +
+              `. That field is the room's claim about its own wall — layer 3's minShellDmg is a different ` +
+              `and honestly-labelled number about a different wall — and a claim about the shipped wall ` +
+              `has to be the shipped wall's number.`,
+          );
+        }
+        if (typeof tw?.shippedCutTiles === "number" && tw.shippedCutTiles !== cutAll.length) {
+          fails.push(
+            `towers/battery-stale — meta.towers.shippedCutTiles is ${tw.shippedCutTiles} and the plan ` +
+              `ships a ${cutAll.length}-tile cut.`,
+          );
+        }
+      }
+    }
 
     // Nothing to measure the battery against: no rampart carries the seal and the
     // plan declares no cut either. Not a pass — an unmeasurable wall is reported,
@@ -2287,6 +2636,557 @@ export function checkRoom(plan, terrain, objects) {
       (declaredWeak ? notes : fails).push(
         `battery legal-not-good (${why})` +
           (declaredWeak ? " — declared" : " and UNDECLARED: a weak battery shipped in silence"),
+      );
+    }
+  }
+
+  // ==================================================================
+  // DECLARATION CONTENT — the numbers, re-derived.
+  //
+  // Until now this file checked that a declaration CARRIES numbers and never
+  // that they are true. A reviewer rewrote E2S8's `towers/weak-battery` entry to
+  // claim "a 2-step refill walk ... Walks, nearest first: 1/1/1/1/1/2" against a
+  // room that ships 7/8/8/9/10/11 and it PASSED; corrupted E7S5's
+  // `mobility/covered-detour` numbers from 33/17 to 4/999 and every ratio from
+  // 1.94 to 0.11 and it PASSED; corrupted E11S6's clump counters and it PASSED;
+  // and added a `misc/off-network` exemption naming a container that is ON the
+  // network and it PASSED SILENTLY. The evidence rule was a SHAPE rule — forty
+  // characters and two distinct numbers — and a shape rule is satisfied by any
+  // numbers at all. That is the mechanism behind every "the declaration says X
+  // and the room does Y" finding this planner has ever had.
+  //
+  // So: for every declaration kind whose numbers this file can re-derive, it
+  // re-derives them and FAILS the room on a material mismatch. Two rules, and
+  // the second one is the one that makes the first hard to walk around:
+  //
+  //   THE STRUCTURED CLAIM MUST BE TRUE. Each auditable kind carries a
+  //   structured block (`record`, `mass`, `lift`, `battery`, `clump`, `eco`,
+  //   `shallowExt`, `tiles`). Every field this file can derive is derived and
+  //   compared. Ratios compare to 0.01, integers exactly.
+  //
+  //   AND THE PROSE MUST QUOTE IT. A declaration is read by a human, and
+  //   correcting the structured block while leaving the paragraph saying
+  //   something else is the same lie in a quieter place. So every audited value
+  //   has to appear as a standalone numeric token in `detail`. This is cheap for
+  //   an honest producer — every one of these sentences already prints its own
+  //   numbers — and it is what makes a prose-only corruption bite.
+  //
+  // A declaration this file cannot re-derive is untouched: the rule is "audited
+  // where auditable", not "auditable or forbidden".
+  // ==================================================================
+  {
+    /** every distinct numeric token in a string, as a set of trimmed literals */
+    const numsIn = (str) => {
+      const out = new Set();
+      for (const m of String(str || "").matchAll(/\d+(?:\.\d+)?/g)) out.add(m[0]);
+      return out;
+    };
+    /** does the prose quote this value? accepts 2.5 as "2.5" and 3 as "3" */
+    const quoted = (toks, v) => {
+      if (v === null || v === undefined) return true;
+      const n = Number(v);
+      if (!Number.isFinite(n)) return true;
+      if (toks.has(String(n))) return true;
+      if (Number.isInteger(n) && toks.has(n.toFixed(1))) return true;
+      if (!Number.isInteger(n) && toks.has(String(Math.round(n)))) return true;
+      // a ratio printed to two places where the value rounds to one
+      if (toks.has(n.toFixed(2)) || toks.has(n.toFixed(1))) return true;
+      return false;
+    };
+    const bad = [];
+    const near = (a, b) => Math.abs(Number(a) - Number(b)) <= 0.011;
+    /**
+     * @param {string} what   the declaration, for the message
+     * @param {object} sf     the declaration itself (for the prose check)
+     * @param {[string, any, any][]} pairs  [field, published, derived]
+     */
+    const audit = (what, sf, pairs) => {
+      const toks = numsIn(sf.detail);
+      for (const [field, pub, der] of pairs) {
+        if (der === null || der === undefined) continue; // not derivable here
+        if (pub === undefined) {
+          bad.push(`${what}: the structured record has no \`${field}\`; re-derived it is ${der}`);
+          continue;
+        }
+        const same =
+          typeof der === "number" && typeof pub === "number" ? near(pub, der) : String(pub) === String(der);
+        if (!same) {
+          bad.push(`${what}: \`${field}\` says ${JSON.stringify(pub)}, re-derived it is ${JSON.stringify(der)}`);
+          continue;
+        }
+        if (typeof der === "number" && !quoted(toks, der)) {
+          bad.push(
+            `${what}: \`${field}\` is ${der} and the prose never says so — every audited number has to ` +
+              `be quoted in the paragraph a reader actually reads, or the structured block and the ` +
+              `sentence can drift apart again`,
+          );
+        }
+      }
+    };
+
+    // ---- the boards every mobility audit is taken on --------------------
+    const rampK = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
+    const mobBlocked = new Set(objectTiles);
+    for (const t of BLOCKING) for (const p of s[t] || []) mobBlocked.add(key(p.x, p.y));
+    /** the mass-free board: extensions lifted, everything else standing */
+    const mobBlockedFree = new Set(objectTiles);
+    for (const t of BLOCKING) {
+      if (t === "extension") continue;
+      for (const p of s[t] || []) mobBlockedFree.add(key(p.x, p.y));
+    }
+    /** the LIFT board: only the mandated hub trio and the spawn fan remain */
+    const mobBlockedLift = new Set(objectTiles);
+    for (const t of ["storage", "terminal", "link", "spawn"]) {
+      for (const p of s[t] || []) mobBlockedLift.add(key(p.x, p.y));
+    }
+    const walkFor = (blk) => {
+      const seen = new Uint8Array(2500);
+      const si = idx(sitter.x, sitter.y);
+      seen[si] = 1;
+      const q = [si];
+      let qi = 0;
+      while (qi < q.length) {
+        const i = q[qi++];
+        const x = i % 50,
+          y = (i / 50) | 0;
+        for (const [dx, dy] of D8) {
+          const nx = x + dx,
+            ny = y + dy;
+          if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+          const ni = idx(nx, ny);
+          const k = key(nx, ny);
+          if (seen[ni] || !passable(nx, ny)) continue;
+          // the garrison walks its own ramparts; it never crosses the wall
+          if (!rampK.has(k) && ext[ni]) continue;
+          if (blk.has(k)) continue;
+          seen[ni] = 1;
+          q.push(ni);
+        }
+      }
+      return seen;
+    };
+    const cutPts = (plan.meta?.shell?.cut || []).map((c) => ({ x: c.x, y: c.y }));
+    let mBuilt = null;
+    let mFree = null;
+    let mLift = null;
+    if (cutPts.length) {
+      mBuilt = mobilityMetric(cutPts, ext, walkFor(mobBlocked));
+      if (mBuilt.sampled) mBuilt = null;
+    }
+    const deriveFree = () => {
+      if (mFree === null && cutPts.length) {
+        const m = mobilityMetric(cutPts, ext, walkFor(mobBlockedFree));
+        mFree = m.sampled ? false : m;
+      }
+      return mFree || null;
+    };
+    const deriveLift = () => {
+      if (mLift === null && cutPts.length) {
+        const m = mobilityMetric(cutPts, ext, walkFor(mobBlockedLift));
+        mLift = m.sampled ? false : m;
+      }
+      return mLift || null;
+    };
+    /** the two walks of one named pair, on the built board */
+    const pairWalk = (a, b, blk) => {
+      const w = walkFor(blk);
+      const din = mobArrive(mobBfs(w, a), b);
+      const dout = mobArrive(mobBfs(ext, a), b);
+      return {
+        din: isFinite(din) ? din : null,
+        dout: isFinite(dout) ? dout : null,
+      };
+    };
+
+    for (const sf of declared) {
+      if (!sf || typeof sf !== "object") continue;
+      const g = normGate(sf.gate);
+      const k = sf.kind ? String(sf.kind) : null;
+
+      // ---- mobility/covered-detour: the record's own worst pair ----------
+      if (g === "mobility" && k === "covered-detour" && mBuilt) {
+        const rec = sf.record || {};
+        const t = (sf.tiles || []).filter((p) => p && Number.isInteger(p.x) && Number.isInteger(p.y));
+        const what = `mobility/covered-detour`;
+        if (t.length !== 2) {
+          bad.push(`${what}: names ${t.length} tile(s); this declaration is about ONE pair of cut tiles`);
+        } else {
+          const pw = pairWalk(t[0], t[1], mobBlocked);
+          audit(what, sf, [
+            ["din", rec.din, pw.din],
+            ["dout", rec.dout, pw.dout],
+            ["detour", rec.detour, pw.din === null || pw.dout === null ? null : pw.din - pw.dout],
+            [
+              "ratio",
+              rec.ratio,
+              pw.din === null || !pw.dout ? null : Math.round((pw.din / pw.dout) * 100) / 100,
+            ],
+            ["gatedLap", rec.gatedLap, mBuilt.maxGated],
+            ["coveredPairs", rec.coveredPairs, mBuilt.coveredPairs],
+            ["pairs", rec.pairs, mBuilt.pairs],
+          ]);
+          const lf = deriveLift();
+          if (lf) audit(what, sf, [["liftedLap", rec.liftedLap, lf.maxGated]]);
+        }
+      }
+
+      // ---- the room's ONE mobility declaration ---------------------------
+      if (g === "mobility" && !k && mBuilt) {
+        const what = `mobility (as built)`;
+        const mass = sf.mass || {};
+        const fr = deriveFree();
+        audit(what, sf, [
+          ["mass.builtLap", mass.builtLap, mBuilt.maxGated],
+          ["mass.bareLap", mass.bareLap, fr ? fr.maxGated : null],
+        ]);
+        const t = (sf.tiles || []).filter((p) => p && Number.isInteger(p.x) && Number.isInteger(p.y));
+        if (t.length === 2) {
+          const pw = pairWalk(t[0], t[1], mobBlocked);
+          audit(what, sf, [
+            ["mass.din", mass.din, pw.din],
+            ["mass.dout", mass.dout, pw.dout],
+          ]);
+          if (fr) {
+            const pf = pairWalk(t[0], t[1], mobBlockedFree);
+            audit(what, sf, [["mass.bareDin", mass.bareDin, pf.din]]);
+          }
+        }
+        if (sf.lift) {
+          const lf = deriveLift();
+          if (lf) {
+            audit(what, sf, [
+              ["lift.liftedLap", sf.lift.liftedLap, lf.maxGated],
+              ["lift.liftedOverGated", sf.lift.liftedOverGated, lf.overGated],
+              ["lift.liftedGatedPairs", sf.lift.liftedGatedPairs, lf.gatedPairs],
+            ]);
+            const clears = lf.maxGated <= MOB_TARGET;
+            if (sf.lift.clears !== clears) {
+              bad.push(
+                `${what}: \`lift.clears\` says ${sf.lift.clears} and the lifted board laps ` +
+                  `${lf.maxGated} against a ${MOB_TARGET} target`,
+              );
+            }
+          }
+        }
+        // ...AND THE CAUSE FIELD IS A VERDICT, NOT A LABEL. A room inside the
+        // target has no cause: the lift test that produces the verdict is only
+        // paid for by rooms that miss, so anything other than "none" there is a
+        // pre-mass pair label wearing the verdict's name (E17S3, E7S9).
+        if (mBuilt.maxGated <= MOB_TARGET && sf.cause && sf.cause !== "none") {
+          bad.push(
+            `mobility (as built): \`cause\` is "${sf.cause}" on a room whose gated lap is ` +
+              `${mBuilt.maxGated}, inside the ${MOB_TARGET} target. A room that does not miss has no ` +
+              `cause; the pair-level label belongs in \`pairCause\``,
+          );
+        }
+        if (mBuilt.maxGated <= MOB_TARGET && sf.lift) {
+          bad.push(
+            `mobility (as built): carries a \`lift\` record on a room whose gated lap is ` +
+              `${mBuilt.maxGated} — the lift test only runs on rooms that miss, so this is a test that ` +
+              `did not happen`,
+          );
+        }
+      }
+
+      // ---- towers/weak-battery: the refill walk and the wall it quotes ----
+      if (g === "towers" && k === "weak-battery" && batteryDerived) {
+        const b = sf.battery || {};
+        const what = `towers/weak-battery`;
+        audit(what, sf, [
+          ["maxRefill", b.maxRefill, batteryDerived.maxRefill],
+          ["minShellDmg", b.minShellDmg, batteryDerived.minShellDmg],
+          ["cutTiles", b.cutTiles, batteryDerived.cutTiles],
+        ]);
+        if (Array.isArray(b.refillDists)) {
+          const want = batteryDerived.refillDists.slice().sort((x, y) => x - y);
+          const got = b.refillDists.slice().sort((x, y) => x - y);
+          if (want.length !== got.length || want.some((v, i) => v !== got[i])) {
+            bad.push(
+              `${what}: \`refillDists\` says [${b.refillDists.join("/")}], the board this room ships ` +
+                `walks [${batteryDerived.refillDists.join("/")}]`,
+            );
+          } else {
+            const toks = numsIn(sf.detail);
+            for (const v of want) {
+              if (!quoted(toks, v)) {
+                bad.push(`${what}: the refill walk includes ${v} and the prose never says so`);
+                break;
+              }
+            }
+          }
+        }
+      }
+
+      // ---- towers/clump: the counter, and the tiles it names --------------
+      if (g === "towers" && k === "clump") {
+        const c = sf.clump || {};
+        const what = `towers/clump`;
+        const within = (s.tower || []).filter((t) => chebyshev(t, sitter) <= 2);
+        audit(what, sf, [
+          ["within", c.within, within.length],
+          ["total", c.total, (s.tower || []).length],
+          ["cheb", c.cheb, 2],
+        ]);
+        const named = (sf.tiles || []).filter((p) => p && Number.isInteger(p.x));
+        for (const p of named) {
+          if (!(s.tower || []).some((t) => t.x === p.x && t.y === p.y)) {
+            bad.push(`${what}: names ${p.x},${p.y}, which carries no tower`);
+          } else if (chebyshev(p, sitter) > 2) {
+            bad.push(
+              `${what}: names ${p.x},${p.y}, which is chebyshev ${chebyshev(p, sitter)} from the sitter ` +
+                `— outside the clump it is declaring`,
+            );
+          }
+        }
+      }
+
+      // ---- misc/off-network: is the named tile actually off the network? --
+      if (g === "misc" && k === "off-network") {
+        const what = `misc/off-network`;
+        for (const p of sf.tiles || []) {
+          if (!p || !Number.isInteger(p.x) || !Number.isInteger(p.y)) continue;
+          const tk = key(p.x, p.y);
+          if (!(s.container || []).some((c) => c.x === p.x && c.y === p.y)) {
+            bad.push(`${what}: names ${p.x},${p.y}, which carries no container`);
+            continue;
+          }
+          if (!mineralSeat.has(tk)) {
+            bad.push(
+              `${what}: names ${p.x},${p.y}, which is not the mineral seat — this exemption exists for ` +
+                `the miner's container and for nothing else`,
+            );
+            continue;
+          }
+          let onNet = false;
+          for (const [dx, dy] of D8) {
+            const nk = key(p.x + dx, p.y + dy);
+            if (roadSet.has(nk) || (s.container || []).some((c) => key(c.x, c.y) === nk)) {
+              onNet = true;
+              break;
+            }
+          }
+          if (onNet) {
+            bad.push(
+              `${what}: names ${p.x},${p.y} as off the road network, and it has a road or a container ` +
+                `on one of its eight neighbours — it IS on the network`,
+            );
+          }
+        }
+      }
+
+      // ---- eco: the anchor walks and the floor derived from them ----------
+      if (g === "eco") {
+        const e = sf.eco || {};
+        const what = `eco`;
+        const anchors = [...(controller ? [controller] : []), ...sources];
+        // the same ring-seeded field the producer reads pathController off
+        const ringField = (o) => {
+          const dist = new Int16Array(2500).fill(30000);
+          const q = [];
+          const seed = (x, y) => {
+            if (x < 0 || y < 0 || x > 49 || y > 49) return;
+            if (isWall(terrain, x, y)) return;
+            const i = idx(x, y);
+            if (dist[i] > 0) {
+              dist[i] = 0;
+              q.push(i);
+            }
+          };
+          seed(o.x, o.y);
+          for (const [dx, dy] of D8) seed(o.x + dx, o.y + dy);
+          let qi = 0;
+          while (qi < q.length) {
+            const i = q[qi++];
+            const x = i % 50,
+              y = (i / 50) | 0;
+            for (const [dx, dy] of D8) {
+              const nx = x + dx,
+                ny = y + dy;
+              if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+              if (isWall(terrain, nx, ny)) continue;
+              const ni = idx(nx, ny);
+              if (dist[ni] <= dist[i] + 1) continue;
+              dist[ni] = dist[i] + 1;
+              q.push(ni);
+            }
+          }
+          return dist;
+        };
+        const fields = anchors.map(ringField);
+        // measured from STORAGE, not from the sitter: layer-hub reads both
+        // `pathController` and `pathSourcesSum` off `idx(storage)` (layer-hub
+        // :1872-1875), and the sitter is the road tile beside it. One step of
+        // difference, consistently, in every room — which is exactly the kind of
+        // thing an audit exists to pin down rather than paper over.
+        const hubTile = (s.storage || [])[0] || sitter;
+        const hubI = idx(hubTile.x, hubTile.y);
+        const pc = controller ? fields[0][hubI] : null;
+        const ps = sources.length
+          ? sources.reduce((sum, _, i) => sum + fields[(controller ? 1 : 0) + i][hubI], 0)
+          : null;
+        let sepWalk = null;
+        for (let i = 0; i < anchors.length; i++) {
+          for (let j = i + 1; j < anchors.length; j++) {
+            let best = null;
+            for (let t2 = 0; t2 < 2500; t2++) {
+              const a = fields[i][t2],
+                b2 = fields[j][t2];
+              if (a >= 30000 || b2 >= 30000) continue;
+              if (best === null || a + b2 < best) best = a + b2;
+            }
+            if (best !== null && (sepWalk === null || best > sepWalk)) sepWalk = best;
+          }
+        }
+        let sepCheb = 0;
+        for (let i = 0; i < anchors.length; i++) {
+          for (let j = i + 1; j < anchors.length; j++) {
+            const d = chebyshev(anchors[i], anchors[j]);
+            if (d > sepCheb) sepCheb = d;
+          }
+        }
+        const chebFloor = Math.ceil(sepCheb / 2);
+        const walkFloor = sepWalk === null ? null : Math.ceil(sepWalk / 2);
+        audit(what, sf, [
+          ["pathController", e.pathController, pc !== null && pc < 30000 ? pc : null],
+          ["pathSourcesSum", e.pathSourcesSum, ps !== null && ps < 30000 ? ps : null],
+          ["anchorSpread", e.anchorSpread, sepCheb],
+          ["anchorWalkSpread", e.anchorWalkSpread, sepWalk],
+          [
+            "anchorWalkFloor",
+            e.anchorWalkFloor,
+            walkFloor !== null && walkFloor > chebFloor ? walkFloor : chebFloor,
+          ],
+        ]);
+      }
+
+      // ---- extensions/shallow: the count and the tiles --------------------
+      if (g === "extensions" && k === "shallow") {
+        const what = `extensions/shallow`;
+        const sh = sf.shallowExt || {};
+        const shallowExts = (s.extension || []).filter(
+          (e) => depth[idx(e.x, e.y)] < DEPTH_SAFE,
+        );
+        audit(what, sf, [
+          ["count", sh.count, shallowExts.length],
+          ["total", sh.total, (s.extension || []).length],
+        ]);
+        for (const p of sf.tiles || []) {
+          if (!p || !Number.isInteger(p.x)) continue;
+          if (!shallowExts.some((e) => e.x === p.x && e.y === p.y)) {
+            bad.push(
+              `${what}: names ${p.x},${p.y}, which is not an extension at depth < ${DEPTH_SAFE} on the ` +
+                `board this room ships`,
+            );
+          }
+        }
+      }
+    }
+
+    for (const b of bad) {
+      fails.push(
+        `DECLARATION CONTENT — ${b}. A declaration is a claim that a room beat the planner, and a claim ` +
+          `nobody re-derives is a suppression flag with a paragraph attached.`,
+      );
+    }
+
+    // ==================================================================
+    // ...AND THE OBLIGATIONS. A declaration nobody is REQUIRED to file is a
+    // planner convention, not a gate.
+    //
+    // Deleting E7S5's `mobility/covered-detour` entry — the fleet's worst pair,
+    // 33 tiles of detour at ratio 17.5 — left the room passing `1/1 · fail 0`,
+    // because `raw` never raises anything on gate "mobility" at all and the
+    // declaration is pure narration. The same held for the mobility declaration
+    // on the fleet's worst over-target room (lap 9.33) and for a `towers/clump`
+    // entry. The set was complete on the day it was checked; nothing kept it so.
+    //
+    // So the state that DEMANDS a declaration is re-derived here, and a room
+    // whose re-derived state demands one and does not carry it fails. These are
+    // presence checks — the content audit above is what makes the presence
+    // worth having.
+    // ==================================================================
+    const has = (gate, kind) =>
+      decls.some((d) => d.gate === normGate(gate) && (kind === null ? !d.kind : d.kind === kind));
+    const owe = [];
+    if (mBuilt) {
+      if (mBuilt.maxGated > MOB_TARGET && !has("mobility", null)) {
+        owe.push(
+          `the as-built gated defender lap is ${mBuilt.maxGated}, over the ${MOB_TARGET} target, and the ` +
+            `room files no \`mobility\` declaration. An over-target lap shipped in silence is the exact ` +
+            `failure the shortfall channel exists for`,
+        );
+      }
+      const cov = mBuilt.worstCovered;
+      if (
+        cov &&
+        cov.detour > MOB_DETOUR_FLOOR &&
+        cov.ratio > MOB_TARGET &&
+        cov.ratio > mBuilt.maxGated + 1e-9 &&
+        !has("mobility", "covered-detour")
+      ) {
+        owe.push(
+          `the RECORD's worst pair (${cov.a.x},${cov.a.y}~${cov.b.x},${cov.b.y}: ${cov.din} in / ` +
+            `${cov.dout} out, detour ${cov.detour}, ratio ${cov.ratio}) is worse than the verdict this ` +
+            `room publishes (${mBuilt.maxGated}) and coverage excuses it from the gate — so the room ` +
+            `owes a \`mobility/covered-detour\` declaration and files none`,
+        );
+      }
+    }
+    {
+      const shallowExts = (s.extension || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE);
+      if (shallowExts.length && !has("extensions", "shallow")) {
+        owe.push(
+          `${shallowExts.length} extension(s) stand at depth < ${DEPTH_SAFE} ` +
+            `(${shallowExts.slice(0, 6).map((e) => `${e.x},${e.y}`).join(" ")}${shallowExts.length > 6 ? " …" : ""}), ` +
+            `each renting a personal rampart forever, and the room files no \`extensions/shallow\` ` +
+            `declaration. Silent capping is the anti-pattern by name`,
+        );
+      }
+    }
+    {
+      const within = (s.tower || []).filter((t) => chebyshev(t, sitter) <= 2).length;
+      if (within >= 5 && !has("towers", "clump")) {
+        owe.push(
+          `${within} of the ${(s.tower || []).length} towers sit within chebyshev 2 of the sitter — the ` +
+            `shape a single nuke is cheapest against — and the room files no \`towers/clump\` declaration`,
+        );
+      }
+    }
+    if (batteryDerived) {
+      const weakNow =
+        batteryDerived.sealMinShellDmg !== null && batteryDerived.sealMinShellDmg < WEAK_SHELL_DMG;
+      if ((weakNow || batteryDerived.maxRefill > REFILL_NOTE) && !has("towers", "weak-battery")) {
+        owe.push(
+          `the battery is legal but poor (weakest sealing tile ${batteryDerived.sealMinShellDmg}, furthest ` +
+            `refill walk ${batteryDerived.maxRefill}) and the room files no \`towers/weak-battery\` ` +
+            `declaration`,
+        );
+      }
+    }
+    if (mineral && (s.extractor || []).length) {
+      const seatTiles = [...mineralSeat];
+      for (const tk of seatTiles) {
+        const [mx, my] = tk.split(",").map(Number);
+        let onNet = false;
+        for (const [dx, dy] of D8) {
+          const nk = key(mx + dx, my + dy);
+          if (roadSet.has(nk) || (s.container || []).some((c) => key(c.x, c.y) === nk)) {
+            onNet = true;
+            break;
+          }
+        }
+        if (!onNet && !mineralOffNetworkDeclared.has(tk)) {
+          owe.push(
+            `the mineral seat ${mx},${my} has no road and no other container on any of its eight ` +
+              `neighbours and the room files no \`misc/off-network\` declaration naming it`,
+          );
+        }
+      }
+    }
+    for (const o of owe) {
+      fails.push(
+        `UNDECLARED — ${o}. The room's own re-derived state demands a declaration and none is filed; a ` +
+          `narration channel nothing is obliged to use is a convention, not a gate.`,
       );
     }
   }

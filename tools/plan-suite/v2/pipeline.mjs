@@ -16,8 +16,8 @@
  *   7 late roads  rampart spurs + extension-face net + dead-end prune, last
  *                so they never steal a tile from the 60 extensions
  */
-import { D4, D8, PARK_PROTECT, isWall, pathLen } from "./shared.mjs";
-import { planHub } from "./layer-hub.mjs";
+import { D4, D8, PARK_PROTECT, isWall } from "./shared.mjs";
+import { planHub, distField } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
@@ -29,6 +29,8 @@ import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
 // has its own published price and its own reasons — see MOBILITY_ENCLOSURE_*.
 
 export const EXT_TARGET = 60;
+/** a structure shallower than this is inside a ranged attacker's reach from the wall */
+export const DEPTH_SAFE = 4;
 
 /**
  * One full layer stack on a fresh hub plan. Deterministic, so it can be
@@ -344,6 +346,74 @@ export function composePlan(d, shellOpts = {}) {
           `.` +
           tradeNote,
       );
+      // ------------------------------------------------------------------
+      // ...AND A SHALLOW EXTENSION IS A DECLARATION, NOT A NOTE.
+      //
+      // 28 shallow extensions shipped across 5 rooms with ZERO entries in the
+      // shortfall channel — no `extensions|shallow` kind existed fleet-wide —
+      // while the goal document claimed each one "carries a declaration that
+      // reports the post-prune search". A note excuses nothing and nothing
+      // reads it; a shallow extension is a real, permanent cost (a personal
+      // rampart repaired for the life of the base, and a structure a ranged
+      // attacker can hit from outside the wall) taken because the room could
+      // not do better. That is precisely what the shortfall channel is for, and
+      // the validator now FAILS a room that ships one without this entry.
+      //
+      // The evidence is the per-slot post-search record layer 7b re-runs
+      // against the shipped board (`reflow.shallowRefused`), so every number
+      // here is re-derivable: how many deep targets existed, how many were
+      // examined, and for each slot either the cheapest legal target with the
+      // lap it would cost, or the fact that there is no legal target at all.
+      // ------------------------------------------------------------------
+      if (shallowNow) {
+        const sr = (rf && rf.shallowRefused) || [];
+        const tiles = sr.length
+          ? sr.map((s) => ({ x: s.x, y: s.y }))
+          : (rf?.shallow || []).map((s) => ({ x: s.x, y: s.y }));
+        const impossible = sr.filter((s) => !s.targets).length;
+        const priced = sr.filter((s) => s.bestLegal).length;
+        const refusedByTest = sr.filter((s) => s.targets && !s.bestLegal).length;
+        plan.meta.shortfalls.push({
+          gate: "extensions",
+          kind: "shallow",
+          detail:
+            `SHALLOW EXTENSIONS DECLARED: ${shallowNow} of this room's ${total} extension(s) stand at ` +
+            `depth < ${DEPTH_SAFE} and each rents a personal rampart forever — ` +
+            `${Math.round(shallowNow * 3) / 100} e/tick of upkeep that never ends, and ` +
+            `${shallowNow} structure(s) a ranged attacker can hit from outside the wall. This is a cost ` +
+            `the room took because it could not do better, and here is the search that says so, re-run ` +
+            `at the end against the board this room ships. ` +
+            `THE CANDIDATE SCAN: layer 7b swept all 2,304 interior positions for free, deep, ` +
+            `engine-legal floor that is already road-faced or one pave away, and found ` +
+            `${rf ? rf.search.freeDeepRoadFaced : 0} already-faced free deep tile(s), of which ` +
+            `${rf ? rf.search.spentOnAdds : 0} went to the backfill (extensions this room did not have ` +
+            `at all, which outranks retiring a rampart), ${rf ? rf.search.spentOnMoves : 0} took a ` +
+            `relocated shallow slot, and ${rf ? rf.search.left : 0} were still on the table. ` +
+            `PER SLOT, AND THE OUTCOMES ARE DIFFERENT FACTS: ${impossible} slot(s) had NO deep target ` +
+            `of any kind, ${refusedByTest} had targets that the shipped-board acceptance test refused ` +
+            `(a structure loses its last walkable face, a road is cut from the sitter, a battlement is ` +
+            `stranded, the controller loses a claim seat or a park), and ${priced} had a LEGAL target ` +
+            `whose cost is the defender lap. ` +
+            sr
+              .map((s) => `${s.x},${s.y} (depth ${s.depth}, ${s.targets} target(s) offered): ${s.why}`)
+              .join(" · ") +
+            `. WHAT IS NOT CLAIMED: that no arrangement of sixty extensions could ever do better — this ` +
+            `is a statement about the completed post-prune search on this enclosure, priced, and it is ` +
+            `here so the trade can be argued with instead of capped in silence.`,
+          tiles,
+          count: shallowNow,
+          // the structured form the validator re-derives against
+          shallowExt: {
+            count: shallowNow,
+            total,
+            depthSafe: DEPTH_SAFE,
+            impossible,
+            refusedByTest,
+            priced,
+            slots: sr,
+          },
+        });
+      }
     }
     if (total < EXT_TARGET) {
       plan.meta.shortfalls.push({
@@ -1006,15 +1076,53 @@ function declareEcoTax(plan) {
   // all. Where the walk is unreachable (an anchor behind a wall the room cannot
   // cross without tunnelling) the chebyshev bound stands and says so.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // ...AND THE FLOOR HAS TO BE MEASURED IN THE METRIC OF THE DISTANCES IT
+  // BOUNDS. THIS IS THE ROUND-11 CORRECTION.
+  //
+  // `pathController` and `pathSourcesSum` are read off `distField`, which seeds
+  // the anchor's WHOLE walkable ring at zero — so "the controller is 27 away"
+  // means 27 steps from the hub tile to the nearest tile a creep can work the
+  // controller from. The spread above was measured with `pathLen`, which routes
+  // through `approachTile`: ONE fixed neighbour at each end, chosen by a
+  // tie-break that knows nothing about which side the hub is on. The two are
+  // different quantities, `pathLen` is the larger of them, and the floor
+  // derived from it therefore bounded the published distances from ABOVE their
+  // own geometry in 15 of the 38 declaring rooms — by 2 in E17S3 (39 vs 36, so
+  // floor 20 vs 18) and E2S3 (60 vs 56, floor 30 vs 28), by 1 in thirteen more.
+  // A floor that overstates is not a conservative error: it tells the owner a
+  // room is closer to optimal than it is, which is the flattering direction.
+  //
+  // The bound is now derived exactly, in the right metric and tighter than
+  // before. For anchors A and B and ANY tile t in the room,
+  //     distA(t) + distB(t) >= D,   D = min over all t of (distA + distB)
+  // — D is a property of the terrain alone — and therefore
+  //     max(distA(t), distB(t)) >= ceil(D / 2)
+  // for every hub tile the room admits. D is exactly "how far apart these two
+  // anchors are, walked, in the units `pathController` is printed in", and it
+  // costs one BFS per anchor plus one 2500-tile scan per pair.
+  // ------------------------------------------------------------------
   let walkSpread = null;
   let walkPair = "";
-  for (let i = 0; i < anchors.length; i++) {
-    for (let j = i + 1; j < anchors.length; j++) {
-      const w = pathLen(plan.terrain, anchors[i].p, anchors[j].p);
-      if (w === null) continue;
-      if (walkSpread === null || w > walkSpread) {
-        walkSpread = w;
-        walkPair = `${anchors[i].n} ${anchors[i].p.x},${anchors[i].p.y} and ${anchors[j].n} ${anchors[j].p.x},${anchors[j].p.y}`;
+  {
+    const fields = anchors.map((a) => distField(plan.terrain, [a.p]));
+    for (let i = 0; i < anchors.length; i++) {
+      for (let j = i + 1; j < anchors.length; j++) {
+        const fi = fields[i];
+        const fj = fields[j];
+        let best = null;
+        for (let t = 0; t < 2500; t++) {
+          const a = fi[t];
+          const b = fj[t];
+          if (a >= 30000 || b >= 30000) continue; // INF sentinel / unreachable
+          const s = a + b;
+          if (best === null || s < best) best = s;
+        }
+        if (best === null) continue; // the two anchors do not share a component
+        if (walkSpread === null || best > walkSpread) {
+          walkSpread = best;
+          walkPair = `${anchors[i].n} ${anchors[i].p.x},${anchors[i].p.y} and ${anchors[j].n} ${anchors[j].p.x},${anchors[j].p.y}`;
+        }
       }
     }
   }
@@ -1026,7 +1134,12 @@ function declareEcoTax(plan) {
     ? `the widest separation is ${walkSpread} tiles OF WALK (${walkPair}; they are only ${spread} apart ` +
       `as the crow flies, and the difference is the terrain between them), and two anchors ${walkSpread} ` +
       `apart on foot cannot both sit within ${walkFloor} steps of any tile in the room, so a walk of at ` +
-      `least ${walkFloor} to the far one is owed by EVERY hub this room admits, not by this one`
+      `least ${walkFloor} to the far one is owed by EVERY hub this room admits, not by this one. THE ` +
+      `SEPARATION IS MEASURED IN THE SAME METRIC AS THE DISTANCES IT BOUNDS: min over every tile t of ` +
+      `(steps from t to the first anchor's work ring + steps from t to the second's), which is exactly ` +
+      `the ring-seeded field \`pathController\` and \`pathSourcesSum\` are read off. It used to be a ` +
+      `single-neighbour-to-single-neighbour path, a strictly larger quantity, and the floor it produced ` +
+      `overstated 15 of the fleet's 38 eco declarations`
     : `the widest separation is ${spread} tiles (${spreadPair}), and two anchors ${spread} apart cannot ` +
       `both sit within ${chebFloor} of any tile in the room, so a walk of at least ${chebFloor} to the ` +
       `far one is owed by EVERY hub this room admits, not by this one` +
@@ -1066,7 +1179,18 @@ function declareEcoTax(plan) {
       opener +
       `The hub sits at ${hub.x},${hub.y} on the only basin that holds the program — ${basin} tiles reachable ` +
       `from the seed, core pocket ${plan.meta.coreSize ?? "?"}. ${cause} Capping this silently is the ` +
-      `anti-pattern; the numbers are here so the trade can be argued with.`,
+      `anti-pattern; the numbers are here so the trade can be argued with. ` +
+      // AUDITED FACTS, QUOTED. The validator re-derives every one of these and
+      // fails the room on a mismatch — and it also requires each of them to
+      // appear in this paragraph, because correcting a structured block while
+      // the prose still says something else is the same lie in a quieter place.
+      // The conditional clauses above only print a distance when it is over its
+      // gate, so this line is where the short ones get said out loud.
+      `AUDITED FACTS, re-derivable and therefore quoted here in full: the controller walk from storage is ` +
+      `${pc} tile(s), the source path sum is ${ps}, the widest anchor separation is ${spread} as the crow ` +
+      `flies and ${walkSpread === null ? "not walkable at all" : `${walkSpread} of walk`} in the same ` +
+      `ring-seeded metric those two distances are measured in, and the floor that proves below them is ` +
+      `${anchorFloor} (basis: ${useWalk ? "walk" : "chebyshev"}).`,
     tiles: [{ x: hub.x, y: hub.y }],
     eco: {
       pathController: pc,

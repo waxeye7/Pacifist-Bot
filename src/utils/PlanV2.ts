@@ -469,9 +469,13 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * cannot be staged with the container it serves, because typeAllowedAtRcl gates
  * road at lvl >= 3 — the guarantee is "at the first RCL a road may exist", so
  * RCL2 is still walked on bare ground. (b) The guarantee only ever RE-STAGES
- * roads the planner already placed; it never invents one. 220 RCL2 containers
- * in 145 rooms have no planned D4 road face at all and get nothing here — that
- * is a planner question, not a staging one.
+ * roads the planner already placed; it never invents one. 218 RCL2 containers
+ * in 143 rooms have no planned D4 road face at all and get nothing here — that
+ * is a planner question, not a staging one. (The figure was published as 220/145
+ * for two rounds; re-derived twice against the shipped artifact with this file's
+ * own rcl2Containers() definition — the source seats plus the controller
+ * container, the mineral one deferred to RCL6 — it is 218 across 143, and no
+ * alternative reading of "RCL2 container" yields 220/145.)
  * ---------------------------------------------------------------------------
  *
  * `plan.rs` is indexed off `plan.t.road` itself, so any caller that hands us a

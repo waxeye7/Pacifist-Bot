@@ -143,7 +143,12 @@ export const MOBILITY_TARGET = 1.2;
 // `coveredDetour` and the mobility/covered-detour shortfall in layer-walls).
 const RANGED_RANGE = 3;
 // Endpoint budget. The metric is EXACT all-pairs over every reachable cut tile
-// up to this many endpoints — which covers the entire fleet (largest cut 75).
+// up to this many endpoints — which covers the entire fleet. The figure that
+// used to stand here was "largest cut 75", and it was stale: re-derived on the
+// shipped artifact the largest REACHABLE cut is 80, so the margin is 10
+// endpoints and not 15. The conclusion is unchanged (0 rooms sample) and the
+// number is corrected rather than left to rot, because a justification quoting a
+// figure nobody re-measures is the same defect as a metric nobody re-derives.
 // The farthest-point sampler survives only as a fallback for a hypothetical
 // monster shell, and any result that used it is labelled `sampled: true` so it
 // can never be mistaken for the exact number. The old 32-endpoint sample was

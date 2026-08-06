@@ -50,23 +50,59 @@ per room. Rise to the bar; do not lower it.
   controller, the mineral) crosses the cut line, the crossing tile is both road
   and rampart by necessity. That is a gate, not road spam: without it the wall
   has a hole or the haulers have no way out. Re-measured on the 172-room fleet
-  (round 10; the "257 / 229 / max 4" figures below this line were a 159-room
+  (round 11; the "257 / 229 / max 4" figures below this line were a 159-room
   world, and the round-9 "286 / 241 / median 2 / max 6 / 36 bubbles" numbers that
   stood here were wrong on four of five counts — measured on the file whose own
-  md5 the same section quoted): **281 road+rampart tiles, 235 of them exactly on
-  the shell cut line, median 2 and max 5 per room** — the rest are 37 declared
-  eco bubbles and 9 mineral-container bubbles that happen to cover a road.
-  **The accounting closes exactly: 235 + 37 + 9 = 281, 0 unclassified.** (Every
-  stand-denial rampart that also carries road is itself a cut tile, so it is
-  counted once, in the first class it belongs to — the round-9 review's "20
-  stand-denial tiles the taxonomy has no class for" is that double count.)
-  A gate per eco route, which is the expected shape.
-  **A RUN of them is not.** Where the cut turns and follows an eco lane the room
+  md5 the same section quoted): **277 road+rampart tiles, 235 of them exactly on
+  the shell cut line, median 2 and max 5 per room**. The full taxonomy, five
+  classes and every one of them decided by its own positive test:
+  **235 wall crossings on the cut + 29 bubble seats (a container) + 13 controller
+  stand-denial RING tiles + 0 personal cover + 0 unclassified = 277.**
+
+  **THE ACCOUNTING USED TO "CLOSE" BECAUSE THE RESIDUE WAS SWEPT INTO THE LARGEST
+  CLASS.** The line that stood here — "281 … 235 on the cut … 37 declared eco
+  bubbles and 9 mineral-container bubbles … 235 + 37 + 9 = 281, 0 unclassified" —
+  was produced by a classifier whose last branch was a catch-all `else cross++`.
+  A tile that was on neither the cut nor a container was therefore *counted as a
+  wall crossing*, and 17 tiles on the board that sentence described were exactly
+  that. A sum is only evidence when nothing is allowed to fall into it: "0
+  unclassified" was not a measurement, it was a restatement of the fact that the
+  code had nowhere else to put a tile. The 17 are controller stand-denial ring
+  tiles that the eco lane to the controller happens to cross — a legitimate,
+  expected class, which is the whole point. The defect was never a bad tile; it
+  was a taxonomy with no word for what it was looking at, hiding behind the one
+  class big enough to absorb the error unnoticed. Each class now has to claim its
+  own tiles, `unclassified` is printed **whether or not it is zero**, the
+  breakdown is emitted by `plan.mjs --all-claimable` on the line
+  `road+rampart: ...` and stored per room in `meta.walls.roadRampart`. The total
+  also fell 281 → 277 because layer 7's inert prune now deletes 8 ring ramparts
+  that carried road and defended nothing — see the ring-rampart paragraph under
+  the controller bullet below.
+  (A stand-denial rampart that is ALSO a cut tile is still counted once, in the
+  crossing class — the round-9 review's "20 stand-denial tiles the taxonomy has
+  no class for" is that double count, and it is a different question from the 17,
+  which are not on the cut at all.)
+
+  **A gate per eco route is the expected shape. A RUN of them is not.** Where the
+  cut turns and follows an eco lane the room
   used to ship two or three consecutive paved rampart tiles — a prepared surface
   along the exact line an attacker who breaks in wants to walk (E14S5 shipped
   42,36 42,37 42,38 with bare interior floor one tile west). Layer 7 stage (5b)
   now offers every such run the interior parallel and takes the swap when the
   network is measurably no worse; a single CROSSING tile is never touched.
+
+  **AND WHEN IT DECLINED, IT PUBLISHED A ZERO.** Five rooms still ship two
+  consecutive paved cut tiles (E15S1, E18S9, E19S9, E7S9, E9S8) — the
+  anti-pattern by its own name — and the only
+  thing stage 5b said about them was the counter `alongCutMoved: 0`. A count of
+  moves TAKEN is not an argument about the moves NOT taken: from a zero a reader
+  cannot tell "there was nothing to do" from "there was something to do and it
+  was refused," which is silent capping with a number in front of it. Stage 5b
+  now records a **REFUSAL PER TILE**, with the reason that applies to that tile —
+  no interior parallel exists, and which neighbour failed and why; or the swap
+  breaks the road network — and every room that ships a run states it, re-derived
+  by the validator on the board the room actually ships rather than on stage 5b's
+  working copy.
   Every OTHER road/rampart coincidence is still the anti-pattern. Spur
   roads TO rampart clusters allowed. Roads exist only for: hub kit, eco paths,
   lab road, tower faces, extension corridors, rampart spurs, shell gates. Dead
@@ -82,7 +118,26 @@ per room. Rise to the bar; do not lower it.
   stand beside. Producer side: `mineralSeat` + `mineralApproach`, reserved at layer 1
   and honoured through `reservedTiles` by every layer that places a blocking
   structure, plus the local `mineralSeatHolds` invariant. Validator side: a real
-  flood from the sitter that has to ARRIVE (`MINERAL ENTOMBED`, undeclarable).
+  flood from the sitter that has to ARRIVE (`MINERAL ENTOMBED`).
+
+  **THIS DOCUMENT CALLED THAT FAILURE "UNDECLARABLE" AND IT WAS NOT.** The
+  undeclarable list is keyed on `gate|kind` PAIRS, and only the pair is
+  meaningful: gate `misc` is emphatically not blanket-undeclarable, because 133
+  rooms legitimately file `misc/off-network` for their mineral seat (criticism 11).
+  The pair `misc|mineral-seat` was simply missing. A round-11 reviewer entombed
+  E11S4's mineral, filed `{gate:"misc", kind:"mineral-seat"}` with the seat ring
+  in `tiles`, and watched the entombment disappear from the fail list — the run
+  printed **`pass 1/1 · fail 0` on the same line that printed `minerals entombed
+  1`**. A hard gate that a room can excuse itself from by naming it is not a gate,
+  and the word "undeclarable" in prose does nothing; only membership in
+  `UNDECLARABLE_PAIRS` does. `misc|mineral-seat` is in it now, and so are ten more
+  pairs found by re-reading every message this validator raises against its own
+  words about that message: `shell|stale-cut`, `shell|cut-not-rampart`,
+  `shell|cut-rampart-rejected`, `shell|ctrl-ring`, `ctrlparks|no-ctrl-link`,
+  `ctrlparks|ctrl-link-disagreement`, `count|over-cap`, `count|unknown-type`,
+  `extensions|unreachable`, `road|off-network`. Every one of them describes
+  something the plan got WRONG rather than something the room cannot have, which
+  is the only test that matters for the list.
 - **Nuke dispersion is a soft objective, and it is measured.** A nuke does full
   damage over a 5x5, cannot be intercepted, and is answered only by rampart hit
   points — so "how much of the RCL8 program does ONE warhead reach" is a real
@@ -126,13 +181,51 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
+  The mutation suite is at **90/90 caught** (64/64 at round 10); the 26 new
+  mutations are the three paragraphs below, and every one of them was written
+  because a reviewer landed the mutation first.
+- **A DECLARATION IS EVIDENCE, SO ITS CONTENT IS A GATE.** Through round 10 the
+  evidence rule was a SHAPE rule — at least 40 characters of prose, at least two
+  distinct numbers — and any numbers at all satisfied it. Three reviewer edits
+  passed clean: E2S8's weak-battery entry was rewritten to claim a 2-step refill
+  walk "1/1/1/1/1/2" against a room that walks **7/8/8/9/10/11**; E7S5's
+  covered-detour numbers went from 33/17 at ratio 17.5 to **4/999 at 0.11**, i.e.
+  the fleet's worst pair rewritten into its best; and a bogus `misc/off-network`
+  exemption naming a container that is ON the network passed in silence. The whole
+  honest-shortfall contract rests on declarations being true, and nothing was
+  reading them. The validator now **RE-DERIVES DECLARATION CONTENT**: the full
+  defender-mobility metric transcribed from its definition in this document rather
+  than imported from the producer (an imported metric checks the transcription and
+  not the claim), the refill walk, the weakest sealing tile, the clump counter, the
+  off-network truth, the eco anchor walks and the shallow-extension census. A
+  material mismatch fails the room. It **also requires every audited number to be
+  QUOTED in the prose**, so correcting the structured block while the paragraph
+  goes on lying does not pass either — the paragraph is what a reviewer reads.
+- **AND THE NARRATION GATES WERE OBLIGATIONS NOBODY ENFORCED.** Deleting E7S5's
+  `mobility/covered-detour` declaration outright — the fleet's worst pair, 33
+  tiles of detour at ratio 17.5 — cost nothing at all; the same held for the
+  mobility declaration on the worst over-target room in the fleet and for a
+  `towers/clump` entry. Every "and it DECLARES it" sentence in this document was,
+  until round 11, a description of what the producer happened to emit, not a
+  requirement on what the room may ship. A room whose RE-DERIVED state demands a
+  declaration now FAILS without it: over-target gated mobility, a complete record
+  worse than the verdict, a weak or far battery, five towers inside chebyshev 2 of
+  the sitter, an off-network mineral seat, and shallow extensions.
+- **AND `meta.towers.maxRefill` WAS READ ONLY INSIDE A MESSAGE STRING.** It was
+  interpolated into the text of a warning and never compared with anything, so
+  setting E7S5's to 99 against a real 5 passed. It is re-derived and compared now,
+  as are `shippedMinShellDmg` and `shippedCutTiles` — three published numbers that
+  existed only to be printed.
 - Interior connectivity invariant: interior walk region stays one component reaching
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
   `plans-hub.json` over consecutive `--all-claimable` runs of the shipped tree
-  on the 172-room world: byte-identical, md5 **`4cd61bc629797fc7859d2573b90bc119`**,
-  sha256 `e33f3c6e61fdae8fdd1253144dad2481875a19288d7a8d148f57d0af257fefda`
-  (round 11).
+  on the 172-room world: three consecutive full-fleet runs byte-identical, md5
+  **`391686904ebdc39c2745ae5a741c6726`** (round 11, as shipped).
+  (`4cd61bc629797fc7859d2573b90bc119` was the round-11 pre-fix artifact and is
+  retired with it; the sha256 that used to stand beside it is deleted rather than
+  carried forward, because a digest of a file that no longer exists is worse than
+  no digest — it reads as corroboration and corroborates nothing.)
   (The `8b24fd42494f5904…` that once stood here matched **no** hash of the artifact
   it claimed to describe — not md5, not sha1, not sha256. A digest is the one
   figure in this document that is worthless when approximately right, so it is
@@ -213,6 +306,25 @@ per room. Rise to the bar; do not lower it.
 - Minimize road count (fleet median < 90 held; fewer if it costs nothing else).
 - Minimize eco distances: hub↔sources, hub↔controller, with **controller proximity
   weighted slightly ABOVE source proximity**; mineral proximity barely matters.
+  A room whose eco walk cannot be shortened declares it, and the declaration's
+  whole force is a FLOOR: "no hub position in this room could have done better
+  than N."
+
+  **AND THE FLOOR WAS MEASURED IN A DIFFERENT METRIC FROM THE DISTANCES IT
+  BOUNDS.** `pathController` and `pathSourcesSum` come from a ring-seeded field —
+  every tile of the anchor's work ring is a source of the flood. The floor was
+  computed from a single-neighbour-to-single-neighbour path, which is strictly
+  larger, because it forbids the two concessions the measured distances are
+  allowed. A bound in the wrong metric is not conservative in a useful direction:
+  it is simply a claim about a different quantity, and **15 of 38 eco declarations
+  stated a floor ABOVE what their own geometry supports** — E17S3 quoted a
+  separation of 39 where the ring metric gives 36 (floor 20 vs 18), E2S3 60 vs 56
+  (30 vs 28), and 13 more off by one. A room can be made to look optimal by
+  measuring its lower bound with a heavier ruler. The separation is now the min
+  over every tile t of (steps from t to anchor A's work ring + steps from t to
+  anchor B's), which is exactly the metric the two printed distances are in, and
+  the resulting bound is both correct AND tighter — a floor that is harder to
+  clear, which is the direction an honest floor should move.
 - Maximize anchors inside the wall: enclose sources/controller when the cut cost is
   small ("it's good to have stuff inside — it's all about defence"). The core may sit
   OFF-center, hugging a source or the controller, when that buys enclosure. Layouts
@@ -230,6 +342,37 @@ per room. Rise to the bar; do not lower it.
   both readings. The escalation trigger deliberately still reads the ungated
   number — that is a heuristic about where to look, and gating it was measured to
   cost 14 shallow extensions and 39 ramparts for a 20s runtime win.
+
+  **AND THE PROSE THEN JUDGED PAIRS THE FLOOR HAD ALREADY DISQUALIFIED.** Two
+  rooms shipped declarations asserting that a named pair "still misses" over
+  absolute detours of **4 and 2 tiles** — at and under the very floor that exists
+  to disqualify exactly those pairs. The verdict cleared two hurdles (detour over
+  the floor AND ratio over the target) and the sentence beside it cleared none, so
+  the room's own paragraph re-litigated a pair its own gate had thrown out. The
+  sentence is now gated on the same two hurdles the verdict is; where they are not
+  both met the declaration says the pair is **NOT JUDGED AT ALL** and quotes the
+  ungated ratio explicitly as a non-verdict, which is the only honest thing a
+  number below the floor can be.
+
+  **AND "THE TERRAIN OWNS THIS LAP" WAS A BINARY CLAIM OVER A CONTINUOUS FACT.**
+  Six over-target rooms said the terrain owns the lap while their own lift test
+  moved the number: E13S3 3.33→2.17, E11S7 9.33→7.33, E14S6 6.67→5.00,
+  E2S5 3.25→2.63, E15S2 2.13→1.75, E9S9 1.94→1.41. That is **18% to 35% of each
+  lap that is ours**, described in prose as none of it. The lift test's verdict is
+  "does lifting our mass CLEAR the gate," and "no" was being read as "our mass
+  contributes nothing" — two different sentences, and the second one is an excuse.
+  Binary ownership prose is gone: the declaration prints the SHARE as a percentage
+  (`lift.ownPct`) and states that "still misses" marks **where the next fix goes**,
+  not that the planner is blameless there. Five of the six ship today at
+  `ownPct` 19–35 (E15S2 is the sixth and has since gone to a clean lap of 0, which
+  is the point — its 18% was never terrain).
+
+  (`layer-shell.mjs`'s `MOBILITY_EXACT_MAX = 90` — the cut size above which the
+  all-pairs metric samples instead of enumerating — carried the justification
+  "largest cut 75". The largest reachable cut on the shipped artifact is **80**.
+  The constant's conclusion is unchanged, 0 rooms sample, but a headroom argument
+  quoting the wrong headroom is one relocation away from being wrong about the
+  conclusion too. Corrected.)
 - Tower coverage: equalize damage across ALL wall faces (towers fall off hard with
   range), spread, refill-distance weighted; the first-built tower (array order) must
   be the easiest to refill.
@@ -242,13 +385,56 @@ per room. Rise to the bar; do not lower it.
   validator now re-derives the ring independently: a walkable tile D8-adjacent to
   an outside controller that carries no rampart and is in the exterior flood is a
   hard fail on gate `shell`, kind `ctrl-ring`.
+
+  **AND THE KEEP-CLASS NEVER CHECKED ITS OWN PREMISE.** The ring denies an
+  attacker a STAND. Round 11 measured whether the stand exists: **12 ramparts
+  across 10 rooms were non-sealing, carried no structure, and were provably
+  unreachable by the exterior even when deleted alone** — a rampart forbidding a
+  tile no attacker can ever occupy, i.e. pure forever-upkeep against a threat that
+  cannot arrive, which is precisely the cost the rampart bullet above calls the
+  worst kind. They survived because layer 7's prune held the stand-denial ring
+  UNCONDITIONALLY: it was a named keep-class and a named keep-class was never
+  asked to justify itself. Naming a reason is not having one. The keep test now
+  proves the premise it asserts, and the proof is cheap — a tile joins the
+  exterior when its own rampart is deleted **exactly when** it is D8-adjacent to
+  the exterior, so the fast reject the pass already ran IS the reachability proof.
+  The ring is additionally subtracted from the declared-bubble keep-class, which
+  had been holding these same tiles alive on an argument that belongs to a
+  different structure entirely.
+
+  **8 of the 12 delete cleanly. The other 4 are KEPT, and they say why.**
+  E16S2 `22,32`, E21S3 `23,24` and `23,25`, E7S9 `40,44`: deleting them promotes
+  an eco bubble into the seal, which MOVES THE CUT — and every cut-shaped metric
+  in this document is computed over the cut, so the room's battlements, weakest
+  face, mobility endpoints and lane bounds all change with it. E7S9's cut would
+  grow from 59 tiles to 61, its gated defender lap from 0 to 2.5, and layer 6's
+  lane bound would break. Trading a sealed enclosure for four ramparts of upkeep
+  is the wrong side of that trade, so the waiver is explicit about what it buys:
+  **inert upkeep, not a new enclosure.** Four refusals, priced, on the record.
 - **`meta.shell.cut` must BE the wall.** Every shell metric — battlements, the
   battery's weakest face, links on the wall, mobility endpoints — is computed over
   it, so a cut that has gone stale reports all of them against a wall the room does
   not have. The definition is a mutation and both sides run it: a rampart is part
   of the seal exactly when removing IT ALONE lets the exterior flood reach the
   sitter. Layer 7 adopts whatever that test finds into the cut and re-derives every
-  metric over the union; the validator fails any room where the two disagree.
+  metric over the union.
+
+  **AND THE VALIDATOR'S OWN COMMENT CLAIMED A CHECK IT DID NOT RUN.** It said, in
+  words, "BE is an equality, not a superset" — while checking one direction only,
+  and the shipped fleet has **20 rooms whose cut is a strict superset of the
+  singly seal-critical tiles, 44 tiles in total**. So the comment described a
+  stricter rule than the code, and the code described a looser rule than the
+  comment claimed to enforce, and the fleet violated the comment. Equality is
+  also, on inspection, the WRONG bar: single-removal criticality is blind to a
+  doubled corner that is load-bearing only as a PAIR — remove either tile alone
+  and the flood still fails, remove both and the room is open — so a cut held to
+  equality would be forced to drop tiles the wall genuinely needs. The rule is now
+  stated as what it is and what is actually enforced: a **SUPERSET WITH PER-TILE
+  JUSTIFICATION.** Every singly seal-critical rampart is in the cut; every extra
+  tile is a rampart the engine will really build; and every extra tile carries a
+  named reason in the room's own `redundantCut` record — **44 of 44 explained
+  today.** The validator fails any room where the first two do not hold or where
+  an extra tile has no reason.
 
 ## Judgment criteria (the owner's voice — reviewer applies these to sampled rooms)
 
@@ -339,16 +525,22 @@ measured against — the 159-room numbers above are kept as the frozen baseline
 they are, not as a description of today). **Every number in this block is printed
 by `plan.mjs --all-claimable`, `validate.mjs` or `push-plan.mjs --census`**; the
 digest is quoted once, in the determinism bullet above, and not repeated here:
-ext60 172/172 · validator 172/172 fail 0 · ramparts total **8231** · roads median 81 ·
-**shallow extensions 28** (27 at round 10, 31 at round 9) · upgrader parks min 4 /
+ext60 172/172 · validator 172/172 fail 0 · ramparts total **8222** ·
+roads median 81 · **shallow extensions 26 in three rooms** (E9S2 15, E12S6 7,
+E2S3 4 — every one of them declared; 28 earlier in round 11, 27 at round 10,
+31 at round 9) · upgrader parks min 4 /
 median 8, 0 rooms under the hard 4-seat floor and **3 rooms holding fewer seats
 than layer 1 counted, every one of them a priced, declared release that is
 strictly better on shallow slots AND on total ramparts** (see criticism 4 below
 for why `ctrlParkFloor` and `ctrlParks` are different questions) · road+rampart
-281 (median 2, max 5, accounting closed) · one mobility declaration per room,
-**56 rooms over the 1.2 gated target** and 58 declarations (two rooms declare a
-negotiation their mass then fixed), **cause field and prose agreeing on all of
-them** · the COMPLETE mobility record, which is not the verdict: worst ratio
+**277 = 235 crossings + 29 bubble seats + 13 stand-denial ring + 0 personal cover
++ 0 unclassified** (median 2, max 5; `unclassified` printed whether or not it is
+zero, which is the fix — see the road bullet) · one mobility declaration per room,
+**55 rooms over the 1.2 gated target** and 57 declarations (two rooms declare a
+negotiation their mass then fixed), and the `cause` field is now derived from the
+same lift test as the prose beside it rather than overwritten after it, with a
+room inside the target carrying `cause: "none"` — see the cause paragraph under
+criticism 2 · the COMPLETE mobility record, which is not the verdict: worst ratio
 **17.5** and worst absolute detour **33 tiles**, both E7S5, both excused from the
 gate by coverage and both DECLARED (`mobility/covered-detour`, 8 rooms) · furthest
 tower refill AS BUILT median 4 / max 11, **16 rooms over the 8-step note and all
@@ -362,22 +554,49 @@ road gate used to grant silently in the checker's own source.
 Known open criticisms, in priority order:
 1. ~~**1793 extensions sit shallow and buy personal ramparts**~~ — the owner's top
    new criterion: placement should avoid the depth≤3 band so those ramparts
-   vanish. **Down to 28 fleet-wide** (1793 on the retired 159-room world, 31 at
-   round 9, 27 at round 10), every one of them carrying a personal rampart and a
-   declaration that reports the post-prune search rather than inferring from layer
-   6's counters. The +1 against round 10 is bought, not lost: removing the
-   arrive-bias from the gated reading (criticism 7) re-drew every lane bound
+   vanish. **Down to 26 fleet-wide, in three rooms** (1793 on the retired 159-room
+   world, 31 at round 9, 27 at round 10, 28 earlier in round 11), every one of them
+   carrying a personal rampart. The mid-round-11 +1 was bought, not lost: removing
+   the arrive-bias from the gated reading (criticism 7) re-drew every lane bound
    tighter, and E12S6 — which had refused five rampart-retiring relocations to
    hold a lap of 0 at exactly 0 — now trades under a ceiling that may never be
-   tighter than the 1.2 target it serves. Not closed, because 28 is not 0 and the
-   remaining ones are the genuinely tight rooms.
-2. **56 of 172 rooms exceed the 1.2 gated defender-mobility target** — attacker
+   tighter than the 1.2 target it serves.
+
+   **CLOSED: E1S8'S LAST SHALLOW SLOT WAS FREE AND THE PLANNER DECLINED IT.** The
+   room shipped one extension at `4,11` — depth 3, renting a personal rampart
+   forever — while `18,16` sat open at depth 5 with **two already-paved D4 faces**,
+   and taking it left the gated lap unchanged at 4.00. Nothing was traded for that
+   rampart; it was simply not picked up. The cause was a control-flow shortcut in
+   layer 7b's relocation: it stopped at the FIRST target its acceptance test took,
+   and when the lap ceiling then rolled that move back it threw away **the whole
+   trade** instead of trying the next candidate in an order it had already built.
+   A first-fit search plus a rollback is not a search; it is a search that a single
+   veto can silence. A rolled-back slot is now offered the rest of the candidate
+   order and takes any target whose MEASURED lap is inside the same ceiling.
+   E1S8 and E15S2 both went to zero shallow, and the fleet went 28 → 26.
+
+   **CLOSED, AND THIS DOCUMENT WAS THE THING THAT WAS WRONG: ALL 28 SHIPPED WITH
+   ZERO DECLARATIONS.** The line that stood here said each shallow extension
+   "carries a declaration that reports the post-prune search". There was no
+   `extensions/shallow` declaration kind anywhere in the planner and not one
+   instance anywhere in the fleet. That is silent capping — this document's own
+   named auto-fail — and it survived because the sentence describing the
+   declaration was the only place the declaration existed. There is now an
+   `extensions|shallow` kind carrying a per-slot post-search record **re-run
+   against the shipped board**: how many deep targets existed, how many were
+   examined, and per slot either the cheapest LEGAL target with the lap it would
+   cost, or the fact that no legal target exists at all. The validator FAILS any
+   room that ships a shallow extension without it. Three rooms declare: E9S2 (15),
+   E12S6 (7), E2S3 (4).
+
+   Still open, because 26 is not 0 — see the new entry at the bottom of this list.
+2. **55 of 172 rooms exceed the 1.2 gated defender-mobility target** — attacker
    out-walks defender somewhere on the wall. The line that stood here read "18
    rooms … worst ~3.2", which was measured on the retired 159-room world with the
    pre-mass, ungated metric; re-derived AS BUILT (extension mass standing, only
    pairs whose absolute detour clears the 4-tile floor judged, and — from round
    11 — with the exterior lap measured by the same rule as the interior one) the
-   distribution is **23 in (1.2, 2] · 17 in (2, 3] · 13 in (3, 5] · 3 above 5**,
+   distribution is **23 in (1.2, 2] · 16 in (2, 3] · 13 in (3, 5] · 3 above 5**,
    worst **E11S7 9.33**, then E14S6 6.67, E16S4 5.33, E5S4 4.67, E17S5 4.4. That
    was the single largest gap between what this document claimed and what the
    fleet ships, and understating it by 4x is how it stayed open. The suite's own
@@ -422,6 +641,26 @@ Known open criticisms, in priority order:
    cannot disagree. Layers 4 and 5 also gained a veto — a lab anchor, nuker or
    observer that creates or worsens a gated-over-target pair loses — which moved
    8 structures and took E16S5 and E15S4 to a clean lap of 0.
+
+   **"ONE COMPUTATION FEEDS BOTH, SO THEY CANNOT DISAGREE" WAS FALSE ON THE VERY
+   NEXT ARTIFACT, AND SO WAS THIS DOCUMENT'S "cause field and prose agreeing on
+   all of them".** One computation did feed both — and then layer 7 OVERWROTE
+   `meta.shell.mobilityBuilt.cause` with a pre-mass PAIR-level label whenever the
+   room did not miss. A single writer downstream of the single source of truth is
+   the same defect as two sources, and it is harder to see. The result: E17S3 and
+   E7S9 shipped `cause: "structures"` on rooms whose own headline sentence reads
+   "the defender lap is 0 … INSIDE the 1.2 target" — a named culprit for a crime
+   the room did not commit — and E17S3 shipped **"THE PRIMARY CAUSE IS THE
+   ENCLOSURE AND THE TERRAIN, not the mass" and "CAUSE, as built: structures" in
+   one declaration**, which is the exact self-contradiction the lift test was
+   built to end, resurrected through a different door. Fixed at the definition
+   rather than at the two symptoms: the whole-room lift test is the ONLY source of
+   the verdict, it runs ONLY on rooms that miss, and a room inside the target
+   carries `cause: "none"`. The pair-level label still exists and is still useful,
+   published separately and honestly named as `pairCause`. The validator
+   re-derives both and fails a room that publishes a cause — or a lift record —
+   **it has not earned**, which is the check that would have caught this the first
+   time.
 
    **AND THEN THE LIFT TEST'S OWN VERDICT WAS IGNORED FOR A ROUND.** Four rooms
    shipped a mobility DECLARATION whose evidence, in the same object, read
@@ -481,10 +720,11 @@ Known open criticisms, in priority order:
    was likewise missing that clause and now states it, `meta.ctrlParkFloorWhy`
    says in words which of the two rules produced the number, and the claim here
    is the one that is true and load-bearing: **0 rooms below the hard floor.**
-5. Rampart total should fall overall (8704 on the retired world → **8231** today)
+5. Rampart total should fall overall (8704 on the retired world → **8222** today)
    via deeper packing, not via weaker shells. Still open: the shells are the same
    shells, and the fall is almost entirely personal ramparts retired by the
-   post-prune reflow, not min-cut savings.
+   post-prune reflow plus the 8 inert stand-denial ring tiles round 11 proved no
+   attacker can ever stand on, not min-cut savings.
 6. **The RCL BUILD STAGING is a separate contract from the plan, and it had gaps.**
    `src/utils/PlanV2.ts` claimed RCL3 builds "the roads a hauler actually walks";
    re-derived through `roadStageFor`, the stage-3 network never reached 8 eco
@@ -528,11 +768,20 @@ Known open criticisms, in priority order:
    **monotone subset — the stage-3 set is contained in the stage-4 set and nothing
    ever un-builds.** That is what is claimed now.
 
-   Still open, and outside push-plan's reach: **220 RCL2 containers across 145
+   Still open, and outside push-plan's reach: **218 RCL2 containers across 143
    rooms have no planned D4 road face at all** — every one is reachable over the
    stage-3 network and D8-adjacent to a road, but a re-staging pass cannot create
    a face the planner did not lay. That is a `tools/plan-suite/v2` question and it
-   is the next thing to attack here.
+   is the next thing to attack here. (This line said **220 across 145** for two
+   rounds. Re-derived twice against the shipped artifact using push-plan's own
+   `rcl2Containers()` — source seats plus the controller container, the mineral
+   one deferred to RCL6 — it is 218/143; the all-four-containers reading gives
+   365/168 and no reading gives 220/145. The wrong pair was in TWO places, here
+   and in a comment in `src/utils/PlanV2.ts`, and both are corrected. It survived
+   two rounds for exactly one reason: **`--census` never printed the figure.** It
+   does now. A number in prose that no tool re-derives rots exactly like a metric
+   no gate re-derives, and the fix for both is the same — make something print
+   it.)
 7. **THE ARRIVE BIAS RE-IMPORTED THE NOISE THE DETOUR FLOOR WAS BUILT TO REMOVE.**
    Both laps of the mobility ratio are measured tile-to-tile with the same
    primitive. The defender occupies both wall tiles so his walk is exact; the
@@ -614,6 +863,16 @@ Known open criticisms, in priority order:
    naming the seat tile and arguing it, and the validator's exemption READS the
    declaration. A room that ships an off-network mineral seat in silence now fails
    the road gate like anything else (two mutations cover it).
+12. **NEWLY OPEN: THREE ROOMS STILL SHIP 26 SHALLOW EXTENSIONS BETWEEN THEM** —
+   E9S2 15, E12S6 7, E2S3 4, each renting a personal rampart forever. Round 11
+   turned this from a silence into an argument: every one of the 26 is now priced
+   and declared, with the cheapest LEGAL deep target and the gated lap it would
+   cost, re-derived on the shipped board and enforced by the validator (see
+   criticism 1). An argument is strictly better than a silence and it is not the
+   same thing as zero. The three rooms are the fleet's tightest, so the next attack
+   is on what makes a deep target ILLEGAL in them — the lap ceiling, the road-face
+   requirement and the slot count — rather than on the search that is now correctly
+   reporting that it found nothing it may take.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 

@@ -762,6 +762,13 @@ function census() {
   let orphanRooms = 0;
   let unreachTerminals = 0;
   const unreachRooms = [];
+  // ...and the one figure in this file's header that NOTHING re-derived. It was
+  // published as "220 RCL2 containers across 145 rooms" for two rounds, in this
+  // file and in the goal document, and it is 218 across 143. A number in prose
+  // that no tool prints rots exactly like a metric no gate re-derives, so it is
+  // printed here, off the same rcl2Containers() the staging itself uses.
+  let noFaceTiles = 0;
+  let noFaceRooms = 0;
   for (const plan of plans) {
     if (!plan || !plan.structures) continue;
     const stage = roadStageFor(plan);
@@ -813,6 +820,20 @@ function census() {
         }
       }
     }
+    {
+      const roadKeys = new Set((plan.structures.road || []).map((r) => r.x + r.y * 50));
+      const noFace = rcl2Containers(plan).filter(
+        (c) =>
+          !roadKeys.has(c.x + 1 + c.y * 50) &&
+          !roadKeys.has(c.x - 1 + c.y * 50) &&
+          !roadKeys.has(c.x + (c.y + 1) * 50) &&
+          !roadKeys.has(c.x + (c.y - 1) * 50),
+      );
+      if (noFace.length) {
+        noFaceTiles += noFace.length;
+        noFaceRooms++;
+      }
+    }
     const bad = rcl2Containers(plan).filter((c) => !seen.has(c.x + c.y * 50));
     if (bad.length) {
       unreachTerminals += bad.length;
@@ -836,6 +857,10 @@ function census() {
   console.log(
     `  eco terminals a creep cannot reach at stage <= ${ARTERIAL_RCL}: ${unreachTerminals}` +
       (unreachRooms.length ? ` — ${unreachRooms.join(" ")}` : ""),
+  );
+  console.log(
+    `  RCL2 containers with NO planned D4 road face (a planner question, not a staging one): ` +
+      `${noFaceTiles} across ${noFaceRooms} rooms`,
   );
 }
 

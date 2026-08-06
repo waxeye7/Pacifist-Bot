@@ -311,6 +311,14 @@ function verifyMobility(terrain, plan) {
       solo: lift.solo,
       present: lift.present,
       perClass: lift.perClass,
+      // the share of the shipped gated lap that comes off with our own mass, in
+      // percent. A lift test that moves 3.33 to 2.17 has said something more
+      // precise than "still misses", and this is the number that says it — see
+      // the ownership block in `liftNote` below.
+      ownPct:
+        mBuilt.maxGated > 0
+          ? Math.max(0, Math.round(((mBuilt.maxGated - lift.liftedLap) / mBuilt.maxGated) * 100))
+          : 0,
     };
   }
 
@@ -516,8 +524,27 @@ function verifyMobility(terrain, plan) {
     // only gets the headline when the room misses WITHOUT any of our
     // freely-placed mass in it.
     // ------------------------------------------------------------------
+    // ------------------------------------------------------------------
+    // ...AND EVERY SENTENCE BELOW IS GATED ON THE ROOM ACTUALLY MISSING.
+    //
+    // This declaration fires on the UNION of two triggers — the as-built lap
+    // misses, OR layer 2's negotiation missed — so it is filed by rooms that are
+    // comfortably INSIDE the target and are only publishing the ladder that
+    // priced their enclosure. Every sentence in the block below was written for
+    // the first kind of room and printed unconditionally for both, and on a
+    // room whose gated lap is 0 the result is a paragraph of confident
+    // falsehoods: `lift` is null (the test is only paid for by rooms that miss),
+    // so `liftClears` is false, so `bareAlreadyOver` is true, so E17S3 shipped
+    // "THE PRIMARY CAUSE IS THE ENCLOSURE AND THE TERRAIN, not the mass ...
+    // deleting the whole mass leaves the room failing here" over a headline that
+    // reads "the defender lap is 0 ... INSIDE the 1.2 target", with mass.adds 0,
+    // bareLap 0 and builtLap 0. E7S9 shipped the same pair of sentences.
+    //
+    // `gatedMiss` is the one fact all of it hangs on and it is named once here.
+    // ------------------------------------------------------------------
+    const gatedMiss = mBuilt.maxGated > MOBILITY_TARGET;
     const liftClears = !!(lift && lift.clears);
-    const bareAlreadyOver = share !== null && !liftClears;
+    const bareAlreadyOver = gatedMiss && share !== null && !liftClears;
     const massShare =
       share === null
         ? `THE MASS SHARE, measured: with the extension mass removed this pair is not connected at all, ` +
@@ -526,23 +553,28 @@ function verifyMobility(terrain, plan) {
           `laps ${mFree.maxGated} and that pair walks ${freeDin} inside; as built the room laps ` +
           `${mBuilt.maxGated} and the same pair walks ${din}. The mass adds ${share} tile(s) to the ` +
           `worst walk — ${pct}% of it` +
-          (bareAlreadyOver
-            ? `. THE PRIMARY CAUSE IS THE ENCLOSURE AND THE TERRAIN, not the mass: this pair is over ` +
-              `target at ${round2(freeDin / dout)} with every extension removed, so deleting the whole ` +
-              `mass leaves the room failing here. The ${share} tile(s) our structures add are an ` +
-              `aggravation on top of a lap the room already owed` +
-              (pct >= MASS_SHARE_PCT
-                ? `, and at ${pct}% they are a large one — worth the extension layer's attention SECOND, ` +
-                  `after the enclosure.`
-                : `.`)
-            : pct >= MASS_SHARE_PCT
-              ? `. This room's miss is substantially the structures we chose to grow, not the enclosure ` +
-                `and not the terrain — on bare terrain the same pair clears — and the lane reservation ` +
-                `did not hold them.`
-              : pct >= MASS_MINOR_PCT
-                ? `: a real share, but the other ${freeDin} tiles are the enclosure and the terrain.`
-                : `. The lap is the enclosure and the terrain, not the mass — no arrangement of 60 ` +
-                  `extensions shortens it.`);
+          (!gatedMiss
+            ? `. THERE IS NO MISS TO ATTRIBUTE: the room's gated lap is ${mBuilt.maxGated}, inside the ` +
+              `${MOBILITY_TARGET} target, and this pair is the RECORD's worst, not a failure. Nothing ` +
+              `here says whose fault the lap is, because there is no fault — the pair is named so the ` +
+              `number can be re-walked, and the ladder below is why the enclosure cost what it did.`
+            : bareAlreadyOver
+              ? `. THE PRIMARY CAUSE IS THE ENCLOSURE AND THE TERRAIN, not the mass: this pair is over ` +
+                `target at ${round2(freeDin / dout)} with every extension removed, so deleting the whole ` +
+                `mass leaves the room failing here. The ${share} tile(s) our structures add are an ` +
+                `aggravation on top of a lap the room already owed` +
+                (pct >= MASS_SHARE_PCT
+                  ? `, and at ${pct}% they are a large one — worth the extension layer's attention SECOND, ` +
+                    `after the enclosure.`
+                  : `.`)
+              : pct >= MASS_SHARE_PCT
+                ? `. This room's miss is substantially the structures we chose to grow, not the enclosure ` +
+                  `and not the terrain — on bare terrain the same pair clears — and the lane reservation ` +
+                  `did not hold them.`
+                : pct >= MASS_MINOR_PCT
+                  ? `: a real share, but the other ${freeDin} tiles are the enclosure and the terrain.`
+                  : `. The lap is the enclosure and the terrain, not the mass — no arrangement of 60 ` +
+                    `extensions shortens it.`);
     // ...and WHY the bare-terrain reading clears, in the gate's own terms: a
     // pair is only judged when its absolute detour exceeds the floor, so
     // "clears" means one of two different things and the reader is told which.
@@ -552,18 +584,44 @@ function verifyMobility(terrain, plan) {
         ? `its detour there is ${freeDetour} tile(s), not over the ${mBuilt.detourFloor}-tile floor, so ` +
           `it is not a real detour at all`
         : `it reads ${round2(freeDin / dout)}, inside the ${MOBILITY_TARGET} target`;
+    // ------------------------------------------------------------------
+    // "STILL MISSES" IS A GATED READING OR IT IS NOTHING.
+    //
+    // The sentence below used to be selected by `meta.worstCaused`, which is
+    // false whenever the room is inside the target — so a room that does not
+    // miss at all printed "with every EXTENSION removed this pair still misses",
+    // quoting the UNGATED ratio over a detour the 4-tile floor exists to
+    // disqualify. E17S3 (detour 4, ratio 1.27) and E7S9 (detour 2, ratio 1.67)
+    // shipped exactly that next to a headline reading "INSIDE the target". A
+    // pair whose detour is at or under the floor is not a miss under any reading
+    // this planner uses, so it may not be reported as one; `freeGatedMiss` is
+    // the same two hurdles the verdict itself clears, applied to the mass-free
+    // walk before the word "misses" is allowed to be printed.
+    // ------------------------------------------------------------------
+    const freeGatedMiss =
+      share !== null &&
+      isFinite(freeDin) &&
+      dout > 0 &&
+      freeDetour > mBuilt.detourFloor &&
+      freeDin / dout > MOBILITY_TARGET;
     const causedNote =
       share === null
         ? ""
         : meta.worstCaused
           ? ` With every EXTENSION removed this pair CLEARS the gate — ${causedWhy} — so the room did ` +
             `not fail here until the mass grew into it.`
-          : ` With every EXTENSION removed this pair still misses (${round2(freeDin / dout)} over ` +
-            `${freeDetour} tile(s) of detour) — but "extensions" is not the same list as "our ` +
-            `structures", and the sentence that used to stand here said the room "was over target ` +
-            `before the first extension landed", which is a claim about a board that also had no labs, ` +
-            `no towers, no nuker and no observer on it. See THE LIFT TEST below for the one that was ` +
-            `actually asked.`;
+          : !freeGatedMiss
+            ? ` With every EXTENSION removed this pair is NOT JUDGED AT ALL — ${causedWhy} — so there is ` +
+              `no mass-free miss here to blame anything for. (The ungated ratio there is ` +
+              `${dout > 0 ? round2(freeDin / dout) : "undefined"}; it is quoted for completeness and it is ` +
+              `not a verdict, which is the whole reason the ${mBuilt.detourFloor}-tile floor exists.)`
+            : ` With every EXTENSION removed this pair still misses (${round2(freeDin / dout)} over ` +
+              `${freeDetour} tile(s) of detour, both over the ${mBuilt.detourFloor}-tile floor and over ` +
+              `the ${MOBILITY_TARGET} target) — but "extensions" is not the same list as "our ` +
+              `structures", and the sentence that used to stand here said the room "was over target ` +
+              `before the first extension landed", which is a claim about a board that also had no labs, ` +
+              `no towers, no nuker and no observer on it. See THE LIFT TEST below for the one that was ` +
+              `actually asked.`;
     // ------------------------------------------------------------------
     // THE LIFT TEST, IN THE DECLARATION. Same numbers as meta.lift, and the
     // sole authority for the `cause` field on this entry.
@@ -576,6 +634,16 @@ function verifyMobility(terrain, plan) {
       observer: "the observer",
     };
     const nameOf = (c) => NAME[c] || c;
+    /**
+     * How much of the shipped gated lap comes off when every structure this
+     * planner chose the position of is lifted, as a percentage of the lap. This
+     * is the number the "who owns this lap" sentence is allowed to make a claim
+     * with — see the block comment inside `liftNote` below.
+     */
+    const liftOwnPct =
+      lift && mBuilt.maxGated > 0
+        ? Math.max(0, Math.round(((mBuilt.maxGated - lift.liftedLap) / mBuilt.maxGated) * 100))
+        : 0;
     const liftNote = !lift
       ? ""
       : ` THE LIFT TEST: lift every structure whose position this planner chose — ` +
@@ -592,13 +660,29 @@ function verifyMobility(terrain, plan) {
                 ? ` — no single class does it alone; the smallest set measured that does is ` +
                   `${lift.classes.map(nameOf).join(" + ")}.`
                 : `.`)
-          : `THAT STILL MISSES, so the enclosure and the terrain own this lap and no arrangement of the ` +
-            `structures we place fixes it` +
+          : `THAT STILL MISSES, so no arrangement of the structures we place fixes this room. ` +
+            // ------------------------------------------------------------------
+            // ...AND "STILL MISSES" IS NOT "100% THE TERRAIN'S". The sentence
+            // that used to stand here read "the enclosure and the terrain OWN
+            // this lap", which is a binary read of a test that produces a
+            // number. Six rooms shipped it over their own arithmetic: E13S3
+            // 3.33 -> 2.17, E11S7 9.33 -> 7.33, E14S6 6.67 -> 5.00, E2S5 3.25
+            // -> 2.63, E15S2 2.13 -> 1.75, E9S9 1.94 -> 1.41 — 18% to 35% of
+            // each of those laps comes off when our own mass is lifted, and
+            // saying so costs nothing and is simply true. "Still misses" is a
+            // claim about WHERE THE NEXT FIX GOES (not the extension layer);
+            // the share is a claim about who built the lap, and they are
+            // different questions.
+            // ------------------------------------------------------------------
+            `THE SHARE, since a lift test that moves the number is not a binary: lifting all of it takes ` +
+            `the gated lap from ${mBuilt.maxGated} to ${lift.liftedLap}, so OUR OWN MASS OWNS ` +
+            `${liftOwnPct}% of this lap and the enclosure and the terrain own the other ` +
+            `${100 - liftOwnPct}%. ${liftOwnPct === 0 ? "Nothing of ours is measurable in it." : `That ${liftOwnPct}% is real and it is ours; what it is not is ENOUGH — the residue still misses, so the fix is a different enclosure and not a different arrangement of the mass.`}` +
             (lift.residual
-              ? ` — with the interior's natural walls lifted as well the residual pair walks ` +
+              ? ` With the interior's natural walls lifted as well the residual pair walks ` +
                 `${lift.residual.dFree === null || !isFinite(lift.residual.dFree) ? "nowhere (it does not connect)" : lift.residual.dFree}, ` +
                 `which is what makes the label "${lift.cause}".`
-              : `.`));
+              : ``));
     // ------------------------------------------------------------------
     // THE CAUSE, RE-DIAGNOSED ON THE ROOM THAT SHIPS.
     //
@@ -618,7 +702,20 @@ function verifyMobility(terrain, plan) {
     // whole-room test, so the structured field and the prose above are the same
     // computation and can no longer contradict each other (they did, in three of
     // the four rooms that carried the false attribution).
-    meta.cause = lift ? lift.cause : builtCause.cause;
+    // ------------------------------------------------------------------
+    // A ROOM THAT DOES NOT MISS HAS NO CAUSE. This used to fall through to
+    // `builtCause.cause` — the PAIR-level label, computed on the record's worst
+    // pair whether or not that pair is judged — so a room whose gated lap is 0
+    // published `cause: "structures"`. That value then travelled: layer 7's
+    // finalize copied it over `meta.shell.mobilityBuilt.cause`, which
+    // `builtMobility` had correctly computed as "none", and the room shipped a
+    // structured field naming a culprit for a failure it does not have (E17S3,
+    // E7S9). The lift test is the sole authority for the verdict and it only
+    // runs when the room misses; when it has not run the verdict is "none" and
+    // the pair label stays where it belongs, under `pairCause`, as evidence
+    // about one pair.
+    // ------------------------------------------------------------------
+    meta.cause = lift ? lift.cause : "none";
     meta.causeWalks = { noStructures: builtCause.dStruct, noWalls: builtCause.dFree };
     meta.pairCause = builtCause.cause;
     const walkVerdict = (d) => {
@@ -637,16 +734,25 @@ function verifyMobility(terrain, plan) {
           : `${d} against the attacker's ${dout} — a ${detour}-tile detour at ratio ${ratio}, which is ` +
             `STILL OVER the ${MOBILITY_TARGET} target`;
     };
-    const causeLine = worst
-      ? ` CAUSE, as built: ${lift ? lift.cause : builtCause.cause} — the worst pair alone, for evidence: ` +
-        `with every structure of ours lifted out it walks ${walkVerdict(builtCause.dStruct)}, and with ` +
-        `the interior's natural walls lifted out as well it walks ${walkVerdict(builtCause.dFree)}.` +
-        (lift && builtCause.cause !== lift.cause
-          ? ` (That PAIR reads "${builtCause.cause}"; the room's verdict is the whole-metric lift test ` +
-            `above, which is what the label states — a single pair can be fixed while the room still ` +
-            `misses on another one.)`
-          : ``)
-      : "";
+    const causeLine = !worst
+      ? ""
+      : !lift
+        ? ` CAUSE, as built: none — the gated lap is ${mBuilt.maxGated}, inside the ${MOBILITY_TARGET} ` +
+          `target, so this room has no miss for anything to be the cause OF and the whole-room lift ` +
+          `test was never run (it is only paid for by rooms that miss). The record's worst pair does ` +
+          `carry a pair-level label of "${builtCause.cause}" and it is published as \`pairCause\`, not as ` +
+          `\`cause\`: with every structure of ours lifted out it walks ${walkVerdict(builtCause.dStruct)}, ` +
+          `and with the interior's natural walls lifted out as well it walks ` +
+          `${walkVerdict(builtCause.dFree)}. That is evidence about one pair on a passing wall, and it is ` +
+          `deliberately not a verdict about the room.`
+        : ` CAUSE, as built: ${lift.cause} — the worst pair alone, for evidence: ` +
+          `with every structure of ours lifted out it walks ${walkVerdict(builtCause.dStruct)}, and with ` +
+          `the interior's natural walls lifted out as well it walks ${walkVerdict(builtCause.dFree)}.` +
+          (builtCause.cause !== lift.cause
+            ? ` (That PAIR reads "${builtCause.cause}"; the room's verdict is the whole-metric lift test ` +
+              `above, which is what the label states — a single pair can be fixed while the room still ` +
+              `misses on another one.)`
+            : ``);
     // ------------------------------------------------------------------
     // THE NEGOTIATION RECORD — layer 2's declaration, demoted to evidence.
     //
@@ -699,7 +805,12 @@ function verifyMobility(terrain, plan) {
       // and the sentence that reports it are the same test, so the round-8/9
       // failure — `cause: "structures"` sitting inside a declaration whose prose
       // says "not the mass" — cannot recur.
-      cause: lift ? lift.cause : builtCause.cause,
+      // "none" when the lift test did not run — see the meta.cause block above.
+      cause: lift ? lift.cause : "none",
+      // ...and the PAIR-level label, which is what `cause` used to be filled
+      // with on a room that does not miss. It is informative and it is not a
+      // verdict, so it ships under its own name.
+      pairCause: builtCause.cause,
       lift: lift
         ? {
             clears: lift.clears,
@@ -708,6 +819,9 @@ function verifyMobility(terrain, plan) {
             liftedGatedPairs: lift.liftedGatedPairs,
             classes: lift.classes,
             solo: lift.solo,
+            // the share of the shipped lap that comes off with our mass, in
+            // percent — the number the prose is allowed to argue ownership with
+            ownPct: liftOwnPct,
           }
         : null,
       detail:
@@ -1134,16 +1248,61 @@ function pruneInertRamparts(terrain, plan) {
     for (const p of plan.structures[t] || []) ownTiles.add(key(p.x, p.y));
   }
   // KEEP-CLASSES — ramparts this pass has no licence over. See the header.
+  //
+  // ...AND THE STAND-DENIAL CLASSES HAVE TO PROVE THERE IS A STAND TO DENY.
+  //
+  // (a) and (b) exist for one argument: an attacking claim/attack creep can
+  // STAND on this tile, and the rampart is what stops him. The argument is
+  // sound and it was applied without ever checking its premise, so 12 ramparts
+  // across 10 rooms shipped as pure forever-upkeep — non-sealing, carrying no
+  // structure, and provably unreachable by the exterior even when deleted alone
+  // (E11S6 13,25 · E16S2 22,32 · E16S6 13,18 14,18 · E17S4 12,11 · E21S3 23,24
+  // 23,25 · E5S2 38,24 · E5S5 21,10 · E6S7 17,16 · E7S9 40,44 · E8S1 24,14).
+  // No creep this room does not own can ever be on those tiles, so there is no
+  // stand there to deny and the rampart denies nothing; it is repaired forever
+  // for a threat that cannot arrive.
+  //
+  // The premise is CHEAP AND EXACT to check, and the check is already written
+  // in this function: deleting one rampart makes exactly one tile floodable, so
+  // the tile joins the exterior iff it is D8-adjacent to the exterior — which
+  // is `facesExterior`, the layer-2 fast reject. So (a) and (b) now hold a
+  // rampart when `facesExterior` is true (an attacker really can stand there
+  // once it is gone, and the refusal SAYS SO) and stand aside when it is false,
+  // handing the tile to the exact removal test below like any other rampart. If
+  // that test then finds the tile load-bearing in some other way, it is kept
+  // anyway — the waiver removes a keep-class, it does not force a deletion.
+  //
+  // (c) DECLARED BUBBLES ARE NOT WAIVED. A bubble's argument is not about a
+  // stand at all: it is personal cover, bought so a named structure is not shot
+  // from outside by a ranged attacker who never steps on it. "Nobody can stand
+  // here" is no answer to that, so the class keeps its unconditional hold, and
+  // the validator's own ring gate agrees with both halves — it only demands a
+  // rampart on ring tiles that ARE in the exterior flood.
+  const keepRing = new Set();
   const keep = new Set();
   if (plan.controller) {
     for (const [dx, dy] of D8) {
       const x = plan.controller.x + dx,
         y = plan.controller.y + dy;
-      if (walkable(terrain, x, y)) keep.add(key(x, y)); // (a) the ring
+      if (walkable(terrain, x, y)) keepRing.add(key(x, y)); // (a) the ring
     }
   }
-  for (const p of plan.shell?.standDenial || []) keep.add(key(p.x, p.y)); // (b)
-  for (const p of plan.shell?.bubble || []) keep.add(key(p.x, p.y)); // (c)
+  for (const p of plan.shell?.standDenial || []) keepRing.add(key(p.x, p.y)); // (b)
+  // (c) — MINUS the ring. Layer 2 files every stand-denial tile through
+  // `addBubble` as well as through `standDenial` (layer-shell:2061-2069), so
+  // the ring was arriving here wearing two keep-classes and the unconditional
+  // one won: waiving (a) and (b) alone moved 4 of the 12 inert ring ramparts
+  // and the other 8 were held by (c) for an argument that is not theirs. A
+  // bubble's argument is personal cover for a named structure; a ring tile
+  // carries no structure, which is exactly why it is a ring tile. So the ring
+  // is subtracted from the bubble class here and judged on its own premise.
+  // Bubbles that happen to sit on the ring AND carry something of ours (the
+  // controller link, a container within range 3) are not in `standDenial` and
+  // keep their unconditional hold.
+  for (const p of plan.shell?.bubble || []) {
+    const k = key(p.x, p.y);
+    if (!keepRing.has(k)) keep.add(k); // (c)
+  }
   // THE WALL WE BOUGHT, and the sitter the seal is defined against. A rampart
   // outside this set is somebody's bubble; the invariant below says it may not
   // be turned into wall by anything this pass does.
@@ -1158,8 +1317,11 @@ function pruneInertRamparts(terrain, plan) {
   // against is the wall the room ships). noteRedundantCut turns it into prose.
   const refusals = new Map();
   const refuse = (k, why) => refusals.set(k, why);
+  /** ring tiles this round whose stand-denial keep-class was waived — see below */
+  const ringWaived = new Set();
   for (let guard = 0; guard < 200; guard++) {
     refusals.clear();
+    ringWaived.clear();
     const set0 = new Set(ramp.map((r) => key(r.x, r.y)));
     const ext0 = exteriorFlood(terrain, set0);
     const dep0 = depthFromExterior(ext0);
@@ -1263,8 +1425,25 @@ function pruneInertRamparts(terrain, plan) {
       const k = key(r.x, r.y);
       // a declared purpose this pass cannot measure — held whatever the flood says
       if (keep.has(k)) {
-        refuse(k, "keep-class: the controller ring, a declared stand-denial tile or a declared bubble");
+        refuse(k, "keep-class: a declared bubble — personal cover with a named beneficiary");
         continue;
+      }
+      // ...and the stand-denial classes, held only where there is a stand. See
+      // the keep-class header: `facesExterior` IS the reachability proof,
+      // because deleting one rampart floods exactly one tile.
+      if (keepRing.has(k)) {
+        if (facesExterior(r)) {
+          refuse(
+            k,
+            `keep-class: the controller's stand-denial ring, and an attacker CAN stand here — this tile ` +
+              `is D8-adjacent to the exterior flood, so deleting the rampart puts a claim-attack stand ` +
+              `one step from the controller`,
+          );
+          continue;
+        }
+        // no stand to deny: fall through to the exact removal test below, which
+        // still has the final say on whether the tile is load-bearing.
+        ringWaived.add(k);
       }
       // somebody's personal cover — held whatever the flood says
       if (ownTiles.has(k) && dep0[idxOf(r.x, r.y)] < DEPTH_SAFE) {
@@ -1355,7 +1534,38 @@ function pruneInertRamparts(terrain, plan) {
       // delete. So the deletion stands and the fact is carried forward — the
       // reconciliation below adopts whatever ends up holding the line into the
       // cut and declares it, rather than the wall quietly moving in silence.
-      if (promotesOutsider(terrain, set1, k, cutKeys, ext1, plan.sitter)) promoted++;
+      const prom = promotesOutsider(terrain, set1, k, cutKeys, ext1, plan.sitter);
+      // ------------------------------------------------------------------
+      // ...AND A WAIVED RING TILE MAY NOT MOVE THE WALL, EITHER.
+      //
+      // The paragraph above is about the CUT: doubled inner wall is the waste
+      // this pass exists to delete, and refusing a promoting deletion there
+      // buys back exactly that waste. The stand-denial waiver is a different
+      // and much narrower licence — "nobody can stand here, so this rampart
+      // denies nothing" — and it says nothing at all about the seal. E7S9's
+      // 40,44 is the case that proves the difference: it is genuinely
+      // unreachable by any attacker, deleting it holds every flood, and the
+      // seal then rests on three eco bubbles (39,45 40,45 41,45) which the
+      // reconciliation duly adopts into the cut. The room saves one rampart of
+      // upkeep and its cut grows from 59 tiles to 61 — which moves the mobility
+      // endpoints, takes the gated lap from 0 to 2.5, and breaks layer 6's lane
+      // bound. That is a much larger bill than the rampart is worth, and it is
+      // not the bill the waiver was argued for. So the waiver buys only the
+      // deletions that are free: a ring tile whose removal hands the seal to
+      // somebody else keeps its rampart and says so.
+      // ------------------------------------------------------------------
+      if (prom && ringWaived.has(k)) {
+        refuse(
+          k,
+          `the stand-denial keep-class does not apply here (no attacker can stand on this tile) but ` +
+            `deleting it PROMOTES another rampart into the seal — the wall would move onto tiles that ` +
+            `were bought as bubbles, and every cut-shaped metric in this room (battlements, the weakest ` +
+            `tower face, the mobility endpoints) would be re-derived over a different wall. The waiver ` +
+            `buys inert upkeep, not a new enclosure, so the rampart stays`,
+        );
+        continue;
+      }
+      if (prom) promoted++;
       gone = r;
       break;
     }
@@ -1738,6 +1948,60 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
  * have to re-derive, and the anti-pattern this planner is held to is silence,
  * not imperfection.
  */
+/**
+ * ------------------------------------------------------------------------
+ * ROAD + RAMPART, CLASSIFIED — and the class that did not exist.
+ * ------------------------------------------------------------------------
+ * "Roads TO the ramparts, never ON them" ships with an exception, and the
+ * exception was published as a two-class taxonomy: a tile is either a wall
+ * CROSSING (an eco lane passing through the cut, which is a gate and is fine) or
+ * a bubble SEAT (a miner's container outside the shell, wearing its own rampart,
+ * standing on the road that exists to reach it). The renderer's classifier ended
+ * `else cross++` — everything that was neither got counted as a crossing.
+ *
+ * Fleet-wide that catch-all was wrong on 17 tiles: paved ramparts that are NOT
+ * on the cut and carry NO structure at all (E5S5 20,10 · E21S3 21,24 21,25
+ * 22,24 · E9S3 26,16 · E4S5 31,9 · E3S7 21,17 · E11S3 21,12 · E18S4 43,17 among
+ * them). The arithmetic closed — 235 + 37 + 9 = 281, 0 unclassified — because
+ * the residue was being folded into the largest class, which is the way a
+ * taxonomy hides a hole rather than reporting one.
+ *
+ * They are a real class and they have a real name. Every one of them is a
+ * CONTROLLER STAND-DENIAL RING tile that an eco lane runs across: the ring is
+ * ramparted so no hostile claim creep can stand next to the controller, and the
+ * lane to the controller has to reach the controller, so it crosses the ring.
+ * That is the same argument as a crossing — a lane has to get somewhere — over a
+ * different piece of geometry, and it deserves to be said rather than absorbed.
+ *
+ * The fifth class is `unclassified`, which is what the old `else` was pretending
+ * did not exist. It is 0 today. It is printed anyway, per room and fleet-wide,
+ * because a residue bucket that is only reported when it is empty is not a
+ * check.
+ */
+export function classifyRoadRamparts(plan) {
+  const roads = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
+  const cut = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
+  const denial = new Set((plan.shell?.standDenial || []).map((c) => key(c.x, c.y)));
+  const own = new Map();
+  for (const t of Object.keys(plan.structures || {})) {
+    if (t === "rampart" || t === "road") continue;
+    for (const p of plan.structures[t] || []) own.set(key(p.x, p.y), t);
+  }
+  const out = { total: 0, crossing: [], seat: [], ring: [], cover: [], unclassified: [] };
+  for (const r of plan.structures.rampart || []) {
+    const k = key(r.x, r.y);
+    if (!roads.has(k)) continue;
+    out.total++;
+    const t = { x: r.x, y: r.y };
+    if (cut.has(k)) out.crossing.push(t);
+    else if (own.get(k) === "container") out.seat.push(t);
+    else if (denial.has(k)) out.ring.push(t);
+    else if (own.has(k)) out.cover.push({ ...t, on: own.get(k) });
+    else out.unclassified.push(t);
+  }
+  return out;
+}
+
 function noteSealedFloor(terrain, plan, shallowNow) {
   const ramp = plan.structures.rampart || [];
   const rset = new Set(ramp.map((r) => key(r.x, r.y)));
@@ -2577,6 +2841,17 @@ export function planWallRoads(terrain, plan) {
   // failure reverts the tile. A single crossing tile is never touched.
   // ------------------------------------------------------------------
   let alongCutMoved = 0;
+  // ------------------------------------------------------------------
+  // ...AND WHEN THE SWAP IS REFUSED, THE ROOM SAYS WHY. The pass published
+  // exactly one number, `alongCutMoved`, and five rooms ship a run of two paved
+  // cut tiles with that number at 0 (E15S1 15,17+15,18 · E18S9 43,6+44,6 ·
+  // E19S9 13,33+13,34 · E7S9 26,26+26,27 · E9S8 19,24+19,25). A counter at zero
+  // is indistinguishable from a pass that never ran, and the named anti-pattern
+  // — a prepared surface laid along the line an attacker would want to walk —
+  // was therefore shipping with no record that it had been offered a fix and
+  // refused one. The tower-clump pass declares all six of its unfixable
+  // instances; this one now keeps the same books.
+  const alongCutRefused = [];
   {
     const liveNow = () => {
       const s = new Set();
@@ -2629,21 +2904,62 @@ export function planWallRoads(terrain, plan) {
       // the interior parallel: a D4 neighbour that is inside the wall, free
       // floor, not the wall itself and not already paved
       let target = null;
+      /** why each D4 neighbour was not an interior parallel — the refusal record */
+      const rejected = [];
       for (const [dx, dy] of D4) {
         const x = c.x + dx,
           y = c.y + dy;
         const tk = key(x, y);
-        if (x < 1 || y < 1 || x > 48 || y > 48) continue;
-        if (!walkable(terrain, x, y) || ext[idx(x, y)]) continue;
-        if (occupied.has(tk) || cutSet.has(tk) || live.has(tk)) continue;
+        if (x < 1 || y < 1 || x > 48 || y > 48) {
+          rejected.push(`${x},${y} is off the buildable board`);
+          continue;
+        }
+        if (!walkable(terrain, x, y)) {
+          rejected.push(`${x},${y} is natural wall`);
+          continue;
+        }
+        if (ext[idx(x, y)]) {
+          rejected.push(`${x},${y} is OUTSIDE the wall — moving the road there is not an interior parallel`);
+          continue;
+        }
+        if (cutSet.has(tk)) {
+          rejected.push(`${x},${y} is itself a cut tile — that is the same problem one tile over`);
+          continue;
+        }
+        if (occupied.has(tk)) {
+          rejected.push(`${x},${y} already carries one of our structures`);
+          continue;
+        }
+        if (live.has(tk)) {
+          rejected.push(`${x},${y} is already paved, so there is nothing to move there`);
+          continue;
+        }
         target = { x, y, k: tk };
         break;
       }
-      if (!target) continue;
+      if (!target) {
+        alongCutRefused.push({
+          x: c.x,
+          y: c.y,
+          why: `no interior parallel exists: ${rejected.join(" · ")}`,
+        });
+        continue;
+      }
       const trial = new Set(live);
       trial.delete(k);
       trial.add(target.k);
-      if (!netOK(trial)) continue;
+      if (!netOK(trial)) {
+        alongCutRefused.push({
+          x: c.x,
+          y: c.y,
+          why:
+            `the only interior parallel is ${target.x},${target.y} and the swap breaks the network — ` +
+            `after it the road set is no longer one component from the sitter, or a container or an ` +
+            `extension loses its face. The swap is offered at equal road count and taken only when the ` +
+            `network is measurably no worse; this one is worse, so the tile stays`,
+        });
+        continue;
+      }
       live = trial;
       pruned.add(k);
       if (!plan.structures.road.some((r) => r.x === target.x && r.y === target.y)) {
@@ -2763,6 +3079,9 @@ export function planWallRoads(terrain, plan) {
       swampPaved,
       // paved cut tiles moved onto the interior parallel — see (5b)
       alongCutMoved,
+      // ...and the ones that were offered the swap and refused it, with the
+      // reason per tile. A counter at 0 is not a record.
+      alongCutRefused,
       unreachableExts,
       // filled by finalizeRoom, on the winning composition only
       mobility: null,
@@ -3072,10 +3391,28 @@ export function finalizeRoom(terrain, plan) {
     // `mobilityBuilt.cause: "terrain"` over a miss that is one observer tile),
     // so the verdict is copied here and the pair-level label is kept beside it
     // under a name that says what it is about.
-    if (plan.meta.shell.mobilityBuilt && mobility && mobility.cause) {
-      plan.meta.shell.mobilityBuilt.pairCause = plan.meta.shell.mobilityBuilt.cause;
-      plan.meta.shell.mobilityBuilt.cause = mobility.cause;
-      plan.meta.shell.mobilityBuilt.lift = mobility.lift || null;
+    //
+    // ...AND THE COPY IS ONLY EVER A LIFT-TEST VERDICT. The guard used to be
+    // `if (mobility.cause)`, and `mobility.cause` fell through to a PRE-MASS
+    // PAIR LABEL on every room that does not miss — so `builtMobility` computed
+    // "none" (correctly: the lap is inside the target) and this line
+    // overwrote it with "structures", on rooms whose own headline reads
+    // "INSIDE the 1.2 target" and whose mass.adds is 0. The comment right here
+    // asserted the copied value was "the whole-room lift test on the same
+    // board" while no lift test had run. It now says what it does: a verdict is
+    // copied when there IS a verdict, and a room inside the target keeps
+    // "none".
+    const mb = plan.meta.shell.mobilityBuilt;
+    if (mb && mobility) {
+      // the pair-level label always ships, under its own name, either way
+      mb.pairCause = mb.cause;
+      if (mobility.lift && mb.maxGated > MOBILITY_TARGET) {
+        mb.cause = mobility.lift.cause;
+        mb.lift = mobility.lift;
+      } else {
+        mb.cause = "none";
+        mb.lift = null;
+      }
     }
   }
 
@@ -3088,8 +3425,161 @@ export function finalizeRoom(terrain, plan) {
   // had ever re-measured.
   declareShippedRefill(plan, recomputeRefill(terrain, plan));
 
+  // ------------------------------------------------------------------
+  // THE AUDITED BLOCKS — one place, after every number is final.
+  //
+  // The validator now re-derives declaration CONTENT and fails a room whose
+  // structured claim disagrees with the board, and it also requires each
+  // audited value to be QUOTED in the prose. Both of those need the numbers to
+  // exist in a stable, named place on the declaration itself: the `towers`
+  // blocks these entries carried were layer-3 readings over layer-2's cut, i.e.
+  // honest numbers about a different wall, and there was nothing on the entry
+  // stating what the room actually ships. So the shipped block is attached
+  // here, last, where the wall, the mass and the refill walk are all final.
+  // ------------------------------------------------------------------
+  {
+    const tw = plan.meta?.towers || {};
+    const cut = plan.shell?.cut || [];
+    const towers = plan.structures.tower || [];
+    const faceDmg = (c) => {
+      let d = 0;
+      for (const t of towers) {
+        const r = Math.max(Math.abs(t.x - c.x), Math.abs(t.y - c.y));
+        d += r <= 5 ? 600 : r >= 20 ? 150 : 600 - (r - 5) * 30;
+      }
+      return d;
+    };
+    const dists = (tw.refillDists || []).slice().sort((a, b) => a - b);
+    const minDmg = cut.length ? Math.min(...cut.map(faceDmg)) : null;
+    const avgDmg = cut.length
+      ? Math.round(cut.reduce((s2, c) => s2 + faceDmg(c), 0) / cut.length)
+      : null;
+    for (const sf of plan.meta?.shortfalls || []) {
+      if (!sf || sf.kind !== "weak-battery") continue;
+      sf.battery = {
+        refillDists: tw.refillDists || [],
+        maxRefill: typeof tw.maxRefill === "number" ? tw.maxRefill : null,
+        minShellDmg: minDmg,
+        avgShellDmg: avgDmg,
+        cutTiles: cut.length,
+      };
+      sf.detail +=
+        ` — · — AUDITED FACTS, quoted so the record and the paragraph cannot drift: the furthest tower ` +
+        `refill walk on the shipped board is ${sf.battery.maxRefill}, the whole walk is ` +
+        `${dists.join("/")}, and the wall this room ships is ${cut.length} cut tile(s) whose weakest ` +
+        `takes ${minDmg} damage and whose average is ${avgDmg}. Every one of those is re-derived by the ` +
+        `validator from terrain and the shipped structure lists, and a mismatch fails the room.`;
+    }
+    // ...and the clump counter, on the same principle.
+    const sitter = plan.sitter || plan.hub;
+    if (sitter) {
+      const within = towers.filter(
+        (t) => Math.max(Math.abs(t.x - sitter.x), Math.abs(t.y - sitter.y)) <= 2,
+      );
+      for (const sf of plan.meta?.shortfalls || []) {
+        if (!sf || sf.kind !== "clump") continue;
+        sf.clump = { within: within.length, total: towers.length, cheb: 2, sitter: { x: sitter.x, y: sitter.y } };
+        sf.tiles = within.map((t) => ({ x: t.x, y: t.y }));
+        sf.detail +=
+          ` AUDITED FACTS: ${within.length} of ${towers.length} tower(s) are within chebyshev 2 of the ` +
+          `sitter ${sitter.x},${sitter.y} on the board this room ships — re-derived by the validator, ` +
+          `tile by tile, and a mismatch fails the room.`;
+      }
+    }
+  }
+
   const sealedFloor = noteSealedFloor(terrain, plan, plan.meta?.extensions?.shallow);
   if (plan.meta?.walls) plan.meta.walls.sealedFloor = sealedFloor;
+
+  // ------------------------------------------------------------------
+  // A PAVED RUN ALONG THE WALL, AND THE SWAP IT REFUSED — per room, by tile.
+  //
+  // Stage 5b offers every run of two-or-more consecutive paved cut tiles its
+  // interior parallel and takes the swap when the network is measurably no
+  // worse. It published one counter, `alongCutMoved`, and five rooms ship a run
+  // with that counter at 0 — indistinguishable, from the outside, from a pass
+  // that never ran on them. The run is a named anti-pattern (a prepared surface
+  // laid along the exact line an attacker would want to walk), so the room now
+  // says which tiles it is, that the swap was offered, and what the offer cost.
+  // The runs are re-derived HERE, on the board the room actually ships, and
+  // paired with the refusal the pass recorded for each tile.
+  // ------------------------------------------------------------------
+  {
+    const roadK = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
+    const cutK = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
+    const paved = (plan.shell?.cut || []).filter((c) => roadK.has(key(c.x, c.y)));
+    const runTiles = paved.filter((c) =>
+      D4.some(([dx, dy]) => {
+        const k = key(c.x + dx, c.y + dy);
+        return cutK.has(k) && roadK.has(k);
+      }),
+    );
+    if (runTiles.length && plan.meta) {
+      const refused = new Map(
+        (plan.meta?.walls?.alongCutRefused || []).map((r) => [key(r.x, r.y), r.why]),
+      );
+      const moved = plan.meta?.walls?.alongCutMoved ?? 0;
+      plan.meta.notes = plan.meta.notes || [];
+      plan.meta.notes.push(
+        `A PAVED RUN ALONG THE WALL, AND WHY IT IS STILL HERE: this room ships ${runTiles.length} ` +
+          `cut tile(s) that carry a road and have a D4 neighbour which is also a paved cut tile ` +
+          `(${runTiles.map((t) => `${t.x},${t.y}`).join(" ")}). A single crossing is a gate and is fine; ` +
+          `a RUN is a prepared surface laid along the line an attacker would want to walk, and stage 5b ` +
+          `exists to move it one tile inboard. It ran on this room and moved ${moved} tile(s). Per ` +
+          `refused tile, measured: ` +
+          runTiles
+            .map(
+              (t) =>
+                `${t.x},${t.y} — ${refused.get(key(t.x, t.y)) || "the swap was taken for a neighbour of this tile in the same run, which leaves this one no longer part of a run at the moment it was offered, or the tile entered the run after 5b had passed it"}`,
+            )
+            .join(" · ") +
+          `. The swap is refused rather than forced because the alternative is a road network that is ` +
+          `no longer one component from the sitter, or a container or extension that loses the face the ` +
+          `haulers use — a worse room bought to make one metric look better.`,
+      );
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // ROAD + RAMPART, CLASSIFIED AND RECORDED PER ROOM. See classifyRoadRamparts:
+  // the published taxonomy had a catch-all `else` that counted 17 unclassified
+  // tiles as wall crossings, so the accounting "closed" over a class that had no
+  // name. The classification now ships in the plan, so a reader does not have to
+  // re-derive it and the renderer does not have to guess, and the room says out
+  // loud when it carries a tile of the class the old taxonomy could not see.
+  // ------------------------------------------------------------------
+  {
+    const rr = classifyRoadRamparts(plan);
+    if (plan.meta?.walls) {
+      plan.meta.walls.roadRampart = {
+        total: rr.total,
+        crossing: rr.crossing.length,
+        seat: rr.seat.length,
+        ring: rr.ring.length,
+        cover: rr.cover.length,
+        unclassified: rr.unclassified.length,
+        ringTiles: rr.ring,
+        unclassifiedTiles: rr.unclassified,
+      };
+    }
+    if (plan.meta && (rr.ring.length || rr.unclassified.length)) {
+      plan.meta.notes = plan.meta.notes || [];
+      plan.meta.notes.push(
+        `ROAD ON RAMPART, CLASSIFIED: ${rr.total} tile(s) in this room carry both a road and a ` +
+          `rampart — ${rr.crossing.length} wall CROSSING(s) on the cut line, ${rr.seat.length} bubble ` +
+          `SEAT(s) (a miner's container outside the shell, on the road that exists to reach it), ` +
+          `${rr.ring.length} CONTROLLER STAND-DENIAL RING tile(s) ` +
+          `(${rr.ring.map((t) => `${t.x},${t.y}`).join(" ")}), ${rr.cover.length} personal-cover tile(s) ` +
+          `and ${rr.unclassified.length} unclassified. The ring class is the one the published ` +
+          `taxonomy did not have: these tiles are not on meta.shell.cut and carry no structure, so the ` +
+          `old classifier folded them into "wall crossing" and the accounting closed over a hole. They ` +
+          `are ramparted because a hostile claim creep standing D8 of the controller is the threat the ` +
+          `ring exists to deny, and they are paved because the eco lane to the controller has to reach ` +
+          `the controller and there is no way to the middle of a ring except across it. Same argument ` +
+          `as a crossing, different geometry, and it is now said rather than absorbed.`,
+      );
+    }
+  }
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;
   // layer 6's worst-case blocked set, handed to layer 7b so it could re-derive
