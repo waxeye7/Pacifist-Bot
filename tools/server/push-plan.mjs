@@ -442,29 +442,97 @@ const EXTRACTOR_RCL = 6;
  *  conductor the bot is not allowed to build. */
 const CONTAINER_CAP = 5;
 
-function containersForRcl(plan, lvl) {
-  if (lvl < CONTAINER_RCL) return [];
-  const planned = plan.structures.container || [];
-  const extractors = plan.structures.extractor || [];
-  // at/after RCL6 nothing is deferred; with no extractor planned there is
-  // nothing to defer AGAINST, so the room really does build all four at RCL2
-  if (lvl >= EXTRACTOR_RCL || !planned.length || !extractors.length) {
-    return planned.slice(0, CONTAINER_CAP);
-  }
-  let drop = -1;
+/**
+ * ---------------------------------------------------------------------------
+ * THE STAGING ORDER — ONE FIXED ORDER, AND EVERY RCL TAKES A PREFIX OF IT.
+ *
+ * WHY THE SHAPE OF THIS FUNCTION MATTERS MORE THAN ITS OUTPUT. A build schedule
+ * has one invariant that is not negotiable: MONOTONICITY. A structure that the
+ * room builds at RCL n must still be in the set at RCL n+1, because there is no
+ * such thing as un-building — the bot would either leave it standing (and the
+ * schedule is a lie) or demolish something it just paid for.
+ *
+ * The previous form computed each level independently: drop the deferred seat
+ * below RCL6, then `.slice(0, CAP)`. That is monotone ON THIS FLEET and only by
+ * arithmetic accident — every room plans exactly 4 containers against a cap of
+ * 5, so the cap never binds and the two branches differ by exactly the deferred
+ * tile. Give it SIX planned containers with the mineral seat at index 3 and it
+ * breaks: RCL5 drops index 3 and slices 5 off the remaining five, so the room
+ * builds {0,1,2,4,5}; RCL6 defers nothing and slices the first five, {0,1,2,3,4}
+ * — container 5 was built at RCL5 and is gone at RCL6. The invariant held
+ * because of a count in the artifact, not because of anything in the code, and
+ * a count in the artifact is exactly the kind of thing a planner change moves.
+ *
+ * So the schedule is made monotone STRUCTURALLY instead. Each container is
+ * placed exactly once in a single fixed order — everything that exists from
+ * CONTAINER_RCL first, in plan order, and the extractor-deferred mineral seat
+ * LAST — and every level then takes a PREFIX of that one order whose length is
+ * non-decreasing in the level. Nested prefixes cannot un-build: that is the
+ * whole proof, and it does not depend on how many containers a plan carries.
+ *
+ * The tie rule is unchanged and still deliberate: the LAST extractor-adjacent
+ * container is the mineral one, because E8S3's controller at 21,29 sits 3 tiles
+ * from its mineral at 23,26 and its genuine CONTROLLER container at 24,26 is
+ * therefore also mineral-adjacent. Taking the last match keeps that room's
+ * controller container in the early set where it belongs.
+ *
+ * BYTE-IDENTICAL ON THE CURRENT ARTIFACT, and deliberately so: with 4 planned
+ * containers and 1 deferred, the prefix is the 3 early ones below RCL6 and all
+ * 4 from RCL6, which is what the old branches returned. The return is filtered
+ * out of `planned` rather than assembled out of `order`, so the ORDER of the
+ * result is plan order at every level too — verified tile-for-tile over all 172
+ * rooms × RCL 1-8.
+ * ---------------------------------------------------------------------------
+ */
+function containerStageOrder(plan) {
+  const planned = (plan.structures && plan.structures.container) || [];
+  const extractors = (plan.structures && plan.structures.extractor) || [];
+  let deferred = -1;
   for (let i = 0; i < planned.length; i++) {
     for (const e of extractors) {
       if (Math.abs(planned[i].x - e.x) <= 1 && Math.abs(planned[i].y - e.y) <= 1) {
-        drop = i; // keep scanning: the LAST match is the mineral one
+        deferred = i; // keep scanning: the LAST match is the mineral one
         break;
       }
     }
   }
-  if (drop < 0) return planned.slice(0, CONTAINER_CAP);
-  return planned
-    .slice(0, drop)
-    .concat(planned.slice(drop + 1))
-    .slice(0, CONTAINER_CAP);
+  const order = [];
+  for (let i = 0; i < planned.length; i++) if (i !== deferred) order.push(i);
+  if (deferred >= 0) order.push(deferred);
+  // how many of that order exist BEFORE the extractor does — i.e. the prefix
+  // length RCL2..RCL5 takes. From EXTRACTOR_RCL the prefix is the whole order.
+  return { planned, order, early: deferred >= 0 ? order.length - 1 : order.length };
+}
+
+/** rooms already warned about an over-cap container list — this function is
+ *  called ~12 times per room per run and the finding is one per room */
+const capWarned = new Set();
+
+function containersForRcl(plan, lvl) {
+  if (lvl < CONTAINER_RCL) return [];
+  const { planned, order, early } = containerStageOrder(plan);
+  // ASSERT-AND-CLAMP, OUT LOUD. The cap is a game rule
+  // (CONTROLLER_STRUCTURES.container) and clamping to it is right; doing so
+  // SILENTLY is not, because the tiles that fall off the end are containers the
+  // planner emitted and the bot will never build, and every consumer on this
+  // side would then quietly stop promising them a road.
+  if (order.length > CONTAINER_CAP && !capWarned.has(plan.room)) {
+    capWarned.add(plan.room);
+    console.warn(
+      `WARNING ${plan.room}: plan carries ${order.length} containers but ` +
+        `CONTROLLER_STRUCTURES.container caps a room at ${CONTAINER_CAP} — the last ` +
+        `${order.length - CONTAINER_CAP} (staging order, mineral seat last) are dropped from every ` +
+        `conductor and eco-terminal set on this side. This is a PLANNER finding: the bot cannot build ` +
+        `them either.`,
+    );
+  }
+  const take = Math.min(CONTAINER_CAP, lvl >= EXTRACTOR_RCL ? order.length : early);
+  const keep = new Set(order.slice(0, take));
+  // returned in PLAN order, not staging order — the prefix decides WHICH tiles
+  // are in the set (that is where monotonicity lives); nothing downstream wants
+  // them re-ordered, and keeping plan order is what makes this change a no-op
+  // on the shipped artifact.
+  return planned.filter((_, i) => keep.has(i));
 }
 
 function roadStageFor(plan) {
@@ -824,6 +892,117 @@ function roadStageFor(plan) {
 const AUDIT_RCLS = [3, 4, 5, 6, 7, 8];
 
 /**
+ * ---------------------------------------------------------------------------
+ * A PUBLISHED PAVING GAP IS A CLAIM, AND THIS SIDE CHECKS IT BEFORE SPENDING IT.
+ *
+ * Both audits below grant `meta.walls.conductBridge.gapTiles` conductor status:
+ * the tile is bare floor a creep walks at 2 ticks instead of 1, so it joins the
+ * network even though no road may be built on it. That grant is the strongest
+ * thing a plan can say to these checks — it is the one input that can turn an
+ * orphan into a connected tile — and it used to be taken on `Number.isInteger`
+ * alone. Any meta entry naming any coordinate was believed.
+ *
+ * validate.mjs holds the same declaration to a real rule (search PAVING GAP
+ * UNVERIFIABLE) and FAILS the room when it does not hold. But validate is a
+ * separate program: push-plan.mjs runs standalone against out-v2/plans-hub.json,
+ * on the VPS path against a plan this machine just produced in memory, and
+ * nothing in either path makes the validator a prerequisite. One bogus meta
+ * entry — a hand-edit, a mutation-test artifact, a planner regression that names
+ * the wrong tile — would launder an orphan straight through `--census` and out
+ * the other side as a green line. The census is the channel this whole staging
+ * is published on; a channel that believes its input is not an audit.
+ *
+ * THE RULE, MIRRORED FROM validate.mjs's F1 CLAUSE. A gap tile must be a tile no
+ * road may ever be built on, which the engine defines as:
+ *   · it carries a structure in OBSTACLE_OBJECT_TYPES (BLOCKING below — spawn,
+ *     extension, tower, storage, terminal, link, lab, nuker, observer,
+ *     extractor), or it is a room object tile (source / controller / mineral);
+ *   · and it does NOT already carry a road, because a tile with a road on it is
+ *     not a gap in anything.
+ * ROAD, CONTAINER AND RAMPART ARE NOT OBSTACLES. That is the round-13 correction
+ * validate.mjs records at length: road and container legally share a tile (60
+ * tiles in 53 shipped rooms do), so both gaps this fleet used to publish were
+ * ordinary floor a road closes, and the exemption was laundering two roads the
+ * producer declined to lay as a terrain verdict.
+ *
+ * WHAT THIS COPY CANNOT SEE, AND WHY THAT IS SAFE. validate.mjs also rejects a
+ * gap tile on natural wall (`!passable`) — a tile a creep cannot stand on closes
+ * nothing. plans-hub.json carries no terrain, so this side cannot ask that
+ * question directly; it does not need to. A natural-wall tile carries no planned
+ * structure and is no room object, so it falls out of the obstacle test and is
+ * denied anyway — the same verdict validate reaches, by the other road. The
+ * asymmetry that matters is the one this function is built around: DENYING a
+ * grant can only ever make the audit louder, and the failure mode being fixed is
+ * an audit that was too quiet.
+ *
+ * ZERO ON THE CURRENT FLEET — no room in the 172 publishes a gap at all, so this
+ * is dormant by construction and every warning line it can print is a line about
+ * a plan that does not exist yet. That is the point: the check is cheap, and the
+ * alternative is a trust boundary that holds only while the number stays 0.
+ * ---------------------------------------------------------------------------
+ */
+/** OBSTACLE_OBJECT_TYPES, as validate.mjs's `BLOCKING` has it — the structures
+ *  a creep cannot walk over and a road cannot be built under. Roads, containers
+ *  and ramparts are deliberately absent. */
+const BLOCKING = [
+  "spawn",
+  "extension",
+  "tower",
+  "storage",
+  "terminal",
+  "link",
+  "lab",
+  "nuker",
+  "observer",
+  "extractor",
+];
+/** room+tile pairs already warned about — each audit calls this once per RCL
+ *  (12 times per room per census run) and the finding is one per tile */
+const gapWarned = new Set();
+
+function verifiedGapTiles(plan) {
+  const published = (plan.meta?.walls?.conductBridge?.gapTiles || []).filter(
+    (t) => t && Number.isInteger(t.x) && Number.isInteger(t.y),
+  );
+  if (!published.length) return [];
+  const s = plan.structures || {};
+  const k = (t) => t.x + t.y * 50;
+  const roads = new Set((s.road || []).map(k));
+  const obstacles = new Set();
+  for (const o of plan.sources || []) if (o && Number.isInteger(o.x)) obstacles.add(k(o));
+  for (const o of [plan.controller, plan.mineral]) {
+    if (o && Number.isInteger(o.x)) obstacles.add(k(o));
+  }
+  for (const ty of BLOCKING) for (const p of s[ty] || []) obstacles.add(k(p));
+  const granted = [];
+  for (const t of published) {
+    const tk = k(t);
+    const reason = roads.has(tk)
+      ? "it already carries a planned road, so it is not a gap in anything"
+      : !obstacles.has(tk)
+        ? "no OBSTACLE structure and no room object stands there — a road can simply be built on it " +
+          "(road/container/rampart are NOT obstacles; a natural-wall tile carries nothing either, and a " +
+          "creep cannot stand on one)"
+        : null;
+    if (!reason) {
+      granted.push(t);
+      continue;
+    }
+    const id = `${plan.room} ${t.x},${t.y}`;
+    if (!gapWarned.has(id)) {
+      gapWarned.add(id);
+      console.warn(
+        `WARNING ${plan.room}: meta.walls.conductBridge.gapTiles names ${t.x},${t.y} but ${reason}. ` +
+          `NOT granted as a conductor — the audits below run without it. Run ` +
+          `tools/plan-suite/v2/validate.mjs on this room: it fails a plan over exactly this ` +
+          `(PAVING GAP UNVERIFIABLE).`,
+      );
+    }
+  }
+  return granted;
+}
+
+/**
  * ...AND THE ONE GAP A ROAD CANNOT CLOSE, READ OFF THE PLAN.
  *
  * The planner re-derives this same graph and PAVES the join where a join can be
@@ -855,13 +1034,12 @@ function stagedOrphans(plan, stage, rcl) {
   // long note over `conduct` in roadStageFor and over containersForRcl, plus
   // the UNPAVED tiles the plan publishes as a paving gap. Those are bare floor
   // a creep walks at 2 ticks instead of 1; they conduct because a creep does not
-  // need a road, and they are named in the plan and re-derived by the validator
-  // rather than assumed here.
+  // need a road. And the claim is CHECKED before it is spent, not assumed —
+  // see verifiedGapTiles; this used to believe any meta entry carrying an
+  // integer x, which is the one input that can turn an orphan into a pass.
   const conduct = new Set(selected.map((t) => t.x + t.y * 50));
   for (const t of containersForRcl(plan, rcl)) conduct.add(t.x + t.y * 50);
-  for (const t of plan.meta?.walls?.conductBridge?.gapTiles || []) {
-    if (t && Number.isInteger(t.x)) conduct.add(t.x + t.y * 50);
-  }
+  for (const t of verifiedGapTiles(plan)) conduct.add(t.x + t.y * 50);
   const seedTile = plan.sitter || (plan.structures.storage || [])[0];
   if (!seedTile) return [];
   const seed = seedTile.x + seedTile.y * 50;
@@ -936,10 +1114,9 @@ function unreachableTerminals(plan, stage, rcl) {
   );
   for (const t of built) conduct.add(t.x + t.y * 50);
   // ...and the published paving gap, for the same reason stagedOrphans honours
-  // it: a creep walks bare floor, and the tile is named and re-derived.
-  for (const t of plan.meta?.walls?.conductBridge?.gapTiles || []) {
-    if (t && Number.isInteger(t.x)) conduct.add(t.x + t.y * 50);
-  }
+  // it: a creep walks bare floor. Re-derived here rather than believed — the
+  // tile has to actually be unpaveable, see verifiedGapTiles.
+  for (const t of verifiedGapTiles(plan)) conduct.add(t.x + t.y * 50);
   const seedTile = plan.sitter || (plan.structures.storage || [])[0];
   if (!seedTile) return [];
   const seed = seedTile.x + seedTile.y * 50;
@@ -1013,10 +1190,35 @@ function census() {
   // printed here, off the same rcl2Containers() the staging itself uses.
   let noFaceTiles = 0;
   let noFaceRooms = 0;
+  // ...and the SAME question asked of all four containers the room plans, which
+  // is the reading the goal document quotes alongside the RCL2 one. Two numbers,
+  // two definitions, and the only way they stop being confused for each other is
+  // if the same run prints both. (rcl2Containers defers the mineral container to
+  // RCL6; the difference between the two lines below is exactly that tile.)
+  let allFaceTiles = 0;
+  let allFaceRooms = 0;
+  let allFaceMineral = 0;
+  // THE "0 DEMOTED" CLAIM, ACTUALLY DERIVED. The goal document states that this
+  // pass only ever RE-STAGES roads the planner already placed and never pushes
+  // one LATER than the provenance split would have put it — and cited --census
+  // as the thing that prints it. Nothing printed it. The base split is
+  // recomputed here from meta.roadLayer and compared tile by tile against what
+  // roadStageFor returned, so "0 demoted" is a measurement rather than a
+  // property of the code that somebody once read.
+  let promoted = 0;
+  let demoted = 0;
   for (const plan of plans) {
     if (!plan || !plan.structures) continue;
     const stage = roadStageFor(plan);
     roads += stage.length;
+    {
+      const layer = (plan.meta && plan.meta.roadLayer) || {};
+      (plan.structures.road || []).forEach((r, i) => {
+        const base = (layer[`${r.x},${r.y}`] || 99) <= ARTERIAL_LAYER ? ARTERIAL_RCL : REST_RCL;
+        if (stage[i] < base) promoted++;
+        else if (stage[i] > base) demoted++;
+      });
+    }
     const arterialHere = stage.filter((s) => s <= ARTERIAL_RCL).length;
     arterial += arterialHere;
     arterialPerRoom.push({ room: plan.room, n: arterialHere, roads: (plan.structures.road || []).length });
@@ -1073,6 +1275,19 @@ function census() {
         noFaceTiles += noFace.length;
         noFaceRooms++;
       }
+      const early = new Set(rcl2Containers(plan).map((c) => c.x + c.y * 50));
+      const noFaceAll = (plan.structures.container || []).filter(
+        (c) =>
+          !roadKeys.has(c.x + 1 + c.y * 50) &&
+          !roadKeys.has(c.x - 1 + c.y * 50) &&
+          !roadKeys.has(c.x + (c.y + 1) * 50) &&
+          !roadKeys.has(c.x + (c.y - 1) * 50),
+      );
+      if (noFaceAll.length) {
+        allFaceTiles += noFaceAll.length;
+        allFaceRooms++;
+        allFaceMineral += noFaceAll.filter((c) => !early.has(c.x + c.y * 50)).length;
+      }
     }
   }
   console.log(`push-plan road-staging census over ${plans.length} rooms`);
@@ -1110,9 +1325,14 @@ function census() {
         (row.unreachRooms.length ? ` — ${row.unreachRooms.join(" ")}` : ""),
     );
   }
+  console.log(`  re-staged: ${promoted} tiles promoted, ${demoted} demoted`);
   console.log(
     `  RCL2 containers with NO planned D4 road face (a planner question, not a staging one): ` +
       `${noFaceTiles} across ${noFaceRooms} rooms`,
+  );
+  console.log(
+    `  ...and the ALL-FOUR-CONTAINERS reading of the same question: ${allFaceTiles} across ` +
+      `${allFaceRooms} rooms (${allFaceTiles - allFaceMineral} RCL2 + ${allFaceMineral} mineral-only)`,
   );
   // THE PAVING GAPS, COUNTED — see the header over pavingGapTiles. The header
   // used to state the count in prose ("One room in the fleet…") and it was wrong
@@ -1127,10 +1347,38 @@ function census() {
     const paved = plans
       .filter((p) => (p.meta?.walls?.conductBridge?.added || []).length)
       .map((p) => `${p.room}(${p.meta.walls.conductBridge.added.map((t) => `${t.x},${t.y}`).join(" ")})`);
+    // WHAT "UNPAVEABLE" MEANS, SAID ON THE LINE THAT PRINTS THE COUNT. It used
+    // to mean "something is already on the tile", and that read the engine
+    // wrong: a road and a container share a square (only OBSTACLE_OBJECT_TYPES
+    // may not be doubled up), which is how both of the rooms this line used to
+    // name — E2S5 27,23 and E5S3 32,11, 11 and 5 stranded conductors between
+    // them — were publishing a gap over their own deferred mineral container.
+    // Both are paved now. A gap is a tile an OBSTACLE structure or terrain wall
+    // sits on, and nothing else.
     console.log(
       `  RCL-deferred conduct: ${paved.length} room(s) PAVED the join${paved.length ? ` — ${paved.join(" ")}` : ""}` +
-        `; ${gaps.length} room(s) publish an unpaveable PAVING GAP${gaps.length ? ` — ${gaps.join(" ")}` : ""}`,
+        `; ${gaps.length} room(s) publish a PAVING GAP${gaps.length ? ` — ${gaps.join(" ")}` : ""} ` +
+        `(a gap tile is one carrying an OBSTACLE structure — spawn, extension, link, storage, tower, ` +
+        `observer, lab, terminal, nuker — or a room object or terrain wall, i.e. a tile no road may ` +
+        `ever be built on. A container is NOT an obstacle: road and container share a tile, so a ` +
+        `container tile is paved rather than named here)`,
     );
+    // ...AND HOW MANY OF THOSE CLAIMS THIS RUN ACTUALLY BELIEVED. A published
+    // gap is only a conductor if the tile is genuinely unpaveable
+    // (verifiedGapTiles); one that is not has already printed a WARNING above,
+    // and the count belongs on the census line so a reader of the summary sees
+    // it without scrolling. Silent at 0, which is what the whole fleet is.
+    let denied = 0;
+    for (const p of plans) {
+      const pub = (p.meta?.walls?.conductBridge?.gapTiles || []).length;
+      if (pub) denied += pub - verifiedGapTiles(p).length;
+    }
+    if (denied) {
+      console.log(
+        `  ...of which ${denied} published gap tile(s) were NOT granted as conductors — the tile is ` +
+          `paveable or already roaded, so the audits above ran without it. See the WARNING lines.`,
+      );
+    }
   }
 }
 
@@ -1276,6 +1524,13 @@ export {
   stagedOrphans,
   unreachableTerminals,
   containersForRcl,
+  // the two hardening helpers, exported for the same reason as everything else
+  // here: an offline check that re-implements them proves nothing about what
+  // ships. Both are dormant on the honest artifact (0 published gaps, 4
+  // containers against a cap of 5), so a direct caller is the ONLY way to
+  // exercise either of them at all.
+  containerStageOrder,
+  verifiedGapTiles,
   AUDIT_RCLS,
   ARTERIAL_RCL,
   ARTERIAL_LAYER,

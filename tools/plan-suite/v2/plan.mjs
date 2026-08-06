@@ -85,6 +85,169 @@ function animClaimKinds(plan) {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * LAYER 7 IS SEVEN JOBS, AND EVERY TEXT CHANNEL HAS TO SAY WHICH ONES RAN.
+ * ---------------------------------------------------------------------------
+ * The layer-7 road beat used to be captioned "rampart spurs and the
+ * extension-face safety net" for every room, and layer 7 also stitches orphaned
+ * fragments, pre-paves swamp holes, moves roads off the cut onto the interior
+ * parallel, lays the 7b reflow's faces and (in finalizeRoom) bridges the
+ * deferred mineral container. 20 rooms / 39 tiles ship that beat with
+ * `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave, E12S6's three are 7b
+ * reflow, E14S5's are along-cut swaps.
+ *
+ * Round 13 fixed the NOTE line by composing it from `meta.walls.roadKind`, the
+ * per-tile provenance layer 7 records as it lays. It fixed exactly one channel.
+ * The player renders FOUR strings for a stage — the banner name, the banner
+ * why, the note, and the chip (whose tooltip is name + why, and which is also
+ * the title card) — and the other three were still the hardcoded STAGE_INFO
+ * row, so E1S6 read "LAYER 7 — RAMPART SPURS / roads TO the wall so defenders
+ * can reach it" over a corrected note that says the room laid no spur at all.
+ *
+ * So the decomposition below is the ONE source for all four channels: the note
+ * is composed from it, and `animStageText` composes a PER-ROOM name/why/chip
+ * override from the same tally, shipped alongside NOTES and applied inside the
+ * player's `info()`. A room with no spurs cannot name a spur in any channel,
+ * because no channel has a spur to name.
+ *
+ * `extFace` IS REACHABLE AND IS KEPT, THOUGH NO ROOM IN THE FLEET USES IT.
+ * layer-walls.mjs sets `kindNow = "extFace"` for the filler-face safety net
+ * (a road on a D4 face of any extension layer 6 left off the network); the pass
+ * runs in every room and, because layer 6 grows the mass along corridors,
+ * currently adds 0 tiles fleet-wide (`meta.walls.fillerTiles` is 0 in all 172).
+ * The kind is therefore in the closed set validate.mjs enforces and stays in
+ * this table — but it is no longer PROMISED by any static string, because a
+ * channel that names a pass which shipped nothing is the bug this block exists
+ * to kill. It will caption itself the day the pass lays a tile.
+ *
+ * `one`/`many` are separate because 19 rooms lay exactly one layer-7 tile and
+ * the caption read "1 tiles — 1 rampart spurs".
+ */
+const LATE_KINDS = {
+  spur: {
+    one: "rampart spur",
+    many: "rampart spurs",
+    name: "rampart spurs",
+    chip: "7 · spurs",
+    why: "roads TO the wall, so defenders can reach the rampart they are holding",
+  },
+  extFace: {
+    one: "extension face paved by the safety net",
+    many: "extension faces paved by the safety net",
+    name: "the extension-face safety net",
+    chip: "7 · ext faces",
+    why: "a road on a D4 face of every extension layer 6 left without one",
+  },
+  stitch: {
+    one: "stranded road fragment stitched back onto the network",
+    many: "stranded road fragments stitched back onto the network",
+    name: "network stitches",
+    chip: "7 · stitch",
+    why: "road fragments the earlier layers left stranded, joined back onto the one network",
+  },
+  swampPave: {
+    one: "swamp hole pre-paved (the only way across, so nobody walks it at 5 ticks)",
+    many: "swamp holes pre-paved (the only way across, so nobody walks them at 5 ticks)",
+    name: "the swamp pre-pave",
+    chip: "7 · swamp",
+    why: "the swamp tiles the network has no way around, paved before anyone walks them at 5 ticks a step",
+  },
+  alongCutMoved: {
+    one: "road moved off the wall onto the interior parallel",
+    many: "roads moved off the wall onto the interior parallel",
+    name: "roads moved off the cut",
+    chip: "7 · off-cut",
+    why: "a road ON the rampart line is a tile the wall cannot stand on — these move one tile inward",
+  },
+  reflow: {
+    one: "face for the layer-7b extension reflow",
+    many: "faces for the layer-7b extension reflow",
+    name: "reflow faces",
+    chip: "7 · reflow",
+    why: "the road faces layer 7b's extension reflow needs on the floor the dead-end prune just handed back",
+  },
+  conductBridge: {
+    one: "join paved for the mineral container that is not built until RCL 6",
+    many: "joins paved for the mineral container that is not built until RCL 6",
+    name: "the mineral-container join",
+    chip: "7 · conduit",
+    why: "the mineral container is deferred to RCL 6, so its join to the network is paved now and waits",
+  },
+  unclassified: {
+    one: "unclassified — layer 7 laid this tile and could not name the pass that did it",
+    many: "unclassified — layer 7 laid these and could not name the pass that did it",
+    name: "unattributed late roads",
+    chip: "7 · unclassified",
+    why: "layer 7 laid these and recorded no pass for them — that is a finding, not a purpose",
+  },
+};
+/** printing order for the breakdown — the layer's own job order */
+const LATE_ORDER = Object.keys(LATE_KINDS);
+
+/**
+ * The layer-7 road tally, read off meta.roadLayer + meta.walls.roadKind.
+ *
+ * AN UNRECOGNISED KIND IS NOT A NAMED KIND. The previous composer counted every
+ * roadKind value into `named` and then built the breakdown by walking the LABEL
+ * table, so a kind the table does not know (a new layer-7 pass, a typo, a
+ * future rename) incremented the count and was then filtered straight back out:
+ * the caption led with "7 tiles" over a breakdown reaching 4 and never tripped
+ * the "with no recorded sub-kind" fallback that exists for exactly this. Only
+ * kinds this file can actually print count as named; everything else falls to
+ * the fallback, so the lead number and the breakdown can never disagree.
+ */
+function lateRoadDecomp(plan) {
+  const m = plan.meta || {};
+  const rl = m.roadLayer || {};
+  const alive = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
+  const kindOf = m.walls?.roadKind || {};
+  const tally = {};
+  let laid = 0;
+  let named = 0;
+  for (const k of Object.keys(rl)) {
+    if (rl[k] !== 7) continue;
+    laid++;
+    if (!alive.has(k)) continue;
+    const kind = kindOf[k];
+    if (!kind || !LATE_KINDS[kind]) continue;
+    tally[kind] = (tally[kind] || 0) + 1;
+    named++;
+  }
+  return { laid, named, tally, kinds: LATE_ORDER.filter((k) => tally[k]) };
+}
+
+/**
+ * PER-ROOM STAGE TEXT — the banner name, the banner why and the chip, for the
+ * stages whose static STAGE_INFO row cannot be true of every room. Shipped into
+ * the page next to NOTES and applied in the player's `info()`; a stage absent
+ * from this map keeps its static row, which is every stage but one.
+ */
+function animStageText(plan) {
+  const out = {};
+  const d = lateRoadDecomp(plan);
+  if (!d.laid) return out;
+  const unnamed = d.laid - d.named;
+  if (!d.kinds.length) {
+    const u = LATE_KINDS.unclassified;
+    out.roadsLate = { name: u.name, why: u.why, chip: u.chip };
+  } else if (d.kinds.length === 1 && !unnamed) {
+    const k = LATE_KINDS[d.kinds[0]];
+    out.roadsLate = { name: k.name, why: k.why, chip: k.chip };
+  } else {
+    const whys = d.kinds.map((k) => LATE_KINDS[k].why);
+    if (unnamed) whys.push(LATE_KINDS.unclassified.why);
+    // no count in front of the list: the unattributed bucket is a finding, not
+    // a job, so "N of layer 7's jobs" would be counting it as one
+    out.roadsLate = {
+      name: "the late road pass",
+      why: `what layer 7 laid in this room — ${whys.join(" · ")}`,
+      chip: "7 · late roads",
+    };
+  }
+  return out;
+}
+
+/**
  * PER-LAYER CAPTIONS, READ OFF THE PLAN — NEVER INVENTED.
  *
  * Each string below is assembled from a number the planner already published
@@ -144,10 +307,22 @@ function animNotes(plan) {
       `${laid(6)} corridor tiles — the extension mass grows off these faces` +
       (m.extensions ? ` (${m.extensions.stubRoads} stub roads by layer 6's own count)` : "");
   }
+  // The layer-7 note is composed from LATE_KINDS / lateRoadDecomp above — the
+  // same tally animStageText uses for this stage's name, why and chip, so the
+  // four channels the player renders side by side cannot disagree about which
+  // of layer 7's jobs this room actually ran. `unclassified` is deliberately
+  // printable rather than swept into a neighbouring label: a tile this layer
+  // laid and cannot name is a finding.
   if (laid(7)) {
+    const d = lateRoadDecomp(plan);
+    const parts = d.kinds.map((kk) => {
+      const L = LATE_KINDS[kk];
+      return `${d.tally[kk]} ${d.tally[kk] === 1 ? L.one : L.many}`;
+    });
+    if (d.named < d.laid) parts.push(`${d.laid - d.named} with no recorded sub-kind`);
     n.roadsLate =
-      `${laid(7)} tiles — rampart spurs and the extension-face safety net` +
-      (m.walls ? ` · ${m.walls.spurred}/${m.walls.clusters} wall clusters served` : "");
+      `${d.laid} tile${d.laid === 1 ? "" : "s"} — ${parts.length ? parts.join(" · ") : "no recorded sub-kind"}` +
+      (d.tally.spur && m.walls ? ` · ${m.walls.spurred}/${m.walls.clusters} wall clusters served` : "");
   }
   if (ghosts) {
     n.roadsPrune =
@@ -551,9 +726,31 @@ function animPlayerHtml(plan) {
     (plan.shell?.battlements || []).map((b) => `${b.x},${b.y}`),
   );
   const notes = JSON.stringify(animNotes(plan));
+  const stageText = JSON.stringify(animStageText(plan));
+  // ------------------------------------------------------------------
+  // THE PAGE AND THE FILM ARE TWO HALVES OF ONE CLAIM, BOUND BY A FILENAME.
+  //
+  // Everything on this page that is NOT the film — the terrain string, the
+  // claims palette, the sitter tile, every caption, this whole notes map — is
+  // rendered from the plan this run just wrote. The film is fetched at runtime
+  // from anim/<room>.json, written by a DIFFERENT tool (export-anim.mjs) at a
+  // different time, and the only thing that binds it to this page is that the
+  // two files agree on a room name. The suite already knows this: it re-derives
+  // planStructureHash per room and prints "ANIMATIONS DO NOT MATCH THIS PLAN"
+  // (see warnStaleAnimations) — but that is a line in a terminal nobody has
+  // open, while the page itself states on screen that its last frame IS the
+  // shipped plan, tile for tile, and had no way to know whether that was true.
+  //
+  // So the digest is stamped INTO the page: a data attribute on the card, a
+  // line under the player, and PLAN_HASH in the script — and the player refuses
+  // to draw a film whose planHash is not it. Not a warning: a refusal, because a
+  // film of a different plan drawn under a "this is the shipped plan" label is
+  // worse than no film.
+  // ------------------------------------------------------------------
+  const planHash = planStructureHash(plan);
   // NOTE: the player script uses string concat, never template literals —
   // this whole file is one big JS template literal already.
-  return `<div class="card anim-card" id="anim"><h3>Animated plan — watch the planner build ${plan.room}</h3>
+  return `<div class="card anim-card" id="anim" data-plan-hash="${esc(planHash)}"><h3>Animated plan — watch the planner build ${plan.room}</h3>
 <div class="anim-wrap" id="animWrap">
   <canvas class="anim-layer" id="animTerrain"></canvas>
   <canvas class="anim-layer" id="animScaffA"></canvas>
@@ -592,11 +789,15 @@ function animPlayerHtml(plan) {
 </div>
 <div class="stages" id="animStages"></div>
 <div class="anim-label" id="animLabel">loading anim/${plan.room}.json &hellip;</div>
+<div class="anim-meta" id="animMeta">plan digest <code>${esc(planHash)}</code> &middot; this page was rendered from that plan, and the player will not draw a film stamped with any other</div>
 ${animShortfallTicker(plan)}
 </div>
 <script>
 (function () {
   var ROOM = ${JSON.stringify(plan.room)};
+  // structures-and-tiles digest of the plan THIS PAGE was rendered from — see
+  // the block above animPlayerHtml, and planStructureHash in shared.mjs
+  var PLAN_HASH = ${JSON.stringify(planHash)};
   var TERRAIN = ${JSON.stringify(plan.terrain)};
   var MARKS = ${marks};
   var SPR = ${sprites};
@@ -608,6 +809,9 @@ ${animShortfallTicker(plan)}
   var SITTER = ${JSON.stringify(plan.sitter || null)};
   var BATTL = ${battlements};
   var NOTES = ${notes};
+  // per-room {name, why, chip} overrides for the stages whose static STAGE_INFO
+  // row cannot be true of every room — applied in info(), see STAGE_INFO
+  var STAGE_TEXT = ${stageText};
   var RP = ${JSON.stringify(ROAD_PAINT)};
   var MP = ${JSON.stringify(RAMPART_PAINT)};
 
@@ -624,6 +828,31 @@ ${animShortfallTicker(plan)}
   for (var bi = 0; bi < BATTL.length; bi++) BATT[BATTL[bi]] = 1;
 
   // stage -> [layer number, plain name, one-line WHY, counted noun, chip]
+  //
+  // THESE ROWS ARE STATIC AND SO MUST BE TRUE OF EVERY ROOM THAT PLAYS THE
+  // STAGE. Where a stage's subject genuinely varies room to room, the row here
+  // is the neutral statement of the whole beat and the room's own name/why/chip
+  // arrive in STAGE_TEXT (composed server-side by animStageText from the same
+  // published fields the note line uses) — see info() below, which is the one
+  // door all four text channels go through: the title card, the banner name,
+  // the banner why and the chip + its tooltip. roadsLate is the only stage
+  // that needs it today: layer 7 runs seven different road jobs and 20 rooms
+  // ship the beat having run no spur at all.
+  //
+  // roadsMisc AND roadsResid ARE RESERVED, NOT DEAD — and they are kept rather
+  // than deleted deliberately. roadsMisc is layer 5's haul road to the mineral
+  // seat and roadsResid is the catch-all for road tiles carrying no
+  // meta.roadLayer entry. Neither is emitted by any film in the current fleet:
+  // all 172 rooms have a mineral, but the mineral seat is deliberately OFF the
+  // road network (see the extractor row on the room page), so layer 5 lays no
+  // road, and road provenance is currently total, so nothing is unattributed.
+  // Both are one planner decision away from emitting again, and the invariant
+  // export-anim enforces is one-directional: every EMITTED stage must be in
+  // STAGE_INFO / STAGE_RATES / STAGE_SCAFFOLD, and EXPAND[s] must be the
+  // negation of the exporter's scaffold flag for every stage in the film. A row
+  // for a stage no film emits violates nothing; a MISSING row the day the stage
+  // comes back is the exact failure mode the tables above are scarred by
+  // (sitter, seed, extAdd). So they stay, and they stay labelled.
   var STAGE_INFO = {
     dt:         [1, 'reading the room', 'how far every tile sits from the nearest wall — the wide-open ground is where a base can fit', 'tiles', '1 · dt'],
     fields:     [1, 'walking distances', 'flood out from every source and the controller: how many steps does a hauler pay from here?', 'tiles', '1 · fields'],
@@ -640,6 +869,7 @@ ${animShortfallTicker(plan)}
     nuker:      [5, 'the nuker', 'one deep tile hugging the hub, because everything it eats has to be carried', 'nuker', '5 · nuker'],
     observer:   [5, 'the observer', 'needs no access at all, so it takes the far leftover tile', 'observer', '5 · observer'],
     extractor:  [5, 'the extractor', 'the one structure built ON a room object — it sits on the mineral', 'extractor', '5 · extractor'],
+    // RESERVED — no film in the fleet emits this stage (the mineral seat is off-network)
     roadsMisc:  [5, 'the mineral run', 'the haul road out to the mineral seat', 'tiles', '5 · mineral road'],
     roadsExt:   [6, 'extension corridors', 'dig the corridor first — every extension has to land with a D4 face on a road', 'tiles', '6 · corridors'],
     extGhost:   [6, 'shallow slots', 'tiles the fill took while it still had to, too close to the wall to be safe — layer 6 comes back for them', 'slots', '6 · shallow'],
@@ -647,12 +877,23 @@ ${animShortfallTicker(plan)}
     extMove:    [6, 'the relocation', 'layer 6 finishing its own job inside its own pass: a shallow slot vacated for a deep, road-faced tile — where that tile was a paved stub, the stub is lifted', 'moves', '6 · relocate'],
     extAdd:     [7, 'layer 7b backfill', 'extensions the post-prune reflow ADDS on deep, road-faced floor the dead-end prune handed back — the pass that takes a short room to 60/60', 'extensions', '7b · backfill'],
     roadsPrune: [7, 'the dead-end prune', 'the one pass allowed to DELETE an earlier layer\\'s road — these led somewhere before the later layers filled it in', 'tiles', '7 · prune'],
-    roadsLate:  [7, 'rampart spurs', 'roads TO the wall so defenders can reach it, plus the extension-face safety net', 'tiles', '7 · spurs'],
+    // NEUTRAL BY CONSTRUCTION — this row names the LAYER, not a job, because the
+    // job varies: 20 of the 172 rooms play this beat without laying one spur.
+    // The room's actual jobs arrive per-room in STAGE_TEXT.roadsLate.
+    roadsLate:  [7, 'the late road pass', 'layer 7\\'s last road work — spurs to the wall, swamp pre-pave, stitches, swaps off the cut, the reflow\\'s faces: which of them ran here is on the line below', 'tiles', '7 · late roads'],
+    // RESERVED — no film in the fleet emits this stage (road provenance is total)
     roadsResid: [0, 'unattributed roads', 'these tiles carry no meta.roadLayer entry — the film will not guess which layer laid them', 'tiles', '? · unattributed']
   };
+  // THE ONE DOOR ALL FOUR TEXT CHANNELS GO THROUGH. The title card reads [1]+[2],
+  // the banner reads [1] and [2], the chip reads [4] and its tooltip [1]+[2] —
+  // so a per-room override applied here reaches every channel at once, which is
+  // precisely what the round-13 fix to the note line alone did not do.
   function info(stage) {
-    return STAGE_INFO[stage] ||
+    var b = STAGE_INFO[stage] ||
       [0, String(stage).replace(/_/g, ' '), '', 'steps', String(stage)];
+    var o = STAGE_TEXT[stage];
+    if (!o) return b;
+    return [b[0], o.name || b[1], o.why || b[2], b[3], o.chip || b[4]];
   }
 
   // stage -> what a tile of it IS. '#road' / '#rampart' / '#unroad' /
@@ -1310,6 +1551,35 @@ ${animShortfallTicker(plan)}
     fetch('anim/' + ROOM + '.json', { cache: 'no-cache' })
       .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function (a) {
+        // THE FILM HAS TO BE OF THIS PLAN, AND NOW IT HAS TO PROVE IT.
+        // Nothing below this point is drawn unless the film's own digest is the
+        // digest this page carries. Loud in three places at once — the console,
+        // the label under the player and the banner itself — because the failure
+        // it catches (a film of the PREVIOUS plan, silently painting structures
+        // this room does not have, under "this last frame IS the shipped plan,
+        // tile for tile") looks exactly like success from across the desk.
+        if (a.planHash !== PLAN_HASH) {
+          var got = a.planHash
+            ? String(a.planHash)
+            : '(none — written before films carried a plan digest)';
+          var msg = 'FILM / PAGE MISMATCH — anim/' + ROOM + '.json is a film of plan ' + got +
+            ', and this page was rendered from plan ' + PLAN_HASH + '. Every caption, the terrain, ' +
+            'the hub kinds and the sitter on this page come from THIS plan; the film does not. ' +
+            'Nothing has been drawn. Run: node tools/plan-suite/v2/export-anim.mjs --all';
+          console.error('anim ' + ROOM + ': ' + msg);
+          elLabel.textContent = msg;
+          elLabel.style.color = '#ff8b8b';
+          var em = document.getElementById('animMeta');
+          if (em) { em.style.color = '#ff8b8b'; }
+          elBadge.textContent = 'MISMATCH';
+          elName.textContent = 'this film is not of this plan';
+          elWhy.textContent = 'the player will not draw a film the page cannot vouch for';
+          elNote.textContent = '';
+          elCount.textContent = '';
+          if (elSf) elSf.hidden = true;
+          steps = null;
+          return;
+        }
         steps = a.steps;
         palette = [];
         for (var k in a.palette) palette[+k] = a.palette[k];
@@ -1600,6 +1870,10 @@ td,th{border:1px solid #333;padding:6px 10px}
 .stage.past{color:#9ab;border-color:#333}
 .stage.on{background:#12303f;color:#8cf;border-color:#2b6a86;box-shadow:0 0 0 1px #2b6a8666}
 .anim-label{margin-top:8px;font-size:13px;color:#cde;min-height:18px}
+/* the plan digest this page was rendered from — the binding the player checks
+   the fetched film against before it draws anything (see animPlayerHtml) */
+.anim-meta{margin-top:5px;font-size:11px;color:#778;line-height:1.5}
+.anim-meta code{color:#9ab;font-size:11px;background:#0c0c0c;border:1px solid #222;border-radius:4px;padding:1px 5px}
 /* the end-of-film shortfall ticker (animShortfallTicker). Built out of the
    anim banner's own geometry — same left rule, same radius, same 11.5px note
    type — in the shortfall card's amber rather than the banner's blue, so it

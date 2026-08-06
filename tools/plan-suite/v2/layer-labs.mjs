@@ -24,6 +24,14 @@ import {
   detourFreeSet,
   MOBILITY_TARGET,
 } from "./layer-shell.mjs";
+// DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
+// All three `labs` declarations used to ship a paragraph and a tile list and NO
+// STRUCTURED RECORD AT ALL: the hauler distance, the anchor census and the cost
+// weights existed only inside the sentences quoting them, so a reviewer could
+// rewrite E13S2's "12 hauler tile(s)" to "2" — the fleet median — with nothing
+// on the other side of the comparison. The records below were invented to make
+// generation possible, which is the contract doing its job.
+import { renderDecl } from "./declprose.mjs";
 
 const DEPTH_SAFE = 4;
 /**
@@ -56,6 +64,16 @@ const LAB_MOBILITY_BUDGET = 6;
  * refused. 8 is deliberately well clear of p90 so a normal room says nothing.
  */
 const LAB_HAUL_NOTE = 8;
+/**
+ * The two fleet quantiles the declaration's paragraph compares this room against
+ * — the numbers that turn "17 hauler tiles" into a statement rather than an
+ * integer. They were literals INSIDE the sentence until round 13, which is the
+ * exact shape of defect declprose.mjs exists to end: a comparison whose other
+ * side lives only in the prose is a comparison nobody can check. They are fields
+ * on the record now, and the paragraph reads them from there.
+ */
+const LAB_HAUL_FLEET_MEDIAN = 2;
+const LAB_HAUL_FLEET_P90 = 4;
 /**
  * What a shallow lab is worth, in tiles of hauler distance.
  *
@@ -620,24 +638,24 @@ export function planLabs(terrain, plan) {
   // the anchor census both passes measured.
   if (shallow.length && plan.meta) {
     plan.meta.shortfalls = plan.meta.shortfalls || [];
-    plan.meta.shortfalls.push({
+    const sfShallowLab = {
       gate: "labs",
       kind: "shallow-lab",
       source: "labs",
-      detail:
-        `${shallow.length}/10 labs sit inside the ranged band (depth < ${DEPTH_SAFE}) and carry personal ` +
-        `ramparts (${shallow.map((l) => `${l.x},${l.y} d${depth[idx(l.x, l.y)]}`).join(" · ")}). ` +
-        `The 10-lab diamond is a rigid 4x4 stamp ` +
-        `— it cannot be split or reshaped — and this enclosure offers ${deepAnchors} anchor(s) with all ` +
-        `ten labs at depth >= ${DEPTH_SAFE} and ${fallbackAnchors} at depth >= ${DEPTH_SAFE - 1}, of ` +
-        `which ${dryAnchors} would be fully dry. The anchor shipped was the cheapest on hauler distance ` +
-        `PLUS ${SHALLOW_LAB_COST} tiles per shallow lab, so depth was priced, not ignored; ` +
-        (deepAnchors === 0
-          ? `no dry anchor exists at any orientation, so the ramparts are the room's verdict, not a preference`
-          : `every dry anchor was refused because it seals a wall segment the garrison can walk today`) +
-        `.`,
+      detail: "",
       tiles: shallow.map((l) => ({ x: l.x, y: l.y })),
-    });
+      labs: {
+        shallow: shallow.map((l) => ({ x: l.x, y: l.y, depth: depth[idx(l.x, l.y)] })),
+        total: labs.length,
+        depthSafe: DEPTH_SAFE,
+        deepAnchors,
+        fallbackAnchors,
+        dryAnchors,
+        shallowLabCost: SHALLOW_LAB_COST,
+      },
+    };
+    sfShallowLab.detail = renderDecl(sfShallowLab);
+    plan.meta.shortfalls.push(sfShallowLab);
   }
 
   // ------------------------------------------------------------------
@@ -689,27 +707,39 @@ export function planLabs(terrain, plan) {
   // this layer walked past on its way out to 17, and which guard killed each.
   // ------------------------------------------------------------------
   if (best.d >= LAB_HAUL_NOTE && plan.meta) {
-    const cheaper = refusedCensus.wall + refusedCensus.mineral + refusedCensus.network + refusedCensus.lap;
     plan.meta.shortfalls = plan.meta.shortfalls || [];
-    plan.meta.shortfalls.push({
+    // THE FLEET QUANTILES ARE FIELDS, not two integers typed into a sentence.
+    // "the fleet median is 2 and p90 is 4" is the comparison that makes the
+    // room's own number mean anything, and it was a pair of literals inside the
+    // string — so the paragraph could quote whichever median made this room look
+    // best and nothing would notice.
+    const sfHaul = {
       gate: "labs",
       kind: "lab-haul",
       source: "labs",
-      detail:
-        `the lab diamond is ${best.d} hauler tile(s) from the hub (anchor ${ax},${ay}, ${variant === MAIN ? "main" : "anti"} ` +
-        `orientation) — the fleet median is 2 and p90 is 4, and every reagent load pays this walk forever. ` +
-        `It is the cheapest anchor that survived every guard, not the cheapest anchor: candidates are ` +
-        `examined in strict score order and the search stops at the first survivor, so the ${cheaper} ` +
-        `anchor(s) refused ahead of it all scored at or below it — ${refusedCensus.wall} because ` +
-        `the stamp would strand a wall segment the garrison can walk today, ${refusedCensus.mineral} ` +
-        `because it would leave the mineral no seat a creep can reach, ${refusedCensus.network} because ` +
-        `eating its roads would split the network, and ${refusedCensus.lap} because it would create or ` +
-        `worsen a gated-over-target defender pair. The enclosure offers ${deepAnchors} anchor(s) with all ` +
-        `ten labs at depth >= ${DEPTH_SAFE} and ${fallbackAnchors} at depth >= ${DEPTH_SAFE - 1}. The ` +
-        `scoring is hauler distance plus ${SHALLOW_LAB_COST} per shallow lab plus ${ROAD_EAT_COST} per ` +
-        `eaten road tile, so the walk was minimised subject to those guards and this is what was left.`,
+      detail: "",
       tiles: [{ x: ax, y: ay }],
-    });
+      labs: {
+        haulDist: best.d,
+        anchor: { x: ax, y: ay },
+        orientation: variant === MAIN ? "main" : "anti",
+        fleetMedian: LAB_HAUL_FLEET_MEDIAN,
+        fleetP90: LAB_HAUL_FLEET_P90,
+        refused: {
+          wall: refusedCensus.wall,
+          mineral: refusedCensus.mineral,
+          network: refusedCensus.network,
+          lap: refusedCensus.lap,
+        },
+        deepAnchors,
+        fallbackAnchors,
+        depthSafe: DEPTH_SAFE,
+        shallowLabCost: SHALLOW_LAB_COST,
+        roadEatCost: ROAD_EAT_COST,
+      },
+    };
+    sfHaul.detail = renderDecl(sfHaul);
+    plan.meta.shortfalls.push(sfHaul);
   }
 
   // A DIAMOND THAT ATE ECO ROAD SAYS SO. The room ships all ten labs and no
@@ -719,25 +749,28 @@ export function planLabs(terrain, plan) {
   // discoverable only by diffing two runs.
   if (eatenRoads.length && plan.meta) {
     plan.meta.shortfalls = plan.meta.shortfalls || [];
-    plan.meta.shortfalls.push({
+    // THE RECORD IS THE ONLY WITNESS HERE, and that is why it has to exist. The
+    // displaced tiles are DELETED from the plan by the time it ships, so the
+    // finished board carries no trace of them — this kind is the one named
+    // exemption in validate.mjs's obligation inventory for exactly that reason.
+    const sfEat = {
       gate: "labs",
       kind: "lab-road-eat",
       source: "labs",
-      detail:
-        `the lab diamond displaced ${eatenRoads.length} planned road tile(s) ` +
-        `(${eatenRoads.map((r) => `${r.x},${r.y}`).join(" · ")}). This enclosure offers ` +
-        `${deepAnchors} anchor(s) at depth >= ${DEPTH_SAFE} and ${fallbackAnchors} at depth >= ` +
-        `${DEPTH_SAFE - 1} that clear the road network entirely — that is why the stamp is eating ` +
-        `road rather than avoiding it: with the road veto in place this room shipped ZERO labs. ` +
-        `${eatAnchors} anchor(s) were reachable once roads were priced instead of vetoed and ` +
-        `${eatBlockedByNet} of the ones tried were refused because eating them would have split the ` +
-        `road network or stranded a structure. The tiles taken are deleted from the plan, the ` +
-        `diamond's own diagonal and its stitch replace them, and the whole network was re-derived ` +
-        `as one component still servicing every structure it serviced before — the validator's ROAD ` +
-        `gate, asked before the fact. Cost model: ${ROAD_EAT_COST} tile(s) of hauler walk per tile ` +
-        `eaten, which is what made the winner the cheapest anchor and not merely a legal one.`,
+      detail: "",
       tiles: eatenRoads,
-    });
+      labs: {
+        eaten: eatenRoads.length,
+        deepAnchors,
+        fallbackAnchors,
+        depthSafe: DEPTH_SAFE,
+        eatAnchors,
+        eatBlockedByNet,
+        roadEatCost: ROAD_EAT_COST,
+      },
+    };
+    sfEat.detail = renderDecl(sfEat);
+    plan.meta.shortfalls.push(sfEat);
   }
 
   return {

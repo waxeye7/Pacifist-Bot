@@ -53,9 +53,27 @@
  * list the validator enforces identity on; a kind in RENDERERS but not in
  * AUDITED_KINDS is a renderer nobody checks, so the two are asserted equal at
  * load.
+ *
+ * ...AND SINCE ROUND 13, "AUDITED WHERE AUDITABLE" IS OVER: RENDERERS COVERS
+ * EVERY KIND. The eight-kind version of this module was uniform-by-accident in
+ * exactly the way the paragraph above says uniformity-by-hand always is — the
+ * eight were the kinds a reviewer had attacked, and the ten nobody had attacked
+ * went on shipping hand-written prose that could and did contradict its record.
+ * `validate.mjs` now asserts at LOAD that the RENDERERS key set equals its own
+ * declaration-kind inventory (OBLIGATION_KINDS + OBLIGATION_EXEMPT), and fails
+ * at RUNTIME any shipped declaration whose kind has no renderer. A new kind
+ * therefore cannot ship a typed paragraph even once.
  */
 import { renderMobility, renderCoveredDetour } from "./declprose-mobility.mjs";
-import { renderWeakBattery, renderClump } from "./declprose-towers.mjs";
+import { renderWeakBattery, renderClump, renderTowerRefill } from "./declprose-towers.mjs";
+import {
+  renderSpawnFan,
+  renderCtrlSeats,
+  renderCtrlReleased,
+  renderRuntimeSearch,
+} from "./declprose-hub.mjs";
+import { renderShallowLab, renderLabHaul, renderLabRoadEat } from "./declprose-labs.mjs";
+import { renderBattlementsCut, renderUnreachableWall } from "./declprose-shell.mjs";
 
 /** collapse whitespace runs and trim — see the header for what this is NOT */
 export const normText = (s) => String(s === null || s === undefined ? "" : s).replace(/\s+/g, " ").trim();
@@ -341,6 +359,26 @@ export const RENDERERS = {
   "towers|clump": renderClump,
   "mobility|": renderMobility,
   "mobility|covered-detour": renderCoveredDetour,
+  // --- round 13: the ten kinds that were still hand-written ----------------
+  // Eight of eighteen kinds were generated and audited, and which eight was an
+  // accident of which kinds a reviewer had attacked. The other ten shipped 31
+  // paragraphs assembled inside their producers out of the producers' own
+  // locals, which reads like generation and is not — the validator has no way
+  // to run a producer's scope. Four demonstrable lies passed on that gap in one
+  // round (E2S8 "3 walk" over a record saying 11; E13S3 "0 cut tiles" over 1;
+  // E12S5 "feeds 7" over 5, on a pair that is in DECLARABLE_PAIRS and therefore
+  // excuses a hard gate; E13S2 "2 hauler tiles" over 12). The set below is now
+  // the WHOLE kind inventory, and validate.mjs asserts that at load.
+  "spawnfan|sector": renderSpawnFan,
+  "ctrlparks|seats": renderCtrlSeats,
+  "ctrlparks|released": renderCtrlReleased,
+  "runtime|heavy-search": renderRuntimeSearch,
+  "labs|shallow-lab": renderShallowLab,
+  "labs|lab-haul": renderLabHaul,
+  "labs|lab-road-eat": renderLabRoadEat,
+  "battlements|": renderBattlementsCut,
+  "battlements|unreachable": renderUnreachableWall,
+  "towerrefill|": renderTowerRefill,
 };
 
 /**

@@ -92,18 +92,48 @@ per room. Rise to the bar; do not lower it.
   now offers every such run the interior parallel and takes the swap when the
   network is measurably no worse; a single CROSSING tile is never touched.
 
-  **AND WHEN IT DECLINED, IT PUBLISHED A ZERO.** Five rooms still ship two
-  consecutive paved cut tiles (E15S1, E18S9, E19S9, E7S9, E9S8) — the
-  anti-pattern by its own name — and the only
+  **AND WHEN IT DECLINED, IT PUBLISHED A ZERO.** Rooms still ship runs of
+  consecutive paved cut tiles — the anti-pattern by its own name — and the only
   thing stage 5b said about them was the counter `alongCutMoved: 0`. A count of
   moves TAKEN is not an argument about the moves NOT taken: from a zero a reader
   cannot tell "there was nothing to do" from "there was something to do and it
   was refused," which is silent capping with a number in front of it. Stage 5b
   now records a **REFUSAL PER TILE**, with the reason that applies to that tile —
   no interior parallel exists, and which neighbour failed and why; or the swap
-  breaks the road network — and every room that ships a run states it, re-derived
-  by the validator on the board the room actually ships rather than on stage 5b's
-  working copy.
+  breaks the road network — and every room that ships a run states it. **16
+  refusals** stand today against **7 moves taken** (`alongCutRefused: 16`,
+  `alongCutMoved: 7` summed over the fleet), and the 7 are pinned tile by tile as
+  the `alongCutMoved` entries of the provenance enum in the film bullet below —
+  a witness LIST rather than the bare integer this paragraph exists to complain
+  about. E2S1 is the case that makes "per candidate" load-bearing: free
+  interior parallels DO exist there, and every single swap drops road tiles off
+  the network, so its refusals name that per candidate instead of claiming there
+  was nothing to look at.
+
+  **AND THE DETECTOR WAS D4 IN A GAME THAT MOVES D8.** Screeps creeps step
+  diagonally and are not stopped by a corner, so two tiles touching only at a
+  corner are one step apart and a run that turns is still a run. The run
+  detector, the interior-parallel search and the roster quoted in this paragraph
+  all used ORTHOGONAL adjacency, so a diagonal run was not merely under-counted,
+  it was invisible. "Five rooms" was never the fleet's answer; it was the
+  detector's. All three are D8 now and the roster is **SEVEN rooms, 14 tiles —
+  E12S7, E15S1, E18S9, E19S9, E2S1, E7S9, E9S8**, of which E12S7 and E2S1 are the
+  diagonal pair the D4 reading never saw.
+
+  **AND "RE-DERIVED BY THE VALIDATOR ON THE BOARD THE ROOM ACTUALLY SHIPS" WAS
+  ASPIRATION.** That clause closed the refusal paragraph above through round 12,
+  and there was
+  no such gate behind it: a round-13 reviewer deleted a room's ENTIRE along-cut
+  record and the run passed clean, which is this document describing a check into
+  existence — the same defect as the shallow declaration that lived only in the
+  sentence announcing it. There is a gate now. The validator re-derives the roster
+  from the SHIPPED board over D8 adjacency, requires a refusal for every tile in
+  it, and re-checks the NAMED FACTS of each refusal against terrain, the exterior
+  region, the cut, the structure lists and the road network with all-8-neighbour
+  coverage — a refusal that says "no interior parallel exists" fails if one does.
+  The record is published as `meta.walls.alongCutRuns` (`{x, y, free[], held[]}`
+  per tile) and the PAVED RUN note must be present exactly when runs exist and
+  absent when they do not.
   Every OTHER road/rampart coincidence is still the anti-pattern. Spur
   roads TO rampart clusters allowed. Roads exist only for: hub kit, eco paths,
   lab road, tower faces, extension corridors, rampart spurs, shell gates. Dead
@@ -201,11 +231,24 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **189/189 caught** (90/90 at round 11, 64/64 at round
+  The mutation suite is at **260/260 caught** (189/189 at round 12, 90/90 at
+  round 11, 64/64 at round
   10), against a 172/172 clean baseline on the unmutated artifact; every one of
   them was written because a reviewer landed the mutation first. Round 12 added
   **81**, and the block is grouped by the finding that produced it: C1 8/8 ·
   C2 14/14 · M3 16/16 · M4 17/17 · M5 17/17 · M1 4/4 · M2 3/3 · F1 2/2.
+  Round 13 added **74** live cases in the same grouping and retired 3.
+  Forty-eight of the new ones gate this round's validator work — F2
+  `redundantCut` coverage plus per-class re-derivation 12/12 · M1 `alongCut`
+  11/11 · M3 `cause` 7/7 · F8 2/2 · F1 4/4 synthetic · `roadKind` 6/6 ·
+  `alongCutRuns` 6/6 — and **26 attack the PROSE channel**: the four lies a
+  reviewer landed in paragraphs, reproduced by PROPERTY rather than as the exact
+  strings he happened to type, 20 generic prose rewrites spread over the 10
+  newly-rendered kinds, and 2 renderer bypasses. The 3 retired are round 12's
+  paving-gap cases, which this round's own fix made dead — the gap they mutate no
+  longer exists on any board in the fleet — and the four synthetic F1 cases
+  replace that coverage permanently, which is the only reason retiring them is a
+  cleanup rather than a coverage cut.
   (C2 was quoted as 15 here through round 13 — the eight figures summed to 82
   against a stated total of 81, and committing the harness is what made the
   discrepancy checkable. The harness counts 14.)
@@ -214,7 +257,8 @@ per room. Rise to the bar; do not lower it.
   `PLANS_FILE`, never writes the artifact, exits 1 on any escape or on a dirty
   baseline, 2 on a short mongo dump). It replaces the scratchpad splice this
   section used to name as an open gap: the count above is printed by a committed
-  tool. The 189 are the 171 that splice carried plus **18 recovered** from the
+  tool. The 189 it stood at in round 12 were the 171 that splice carried plus
+  **18 recovered** from the
   round-8, round-10 and round-13 side harnesses, which the consolidation had
   silently dropped — four `nukeWindow` cases (off-by-one, deleted value, deleted
   object, and the nuker moved with the published value carried forward),
@@ -256,8 +300,30 @@ per room. Rise to the bar; do not lower it.
   prose is now **GENERATED** from the structured record by a shared template
   (`declprose.mjs`, `-mobility`, `-towers`) that the producer and the validator
   BOTH call, and the validator regenerates from the published record and requires
-  equality. Eight audited kinds. The paragraph cannot say anything the record
+  equality. ~~Eight audited kinds.~~ The paragraph cannot say anything the record
   does not, because nobody writes the paragraph. See criticism 17.
+
+  **EIGHT OF EIGHTEEN IS THE ROUND-11 OBLIGATION BUG WEARING THE ROUND-12 FIX.**
+  Round 12 replaced hand-written prose with generated prose for the eight kinds
+  someone got to, and the other ten kept the old contract — a paragraph a human
+  typed, checked by nothing — so the architecture that "makes it impossible" was
+  in force over 8 of the 18 kinds and the sentence above did not say which 8.
+  **RENDERERS covers all 18 kinds now, and all 303 declarations in the fleet
+  carry generated prose.** The regeneration was also the audit: the 31 paragraphs
+  that had been hand-written under the ten unrendered kinds came back
+  **byte-identical**, so the fleet was in fact honest — but it was honest by
+  luck-and-diligence and nothing had ever checked it, and "we looked and it was
+  fine" is a measurement only once something looks every run. `assertProseInventory()`
+  asserts at load that `RENDERERS == OBLIGATION_KINDS ∪ OBLIGATION_EXEMPT`, so a
+  kind that renders nothing FAILS instead of quietly falling back to whatever the
+  producer wrote — the same completeness assertion `assertPairInventory()` gives
+  the declarable lists, applied to the channel a reviewer actually reads.
+
+  **AND THE ONE STRUCTURED AUDIT THAT DID EXIST WAS OPT-IN.** The `redundantCut`
+  re-derivation ran over the reasons a room PUBLISHED, so a room that published
+  none was audited over nothing and an empty map passed. Closed enum, exact
+  coverage, per-class re-derivation by deletion — the full account is under the
+  `meta.shell.cut` bullet, where the record is defined.
 - **AND THE NARRATION GATES WERE OBLIGATIONS NOBODY ENFORCED.** Deleting E7S5's
   `mobility/covered-detour` declaration outright — the fleet's worst pair, 33
   tiles of detour at ratio 17.5 — cost nothing at all; the same held for the
@@ -289,11 +355,13 @@ per room. Rise to the bar; do not lower it.
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
   `plans-hub.json` over consecutive `--all-claimable` runs of the shipped tree
-  on the 172-room world: three consecutive full-fleet runs byte-identical, md5
-  **`c9ac380797f5eecadd4dc78bb890cc96`** (round 12, as shipped — this is the
+  on the 172-room world: the round-13 artifact was rebuilt **twice,
+  byte-identical** (round 12 ran the triple), md5
+  **`a0c94198bea96d832ad3e342774076c8`** (round 13, as shipped — this is the
   number `md5sum tools/plan-suite/out-v2/plans-hub.json` prints today).
-  (`391686904ebdc39c2745ae5a741c6726` was round 11 and is retired with it, as
-  `4cd61bc629797fc7859d2573b90bc119` — the round-11 pre-fix artifact — was
+  (`c9ac380797f5eecadd4dc78bb890cc96` was round 12 and is retired with it, as
+  `391686904ebdc39c2745ae5a741c6726` — round 11 — and
+  `4cd61bc629797fc7859d2573b90bc119` — the round-11 pre-fix artifact — were
   before that; the sha256 that used to stand beside them is deleted rather than
   carried forward, because a digest of a file that no longer exists is worse than
   no digest — it reads as corroboration and corroborates nothing.)
@@ -338,9 +406,13 @@ per room. Rise to the bar; do not lower it.
   from the artifact afterwards**. Anyone re-checking this row has to re-run
   `plan.mjs --all-claimable` and read its last three lines; there is no second
   source. Round 12 adds one measured pass per audited declaration kind — the
-  validator now regenerates eight kinds of declaration prose from the record and
-  compares (finding M3/M4/F2/F5) — and that cost is on the VALIDATOR's clock,
-  not the planner's. The in-planner total read 99.6s and then 88.5s across two
+  validator regenerated eight kinds of declaration prose from the record and
+  compared (finding M3/M4/F2/F5), and round 13 took that to all 18 — and that
+  cost is on the VALIDATOR's clock, not the planner's. **The table gets no
+  round-13 row**: the artifact was rebuilt twice for the determinism check and
+  no `SUITE WALL CLOCK` figure from those runs is on the record here, so there is
+  nothing to enter — and an entry reconstructed after the fact is exactly the
+  kind of figure the rest of this table refuses. The in-planner total read 99.6s and then 88.5s across two
   round-12 runs of byte-identical output, straddling round 11's 92.0s and well
   inside the 88.5–171.7s band this table has been quoting since round 9; no
   attribution of the difference is offered here, because none was measured, and a
@@ -563,6 +635,16 @@ per room. Rise to the bar; do not lower it.
   re-measuring the room**. A tile whose deltas are all zero is not a refusal, it
   is a rampart nobody looked at, and it now gets pruned instead of explained.
 
+  **AND THAT RE-DERIVATION WAS OPT-IN, WHICH IS THE SAME AS ABSENT.** It ran over
+  the reasons a room PUBLISHED, so a room that published none was audited over
+  nothing: a round-13 reviewer emptied the reasons map on a room carrying extra
+  cut tiles and the run passed clean. "43 of 43 explained today" was a
+  description of the artifact, not a property of the gate. `class` is a **CLOSED
+  6-CLASS ENUM** now, the reason set must EQUAL the extra-cut set — not be
+  contained in it, which is the direction an opt-in check tests — and each tile's
+  class is re-derived by deletion, so an empty map fails, a mislabelled class
+  fails, and a reason attached to a tile that is not extra fails. 12 mutations.
+
 ## Judgment criteria (the owner's voice — reviewer applies these to sampled rooms)
 
 - **Owner-spec ruling: two stamps are fixed and are not up for review.** The hub
@@ -617,6 +699,27 @@ per room. Rise to the bar; do not lower it.
   names the stale rooms. **Running the suite without then running
   `export-anim.mjs --all` is now a loud line, not a silent lie.**
 
+  **AND THE LAYER-7 CAPTION NAMED SOMETHING THE ROOM NEVER LAID.** That caption
+  was one sentence about rampart spurs, written once against the rooms that have
+  them, and every room whose layer 7 lays no spur tile played it anyway — **85
+  rooms ship not one spur tile**, and 21 of those ship other layer-7 road tiles
+  and therefore a layer-7 stage, so the caption was naming the single job that
+  stage did not do.
+  A caption that is true of the fleet and false of the room is the film asserting
+  something the plan does not say — the same class as the flat-rectangle stages
+  above, arrived at from the prose side instead of the table side. The caption is
+  **COMPOSED from per-tile provenance** now: the planner records why each layer-7
+  road tile exists as it lays it, in `meta.walls.roadKind`, a **CLOSED 7-kind
+  enum** — **spur 370 · swampPave 82 · reflow 20 · alongCutMoved 7 · stitch 5 ·
+  conductBridge 3 of the 487 layer-7 road tiles the fleet ships, 0 unclassified**
+  (printed whether or not it is zero, for the reason the road+rampart taxonomy
+  gives above: a residue class that can absorb anything is not a taxonomy). The
+  enum is validator-gated and re-derived from the shipped board — every one of
+  the 487 keys is a road tile the room really ships, and the 3 `conductBridge`
+  tiles are exactly the three joins criticism 6 paved — so a room's caption can
+  only name kinds that room actually laid, and a tile the enum has no word for
+  fails the room rather than joining the largest class.
+
 ## Anti-patterns (auto-fail if a reviewer finds one)
 
 - Sparse checkerboard extensions; solid extension bricks; extensions walled in.
@@ -654,7 +757,7 @@ Frozen fleet metrics: `docs/PLANNER-BASELINE-2026-08-01.json`
 enclosed ctrl 88 / sources 170 · mobility>1 in 18 rooms · parks min 5).
 Every cycle must move at least one number the right way without regressing others.
 
-Where the fleet stands after round 12 (172 rooms, the world this doc is now
+Where the fleet stands after round 13 (172 rooms, the world this doc is now
 measured against — the 159-room numbers above are kept as the frozen baseline
 they are, not as a description of today). **Every number in this block is printed
 by one of exactly three commands — `plan.mjs --all-claimable`, `validate.mjs` or
@@ -666,7 +769,7 @@ re-transcribed by hand out of `plans-hub.json` every round, which is the exact
 condition m1 and m2 caught rotting. The suite now prints all three, plus the
 notes and the road total, on one line:
 
-  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 303 · planner notes 170 · roads 14102`
+  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 303 · planner notes 172 · roads 14104`
 
 **And the reason that line names `declared shortfalls` explicitly is that a
 number which looked like it was already printed was a different quantity.**
@@ -678,7 +781,7 @@ visibly distinct. The digest is quoted once, in the
 determinism bullet above, and not repeated here:
 ext60 172/172 (suite) · validator 172/172 fail 0 (validator) ·
 ramparts total **8208** (suite, FLEET TOTALS) ·
-roads median 81 of **14,102** total (suite prints the median, the distribution
+roads median 81 of **14,104** total (suite prints the median, the distribution
 and the total; the census prints the total again beside the arterial
 set) · **shallow extensions 25 in three
 rooms** (E9S2 15, E12S6 6, E2S3 4 — every one of them declared and every one
@@ -697,7 +800,8 @@ zero, which is the fix — see the road bullet) · one mobility declaration per 
 **55 rooms over the 1.2 gated target** and 57 declarations (two rooms declare a
 negotiation their mass then fixed), and the `cause` field is now derived from the
 same lift test as the prose beside it rather than overwritten after it, with a
-room inside the target carrying `cause: "none"` — see the cause paragraph under
+room inside the target carrying `cause: "none"`, its VALUE re-derived rather than
+merely its presence — see the cause paragraph under
 criticism 2 · the COMPLETE mobility record, which is not the verdict: worst ratio
 **17.5** and worst absolute detour **33 tiles**, both E7S5, both excused from the
 gate by coverage and both DECLARED (`mobility/covered-detour`, 8 rooms) · furthest
@@ -708,17 +812,17 @@ tower refill AS BUILT median 4 / max 11, **16 rooms over the 8-step note and all
 re-derived over a graph in which spawns and storage are the obstacles the engine
 says they are, and printed as a per-level table by `push-plan.mjs --census` —
 with the honest scope stated where it belongs, and PRINTED rather than only
-stated: **1 room PAVED its RCL-deferred join (E5S1 `28,30`) and 2 rooms publish
-an unpaveable PAVING GAP — E2S5 `27,23` with 11 road tiles behind it and E5S3
-`32,11` with 5** — a join whose only tile is the
-mineral container's own, which no arrangement of roads can pave before RCL6; a
-creep walks it at 2 ticks instead of 1, nothing is unreachable, and the tile
-conducts in the audit because the plan names it and the validator re-derives it
-from terrain · arterial **7,919 of 14,102** road tiles (census) · **303 declared
+stated: **3 rooms PAVED their RCL-deferred join — E2S5 `27,23`, E5S1 `28,30`,
+E5S3 `32,11` — and 0 rooms publish a PAVING GAP.** Round 12 shipped two of those
+three as "unpaveable" against a rule it had invented, and the two roads that
+closed them are the whole of this round's +2 on the fleet road total; the gap
+gate survives with nothing in it, which is the shape a fixed excuse should leave
+behind (criticism 6) · arterial **7,919 of 14,104** road tiles (census — the
+numerator did not move, the denominator did) · **303 declared
 shortfalls** (suite, FLEET TOTALS — and NOT the `declared-shortfall 121` the
 validator ends on, which counts rooms, per the note above), of which 133 are the
 per-room mineral-seat off-network exception the road gate used to grant silently
-in the checker's own source, and **170 planner notes** beside them (suite, same
+in the checker's own source, and **172 planner notes** beside them (suite, same
 line).
 
 Known open criticisms, in priority order:
@@ -841,6 +945,16 @@ Known open criticisms, in priority order:
    **it has not earned**, which is the check that would have caught this the first
    time.
 
+   **AND IT RE-DERIVED WHETHER THE ROOM MAY HAVE A CAUSE, NOT WHICH CAUSE IT
+   HAS.** A room that legitimately misses could therefore relabel itself: the
+   gate proved a cause was owed and then accepted whichever of the three words
+   the producer wrote. The VALUE is re-derived now — the lift test's `clears` is
+   the whole of the `structures` verdict (it clears exactly when the cause is
+   ours), and the terrain-versus-shape split is re-derived on the LIFTED board
+   rather than read off the shipped one — and the two published copies, the one
+   in `meta` and the one inside the declaration, must agree with each other and
+   with the re-derivation. 7 mutations cover it.
+
    **AND THEN THE LIFT TEST'S OWN VERDICT WAS IGNORED FOR A ROUND.** Four rooms
    shipped a mobility DECLARATION whose evidence, in the same object, read
    `lift.clears: true` with ONE sufficient class and a lifted lap of 0 —
@@ -941,11 +1055,15 @@ Known open criticisms, in priority order:
    Re-derived on the shipped artifact, over that corrected graph and printed by
    `node tools/server/push-plan.mjs --census`: **0 eco terminals a creep cannot
    reach and 0 staged road orphans at EVERY ONE of RCL 3, 4, 5, 6, 7 and 8**,
-   arterial set **7,919 of 14,102**
+   arterial set **7,919 of 14,104**
    road tiles, container-face pass **30 tiles across 28 rooms**, eco-reach chains
    **6 tiles across 3 rooms**, the two together **36 tiles across 31 rooms, max 3
-   in one room** (E14S5), **0 demoted**; the pass only ever RE-STAGES roads the
-   planner already placed and never invents one.
+   in one room** (E14S5); the pass only ever RE-STAGES roads the
+   planner already placed and never invents one, and the census now ends that
+   sentence with the arithmetic instead of the assurance — **`924 tiles promoted,
+   0 demoted`**. The `0 demoted` in this paragraph was quoted as a printed figure
+   for a round while nothing printed it, which is m1/m2 committed by the fix for
+   m1/m2; it is printed now.
 
    **AND UNTIL ROUND 12 THAT SWEEP ONLY EVER RAN AT RCL 3.** One line reading
    "0 tiles in 0 rooms" was the entire published evidence that this staging was
@@ -963,33 +1081,41 @@ Known open criticisms, in priority order:
    **The honest scope, stated rather than rounded off — AND PRINTED, which is the
    only version of "stated" this document accepts any more.** `--census` ends on:
 
-   `RCL-deferred conduct: 1 room(s) PAVED the join — E5S1(28,30); 2 room(s) publish an unpaveable PAVING GAP — E2S5(27,23; 11 road tile(s) behind it) E5S3(32,11; 5 road tile(s) behind it)`
+   `RCL-deferred conduct: 3 room(s) PAVED the join — E2S5(27,23) E5S1(28,30) E5S3(32,11); 0 room(s) publish a PAVING GAP`
 
-   So "0 orphans at RCL 3 through 8" is true with **one room paving its join
-   (E5S1 `28,30`) and two rooms conducting over a PAVING GAP — E2S5 `27,23`, 11
-   road tiles behind it, and E5S3 `32,11`, 5 road tiles behind it.** Each gap is
-   the single tile on which a pocket of the network meets the rest, and each is
-   the tile the mineral container occupies. The engine allows one structure per
-   tile, so no arrangement of roads closes either before RCL6. A creep still
-   walks it — containers are not obstacles and neither is bare floor — so the
-   cost is one extra tick per crossing and nothing is unreachable. That is a
-   different fact from an orphan, so it is published as one, in the plan's own
-   `meta.walls.conductBridge.gapTiles`, and the validator re-derives it from
-   terrain and fails the room if it is not true. The alternative is a guarantee
-   that says "0 orphans" by quietly meaning something narrower.
+   So "0 orphans at RCL 3 through 8" is true with **three rooms paving their join
+   and no room conducting over a gap at all.**
 
-   **AND THE GAP ITSELF NEEDED A GATE, BECAUSE A GAP IS ALSO AN EXCUSE.** A tile
-   named as a paving gap CONDUCTS in the audit — that is what naming it buys — so
-   a room could publish a stretch of BARE FLOOR as a gap and have its orphans
-   conduct away, which is a room declining to pave and calling it geometry. The
-   validator refuses a gap tile that carries no structure: a gap is a tile the
-   engine will not let you pave, not a tile the planner did not. Mutation
-   `M1-gap-tile-is-bare-floor` bites.
+   **AND THE TWO THAT WERE CALLED UNPAVEABLE WERE NOT. THE RULE WAS INVENTED.**
+   Through round 12 this passage said E2S5 `27,23` and E5S3 `32,11` were joins
+   "the engine will not let you pave", because each is the tile the mineral
+   container occupies and "the engine allows one structure per tile". **The
+   engine does not say that about roads.** A road and a container legally share a
+   tile — this very fleet ships **62 tiles carrying both, across 55 rooms**, and
+   the audit's own conductor set has always contained both kinds — so the
+   sentence was contradicted by the artifact it was written about, and by the
+   graph in the paragraph above it. Two rooms were excused from paving by a rule
+   nobody could have found in the game, and the excuse was airtight precisely
+   because it sounded like physics. Both joins are **PAVED** now, one road each,
+   releasing **11** pre-RCL6 stranded conductors in E2S5 and **5** in E5S3 — the
+   same 11 and 5 this document had been quoting as the size of the loss it was
+   accepting. That is the whole of the fleet road total's +2.
+
+   **THE GATE STAYS, WITH NOTHING IN IT, BECAUSE A GAP IS STILL AN EXCUSE.** A
+   tile named as a paving gap CONDUCTS in the audit — that is what naming it buys
+   — so a room could publish a stretch of BARE FLOOR as a gap and have its
+   orphans conduct away, which is a room declining to pave and calling it
+   geometry. The rule is now re-derived from the ENGINE'S OWN obstacle set rather
+   than from prose: a tile is unpaveable when it carries an obstacle structure or
+   is terrain wall, and **nothing else counts** — which is exactly the check that
+   would have refused the two gaps this round deleted. Zero rooms publish a gap
+   today. It is kept enforced anyway, and the census prints the zero, because the
+   next room that wants one will want it for a reason that sounds just as good.
    (The stale `push-plan.mjs` header comment that said "One room in the fleet has
    a join that cannot be paved by anybody" — written when E5S3 was the only one,
-   and left standing when E2S5's recomposition made it two — is corrected. It is
-   the same rot as m1 and m2, in a source comment instead of in this file, and it
-   is fixed the same way: something prints the count now.)
+   and left standing when E2S5's recomposition made it two — was corrected in
+   round 12 and is now gone with the claim it repeated: no room in the fleet has
+   such a join, and the rule that said two did was invented.)
 
    **The "road-array prefix invariant 172/172" line that used to stand here was
    false in the literal reading and true in the one that matters.** A strict
@@ -1007,12 +1133,24 @@ Known open criticisms, in priority order:
    rounds. Re-derived twice against the shipped artifact using push-plan's own
    `rcl2Containers()` — source seats plus the controller container, the mineral
    one deferred to RCL6 — it is 218/143; the all-four-containers reading gives
-   365/168 and no reading gives 220/145. The wrong pair was in TWO places, here
+   **363 across 168 rooms** and no reading gives 220/145. The wrong pair was in
+   TWO places, here
    and in a comment in `src/utils/PlanV2.ts`, and both are corrected. It survived
    two rounds for exactly one reason: **`--census` never printed the figure.** It
    does now. A number in prose that no tool re-derives rots exactly like a metric
    no gate re-derives, and the fix for both is the same — make something print
    it.)
+
+   **AND THE SECOND FIGURE IN THAT PARENTHESIS WAS WRONG AGAIN, WHICH IS THE
+   POINT IT WAS MAKING.** The all-four-containers reading stood there as
+   **365/168**; the artifact says **363 across 168 rooms — 218 RCL2 containers
+   plus 145 mineral-only ones**. So the paragraph written to explain how a
+   hand-copied number rots was itself carrying a hand-copied number, wrong in the
+   round that corrected the figure beside it. The 218/143 pair was right for
+   exactly the reason the paragraph gives — `--census` prints it — and the 365 was
+   wrong for exactly the same reason inverted, because nothing printed it.
+   `--census` prints both readings now, with the 218 + 145 split named, and
+   `924 tiles promoted, 0 demoted` on the line under them.
 7. **THE ARRIVE BIAS RE-IMPORTED THE NOISE THE DETOUR FLOOR WAS BUILT TO REMOVE.**
    Both laps of the mobility ratio are measured tile-to-tile with the same
    primitive. The defender occupies both wall tiles so his walk is exact; the
@@ -1165,17 +1303,20 @@ now makes it impossible rather than what was patched:
    audits reports zero BY CONSTRUCTION; it is not a weak check, it is not a check.
    All three sites now call `plannedTilesFor` at the RCL being audited, so a
    container that does not exist yet cannot conduct; `stagedOrphans` sweeps RCL
-   3 through 8 rather than only 3; **E5S1 is PAVED at `28,30`**; and E5S3's join
+   3 through 8 rather than only 3; **E5S1 is PAVED at `28,30`**; ~~and E5S3's join
    cannot be paved by anybody — it is the mineral container's own tile — so it
    publishes a verified PAVING GAP instead (see criticism 6 for the scope, and
-   for E2S5, which became a second one this round). A new validator gate
+   for E2S5, which became a second one this round).~~ **That clause was false and
+   round 13 deleted it along with both gaps: a road may share a tile with a
+   container, so E2S5 `27,23` and E5S3 `32,11` are PAVED too and the fleet
+   publishes zero gaps — see criticism 6 and criticism 23.** A new validator gate
    re-derives the whole thing from terrain, and it was proved by re-running it
    against the PREVIOUS artifact, where it bites. **And the gap is itself gated,
-   because a gap that conducts is an excuse that conducts**: a gap tile must
-   carry a structure, or it is bare floor the planner declined to pave rather
-   than a tile the engine forbids paving. The census prints the whole census —
-   1 room paved, 2 rooms gapped, with the road count behind each. 4 mutations,
-   all bite, including `M1-gap-tile-is-bare-floor`.
+   because a gap that conducts is an excuse that conducts**: a gap tile must be
+   one the ENGINE refuses to pave — an obstacle structure or terrain wall — and
+   not merely one the planner did not. The census prints the whole census, now
+   3 rooms paved and 0 gapped. 4 mutations, of which the 3 that mutate a gap are
+   retired as dead with the gaps themselves (criticism 23).
 16. **(M2) THE ECO FLOOR WAS ONE TOO HIGH IN SEVEN ROOMS, AND IT WAS THE SAME
    MISTAKE THIS DOCUMENT ALREADY WROTE UP ONCE.** The optimization bullet above
    says it in full: a floor measured in a different metric from the distances it
@@ -1205,7 +1346,8 @@ now makes it impossible rather than what was patched:
    declprose.mjs`** (plus `-mobility` and `-towers`) GENERATES declaration prose
    from the structured record via a shared template that **the producer and the
    validator both call**, and the validator regenerates from the published record
-   and requires EQUALITY. Eight audited kinds. A paragraph can no longer say
+   and requires EQUALITY. Eight audited kinds — **which was 8 of 18, and round 13
+   raised it to all 18; see criticism 25.** A paragraph can no longer say
    anything its record does not, because nobody writes the paragraph. Landed with
    it, in the same architecture:
    - `mobilityBuilt` is compared **field by field** against the validator's own
@@ -1269,7 +1411,9 @@ now makes it impossible rather than what was patched:
    completeness assertion, and it does not have one yet.
 22. **(m1/m2) TWO FIGURES IN THIS DOCUMENT HAD SIMPLY ROTTED, AND THE FIX FOR
    BOTH IS THE SAME FIX.** The arterial figures were stale (7,921 of 14,101
-   against a real 7,919 of 14,102), and **E13S6 was named as a released-parks room
+   against a real 7,919 of 14,102 on that artifact; the pair reads **7,919 of
+   14,104** today, the numerator unmoved and the denominator carrying round 13's
+   two paved joins), and **E13S6 was named as a released-parks room
    in four separate places** — this document, `pipeline.mjs`'s `PARK_PROTECT`
    comment, criticism 4 and the released-parks prose — when it holds all 8 of the
    8 seats its search counted, eats 0, ships 0 shallow extensions and never enters
@@ -1292,16 +1436,99 @@ now makes it impossible rather than what was patched:
    `declared-shortfall 121` and 121 counts ROOMS that pass carrying a note, not
    declarations, so a reader checking the doc against the tool would have found a
    number, compared it to 303, and had no way to know which of them was wrong.
-   The suite now prints a `FLEET TOTALS:` line carrying all five figures, the
-   census prints the paving-gap census, and the claim at the head of the status
-   block is true as written for the first time. Every remaining figure in this
-   file that a tool does NOT print is now named as such where it stands — the
-   runtime table's per-room quantiles (`planMs` is deliberately not serialised)
-   and E16S2 `22,32`'s "after" deltas, which cannot be re-derived from an artifact
-   the tile no longer appears in. The **mutation count** was on that list too —
+   All three are now printed — by the `FLEET TOTALS:` line the fleet summary in
+   `plan.mjs` ends on, which carries all five figures (ramparts, shallow
+   extensions, declared shortfalls, planner notes, roads) — the census prints the
+   paving-gap census, and the claim at the head of the status block is true as
+   written for the first time. **THE SENTENCE THAT USED TO CLOSE THIS PARAGRAPH
+   WAS ITSELF UNCHECKED PROSE**, which is what a round-13 reviewer pulled on it:
+   it claimed every remaining figure a tool does NOT print "is now named as such
+   where it stands", pointing at in-place markers that were never written. Two
+   figures in this file genuinely are not printed and neither carries a marker —
+   the runtime table's per-room quantiles, which are dashes with a paragraph
+   under the table saying `planMs` is deliberately not serialised, and E16S2
+   `22,32`'s "after" deltas in criticism 20, which cannot be re-derived from an
+   artifact the pruned tile no longer appears in. Saying so here, once, is
+   cheaper than a marker convention nobody maintains. The
+   **mutation count** was on that list too —
    the harness was a scratchpad splice and nothing committed ran it. It is now
    `tools/plan-suite/v2/mutate.mjs`, it prints
-   `BASELINE 172/172 clean · MUTATIONS 189/189 bite`, and that gap is closed.
+   `BASELINE 172/172 clean · MUTATIONS 260/260 bite`, and that gap is closed.
+
+Round-13 findings. **Two fresh reviewers, 11 confirmed findings between them** —
+the owner-voice reviewer filed 3 BLOCKING, 1 MEDIUM and 4 LOW, the mechanical
+reviewer 1 MAJOR and 2 MINOR — and all 11 were fixed the same day, in three
+waves, against the round-12 artifact. The pattern of the round is worth naming
+before the list: **four of the five headline findings are this document's own
+sentences failing to be true**, not the planner failing to be good. A rule
+nobody could find in the game, a gate that existed only in the clause announcing
+it, an architecture applied to 8 of 18 cases while the prose said it was applied,
+and an audit that only audited what a room volunteered. The planner was, in every
+one of those four, either already right or one road tile away from right.
+
+23. **THE WORD "UNPAVEABLE" WAS A RULE THIS PROJECT INVENTED.** Round 12 ruled
+   that E2S5 `27,23` and E5S3 `32,11` could not be paved by anybody, because
+   each is the mineral container's own tile and "the engine allows one structure
+   per tile". Screeps allows a road and a container on one tile, and **this fleet
+   ships 62 such tiles across 55 rooms** — the counter-example was in the artifact
+   the claim was written about, and in the conductor set of the audit two
+   paragraphs above it. Both joins are PAVED now, one road each, releasing **11**
+   pre-RCL6 stranded conductors in E2S5 and **5** in E5S3, which are the same two
+   numbers this document had been publishing as the size of the loss it accepted.
+   The gate survives with nothing in it and its rule is re-derived from the
+   ENGINE'S obstacle set rather than from prose — unpaveable means an obstacle
+   structure or terrain wall, and nothing else — so the next invented rule fails
+   instead of persuading. `--census` prints `3 room(s) PAVED the join … 0 room(s)
+   publish a PAVING GAP`. The 3 round-12 gap mutations are retired as dead; 4
+   synthetic F1 cases replace their coverage.
+24. **THE ALONG-CUT REFUSAL RECORD HAD NO GATE, AND THIS DOCUMENT SAID IT DID.**
+   The road bullet ended on "re-derived by the validator on the board the room
+   actually ships rather than on stage 5b's working copy". No such check existed:
+   a reviewer DELETED a room's entire along-cut record and the run passed clean.
+   This is the shallow-declaration failure of round 11 exactly — a mechanism whose
+   only implementation was the sentence claiming it — and it is the third time
+   this document has written a check into existence, which is why the sentence is
+   left standing above with its own correction beside it rather than quietly
+   edited out. The gate is real now: roster re-derived from the shipped board,
+   a refusal required per tile, and each refusal's NAMED FACTS re-checked against
+   terrain, the exterior region, the cut, the structure lists and the roads with
+   all-8-neighbour coverage, published as `meta.walls.alongCutRuns`. 11 mutations.
+25. **TEN OF EIGHTEEN DECLARATION KINDS RENDERED NOTHING, AND THE ONE STRUCTURED
+   AUDIT WAS OPT-IN.** Round 12's answer to hand-written prose was to generate it,
+   and it generated eight kinds. The other ten kept the round-10 contract — a
+   paragraph a human typed, checked by nothing — while this document described the
+   architecture as though it covered the channel. **RENDERERS is all 18 kinds now
+   and all 303 declarations carry generated prose**; the 31 hand-written
+   paragraphs under the ten unrendered kinds regenerated **byte-identical**, so
+   the fleet turns out to have been honest, and that is a fact the audit produced
+   rather than a defence the audit was spared. `assertProseInventory()` asserts
+   `RENDERERS == OBLIGATION_KINDS ∪ OBLIGATION_EXEMPT` at load and an unrendered
+   kind FAILS. The same round found the `redundantCut` audit was opt-in — it
+   re-derived the reasons a room published, so a room publishing none was audited
+   over nothing, and an EMPTY reasons map passed. Closed 6-class enum, coverage
+   must EQUAL the extra-cut set, per-class re-derivation by deletion. 12 + 26
+   mutations.
+26. **A D4 DETECTOR IN A D8 GAME.** The paved-run detector along the cut, the
+   interior-parallel search that tries to move those tiles, and the roster this
+   document quotes all used orthogonal adjacency in a game whose creeps move
+   diagonally and are not stopped by corners. A diagonal run was not
+   under-counted, it was invisible, and "five rooms" was the detector's answer
+   rather than the fleet's. All three are D8 now: **seven rooms, 14 tiles**, with
+   E12S7 and E2S1 the pair that had never appeared. Neither of them moves — E2S1's
+   free interior parallels all drop road tiles off the network, and its refusals
+   now say so per candidate — so the correction buys no swap and only truth, which
+   is the point of publishing the roster at all. 6 mutations on `alongCutRuns`.
+27. **STILL OPEN: `spurTiles` SUMS TO 375 AND ONLY 370 TILES SHIP AS SPURS.**
+   `meta.walls.spurTiles` totals **375** fleet-wide while the shipped per-tile
+   provenance enum counts **370** tiles of kind `spur` — the same five tiles
+   counted as laid and not shipped, because a later prune deletes them and the
+   counter is never re-read. "Laid" and "shipped" are two different quantities
+   published as one number, which is the defect the `mobilityBuilt.cause`
+   overwrite was and the defect `alongCutMoved: 0` was: a figure written at the
+   moment of intent and left to describe an outcome it never saw. Nothing is
+   mis-BUILT — the board is the 370 — but a reader reconciling the two counts
+   cannot, and the roadKind enum is only gated against the board, not against the
+   counter. Unfixed, observed round 13.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 

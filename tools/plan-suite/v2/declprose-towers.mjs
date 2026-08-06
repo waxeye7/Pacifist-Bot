@@ -510,3 +510,24 @@ export function renderClump(sf) {
 }
 
 export { n, plural };
+
+/**
+ * ---------------------------------------------------------------------------
+ * towerRefill| — the HARD limit, as opposed to the soft one above.
+ * ---------------------------------------------------------------------------
+ * `towers|weak-battery` is the band between "legal" and "good". This is what
+ * fires when the room is not even legal: the furthest tower is past MAX_REFILL
+ * walk from the sitter and the room has no six deep tiles that would fix it.
+ *
+ * It is the shortest paragraph in the channel, and it was the last one still
+ * hand-written — which is exactly how E2S8 came to pass a reviewer's rewrite of
+ * "11 walk" to "3 walk", a number INSIDE the limit the same sentence quotes.
+ * Two numerals, both from the record, neither of them typed beside it.
+ */
+export function renderTowerRefill(sf) {
+  const r = sf.towerRefill || {};
+  return (
+    `furthest tower is ${n(r.maxRefill)} walk from the sitter (want <= ${n(r.cap)}); ` +
+    `the room has no six legal deep tiles inside that radius`
+  );
+}

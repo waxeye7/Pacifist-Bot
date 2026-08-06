@@ -110,6 +110,7 @@ import {
   chebyshev,
   engineBuildable,
   fetchRoomsFromMongo,
+  isSwamp,
   isWall,
   key,
   walkable,
@@ -1153,6 +1154,282 @@ function assertPairInventory() {
 assertPairInventory();
 
 /**
+ * ==========================================================================
+ * ...AND THE SAME INVENTORY FOR THE OTHER DIRECTION: WHICH DECLARATION KINDS
+ * ARE OBLIGED TO EXIST.
+ * ==========================================================================
+ * The obligation block at the bottom of checkRoom re-derives, per kind, the
+ * state that DEMANDS a declaration, so a room cannot go quiet by deleting one.
+ * Round 12 added a trigger for every kind the fleet shipped that day, and the
+ * paragraph above it then claimed the set was complete — while the same file,
+ * two hundred lines further down, said "three are not fully re-derivable".
+ * Neither sentence ran. Nothing checked that a kind APPEARING in a shipped plan
+ * has a trigger at all, so the next kind this planner invents ships as free
+ * narration exactly the way `ctrlParks/released` and `spawnFan/sector` did, and
+ * the completeness claim rots silently in a comment. That is the shape of the
+ * defect this whole round is about, one level up.
+ *
+ * So the claim is an inventory and the inventory is asserted:
+ *
+ *   OBLIGATION_KINDS   every `gate|kind` pair the obligation block below has a
+ *                      trigger for. One entry per `has(...)` call site.
+ *   OBLIGATION_EXEMPT  the kinds that are NOT re-derivable from the shipped
+ *                      board, NAMED, with the reason. An exemption spelled as
+ *                      an absence is indistinguishable from an oversight; this
+ *                      is the same argument that put `EXT_SHORTFALL_OK` and
+ *                      `DECLARABLE_PAIRS` in explicit lists.
+ *
+ * checkRoom then takes the kind inventory of the declarations the room actually
+ * ships and fails the room for any kind in neither list. A new kind therefore
+ * cannot ship until somebody either writes its trigger or writes down why there
+ * cannot be one.
+ */
+const OBLIGATION_KINDS = new Set([
+  "mobility|", //                as-built gated lap over MOB_TARGET
+  "mobility|covered-detour", //  the RECORD's worst pair, excused by coverage
+  "extensions|shallow", //       extensions under DEPTH_SAFE
+  "towers|clump", //             >= 5 towers within chebyshev 2 of the sitter
+  "towers|weak-battery", //      weak sealing face or refill walk over the note line
+  "misc|off-network", //         a mineral seat with no road and no container neighbour
+  "eco|", //                     hub walks over the fleet-median gate
+  "towerRefill|", //             refill walk over the hard MAX_REFILL
+  "battlements|unreachable", //  cut tiles the garrison's walk region cannot reach
+  "battlements|", //             ...and the layer-2 flavour of the same fact
+  "shell|", //                   a link standing on the wall
+  "labs|shallow-lab", //         a lab under DEPTH_SAFE
+  "labs|lab-haul", //            the hub-to-diamond hauler walk over LAB_HAUL_NOTE
+  "spawnFan|sector", //          the worst spawn pair under SECTOR_TARGET
+  "ctrlParks|seats", //          seat count at or under THIN_PARKS
+  "ctrlParks|released", //       seats given back to the extension mass
+  "runtime|heavy-search", //     more than RUNTIME_NOTE_COMPOSES complete plans
+]);
+
+/**
+ * Kinds with no trigger, and the reason there cannot be one. The reason is the
+ * point: it is checkable prose about a re-derivation that does not exist, and
+ * the moment somebody makes it exist the entry moves up one list.
+ */
+const OBLIGATION_EXEMPT = new Map([
+  [
+    "labs|lab-road-eat",
+    `the lab diamond displaced planned road tiles. The displaced tiles are DELETED from the plan by ` +
+      `the time it ships, so the finished board carries no trace of them and no re-derivation exists. ` +
+      `The CONTENT is still audited where the declaration names tiles (a named tile must not carry a ` +
+      `road today); what cannot be checked is whether a room that files nothing should have`,
+  ],
+]);
+
+/**
+ * Load-time consistency check on the two lists above, in the same spirit as
+ * assertPairInventory: a kind may not be both triggered and exempt, an exemption
+ * must carry a reason long enough to be a reason, and the pair strings must be
+ * well formed (`gate|kind`, kind possibly empty, gate normalised the way
+ * `normGate` normalises it — otherwise the runtime lookup silently misses and
+ * every kind looks unclassified).
+ */
+const normPair = (p) => {
+  const i = String(p).indexOf("|");
+  return `${normGate(String(p).slice(0, i))}|${String(p).slice(i + 1)}`;
+};
+/** the two lists above, keyed the way `buildArbitration` keys a declaration */
+const OBLIGATION_KINDS_N = new Set([...OBLIGATION_KINDS].map(normPair));
+const OBLIGATION_EXEMPT_N = new Map([...OBLIGATION_EXEMPT].map(([p, w]) => [normPair(p), w]));
+
+function assertKindObligations() {
+  const problems = [];
+  for (const p of OBLIGATION_KINDS) {
+    if (OBLIGATION_EXEMPT.has(p)) problems.push(`${p} is BOTH triggered and exempt`);
+  }
+  if (OBLIGATION_KINDS_N.size !== OBLIGATION_KINDS.size) {
+    problems.push(`two triggered kinds normalise to the same slot — one of them can never be looked up`);
+  }
+  for (const p of [...OBLIGATION_KINDS, ...OBLIGATION_EXEMPT.keys()]) {
+    if (!/^[A-Za-z]+\|/.test(p)) problems.push(`${p} is not a well-formed gate|kind pair`);
+  }
+  for (const [p, why] of OBLIGATION_EXEMPT) {
+    if (typeof why !== "string" || why.trim().length < 40) {
+      problems.push(`${p} is exempt with no stated reason — an exemption without one is an oversight`);
+    }
+  }
+  if (problems.length) {
+    throw new Error(
+      `validate.mjs obligation inventory is inconsistent — ${problems.join("; ")}. A declaration kind ` +
+        `nobody is obliged to file is a planner convention, not a gate, and the completeness of this set ` +
+        `used to be asserted only in a comment.`,
+    );
+  }
+}
+assertKindObligations();
+
+/**
+ * ==========================================================================
+ * ...AND THE THIRD DIRECTION: WHICH DECLARATION KINDS HAVE A GENERATED
+ * PARAGRAPH. Same argument, third time.
+ * ==========================================================================
+ * `declprose.mjs` exists because a paragraph that merely QUOTES its record can
+ * assert the opposite of it. Round 12 wrote the module and registered eight
+ * renderers, and the eight were the kinds a reviewer had happened to attack;
+ * ten kinds — 31 declarations — went on shipping prose assembled inside their
+ * producers out of the producers' own locals, which looks like generation and is
+ * not, because this file has the record and not the producer's scope. Four
+ * demonstrable lies passed on that gap in one round:
+ *
+ *   E2S8   towerRefill        "3 walk from the sitter" over a record saying 11
+ *   E13S3  battlements/unreachable  "0 cut tile(s)" over a record saying 1
+ *   E12S5  ctrlParks/seats    "AS BUILT this link feeds 7" over a record saying
+ *                             5 — and that pair is in DECLARABLE_PAIRS, so the
+ *                             paragraph excuses a HARD gate
+ *   E13S2  labs/lab-haul      "2 hauler tile(s)" — the fleet median — over 12
+ *
+ * The completeness claim is therefore an inventory like the other two: the kind
+ * set this file knows about (OBLIGATION_KINDS plus the named exemptions) must
+ * equal the RENDERERS key set exactly. A kind added to the planner without a
+ * renderer cannot pass this assertion, and a renderer for a kind nothing else in
+ * this file knows about is a renderer nobody will maintain. checkRoom then fails
+ * any SHIPPED declaration whose kind has no renderer, which covers the case a
+ * load-time list cannot: a kind invented after this file was written.
+ */
+function assertProseInventory() {
+  const known = new Set([...OBLIGATION_KINDS_N, ...OBLIGATION_EXEMPT_N.keys()]);
+  const problems = [];
+  for (const k of known) {
+    if (!AUDITED_KINDS.has(k)) {
+      problems.push(`${k} is a declaration kind with no renderer in declprose.mjs`);
+    }
+  }
+  for (const k of AUDITED_KINDS) {
+    if (!known.has(k)) {
+      problems.push(`${k} has a renderer and is not a declaration kind this file knows about`);
+    }
+  }
+  if (problems.length) {
+    throw new Error(
+      `validate.mjs prose inventory is inconsistent — ${problems.join("; ")}. A declaration kind whose ` +
+        `paragraph is typed rather than generated is a sentence nothing compares to its record, which is ` +
+        `how four false paragraphs shipped and passed in one round.`,
+    );
+  }
+}
+assertProseInventory();
+
+/**
+ * ==========================================================================
+ * THE CLOSED CLASS LIST FOR A REDUNDANT-CUT REFUSAL.
+ * ==========================================================================
+ * `meta.shell.redundantCut.reasons` is the record that makes "the cut is a
+ * SUPERSET of the singly seal-critical tiles" honest: every extra tile carries a
+ * named reason. Round 12 audited the reasons that volunteered a `pricedDeltas`
+ * block — three of the forty-three the fleet ships — and left the other forty as
+ * free text. Free text is not a class: an EMPTY reasons map passed, a reason of
+ * `{class:"banana"}` passed, and deleting the priced block off the one showcase
+ * refusal passed, because the audit was opt-in by construction (`filter(r =>
+ * r.pricedDeltas)`).
+ *
+ * So the class is an ENUM and each member of it names a re-derivation this file
+ * performs by DELETING THE RAMPART and measuring. The two lists are asserted
+ * against each other at load, exactly like the pair inventory: a class the
+ * producer invents and this file does not re-derive is a hard fail on the room
+ * that ships it, not a silent pass.
+ *
+ * `is` matches the producer's own class string (layer-walls.mjs `refuse(...)`
+ * call sites). Two of the six are whole sentences rather than labels; they are
+ * matched on their stable prefix and normalised to the id used here.
+ */
+const CUT_REASON_CLASSES = [
+  {
+    id: "load-bearing",
+    is: (c) => c === "load-bearing on interior floor",
+    rederive: `delete the rampart, re-flood the exterior: the named interior tile must go from inside the wall to outside it`,
+  },
+  {
+    id: "depth-promotion",
+    is: (c) => c === "depth promotion",
+    rederive: `delete the rampart, re-flood, re-measure depth: the named structure's depth must fall by exactly the quoted step and land inside the ranged band`,
+  },
+  {
+    id: "personal-cover",
+    is: (c) => c === "personal cover",
+    rederive: `the tile must carry a structure, be at the quoted depth today, and be shallower still with the rampart gone`,
+  },
+  {
+    id: "walk-region",
+    is: (c) => c === "walk region",
+    rederive: `re-walk the garrison's interior region with and without the rampart and compare the two sizes to the quoted pair`,
+  },
+  {
+    id: "stand-denial",
+    is: (c) => c.startsWith("keep-class: the controller's stand-denial ring"),
+    rederive: `the tile must be D8-adjacent to the controller and D8-adjacent to the exterior flood — the premise "an attacker CAN stand here"`,
+  },
+  {
+    id: "promotes-outsider",
+    is: (c) => c.startsWith("the stand-denial keep-class does not apply"),
+    rederive: `the pricedDeltas block, re-derived by deleting the rampart and re-measuring the wall, the weakest face and the gated lap`,
+  },
+];
+/** the ids checkRoom actually implements a re-derivation for */
+const CUT_REASON_REDERIVED = new Set([
+  "load-bearing",
+  "depth-promotion",
+  "personal-cover",
+  "walk-region",
+  "stand-denial",
+  "promotes-outsider",
+]);
+
+function assertCutReasonInventory() {
+  const problems = [];
+  const seen = new Set();
+  for (const c of CUT_REASON_CLASSES) {
+    if (seen.has(c.id)) problems.push(`${c.id} is listed twice`);
+    seen.add(c.id);
+    if (typeof c.is !== "function") problems.push(`${c.id} has no matcher`);
+    if (typeof c.rederive !== "string" || c.rederive.length < 40) {
+      problems.push(`${c.id} does not state how it is re-derived`);
+    }
+    if (!CUT_REASON_REDERIVED.has(c.id)) {
+      problems.push(`${c.id} is an admissible class with no re-derivation in checkRoom`);
+    }
+  }
+  for (const id of CUT_REASON_REDERIVED) {
+    if (!seen.has(id)) problems.push(`${id} is re-derived by checkRoom and is not an admissible class`);
+  }
+  if (problems.length) {
+    throw new Error(
+      `validate.mjs redundant-cut class inventory is inconsistent — ${problems.join("; ")}. A refusal ` +
+        `class nobody re-derives is a sentence, and "naming a reason is not having one" is this project's ` +
+        `own line.`,
+    );
+  }
+}
+assertCutReasonInventory();
+
+/**
+ * ==========================================================================
+ * LAYER 7's PER-TILE ROAD PROVENANCE — the closed kind list.
+ * ==========================================================================
+ * `meta.walls.roadKind` maps a shipped road tile to the layer-7 pass that laid
+ * it. It exists because the film's layer-7 caption used to assert one purpose
+ * ("rampart spurs and the extension-face safety net") over a layer that bundles
+ * six of them, and 39 tiles in 20 rooms were captioned as something they are
+ * not. A provenance map is only worth the caption it feeds if the map itself is
+ * checked, so: the kinds are a closed set, every key is a tile this room
+ * actually paves, and the three kinds that ARE re-derivable from the shipped
+ * board are re-derived (swamp paving is swamp; the conduct bridge is the bridge;
+ * the along-cut swaps are the counter). "0 unclassified" then means something,
+ * because there is nowhere for an unclassified tile to hide.
+ */
+const ROAD_KINDS = new Set([
+  "stitch", //          (2) joining the road clusters the earlier layers left apart
+  "spur", //            (5) the rampart spur — a stub from the network to a wall tile
+  "extFace", //         (6) the extension-face safety net
+  "swampPave", //       swamp under a road the garrison walks often
+  "alongCutMoved", //   (5b) a paved cut tile moved onto its interior parallel
+  "reflow", //          (7b) the post-prune extension reflow's new faces
+  "conductBridge", //   the RCL-deferred conduct join
+]);
+
+/**
  * A tile-less declaration's budget is how many violations of one class it may
  * excuse, and `sf.count` sets it. Left unbounded, `count: 9999` is a gate-wide
  * wildcard spelled as an integer — the exact thing MAX_DECL_TILES refuses in the
@@ -2165,11 +2442,14 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
   //
   // The rule: with the deferred container removed, every road and every other
   // container must still be one component from the sitter. A room that cannot
-  // pave the join (E5S3's is the mineral container's own tile, and the engine
-  // allows one structure per tile) may publish it as a PAVING GAP — and the gap
-  // tiles are then held to being real: walkable, carrying no obstacle, and
-  // actually sufficient to close the break. A named gap is a fact; an unnamed
-  // one is the silence this whole round is about.
+  // pave the join — because the only tile that would close it carries an
+  // OBSTACLE structure or is natural wall — may publish it as a PAVING GAP, and
+  // the gap tile is then held to being exactly that. A named gap is a fact; an
+  // unnamed one is the silence this whole round is about; and a gap named over a
+  // tile a road could simply be built on is worse than either, because it is a
+  // missing road wearing a terrain verdict. See the clause below for the round-13
+  // correction: "one structure per tile" is NOT the engine's rule, container and
+  // road share a tile, and both published gaps were paveable floor.
   // ------------------------------------------------------------------
   {
     const containers = s.container || [];
@@ -2187,31 +2467,45 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       for (const t of BLOCKING) for (const p of s[t] || []) obstacles.add(key(p.x, p.y));
       // ...AND A GAP HAS TO BE UNPAVEABLE, OR IT IS NOT A GAP, IT IS A CHOICE.
       //
-      // The exemption says "this join cannot be paved by anybody". That is a
-      // claim with a checkable cause: the engine allows one structure per tile
+      // THE RULE THIS CLAUSE USED TO STATE WAS FALSE, AND IT WAS FALSE IN THIS
+      // FILE'S OWN WORDS. It said "the engine allows one structure per tile
       // (ramparts aside), so a tile is unpaveable exactly when something else is
-      // already standing on it. E5S3's 32,11 is the mineral container's own
-      // tile, which is why no arrangement of roads closes that join before RCL6.
-      // Without this clause a room could publish a gap over BARE FLOOR — floor
-      // it simply declined to pave — and the exemption would launder a missing
-      // road as a terrain verdict. That is the shape of every finding this round
-      // is about, and it would have been mine.
-      const occupier = new Map();
-      for (const t of Object.keys(s)) {
-        if (t === "road" || t === "rampart") continue;
-        for (const p of s[t] || []) occupier.set(key(p.x, p.y), t);
-      }
+      // already standing on it" — and forty lines up, at the stack gate, the same
+      // file writes `const bad = solids.filter((t) => t !== "container")`,
+      // i.e. ROAD AND CONTAINER LEGALLY SHARE A TILE. They share one in 60 tiles
+      // across 53 shipped rooms. push-plan.mjs says the same thing. So both
+      // published "gaps" — E2S5 27,23 (container + rampart) and E5S3 32,11 (the
+      // mineral container) — were ordinary floor a road closes, and the exemption
+      // was laundering two roads the producer declined to lay as a terrain
+      // verdict. Between them they stranded 16 conductors before RCL 6.
+      //
+      // THE TRUE RULE, re-derived rather than asserted: a road may not be built
+      // on a tile that carries an OBSTACLE structure (OBSTACLE_OBJECT_TYPES —
+      // `BLOCKING` here, plus the room objects) or on natural wall. Everything
+      // else is paveable, container included. A gap tile that is not one of those
+      // two things is a road the room chose not to lay.
+      //
+      // The clause is KEPT rather than deleted, because the honest case exists:
+      // a join whose only tile carries a spawn, a lab or a source really is
+      // unpaveable, and a room in that position must be able to say so. What it
+      // may no longer do is say so about bare floor or about a container.
       const gapBad = [];
       for (const t of gapPub) {
         const tk = key(t.x, t.y);
         if (!passable(t.x, t.y)) gapBad.push(`${t.x},${t.y} is natural wall`);
-        else if (obstacles.has(tk)) gapBad.push(`${t.x},${t.y} carries an obstacle`);
         else if (roadSet.has(tk)) {
           gapBad.push(`${t.x},${t.y} already carries a road, so it is not a gap in anything`);
-        } else if (!occupier.has(tk)) {
+        } else if (!obstacles.has(tk)) {
+          // `obstacles` is objectTiles + BLOCKING — the engine's obstacle set.
+          // A container is not in it, and that is the whole correction.
+          const carried = Object.keys(s).filter(
+            (ty) => ty !== "road" && (s[ty] || []).some((p) => p.x === t.x && p.y === t.y),
+          );
           gapBad.push(
-            `${t.x},${t.y} is bare floor with nothing on it — a road could simply be laid there, so ` +
-              `this is a join the room declined to pave, not one it cannot`,
+            `${t.x},${t.y} carries ${carried.length ? carried.join("+") : "nothing"} and NO obstacle — ` +
+              `a road can be built there (road and container legally share a tile; this file's own stack ` +
+              `gate exempts exactly that pair, and 60 tiles in 53 rooms ship it), so this is a join the ` +
+              `room declined to pave, not one it cannot`,
           );
         } else conduct.add(tk);
       }
@@ -3613,6 +3907,107 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `miss the whole mass does not explain`,
             );
           }
+
+          // ============================================================
+          // ...AND THE CAUSE'S VALUE, WHICH ONLY ITS POLARITY WAS CHECKED.
+          //
+          // Everything above tests whether a cause EXISTS when it should and is
+          // absent when it should be — `cause !== "none"` on a room that misses,
+          // `"none"` on a room that does not. Which of the three labels it is
+          // was published by its own producer and re-derived by nothing, so
+          // rewriting E11S6's from "structures" to "terrain" passed, E11S7's
+          // from "terrain" to "structures" passed, and E19S8's from "shape" to
+          // "terrain" passed. That is the position `nukeWindow` was in.
+          //
+          // The label is fully determined by two things this file has already
+          // measured, and the producer's definition (mobilityLift and
+          // mobilityCauseDetail, layer-shell.mjs:961-1010 and :1185-1210) is
+          // transcribed here:
+          //
+          //   clears  the lift board is inside the target => "structures", full
+          //           stop. The whole point of the lift test is that a miss our
+          //           own mass removes is OUR miss, and `derClears` is already
+          //           derived four lines up, so the two are BOUND: no room may
+          //           publish a clearing lift and a terrain cause.
+          //   !clears the producer falls through to the pair-level diagnosis on
+          //           the LIFTED board's worst pair and then maps its answer:
+          //           "structures" becomes "shape" (our mass is already lifted
+          //           out, so a structures verdict about that board means the
+          //           enclosure is concave), "terrain" stays "terrain". So the
+          //           only two reachable labels are terrain and shape, and which
+          //           one is a two-BFS question.
+          //
+          // dStruct / dFree are the same two walks the producer takes: the pair
+          // re-walked with our structures gone (but the wall standing) and with
+          // the interior's natural walls gone as well. The thresholds are the
+          // producer's, character for character, because a transcription that
+          // rounds differently is a second opinion and not a check.
+          const wl = all.worstGated || all.worst || mBuilt.worstGated || mBuilt.worst || null;
+          let derCause = null;
+          if (derClears) derCause = "structures";
+          else if (wl) {
+            const noStruct = new Uint8Array(2500);
+            const noWall = new Uint8Array(2500);
+            for (let x = 0; x < 50; x++) {
+              for (let y = 0; y < 50; y++) {
+                const i = idx(x, y);
+                if (ext[i]) continue;
+                noWall[i] = 1;
+                if (walkable(terrain, x, y)) noStruct[i] = 1;
+              }
+            }
+            for (const c of cutPts) {
+              noStruct[idx(c.x, c.y)] = 1;
+              noWall[idx(c.x, c.y)] = 1;
+            }
+            const dStruct = mobArrive(mobBfs(noStruct, wl.a), wl.b);
+            const dFree = mobArrive(mobBfs(noWall, wl.a), wl.b);
+            const pairCause =
+              dStruct <= MOB_TARGET * wl.dout || dStruct * 1.15 <= wl.din
+                ? "structures"
+                : dFree <= MOB_TARGET * wl.dout || dFree * 1.15 <= dStruct
+                  ? "terrain"
+                  : "shape";
+            derCause = pairCause === "structures" ? "shape" : pairCause;
+          }
+          if (derCause && mb.cause !== derCause) {
+            bad.push(
+              `meta.shell.mobilityBuilt: \`cause\` says ${JSON.stringify(mb.cause)}, re-derived on this ` +
+                `room's own board it is "${derCause}"` +
+                (derClears
+                  ? ` — the lift board laps ${all.maxGated} against the ${MOB_TARGET} target, so lifting ` +
+                    `our own mass CLEARS this room and the cause is ours by definition`
+                  : ` — the lifted board still laps ${all.maxGated}, and re-walking its worst pair ` +
+                    `(${wl.a.x},${wl.a.y}~${wl.b.x},${wl.b.y}: ${wl.din} in / ${wl.dout} out) with the ` +
+                    `interior's natural walls lifted as well is what separates "terrain" from "shape"`),
+            );
+          }
+          if (derCause && L.cause !== undefined && L.cause !== mb.cause) {
+            bad.push(
+              `meta.shell.mobilityBuilt: \`lift.cause\` says ${JSON.stringify(L.cause)} and \`cause\` says ` +
+                `${JSON.stringify(mb.cause)} — layer 7 copies one onto the other precisely so a room ` +
+                `cannot hold two verdicts about one question, and E16S5 shipped exactly that`,
+            );
+          }
+          // ...and the DECLARATION's copy of the same verdict. The paragraph is
+          // what a reader reads; correcting the record and leaving the entry
+          // saying something else is the same lie in a quieter place, which is
+          // the rule the whole declaration-content block is built on.
+          for (const sfm of declared) {
+            if (!sfm || normGate(sfm.gate) !== "mobility" || sfm.kind) continue;
+            if (derCause && sfm.cause !== undefined && sfm.cause !== mb.cause) {
+              bad.push(
+                `mobility (as built): the declaration's \`cause\` is ${JSON.stringify(sfm.cause)} and ` +
+                  `meta.shell.mobilityBuilt says ${JSON.stringify(mb.cause)} — one room, one verdict`,
+              );
+            }
+            if (derCause && sfm.lift && sfm.lift.cause !== undefined && sfm.lift.cause !== mb.cause) {
+              bad.push(
+                `mobility (as built): the declaration's \`lift.cause\` is ${JSON.stringify(sfm.lift.cause)} ` +
+                  `and meta.shell.mobilityBuilt says ${JSON.stringify(mb.cause)}`,
+              );
+            }
+          }
         }
       }
     }
@@ -3688,6 +4083,556 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     }
 
     // ==================================================================
+    // THE PAVED RUN ALONG THE WALL — RE-DERIVED FROM THE BOARD, NOT READ.
+    //
+    // Stage 5b (layer-walls.mjs) offers every run of consecutive paved cut tiles
+    // its interior parallel, takes the swap when the network is measurably no
+    // worse, and publishes three things: `alongCutMoved`, `alongCutRefused` and a
+    // PAVED RUN note. Until this block, layer-walls.mjs was the producer AND the
+    // only reader — `grep alongCut` found it in exactly one file — while the goal
+    // document claimed the validator "re-derives the runs on the board the room
+    // actually ships". It did not. Deleting E15S1's refusals and its note passed;
+    // rewriting the refusals to a demonstrably false reason passed; taking
+    // `alongCutMoved` from 0 to 7 passed. A named anti-pattern whose whole record
+    // is producer-witnessed is a counter, not a gate.
+    //
+    // WHAT IS RE-DERIVED HERE. The run ROSTER, from the shipped board and nothing
+    // else: a cut tile that carries a road and has a D8 neighbour which is also a
+    // paved cut tile. D8 and not D4 — the game is D8 everywhere else in this file
+    // (netOK, the exterior flood, the mobility walk), and a diagonal run of two
+    // paved wall tiles is the same prepared surface as an orthogonal one. The
+    // roster is therefore the BOARD's answer and not the producer's: a room that
+    // stops publishing runs does not stop having them.
+    //
+    // WHAT IS CHECKED AGAINST IT.
+    //   COVERAGE     every roster tile carries a per-tile refusal. A run tile
+    //                with no refusal is the E12S7/E2S1 silence.
+    //   THE FACTS    a refusal that says "no interior parallel exists" enumerates
+    //                its neighbours, and every named tile AND its stated reason is
+    //                re-checked here against terrain, the shipped exterior flood,
+    //                the shipped cut, the shipped structures and the shipped road
+    //                set. The enumeration must also COVER all eight neighbours —
+    //                which is what makes "no interior parallel exists" a claim
+    //                with no hiding place, and is exactly the exhaustive scan a
+    //                free-but-unmentioned neighbour fails.
+    //   THE NOTE     present iff the board has runs, naming every roster tile and
+    //                quoting the moved counter.
+    //
+    // AND WHAT IS HONESTLY NOT. 5b runs in the MIDDLE of layer 7: the extension
+    // reflow, the dead-end prune and the swamp paving all move the board after it.
+    // So a refusal of the form "the only interior parallel is X,Y and the swap
+    // breaks the network" is a fact about a board that no longer exists, and two
+    // of the seven the fleet ships name a tile that is in the exterior flood
+    // TODAY (E18S9 45,6, E9S8 18,24) because the inert prune later took a rampart
+    // off the wall beside it. Failing those would be failing an honest room for
+    // the ordering of the pipeline. What IS immutable about the named tile is
+    // checked — it is D8-adjacent to the refused tile, on the buildable board, on
+    // walkable terrain and not itself a cut tile — and the network half is left
+    // as producer-witnessed rather than pretended to be re-derived. `alongCutMoved`
+    // is the same shape of fact and gets the same treatment: bounded against the
+    // board and cross-checked against the note, not believed.
+    // ==================================================================
+    {
+      const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
+      const pavedCut = (k) => cutKeyed.has(k) && roadSet.has(k);
+      const runs = cutPts.filter(
+        (c) => pavedCut(key(c.x, c.y)) && D8.some(([dx, dy]) => pavedCut(key(c.x + dx, c.y + dy))),
+      );
+      const refusedArr = plan.meta?.walls?.alongCutRefused;
+      const moved = plan.meta?.walls?.alongCutMoved;
+      const noteTxt = (plan.meta?.notes || []).find(
+        (n) => typeof n === "string" && n.startsWith("A PAVED RUN ALONG THE WALL"),
+      );
+      if (!Array.isArray(refusedArr)) {
+        bad.push(
+          `meta.walls.alongCutRefused is ${refusedArr === undefined ? "ABSENT" : "not an array"} — stage 5b ` +
+            `publishes it unconditionally, and an absent list reads exactly like a room with nothing to refuse`,
+        );
+      }
+      if (typeof moved !== "number" || !Number.isInteger(moved) || moved < 0) {
+        bad.push(
+          `meta.walls.alongCutMoved is ${JSON.stringify(moved)} — it is a count of swaps taken and must be ` +
+            `a non-negative integer`,
+        );
+      }
+      const refusedBy = new Map(
+        (Array.isArray(refusedArr) ? refusedArr : [])
+          .filter((r) => r && Number.isInteger(r.x) && Number.isInteger(r.y))
+          .map((r) => [key(r.x, r.y), String(r.why || "")]),
+      );
+      /** the six rejection reasons stage 5b can give a neighbour, each re-checkable */
+      const claimTrue = (x, y, rest) => {
+        const k = key(x, y);
+        if (rest.startsWith("is off the buildable board")) return x < 1 || y < 1 || x > 48 || y > 48;
+        if (rest.startsWith("is natural wall")) return !walkable(terrain, x, y);
+        if (rest.startsWith("is OUTSIDE the wall")) {
+          return x >= 0 && y >= 0 && x <= 49 && y <= 49 && !!ext[idx(x, y)];
+        }
+        if (rest.startsWith("is itself a cut tile")) return cutKeyed.has(k);
+        if (rest.startsWith("already carries one of our structures")) return blocked.has(k);
+        if (rest.startsWith("is already paved")) return roadSet.has(k);
+        return null; // an unknown reason class, reported by the caller
+      };
+      for (const c of runs) {
+        const tk = key(c.x, c.y);
+        const why = refusedBy.get(tk);
+        if (why === undefined) {
+          bad.push(
+            `meta.walls.alongCutRefused: this room ships a PAVED RUN tile at ${tk} — a cut tile carrying a ` +
+              `road with a D8 neighbour that is also a paved cut tile — and files no refusal for it. A run ` +
+              `is a prepared surface laid along the exact line an attacker would want to walk; stage 5b ` +
+              `exists to move it one tile inboard, and a run shipped with no record is indistinguishable ` +
+              `from a pass that never ran on this room`,
+          );
+          continue;
+        }
+        // THE TWO ADMISSIBLE SHAPES, and they are the two stage 5b produces.
+        //
+        //   A  "no interior parallel exists: <neighbour, why> · ..."
+        //      every neighbour was rejected before the swap was ever tried.
+        //   C  "every interior parallel breaks the network. moving it to X,Y —
+        //      <what the swap costs the network> · moving it to ... . The swap
+        //      is offered ... The other neighbours: <neighbour, why> · ..."
+        //      one or more neighbours WERE offered the swap and the network came
+        //      out worse; the rest were rejected before that.
+        //
+        // Both are checked the same way: the union of the tiles the refusal
+        // speaks about must be all eight neighbours, the rejected ones must be
+        // rejected for a reason that is TRUE on this board, and the ones the swap
+        // was offered to must be tiles a road could stand on. What is NOT checked
+        // is the network arithmetic — 5b runs in the middle of layer 7 and the
+        // reflow, the prune and the swamp paving all move the board after it, so
+        // "these road tiles fall off" is a fact about a board that no longer
+        // exists. Two of the fleet's named targets sit in the exterior flood
+        // TODAY for exactly that reason.
+        const OTHERS = "The other neighbours: ";
+        const tried = [];
+        let rejectedBody = null;
+        if (why.startsWith("no interior parallel exists: ")) {
+          rejectedBody = why.slice("no interior parallel exists: ".length);
+        } else if (why.startsWith("every interior parallel breaks the network.")) {
+          const cutAt = why.indexOf(OTHERS);
+          const head = cutAt >= 0 ? why.slice(0, cutAt) : why;
+          rejectedBody = cutAt >= 0 ? why.slice(cutAt + OTHERS.length) : "";
+          for (const m of head.matchAll(/moving it to (-?\d+),(-?\d+) —/g)) {
+            tried.push({ x: Number(m[1]), y: Number(m[2]) });
+          }
+          if (!tried.length) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: the refusal says every interior parallel breaks the ` +
+                `network and names none of them. The whole content of that sentence is WHICH tiles were ` +
+                `offered the swap`,
+            );
+          }
+        } else {
+          bad.push(
+            `meta.walls.alongCutRefused ${tk}: the reason is free text in a form this gate cannot check ` +
+              `("${why.slice(0, 70)}${why.length > 70 ? "…" : ""}"). Stage 5b gives exactly two answers — ` +
+              `"no interior parallel exists: <every neighbour, with why>" or "every interior parallel ` +
+              `breaks the network. moving it to X,Y — ... The other neighbours: ..." — and a third answer ` +
+              `is a refusal nobody can falsify`,
+          );
+          continue;
+        }
+        const named = new Set();
+        for (const t of tried) {
+          named.add(key(t.x, t.y));
+          const problems = [];
+          if (Math.max(Math.abs(t.x - c.x), Math.abs(t.y - c.y)) !== 1) {
+            problems.push(`it is not D8-adjacent to ${tk}, so it is not a parallel of anything`);
+          }
+          if (t.x < 1 || t.y < 1 || t.x > 48 || t.y > 48) problems.push(`it is off the buildable board`);
+          else if (!walkable(terrain, t.x, t.y)) {
+            problems.push(`it is natural wall — no road is ever built there`);
+          }
+          if (cutKeyed.has(key(t.x, t.y))) {
+            problems.push(`it is itself a cut tile, which is the same problem one tile over and never a parallel`);
+          }
+          if (problems.length) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: the refusal says the swap was offered to ${t.x},${t.y} and ` +
+                `${problems.join("; ")}. The network cost of the swap is a fact about the mid-layer-7 board ` +
+                `and is taken as witnessed; the tile it names is a fact about terrain and the shipped wall, ` +
+                `and it is not true`,
+            );
+          }
+        }
+        for (const part of rejectedBody ? rejectedBody.split(" · ") : []) {
+          const m = part.match(/^(-?\d+),(-?\d+) (.*)$/);
+          if (!m) {
+            bad.push(`meta.walls.alongCutRefused ${tk}: "${part.slice(0, 60)}" names no tile`);
+            continue;
+          }
+          const nx = Number(m[1]),
+            ny = Number(m[2]);
+          named.add(key(nx, ny));
+          if (Math.max(Math.abs(nx - c.x), Math.abs(ny - c.y)) !== 1) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: the refusal rejects ${nx},${ny}, which is not a neighbour ` +
+                `of ${tk} at all`,
+            );
+            continue;
+          }
+          const ok = claimTrue(nx, ny, m[3]);
+          if (ok === null) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: "${nx},${ny} ${m[3].slice(0, 50)}" is not one of the six ` +
+                `rejection classes stage 5b can produce, so nothing here re-checks it`,
+            );
+          } else if (!ok) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: the refusal says "${nx},${ny} ${m[3].slice(0, 60)}" and ` +
+                `re-derived on the board this room ships that is FALSE. The claim the whole refusal rests ` +
+                `on is that no tile one step inboard could take this road; a named blocking tile that is ` +
+                `not blocking is the refusal saying nothing`,
+            );
+          }
+        }
+        // ...AND THE ENUMERATION HAS TO BE EXHAUSTIVE. Both shapes make a claim
+        // about EVERY neighbour — "none of them is a parallel", or "the ones that
+        // were are all worse and here are the rest" — so all eight have to be
+        // spoken for or the claim was simply never made about the ones left out.
+        // That is exactly how a free interior tile one diagonal step away goes
+        // unmentioned: the detector and the search were D4 in a D8 game, and five
+        // rooms shipped a run whose refusal reasoned about four neighbours.
+        const missing = D8.map(([dx, dy]) => key(c.x + dx, c.y + dy)).filter((k) => !named.has(k));
+        if (missing.length) {
+          const free = missing.filter((k) => {
+            const [fx, fy] = k.split(",").map(Number);
+            return (
+              fx >= 1 &&
+              fy >= 1 &&
+              fx <= 48 &&
+              fy <= 48 &&
+              walkable(terrain, fx, fy) &&
+              !ext[idx(fx, fy)] &&
+              !cutKeyed.has(k) &&
+              !blocked.has(k) &&
+              !roadSet.has(k)
+            );
+          });
+          bad.push(
+            `meta.walls.alongCutRefused ${tk}: "no interior parallel exists" is a claim about every ` +
+              `neighbour and the refusal accounts for ${named.size} of the 8 — ${missing.join(" ")} ` +
+              `${missing.length === 1 ? "is" : "are"} not mentioned` +
+              (free.length
+                ? `, and ${free.join(" ")} ${free.length === 1 ? "is" : "are"} free interior floor a road ` +
+                  `could be moved onto right now. The swap was never offered there`
+                : ``),
+          );
+        }
+      }
+      // THE NOTE, PRESENT EXACTLY WHEN THE BOARD HAS RUNS.
+      if (runs.length && !noteTxt) {
+        bad.push(
+          `this room ships ${runs.length} paved-run cut tile(s) (${runs.map((c) => key(c.x, c.y)).join(" ")}) ` +
+            `and publishes no PAVED RUN note. The tower-clump pass declares all six of its unfixable ` +
+            `instances; this anti-pattern may not be quieter than that one`,
+        );
+      } else if (!runs.length && noteTxt) {
+        bad.push(
+          `this room publishes a PAVED RUN note and the board has no run on it — no cut tile carries a ` +
+            `road with a D8 neighbour that is also a paved cut tile. A note about a thing that is not there ` +
+            `is the same defect as silence about a thing that is`,
+        );
+      }
+      if (noteTxt) {
+        const toks = new Set([...noteTxt.matchAll(/\d+,\d+/g)].map((m) => m[0]));
+        const unnamed = runs.map((c) => key(c.x, c.y)).filter((k) => !toks.has(k));
+        if (unnamed.length) {
+          bad.push(
+            `the PAVED RUN note does not name ${unnamed.join(" ")} — the note is what a reader reads, and a ` +
+              `roster that is short of the board's own is the same silence one indirection further out`,
+          );
+        }
+        const mq = noteTxt.match(/moved (\d+) tile\(s\)/);
+        if (!mq) {
+          bad.push(`the PAVED RUN note does not quote the swap count stage 5b took on this room`);
+        } else if (typeof moved === "number" && Number(mq[1]) !== moved) {
+          bad.push(
+            `the PAVED RUN note says stage 5b moved ${mq[1]} tile(s) and meta.walls.alongCutMoved says ` +
+              `${moved} — the record and the paragraph are one claim`,
+          );
+        }
+      }
+      // ==============================================================
+      // ...AND THE SHIPPED-BOARD RUN RECORD, WHICH IS THE SAME CLAIM IN A
+      // STRUCTURED FORM AND HAS TO AGREE WITH THE BOARD AND WITH ITSELF.
+      //
+      // `meta.walls.alongCutRuns` is layer 7's own re-derivation of the roster
+      // on the board the room ships: per run tile, the interior parallels that
+      // are FREE and the neighbours that are HELD, with the reason. Everything
+      // in it is a fact about the finished board — which is exactly why it can
+      // be checked here tile for tile, unlike the mid-pass network arithmetic in
+      // `alongCutRefused`. A producer publishing both gets no benefit of the
+      // doubt from either: the roster must be the board's roster, `free` must be
+      // free, `held` must be held, the two together must account for all eight
+      // neighbours, and the record must agree with the refusal beside it — a
+      // tile with a free parallel owes a network-break refusal, a tile with none
+      // owes a "no interior parallel exists".
+      // ==============================================================
+      const runsPub = plan.meta?.walls?.alongCutRuns;
+      if (runs.length && !Array.isArray(runsPub)) {
+        bad.push(
+          `meta.walls.alongCutRuns is ${runsPub === undefined ? "ABSENT" : "not an array"} on a room whose ` +
+            `board carries ${runs.length} paved-run cut tile(s)`,
+        );
+      } else if (Array.isArray(runsPub)) {
+        const pubK = runsPub.filter((r) => r && Number.isInteger(r.x)).map((r) => key(r.x, r.y));
+        const derK = runs.map((c) => key(c.x, c.y));
+        if (pubK.slice().sort().join(" ") !== derK.slice().sort().join(" ")) {
+          bad.push(
+            `meta.walls.alongCutRuns publishes [${pubK.join(" ") || "nothing"}] and the board's own D8 run ` +
+              `roster is [${derK.join(" ") || "nothing"}] — the record is a re-derivation on the shipped ` +
+              `board and this one is about a different board`,
+          );
+        }
+        /** the five held classes layer 7 writes, each a fact about the shipped board */
+        const heldTrue = (x, y, rest) => {
+          const k = key(x, y);
+          if (rest.startsWith("off the buildable board")) return x < 1 || y < 1 || x > 48 || y > 48;
+          if (rest.startsWith("natural wall")) return !walkable(terrain, x, y);
+          if (rest.startsWith("outside the shipped wall")) {
+            return x >= 0 && y >= 0 && x <= 49 && y <= 49 && !!ext[idx(x, y)];
+          }
+          if (rest.startsWith("is itself a cut tile")) return cutKeyed.has(k);
+          if (rest.startsWith("carries a structure that blocks")) return blocked.has(k);
+          if (rest.startsWith("already paved")) return roadSet.has(k);
+          return null;
+        };
+        for (const r of runsPub) {
+          if (!r || !Number.isInteger(r.x) || !Number.isInteger(r.y)) {
+            bad.push(`meta.walls.alongCutRuns: an entry names no tile (${JSON.stringify(r)})`);
+            continue;
+          }
+          const rk2 = key(r.x, r.y);
+          const named = new Set();
+          for (const f of r.free || []) {
+            if (!f || !Number.isInteger(f.x) || !Number.isInteger(f.y)) {
+              bad.push(`meta.walls.alongCutRuns ${rk2}: a \`free\` entry names no tile`);
+              continue;
+            }
+            named.add(key(f.x, f.y));
+            const problems = [];
+            if (Math.max(Math.abs(f.x - r.x), Math.abs(f.y - r.y)) !== 1) problems.push(`it is not a neighbour`);
+            if (f.x < 1 || f.y < 1 || f.x > 48 || f.y > 48) problems.push(`it is off the buildable board`);
+            else if (!walkable(terrain, f.x, f.y)) problems.push(`it is natural wall`);
+            if (ext[idx(f.x, f.y)]) problems.push(`it is OUTSIDE the wall, so moving the road there is not inboard`);
+            if (cutKeyed.has(key(f.x, f.y))) problems.push(`it is itself a cut tile`);
+            if (blocked.has(key(f.x, f.y))) problems.push(`it carries a structure`);
+            if (roadSet.has(key(f.x, f.y))) problems.push(`it is already paved`);
+            if (problems.length) {
+              bad.push(
+                `meta.walls.alongCutRuns ${rk2}: \`free\` lists ${f.x},${f.y} as an interior parallel a road ` +
+                  `could move onto, and ${problems.join("; ")}`,
+              );
+            }
+          }
+          for (const h of r.held || []) {
+            const m = /^(-?\d+),(-?\d+) (.*)$/.exec(String(h));
+            if (!m) {
+              bad.push(`meta.walls.alongCutRuns ${rk2}: \`held\` entry "${String(h).slice(0, 50)}" names no tile`);
+              continue;
+            }
+            const hx = Number(m[1]),
+              hy = Number(m[2]);
+            named.add(key(hx, hy));
+            if (Math.max(Math.abs(hx - r.x), Math.abs(hy - r.y)) !== 1) {
+              bad.push(`meta.walls.alongCutRuns ${rk2}: \`held\` names ${hx},${hy}, which is not a neighbour`);
+              continue;
+            }
+            const ok = heldTrue(hx, hy, m[3]);
+            if (ok === null) {
+              bad.push(
+                `meta.walls.alongCutRuns ${rk2}: "${hx},${hy} ${m[3].slice(0, 40)}" is not one of the classes ` +
+                  `this file re-derives, so nothing checks it`,
+              );
+            } else if (!ok) {
+              bad.push(
+                `meta.walls.alongCutRuns ${rk2}: \`held\` says "${hx},${hy} ${m[3].slice(0, 40)}" and on the ` +
+                  `board this room ships that is FALSE`,
+              );
+            }
+          }
+          const gap = D8.map(([dx, dy]) => key(r.x + dx, r.y + dy)).filter((k) => !named.has(k));
+          if (gap.length) {
+            bad.push(
+              `meta.walls.alongCutRuns ${rk2}: \`free\` and \`held\` together account for ${named.size} of ` +
+                `the 8 neighbours — ${gap.join(" ")} appear in neither, so the record makes no claim about ` +
+                `${gap.length === 1 ? "it" : "them"} at all`,
+            );
+          }
+          // ...AND THE TWO RECORDS ABOUT ONE TILE HAVE TO SAY THE SAME THING —
+          // ABOUT THE ONE QUESTION THEY BOTH ANSWER.
+          //
+          // `alongCutRefused` is written at stage 5b, in the middle of layer 7;
+          // `alongCutRuns` is re-derived at the end, on the board that ships.
+          // The reflow, the prune and the swamp paving all run in between, so a
+          // TILE-FOR-TILE reconciliation of the two is not available and asking
+          // for one fails honest rooms: E18S9 offered the swap to 45,6, E9S8 to
+          // 18,24 and E2S1 to 25,5, and all three of those are in the exterior
+          // flood on the finished board because the inert prune later took a
+          // rampart off the wall beside them. A gate that demanded the refusal's
+          // targets appear in the shipped record would have failed all three for
+          // the ordering of the pipeline, which is the failure direction this
+          // file is supposed to be careful about.
+          //
+          // What the two DO both answer, and may not answer differently, is the
+          // yes/no: is there anywhere inboard for this road to go. A room whose
+          // shipped board offers a free interior parallel and whose refusal says
+          // none exists is a room contradicting itself in public, and that is
+          // exactly the M2 defect — the D4 search reported "none" over a
+          // neighbour set that was missing half the board.
+          const w2 = refusedBy.get(rk2);
+          if (typeof w2 === "string") {
+            const noneClaim = w2.startsWith("no interior parallel exists");
+            const freeN = (r.free || []).length;
+            if (noneClaim && freeN) {
+              bad.push(
+                `meta.walls.alongCutRuns ${rk2}: the record lists ${freeN} free interior parallel(s) — ` +
+                  `re-derived on the board this room ships — and the refusal beside it says "no interior ` +
+                  `parallel exists". One tile, two published answers, and one of them says the swap was ` +
+                  `never offered anywhere`,
+              );
+            }
+            if (!noneClaim && !freeN) {
+              bad.push(
+                `meta.walls.alongCutRuns ${rk2}: the record lists NO free interior parallel and the refusal ` +
+                  `beside it claims the swap was offered to one and broke the network`,
+              );
+            }
+          }
+        }
+      }
+      // ...AND THE MOVED COUNTER, BOUNDED. It cannot be re-derived: a swap that
+      // happened leaves the same board as a run that was never there, and the
+      // roads it touched are moved again by later passes. What CAN be said from
+      // the shipped board is that every swap left a cut tile unpaved with an
+      // interior, non-cut road tile beside it — the tile the road went to — so
+      // the count of such tiles is an upper bound. Measured on the shipped fleet
+      // the worst room uses 27% of its own bound, so this costs an honest
+      // producer nothing and refuses a counter invented out of the air.
+      // (`roadKind` now also witnesses the swaps tile by tile — see the block
+      // below, which pins the same counter to a list rather than to a bound.)
+      if (typeof moved === "number" && moved > 0) {
+        let bound = 0;
+        for (const c of cutPts) {
+          if (roadSet.has(key(c.x, c.y))) continue;
+          if (
+            D8.some(([dx, dy]) => {
+              const nk = key(c.x + dx, c.y + dy);
+              return roadSet.has(nk) && !cutKeyed.has(nk) && !ext[idx(c.x + dx, c.y + dy)];
+            })
+          ) {
+            bound++;
+          }
+        }
+        if (moved > bound) {
+          bad.push(
+            `meta.walls.alongCutMoved says stage 5b moved ${moved} paved cut tile(s) onto their interior ` +
+              `parallel, and this room's shipped board has only ${bound} cut tile(s) that are unpaved and ` +
+              `have an interior non-cut road tile beside them — the shape a taken swap leaves behind. The ` +
+              `counter cannot be re-derived exactly (later passes move the same roads again) but it cannot ` +
+              `exceed this either`,
+          );
+        }
+      }
+    }
+
+    // ==================================================================
+    // LAYER 7's PER-TILE ROAD PROVENANCE — the map the caption is composed from.
+    //
+    // See ROAD_KINDS. The film's layer-7 caption asserted ONE purpose over a
+    // layer that bundles six, and the fix is to compose the caption from a
+    // per-tile provenance map — which only helps if the map is not itself
+    // another unread published field. Three of the seven kinds are re-derivable
+    // from the shipped board and are re-derived here; the other four are
+    // producer-witnessed and are held to the two things that are checkable
+    // anyway: the tile is one this room actually paves, and the kind is in the
+    // closed set. There is therefore no unclassified bucket to hide a tile in,
+    // which is what "0 unclassified" has to mean to be worth printing.
+    // ==================================================================
+    {
+      const rkMap = plan.meta?.walls?.roadKind;
+      if (rkMap && typeof rkMap === "object") {
+        const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
+        const moved = plan.meta?.walls?.alongCutMoved;
+        const byKind = new Map();
+        for (const [k, v] of Object.entries(rkMap)) {
+          const m = /^(-?\d+),(-?\d+)$/.exec(k);
+          if (!m) {
+            bad.push(`meta.walls.roadKind: "${k}" is not a tile key`);
+            continue;
+          }
+          const kind = String(v);
+          if (!ROAD_KINDS.has(kind)) {
+            bad.push(
+              `meta.walls.roadKind ${k}: kind ${JSON.stringify(kind)} is not one of the ` +
+                `${ROAD_KINDS.size} layer-7 passes (${[...ROAD_KINDS].join(", ")}). The map is what the ` +
+                `film's layer-7 caption is composed from, so a kind nobody defined is a caption nobody wrote`,
+            );
+            continue;
+          }
+          if (!roadSet.has(k)) {
+            bad.push(
+              `meta.walls.roadKind ${k}: provenance "${kind}" for a tile this room does not pave. The map is ` +
+                `restricted to shipped tiles; a phantom entry moves the caption's counts for free`,
+            );
+            continue;
+          }
+          byKind.set(kind, (byKind.get(kind) || []).concat(k));
+        }
+        // ---- swampPave: swamp is terrain, so this one is simply true or not.
+        for (const k of byKind.get("swampPave") || []) {
+          const [sx, sy] = k.split(",").map(Number);
+          if (!isSwamp(terrain, sx, sy)) {
+            bad.push(
+              `meta.walls.roadKind ${k}: classified "swampPave" and the tile is not swamp. The pass exists ` +
+                `to pay 5x movement down to 1 on ground the garrison walks often; on plain it bought nothing`,
+            );
+          }
+        }
+        // ---- conductBridge: the bridge publishes its own tile list, and the
+        // two have to be the same list.
+        const bridgeAdded = (plan.meta?.walls?.conductBridge?.added || [])
+          .filter((t) => t && Number.isInteger(t.x))
+          .map((t) => key(t.x, t.y))
+          .sort();
+        const bridgeKind = (byKind.get("conductBridge") || []).slice().sort();
+        if (bridgeAdded.join(" ") !== bridgeKind.join(" ")) {
+          bad.push(
+            `meta.walls.roadKind: [${bridgeKind.join(" ") || "nothing"}] carries the "conductBridge" ` +
+              `provenance and meta.walls.conductBridge.added is [${bridgeAdded.join(" ") || "nothing"}] — ` +
+              `one pass, one list`,
+          );
+        }
+        // ---- alongCutMoved: THE COUNTER, PINNED TO A LIST. `alongCutMoved` was
+        // a bare integer nothing could re-derive, and the bound above is only a
+        // bound. The provenance map names the tiles, so the counter is now the
+        // length of a list of tiles that must each be a road this room ships and
+        // must NOT be a cut tile — which is the entire content of the swap: the
+        // road came OFF the wall.
+        const movedKind = byKind.get("alongCutMoved") || [];
+        if (typeof moved === "number" && movedKind.length !== moved) {
+          bad.push(
+            `meta.walls.roadKind carries ${movedKind.length} tile(s) of "alongCutMoved" provenance and ` +
+              `meta.walls.alongCutMoved says ${moved}. The counter used to be a bare integer nothing could ` +
+              `check; it is a list now, and the list is what it counts`,
+          );
+        }
+        for (const k of movedKind) {
+          if (cutKeyed.has(k)) {
+            bad.push(
+              `meta.walls.roadKind ${k}: classified "alongCutMoved" and the tile is IN the cut — the swap ` +
+                `moves a road off the wall onto the interior parallel, so a moved tile that is still wall ` +
+                `is the pass having done nothing`,
+            );
+          }
+        }
+      }
+    }
+
+    // ==================================================================
     // THE REDUNDANT-CUT REFUSALS, PRICED BY ACTUALLY DELETING THE TILE.
     //
     // The cut this planner ships is a SUPERSET of the tiles that are singly
@@ -3710,7 +4655,312 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // refusal at all and the room is failed for shipping one.
     // ==================================================================
     {
-      const reasons = plan.meta?.shell?.redundantCut?.reasons || {};
+      const rcRec = plan.meta?.shell?.redundantCut || {};
+      const reasons = rcRec.reasons && typeof rcRec.reasons === "object" ? rcRec.reasons : {};
+      // ================================================================
+      // COVERAGE FIRST — the reasons map is the EXTRA-CUT SET, exactly.
+      //
+      // The audit that stood here was opt-in twice over: it ran only on the
+      // reasons that carried a `pricedDeltas` block, and it never asked which
+      // tiles were supposed to be in the map at all. An EMPTY map therefore
+      // passed every room in the fleet, which is the same hole as "a reason
+      // exists" one level down — a record whose completeness nobody checks is a
+      // record the producer fills in when it feels like it.
+      //
+      // The extra-cut set is re-derived here and never read: the declared cut
+      // minus the tiles this file's own single-removal test finds seal-critical
+      // (`sealTiles`, derived from terrain and the rampart list a thousand lines
+      // up). Those are precisely the tiles that LOOK like double shell to a
+      // reader, and the superset claim is only honest if every one of them is
+      // spoken for. Missing key = a tile with no reason. Surplus key = a reason
+      // for a tile that needs none, which is the padding move the cut itself was
+      // caught doing in round 11.
+      // ================================================================
+      const sealK = new Set(sealTiles.map((t) => t.k));
+      const extraCut = [...declaredCut].filter((k) => !sealK.has(k)).sort();
+      const reasonKeys = Object.keys(reasons).sort();
+      if (extraCut.join(" ") !== reasonKeys.join(" ")) {
+        const missing = extraCut.filter((k) => !reasons[k]);
+        const surplus = reasonKeys.filter((k) => !extraCut.includes(k));
+        bad.push(
+          `meta.shell.redundantCut.reasons does not cover the extra cut: this room's declared cut has ` +
+            `${extraCut.length} tile(s) that are NOT singly seal-critical (${extraCut.join(" ") || "none"}) ` +
+            `and the reasons map holds ${reasonKeys.length} (${reasonKeys.join(" ") || "none"})` +
+            (missing.length ? ` — ${missing.join(" ")} carr${missing.length === 1 ? "ies" : "y"} no reason at all` : ``) +
+            (surplus.length ? ` — ${surplus.join(" ")} ${surplus.length === 1 ? "is" : "are"} explained and did not need to be` : ``) +
+            `. The cut is published as a superset WITH per-tile justification; without the coverage it is ` +
+            `just a superset, and an empty reasons map used to pass this gate in every room in the fleet`,
+        );
+      }
+      if (rcRec.tiles !== extraCut.length) {
+        bad.push(
+          `meta.shell.redundantCut: \`tiles\` says ${JSON.stringify(rcRec.tiles)}, re-derived the cut carries ` +
+            `${extraCut.length} tile(s) that are not singly seal-critical`,
+        );
+      }
+      if (rcRec.explained !== reasonKeys.length) {
+        bad.push(
+          `meta.shell.redundantCut: \`explained\` says ${JSON.stringify(rcRec.explained)} against ` +
+            `${reasonKeys.length} reason(s) in the map`,
+        );
+      }
+      // ================================================================
+      // ...AND EVERY REASON IS RE-DERIVED, BY CLASS, BY DELETING THE TILE.
+      //
+      // Forty of the forty-three reasons the fleet ships are unpriced free text
+      // — and every one of them is re-derivable, because every one of them is a
+      // measurement dressed as a sentence. "Deleting it would put 17,18 outside
+      // the wall" is one flood. "The structure at 36,41 would drop from depth 4
+      // to 3" is one flood and one distance transform. "The rampart is the only
+      // thing between this structure and an attacker" is a depth reading. "The
+      // walk region goes from 208 to 203" is two walks. So the free text stops
+      // being admissible on its own: the class picks the re-derivation and the
+      // re-derivation has to agree with the sentence, numbers included.
+      // ================================================================
+      const rampAll = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
+      /** the exterior flood with one rampart deleted — the single-removal board */
+      const extWithout = (tk) => {
+        const set1 = new Set(rampartSet);
+        set1.delete(tk);
+        return exteriorFlood(passable, set1);
+      };
+      /**
+       * The garrison's interior walk region, sized. Transcribed from the
+       * producer's `interiorWalk(terrain, rset, ext1, blocked, sitter)`: the
+       * blocking set is BUILT_OBSTACLES + the room objects, which is this file's
+       * `BLOCKING` WITHOUT the extractor — the two lists differ by that one type
+       * and it is worth two tiles in E19S8, i.e. exactly the difference between
+       * re-deriving the producer's number and re-deriving a different one.
+       */
+      const walkBlocked = new Set(objectTiles);
+      for (const t of BLOCKING) {
+        if (t === "extractor") continue;
+        for (const p of s[t] || []) walkBlocked.add(key(p.x, p.y));
+      }
+      const walkRegion = (rset) => {
+        const e = exteriorFlood(passable, rset);
+        const seen = new Uint8Array(2500);
+        const si = idx(sitter.x, sitter.y);
+        seen[si] = 1;
+        const q = [si];
+        let n = 1;
+        for (let qi = 0; qi < q.length; qi++) {
+          const i = q[qi],
+            x = i % 50,
+            y = (i / 50) | 0;
+          for (const [dx, dy] of D8) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            const ni = idx(nx, ny);
+            const nk = key(nx, ny);
+            if (seen[ni] || !passable(nx, ny)) continue;
+            if (!rset.has(nk) && e[ni]) continue;
+            if (walkBlocked.has(nk)) continue;
+            seen[ni] = 1;
+            n++;
+            q.push(ni);
+          }
+        }
+        return { size: n, seen };
+      };
+      const carriesStructure = (x, y) =>
+        Object.keys(s).some(
+          (t) => t !== "road" && t !== "rampart" && (s[t] || []).some((p) => p.x === x && p.y === y),
+        );
+      const pt = (v) => {
+        const m = /^(-?\d+),(-?\d+)$/.exec(String(v || ""));
+        return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
+      };
+      for (const [tk, r] of Object.entries(reasons)) {
+        if (!r || typeof r !== "object") {
+          bad.push(`meta.shell.redundantCut.reasons ${tk}: the reason is ${JSON.stringify(r)}, not a record`);
+          continue;
+        }
+        if (!rampAll.has(tk)) {
+          bad.push(
+            `meta.shell.redundantCut.reasons ${tk}: a refusal to delete a rampart that this room does not ` +
+              `plan on that tile`,
+          );
+          continue;
+        }
+        const cls = String(r.class || "");
+        const known = CUT_REASON_CLASSES.find((c) => c.is(cls));
+        if (!known) {
+          bad.push(
+            `meta.shell.redundantCut.reasons ${tk}: \`class\` is ${JSON.stringify(cls.slice(0, 70))}, which ` +
+              `is not one of the ${CUT_REASON_CLASSES.length} classes this file re-derives ` +
+              `(${CUT_REASON_CLASSES.map((c) => c.id).join(", ")}). The refusal channel is a closed enum ` +
+              `precisely so a new sentence cannot ship as a new excuse`,
+          );
+          continue;
+        }
+        const why = String(r.why || "");
+        const [rx, ry] = tk.split(",").map(Number);
+        if (known.id === "load-bearing") {
+          const held = pt(r.tile);
+          if (!held) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: the load-bearing refusal names no tile — the whole ` +
+                `claim is that a SPECIFIC piece of interior floor leaves the wall`,
+            );
+            continue;
+          }
+          const hi = idx(held.x, held.y);
+          const e1 = extWithout(tk);
+          if (ext[hi]) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it claims ${r.tile} is interior floor the wall holds ` +
+                `in, and ${r.tile} is in the exterior flood on the board this room ships`,
+            );
+          } else if (!e1[hi]) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it claims deleting this rampart would put ${r.tile} ` +
+                `outside the wall, and re-flooding with the rampart deleted leaves ${r.tile} INSIDE. The ` +
+                `tile is named so the claim is falsifiable, and this one is false`,
+            );
+          } else if (!walkable(terrain, held.x, held.y)) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it calls ${r.tile} "interior floor the base walks ` +
+                `on" and ${r.tile} is natural wall`,
+            );
+          }
+        } else if (known.id === "depth-promotion") {
+          const held = pt(r.tile);
+          const m = /depth (\d+) to (\d+)/.exec(why);
+          if (!held || !m) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: the depth-promotion refusal must name the structure ` +
+                `and quote the depth it drops from and to; it says tile=${JSON.stringify(r.tile)} ` +
+                `why=${JSON.stringify(why.slice(0, 60))}`,
+            );
+            continue;
+          }
+          const hi = idx(held.x, held.y);
+          const d1 = depthFromExterior(extWithout(tk));
+          if (!carriesStructure(held.x, held.y)) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it refuses the deletion to protect "the structure at ` +
+                `${r.tile}", and this room builds nothing on ${r.tile}`,
+            );
+          }
+          if (depth[hi] !== Number(m[1]) || d1[hi] !== Number(m[2])) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it says ${r.tile} would drop from depth ${m[1]} to ` +
+                `${m[2]}; re-derived on this room's own board it stands at ${depth[hi]} and deleting the ` +
+                `rampart takes it to ${d1[hi]}. Round 8 shipped twelve of these quoting 4->3 over a real ` +
+                `4->0, measured before layer 7b had finished moving the wall`,
+            );
+          } else if (d1[hi] >= DEPTH_SAFE) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: ${r.tile} lands at depth ${d1[hi]} with the rampart ` +
+                `deleted, which is not "inside a ranged attacker's reach" — the safe depth is ${DEPTH_SAFE}`,
+            );
+          }
+        } else if (known.id === "personal-cover") {
+          const m = /stands at depth (\d+)/.exec(why);
+          if (r.tile && `${r.tile}` !== tk) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: a personal-cover refusal is about the structure on ` +
+                `THIS tile and it names ${r.tile}`,
+            );
+          }
+          if (!carriesStructure(rx, ry)) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it says "the structure on this tile" is what the ` +
+                `rampart covers, and this room builds nothing on ${tk} — a personal rampart over bare ` +
+                `floor covers nobody`,
+            );
+          }
+          const d1 = depthFromExterior(extWithout(tk));
+          const before = depth[idx(rx, ry)];
+          const after = d1[idx(rx, ry)];
+          if (m && before !== Number(m[1])) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it says the structure stands at depth ${m[1]} and ` +
+                `re-derived it stands at ${before}`,
+            );
+          }
+          if (before >= DEPTH_SAFE) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: personal cover is claimed for a structure at depth ` +
+                `${before}, at or past the ${DEPTH_SAFE} safe depth — nothing can reach it, so the rampart ` +
+                `is not what is keeping it alive`,
+            );
+          }
+          if (after >= before) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: deleting the rampart leaves the covered structure at ` +
+                `depth ${after} against ${before} today — the rampart is not "the only thing between it ` +
+                `and an attacker", it is not between them at all`,
+            );
+          }
+        } else if (known.id === "walk-region") {
+          const set1 = new Set(rampartSet);
+          set1.delete(tk);
+          const w0 = walkRegion(rampartSet);
+          const w1 = walkRegion(set1);
+          const m = /from (\d+) tile\(s\) to (\d+)/.exec(why);
+          if (m) {
+            if (w0.size !== Number(m[1]) || w1.size !== Number(m[2])) {
+              bad.push(
+                `meta.shell.redundantCut.reasons ${tk}: it says the garrison's walk region goes from ` +
+                  `${m[1]} tile(s) to ${m[2]}; re-walked on this room's own board it goes from ${w0.size} ` +
+                  `to ${w1.size}`,
+              );
+            } else if (w0.size - w1.size <= 1 && w1.size <= w0.size) {
+              bad.push(
+                `meta.shell.redundantCut.reasons ${tk}: the region goes ${w0.size} -> ${w1.size}, a change ` +
+                  `of ${w0.size - w1.size} tile(s), which is inside the one-tile budget the refusal is ` +
+                  `arguing it exceeds`,
+              );
+            }
+          } else {
+            // the other walk-region refusal: the region GAINS floor the garrison
+            // could not stand on before. Re-derived by set containment.
+            let gained = 0;
+            for (let i = 0; i < 2500; i++) if (w1.seen[i] && !w0.seen[i]) gained++;
+            if (!gained) {
+              bad.push(
+                `meta.shell.redundantCut.reasons ${tk}: it claims deleting the rampart opens floor the ` +
+                  `garrison could not previously stand on, and re-walked the region gains nothing`,
+              );
+            }
+          }
+        } else if (known.id === "stand-denial") {
+          // the premise, re-derived: this is the controller's ring, and an
+          // attacker really can stand here once the rampart is gone. Deleting one
+          // rampart makes exactly one tile floodable, so "he can stand here" is
+          // "the tile is D8-adjacent to the exterior" — the producer's own
+          // `facesExterior` fast reject, re-applied.
+          if (!controller || chebyshev(controller, { x: rx, y: ry }) !== 1) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it claims the controller's stand-denial ring, and ` +
+                `${tk} is ${controller ? `${chebyshev(controller, { x: rx, y: ry })} tiles from` : "in a room with no"} ` +
+                `controller — the ring is the eight tiles a claim creep can work from`,
+            );
+          }
+          const faces = D8.some(([dx, dy]) => {
+            const nx = rx + dx,
+              ny = ry + dy;
+            return nx >= 0 && ny >= 0 && nx <= 49 && ny <= 49 && ext[idx(nx, ny)];
+          });
+          if (!faces) {
+            bad.push(
+              `meta.shell.redundantCut.reasons ${tk}: it claims an attacker CAN stand here — "this tile is ` +
+                `D8-adjacent to the exterior flood" — and re-derived it is not. Twelve ramparts across ten ` +
+                `rooms shipped on this keep-class with no stand to deny; the premise is checked, not asserted`,
+            );
+          }
+        } else if (known.id === "promotes-outsider" && !r.pricedDeltas) {
+          bad.push(
+            `meta.shell.redundantCut.reasons ${tk}: this class ships a \`pricedDeltas\` block and this one ` +
+              `has none. The class asserts the deletion PROMOTES another rampart into the seal, which is a ` +
+              `claim about three measurable numbers, and the three are what the round-12 audit is; a ` +
+              `reason that drops the block drops the only part of itself anything checks`,
+          );
+        }
+      }
       const priced = Object.entries(reasons).filter(([, r]) => r && r.pricedDeltas);
       if (priced.length) {
         const towers = s.tower || [];
@@ -3886,7 +5136,24 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // directions: a false paragraph fails here, and a record corrupted to
       // match a false paragraph fails there.
       // ==================================================================
-      if (AUDITED_KINDS.has(declKey(g, k))) {
+      //
+      // ...AND "AUDITED WHERE AUDITABLE" IS OVER. Round 12 held eight of
+      // eighteen kinds to identity, and which eight was an accident of which
+      // kinds a reviewer had attacked; the other ten shipped 31 hand-written
+      // paragraphs whose only relationship to their record was that a producer
+      // had once typed both. Four demonstrable lies passed on that gap in a
+      // single round. So the `if` below is now an ELSE THAT FAILS: a shipped
+      // declaration whose kind has no renderer is a narration channel, and it
+      // fails the room that introduces it.
+      if (!AUDITED_KINDS.has(declKey(g, k))) {
+        bad.push(
+          `UNRENDERED DECLARATION KIND \`${declKey(g, k)}\` — this declaration's paragraph is not ` +
+            `generated from its record by declprose.mjs, so nothing compares the two and the sentence a ` +
+            `human reads can assert anything at all. Write the renderer, register it in RENDERERS, and ` +
+            `have the producer set \`detail\` from \`renderDecl(sf)\`; a kind that ships a typed paragraph ` +
+            `is a kind whose record is decoration`,
+        );
+      } else {
         let want = null;
         let renderErr = null;
         try {
@@ -4186,14 +5453,43 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     //
     // Every kind this planner files now has a trigger below, and each trigger is
     // re-derived from terrain and the shipped structures wherever that is
-    // possible. Three are not fully re-derivable from the shipped board and say
-    // so in place rather than being quietly omitted — the honest scope of a
-    // check is part of the check.
+    // possible. Two triggers (`ctrlParks/released`, `runtime/heavy-search`) read
+    // a published counter because the fact they are about is a fact about a
+    // SEARCH rather than about the board, and they say so in place; one kind
+    // (`labs/lab-road-eat`) has no trigger at all and is named in
+    // OBLIGATION_EXEMPT with the reason. That completeness claim is no longer a
+    // paragraph: the kind inventory of the room's own declarations is checked
+    // against OBLIGATION_KINDS immediately below.
     // ------------------------------------------------------------------
     // ==================================================================
     const has = (gate, kind) =>
       decls.some((d) => d.gate === normGate(gate) && (kind === null ? !d.kind : d.kind === kind));
     const owe = [];
+    // ------------------------------------------------------------------
+    // ...AND THE SET OF TRIGGERS IS AN INVENTORY, NOT A PARAGRAPH.
+    //
+    // See OBLIGATION_KINDS / OBLIGATION_EXEMPT and assertKindObligations. The
+    // triggers below are written one per kind, and until now nothing connected
+    // the list of triggers to the list of kinds the fleet actually files — so
+    // the completeness claim four comments up ("Every kind this planner files
+    // now has a trigger below") was a sentence, and the sentence contradicted
+    // the one at the bottom of this block. The kind inventory of the room's own
+    // shipped declarations is taken HERE and every kind must be either
+    // triggered or NAMED as unre-derivable. A kind in neither list is a
+    // narration channel nobody is obliged to use, which is precisely the thing
+    // this block exists to abolish, and it fails the room that introduces it.
+    for (const d of decls) {
+      const slot = `${d.gate}|${d.kind ? String(d.kind) : ""}`;
+      if (OBLIGATION_KINDS_N.has(slot) || OBLIGATION_EXEMPT_N.has(slot)) continue;
+      fails.push(
+        `UNTRIGGERED DECLARATION KIND — this room files a \`${slot}\` declaration and validate.mjs has ` +
+          `no obligation trigger for that kind and no named exemption for it either. A declaration kind ` +
+          `nothing is obliged to file is free narration: deleting it costs the room nothing, so the ` +
+          `channel stops being a gate for that class the moment the class is invented. Either add the ` +
+          `trigger to OBLIGATION_KINDS and write it in the block below, or add the kind to ` +
+          `OBLIGATION_EXEMPT with the reason no re-derivation from the shipped board exists.`,
+      );
+    }
     if (mBuilt) {
       if (mBuilt.maxGated > MOB_TARGET && !has("mobility", null)) {
         owe.push(
@@ -4446,15 +5742,17 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         );
       }
     }
-    // ---- NOT RE-DERIVABLE, AND SAID SO RATHER THAN OMITTED.
+    // ---- NOT RE-DERIVABLE, AND SAID SO IN A LIST RATHER THAN IN A COMMENT.
     //
-    // `labs/lab-road-eat` — the diamond displaced planned road tiles. The
-    // displaced tiles are DELETED from the plan by the time it ships, so the
-    // finished board carries no trace of them and no re-derivation exists. The
-    // content of the declaration is still audited where it names tiles (the
-    // named tiles must not carry a road today, which is checkable); what cannot
-    // be checked is whether a room that files nothing should have. Naming the
-    // hole is the honest alternative to a trigger that does not work.
+    // `labs/lab-road-eat` is the one kind with no trigger, and it is now named
+    // in OBLIGATION_EXEMPT at the top of this file with the reason, so the
+    // inventory check above passes it EXPLICITLY instead of by absence. That
+    // matters: an exemption spelled as an absence is indistinguishable from an
+    // oversight, which is exactly how six kinds came to be free narration in the
+    // first place. The reason itself is unchanged — the diamond's displaced road
+    // tiles are deleted from the plan by the time it ships, so the finished board
+    // carries no trace of them; the declaration's CONTENT is still audited where
+    // it names tiles.
     for (const o of owe) {
       fails.push(
         `UNDECLARED — ${o}. The room's own re-derived state demands a declaration and none is filed; a ` +

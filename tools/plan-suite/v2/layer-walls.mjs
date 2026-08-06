@@ -2200,22 +2200,19 @@ function declareUnreachableCut(plan, before) {
   const added = now - (before || 0);
   if (added <= 0) return; // layer 2 already owns these, and already declared them
   plan.meta.shortfalls = plan.meta.shortfalls || [];
-  const where = tiles.map((t) => `${t.x},${t.y}`).join(" ");
-  plan.meta.shortfalls.push({
+  const sfUnreach = {
     gate: "battlements",
     kind: "unreachable",
-    detail:
-      `UNREACHABLE WALL: ${now} cut tile(s) — ${where} — carry a rampart the finished base cannot walk ` +
-      `to. ${added} of them became unreachable after layer 2, which is why this is declared here and ` +
-      `not with the enclosure: the mass we grew, or the prune that moved the wall, sealed them off from ` +
-      `the sitter's own walk region. Each one is a rampart paying decay forever for a tile no garrison ` +
-      `can hold or repair, and each is dropped from the mobility endpoint set, so the lap it would have ` +
-      `contributed appears in no published number. It is NOT removed: it is load-bearing on the seal ` +
-      `(an unreachable tile that was not would have gone in the inert prune), so the room owes the ` +
-      `upkeep either way and the honest thing is to say what it is buying.`,
+    detail: "",
     tiles: tiles.slice(0, 32).map((t) => ({ x: t.x, y: t.y })),
     battlements: { unreachable: now, unreachableAtLayer2: before || 0, strandedByMass: added },
-  });
+  };
+  // GENERATED — see declprose.mjs. This paragraph carried a full record already
+  // and was STILL hand-written beside it, which is the whole F3 finding in one
+  // declaration: a reviewer rewrote E13S3's "1 cut tile(s)" to "0 cut tile(s)"
+  // — a declaration asserting it is about nothing — and the room passed 1/1.
+  sfUnreach.detail = renderDecl(sfUnreach);
+  plan.meta.shortfalls.push(sfUnreach);
 }
 
 /**
@@ -2330,6 +2327,20 @@ export function planWallRoads(terrain, plan) {
   const rampartSet = new Set((plan.structures.rampart || []).map((r) => key(r.x, r.y)));
 
   const newRoads = [];
+  // ------------------------------------------------------------------
+  // WHICH OF THIS LAYER'S FIVE JOBS LAID EACH TILE.
+  //
+  // `meta.roadLayer` tags every road with the layer that laid it, and layer 7
+  // is not one job — it is stitching, rampart spurs, the extension-face safety
+  // net, swamp-hole pre-paving, the along-the-cut swap and (in finalizeRoom)
+  // the deferred-conduct bridge. The film captioned all of them "rampart spurs
+  // and the extension-face safety net", which is false in 20 rooms / 39 tiles:
+  // E12S6's three layer-7 tiles are 7b reflow, E1S6's four are swamp pre-pave,
+  // E14S5's are along-cut swaps, and every one of those rooms has `spurTiles`
+  // at 0. A caption is a claim; this map is what makes it checkable.
+  // ------------------------------------------------------------------
+  const roadKind = {};
+  let kindNow = "stitch";
   const addRoad = (x, y) => {
     const k = key(x, y);
     // NEVER on a cut tile — that is the whole point of this rewrite
@@ -2337,6 +2348,7 @@ export function planWallRoads(terrain, plan) {
     if (!walkable(terrain, x, y) || x < 1 || y < 1 || x > 48 || y > 48) return false;
     roadSet.add(k);
     newRoads.push({ x, y });
+    roadKind[k] = kindNow;
     return true;
   };
 
@@ -2424,6 +2436,7 @@ export function planWallRoads(terrain, plan) {
   // ------------------------------------------------------------------
   let stitched = 0;
   let stitchTiles = 0;
+  kindNow = "stitch";
   for (let round = 0; round < 8; round++) {
     const comp = liveNetwork();
     const orphans = plan.structures.road
@@ -2490,6 +2503,7 @@ export function planWallRoads(terrain, plan) {
   let spurTiles = 0;
   let unreachedClusters = 0;
   let servedFree = 0;
+  kindNow = "spur";
   // biggest clusters first: the long wall segments are where defenders live,
   // and an early spur often lands close enough to serve a small one for free
   for (const cl of clusters.slice().sort((a, b) => b.length - a.length)) {
@@ -2528,6 +2542,7 @@ export function planWallRoads(terrain, plan) {
   const beforeFiller = newRoads.length;
   let unreachableExts = 0;
   let servedExts = 0;
+  kindNow = "extFace";
   {
     const { prev, dist } = fieldFromNetwork();
     for (const e of plan.structures.extension || []) {
@@ -2752,6 +2767,7 @@ export function planWallRoads(terrain, plan) {
   //     which judges by adjacency to structures, would have deleted again.
   // ------------------------------------------------------------------
   let swampPaved = 0;
+  kindNow = "swampPave";
   {
     const live = new Set();
     for (const r of plan.structures.road.concat(newRoads)) {
@@ -2874,6 +2890,7 @@ export function planWallRoads(terrain, plan) {
   // refused one. The tower-clump pass declares all six of its unfixable
   // instances; this one now keeps the same books.
   const alongCutRefused = [];
+  kindNow = "alongCutMoved";
   {
     const liveNow = () => {
       const s = new Set();
@@ -2883,7 +2900,16 @@ export function planWallRoads(terrain, plan) {
       }
       return s;
     };
-    const netOK = (live) => {
+    /**
+     * null when the swapped network is no worse, otherwise the ONE fact that
+     * makes it worse, named. It used to return a bare boolean and the refusal
+     * text then listed all three failure modes joined by "or" — a sentence
+     * nobody can check and, in a room with a real answer, a sentence that hides
+     * which of the three it was. A refusal is worth filing only if the thing it
+     * asserts is re-derivable from the artifact, so it says which tile broke
+     * and how.
+     */
+    const netWhy = (live) => {
       // one component from the sitter, over roads + containers
       const comp = new Set([key(plan.sitter.x, plan.sitter.y)]);
       const q = [plan.sitter];
@@ -2898,16 +2924,27 @@ export function planWallRoads(terrain, plan) {
           q.push({ x, y });
         }
       }
-      for (const k of live) if (!comp.has(k)) return false;
+      const lost = [...live].filter((k) => !comp.has(k)).sort();
+      if (lost.length) {
+        return (
+          `${lost.length} road tile(s) fall off the network (${lost.slice(0, 6).join(" ")}` +
+          `${lost.length > 6 ? " …" : ""}) — they are no longer D8-connected to the sitter over roads ` +
+          `and containers`
+        );
+      }
       for (const c of plan.structures.container || []) {
         const k = key(c.x, c.y);
         if (comp.has(k)) continue;
-        if (!D8.some(([dx, dy]) => comp.has(key(c.x + dx, c.y + dy)))) return false;
+        if (!D8.some(([dx, dy]) => comp.has(key(c.x + dx, c.y + dy)))) {
+          return `the container at ${c.x},${c.y} is left with no road on any of its 8 neighbours`;
+        }
       }
       for (const e of plan.structures.extension || []) {
-        if (!D4.some(([dx, dy]) => live.has(key(e.x + dx, e.y + dy)))) return false;
+        if (!D4.some(([dx, dy]) => live.has(key(e.x + dx, e.y + dy)))) {
+          return `the extension at ${e.x},${e.y} loses its last D4 road face`;
+        }
       }
-      return true;
+      return null;
     };
     let live = liveNow();
     const onCut = (k) => cutSet.has(k);
@@ -2915,20 +2952,44 @@ export function planWallRoads(terrain, plan) {
     for (const c of cut) {
       const k = key(c.x, c.y);
       if (!live.has(k)) continue;
-      // "along" = at least one D4 neighbour is ALSO a paved cut tile
-      if (!D4.some(([dx, dy]) => onCut(key(c.x + dx, c.y + dy)) && live.has(key(c.x + dx, c.y + dy)))) continue;
+      // ----------------------------------------------------------------
+      // "ALONG" IS D8, BECAUSE THE GAME IS D8.
+      //
+      // This test read D4, which is a rule from a different game. Screeps
+      // creeps move diagonally at the same cost as orthogonally and there is no
+      // corner-cut restriction, so two paved cut tiles touching at a corner are
+      // a two-step walk on prepared surface exactly like two touching on a
+      // face — the anti-pattern this pass exists to break, arriving one
+      // diagonal at a time. Everything else in this file that asks "can a creep
+      // get from here to there" already uses D8 (netOK, liveNetwork,
+      // exteriorFlood, the mobility walk); this one test did not, and two rooms
+      // shipped a diagonal run with nothing said about it: E2S1 25,6~26,5 and
+      // E12S7 23,23~24,24.
+      // ----------------------------------------------------------------
+      if (!D8.some(([dx, dy]) => onCut(key(c.x + dx, c.y + dy)) && live.has(key(c.x + dx, c.y + dy)))) continue;
       runTiles.push(c);
     }
     runTiles.sort((a, b) => a.y - b.y || a.x - b.x);
     for (const c of runTiles) {
       const k = key(c.x, c.y);
       if (!live.has(k)) continue;
-      // the interior parallel: a D4 neighbour that is inside the wall, free
-      // floor, not the wall itself and not already paved
-      let target = null;
-      /** why each D4 neighbour was not an interior parallel — the refusal record */
+      // the interior parallel: a D8 neighbour that is inside the wall, free
+      // floor, not the wall itself and not already paved. D8 for the same
+      // reason the run detector above is D8 — a diagonal tile is one step, so
+      // it is a real parallel, and searching only the four faces made the pass
+      // refuse tiles it had a legal answer for (E2S1 25,6 has 24,7 / 25,7 /
+      // 26,7 free, all diagonal or below, and shipped a run anyway).
+      // EVERY candidate is collected and every candidate is TRIED. The loop
+      // used to stop at the first legal parallel and, if the swap onto it broke
+      // the network, file "the only interior parallel is X,Y" — a sentence that
+      // was false whenever a second one existed, and unfalsifiable from the
+      // outside because nothing else re-derived it. A refusal is only worth
+      // filing if it is checkable, so the reason now names the whole candidate
+      // set and says what happened to each.
+      const targets = [];
+      /** why each D8 neighbour was not an interior parallel — the refusal record */
       const rejected = [];
-      for (const [dx, dy] of D4) {
+      for (const [dx, dy] of D8) {
         const x = c.x + dx,
           y = c.y + dy;
         const tk = key(x, y);
@@ -2956,10 +3017,9 @@ export function planWallRoads(terrain, plan) {
           rejected.push(`${x},${y} is already paved, so there is nothing to move there`);
           continue;
         }
-        target = { x, y, k: tk };
-        break;
+        targets.push({ x, y, k: tk });
       }
-      if (!target) {
+      if (!targets.length) {
         alongCutRefused.push({
           x: c.x,
           y: c.y,
@@ -2967,18 +3027,30 @@ export function planWallRoads(terrain, plan) {
         });
         continue;
       }
-      const trial = new Set(live);
-      trial.delete(k);
-      trial.add(target.k);
-      if (!netOK(trial)) {
+      let target = null;
+      let trial = null;
+      const broke = [];
+      for (const t of targets) {
+        const attempt = new Set(live);
+        attempt.delete(k);
+        attempt.add(t.k);
+        const why = netWhy(attempt);
+        if (!why) {
+          target = t;
+          trial = attempt;
+          break;
+        }
+        broke.push(`moving it to ${t.x},${t.y} — ${why}`);
+      }
+      if (!target) {
         alongCutRefused.push({
           x: c.x,
           y: c.y,
           why:
-            `the only interior parallel is ${target.x},${target.y} and the swap breaks the network — ` +
-            `after it the road set is no longer one component from the sitter, or a container or an ` +
-            `extension loses its face. The swap is offered at equal road count and taken only when the ` +
-            `network is measurably no worse; this one is worse, so the tile stays`,
+            `every interior parallel breaks the network. ${broke.join(" · ")}. The swap is offered ` +
+            `at equal road count and taken only when the network is measurably no worse; ` +
+            `${broke.length === 1 ? "this one is" : "all of these are"} worse, so the tile stays` +
+            (rejected.length ? `. The other neighbours: ${rejected.join(" · ")}` : ``),
         });
         continue;
       }
@@ -2987,6 +3059,7 @@ export function planWallRoads(terrain, plan) {
       if (!plan.structures.road.some((r) => r.x === target.x && r.y === target.y)) {
         newRoads.push({ x: target.x, y: target.y });
         roadSet.add(target.k);
+        roadKind[target.k] = "alongCutMoved";
       } else {
         pruned.delete(target.k);
       }
@@ -3030,7 +3103,10 @@ export function planWallRoads(terrain, plan) {
     for (const rd of reflow.roads) {
       const k = key(rd.x, rd.y);
       pruned.delete(k);
-      if (!already.has(k)) newRoads.push(rd);
+      if (!already.has(k)) {
+        newRoads.push(rd);
+        roadKind[k] = "reflow";
+      }
     }
   }
   if (reflow.shallowRamparts.length && plan.structures.rampart) {
@@ -3046,6 +3122,14 @@ export function planWallRoads(terrain, plan) {
 
   const keptNew = newRoads.filter((r) => !pruned.has(key(r.x, r.y)));
   const removeRoads = plan.structures.road.filter((r) => pruned.has(key(r.x, r.y)));
+  // the sub-kind map, restricted to the tiles this layer actually SHIPS — a
+  // provenance entry for a tile the prune took is a claim about a road that
+  // does not exist, which is the class of defect this map was added to close
+  const roadKindKept = {};
+  for (const r of keptNew) {
+    const k = key(r.x, r.y);
+    roadKindKept[k] = roadKind[k] || "unclassified";
+  }
 
   // ------------------------------------------------------------------
   // (6b) THE TRUTH PASS runs in finalizeRoom, not here — see that function.
@@ -3099,6 +3183,9 @@ export function planWallRoads(terrain, plan) {
       servedExts,
       pruned: pruned.size,
       swampPaved,
+      // which of this layer's jobs laid each tile it ships — see the roadKind
+      // comment over addRoad. The film's layer-7 caption is composed from this.
+      roadKind: roadKindKept,
       // paved cut tiles moved onto the interior parallel — see (5b)
       alongCutMoved,
       // ...and the ones that were offered the swap and refused it, with the
@@ -3395,9 +3482,26 @@ function bridgeDeferredConduct(terrain, plan) {
     ex ? containers.filter((c) => chebyshev(c, ex) <= 1).map((c) => key(c.x, c.y)) : [],
   );
   if (!deferred.size) return null; // nothing is deferred here; nothing to check
+  // ------------------------------------------------------------------
+  // "UNPAVEABLE" MEANS OBSTACLE, NOT "SOMETHING IS ALREADY THERE".
+  //
+  // This set used to hold EVERY structure that is not a road or a rampart, and
+  // the pass then refused to pave any of them "because the engine allows one
+  // structure per tile". That premise is false and this repo says so in three
+  // other places: a road and a container legally share a tile, the fleet shipped
+  // 60 such tiles across 53 rooms BEFORE this fix, and the two rooms that were publishing an
+  // "unpaveable PAVING GAP" were naming THEIR OWN DEFERRED MINERAL CONTAINER as
+  // the obstruction — E2S5 27,23 (11 conductors behind it) and E5S3 32,11 (5).
+  // One plain road on each of those tiles closes both gaps at RCL 3 instead of
+  // RCL 6, and the road survives the container being built on top of it.
+  //
+  // So the refusal set is now the ENGINE'S: OBSTACLE_OBJECT_TYPES as this suite
+  // transcribes it (BUILT_OBSTACLES) plus the room objects (source, mineral,
+  // controller), plus terrain wall, plus the cut. Containers and ramparts are
+  // walkable and paveable and are no longer counted as obstructions.
+  // ------------------------------------------------------------------
   const occupied = new Set();
-  for (const t of Object.keys(plan.structures || {})) {
-    if (t === "road" || t === "rampart") continue;
+  for (const t of BUILT_OBSTACLES) {
     for (const p of plan.structures[t] || []) occupied.add(key(p.x, p.y));
   }
   for (const k of plan.objectTiles || []) occupied.add(k);
@@ -3408,10 +3512,17 @@ function bridgeDeferredConduct(terrain, plan) {
   // road on a cut tile is a wall crossing and a crossing is a decision layer 2
   // takes with the whole enclosure in front of it, not a side effect of a
   // one-tile repair.
-  const wallTiles = new Set([
-    ...(plan.shell?.cut || []).map((c) => key(c.x, c.y)),
-    ...(plan.structures.rampart || []).map((r) => key(r.x, r.y)),
-  ]);
+  //
+  // THE WALL IS `shell.cut`, AND ONLY `shell.cut`. This set used to include
+  // every rampart, which is a different and much larger set: layers 3-7 bolt a
+  // PERSONAL rampart to every shallow structure, and one of those covers E2S5's
+  // mineral container at 27,23 — the exact tile this pass has to pave. A cover
+  // over a container is not a wall crossing, it is a lid on a box. The cut is
+  // the seal (reconcileSeal, above, has already adopted every seal-critical
+  // rampart INTO it, so `shell.cut` here is the shipped enclosure and not layer
+  // 2's opening bid), and a rampart outside it seals nothing by that pass's own
+  // single-removal test.
+  const wallTiles = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
   const paveOk = (x, y) => {
     if (x < 1 || y < 1 || x > 48 || y > 48) return false; // never the exit band
     if (!walkable(terrain, x, y)) return false; // never tunnel to make a join
@@ -3475,13 +3586,18 @@ function bridgeDeferredConduct(terrain, plan) {
       // NOTHING CAN BE PAVED, SO SAY EXACTLY WHAT IS LEFT INSTEAD OF ROUNDING
       // IT TO "UNREACHABLE".
       //
-      // E5S3 is the case. Its whole north-east extension pocket joins the rest
-      // of the network across ONE tile — 32,11 — and that tile is where the
-      // mineral container goes. A road cannot be laid there (the engine allows
-      // one structure per tile, ramparts aside), and every other join is an
-      // extension. So the join cannot be paved by anybody, ever.
+      // THIS BRANCH USED TO FIRE ON TWO ROOMS THAT WERE NOT IN IT. E5S3's
+      // north-east pocket joins the rest of the network across one tile, 32,11,
+      // and E2S5's across 27,23; both tiles are the room's own deferred mineral
+      // container, and the pass refused to pave them "because the engine allows
+      // one structure per tile". It does not: a road and a container share a
+      // tile happily, this fleet ships 60 such tiles, and both joins are now
+      // simply PAVED above. What is left down here is the honest residue — a
+      // join whose every tile is an OBSTACLE (an extension, a spawn, a lab, a
+      // source) or terrain wall, where no arrangement of roads closes the gap
+      // because no road may be built there at all.
       //
-      // But a creep does not need a road to walk. Containers are not obstacles
+      // A creep still does not need a road to walk. Containers are not obstacles
       // and neither is bare floor: before RCL6 that tile is plain terrain and
       // the hauler crosses it at 2 ticks instead of 1. That is a PAVING GAP —
       // one tick per crossing until RCL6 — and it is a completely different
@@ -3607,7 +3723,25 @@ export function finalizeRoom(terrain, plan) {
     if (bridged && (bridged.added.length || bridged.stranded?.length)) {
       if (plan.meta?.walls) plan.meta.walls.conductBridge = bridged;
       plan.meta.notes = plan.meta.notes || [];
+      // A ROAD LAID HERE IS STILL A LAYER-7 ROAD, AND THE FILM HAS TO KNOW IT.
+      // This pass runs after planWallRoads has already handed its tile list to
+      // the pipeline, so nothing tags these: they reached `structures.road`
+      // with no `meta.roadLayer` entry and no sub-kind, which is exactly the
+      // "unattributed road" the animation exporter refuses to draw. (E5S1's
+      // 28,30 only ever carried a tag because it was a layer-1 tile the prune
+      // took and this pass re-laid — a coincidence, not a mechanism.)
+      for (const t of bridged.added) {
+        const k = `${t.x},${t.y}`;
+        if (plan.meta.roadLayer && plan.meta.roadLayer[k] == null) plan.meta.roadLayer[k] = 7;
+        if (plan.meta.walls) {
+          plan.meta.walls.roadKind = plan.meta.walls.roadKind || {};
+          plan.meta.walls.roadKind[k] = "conductBridge";
+        }
+      }
       if (bridged.added.length) {
+        const sharing = bridged.added.filter((t) =>
+          (plan.structures.container || []).some((c) => c.x === t.x && c.y === t.y),
+        );
         plan.meta.notes.push(
           `ROAD LAID FOR A CONTAINER THAT IS NOT BUILT YET: ${bridged.added.length} plain road tile(s) ` +
             `(${bridged.added.map((t) => `${t.x},${t.y}`).join(" ")}) were added because this room's road ` +
@@ -3616,17 +3750,38 @@ export function finalizeRoom(terrain, plan) {
             `network nodes — true at RCL 8, false at RCL 3 — and without these tiles the controller ` +
             `container and the roads that serve it are orphaned for three whole RCLs. The tiles are ` +
             `floor the base already walks, so the only cost is ${round2(bridged.added.length * 0.001)} ` +
-            `e/tick of road decay, against a staged network that does not connect.`,
+            `e/tick of road decay, against a staged network that does not connect.` +
+            (sharing.length
+              ? ` ${sharing.length} of them (${sharing.map((t) => `${t.x},${t.y}`).join(" ")}) ` +
+                `is the container's OWN tile: a road and a container legally share a square in this ` +
+                `engine (only OBSTACLE_OBJECT_TYPES may not be doubled up, and a container is not one ` +
+                `of them), so the road is built at RCL 3, conducts from RCL 3, and is still there ` +
+                `when the box lands on top of it at RCL 6. Counting this one, this room ships ` +
+                `${(plan.structures.container || []).filter((c) => (plan.structures.road || []).some((r) => r.x === c.x && r.y === c.y)).length} ` +
+                `container tile(s) that carry a road.`
+              : ``),
         );
       }
       if (bridged.stranded?.length) {
+        const objK = new Set(plan.objectTiles || []);
+        const holds = (t) => {
+          const on = [];
+          for (const ty of BUILT_OBSTACLES) {
+            if ((plan.structures[ty] || []).some((s) => s.x === t.x && s.y === t.y)) on.push(ty);
+          }
+          if (objK.has(`${t.x},${t.y}`)) on.push("a room object");
+          if (!walkable(terrain, t.x, t.y)) on.push("natural wall");
+          return on.length ? on.join("+") : "nothing this pass can name";
+        };
         plan.meta.notes.push(
           `A PAVING GAP UNTIL RCL 6, NAMED: ${bridged.stranded.length} road tile(s) ` +
             `(${bridged.stranded.map((t) => `${t.x},${t.y}`).join(" ")}) join the rest of this room's ` +
             `network only across the mineral-seat container, which is not built until RCL 6, and the ` +
             `join CANNOT be paved — the tile(s) the route crosses ` +
-            `(${bridged.gapTiles.map((t) => `${t.x},${t.y}`).join(" ") || "none"}) are the container's own ` +
-            `tile or are held by an extension, and the engine allows one structure per tile. ` +
+            `(${bridged.gapTiles.map((t) => `${t.x},${t.y} (${holds(t)})`).join(" ") || "none"}) each ` +
+            `carry an OBSTACLE structure or are terrain wall, and no road may be built on those. ` +
+            `A container is NOT one of them — road and container share a tile, so a bare container ` +
+            `tile would simply have been paved above rather than named here. ` +
             `${bridged.footReachable ? "A CREEP CAN STILL WALK IT" : "NO WALK EXISTS AT ALL"}: containers ` +
             `and bare floor are not obstacles, so ` +
             `${bridged.footReachable ? `this costs one extra tick per crossing (2 ticks on plain instead of 1) until RCL 6 closes it, and nothing is unreachable` : `these tiles are genuinely cut off before RCL 6 and that is a real break, not a paving cost`}. ` +
@@ -3848,12 +4003,28 @@ export function finalizeRoom(terrain, plan) {
   // The runs are re-derived HERE, on the board the room actually ships, and
   // paired with the refusal the pass recorded for each tile.
   // ------------------------------------------------------------------
+  //
+  // ...AND THE REFUSAL IS RE-DERIVED HERE TOO, NOT QUOTED FROM THE PASS.
+  //
+  // 5b records why it refused a tile at the moment it was offered. Between that
+  // moment and the shipped board sit the extension reflow and one more prune
+  // fixpoint, either of which can pave or unpave the very tile the refusal
+  // names — so a quoted reason is a statement about a board that may no longer
+  // exist. The note now states the interior-parallel census taken on the
+  // SHIPPED board (which neighbours are free interior floor, and what is on the
+  // ones that are not), and appends the pass's own record separately, labelled
+  // as what it is. Everything in the first half is re-checkable by anybody
+  // holding the artifact.
   {
     const roadK = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
     const cutK = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
     const paved = (plan.shell?.cut || []).filter((c) => roadK.has(key(c.x, c.y)));
+    // D8, for the reason spelled out over the detector in stage 5b: a creep
+    // walks diagonals at the same cost and there is no corner-cut rule, so two
+    // paved cut tiles touching at a corner are the same prepared surface as two
+    // touching on a face.
     const runTiles = paved.filter((c) =>
-      D4.some(([dx, dy]) => {
+      D8.some(([dx, dy]) => {
         const k = key(c.x + dx, c.y + dy);
         return cutK.has(k) && roadK.has(k);
       }),
@@ -3863,18 +4034,56 @@ export function finalizeRoom(terrain, plan) {
         (plan.meta?.walls?.alongCutRefused || []).map((r) => [key(r.x, r.y), r.why]),
       );
       const moved = plan.meta?.walls?.alongCutMoved ?? 0;
+      const shipExt = shippedFlood(terrain, plan).ext;
+      const objK = new Set(plan.objectTiles || []);
+      const blockers = new Set();
+      for (const t of BUILT_OBSTACLES) {
+        for (const s of plan.structures[t] || []) blockers.add(key(s.x, s.y));
+      }
+      /** the interior-parallel census for one run tile, on the shipped board */
+      const census = (c) => {
+        const free = [];
+        const held = [];
+        for (const [dx, dy] of D8) {
+          const x = c.x + dx,
+            y = c.y + dy;
+          const tk = key(x, y);
+          if (x < 1 || y < 1 || x > 48 || y > 48) held.push(`${x},${y} off the buildable board`);
+          else if (!walkable(terrain, x, y)) held.push(`${x},${y} natural wall`);
+          else if (shipExt[idx(x, y)]) held.push(`${x},${y} outside the shipped wall`);
+          else if (cutK.has(tk)) held.push(`${x},${y} is itself a cut tile`);
+          else if (blockers.has(tk) || objK.has(tk))
+            held.push(`${x},${y} carries a structure that blocks`);
+          else if (roadK.has(tk)) held.push(`${x},${y} already paved`);
+          else free.push({ x, y });
+        }
+        return { free, held };
+      };
+      const runs = runTiles.map((t) => ({ x: t.x, y: t.y, ...census(t) }));
+      if (plan.meta.walls) {
+        plan.meta.walls.alongCutRuns = runs.map((r) => ({
+          x: r.x,
+          y: r.y,
+          free: r.free,
+          held: r.held,
+        }));
+      }
       plan.meta.notes = plan.meta.notes || [];
       plan.meta.notes.push(
         `A PAVED RUN ALONG THE WALL, AND WHY IT IS STILL HERE: this room ships ${runTiles.length} ` +
-          `cut tile(s) that carry a road and have a D4 neighbour which is also a paved cut tile ` +
+          `cut tile(s) that carry a road and have a D8 neighbour which is also a paved cut tile ` +
           `(${runTiles.map((t) => `${t.x},${t.y}`).join(" ")}). A single crossing is a gate and is fine; ` +
           `a RUN is a prepared surface laid along the line an attacker would want to walk, and stage 5b ` +
-          `exists to move it one tile inboard. It ran on this room and moved ${moved} tile(s). Per ` +
-          `refused tile, measured: ` +
-          runTiles
+          `exists to move it one tile inboard. It ran on this room and moved ${moved} tile(s). Per tile ` +
+          `still in a run, the interior-parallel census taken on the board this room SHIPS: ` +
+          runs
             .map(
-              (t) =>
-                `${t.x},${t.y} — ${refused.get(key(t.x, t.y)) || "the swap was taken for a neighbour of this tile in the same run, which leaves this one no longer part of a run at the moment it was offered, or the tile entered the run after 5b had passed it"}`,
+              (r) =>
+                `${r.x},${r.y} — ` +
+                (r.free.length
+                  ? `${r.free.length} free interior tile(s) (${r.free.map((f) => `${f.x},${f.y}`).join(" ")}), ` +
+                    `so the swap was offered and ${refused.has(key(r.x, r.y)) ? `refused: ${refused.get(key(r.x, r.y))}` : `either taken for a neighbour in the same run (which is why this tile is still here and the run is one shorter) or the tile entered the run after 5b had passed it`}`
+                  : `NO free interior parallel exists — every D8 neighbour is spoken for: ${r.held.join(" · ")}`),
             )
             .join(" · ") +
           `. The swap is refused rather than forced because the alternative is a road network that is ` +

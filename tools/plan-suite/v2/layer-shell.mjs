@@ -29,6 +29,8 @@
  *      RampartDefenders should stand. Metadata for defence AI.
  */
 import { D8, borderLegal, buildable, chebyshev, isSwamp, isWall, key, walkable } from "./shared.mjs";
+// DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
+import { renderDecl } from "./declprose.mjs";
 
 const INF_FLOW = 1 << 28;
 const EXIT_T = 5001;
@@ -2112,27 +2114,39 @@ export function planShell(terrain, plan, opts = {}) {
   }
 
   if (unreachF.length) {
-    const where = unreachF.map((t) => `${t.x},${t.y}`).join(" ");
-    const substitute = swapAlt
-      ? `the cheapest fully-reachable cut that still holds the program is ${swapAlt.cut.length} tiles ` +
-        `against this radius's ${pick.cut.length} (+${swapAlt.cut.length - pick.cut.length} ramparts), ` +
-        `over the ${REACH_SWAP_BUDGET}-tile swap budget`
-      : reachAlt
-        ? `every fully-reachable enclosure of this hub is too small for the program — the best is ` +
-          `radius ${reachAlt.r} at ${reachAlt.cut.length} cut tiles enclosing only ${reachAlt.deep} deep ` +
-          `tiles against a floor of ${needDeep}, so buying it would trade ${unreachF.length} unreachable ` +
-          `wall tiles for roughly ${needDeep - reachAlt.deep} structures pushed into the shallow band, ` +
-          `each of which rents a personal rampart forever`
-        : `no protect radius in this room produces a fully-reachable cut at all — every enclosure ` +
-          `of this hub rings a lobe the basin cannot walk to`;
-    shortfalls.push({
+    // THE SUBSTITUTE CLAUSE IS A RECORD, NOT A BRANCH IN A STRING. Which of the
+    // three admissions this room is making — the swap exists and is over budget,
+    // every reachable enclosure is too small, or no reachable enclosure exists
+    // at all — is a fact with different numbers behind it in each case, and it
+    // used to be selected by a producer `if` whose inputs never reached the
+    // reader. `renderBattlementsCut` re-selects it from these fields.
+    const sfBat = {
       gate: "battlements",
-      detail:
-        `${unreachF.length}/${cut.length} cut tiles sit on a wall segment the interior walk region ` +
-        `cannot reach (${where}); no defender can stand there and no battlement can cover them. ` +
-        `${substitute}.`,
+      detail: "",
       tiles: unreachF.map((t) => ({ x: t.x, y: t.y })),
-    });
+      battlements: {
+        unreachable: unreachF.length,
+        cutTiles: cut.length,
+        substitute: swapAlt
+          ? {
+              kind: "swap",
+              altCut: swapAlt.cut.length,
+              thisCut: pick.cut.length,
+              budget: REACH_SWAP_BUDGET,
+            }
+          : reachAlt
+            ? {
+                kind: "small",
+                radius: reachAlt.r,
+                cut: reachAlt.cut.length,
+                deep: reachAlt.deep,
+                needDeep,
+              }
+            : { kind: "none" },
+      },
+    };
+    sfBat.detail = renderDecl(sfBat);
+    shortfalls.push(sfBat);
   }
 
   // ------------------------------------------------------------------

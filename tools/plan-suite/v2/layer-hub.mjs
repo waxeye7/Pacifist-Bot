@@ -41,6 +41,12 @@ import {
   walkable,
 } from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
+// DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
+// `spawnFanDetail` and `ctrlParksDetail` used to live in this file and read this
+// file's locals, which is generation the validator cannot run: it has the
+// record, not the producer's scope. Both now live in declprose-hub.mjs and this
+// layer's job is to make the RECORD complete enough to render from.
+import { renderDecl } from "./declprose.mjs";
 // terrain-only, no cycle: layer-shell imports nothing but shared.mjs
 import { computeUnprotectable } from "./layer-shell.mjs";
 
@@ -706,112 +712,17 @@ function growSpawnsSpread(terrain, dt, core, coreSet, blocked, storage, n = 3) {
 }
 
 /**
- * THE FAN THAT MISSED, IN NUMBERS.
+ * THE FAN THAT MISSED, IN NUMBERS — the paragraph moved to declprose-hub.mjs.
  *
  * `fanned:false` used to be the whole story: the room shipped three spawns
  * bunched inside one angular sector and the meta said so in a boolean nobody
  * can argue with. Silently capping an axis is the anti-pattern this codebase
- * forbids by name, so the miss now costs a declared shortfall whose prose is
- * generated from the census the search kept: what the pocket offered, what
- * each hard filter took away, and how few sectors the survivors covered. The
- * plan is unchanged — this is the receipt, not a new decision.
+ * forbids by name, so the miss costs a declared shortfall — and as of round 13
+ * that declaration's prose is GENERATED from its record by `renderSpawnFan`,
+ * which the validator runs on the record the plan publishes.
+ * `spawnFanDetail` used to live here and read this function's locals; a
+ * paragraph built from the producer's scope is a paragraph nothing can check.
  */
-function spawnFanDetail(fan, storage) {
-  const c = fan.census;
-  const short = Math.max(0, SECTOR_TARGET - fan.minAngle);
-  const rejected =
-    c.rejClaimed + c.rejHubRing + c.rejWalk + c.rejStorageFace + c.rejExits;
-  const where = fan.spawns.map((s) => `${s.x},${s.y}`).join(" / ");
-  const parts = [];
-  parts.push(
-    `spawn fan short by ${short}°: the best legal triple around the hub at ` +
-      `${storage.x},${storage.y} separates its three spawns (${where}) by only ` +
-      `${fan.minAngle}° at the worst pair, against the ${SECTOR_TARGET}° sector target — ` +
-      `achieved ${fan.minAngle}° vs target ${SECTOR_TARGET}°, filler leash used ` +
-      `${fan.walkMax} of ${c.walkCap} walk steps, shallowest spawn at proxy depth ` +
-      `${fan.proxyDepthMin} (floor ${c.depthSafe}).`,
-  );
-  parts.push(
-    `Candidate census: ${c.pool} tiles were considered (${c.poolCore} in the grown core, ${c.poolRing} in the ring just outside it); ` +
-      `${rejected} were struck out in order — ${c.rejClaimed} already claimed by the hub trio or ` +
-      `an object tile, ${c.rejHubRing} inside storage's own 2-tile ring, ${c.rejWalk} past the ` +
-      `${c.walkCap}-step filler leash, ${c.rejStorageFace} that would have cut storage below two ` +
-      `free faces, ${c.rejExits} with fewer than 3 free exits for a creep to leave by — leaving ` +
-      `${c.viable} viable seats (${c.viableCore} of them inside the core pocket, ` +
-      `${c.viableShallow} of them proven shallow below depth ${c.depthSafe} on the pre-shell ` +
-      `proxy), spread over ${c.viableSectors} of the ${c.sectorBins} ${c.sectorDeg}° sectors ` +
-      `around storage. ${c.shortlist} of those were shortlisted across ${c.shortlistSectors} ` +
-      `sectors and ${c.triples} pairwise-non-adjacent triples were enumerated from them ` +
-      `(${c.triplesAdjacent} more discarded because two spawns touched), of which ` +
-      `${c.fannedTriples} reached the ${SECTOR_TARGET}° target; ${c.triplesJointRejected} ` +
-      `better-scoring triples failed the joint feasibility test before this one was taken, and ` +
-      `the winner spans ${c.winnerSectors} sector${c.winnerSectors === 1 ? "" : "s"}.`,
-  );
-  // WHICH failure this was. A miss because the pocket has no daylight in it is
-  // a different admission from a miss because the fan was outbid, and reporting
-  // the first when the second happened would be a comfortable lie.
-  if (c.fallback) {
-    parts.push(
-      `Not one triple survived the joint feasibility test — storage's own free faces and the ` +
-        `3-exit rule could not be satisfied by any three of them at once — so the sequential ` +
-        `fallback placed the spawns one at a time and the fan is whatever the leftovers allowed.`,
-    );
-  } else if (!c.fannedTriples) {
-    parts.push(
-      `Why it failed: not one of the ${c.triples} triples reached ${SECTOR_TARGET}°. The pocket ` +
-        `offered ${c.viable} seats in ${c.viableSectors} sectors and no three of them, mutually ` +
-        `non-adjacent, stand ${SECTOR_TARGET}° apart around storage — this is the terrain's ` +
-        `answer, not a scoring preference, and no reweighting reaches a tile that is not there.`,
-    );
-  } else if (c.fannedAvailable) {
-    const f = c.fannedAvailable;
-    parts.push(
-      `Why it failed: the fan WAS on the table and lost on score. ${c.fannedTriples} triples ` +
-        `reached the target, the best of them ${f.minAngle}° at ` +
-        `${f.tiles.map((t) => `${t.x},${t.y}`).join(" / ")}` +
-        (f.jointlyFeasible ? ` (jointly feasible)` : ` (and not even jointly feasible)`) +
-        `, but it scored ${f.scoreGap} points below the winner: the sector term pays ` +
-        `${SECTOR_WEIGHT} points per degree and saturates at ${SECTOR_TARGET}°, so the extra ` +
-        `angle was worth ${f.sectorGain} points while the fanned triple gave up ` +
-        `${f.tileQualityGap} points of tile quality — exits, pocket hug and proxy depth. That is ` +
-        `a deliberate trade, priced by SECTOR_WEIGHT, and this is where it is being declared ` +
-        `rather than hidden behind a boolean.`,
-    );
-  }
-  // ------------------------------------------------------------------
-  // THE CONSEQUENCE IS READ OFF THE CENSUS, NOT PRINTED FROM A TEMPLATE.
-  //
-  // This paragraph used to open "three spawns inside one sector" unconditionally
-  // — in 8 rooms directly contradicting the sentence above it, which had just
-  // reported `winnerSectors: 3`. A room whose three spawns sit in three
-  // different 30° sectors and merely fail the 120° target is a completely
-  // different failure from a room whose three spawns are bunched on one face,
-  // and telling a reader the second when the census says the first is the kind
-  // of boilerplate that makes the whole channel worthless. The wording now comes
-  // from `winnerSectors` and from the worst pair's actual angle.
-  // ------------------------------------------------------------------
-  const ws = c.winnerSectors;
-  parts.push(
-    `Consequence: ` +
-      (ws <= 1
-        ? `all three spawns sit in ONE ${c.sectorDeg}° sector, so the room's spawn-adjacent parking and ` +
-          `the fill routes crowd a single face of the hub — the fillers queue on one side instead of ` +
-          `touring three, and one breach, one nuke or one blocked corridor on that side reaches every ` +
-          `spawn the room has.`
-        : ws === 2
-          ? `the three spawns cover ${ws} of the ${c.sectorBins} ${c.sectorDeg}° sectors, so two of them ` +
-            `share a face: the parking and fill routes fan across two sides rather than three, and a ` +
-            `breach on the shared side reaches two of the room's three spawns at once.`
-          : `the three spawns DO sit in ${ws} different ${c.sectorDeg}° sectors — this is a spread that ` +
-            `misses the ${SECTOR_TARGET}° separation target, not a bunch. The cost is proportionate: the ` +
-            `closest pair is ${fan.minAngle}° apart, so their parking and fill routes overlap and the ` +
-            `filler tour saves less than a fully fanned trio would, but no single face carries the room.`) +
-      ` At ${fan.minAngle}° the worst pair here is ${short}° short of the target, and the parking, roads ` +
-      `and rampart spend follow them.`,
-  );
-  return parts.join(" ");
-}
-
 /** Roads may sit anywhere walkable off the exit band. */
 function roadOk(terrain, x, y) {
   return x >= 1 && x <= 48 && y >= 1 && y <= 48 && walkable(terrain, x, y);
@@ -1127,73 +1038,18 @@ function claimControllerWorks(terrain, controller, hubField, impassable, objectT
 }
 
 /**
- * A CONTROLLER SEAT AT THE FLOOR IS A CONSTRAINT, NOT A MARGIN.
+ * A CONTROLLER SEAT AT THE FLOOR IS A CONSTRAINT, NOT A MARGIN — and the
+ * paragraph that says so is generated by `renderCtrlSeats` (declprose-hub.mjs).
  *
  * MIN_PARKS is 4 and the meta reports the achieved count, but a room shipping
  * 5 was indistinguishable from a room shipping 8 — one seat of slack read as
  * comfort. It is not: it is the terrain's ceiling or a trade the ladder made,
  * and either way it belongs in the shortfalls channel with the numbers that
- * forced it, not in a silent integer.
+ * forced it, not in a silent integer. `ctrlParksDetail` used to compose that
+ * paragraph HERE, out of this file's locals, while the pipeline's as-built
+ * re-count appended a second sentence to the same string from another file:
+ * one kind, three shapes, two writers and no single place holding the result.
  */
-function ctrlParksDetail(controller, ctrl) {
-  const c = ctrl.census;
-  const r = c.runnerUp;
-  const rel =
-    ctrl.parks < MIN_PARKS
-      ? `${MIN_PARKS - ctrl.parks} BELOW the ${MIN_PARKS}-seat floor`
-      : ctrl.parks === MIN_PARKS
-        ? `exactly ON the ${MIN_PARKS}-seat floor`
-        : `${ctrl.parks - MIN_PARKS} above the ${MIN_PARKS}-seat floor`;
-  const parts = [];
-  parts.push(
-    `thin upgrader seat: the controller link at ${ctrl.x},${ctrl.y} feeds ${ctrl.parks} walkable ` +
-      `parking tiles within range 3 of the controller at ${controller.x},${controller.y} — ` +
-      `${rel}, which is a constraint and not a margin: lose one seat to a rampart, a road ` +
-      `repair or a creep standing still and the upgrader fleet throttles.`,
-  );
-  parts.push(
-    `Seat search, in numbers: ${c.considered} buildable link tiles at chebyshev 2–3 from the ` +
-      `controller were reachable from the hub and considered` +
-      (c.sealing
-        ? `, of which ${c.sealing} were set aside for sealing a pocket off the basin` +
-          (c.forcedOntoSealingPool
-            ? ` — and every candidate did, so the seat had to come from the sealing pool anyway`
-            : ``)
-        : `, none of which sealed a pocket off the basin`) +
-      `. The winner offered ${ctrl.parks} seats at ${c.chosen.hubWalk} walk steps from the hub ` +
-      `(ladder score ${c.chosen.score} on park×2 − hubWalk÷2), and was taken as ` +
-      (c.tookFirstAboveFloor
-        ? `the highest-scoring tile that clears the ${MIN_PARKS}-seat floor`
-        : `the roomiest tile on offer — no candidate cleared the ${MIN_PARKS}-seat floor at all`) +
-      `.`,
-  );
-  if (!r) {
-    parts.push(
-      `There was no runner-up: the ring produced exactly one legal link tile, so ${ctrl.parks} ` +
-        `seats is not a choice the planner made but the only seat the terrain sells.`,
-    );
-  } else if (r.parks > ctrl.parks) {
-    parts.push(
-      `The trade: a roomier seat existed — ${r.x},${r.y} feeds ${r.parks} tiles, ` +
-        `${r.parks - ctrl.parks} more — but it sits ${r.hubWalk - c.chosen.hubWalk} walk steps ` +
-        `further from the hub (${r.hubWalk} vs ${c.chosen.hubWalk}) and scores ${r.score} against ` +
-        `${c.chosen.score}. That detour is paid on every pre-link hauler round trip and every ` +
-        `repair walk to the controller for the life of the room, so the chosen seat won anyway; ` +
-        `the seat count is what the room paid for the shorter haul.`,
-    );
-  } else {
-    parts.push(
-      `The trade was not available: the best alternative, ${r.x},${r.y}, feeds ${r.parks} ` +
-        (r.parks === ctrl.parks ? `— the same count — ` : `— ${ctrl.parks - r.parks} fewer — `) +
-        `at ${r.hubWalk} walk steps against the winner's ${c.chosen.hubWalk} (score ${r.score} vs ` +
-        `${c.chosen.score}), and no tile anywhere in the ring fed more than ${c.maxParks}. ` +
-        `${ctrl.parks} seats is therefore the room's ceiling, not a preference — the chosen tile ` +
-        `won on hub distance among equals.`,
-    );
-  }
-  return parts.join(" ");
-}
-
 /**
  * Controller CONTAINER — the pre-controller-link upgrader bin.
  *
@@ -1615,36 +1471,55 @@ export function planHub(terrain, objects, opts = {}) {
   // THE FAN, DECLARED. A miss on the sector target is a real axis the room
   // beat the planner on, and it shipped as a bare `fanned:false` until now.
   if (!spawnFan.fanned) {
-    shortfalls.push({
+    // THE RECORD FIRST, THE PARAGRAPH FROM IT. `hub`, `proxyDepthMin` and
+    // `sectorWeight` are new fields, and they are new for one reason: the old
+    // paragraph quoted all three — the hub tile it measures bearings from, the
+    // shallowest spawn's proxy depth, and the points-per-degree the trade was
+    // priced at — out of this function's scope, where nothing could check them.
+    const sfFan = {
       gate: "spawnFan",
       kind: "sector",
-      detail: spawnFanDetail(spawnFan, storage),
+      detail: "",
       tiles: spawn.map((s) => ({ x: s.x, y: s.y })),
       spawnFan: {
         minAngle: spawnFan.minAngle,
         target: SECTOR_TARGET,
         walkMax: spawnFan.walkMax,
+        hub: { x: storage.x, y: storage.y },
+        proxyDepthMin: spawnFan.proxyDepthMin,
+        sectorWeight: SECTOR_WEIGHT,
         census: spawnFan.census,
       },
-    });
+    };
+    sfFan.detail = renderDecl(sfFan);
+    shortfalls.push(sfFan);
   }
 
   // THE UPGRADER SEAT, DECLARED. MIN_PARKS is the floor; one seat above it is
   // still a room whose fleet has no slack, so THIN_PARKS and below is stated
   // out loud with the seat search's own numbers behind it.
   if ((ctrlLink.parks ?? 0) <= THIN_PARKS) {
-    shortfalls.push({
+    // `link` and `controller` are new fields for the same reason `hub` is on the
+    // fan: the paragraph names both tiles, and neither was anywhere in the
+    // record — the link only implicitly, as `tiles[0]`, and the controller not
+    // at all. The pipeline's as-built re-count appends to THIS declaration when
+    // the mass has eaten seats, and it re-renders rather than concatenating.
+    const sfSeat = {
       gate: "ctrlParks",
       kind: "seats",
-      detail: ctrlParksDetail(controller, ctrlLink),
+      detail: "",
       tiles: [{ x: ctrlLink.x, y: ctrlLink.y }, ...(ctrlLink.parkTiles || [])],
       ctrlParks: {
         parks: ctrlLink.parks ?? 0,
         floor: MIN_PARKS,
         thinAt: THIN_PARKS,
+        link: { x: ctrlLink.x, y: ctrlLink.y },
+        controller: { x: controller.x, y: controller.y },
         census: ctrlLink.census,
       },
-    });
+    };
+    sfSeat.detail = renderDecl(sfSeat);
+    shortfalls.push(sfSeat);
   }
 
   // upgrader bin — sources first, controller after, mineral last (layer 5)

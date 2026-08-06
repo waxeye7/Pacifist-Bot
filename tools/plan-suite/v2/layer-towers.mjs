@@ -1398,13 +1398,18 @@ export function planTowers(terrain, plan, opts = {}) {
     });
   }
   if (maxRefill > MAX_REFILL) {
-    shortfalls.push({
+    // The shortest paragraph in the channel, and the last one still typed: two
+    // numerals, and a reviewer changed the first of them from 11 to 3 — a value
+    // INSIDE the limit the same sentence quotes — and E2S8 passed. Both are
+    // fields now and `renderTowerRefill` reads them.
+    const sfRefill = {
       gate: "towerRefill",
-      detail:
-        `furthest tower is ${maxRefill} walk from the sitter (want <= ${MAX_REFILL}); ` +
-        `the room has no six legal deep tiles inside that radius`,
+      detail: "",
       tiles: [],
-    });
+      towerRefill: { maxRefill, cap: MAX_REFILL },
+    };
+    sfRefill.detail = renderDecl(sfRefill);
+    shortfalls.push(sfRefill);
   }
   // ------------------------------------------------------------------
   // THE BATTERY IS DECLARED WHEN IT IS MERELY LEGAL RATHER THAN GOOD.

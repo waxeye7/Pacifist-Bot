@@ -852,31 +852,42 @@ function remeasureCtrlParks(terrain, plan) {
     }
   }
   plan.meta.shortfalls = plan.meta.shortfalls || [];
-  const existing = plan.meta.shortfalls.find((sf) => sf && sf.gate === "ctrlParks");
-  const sentence =
-    `AS BUILT this link feeds ${seats.length} parking tile(s), not the ${claimed} the layer-1 seat ` +
-    `search counted: ${eaters.length ? eaters.join(" ") : "no structure"} stand(s) on the ring now. ` +
-    `The layer-1 number is what the search DECIDED on — it is kept above for that reason — but the ` +
-    `upgrader fleet parks on the shipped number` +
-    (seats.length < 4
-      ? `, and ${seats.length} is BELOW the ${4}-seat floor this planner treats as hard. That is a ` +
-        `throttle on the upgrader fleet for the life of the room, caused by our own mass rather than ` +
-        `by the controller's terrain.`
-      : `.`);
+  // ...and the lookup is on the KIND too. Matching on the gate alone would let
+  // this half of the paragraph be merged into a `ctrlParks/released` record,
+  // which is a different declaration about a different decision; nothing has hit
+  // that today only because `released` is written after this runs.
+  const existing = plan.meta.shortfalls.find(
+    (sf) => sf && sf.gate === "ctrlParks" && sf.kind === "seats",
+  );
+  // ONE KIND, ONE TEMPLATE, AND THE STRING CONCATENATION IS OVER.
+  //
+  // This used to APPEND a sentence to layer 1's paragraph — a second writer
+  // mutating a string a first writer had left — or compose its own opener when
+  // layer 1 had filed nothing. Three shapes for one kind across two files, and
+  // no single place holding the result, which is why E12S5 could ship "AS BUILT
+  // this link feeds 7" against a record saying 5 and pass. Now both halves come
+  // out of `renderCtrlSeats`: this function's job is to finish the RECORD and
+  // RE-RENDER, never to concatenate.
+  const rebuilt = {
+    built: seats.length,
+    eaten: plan.meta.ctrlParksEaten,
+    eaters,
+    link: { x: link.x, y: link.y },
+    controller: { x: ctrl.x, y: ctrl.y },
+  };
   if (existing) {
-    existing.detail += ` ${sentence}`;
-    existing.ctrlParks = { ...(existing.ctrlParks || {}), built: seats.length, eaten: plan.meta.ctrlParksEaten };
+    existing.ctrlParks = { ...(existing.ctrlParks || {}), ...rebuilt };
+    existing.detail = renderDecl(existing);
   } else {
-    plan.meta.shortfalls.push({
+    const sfSeats = {
       gate: "ctrlParks",
       kind: "seats",
-      detail:
-        `UPGRADER SEATS, RE-COUNTED ON THE FINISHED ROOM: the controller link at ${link.x},${link.y} ` +
-        `was chosen because it fed ${claimed} parking tile(s) within range 3 of the controller at ` +
-        `${ctrl.x},${ctrl.y}. ${sentence}`,
+      detail: "",
       tiles: [{ x: link.x, y: link.y }, ...seats].slice(0, 32),
-      ctrlParks: { parks: claimed, built: seats.length, eaten: plan.meta.ctrlParksEaten, floor: 4 },
-    });
+      ctrlParks: { parks: claimed, floor: 4, ...rebuilt },
+    };
+    sfSeats.detail = renderDecl(sfSeats);
+    plan.meta.shortfalls.push(sfSeats);
   }
 }
 
@@ -1614,23 +1625,23 @@ function declareRuntime(plan, trail) {
   plan.meta.compositions = { total: trail.length, seeds, complete };
   if (trail.length <= RUNTIME_DECLARE_COMPOSES) return;
   plan.meta.shortfalls = plan.meta.shortfalls || [];
-  plan.meta.shortfalls.push({
+  const sfRuntime = {
     gate: "runtime",
     kind: "heavy-search",
-    detail:
-      `THIS ROOM COMPOSED ${trail.length} COMPLETE PLANS across ${seeds} seed(s) — more than the ` +
-      `${RUNTIME_DECLARE_COMPOSES}-rung ladder a single seed is allowed, which is the line the suite ` +
-      `declares at. ${complete} of them held the whole RCL8 program, and it shipped from seed rank ` +
-      `${plan.meta.seedSkip ?? 0}. Each composition is a complete shell negotiation plus the whole ` +
-      `structure program, kept only if it measurably beat the incumbent — that proof is exactly what the ` +
-      `old sub-200ms budget was trading away, and it makes this one of the fleet's slowest rooms to plan. ` +
-      `The planner runs offline, so this is a note about developer patience, not about CPU in-game; it is ` +
-      `declared rather than hidden because a search that cannot settle on the best-scoring seat is worth ` +
-      `seeing. No wall-clock reading is quoted here on purpose: it differs on every run, and a plan that ` +
-      `hashes differently on every run cannot be checked for determinism at all. The suite prints the ` +
-      `milliseconds.`,
-    runtime: { compositions: trail.length, seeds, complete, seedSkip: plan.meta.seedSkip ?? 0 },
-  });
+    detail: "",
+    // `ladder` is the line this declaration fires at, and it was a module
+    // constant quoted inside the sentence: the paragraph could name any
+    // threshold at all and the record could not contradict it.
+    runtime: {
+      compositions: trail.length,
+      seeds,
+      complete,
+      seedSkip: plan.meta.seedSkip ?? 0,
+      ladder: RUNTIME_DECLARE_COMPOSES,
+    },
+  };
+  sfRuntime.detail = renderDecl(sfRuntime);
+  plan.meta.shortfalls.push(sfRuntime);
 }
 
 /**
@@ -1933,24 +1944,10 @@ function maybeReleaseParks(d, plan) {
     (s) => !kept.some((k) => k.x === s.x && k.y === s.y),
   );
   alt.meta.shortfalls = alt.meta.shortfalls || [];
-  alt.meta.shortfalls.push({
+  const sfReleased = {
     gate: "ctrlParks",
     kind: "released",
-    detail:
-      `UPGRADER SEATS RELEASED, PRICED: this room HOLDS ${kept.length} of the ${held} parking tile(s) ` +
-      `layer 1 counted at the controller link and gave ${gave.length} back to the extension mass ` +
-      `(${gave.map((s) => `${s.x},${s.y}`).join(" ")}) — and it still SHIPS ${alt.meta.ctrlParks} free ` +
-      `seat(s), because the mass only took the ones it needed. Holding all ${held} costs this room ` +
-      `${shallow} shallow extension(s) — ${shallow} personal rampart(s) repaired forever, and ` +
-      `${shallow} structure(s) a ranged attacker can hit from outside the wall — against ` +
-      `${altShallow} here, at ${alt.meta.counts?.rampart} total ramparts against ` +
-      `${plan.meta.counts?.rampart}. Every cap from ${held - 1} down to 0 was composed IN FULL and ` +
-      `measured; this is the best of them, judged on what it ships and never on what it reserves. ` +
-      `${PARK_FLOOR_HARD} is the floor no composition may go under because that is where the upgrader ` +
-      `fleet starts being throttled by parking rather than by energy — the same number layer 1's seat ` +
-      `search and the validator both treat as hard. The room being short of deep floor is the fact ` +
-      `underneath both columns: ${plan.shell?.deepTiles ?? "?"} deep tiles inside the widest enclosure ` +
-      `it admits.`,
+    detail: "",
     tiles: gave.map((s) => ({ x: s.x, y: s.y })),
     ctrlParks: {
       held,
@@ -1962,8 +1959,13 @@ function maybeReleaseParks(d, plan) {
       rampartsHolding: plan.meta.counts?.rampart,
       rampartsReleasing: alt.meta.counts?.rampart,
       floor: PARK_FLOOR_HARD,
+      // the fact underneath both columns, and the one figure of the nine this
+      // paragraph quoted that was NOT in the record
+      deepTiles: plan.shell?.deepTiles ?? null,
     },
-  });
+  };
+  sfReleased.detail = renderDecl(sfReleased);
+  alt.meta.shortfalls.push(sfReleased);
   return alt;
 }
 
