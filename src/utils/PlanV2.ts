@@ -313,6 +313,29 @@ export function packPlanPayload(data: any): PackedPlan {
   //   labInput  the two reaction input labs → rooms.labs assignment
   t.shellCut = pack(data.shellCut || []);
   t.labInput = pack(data.labInputs || []);
+  // ---------------------------------------------------------------------
+  // ASSERT THE CONTAINER CAP, OUT LOUD, ONCE — at adoption, where the room
+  // name is in hand and this costs nothing per tick.
+  //
+  // plannedTilesFor CLAMPS to CONTROLLER_STRUCTURES.container (see
+  // containerStageOrder), and clamping is right: the bot cannot build past the
+  // cap whatever the plan says. Clamping SILENTLY is not, because the tiles
+  // that fall off the end of the staging order are containers the planner
+  // emitted, that no build set will ever contain, and that push-plan.mjs will
+  // likewise stop promising a road to. It is a PLANNER finding and it should
+  // read like one. Dormant on every plan the fleet ships (4 containers against
+  // a cap of 5), so this line firing at all means the planner changed.
+  // ---------------------------------------------------------------------
+  const containerCaps = (CONTROLLER_STRUCTURES as any)[STRUCTURE_CONTAINER];
+  const containerCap = containerCaps ? containerCaps[8] || 0 : 0;
+  if (containerCap && t.container.length > containerCap) {
+    logAlways(
+      `planV2: ${data.room} plan carries ${t.container.length} containers but CONTROLLER_STRUCTURES ` +
+        `caps a room at ${containerCap} — the last ${t.container.length - containerCap} in staging ` +
+        `order (mineral seat last) are dropped from every build and audit set. The bot cannot build ` +
+        `them: re-plan the room.`,
+    );
+  }
   const out: PackedPlan = { v: 1, h: data.planHash, t };
   // Road staging (push-plan.mjs `roadStage`). Length-checked against t.road
   // here as well as at every read: a payload whose stage array does not line up
@@ -633,24 +656,101 @@ function auditRoadPrefix(room: Room, plan: PackedPlan, prefix: number[], lvl: nu
  */
 const EXTRACTOR_RCL = 6;
 
-function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] {
-  const planned = plan.t[type] || [];
-  if (type !== "container" || lvl >= EXTRACTOR_RCL || !planned.length) return planned;
+/**
+ * ---------------------------------------------------------------------------
+ * THE CONTAINER STAGING ORDER — ONE FIXED ORDER, AND EVERY RCL TAKES A PREFIX
+ * OF IT.
+ *
+ * WHY THE SHAPE MATTERS MORE THAN THE OUTPUT. A build schedule has exactly one
+ * invariant that is not negotiable: MONOTONICITY. A structure the room builds
+ * at RCL n must still be in the set at RCL n+1, because there is no such thing
+ * as un-building — and in this file that is not a figure of speech. A planned
+ * tile that falls out of the set stops being a `planTile` in migrateClass, so
+ * `rankOffPlan` reads the finished structure standing on it as a squatter, and
+ * container is in FREE_REPLACE: a rich room DESTROYS it.
+ *
+ * The previous form dropped the deferred seat below RCL6 and then let each
+ * CALLER take its own `Math.min(cap, planned.length)` prefix — an independent
+ * per-level prefix of a list whose CONTENTS change at RCL6. That is monotone on
+ * the current fleet by arithmetic accident and nothing else: every room plans 4
+ * containers against a cap of 5, so the cap never binds and the two branches
+ * differ by exactly the deferred tile. Give it SIX planned containers with the
+ * mineral seat at index 3 and it breaks — RCL5 drops index 3 and the caller
+ * keeps five of the remaining five, {0,1,2,4,5}; RCL6 defers nothing and the
+ * caller keeps the first five, {0,1,2,3,4}. Container 5 was built at RCL5, is
+ * off-plan at RCL6, and the next rich migrate pass tears it down to make room
+ * for a mineral container the room did not need three levels earlier. The
+ * invariant held because of a count in the artifact, not because of anything in
+ * the code, and a count in the artifact is exactly what a planner change moves.
+ *
+ * So the schedule is made monotone STRUCTURALLY instead, in ONE place. Each
+ * container is placed exactly once in a single fixed order — everything that
+ * exists from RCL2 first, in plan order, and the extractor-deferred mineral
+ * seat LAST — and `plannedTilesFor` then hands every level a PREFIX of that one
+ * order whose length is non-decreasing in the level (`early` below RCL6, the
+ * whole order from RCL6, clamped by a CONTROLLER_STRUCTURES cap that is itself
+ * non-decreasing). Nested prefixes cannot un-build. That is the whole proof,
+ * and it does not depend on how many containers a plan carries.
+ *
+ * The cap moves INTO plannedTilesFor for the same reason: with the cap applied
+ * to the staging order, every caller's own `Math.min(cap, planned.length)` is a
+ * provable no-op, so no caller can re-introduce an independent prefix.
+ *
+ * This is the bot-side twin of push-plan.mjs `containerStageOrder`, down to the
+ * tie rule — the LAST extractor-adjacent container is the mineral one, because
+ * E8S3's controller at 21,29 sits 3 tiles from its mineral at 23,26 and its
+ * genuine CONTROLLER container at 24,26 is therefore also mineral-adjacent.
+ * Taking the last match keeps that room's controller container in the early set
+ * where it belongs.
+ *
+ * NO-OP ON EVERY PLAN THE FLEET CURRENTLY SHIPS, deliberately. With n <= 5
+ * containers and the mineral seat last (n = 4 in 172/172 rooms), the order IS
+ * plan order, `early` is n-1, the cap of 5 never binds, and the prefix is the
+ * first n-1 below RCL6 and all n from RCL6 — tile for tile what the old
+ * slice+concat returned. Plan order is preserved in the result too, because the
+ * prefix only decides WHICH tiles are in the set (that is where monotonicity
+ * lives) and the array is rebuilt by index.
+ * ---------------------------------------------------------------------------
+ */
+function containerStageOrder(plan: PackedPlan): { order: number[]; early: number } {
+  const planned = plan.t[STRUCTURE_CONTAINER] || [];
   const extractors = plan.t.extractor;
-  if (!extractors || !extractors.length) return planned; // no extractor planned — defer nothing
-  let drop = -1;
-  for (let i = 0; i < planned.length; i++) {
-    const c = unpack(planned[i]);
-    for (const e of extractors) {
-      const u = unpack(e);
-      if (Math.abs(c.x - u.x) <= 1 && Math.abs(c.y - u.y) <= 1) {
-        drop = i; // keep scanning: the LAST match is the mineral one (see above)
-        break;
+  let deferred = -1;
+  if (extractors && extractors.length) {
+    for (let i = 0; i < planned.length; i++) {
+      const c = unpack(planned[i]);
+      for (const e of extractors) {
+        const u = unpack(e);
+        if (Math.abs(c.x - u.x) <= 1 && Math.abs(c.y - u.y) <= 1) {
+          deferred = i; // keep scanning: the LAST match is the mineral one (see above)
+          break;
+        }
       }
     }
   }
-  if (drop < 0) return planned;
-  return planned.slice(0, drop).concat(planned.slice(drop + 1));
+  const order: number[] = [];
+  for (let i = 0; i < planned.length; i++) if (i !== deferred) order.push(i);
+  if (deferred >= 0) order.push(deferred);
+  // how many of that order exist BEFORE the extractor does — the prefix length
+  // RCL2..RCL5 takes. From EXTRACTOR_RCL the prefix is the whole order.
+  return { order: order, early: deferred >= 0 ? order.length - 1 : order.length };
+}
+
+function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] {
+  const planned = plan.t[type] || [];
+  if (type !== STRUCTURE_CONTAINER || !planned.length) return planned;
+  const staged = containerStageOrder(plan);
+  const caps = (CONTROLLER_STRUCTURES as any)[type];
+  const cap = caps ? caps[lvl] || 0 : planned.length;
+  const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? staged.order.length : staged.early);
+  // the whole order — return the plan's own array, unallocated and unchanged
+  if (take >= planned.length) return planned;
+  if (take <= 0) return [];
+  const keep: { [i: number]: boolean } = {};
+  for (let i = 0; i < take; i++) keep[staged.order[i]] = true;
+  const out: number[] = [];
+  for (let i = 0; i < planned.length; i++) if (keep[i]) out.push(planned[i]);
+  return out;
 }
 
 /**
@@ -690,6 +790,15 @@ function conductorsForRcl(plan: PackedPlan, lvl: number): number[] {
     if (!typeAllowedAtRcl(type, lvl)) continue;
     const planned = plannedTilesFor(plan, type, lvl);
     if (!planned.length) continue;
+    // A PROVABLE NO-OP FOR CONTAINER, AND KEPT ANYWAY. plannedTilesFor already
+    // applies this exact cap to the staging order, so `limit` is planned.length
+    // for the only type in CONDUCTOR_TYPES today. It stays because a type added
+    // to that array tomorrow arrives as a RAW plan-order array with no cap on
+    // it — and if one ever does, note that a raw prefix is only monotone while
+    // the array's CONTENTS do not change with the level. Anything that defers a
+    // tile needs its own staging order (see containerStageOrder); taking an
+    // independent per-level prefix of a shifting list is precisely the bug that
+    // put this comment here.
     const caps = (CONTROLLER_STRUCTURES as any)[type];
     const cap = caps ? caps[lvl] || 0 : planned.length;
     const limit = Math.min(cap, planned.length);
@@ -1039,6 +1148,13 @@ function migrateClass(
   // a "want". Roads are the exception: the whole array is planned and the RCL
   // budget only says which prefix gets built FIRST, so a road at index 90 is
   // on-plan and must never be read as a squatter.
+  //
+  // THIS IS WHERE A NON-MONOTONE SCHEDULE TURNS INTO A DEMOLITION: a planned
+  // tile that drops out of `planTile` between two RCLs makes rankOffPlan read
+  // the finished structure standing on it as a squatter, and container is in
+  // FREE_REPLACE. `cap` is applied here to a list plannedTilesFor has ALREADY
+  // staged and capped for containers (see containerStageOrder), so for that
+  // type this min() is a no-op and the set can only grow with the level.
   const limit = isRoad ? planned.length : Math.min(cap, planned.length);
   const planTile: { [p: number]: boolean } = {};
   for (let i = 0; i < limit; i++) planTile[planned[i]] = true;

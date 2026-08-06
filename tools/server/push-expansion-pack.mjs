@@ -16,6 +16,35 @@
  * in segment 88 — src/Managers/AutoExpand.ts hands it to the same packer that
  * adoptPlan() uses, so a freshly spawned room gets planV2 with zero drift.
  *
+ * ---------------------------------------------------------------------------
+ * ROAD STAGING, SHIPPED — AND WHY ITS ABSENCE WAS NOT A COSMETIC GAP.
+ *
+ * "Byte-identical in shape" was true of every field this file wrote and false
+ * of the one it did not write: `roadStage`. packPlanPayload keeps that array as
+ * `plan.rs` and PlanV2.roadsForRcl falls back, when it is missing or the wrong
+ * length, to the LEGACY schedule — "the first 20 road tiles by array order at
+ * RCL3, everything from RCL4". Every room adopted out of this pack therefore
+ * ran the schedule the arterial work replaced: BFS order is a distance order,
+ * so those 20 tiles are mostly hub filler while the hub->source and
+ * hub->controller lines a hauler walks from the tick the room hits RCL3 sit at
+ * indices 40..80 and wait for RCL4 — behind the whole min-cut shell, because
+ * rampart sits ahead of road in PLACE_ORDER. A brand-new room, which is exactly
+ * the room with no storage, no links and the longest unpaved hauls, got the
+ * worst road schedule in the bot.
+ *
+ * So the pack now calls push-plan.mjs's OWN `roadStageFor` — imported, not
+ * copied. The RCL3 arterial findings this repo has chased for three rounds were
+ * all found by re-deriving a COPY of that function, which is precisely how a
+ * copy drifts from the original; push-plan.mjs only runs `main()` when it is
+ * the entry point, so importing it is free of side effects. Expansion rooms get
+ * the same eco kit, the same extension and container face guarantees and the
+ * same bridge repair as a hand-pushed room, on day one.
+ *
+ * The same import gives the pack push-plan's staged-road audits, which no plan
+ * shipped here has ever been through — nothing else validates these 12 rooms
+ * before a bot claims one.
+ * ---------------------------------------------------------------------------
+ *
  * Segments 80-86 are deliberately below the planner's 88 (plan) and 89-99
  * (animator frames) so nothing here can clash with them.
  */
@@ -23,6 +52,13 @@ import fs from "fs";
 import path from "path";
 import { execFileSync } from "child_process";
 import { fileURLToPath } from "url";
+import {
+  roadStageFor,
+  stagedOrphans,
+  unreachableTerminals,
+  AUDIT_RCLS,
+  ARTERIAL_RCL,
+} from "./push-plan.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.join(__dirname, "..", "..");
@@ -178,18 +214,43 @@ async function main() {
 
   // segments 80-85: room -> adoption payload (same shape as push-plan.mjs)
   const segData = {};
+  const staging = [];
   for (let i = 0; i < top.length && i < SEG_PLANS.length * PLANS_PER_SEG; i++) {
     const plan = top[i].plan;
     const seg = SEG_PLANS[Math.floor(i / PLANS_PER_SEG)];
+    // per-road-tile RCL, parallel to structures.road — push-plan.mjs roadStageFor
+    const roadStage = roadStageFor(plan);
     (segData[seg] = segData[seg] || {})[plan.room] = {
       room: plan.room,
       structures: plan.structures,
       sitter: plan.sitter,
       labInputs: plan.labInputs,
       shellCut: (plan.meta && plan.meta.shell && plan.meta.shell.cut) || [],
+      roadStage,
       planHash: planHash(plan.structures),
       pushedAt: Date.now(),
     };
+    staging.push({
+      room: plan.room,
+      roads: roadStage.length,
+      arterial: roadStage.filter((s) => s <= ARTERIAL_RCL).length,
+    });
+    // These plans have never been through push-plan.mjs, so this is the only
+    // place they get audited at all. Silent when clean, which is the normal case.
+    for (const lvl of AUDIT_RCLS) {
+      const orphans = stagedOrphans(plan, roadStage, lvl);
+      if (orphans.length)
+        console.warn(
+          `WARNING ${plan.room}: ${orphans.length} staged RCL${lvl} road tiles are not connected to ` +
+            `the hub — ${orphans.map((t) => `${t.x},${t.y}`).join(" ")}`,
+        );
+      const stranded = unreachableTerminals(plan, roadStage, lvl);
+      if (stranded.length)
+        console.warn(
+          `WARNING ${plan.room}: ${stranded.length} eco terminals a creep cannot reach at RCL${lvl} — ` +
+            stranded.map((c) => `${c.x},${c.y}`).join(" "),
+        );
+    }
   }
 
   console.log(`owned: ${mine.join(",")} · claimable candidates ${ranked.length}`);
@@ -203,6 +264,11 @@ async function main() {
         `${String(sh.enclosedSources || 0).padStart(6)} ${String(!!sh.priceyWall).padStart(6)}  ${sp.x},${sp.y}`,
     );
   });
+
+  console.log(
+    `staged roads (RCL${ARTERIAL_RCL} arterial / total): ` +
+      staging.map((s) => `${s.room} ${s.arterial}/${s.roads}`).join(" · "),
+  );
 
   if (dryRun) {
     console.log(`dry run — index ${indexData.length}B, plan segments: ` +
