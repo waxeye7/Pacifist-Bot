@@ -1494,6 +1494,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Surplus Upgrader to Spawn List: ' + name);
             }
+            // FLOOR — same dead band as RCL7 below (400k spend / 120k surplus /
+            // 80k downgrade against a 150k maximum). See keepOneUpgrader().
+            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
+            }
 
 
             if(maintainers < spawnrules[6].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
@@ -1592,6 +1599,19 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Surplus Upgrader to Spawn List: ' + name);
+            }
+            // FLOOR. The three rungs above leave a dead band that a healthy room
+            // lives in: the spend rung wants 400k, the surplus tier wants 120k,
+            // and the downgrade rung wants ticksToDowngrade < 110k against an
+            // RCL7 maximum of 150k. Live W1N1 sat at 118,821 banked with 148,114
+            // ticksToDowngrade — under every one of them — and ran ZERO upgraders
+            // with a rising storage and an empty spawn queue. keepOneUpgrader()
+            // is the guarantee that an owned room below RCL8 never does that; it
+            // was only ever wired into the RCL4/5 gates, so RCL6/7 never had it.
+            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)) {
+                let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
+                console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
             }
 
 
@@ -1859,7 +1879,18 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
         const feedable = ctrlTarget && (storage && storage.store[RESOURCE_ENERGY] > 1000 ||
             room.find(FIND_DROPPED_RESOURCES, {filter: (r:any) => r.resourceType == RESOURCE_ENERGY && r.amount > 500}).length > 0);
-        if(Game.time % 70 < 12 && feedable && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
+        // NO `Game.time % 70 < 12` WINDOW. This whole function only runs on the
+        // roster cadence in spawning() — `(Game.time - lastTimeSpawnUsed) % 35
+        // == 0` from RCL6 up — and 35 divides 70, so the evaluation ticks land
+        // on exactly TWO residues mod 70 for the whole time lastTimeSpawnUsed
+        // holds still. If neither of them is under 12 the gate is unreachable,
+        // permanently, and nothing ever feeds the controller. Live W1N1 (RCL7)
+        // evaluated only at Game.time % 70 == 21 and 56: its controller link sat
+        // at 0 energy with 120k in storage, and its upgraders — which have no
+        // fallback at RCL7+, see Roles/upgrader.ts — stood next to it empty.
+        // `ControllerLinkFillers < 1` above is the roster cap, and the 35-tick
+        // cadence is the throttle; the window was neither, only a phase lottery.
+        if(feedable && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
             room.memory.Structures.controllerLink = ctrlTarget.id;
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             // Below RCL5 this is a 550-energy room: 8 CARRY is plenty and the
@@ -3146,36 +3177,35 @@ function upgradeLatch(room): boolean {
  * with open sites can take the whole of RCL5.
  *
  * The rung is deliberately the smallest thing that fixes that: ONE upgrader,
- * and only once the downgrade timer has actually started to slip. It engages at
- * KEEP_ONE_AT of the level's full timer rather than at the `emergency` half, so
- * a room notices while the controller still has a comfortable margin instead of
- * waking up at 50%.
+ * ALWAYS, in any owned room below RCL8 that can pay for it. It used to also
+ * require the downgrade timer to have slipped below 80% of the level maximum,
+ * which made it a duty cycle rather than a floor — and a duty cycle is exactly
+ * what it was written to remove. Live W1N1 sat at RCL7 with 118,821 banked and
+ * 148,114 ticksToDowngrade: nothing had slipped, so the rung never engaged and
+ * the controller took zero energy for hours while the bank climbed.
  *
- * GATED ON INCOME, not on the bank. A room with a miner on a source is earning
- * energy whether or not any of it has reached the storage yet; a room with no
- * miners cannot feed an upgrader and must spend what it has on getting one
- * mining again. `miners` is EnergyMinersInRoom, already counted by the census
- * for the builder gates.
+ * GATED ON ENERGY AVAILABLE, not on the timer. A room with a miner on a source
+ * is earning energy whether or not any of it has reached the storage yet, and a
+ * room with a real bank can pay for an upgrader wherever its miners are
+ * standing; a room with neither cannot feed one and must spend what it has on
+ * getting a miner out first. `miners` is EnergyMinersInRoom, already counted by
+ * the census for the builder gates.
+ *
+ * RCL8 is excluded for the same reason surplusUpgraderTier excludes it: the
+ * controller only takes 15 energy/tick there, so a forced upgrader buys nothing.
  *
  * DOES NOT TOUCH THE HYSTERESIS. It only ever raises the result (it is folded
  * in through the same Math.max as `emergency`, replacing it as the hard floor),
  * it reads nothing the latch reads, and it writes nothing. The surge latch is
  * still driven purely by bankEnergy through upgradeLatch().
- *
- * It is a duty cycle by construction, and that is the intent: a successful
- * upgradeController resets ticksToDowngrade to the level maximum, so the moment
- * the one upgrader lands the rung disengages and the room does not queue a
- * second. The timer then slips again over the next few thousand ticks and buys
- * the room another one. That is a floor, not a roster.
  */
-/** engage the keep-one rung once the downgrade timer is below this fraction */
-const KEEP_ONE_AT = 0.8;
-
 function keepOneUpgrader(room, miners:number): number {
-    if(miners <= 0) return 0;
-    const full = CONTROLLER_DOWNGRADE[room.controller.level];
-    if(!full) return 0;
-    return room.controller.ticksToDowngrade < full * KEEP_ONE_AT ? 1 : 0;
+    if(!room.controller || !room.controller.my) return 0;
+    if(room.controller.level >= 8) return 0;
+    if(room.memory.danger) return 0;
+    // "can pay for it": live income, or a bank worth spending.
+    if(miners <= 0 && bankEnergy(room) < UPGRADE_FLOOR) return 0;
+    return 1;
 }
 
 /**

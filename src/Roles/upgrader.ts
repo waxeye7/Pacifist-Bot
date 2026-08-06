@@ -258,7 +258,16 @@ const run = function (creep) {
 				creep.MoveCostMatrixRoadPrio(park || controllerLink, park ? 0 : 1);
 			}
 		}
-		else if(creep.room.controller.level < 7) {
+		// No level gate. This branch is only reached when the depot is DRY, and
+		// the old `level < 7` meant an RCL7+ upgrader with an empty controller
+		// link did nothing at all — no withdraw, no move, no upgrade — for its
+		// entire 1,500-tick life. Live W1N1: two 24-WORK upgraders parked at
+		// (43,23)/(43,24) beside an empty link, 120,671 energy in the storage
+		// nine tiles away, controller progress flat. A room that reaches RCL7 is
+		// the room MOST able to feed an upgrader from its bank; shuttling is
+		// slower than a link but it is not zero, and the depot path above still
+		// wins the moment anything lands in the link.
+		else {
 
 			if(storage == undefined) {
 				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
