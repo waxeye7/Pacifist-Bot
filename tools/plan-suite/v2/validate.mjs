@@ -128,6 +128,24 @@ const idx = (x, y) => x + y * 50;
 
 // structures that must never be reachable by an enemy creep, and must be
 // serviceable by a hauler (i.e. touch the road network)
+/**
+ * ...AND THE EXTRACTOR IS IN THIS LIST NOW.
+ *
+ * It was not, and its absence was the whole exemption: the road gate iterates
+ * OWNED, so a structure the enumeration omits is never asked whether a hauler
+ * can reach it. Re-derived over the shipped road+container network, 133 of the
+ * fleet's 172 extractors are OFF that network and not one of them was named by
+ * any declaration. That is criticism 11 verbatim — AN EXEMPTION THAT LIVES ONLY
+ * IN THE CHECKER IS NOT AN EXEMPTION — one structure over from the mineral
+ * container it was written about, and quieter, because an omission from a list
+ * reads as an oversight where a hardcoded `continue` reads as a decision.
+ *
+ * The decision is still right: the extractor is a fixed structure on the mineral
+ * that nothing hauls to (the miner stands on the seat beside it), so paving to
+ * it buys nothing and pays decay forever. It is right, and it is the PLAN's to
+ * make — so it is declared, on the same `misc/off-network` channel and by the
+ * same rule as the seat: name the tile, and the exemption reads the declaration.
+ */
 const OWNED = [
   "spawn",
   "extension",
@@ -139,6 +157,7 @@ const OWNED = [
   "nuker",
   "observer",
   "container",
+  "extractor",
 ];
 // blocking structures for creep movement (roads/ramparts/containers are not)
 const BLOCKING = [
@@ -261,6 +280,34 @@ const MAX_REFILL = 10;
 const LAB_HAUL_NOTE = 8;
 const SECTOR_TARGET = 60;
 const THIN_PARKS = 5;
+/**
+ * ...and the second transcription block, added in round 14 for the same reason
+ * as the first: every one of these appears VERBATIM in a declaration record, so
+ * a record leaf carrying it is re-derivable by comparison with the producer's
+ * own constant, and the constant belongs where a reader can check the two
+ * against each other rather than at the call site.
+ *   CLUMP_NOTE          layer-towers.mjs — towers inside chebyshev 2 that declare
+ *   TOWER_TARGET_MIN    layer-towers.mjs — the hard damage floor a wall face owes
+ *   MOB_MASS_*_PCT      layer-walls.mjs — the two mass-share bands the paragraph
+ *                       selects its "primary cause" clause with
+ *   LAB_FLEET_*         layer-labs.mjs — the fleet lines the lab haul is read against
+ *   SHALLOW_LAB_COST /  layer-labs.mjs — the per-unit weights in the anchor score
+ *   ROAD_EAT_COST       (NOT the totals `meta.labs` publishes under the same names)
+ *   PARK_PROTECT        shared.mjs — the cap on seats layer 1 may reserve
+ *   SPAWN_*             layer-hub.mjs — the spawn fan's sector geometry
+ */
+const CLUMP_NOTE = 5;
+const TOWER_TARGET_MIN = 1200;
+const MOB_MASS_SHARE_PCT = 30;
+const MOB_MASS_MINOR_PCT = 10;
+const LAB_FLEET_MEDIAN = 2;
+const LAB_FLEET_P90 = 4;
+const SHALLOW_LAB_COST = 3;
+const ROAD_EAT_COST = 2;
+const PARK_PROTECT = 8;
+const SPAWN_SECTOR_WEIGHT = 0.4;
+const SPAWN_SECTOR_BINS = 12;
+const SPAWN_WALK_CAP = 5;
 
 /**
  * Passability the way the ENGINE moves a creep, not the way terrain reads.
@@ -705,7 +752,16 @@ export function ecoWalks(terrain, objects, hubTile) {
   const psRaw = sources.length
     ? sources.reduce((sum, _, i) => sum + fields[(controller ? 1 : 0) + i][hubI], 0)
     : null;
+  // ...AND THE TWO ANCHORS EACH SPREAD IS BETWEEN, NAMED. The declaration
+  // prints them ("the widest separation is 27 tiles: controller 9,34 and source
+  // 1 36,29"), and a pair of tile names is a claim about the room like any
+  // other — it was the one part of the eco record nothing re-derived, and it is
+  // the half a reader uses to check the number beside it.
+  const anchorName = (i) => (controller && i === 0 ? "controller" : `source ${i + (controller ? 0 : 1)}`);
+  const pairLabel = (i, j) =>
+    `${anchorName(i)} ${anchors[i].x},${anchors[i].y} and ${anchorName(j)} ${anchors[j].x},${anchors[j].y}`;
   let sepWalk = null;
+  let walkPair = "";
   for (let i = 0; i < anchors.length; i++) {
     for (let j = i + 1; j < anchors.length; j++) {
       let best = null;
@@ -715,14 +771,21 @@ export function ecoWalks(terrain, objects, hubTile) {
         if (a >= 30000 || b >= 30000) continue;
         if (best === null || a + b < best) best = a + b;
       }
-      if (best !== null && (sepWalk === null || best > sepWalk)) sepWalk = best;
+      if (best !== null && (sepWalk === null || best > sepWalk)) {
+        sepWalk = best;
+        walkPair = pairLabel(i, j);
+      }
     }
   }
   let sepCheb = 0;
+  let spreadPair = "";
   for (let i = 0; i < anchors.length; i++) {
     for (let j = i + 1; j < anchors.length; j++) {
       const d = chebyshev(anchors[i], anchors[j]);
-      if (d > sepCheb) sepCheb = d;
+      if (d > sepCheb) {
+        sepCheb = d;
+        spreadPair = pairLabel(i, j);
+      }
     }
   }
   // ONE STEP OFF EACH END — see the header. The chebyshev separation is between
@@ -735,6 +798,8 @@ export function ecoWalks(terrain, objects, hubTile) {
     ps: psRaw !== null && psRaw < 30000 ? psRaw : null,
     sepCheb,
     sepWalk,
+    spreadPair,
+    walkPair,
     chebFloor,
     walkFloor,
     floor: useWalk ? walkFloor : chebFloor,
@@ -1314,6 +1379,924 @@ assertProseInventory();
 
 /**
  * ==========================================================================
+ * THE FOURTH DIRECTION, AND THE ONE THE OTHER THREE WERE STANDING ON: EVERY
+ * LEAF OF EVERY DECLARATION RECORD IS CLASSIFIED, AND THE CLASSES ARE CLOSED.
+ * ==========================================================================
+ * declprose.mjs's header makes three promises. Two of them held. The third —
+ *
+ *     "A record that is corrupted to match a false paragraph still fails,
+ *      because the validator re-derives the record's fields from terrain and
+ *      the shipped structure lists"
+ *
+ * — was true of 64 of the 536 record leaves the fleet ships and false of the
+ * other 472, and a reviewer walked through the gap the obvious way: falsify a
+ * field in the structured record, then set `detail = renderDecl(sf)` using the
+ * SHARED template both sides run. The paragraph gate is satisfied by
+ * construction, and nothing else looked. Nine landed, every one of them a
+ * sentence an owner reads:
+ *
+ *   E13S2  labs.haulDist 12 -> 2          "the lab diamond is 2 hauler tile(s)
+ *                                          from the hub … the fleet median is 2"
+ *   E11S9  spawnFan.census.fannedTriples  a priced trade laundered into a
+ *          28 -> 0, fannedAvailable null  terrain impossibility
+ *   E17S5  ctrlParks.census.maxParks 6->5 "5 seats is the room's ceiling, not a
+ *                                          preference" — and that pair EXCUSES A
+ *                                          HARD GATE
+ *   E12S5  ctrlParks.held 7 -> 99         "HOLDS 2 of the 99 parking tile(s)"
+ *   E13S9  spawnFan.census.pool/viable    the census's own arithmetic broken
+ *          -> 999                         and unread
+ *   E13S3  battlements.strandedByMass 1->0 self-contradicting and passing
+ *   E9S2   labs.eatAnchors 2 -> 99
+ *   E11S1  misc offNetwork.roads 78 -> 1,  the kind that excuses the HARD road
+ *          seats 1 -> 99                   gate in 133 of 172 rooms
+ *   E2S3   labs.fallbackAnchors 6 -> 0
+ *
+ * "The paragraph cannot say anything the record does not" is true and worthless
+ * while the record is unchecked: generation replaced a hand-typed lie with a
+ * generated one.
+ *
+ * SO EVERY LEAF IS NAMED HERE, AND EVERY LEAF IS ONE OF THREE THINGS.
+ *
+ *   D          RE-DERIVED. checkRoom computes the value from terrain, the room
+ *              objects, the shipped structure lists and this file's own module
+ *              constants, and compares. A leaf classed D that the derivation
+ *              does not produce is a HARD FAIL on the room — the inventory
+ *              cannot promise a check that is not there.
+ *   W(why)     PRODUCER-WITNESSED, WITH THE BOUND STATED. A fact about a search
+ *              that has finished and left no trace on the board: how many swaps
+ *              were examined, what the ladder measured on a board six layers
+ *              ago. `why` says what it is and what still holds it — a bound this
+ *              file DOES check (an optional predicate), the arithmetic of the
+ *              census it sits in, or a cross-copy of a number published
+ *              elsewhere. It is not "unchecked"; it is checked to a stated,
+ *              weaker standard, and the standard is written down.
+ *   X(why)     NON-RE-DERIVABLE BY NAME, like `labs|lab-road-eat` in
+ *              OBLIGATION_EXEMPT. The reason must say what was destroyed and by
+ *              what. An exemption that is an omission is the defect; an
+ *              exemption that is a named entry with a reason is a decision.
+ *
+ * AND THE SET IS CLOSED. A record leaf this table does not name fails the room
+ * that ships it. That is what makes the table an inventory rather than a
+ * to-do list: a producer cannot add a field to a record and have it be
+ * unchecked-by-default, which is exactly how ten kinds came to ship 100%
+ * unaudited records in the first place.
+ *
+ * THE ENVELOPE IS NOT THE RECORD. `gate`, `kind`, `detail`, `tiles`, `count`
+ * and `rungs` are the declaration envelope — admissibility, arbitration and
+ * evidence — and they have their own gates (admitDeclaration, sanitiseTiles,
+ * sanitiseRungs, MAX_DECL_TILES, MAX_DECL_BUDGET, the prose identity check).
+ * Everything else on a declaration is RECORD and is walked here.
+ */
+/** re-derived from board + terrain + this file's constants */
+const D = { klass: "derived" };
+/** producer-witnessed; `why` states what still holds it, `bound` is optional */
+const W = (why, bound = null) => ({ klass: "witnessed", why, bound });
+/** named non-re-derivable, with the reason it cannot be */
+const X = (why) => ({ klass: "exempt", why });
+
+/** a leaf path with dynamic segments, normalised to the form this table uses */
+const normLeaf = (p) => p.replace(/^lift\.perClass\.[A-Za-z]+\./, "lift.perClass.*.");
+
+/** the declaration ENVELOPE — gated elsewhere, see the header */
+const RECORD_ENVELOPE = new Set(["gate", "kind", "detail", "tiles", "count", "rungs"]);
+
+const WITNESS_NONNEG = (v) =>
+  typeof v === "number" && Number.isFinite(v) && v >= 0 ? null : `is ${JSON.stringify(v)}, not a non-negative number`;
+const WITNESS_BOOL = (v) => (typeof v === "boolean" ? null : `is ${JSON.stringify(v)}, not a boolean`);
+const WITNESS_NUM_OR_NULL = (v) =>
+  v === null || (typeof v === "number" && Number.isFinite(v))
+    ? null
+    : `is ${JSON.stringify(v)}, not a finite number or null`;
+
+const SEARCH_COUNTER = (what) =>
+  W(
+    `${what} — a counter over a search that has finished. Nothing in the shipped board records how many ` +
+      `candidates a pass examined, so the bound this file holds it to is that it is a non-negative number ` +
+      `and that the census it belongs to closes arithmetically around it`,
+    WITNESS_NONNEG,
+  );
+const LAYER_EARLIER = (what) =>
+  W(
+    `${what} — a measurement taken on an earlier layer's board, which the layers after it moved. It is ` +
+      `kept because the decision was really made on it and a record edited to agree with the outcome is ` +
+      `not a record; it is bounded rather than re-derived, and the AS-SHIPPED reading of the same quantity ` +
+      `is a separate, re-derived field beside it`,
+    WITNESS_NUM_OR_NULL,
+  );
+
+const RECORD_LEAVES = new Map(([
+  // ---------------------------------------------------------------- towerRefill
+  [
+    "towerRefill|",
+    {
+      "towerRefill.maxRefill": D,
+      "towerRefill.cap": D,
+    },
+  ],
+  // ---------------------------------------------------------------- shell (link on cut)
+  [
+    "shell|",
+    {
+      "linkOnCut.onCut": D,
+      "linkOnCut.cutTiles": D,
+      "linkOnCut.forced": D,
+      "linkOnCut.negotiatedCutTiles": LAYER_EARLIER(
+        `the size of the cut layer 2 negotiated, before the bubbles, the adopted seal tiles and the inert ` +
+          `prune moved the wall`,
+      ),
+    },
+  ],
+  // ---------------------------------------------------------------- battlements
+  [
+    "battlements|",
+    {
+      "battlements.unreachable": D,
+      "battlements.cutTiles": D,
+      "battlements.substitute.kind": W(
+        `which of three answers layer 2's ALTERNATIVE-enclosure search gave: "swap" (a fully reachable cut ` +
+          `exists within the swap budget), "small" (every reachable enclosure is too small for the program) ` +
+          `or "none" (no protect radius produces a reachable cut at all). The search ran over enclosures ` +
+          `this room did not build, so the board carries no trace of it; the bound is that the label is one ` +
+          `of the three and that the numbers under it are present exactly for the branch that names them`,
+        (v) => (["swap", "small", "none"].includes(String(v)) ? null : `is ${JSON.stringify(v)}, not one of swap/small/none`),
+      ),
+      "battlements.substitute.altCut": SEARCH_COUNTER(`the alternative cut's size, on the "swap" branch`),
+      "battlements.substitute.thisCut": D,
+      "battlements.substitute.budget": SEARCH_COUNTER(`the swap budget the alternative was priced against`),
+      "battlements.substitute.radius": SEARCH_COUNTER(`the protect radius of the best reachable enclosure`),
+      "battlements.substitute.cut": SEARCH_COUNTER(`that enclosure's cut size`),
+      "battlements.substitute.deep": SEARCH_COUNTER(`the deep tiles it encloses`),
+      "battlements.substitute.needDeep": SEARCH_COUNTER(`the deep-tile floor the program needs`),
+    },
+  ],
+  [
+    "battlements|unreachable",
+    {
+      "battlements.unreachable": D,
+      "battlements.strandedByMass": D,
+      "battlements.unreachableAtLayer2": LAYER_EARLIER(
+        `how many of these tiles the interior walk region could not reach when layer 2 finished — the ` +
+          `subtrahend that makes "our own mass stranded it" a claim rather than a copy of layer 2's count. ` +
+          `The layer-2 walk region is gone; the bound is 0 <= it <= the re-derived unreachable count, and ` +
+          `\`strandedByMass\` is re-derived as the difference`,
+      ),
+    },
+  ],
+  // ---------------------------------------------------------------- misc/off-network
+  [
+    "misc|off-network",
+    {
+      "offNetwork.mineral.x": D,
+      "offNetwork.mineral.y": D,
+      "offNetwork.extractor": D,
+      "offNetwork.extractor.x": D,
+      "offNetwork.extractor.y": D,
+      "offNetwork.extractorNetTiles": D,
+      "offNetwork.extractorStands": D,
+      "offNetwork.extractorObstacle": D,
+      "offNetwork.seats": D,
+      "offNetwork.netTiles": D,
+      "offNetwork.roads": D,
+      "offNetwork.regenTicks": D,
+      "offNetwork.extractorCooldown": D,
+    },
+  ],
+  // ---------------------------------------------------------------- runtime
+  [
+    "runtime|heavy-search",
+    {
+      "runtime.compositions": D,
+      "runtime.seeds": D,
+      "runtime.complete": D,
+      "runtime.ladder": D,
+      "runtime.seedSkip": D,
+    },
+  ],
+  // ---------------------------------------------------------------- towers/clump
+  [
+    "towers|clump",
+    {
+      "clump.within": D,
+      "clump.total": D,
+      "clump.cheb": D,
+      "clump.note": D,
+      "clump.sitter.x": D,
+      "clump.sitter.y": D,
+      source: D,
+      "dispersion.counted": D,
+      "dispersion.windowBefore": LAYER_EARLIER(`layer 3's 5x5 window reading BEFORE its dispersion pass`),
+      "dispersion.windowAfter": D,
+      "dispersion.totalAtLayer3": LAYER_EARLIER(`how many towers layer 3 had placed when it measured`),
+      "dispersion.withinAtLayer3": LAYER_EARLIER(`how many of them were inside chebyshev 2 of the sitter then`),
+      "dispersion.tiebreakBudget": SEARCH_COUNTER(`the swap budget the dispersion pass was allowed to spend on ties`),
+      "dispersion.search.rounds": SEARCH_COUNTER(`dispersion pass rounds`),
+      "dispersion.search.singleSwapsTried": SEARCH_COUNTER(`single-slot swaps examined`),
+      "dispersion.search.singleSwapsScoreTied": SEARCH_COUNTER(`of those, the ones that scored equal`),
+      "dispersion.search.pairSwapsTried": SEARCH_COUNTER(`two-slot swaps examined`),
+      "dispersion.search.pairSwapsScoreTied": SEARCH_COUNTER(`of those, the ones that scored equal`),
+      "dispersion.search.improvedBy": SEARCH_COUNTER(`how much the window improved`),
+      "dispersion.search.pairImproved": SEARCH_COUNTER(`how many pair swaps improved it`),
+    },
+  ],
+  // keys are normalised the way buildArbitration keys a declaration, so a gate
+  // written `spawnFan` and a gate written `spawnfan` reach the same table
+].map(([k, v]) => [normPair(k), v])));
+
+/**
+ * The rest of the table, split out only because one object literal of 375 leaves
+ * is unreadable. Same three classes, same closure rule.
+ */
+for (const [k, v] of [
+  // ---------------------------------------------------------------- eco
+  [
+    "eco|",
+    {
+      "eco.pathController": D,
+      "eco.pathSourcesSum": D,
+      "eco.anchorSpread": D,
+      "eco.anchorWalkSpread": D,
+      "eco.anchorWalkFloor": D,
+      "eco.anchorFloorBasis": D,
+      "eco.chebFloor": D,
+      "eco.walkFloor": D,
+      "eco.spreadPair": D,
+      "eco.walkPair": D,
+      "eco.ctrlBearing": D,
+      "eco.srcBearings": D,
+      "eco.ctrlAbs": D,
+      "eco.srcAbs": D,
+      "eco.relMult": D,
+      "eco.ctrlGate": D,
+      "eco.srcGate": D,
+      "eco.ctrlMedian": D,
+      "eco.srcMedian": D,
+      "eco.fleetMediansMeasured.ctrlWalk": D,
+      "eco.fleetMediansMeasured.srcSum": D,
+      "eco.fleetMediansMeasured.rooms": D,
+      "eco.seedSkip": D,
+      "eco.basin": SEARCH_COUNTER(
+        `how many tiles layer 1's hub basin held when it ranked the seeds. The basin is a scoring ` +
+          `intermediate; no structure records it`,
+      ),
+      "eco.coreSize": SEARCH_COUNTER(`the size of the core layer 1 grew around the chosen seed`),
+      "eco.seedPool": SEARCH_COUNTER(`how many seeds layer 1 ranked before it took this one`),
+    },
+  ],
+  // ---------------------------------------------------------------- extensions/shallow
+  [
+    "extensions|shallow",
+    {
+      "shallowExt.count": D,
+      "shallowExt.total": D,
+      "shallowExt.depthSafe": D,
+      "shallowExt.sharedTarget": W(
+        `the one deep tile several shallow slots were all competing for, named by layer 7b's re-run. It is ` +
+          `a fact about which slot won a contest, and the losers are not on the board; the bound is that it ` +
+          `is a tile key or null, and that it agrees with \`search.sharedTarget\``,
+        (v) => (v === null || /^-?\d+,-?\d+$/.test(String(v)) ? null : `is ${JSON.stringify(v)}, not a tile key or null`),
+      ),
+      "shallowExt.impossible": SEARCH_COUNTER(`slots for which no deep tile existed at all`),
+      "shallowExt.priced": SEARCH_COUNTER(`slots whose relocation was priced`),
+      "shallowExt.refusedByTest": SEARCH_COUNTER(`slots a guard refused`),
+      "shallowExt.slots": W(
+        `the per-slot search record — for each shallow extension, how many deep targets it had, how many ` +
+          `were road-faced, how many were one pave away, and how many were examined. Every number in it is ` +
+          `about candidate tiles the room did NOT take, which the shipped board cannot show; the bound is ` +
+          `that it is an array of objects, one per shallow slot, and that its length matches \`count\``,
+      ),
+      "shallowExt.search.interiorTiles": SEARCH_COUNTER(`interior tiles the re-run scanned`),
+      "shallowExt.search.freeDeepOnePave": SEARCH_COUNTER(`free deep tiles one pave from the network`),
+      "shallowExt.search.freeDeepRoadFaced": SEARCH_COUNTER(`free deep tiles that already had a road face`),
+      "shallowExt.search.left": SEARCH_COUNTER(`slots still shallow after the re-run`),
+      "shallowExt.search.paveLeft": SEARCH_COUNTER(`pave budget left`),
+      "shallowExt.search.paveTaken": SEARCH_COUNTER(`pave budget spent`),
+      "shallowExt.search.refused": W(
+        `the per-tile refusal list of the re-run: which candidate deep tiles were rejected and why. The ` +
+          `candidates are tiles the room does not build on, so the refusal is about a board that was never ` +
+          `shipped; the bound is that each entry names a tile key and carries a reason`,
+      ),
+      "shallowExt.search.refusedCount": SEARCH_COUNTER(`how many candidates were refused`),
+      "shallowExt.search.refusedExaminations": SEARCH_COUNTER(`how many examinations those refusals cost`),
+      "shallowExt.search.sharedTarget": W(
+        `the re-run's own copy of \`sharedTarget\`; the two must agree`,
+        (v) => (v === null || /^-?\d+,-?\d+$/.test(String(v)) ? null : `is ${JSON.stringify(v)}, not a tile key or null`),
+      ),
+      "shallowExt.search.sharedTargetSlots": SEARCH_COUNTER(`how many slots wanted that one tile`),
+      "shallowExt.search.spentOnAdds": SEARCH_COUNTER(`relocations that added a tile`),
+      "shallowExt.search.spentOnMoves": SEARCH_COUNTER(`relocations that moved one`),
+    },
+  ],
+]) {
+  RECORD_LEAVES.set(normPair(k), v);
+}
+
+for (const [k, v] of [
+  // ---------------------------------------------------------------- labs
+  [
+    "labs|lab-haul",
+    {
+      source: D,
+      "labs.anchor.x": D,
+      "labs.anchor.y": D,
+      "labs.orientation": D,
+      "labs.haulDist": D,
+      "labs.depthSafe": D,
+      "labs.fleetMedian": D,
+      "labs.fleetP90": D,
+      "labs.roadEatCost": D,
+      "labs.shallowLabCost": D,
+      "labs.deepAnchors": D,
+      "labs.fallbackAnchors": D,
+      "labs.refused.wall": SEARCH_COUNTER(
+        `anchors refused ahead of the winner because the lab stamp would strand a wall segment the ` +
+          `garrison can walk today. The census counts candidates in strict SCORE order up to the winner and ` +
+          `never resets, so it is a fact about the order the search walked and not about the room`,
+      ),
+      "labs.refused.mineral": SEARCH_COUNTER(`anchors refused because the stamp left the mineral no reachable seat`),
+      "labs.refused.network": SEARCH_COUNTER(
+        `anchors refused because eating their roads would split the network. It is the same counter as ` +
+          `\`eatBlockedByNet\` on this room's lab-road-eat record and the two must agree`,
+      ),
+      "labs.refused.lap": SEARCH_COUNTER(
+        `anchors refused for creating or worsening a gated-over-target defender pair. Budget-dependent: ` +
+          `once the 16-anchor veto budget is spent every undecided anchor counts as breaching`,
+      ),
+    },
+  ],
+  [
+    "labs|shallow-lab",
+    {
+      source: D,
+      "labs.total": D,
+      "labs.shallow": D,
+      "labs.depthSafe": D,
+      "labs.shallowLabCost": D,
+      "labs.deepAnchors": D,
+      "labs.fallbackAnchors": D,
+      "labs.dryAnchors": D,
+    },
+  ],
+  [
+    "labs|lab-road-eat",
+    {
+      source: D,
+      "labs.eaten": D,
+      "labs.depthSafe": D,
+      "labs.roadEatCost": D,
+      "labs.deepAnchors": D,
+      "labs.fallbackAnchors": D,
+      "labs.eatAnchors": W(
+        `how many anchors the road-eating passes enumerated. The passes run in order and the counter is the ` +
+          `MAX over the ones that ran, so which pass produced it is not on the record; the bound is that it ` +
+          `is at least 1 (a winner came out of one of them) and at most the depth >= 3 enumeration over this ` +
+          `room's own terrain, both re-derived here`,
+        WITNESS_NONNEG,
+      ),
+      "labs.eatBlockedByNet": SEARCH_COUNTER(
+        `anchors whose road-eat would have split the network, counted up to the winner in score order`,
+      ),
+    },
+  ],
+  // ---------------------------------------------------------------- ctrlParks
+  [
+    "ctrlParks|seats",
+    {
+      "ctrlParks.parks": D,
+      "ctrlParks.built": D,
+      "ctrlParks.eaten": D,
+      "ctrlParks.eaters": D,
+      "ctrlParks.floor": D,
+      "ctrlParks.thinAt": D,
+      "ctrlParks.link.x": D,
+      "ctrlParks.link.y": D,
+      "ctrlParks.controller.x": D,
+      "ctrlParks.controller.y": D,
+      "ctrlParks.census.considered": D,
+      "ctrlParks.census.minParksFloor": D,
+      "ctrlParks.census.tookFirstAboveFloor": D,
+      "ctrlParks.census.chosen.x": D,
+      "ctrlParks.census.chosen.y": D,
+      "ctrlParks.census.chosen.parks": D,
+      "ctrlParks.census.chosen.hubWalk": D,
+      "ctrlParks.census.chosen.score": D,
+      "ctrlParks.census.runnerUp.x": W(
+        `WHICH candidate came second. The ladder's runner-up is picked over the SEAL-FILTERED pool, and the ` +
+          `seal test is a re-flood of layer 1's board per candidate that this file does not replay; what IS ` +
+          `re-derived is that the named tile is a real candidate of this room's own controller ring and that ` +
+          `every number attached to it — parks, hubWalk, score — is that tile's`,
+      ),
+      "ctrlParks.census.runnerUp.y": W(`the other half of the same tile key; see \`runnerUp.x\``),
+      "ctrlParks.census.runnerUp.parks": D,
+      "ctrlParks.census.runnerUp.hubWalk": D,
+      "ctrlParks.census.runnerUp.score": D,
+      "ctrlParks.census.maxParks": W(
+        `the roomiest seat count anywhere in the candidate pool — the number the paragraph turns into "N ` +
+          `seats is therefore the room's CEILING, not a preference". The pool is the candidate list minus ` +
+          `the tiles whose link would seal a pocket, and the seal test is not replayed here; the bound that ` +
+          `IS re-derived is two-sided and tight: it may not exceed the maximum over the whole candidate ` +
+          `list, and the number of candidates roomier than it may not exceed the room's own published ` +
+          `\`sealing\` count — so a deflated ceiling has to be paid for with sealing tiles that do not exist`,
+        WITNESS_NONNEG,
+      ),
+      "ctrlParks.census.sealing": W(
+        `how many candidates were dropped because the link there would seal a pocket. chokeTest re-floods ` +
+          `layer 1's board once per candidate; the bound is 0 <= sealing <= considered, and ` +
+          `forcedOntoSealingPool is true exactly when the two are equal`,
+        WITNESS_NONNEG,
+      ),
+      "ctrlParks.census.forcedOntoSealingPool": W(
+        `whether EVERY candidate sealed, so the ladder had to run over the sealing pool anyway. Bound: it ` +
+          `is true exactly when sealing === considered`,
+        WITNESS_BOOL,
+      ),
+    },
+  ],
+  [
+    "ctrlParks|released",
+    {
+      "ctrlParks.held": D,
+      "ctrlParks.kept": D,
+      "ctrlParks.released": D,
+      "ctrlParks.floor": D,
+      "ctrlParks.parksShipped": D,
+      "ctrlParks.deepTiles": D,
+      "ctrlParks.shallowReleasing": D,
+      "ctrlParks.rampartsReleasing": D,
+      "ctrlParks.composedFrom": D,
+      "ctrlParks.winningCap": D,
+      "ctrlParks.composedTo": W(
+        `the lowest park cap the release loop actually composed. The loop walks down from held-1 and stops ` +
+          `early when a rung reaches zero shallow extensions; where it stopped is a fact about the walk and ` +
+          `not about the board. Bound: 0 <= composedTo <= composedFrom, and it is the last entry of ` +
+          `\`composedCaps\``,
+        WITNESS_NONNEG,
+      ),
+      "ctrlParks.composedCaps": W(
+        `the caps this room composed IN FULL, in the order it composed them — the trail the paragraph's ` +
+          `"every cap from N down to M was composed and measured" sentence is now derived from instead of ` +
+          `asserted. Each entry is a whole room this pass built and threw away, so nothing on the shipped ` +
+          `board records them; the bounds are that the list is strictly descending, starts at ` +
+          `\`composedFrom\`, ends at \`composedTo\`, and contains the cap that won`,
+      ),
+      "ctrlParks.rejectedError": SEARCH_COUNTER(`caps whose composition errored out`),
+      "ctrlParks.rejectedIncomplete": SEARCH_COUNTER(`caps that composed but did not complete the program`),
+      "ctrlParks.rejectedUnderFloor": SEARCH_COUNTER(`caps that completed but fed fewer seats than the hard floor`),
+      "ctrlParks.shallowHolding": W(
+        `how many shallow extensions the HOLDING composition shipped — a whole room this pass composed and ` +
+          `then threw away, so no board carries it. The bound is the one the release loop's own acceptance ` +
+          `test guarantees: the composition that ships was accepted for having strictly fewer shallow ` +
+          `extensions, so shallowReleasing <= shallowHolding`,
+        WITNESS_NONNEG,
+      ),
+      "ctrlParks.rampartsHolding": SEARCH_COUNTER(
+        `the discarded holding composition's rampart count — the other half of the trade, and on the same ` +
+          `board nobody shipped`,
+      ),
+    },
+  ],
+]) {
+  RECORD_LEAVES.set(normPair(k), v);
+}
+
+for (const [k, v] of [
+  // ---------------------------------------------------------------- towers/weak-battery
+  [
+    "towers|weak-battery",
+    {
+      source: D,
+      // ---- the AS-SHIPPED half: every one of these is the board this room ships
+      "battery.maxRefill": D,
+      "battery.refillDists": D,
+      "battery.minShellDmg": D,
+      "battery.avgShellDmg": D,
+      "battery.cutTiles": D,
+      "battery.weakTiles": D,
+      "battery.worst.x": D,
+      "battery.worst.y": D,
+      "battery.worstOnLink": D,
+      "battery.maxRefillHard": D,
+      "battery.refillNote": D,
+      "battery.weakShellDmg": D,
+      "battery.targetMin": D,
+      "battery.refillUnreachable": D,
+      "battery.inertPruned": SEARCH_COUNTER(
+        `how many ramparts layer 7's inert prune took off the wall this battery was scored against`,
+      ),
+      "battery.maxRefillAtPlacement": LAYER_EARLIER(`the furthest refill walk as layer 3 measured it, before the mass grew`),
+      "battery.refillDistsAtPlacement": W(
+        `layer 3's own refill walks, tower by tower, on the board it was placing against. The layers after ` +
+          `it move the walk; the AS-SHIPPED list beside this one is re-derived tile by tile`,
+      ),
+      // ---- layer 3's search half: a different board, honestly named
+      "towers.maxRefill": LAYER_EARLIER(`layer 3's furthest refill walk`),
+      "towers.maxRefillUnblocked": LAYER_EARLIER(`the same walk with our own mass ignored`),
+      "towers.refillDists": W(`layer 3's per-tower refill walks; see \`refillDistsAtPlacement\``),
+      "towers.minShellDmg": LAYER_EARLIER(`the weakest face of the cut LAYER 3 was given, which the prune and the seal reconciliation then moved`),
+      "towers.avgShellDmg": LAYER_EARLIER(`the mean face damage over that same cut`),
+      "towers.declaredCutTiles": LAYER_EARLIER(`how many tiles that cut had`),
+      "towers.weakTiles": LAYER_EARLIER(`how many of them were under the weak line`),
+      "towers.depthSafe": D,
+      "towers.refillCap": D,
+      "towers.refillNote": D,
+      "towers.weakShellDmg": D,
+      "towers.maxRefillHard": D,
+      "towers.targetMin": D,
+      "towers.spreadRadius": SEARCH_COUNTER(`the mean tower-to-centroid radius layer 3 achieved`),
+      "towers.candidates": SEARCH_COUNTER(`tower tiles layer 3 considered`),
+      "towers.starts": SEARCH_COUNTER(`restarts of the placement search`),
+      "towers.escRounds": SEARCH_COUNTER(`escalation rounds`),
+      "towers.pairK": SEARCH_COUNTER(`the pair-swap breadth`),
+      "towers.refillSearch.before": LAYER_EARLIER(`the refill walk before the refill-directed swap pass`),
+      "towers.refillSearch.after": LAYER_EARLIER(`...and after it`),
+      "towers.refillSearch.moved": SEARCH_COUNTER(`towers the pass moved`),
+      "towers.refillSearch.tried": SEARCH_COUNTER(`swaps it examined`),
+      "towers.refillSearch.rounds": SEARCH_COUNTER(`rounds it ran`),
+      "towers.refillSearch.scoreTied": SEARCH_COUNTER(`swaps that scored equal`),
+      "towers.refillSearch.dispersionOk": SEARCH_COUNTER(`swaps the dispersion guard allowed`),
+      "towers.refillSearch.crossOffered": SEARCH_COUNTER(
+        `swaps the refill-repair pass was offered ACROSS the tower-adjacency prior — the crossings round 14 ` +
+          `let it make once a room is over the hard refill ceiling`,
+      ),
+      "towers.search.ran": W(
+        `whether layer 3's placement search ran at all on this room, rather than taking the first legal ` +
+          `placement it found. A fact about a code path, not about a tile`,
+        WITNESS_BOOL,
+      ),
+      "towers.search.converged": W(`whether it converged rather than exhausting its budget`, WITNESS_BOOL),
+      "towers.search.improvedFrom": LAYER_EARLIER(`the weakest face it started from`),
+      "towers.search.improvedTo": LAYER_EARLIER(`...and ended at`),
+      "towers.search.improvements": SEARCH_COUNTER(`accepted improvements`),
+      "towers.search.rounds": SEARCH_COUNTER(`rounds`),
+      "towers.search.restarts": SEARCH_COUNTER(`restarts`),
+      "towers.search.starts": SEARCH_COUNTER(`distinct starting placements`),
+      "towers.search.pairK": SEARCH_COUNTER(`the pair-swap breadth inside the search`),
+    },
+  ],
+  // ---------------------------------------------------------------- mobility/covered-detour
+  [
+    "mobility|covered-detour",
+    {
+      cause: D,
+      "record.din": D,
+      "record.dout": D,
+      "record.detour": D,
+      "record.ratio": D,
+      "record.gatedLap": D,
+      "record.liftedLap": D,
+      "record.gatedPairs": D,
+      "record.coveredPairs": D,
+      "record.pairs": D,
+      "record.target": D,
+      "record.detourFloor": D,
+      "record.present": D,
+      "record.noStructures": D,
+      "record.noWalls": D,
+    },
+  ],
+  // ---------------------------------------------------------------- spawnFan
+  //
+  // THE CENSUS IS A LATTICE, AND THAT IS THE BOUND. Every counter under
+  // `census` describes layer 1's seat search over a BASIN — a mid-search pocket
+  // grown from a seed ranking that the shipped plan does not carry (`core`,
+  // `basin` and `seed` are dropped from the slim plan plan.mjs writes). So the
+  // pool, the five rejection classes, the shortlist and the triple enumeration
+  // are witnessed rather than re-derived — and they are witnessed against an
+  // arithmetic lattice that a fabricated census does not survive: the pool
+  // splits exactly into its five rejections plus the viable seats, the triple
+  // count and the adjacency count sum to C(shortlist,3) exactly, the shortlist's
+  // sector count equals the viable set's by construction, the fallback flag is
+  // equivalent to "every triple was jointly rejected", and `fannedAvailable` is
+  // present exactly when the room did not fall back and some triple reached the
+  // target. E13S9's planted `pool`/`viable` of 999 breaks the first of those.
+  // Every number that is a fact about the THREE SHIPPED SPAWNS — the worst-pair
+  // angle, the sector count, the storage the angles are taken around — is
+  // re-derived outright, and the whole block is cross-copied against
+  // `meta.spawnFan`, which layer 1 publishes unconditionally.
+  [
+    "spawnFan|sector",
+    {
+      "spawnFan.hub.x": D,
+      "spawnFan.hub.y": D,
+      "spawnFan.minAngle": D,
+      "spawnFan.target": D,
+      "spawnFan.sectorWeight": D,
+      "spawnFan.walkMax": W(
+        `the longest walk from storage to any of the three spawns, measured on layer 1's PRE-MASS board — ` +
+          `object tiles, storage, terminal and the hub link were the only obstacles when it was taken, and ` +
+          `sixty extensions have landed since. Bound: it may not exceed the published walk cap, which every ` +
+          `viable seat had to clear`,
+        WITNESS_NONNEG,
+      ),
+      "spawnFan.proxyDepthMin": W(
+        `the shallowest of the three spawns on the terrain-only proxy depth field. Bound: non-negative, and ` +
+          `under the depth-safe line it implies at least one shallow viable seat`,
+        WITNESS_NONNEG,
+      ),
+      "spawnFan.census.target": D,
+      "spawnFan.census.depthSafe": D,
+      "spawnFan.census.walkCap": D,
+      "spawnFan.census.sectorDeg": D,
+      "spawnFan.census.sectorBins": D,
+      "spawnFan.census.winnerSectors": D,
+      "spawnFan.census.triplesAdjacent": D,
+      "spawnFan.census.pool": SEARCH_COUNTER(`seat candidates layer 1 enumerated over the basin core and its ring`),
+      "spawnFan.census.poolCore": SEARCH_COUNTER(`of those, the ones inside the core`),
+      "spawnFan.census.poolRing": SEARCH_COUNTER(`...and the ones in its one-tile dilation`),
+      "spawnFan.census.rejClaimed": SEARCH_COUNTER(`pool tiles already claimed by an object or the hub trio`),
+      "spawnFan.census.rejHubRing": SEARCH_COUNTER(`pool tiles inside the storage's own ring`),
+      "spawnFan.census.rejWalk": SEARCH_COUNTER(`pool tiles past the walk cap from storage`),
+      "spawnFan.census.rejStorageFace": SEARCH_COUNTER(`pool tiles that would leave storage under two free faces`),
+      "spawnFan.census.rejExits": SEARCH_COUNTER(`pool tiles with fewer than three free exits of their own`),
+      "spawnFan.census.viable": SEARCH_COUNTER(`seats that survived all five rejections`),
+      "spawnFan.census.viableCore": SEARCH_COUNTER(`of those, the ones in the core`),
+      "spawnFan.census.viableShallow": SEARCH_COUNTER(`of those, the ones under the depth-safe line`),
+      "spawnFan.census.viableSectors": SEARCH_COUNTER(`distinct 30-degree sectors the viable seats occupy`),
+      "spawnFan.census.shortlist": SEARCH_COUNTER(`the seats the triple enumeration actually ran over`),
+      "spawnFan.census.shortlistSectors": W(
+        `distinct sectors the shortlist occupies. Bound: it EQUALS viableSectors, always — the per-sector ` +
+          `pass takes at least one seat from every non-empty bin — so a record where the two differ is ` +
+          `fabricated`,
+        WITNESS_NONNEG,
+      ),
+      "spawnFan.census.triples": SEARCH_COUNTER(`legal (pairwise non-adjacent) spawn triples enumerated`),
+      "spawnFan.census.triplesJointRejected": W(
+        `triples rejected by the joint storage-face / exits test before the winner, in score order. Bound: ` +
+          `it equals \`triples\` exactly when the search fell back, and is at most triples - 1 when it did not`,
+        WITNESS_NONNEG,
+      ),
+      "spawnFan.census.fannedTriples": W(
+        `enumerated triples whose worst pair reached the 60-degree target. It is the number the paragraph ` +
+          `turns into "not one of the N triples reached 60 degrees … this is the terrain's answer, not a ` +
+          `scoring preference", so deflating it launders a priced trade into an impossibility. The triples ` +
+          `are combinations of a SHORTLIST drawn from a basin the plan does not publish, so the bounds are: ` +
+          `0 <= fannedTriples <= triples; \`fannedAvailable\` is non-null exactly when it is positive and ` +
+          `the search did not fall back; and the whole census is cross-copied against \`meta.spawnFan\`, ` +
+          `which layer 1 publishes for every room whether it declares or not`,
+        WITNESS_NONNEG,
+      ),
+      "spawnFan.census.fallback": W(
+        `whether the triple loop fell through and the fallback placement ran. Bound: equivalent to ` +
+          `triplesJointRejected === triples`,
+        WITNESS_BOOL,
+      ),
+      "spawnFan.census.fannedAvailable": W(
+        `null when no enumerated triple reached the target, or when the search fell back before it could ` +
+          `look. Bound: it is null exactly in those two cases`,
+      ),
+      "spawnFan.census.fannedAvailable.minAngle": D,
+      "spawnFan.census.fannedAvailable.tiles": D,
+      "spawnFan.census.fannedAvailable.jointlyFeasible": W(
+        `whether the target-reaching rival triple would have been buildable together — two free faces left ` +
+          `on storage, three exits each — measured on layer 1's pre-mass board. Bound: a rival that sorted ` +
+          `ABOVE the winner must have failed this test, so a negative \`scoreGap\` requires it to be false`,
+        WITNESS_BOOL,
+      ),
+      "spawnFan.census.fannedAvailable.scoreGap": W(
+        `how much score the winner had over the target-reaching rival. Bound: it is the difference of the ` +
+          `other two published gaps, tileQualityGap - sectorGain, to within the rounding the producer applies`,
+        WITNESS_NUM_OR_NULL,
+      ),
+      "spawnFan.census.fannedAvailable.sectorGain": W(
+        `the score the rival gained purely from reaching the target. Bound: it is the sector weight times ` +
+          `the degrees the winner is short, re-derived here from the record's own angle`,
+        WITNESS_NUM_OR_NULL,
+      ),
+      "spawnFan.census.fannedAvailable.tileQualityGap": W(
+        `the winner's tile-quality advantage, i.e. the same comparison with the sector term removed. Bound: ` +
+          `scoreGap + sectorGain`,
+        WITNESS_NUM_OR_NULL,
+      ),
+    },
+  ],
+  // ---------------------------------------------------------------- mobility (as built)
+  [
+    "mobility|",
+    {
+      source: D,
+      cause: D,
+      pairCause: D,
+      worstCaused: D,
+      "causeWalks.noStructures": D,
+      "causeWalks.noWalls": D,
+      "worst.a.x": D,
+      "worst.a.y": D,
+      "worst.b.x": D,
+      "worst.b.y": D,
+      "worst.din": D,
+      "worst.dout": D,
+      "mass.din": D,
+      "mass.dout": D,
+      "mass.bareDin": D,
+      "mass.builtLap": D,
+      "mass.bareLap": D,
+      "mass.adds": D,
+      "metric.max": D,
+      "metric.maxGated": D,
+      "metric.over": D,
+      "metric.overGated": D,
+      "metric.pairs": D,
+      "metric.gatedPairs": D,
+      "metric.bareOver": D,
+      "metric.bareOverGated": D,
+      "metric.target": D,
+      "metric.detourFloor": D,
+      "metric.massSharePct": D,
+      "metric.massMinorPct": D,
+      lift: D,
+      "lift.cause": D,
+      "lift.clears": D,
+      "lift.classes": D,
+      "lift.solo": D,
+      "lift.present": D,
+      "lift.ownPct": D,
+      "lift.liftedLap": D,
+      "lift.liftedOverGated": D,
+      "lift.liftedGatedPairs": D,
+      "lift.perClass.*.pairDin": D,
+      "lift.perClass.*.lap": D,
+      "lift.residual": D,
+      "lift.residual.dStruct": D,
+      "lift.residual.dFree": D,
+      "lift.residual.pair.a.x": D,
+      "lift.residual.pair.a.y": D,
+      "lift.residual.pair.b.x": D,
+      "lift.residual.pair.b.y": D,
+      "ladder.target": D,
+      "ladder.rungs": W(
+        `the escalation ladder this room walked: per rung, the deep-tile bonus it asked for, the mobility it ` +
+          `measured and how many ramparts it cost. Every rung but the last is an enclosure the room did not ` +
+          `build, so the board carries none of them; the bound is that the list is non-empty, that its ` +
+          `length matches \`trailLength\`, and that its last rung's lap and rampart count are the shipped ` +
+          `ones`,
+      ),
+      "ladder.trailLength": SEARCH_COUNTER(`how many rungs of this seed the room composed`),
+      "ladder.shippedLap": LAYER_EARLIER(`the lap the winning rung measured on layer 2's mass-free interior`),
+      "ladder.shippedRamparts": LAYER_EARLIER(`the rampart count that rung cost`),
+      "ladder.buyFloor": SEARCH_COUNTER(`the ladder's own purchase floor`),
+      "ladder.cap": SEARCH_COUNTER(`the rampart cap the ladder was allowed to spend to`),
+      "ladder.perRatio": SEARCH_COUNTER(`ramparts the ladder would pay per unit of lap`),
+      "ladder.materialLap": W(`the lap difference the ladder treats as material`, WITNESS_NUM_OR_NULL),
+      "ladder.fallbackBest": W(`the best rung of the fallback seed, when one was walked`, WITNESS_NUM_OR_NULL),
+      "lane.tiles": SEARCH_COUNTER(`tiles layer 6's defender-lane reservation wanted`),
+      "lane.deep": SEARCH_COUNTER(`of those, the deep ones`),
+      "lane.rounds": SEARCH_COUNTER(`rounds the reservation ran`),
+      "lane.strandRounds": SEARCH_COUNTER(`rounds spent on stranded stubs`),
+      "lane.stubsLifted": W(
+        `how many stranded road stubs the lane reservation lifted before it took its bound`,
+        WITNESS_NUM_OR_NULL,
+      ),
+      "lane.dropped": W(`whether the reservation was dropped rather than taken`, WITNESS_BOOL),
+      "lane.droppedFor": W(
+        `what it was dropped for, in the producer's own words. A refusal about a board layer 6 was looking ` +
+          `at; the bound is that it is a string or null and that it is present exactly when \`dropped\``,
+      ),
+      "lane.bounded": LAYER_EARLIER(`the lap bound the reservation established`),
+      "lane.boundBeforeStubs": LAYER_EARLIER(`the same bound before the stub lift`),
+      "lane.wanted": LAYER_EARLIER(`the lap the reservation would have bounded this room at`),
+      "lane.wantedBound": LAYER_EARLIER(`...and the bound that would have come with it`),
+      "lane.cost": W(`what the reservation would have cost in personal ramparts`, WITNESS_NUM_OR_NULL),
+      "lane.gain": W(
+        `the lap the reservation would have gained, measured on layer 6's board before the mass finished ` +
+          `growing`,
+        WITNESS_NUM_OR_NULL,
+      ),
+      "lane.premium": W(`the premium the room was willing to pay for it`, WITNESS_NUM_OR_NULL),
+      "lane.shrunk": W(`the reservation the room shrank to, or null`, null),
+      "lane.shrunk.wanted": SEARCH_COUNTER(`the reservation size layer 6 wanted before it shrank`),
+      "lane.shrunk.to": SEARCH_COUNTER(`the size it settled on`),
+      "lane.shrunk.premium": SEARCH_COUNTER(`the premium that shrink bought`),
+      "repair.mass.rounds": SEARCH_COUNTER(`rounds of the bounded mass-relocation attempt`),
+      "repair.mass.trials": SEARCH_COUNTER(`relocations it tried`),
+      "repair.mass.moved": SEARCH_COUNTER(`relocations it took`),
+      "repair.mass.blockersSeen": SEARCH_COUNTER(`blocking tiles it examined`),
+      "repair.mass.lapBefore": LAYER_EARLIER(`the lap before the attempt`),
+      "repair.mass.lapAfter": LAYER_EARLIER(`...and after it`),
+      "repair.mass.liftedLap": LAYER_EARLIER(`the lifted lap that decided whether the attempt was worth paying for`),
+      "repair.mass.lastRefusal": W(`the last refusal the attempt recorded, in the producer's words`),
+      "repair.tower.tried": SEARCH_COUNTER(`single-slot battery swaps layer 3 examined for this metric`),
+      "repair.tower.affordable": SEARCH_COUNTER(`of those, the ones the weakest wall face could afford`),
+      "repair.tower.scoreTied": SEARCH_COUNTER(`of those, the ones that scored equal`),
+      "repair.tower.moved": SEARCH_COUNTER(`towers it moved`),
+      "repair.tower.provedFree": W(`whether a free improving swap was proved to exist`, WITNESS_BOOL),
+      "repair.tower.baseLap": LAYER_EARLIER(`the lap of layer 2's empty room`),
+      "repair.tower.baseOver": LAYER_EARLIER(`how many pairs were over target on it`),
+      "repair.tower.lapWithBattery": LAYER_EARLIER(`the lap once the battery landed`),
+      "repair.tower.overWithBattery": LAYER_EARLIER(`...and the pairs over target then`),
+      "negotiated.cause": W(
+        `layer 2's cause label — about layer 2's worst pair, on layer 2's mass-free interior, taken before ` +
+          `one extension existed. The AS-BUILT label beside it is re-derived; this one is the record of what ` +
+          `the enclosure was bought on. Bound: it is one of the three labels the diagnosis can produce`,
+        (v) =>
+          ["structures", "terrain", "shape", "none"].includes(String(v))
+            ? null
+            : `is ${JSON.stringify(v)}, not one of structures/terrain/shape/none`,
+      ),
+      "negotiated.detail": W(
+        `layer 2's declaration VERBATIM, demoted to evidence. It is quoted rather than re-derived on ` +
+          `purpose: the enclosure was really bought on these numbers and a record edited to agree with the ` +
+          `outcome is not a record. The reconciliation that IS re-derived is the as-built reading beside it`,
+      ),
+      "negotiated.lap": LAYER_EARLIER(`the lap layer 2 negotiated against`),
+      "negotiated.materialLap": W(`the material-lap line in force when layer 2 wrote its paragraph`, WITNESS_NUM_OR_NULL),
+      "negotiated.metric.maxStrict": LAYER_EARLIER(`layer 2's strict-detour maximum`),
+      "negotiated.metric.maxUngated": LAYER_EARLIER(`layer 2's ungated maximum`),
+      "negotiated.metric.detourFloor": D,
+      "negotiated.metric.endpoints": SEARCH_COUNTER(`wall tiles layer 2's metric ran over`),
+      "negotiated.metric.reachable": SEARCH_COUNTER(`of those, the ones its walk region reached`),
+      "negotiated.metric.exact": W(`whether layer 2's metric was exact rather than sampled`, WITNESS_BOOL),
+      "negotiated.shippedWallLap": LAYER_EARLIER(`layer 2's lap re-measured on the shipped wall, mass-free`),
+      "negotiated.shippedGatedPairs": SEARCH_COUNTER(`the gated pair count of that re-measurement`),
+      "negotiated.shippedOverGated": SEARCH_COUNTER(`...and how many of them were over target`),
+      "negotiated.tiles": W(
+        `the endpoints of layer 2's worst pair, on layer 2's wall. They may not be on the SHIPPED wall — ` +
+          `the bubbles, the adopted seal tiles and the inert prune all move it, and E13S4's pair names a ` +
+          `tile layer 7 took off — so the bound is the part that cannot move: exactly two tiles, both real ` +
+          `walkable tiles of this room`,
+      ),
+    },
+  ],
+]) {
+  RECORD_LEAVES.set(normPair(k), v);
+}
+
+/**
+ * The load-time consistency check on the table above, in the same spirit as the
+ * pair, obligation and prose inventories: every declaration kind this file knows
+ * about has a leaf table, every leaf carries exactly one of the three classes,
+ * and every WITNESSED or EXEMPT leaf carries a reason long enough to be a
+ * reason. The last of those is the whole point — a leaf that is not re-derived
+ * has to say what holds it instead, and "nothing" is an answer a reader can act
+ * on where silence is not.
+ */
+function assertRecordInventory() {
+  const known = new Set([...OBLIGATION_KINDS_N, ...OBLIGATION_EXEMPT_N.keys()]);
+  const problems = [];
+  for (const k of known) {
+    if (!RECORD_LEAVES.has(k)) problems.push(`${k} has no record-leaf table`);
+  }
+  for (const k of RECORD_LEAVES.keys()) {
+    if (!known.has(k)) problems.push(`${k} has a record-leaf table and is not a declaration kind`);
+  }
+  let derived = 0;
+  let witnessed = 0;
+  let exempt = 0;
+  for (const [k, table] of RECORD_LEAVES) {
+    for (const [leaf, cls] of Object.entries(table)) {
+      if (!cls || typeof cls !== "object") {
+        problems.push(`${k} ${leaf} carries no class at all`);
+        continue;
+      }
+      if (cls.klass === "derived") derived++;
+      else if (cls.klass === "witnessed") witnessed++;
+      else if (cls.klass === "exempt") exempt++;
+      else {
+        problems.push(`${k} ${leaf} is class ${JSON.stringify(cls.klass)}, not derived/witnessed/exempt`);
+        continue;
+      }
+      if (cls.klass !== "derived" && (typeof cls.why !== "string" || cls.why.trim().length < 40)) {
+        problems.push(
+          `${k} ${leaf} is ${cls.klass} with no stated reason — a leaf nothing re-derives has to say what ` +
+            `holds it instead`,
+        );
+      }
+      if (leaf !== normLeaf(leaf)) {
+        problems.push(`${k} ${leaf} is not in normalised leaf form (${normLeaf(leaf)})`);
+      }
+    }
+  }
+  if (problems.length) {
+    throw new Error(
+      `validate.mjs record-leaf inventory is inconsistent — ${problems.join("; ")}. Every leaf of every ` +
+        `declaration record is either re-derived, witnessed with a stated bound, or exempt by name; a leaf ` +
+        `with no class is the 472-of-536 gap nine planted lies walked through in one round.`,
+    );
+  }
+  return { derived, witnessed, exempt };
+}
+const RECORD_LEAF_CENSUS = assertRecordInventory();
+
+/**
+ * Walk a declaration's RECORD leaves — everything that is not the envelope.
+ * Arrays are leaves: an array's CONTENT is checked by the per-kind derivation
+ * that knows what it is a list of, and descending into one would make the leaf
+ * set a function of the data rather than of the schema.
+ */
+function recordLeaves(sf) {
+  const out = [];
+  const walk = (o, pre) => {
+    for (const [k, v] of Object.entries(o)) {
+      if (!pre && RECORD_ENVELOPE.has(k)) continue;
+      const path = pre ? `${pre}.${k}` : k;
+      if (v && typeof v === "object" && !Array.isArray(v)) walk(v, path);
+      else out.push([normLeaf(path), v, path]);
+    }
+  };
+  if (sf && typeof sf === "object") walk(sf, "");
+  return out;
+}
+
+/**
+ * ==========================================================================
  * THE CLOSED CLASS LIST FOR A REDUNDANT-CUT REFUSAL.
  * ==========================================================================
  * `meta.shell.redundantCut.reasons` is the record that makes "the cut is a
@@ -1587,9 +2570,34 @@ const REQUIRED_META = [
     why: "the size of the wall the battery was scored against AS SHIPPED, as opposed to the wall layer 3 optimised over",
   },
   {
+    path: "meta.towers.shippedMinShellDmg",
+    is: (v) => typeof v === "number",
+    why: "the damage the weakest tile of the wall this room ACTUALLY SHIPS takes. It is re-derived tile by tile in the battery block, and the whole comparison was written `typeof pubShip === \"number\"` — so falsifying it failed the room and DELETING it passed. One of the three numbers the goal document names as re-derived-and-compared; a number a producer can withdraw is not one of them",
+  },
+  {
+    path: "meta.towers.towerDispersion",
+    is: (v) => v && typeof v === "object" && typeof v.after === "number",
+    why: "layer 3's own before/after reading of the high-value 5x5 window. It is the field the nuke-window block cross-checks against (a strictly smaller set may never hold more than the full one), and that cross-check read `if (td && typeof td.after === \"number\")` — an inflated `after` failed and an absent `towerDispersion` passed, which is the C2 shape one key over",
+  },
+  {
+    path: "meta.walls.roadKind",
+    is: (v) => v && typeof v === "object" && !Array.isArray(v),
+    why: "the per-tile provenance of every late (layer-7) road tile — the map the film's captions, the road taxonomy and the spur census are all composed from. The whole roadKind audit was written `if (rkMap && typeof rkMap === \"object\")`, so deleting the key, or shipping `[]`, switched off enum-completeness, coverage and every per-kind re-derivation at once",
+  },
+  {
     path: "meta.ctrlParks",
     is: (v) => typeof v === "number",
     why: "the upgrader seat count, held to a hard floor and re-derived below. An absent count is a room that never claimed anything and therefore never lied",
+  },
+  {
+    path: "meta.ctrlParksAtSeatSearch",
+    is: (v) => typeof v === "number",
+    why: "the seat count layer 1 measured when it CHOSE the controller link, before six layers of structures landed on the tiles it counted. Together with `meta.ctrlParkFloor` it is the trigger for the `ctrlParks/released` obligation — the declaration that says seats were handed back to the extension mass — and the trigger's own comment claimed the schema gate kept these two from simply being absent while neither was in this list. E12S5 releases 5 of 7 seats; deleting either key released them in silence",
+  },
+  {
+    path: "meta.ctrlParkFloor",
+    is: (v) => typeof v === "number",
+    why: "the floor the released-parks trade was measured against — the other half of that trigger, and the number the declaration's own arithmetic (held - kept = released, kept >= floor) closes on",
   },
   {
     path: "meta.counts",
@@ -2297,6 +3305,12 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // every other structure below — most mineral seats do end up touching a
       // corridor another layer laid, and those need no declaration at all.
       if (t === "container" && mineralSeat.has(k) && mineralOffNetworkDeclared.has(k)) continue;
+      // ...and the extractor, by the same rule and on the same channel. It sits
+      // on the mineral by construction and nothing hauls to it, so paving to it
+      // buys nothing — but that sentence is the plan's to say, and it says it by
+      // naming the tile. 133 rooms ship one off the network; the exemption used
+      // to be this structure's absence from OWNED.
+      if (t === "extractor" && mineralOffNetworkDeclared.has(k)) continue;
       if (comp.has(k)) continue; // containers ARE network nodes
       const touch = D8.some(([dx, dy]) => comp.has(key(p.x + dx, p.y + dy)));
       if (!touch) {
@@ -2485,29 +3499,60 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // else is paveable, container included. A gap tile that is not one of those
       // two things is a road the room chose not to lay.
       //
-      // The clause is KEPT rather than deleted, because the honest case exists:
-      // a join whose only tile carries a spawn, a lab or a source really is
-      // unpaveable, and a room in that position must be able to say so. What it
-      // may no longer do is say so about bare floor or about a container.
+      // ------------------------------------------------------------------
+      // ROUND 14: THE CLAUSE IS NOT KEPT. IT REFUSES EVERY GAP, AND HERE IS WHY
+      // THE "HONEST CASE" ABOVE WAS NEVER A CASE AT ALL.
+      //
+      // The paragraph above ends "a join whose only tile carries a spawn, a lab
+      // or a source really is unpaveable, and a room in that position must be
+      // able to say so", and the code that followed it did exactly that: the
+      // terrain-wall case failed, the bare-floor case failed, the container case
+      // failed, and the `else` branch — the OBSTACLE case — added the tile to
+      // `conduct`. It GRANTED a spawn tile, a lab tile, a storage tile, a source
+      // tile as a CONDUCTOR.
+      //
+      // The refutation is forty lines down, in this block's own failure message:
+      // "A gap tile is a claim that a creep walks it without a road; a tile a
+      // creep cannot stand on closes nothing." A creep cannot stand on a spawn.
+      // The two halves of one gate said opposite things, and the half that ran
+      // was the wrong one — a published gap over E11S1's spawn 26,41, storage
+      // 24,41 and lab 24,32 validated clean and, worse, push-plan.mjs's
+      // `verifiedGapTiles()` granted all three, so the RCL orphan graph and the
+      // unreachable-terminal check walked THROUGH the spawn. That is criticism
+      // 6/15's defect ("the graph let a creep walk through the spawn") recreated
+      // through the door round 13 built to stop it.
+      //
+      // AND THE SET IS EMPTY, WHICH IS THE REAL POINT. A gap tile must be
+      // simultaneously WALKABLE (or it conducts nothing) and UNPAVEABLE (or it
+      // is a road the room declined to lay). In Screeps those two sets do not
+      // intersect: `createConstructionSite` refuses a road only on natural wall
+      // — and natural wall is not walkable — while every OBSTACLE structure that
+      // makes a tile unpaveable also makes it unstandable. Container and road
+      // share a tile legally. So "walkable but unpaveable" is the empty set, a
+      // published gap can never legitimately conduct anything, and the correct
+      // gate is not a better test of the tile: it is a refusal of the claim.
+      //
+      // The room's real options are unchanged and both are honest: pave the
+      // join, or declare the stranded conductors on the shortfall channel where
+      // an owner reads them. What is gone is the third one, which was to name a
+      // tile a creep cannot stand on and be handed a network.
+      // ------------------------------------------------------------------
       const gapBad = [];
       for (const t of gapPub) {
         const tk = key(t.x, t.y);
-        if (!passable(t.x, t.y)) gapBad.push(`${t.x},${t.y} is natural wall`);
-        else if (roadSet.has(tk)) {
-          gapBad.push(`${t.x},${t.y} already carries a road, so it is not a gap in anything`);
-        } else if (!obstacles.has(tk)) {
-          // `obstacles` is objectTiles + BLOCKING — the engine's obstacle set.
-          // A container is not in it, and that is the whole correction.
-          const carried = Object.keys(s).filter(
-            (ty) => ty !== "road" && (s[ty] || []).some((p) => p.x === t.x && p.y === t.y),
-          );
-          gapBad.push(
-            `${t.x},${t.y} carries ${carried.length ? carried.join("+") : "nothing"} and NO obstacle — ` +
-              `a road can be built there (road and container legally share a tile; this file's own stack ` +
-              `gate exempts exactly that pair, and 60 tiles in 53 rooms ship it), so this is a join the ` +
-              `room declined to pave, not one it cannot`,
-          );
-        } else conduct.add(tk);
+        const carried = Object.keys(s).filter(
+          (ty) => (s[ty] || []).some((p) => p.x === t.x && p.y === t.y),
+        );
+        const why = !passable(t.x, t.y)
+          ? `it is natural wall, which no creep walks`
+          : roadSet.has(tk)
+            ? `it already carries a road, so it is not a gap in anything`
+            : obstacles.has(tk)
+              ? `it carries ${carried.join("+") || "an obstacle"}, and a creep cannot stand on an ` +
+                `OBSTACLE structure — this is the case the old \`else\` branch GRANTED as a conductor`
+              : `it carries ${carried.join("+") || "nothing"} and no obstacle, so a road can simply be ` +
+                `built there (road and container legally share a tile) — a join the room declined to pave`;
+        gapBad.push(`${t.x},${t.y}: ${why}`);
       }
       const flood = (start) => {
         const seen = new Set([start]);
@@ -2528,9 +3573,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       const broken = [...conduct].filter((k) => !seen.has(k));
       if (gapBad.length) {
         fails.push(
-          `PAVING GAP UNVERIFIABLE — meta.walls.conductBridge.gapTiles names ${gapBad.join("; ")}. A gap ` +
-            `tile is a claim that a creep walks it without a road; a tile a creep cannot stand on closes ` +
-            `nothing, and the claim is what the whole exemption rests on.`,
+          `PAVING GAP REFUSED — meta.walls.conductBridge.gapTiles names ${gapBad.length} tile(s): ` +
+            `${gapBad.join("; ")}. A gap tile is a claim that a creep walks it WITHOUT a road, and it has ` +
+            `to be both walkable and unpaveable to be one. In Screeps that intersection is EMPTY: the ` +
+            `engine refuses a road only on natural wall, which is not walkable, and every obstacle that ` +
+            `makes a tile unpaveable also makes it unstandable. So no gap tile can ever legitimately ` +
+            `conduct, this gate grants none of them, and a room whose join does not close either paves it ` +
+            `or declares the stranded conductors where an owner reads them.`,
         );
       }
       if (broken.length) {
@@ -2544,6 +3593,99 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             `here. This gate exists because the two audits that were supposed to catch it built their ` +
             `conduct set from the same unfiltered container array they were auditing.`,
         );
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // THE ENCLOSED SOURCES, RE-DERIVED — the field that had no reader at all.
+  //
+  // `meta.shell.srcEnclosed` is a per-source boolean and it is the operational
+  // claim about a source: my miner's works are behind the wall AND no attacker
+  // can stand on any walkable tile of the source's own ring. It is the fleet
+  // headline (215 of 344), it is quoted in the goal document, and round 10 found
+  // E13S4 publishing `true` next to a bare, unramparted, exterior-flood tile
+  // directly adjacent to the source — the exact lie this boolean can tell.
+  //
+  // Round 10's fix was to make the PRODUCER re-derive it over the shipped
+  // rampart union instead of over layer 2's min-cut ring. That fixed the number
+  // and left the field with no reader: `srcEnclosed` appeared ZERO times in this
+  // file, so flipping E11S1's source 0 from false to true — a source whose ring
+  // genuinely opens onto the exterior — validated `pass 172/172 · fail 0`. A
+  // producer-side re-derivation is a producer's opinion of itself.
+  //
+  // So it is re-derived here, over this file's own exterior flood and the
+  // shipped structure lists, on the producer's stated definition:
+  //   WORKS  the source's containers (chebyshev 1) and its link (chebyshev 2,
+  //          taken from the link program's [hub, ...perSource, controller]
+  //          convention) — at least one of them, and none of them in the flood;
+  //   RING   every walkable tile D8-adjacent to the source, none in the flood.
+  // The two exteriors this file and the producer flood differ on one point —
+  // whether a road on a natural wall tunnels — and the verdict is identical in
+  // all 344 sources either way, so the stricter (tunnelling) reading is used
+  // here, because a road on the wall IS a tile an attacker walks.
+  // ------------------------------------------------------------------
+  {
+    const pubEnc = plan.meta?.shell?.srcEnclosed;
+    const sources = (plan.sources || []).filter((p) => p && Number.isInteger(p.x));
+    if (sources.length) {
+      if (!Array.isArray(pubEnc) || pubEnc.length !== sources.length) {
+        fails.push(
+          `ENCLOSED SOURCES UNPUBLISHED — this room has ${sources.length} source(s) and ` +
+            `meta.shell.srcEnclosed is ${JSON.stringify(pubEnc)}. It is the per-source claim "no attacker ` +
+            `stands next to my miner", it is 215 of the fleet's 344 sources, and a list that is absent or ` +
+            `the wrong length is a claim withdrawn rather than measured.`,
+        );
+      } else {
+        const links = plan.structures?.link || [];
+        const srcLinks = links.slice(1, Math.max(1, links.length - 1));
+        const containers = plan.structures?.container || [];
+        const outside = (p) => !!ext[idx(p.x, p.y)];
+        const wrong = [];
+        for (let i = 0; i < sources.length; i++) {
+          const src = sources[i];
+          const works = [
+            ...containers.filter((c) => chebyshev(c, src) <= 1),
+            ...srcLinks.filter((l) => chebyshev(l, src) <= 2),
+          ];
+          const openWorks = works.filter(outside);
+          const ring = [];
+          for (const [dx, dy] of D8) {
+            const x = src.x + dx,
+              y = src.y + dy;
+            if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+            if (passable(x, y)) ring.push({ x, y });
+          }
+          const openRing = ring.filter(outside);
+          const der = works.length > 0 && openWorks.length === 0 && openRing.length === 0;
+          if (der === !!pubEnc[i]) continue;
+          wrong.push(
+            `source ${i} at ${src.x},${src.y}: published ${JSON.stringify(pubEnc[i])}, re-derived ${der}` +
+              (der
+                ? ` (works ${works.length}, ring ${ring.length}, all inside)`
+                : works.length === 0
+                  ? ` (it has NO works — no container within 1 and no source link within 2 — so there is ` +
+                    `nothing enclosed to claim)`
+                  : ` (${openWorks.length} of ${works.length} works and ${openRing.length} of ` +
+                    `${ring.length} walkable ring tile(s) are in the exterior flood` +
+                    (openRing.length
+                      ? `: ${openRing
+                          .slice(0, 4)
+                          .map((p) => `${p.x},${p.y}`)
+                          .join(" ")}`
+                      : "") +
+                    `)`),
+          );
+        }
+        if (wrong.length) {
+          fails.push(
+            `ENCLOSED SOURCES STALE — meta.shell.srcEnclosed disagrees with the board this room ships on ` +
+              `${wrong.length} source(s): ${wrong.join("; ")}. An over-claim here is a tile an attacker ` +
+              `stands on next to our miner, published as safety; an under-claim understates the wall the ` +
+              `room paid for. The field had no reader in this file at all until round 14, so the ` +
+              `producer's own re-derivation was the only thing checking it.`,
+          );
+        }
       }
     }
   }
@@ -3715,6 +4857,36 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       }
       return mFree || null;
     };
+    const causeWalksOf = (pair) => {
+      if (!pair) return null;
+      const noStruct = new Uint8Array(2500);
+      const noWall = new Uint8Array(2500);
+      for (let x = 0; x < 50; x++) {
+        for (let y = 0; y < 50; y++) {
+          const i = idx(x, y);
+          if (ext[i]) continue;
+          noWall[i] = 1;
+          if (walkable(terrain, x, y)) noStruct[i] = 1;
+        }
+      }
+      for (const c of cutPts) {
+        noStruct[idx(c.x, c.y)] = 1;
+        noWall[idx(c.x, c.y)] = 1;
+      }
+      const dStruct = mobArrive(mobBfs(noStruct, pair.a), pair.b);
+      const dFree = mobArrive(mobBfs(noWall, pair.a), pair.b);
+      const cause =
+        dStruct <= MOB_TARGET * pair.dout || dStruct * 1.15 <= pair.din
+          ? "structures"
+          : dFree <= MOB_TARGET * pair.dout || dFree * 1.15 <= dStruct
+            ? "terrain"
+            : "shape";
+      return {
+        cause,
+        noStructures: isFinite(dStruct) ? dStruct : null,
+        noWalls: isFinite(dFree) ? dFree : null,
+      };
+    };
     const deriveLift = () => {
       if (mLift === null && cutPts.length) {
         const m = mobilityMetric(cutPts, ext, walkFor(mobBlockedLift));
@@ -3800,6 +4972,92 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           );
         }
       }
+      // ==============================================================
+      // ...AND `pairCause`, WHICH IS PUBLISHED BY EVERY ROOM AND WAS
+      // RE-DERIVED BY NOTHING.
+      //
+      // The goal document says of it, in criticism 2: "The pair-level label
+      // still exists … honestly named as `pairCause`. THE VALIDATOR RE-DERIVES
+      // BOTH and fails a room that publishes a cause … it has not earned." It
+      // re-derived one. Editing E13S3's `meta.shell.mobilityBuilt.pairCause` and
+      // its declaration's copy from "structures" to "terrain" and regenerating
+      // the paragraph validated `pass 172/172 · fail 0`; the identical edit to
+      // `cause` failed the room. The asymmetry is the finding.
+      //
+      // It is not a cosmetic label. `renderMobility` prints the disclosure
+      // sentence `(That PAIR reads "structures"; the room's verdict is the
+      // whole-metric lift test above …)` only when `pairCause !== cause`, so
+      // relabelling it to match the room verdict DELETES the sentence in which
+      // the room tells its owner that the worst pair is our own mass — the
+      // disclosure criticism 2 spent two rounds building.
+      //
+      // The derivation is the producer's own (`mobilityCauseDetail`,
+      // layer-shell.mjs:1187-1213) on the AS-BUILT worst pair — `worstGated ||
+      // worst`, layer-walls.mjs:394 — and it is the same two BFS walks the
+      // `cause` block below takes on the LIFTED board. `causeWalks` is those two
+      // walks, so it is audited in the same breath: it is the evidence the CAUSE
+      // clause of the paragraph quotes.
+      // ==============================================================
+      // THE TWO `pairCause` FIELDS ARE ABOUT TWO PAIRS, AND SAYING SO IS HALF
+      // THE CHECK. `builtMobility` (layer-shell.mjs:1295) labels `worstGated`
+      // and writes "none" when the room is inside the target; the DECLARATION's
+      // copy (layer-walls.mjs:394+571) labels `worstGated || worst`, so a room
+      // that does not miss still carries a real pair label there — E17S3 ships
+      // `mobilityBuilt.pairCause: "none"` beside a declaration reading
+      // "structures", and both are correct about their own pair. Deriving one
+      // rule for both fields would fail 117 honest rooms, which is how a
+      // transcription proves it is a transcription.
+      {
+        const gatedWorst = mBuilt.worstGated || null;
+        const anyWorst = mBuilt.worstGated || mBuilt.worst || null;
+        const pcRoom = mBuilt.maxGated > MOB_TARGET ? causeWalksOf(gatedWorst) : null;
+        const derRoomPair = pcRoom ? pcRoom.cause : "none";
+        const pcDecl = causeWalksOf(anyWorst);
+        const derDeclPair = pcDecl ? pcDecl.cause : "none";
+        const evid = (pair, pc) =>
+          pair
+            ? `${pair.a.x},${pair.a.y}~${pair.b.x},${pair.b.y}: ${pair.din} in / ${pair.dout} out; with ` +
+              `our structures lifted it walks ${pc.noStructures === null ? "nowhere" : pc.noStructures} ` +
+              `and with the interior's natural walls lifted as well ` +
+              `${pc.noWalls === null ? "nowhere" : pc.noWalls}`
+            : `there is no reachable pair, so the label is "none"`;
+        if (mb?.pairCause !== derRoomPair) {
+          bad.push(
+            `meta.shell.mobilityBuilt: \`pairCause\` says ${JSON.stringify(mb?.pairCause ?? null)}, ` +
+              `re-derived over this room's gated worst pair (${evid(pcRoom ? gatedWorst : null, pcRoom)}) ` +
+              `it is "${derRoomPair}". The room's paragraph prints the pair-level disclosure ONLY when ` +
+              `this label differs from the room verdict, so a relabelling here deletes the sentence that ` +
+              `tells an owner the worst pair is our own mass`,
+          );
+        }
+        // ...and the declaration's copies of the same two walks. One room, one
+        // label per pair.
+        for (const sfm of declared) {
+          if (!sfm || normGate(sfm.gate) !== "mobility" || sfm.kind) continue;
+          if (sfm.pairCause !== undefined && sfm.pairCause !== derDeclPair) {
+            bad.push(
+              `mobility (as built): the declaration's \`pairCause\` is ${JSON.stringify(sfm.pairCause)} ` +
+                `and its own worst pair (${evid(anyWorst, pcDecl)}) re-derives "${derDeclPair}"`,
+            );
+          }
+          if (pcDecl && sfm.causeWalks) {
+            for (const [f, der] of [
+              ["noStructures", pcDecl.noStructures],
+              ["noWalls", pcDecl.noWalls],
+            ]) {
+              if (sfm.causeWalks[f] !== undefined && sfm.causeWalks[f] !== der) {
+                bad.push(
+                  `mobility (as built): the declaration's \`causeWalks.${f}\` is ` +
+                    `${JSON.stringify(sfm.causeWalks[f])}, re-derived the same walk over its own worst ` +
+                    `pair it is ${JSON.stringify(der)} — these two walks ARE the evidence the CAUSE ` +
+                    `clause of the paragraph quotes`,
+                );
+              }
+            }
+          }
+        }
+      }
+
       // ...AND THE CAUSE AND THE LIFT ARE EARNED, NOT LABELLED.
       const over = mBuilt.maxGated > MOB_TARGET;
       if (!over && mb?.cause !== "none") {
@@ -4097,12 +5355,26 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // is producer-witnessed is a counter, not a gate.
     //
     // WHAT IS RE-DERIVED HERE. The run ROSTER, from the shipped board and nothing
-    // else: a cut tile that carries a road and has a D8 neighbour which is also a
-    // paved cut tile. D8 and not D4 — the game is D8 everywhere else in this file
-    // (netOK, the exterior flood, the mobility walk), and a diagonal run of two
-    // paved wall tiles is the same prepared surface as an orthogonal one. The
-    // roster is therefore the BOARD's answer and not the producer's: a room that
-    // stops publishing runs does not stop having them.
+    // else: a RAMPART THAT CARRIES A ROAD and has a D8 neighbour which is also a
+    // rampart carrying a road. D8 and not D4 — the game is D8 everywhere else in
+    // this file (netOK, the exterior flood, the mobility walk), and a diagonal
+    // run of two paved wall tiles is the same prepared surface as an orthogonal
+    // one. The roster is therefore the BOARD's answer and not the producer's: a
+    // room that stops publishing runs does not stop having them.
+    //
+    // ...AND THE SCOPE IS THE WHOLE WALL, NOT THE CUT. Round 13's version of this
+    // block derived the roster from `meta.shell.cut` alone, and the wall this
+    // planner ships is made of ramparts of five classes — crossing (the cut),
+    // seat, ring, cover — of which the cut is 235 of 278 tiles. A prepared
+    // surface along the wall is a prepared surface whatever class of rampart it
+    // sits under: an attacker walking a two-tile paved run does not consult the
+    // taxonomy. Re-derived over every road+rampart tile the roster is 26 tiles in
+    // 12 rooms against the cut-only 14 in 7, and the twelve extra tiles are
+    // exactly the shape the pass exists for — E5S9 22,19 has a free interior
+    // parallel at 22,20 that was never offered, E14S3 9,40 / E4S1 17,42 / E5S5
+    // 16,20 the same, and E21S3 ships a FOUR-tile run of stand-denial ring. The
+    // document's "seven rooms, 14 tiles" was the detector's answer to its own
+    // question, which is criticism 26's shape on a different axis.
     //
     // WHAT IS CHECKED AGAINST IT.
     //   COVERAGE     every roster tile carries a per-tile refusal. A run tile
@@ -4134,10 +5406,18 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // ==================================================================
     {
       const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
-      const pavedCut = (k) => cutKeyed.has(k) && roadSet.has(k);
-      const runs = cutPts.filter(
-        (c) => pavedCut(key(c.x, c.y)) && D8.some(([dx, dy]) => pavedCut(key(c.x + dx, c.y + dy))),
+      /** every rampart this room ships that also carries a road — the whole
+       *  wall, all five taxonomy classes, not the cut alone */
+      const pavedWall = new Set(
+        (s.rampart || []).filter((r) => roadSet.has(key(r.x, r.y))).map((r) => key(r.x, r.y)),
       );
+      const runs = [...pavedWall]
+        .map((k) => {
+          const [x, y] = k.split(",").map(Number);
+          return { x, y };
+        })
+        .filter((c) => D8.some(([dx, dy]) => pavedWall.has(key(c.x + dx, c.y + dy))))
+        .sort((a, b) => a.y - b.y || a.x - b.x);
       const refusedArr = plan.meta?.walls?.alongCutRefused;
       const moved = plan.meta?.walls?.alongCutMoved;
       const noteTxt = (plan.meta?.notes || []).find(
@@ -4160,7 +5440,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           .filter((r) => r && Number.isInteger(r.x) && Number.isInteger(r.y))
           .map((r) => [key(r.x, r.y), String(r.why || "")]),
       );
-      /** the six rejection reasons stage 5b can give a neighbour, each re-checkable */
+      /** the rejection reasons stage 5b can give a neighbour, each re-checkable.
+       *  The "ramparted tile" pair arrived with round 14's roster: the run is
+       *  along the WALL, not along the cut, so the neighbour that is "the same
+       *  problem one tile over" is any rampart — and the producer distinguishes
+       *  the crossing class from the rest, so both spellings are re-derived
+       *  separately and the more specific one is matched first. */
+      const rampartK = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
       const claimTrue = (x, y, rest) => {
         const k = key(x, y);
         if (rest.startsWith("is off the buildable board")) return x < 1 || y < 1 || x > 48 || y > 48;
@@ -4168,6 +5454,10 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (rest.startsWith("is OUTSIDE the wall")) {
           return x >= 0 && y >= 0 && x <= 49 && y <= 49 && !!ext[idx(x, y)];
         }
+        if (rest.startsWith("is itself a ramparted tile on the cut")) {
+          return rampartK.has(k) && cutKeyed.has(k);
+        }
+        if (rest.startsWith("is itself a ramparted tile")) return rampartK.has(k);
         if (rest.startsWith("is itself a cut tile")) return cutKeyed.has(k);
         if (rest.startsWith("already carries one of our structures")) return blocked.has(k);
         if (rest.startsWith("is already paved")) return roadSet.has(k);
@@ -4178,11 +5468,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         const why = refusedBy.get(tk);
         if (why === undefined) {
           bad.push(
-            `meta.walls.alongCutRefused: this room ships a PAVED RUN tile at ${tk} — a cut tile carrying a ` +
-              `road with a D8 neighbour that is also a paved cut tile — and files no refusal for it. A run ` +
-              `is a prepared surface laid along the exact line an attacker would want to walk; stage 5b ` +
-              `exists to move it one tile inboard, and a run shipped with no record is indistinguishable ` +
-              `from a pass that never ran on this room`,
+            `meta.walls.alongCutRefused: this room ships a PAVED RUN tile at ${tk} — a rampart carrying a ` +
+              `road with a D8 neighbour that is also a rampart carrying a road${
+                cutKeyed.has(tk) ? "" : " (off the cut: a seat, ring or cover rampart)"
+              } — and files no refusal for it. A run is a prepared surface laid along the exact line an ` +
+              `attacker would want to walk, whatever class of rampart it sits under; stage 5b exists to ` +
+              `move it one tile inboard, and a run shipped with no record is indistinguishable from a pass ` +
+              `that never ran on this room`,
           );
           continue;
         }
@@ -4224,13 +5516,29 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `offered the swap`,
             );
           }
+        } else if (why.startsWith("this tile carries a CONTAINER")) {
+          // SHAPE B, ADDED IN ROUND 14 WITH THE WIDER ROSTER. The roster is the
+          // whole wall now, and a seat-class rampart carries its container's
+          // road UNDER the container rather than beside it — moving that road
+          // one tile inboard would take the container off its own road face,
+          // which is a worse room and not a repaired one. It is a claim about
+          // the RUN TILE and not about its neighbours, so it makes no
+          // enumeration and is not held to one; what it does claim is exactly
+          // one re-derivable fact, and that fact is checked here.
+          if (!(s.container || []).some((cc) => cc.x === c.x && cc.y === c.y)) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk}: the refusal says this tile carries a container and the ` +
+                `board this room ships has none on it. That sentence is the entire refusal`,
+            );
+          }
+          continue;
         } else {
           bad.push(
             `meta.walls.alongCutRefused ${tk}: the reason is free text in a form this gate cannot check ` +
-              `("${why.slice(0, 70)}${why.length > 70 ? "…" : ""}"). Stage 5b gives exactly two answers — ` +
-              `"no interior parallel exists: <every neighbour, with why>" or "every interior parallel ` +
-              `breaks the network. moving it to X,Y — ... The other neighbours: ..." — and a third answer ` +
-              `is a refusal nobody can falsify`,
+              `("${why.slice(0, 70)}${why.length > 70 ? "…" : ""}"). Stage 5b gives exactly three answers — ` +
+              `"no interior parallel exists: <every neighbour, with why>", "every interior parallel ` +
+              `breaks the network. moving it to X,Y — ... The other neighbours: ...", or "this tile ` +
+              `carries a CONTAINER ..." — and a fourth answer is a refusal nobody can falsify`,
           );
           continue;
         }
@@ -4331,9 +5639,9 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         );
       } else if (!runs.length && noteTxt) {
         bad.push(
-          `this room publishes a PAVED RUN note and the board has no run on it — no cut tile carries a ` +
-            `road with a D8 neighbour that is also a paved cut tile. A note about a thing that is not there ` +
-            `is the same defect as silence about a thing that is`,
+          `this room publishes a PAVED RUN note and the board has no run on it — no rampart carries a ` +
+            `road with a D8 neighbour that is also a rampart carrying a road. A note about a thing that is ` +
+            `not there is the same defect as silence about a thing that is`,
         );
       }
       if (noteTxt) {
@@ -4395,6 +5703,10 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           if (rest.startsWith("outside the shipped wall")) {
             return x >= 0 && y >= 0 && x <= 49 && y <= 49 && !!ext[idx(x, y)];
           }
+          if (rest.startsWith("is itself a ramparted tile on the cut")) {
+            return rampartK.has(k) && cutKeyed.has(k);
+          }
+          if (rest.startsWith("is itself a ramparted tile")) return rampartK.has(k);
           if (rest.startsWith("is itself a cut tile")) return cutKeyed.has(k);
           if (rest.startsWith("carries a structure that blocks")) return blocked.has(k);
           if (rest.startsWith("already paved")) return roadSet.has(k);
@@ -4551,11 +5863,54 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // anyway: the tile is one this room actually paves, and the kind is in the
     // closed set. There is therefore no unclassified bucket to hide a tile in,
     // which is what "0 unclassified" has to mean to be worth printing.
+    //
+    // ...AND THE MAP IS NOW OWED IN FULL, BOTH WAYS. The paragraph above was
+    // true about every key the map CARRIED and said nothing at all about the
+    // keys it did not: the whole block was `if (rkMap && typeof rkMap ===
+    // "object")`, so deleting `meta.walls.roadKind` (E13S5, 21 tiles), shipping
+    // `{}`, shipping `[]`, or simply dropping one entry switched the enum test
+    // and all three re-derivations off for that room, and "0 unclassified" was
+    // an arithmetic identity over an empty set. Presence is now a schema
+    // requirement (REQUIRED_META), and COVERAGE is the identity below: the key
+    // set must equal, exactly, the set of ALIVE road tiles this room ships at
+    // `meta.roadLayer == 7`. A layer-7 tile with no provenance is the
+    // unclassified tile the caption was invented to abolish, and a provenance
+    // key on a tile that is not a layer-7 road is a caption counting a tile
+    // some other layer laid.
     // ==================================================================
     {
       const rkMap = plan.meta?.walls?.roadKind;
-      if (rkMap && typeof rkMap === "object") {
+      if (rkMap && typeof rkMap === "object" && !Array.isArray(rkMap)) {
         const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
+        // ---- COVERAGE: the key set IS the layer-7 alive road set -----------
+        const layer7 = new Set();
+        const rlMap = plan.meta?.roadLayer;
+        if (rlMap && typeof rlMap === "object") {
+          for (const [k, v] of Object.entries(rlMap)) if (v === 7 && roadSet.has(k)) layer7.add(k);
+        }
+        const rkKeys = new Set(Object.keys(rkMap));
+        const missing = [...layer7].filter((k) => !rkKeys.has(k)).sort();
+        const extra = [...rkKeys].filter((k) => !layer7.has(k)).sort();
+        if (missing.length) {
+          bad.push(
+            `meta.walls.roadKind: ${missing.length} layer-7 road tile(s) carry NO provenance ` +
+              `(${missing.slice(0, 8).join(" ")}${missing.length > 8 ? " …" : ""}). The film's layer-7 ` +
+              `caption is composed from this map, so a tile the map has no word for is a tile the caption ` +
+              `either omits or absorbs into the largest class beside it — which is the defect the map was ` +
+              `written to end`,
+          );
+        }
+        if (extra.length) {
+          bad.push(
+            `meta.walls.roadKind: ${extra.length} provenance key(s) name a tile that is not a live layer-7 ` +
+              `road (${extra
+                .slice(0, 8)
+                .map((k) => `${k}=${JSON.stringify(rkMap[k])}@layer ${rlMap?.[k] ?? "none"}`)
+                .join(" ")}${extra.length > 8 ? " …" : ""}). Every key in this map is a claim that layer 7 ` +
+              `laid that tile; a key on a tile some earlier layer laid inflates the fleet's layer-7 census ` +
+              `and captions a road for work it was not part of`,
+          );
+        }
         const moved = plan.meta?.walls?.alongCutMoved;
         const byKind = new Map();
         for (const [k, v] of Object.entries(rkMap)) {
@@ -4627,6 +5982,165 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `moves a road off the wall onto the interior parallel, so a moved tile that is still wall ` +
                 `is the pass having done nothing`,
             );
+          }
+        }
+      }
+    }
+
+    // ==================================================================
+    // `spurTiles`: WHAT THE PASS LAID vs WHAT THE ROOM SHIPS — reconciled.
+    //
+    // Criticism 27, open since round 12: `meta.walls.spurTiles` sums to 375
+    // across the fleet and only 370 tiles carry `roadKind: "spur"`. Both numbers
+    // are published, neither is compared to the other, and nothing at all reads
+    // `spurTiles` — multiplying it by ten validated clean. The suite prints the
+    // laid figure ("rampart spurs … 375 tiles") beside the provenance map that
+    // says 370, and a reader has no way to know which one describes the room.
+    //
+    // The two ARE different facts and both are worth publishing: `spurTiles` is
+    // what stage 5 LAID, and the layer-7 passes that run after it — the
+    // extension reflow, the dead-end prune, the swamp paving, the along-cut
+    // swap — can delete a spur tile or re-attribute it to their own kind. What
+    // is not admissible is publishing the larger number with no account of the
+    // difference, because then "375 rampart spurs" is a claim about a board that
+    // was never shipped.
+    //
+    // THE CONTRACT, and it is the shape the goal document asks of every
+    // producer-witnessed counter: the laid count may EXCEED the shipped count
+    // only by tiles the producer NAMES, and every named tile is re-derived here
+    // — a lost spur tile must genuinely not be a live spur today, i.e. it either
+    // carries no road at all any more or carries a road some later layer-7 pass
+    // has claimed. A room whose two counts agree owes nothing extra. A room that
+    // inflates `spurTiles` owes one verifiable tile per unit of inflation, which
+    // is the bound that closes the criticism.
+    // ==================================================================
+    {
+      const laid = plan.meta?.walls?.spurTiles;
+      const rkMap2 = plan.meta?.walls?.roadKind;
+      if (typeof laid === "number" && rkMap2 && typeof rkMap2 === "object" && !Array.isArray(rkMap2)) {
+        const shippedK = Object.keys(rkMap2).filter((k) => rkMap2[k] === "spur");
+        const shipped = shippedK.length;
+        const pubShipped = plan.meta?.walls?.spurTilesShipped;
+        if (pubShipped !== undefined && pubShipped !== shipped) {
+          bad.push(
+            `meta.walls.spurTilesShipped says ${JSON.stringify(pubShipped)} and ${shipped} tile(s) on the ` +
+              `board this room ships carry the "spur" provenance. The shipped count is not a witness, it ` +
+              `is a count of the map beside it`,
+          );
+        }
+        // ...and the shipped LIST, when the producer publishes one: it is the
+        // same set as the provenance map's spur entries or it is a different
+        // claim about the same tiles.
+        const pubShipList = plan.meta?.walls?.spurTilesShippedList;
+        if (Array.isArray(pubShipList)) {
+          const got = pubShipList
+            .filter((t) => t && Number.isInteger(t.x))
+            .map((t) => key(t.x, t.y))
+            .sort();
+          const want = shippedK.slice().sort();
+          if (got.join(" ") !== want.join(" ")) {
+            bad.push(
+              `meta.walls.spurTilesShippedList is [${got.join(" ") || "nothing"}] and the tiles carrying ` +
+                `the "spur" provenance are [${want.join(" ") || "nothing"}] — one pass, one list`,
+            );
+          }
+        }
+        if (laid < shipped) {
+          bad.push(
+            `meta.walls.spurTiles says stage 5 laid ${laid} spur tile(s) and ${shipped} tile(s) ship with ` +
+              `the "spur" provenance. A later pass can delete a spur or re-label it; it cannot create one, ` +
+              `so the laid count can never be the smaller of the two`,
+          );
+        }
+        // ---- THE DIFFERENCE, NAMED TILE BY TILE ---------------------------
+        //
+        // Two counts are not a reconciliation. "375 rampart spurs" beside a
+        // provenance map that says 370 is a claim about a board nobody shipped,
+        // and multiplying the laid figure by ten used to validate clean — that
+        // is criticism 27, open since round 12. So the tiles behind the two
+        // numbers are published and reconciled here, and the reconciliation runs
+        // in EVERY room rather than only in the three where the counts differ:
+        // an identity that is dormant wherever it happens to hold is an identity
+        // nobody is testing.
+        //
+        // Either channel closes it. `spurTilesLaidList` is the stronger one —
+        // lost is then the SUBTRACTION laid minus shipped, and the shipped set
+        // has to be a subset of the laid set — and `spurTilesLost` alone is
+        // accepted for a producer that only kept the difference. When both are
+        // published they must agree, because lost IS laid minus shipped.
+        {
+          const shipSet = new Set(shippedK);
+          const laidPub = plan.meta?.walls?.spurTilesLaidList;
+          const lostPub = plan.meta?.walls?.spurTilesLost;
+          const asKeys = (arr) => [
+            ...new Set(
+              (Array.isArray(arr) ? arr : [])
+                .filter((t) => t && Number.isInteger(t.x) && Number.isInteger(t.y))
+                .map((t) => key(t.x, t.y)),
+            ),
+          ];
+          let lost = null;
+          let via = null;
+          if (Array.isArray(laidPub)) {
+            const laidK = asKeys(laidPub);
+            if (laidK.length !== laid) {
+              bad.push(
+                `meta.walls.spurTilesLaidList names ${laidK.length} distinct tile(s) and ` +
+                  `meta.walls.spurTiles says stage 5 laid ${laid}`,
+              );
+            }
+            for (const k of shippedK) {
+              if (!laidK.includes(k)) {
+                bad.push(
+                  `meta.walls.roadKind gives ${k} the "spur" provenance and meta.walls.spurTilesLaidList ` +
+                    `does not contain it — a tile that ships as a spur was laid by the spur pass`,
+                );
+              }
+            }
+            lost = laidK.filter((k) => !shipSet.has(k));
+            via = "spurTilesLaidList";
+            if (Array.isArray(lostPub)) {
+              const pl = asKeys(lostPub).sort();
+              if (pl.join(" ") !== lost.slice().sort().join(" ")) {
+                bad.push(
+                  `meta.walls.spurTilesLost is [${pl.join(" ") || "nothing"}] and the tiles this room LAID ` +
+                    `as spurs but does not ship as spurs are [${lost.slice().sort().join(" ") || "nothing"}]. ` +
+                    `Lost IS laid minus shipped; a list that disagrees with its own subtraction is a second ` +
+                    `answer to one question`,
+                );
+              }
+              for (const k of pl) {
+                if (roadSet.has(k) && rkMap2[k] === "spur") {
+                  bad.push(
+                    `meta.walls.spurTilesLost names ${k} as a spur tile a later pass took, and the room ` +
+                      `ships a road there carrying the "spur" provenance today — a tile cannot be both ` +
+                      `lost and live`,
+                  );
+                }
+              }
+            }
+          } else if (laid > shipped) {
+            lost = asKeys(lostPub);
+            via = "spurTilesLost";
+          }
+          if (lost !== null) {
+            if (lost.length !== laid - shipped) {
+              bad.push(
+                `meta.walls.spurTiles says stage 5 laid ${laid} spur tile(s), ${shipped} ship with the ` +
+                  `"spur" provenance, and meta.walls.${via} accounts for ${lost.length} of the ` +
+                  `${laid - shipped} missing. The laid figure is the one the suite prints as "rampart ` +
+                  `spurs"; a difference the room does not name tile by tile makes it a claim about a board ` +
+                  `nobody shipped`,
+              );
+            }
+            for (const k of lost) {
+              if (roadSet.has(k) && rkMap2[k] === "spur") {
+                bad.push(
+                  `meta.walls.${via} makes ${k} a spur tile a later pass took, and the room ships a road ` +
+                    `there carrying the "spur" provenance today — a tile cannot be both lost and live`,
+                );
+              }
+            }
           }
         }
       }
@@ -5109,6 +6623,867 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       };
     };
 
+    // ==================================================================
+    // THE RECORD, LEAF BY LEAF — the derivations RECORD_LEAVES promises.
+    //
+    // See the RECORD_LEAVES header for the argument. This is the half that has
+    // to exist for the table to be worth writing: for every leaf the table
+    // classes `derived`, a value computed HERE from terrain, the room objects,
+    // the shipped structure lists and this file's own transcribed constants. A
+    // leaf the table calls derived and this function does not produce is a HARD
+    // FAIL on the room, because a promise of a check is worse than no check.
+    //
+    // DELETION IS ALREADY COVERED and that is why absence is not failed here:
+    // every renderer prints its record's fields, and a missing field renders as
+    // "?" — so a deleted leaf fails the PROSE IDENTITY gate above, on the
+    // paragraph, which is where a reader would have noticed it.
+    // ==================================================================
+    /** the interior walk region, for the battlement reachability re-derivation */
+    const garrisonWalk = walkFor(mobBlocked);
+
+    // ------------------------------------------------------------------
+    // THE LAYER-4 BOARD, REBUILT — what the lab search actually measured on.
+    //
+    // `haulDist` is the number E13S2's paragraph turns into "the lab diamond is
+    // N hauler tile(s) from the hub", and a reviewer moved it from 12 to 2 — the
+    // fleet median — and passed. It is re-derivable, but NOT off the shipped
+    // board: layer 4 runs before extensions, the nuker, the observer and the
+    // mineral container exist, and it measures over a plain D8 field from the
+    // sitter in which containers block. So the board is rebuilt to layer 4's
+    // own contents (the hub trio, the spawns, the towers, the source/controller
+    // containers, the sitter, the object tiles) and the walk is taken there.
+    //
+    // The anchor enumerations (`deepAnchors`, `fallbackAnchors`, `dryAnchors`)
+    // are the same replay one level up: every 4x4 stamp position in both
+    // orientations, held to the same six tests layer 4 applies, over the layer-4
+    // ROAD set — which `meta.roadLayer` preserves exactly, because the layers
+    // after 4 delete from `structures.road` and not from it.
+    // ------------------------------------------------------------------
+    let _labBoard;
+    const labBoard = () => {
+      if (_labBoard !== undefined) return _labBoard;
+      const labs = s.lab || [];
+      if (!labs.length) return (_labBoard = null);
+      const occupied = new Set(objectTiles);
+      occupied.add(key(sitter.x, sitter.y));
+      for (const t of ["storage", "terminal", "link", "spawn", "tower"]) {
+        for (const p of s[t] || []) occupied.add(key(p.x, p.y));
+      }
+      // every container EXCEPT the mineral seat, which layer 5 adds after labs
+      for (const c of s.container || []) {
+        if (mineralSeat.has(key(c.x, c.y))) continue;
+        occupied.add(key(c.x, c.y));
+      }
+      // the layer-4 road set, off the provenance map that survives the prune
+      const road4 = new Set();
+      for (const [kk, v] of Object.entries(plan.meta?.roadLayer || {})) {
+        if (v === 1 || v === 3) road4.add(kk);
+      }
+      const reserved = new Set();
+      for (const list of [plan.meta?.claimSeat, plan.meta?.claimApproach, plan.meta?.ctrlParkReserve]) {
+        for (const p of Array.isArray(list) ? list : list ? [list] : []) {
+          if (p && Number.isInteger(p.x)) reserved.add(key(p.x, p.y));
+        }
+      }
+      // the haul field: plain D8 BFS from the sitter, `occupied` blocking,
+      // NOT limited to the interior — layer 4's field walks outside the wall
+      const INFV = 999;
+      const hauls = new Int16Array(2500).fill(INFV);
+      {
+        const si = idx(sitter.x, sitter.y);
+        hauls[si] = 0;
+        const q = [si];
+        for (let qi = 0; qi < q.length; qi++) {
+          const i = q[qi];
+          const x = i % 50,
+            y = (i / 50) | 0;
+          for (const [dx, dy] of D8) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            if (!walkable(terrain, nx, ny)) continue;
+            const nk = key(nx, ny);
+            if (occupied.has(nk)) continue;
+            const ni = idx(nx, ny);
+            if (hauls[ni] <= hauls[i] + 1) continue;
+            hauls[ni] = hauls[i] + 1;
+            q.push(ni);
+          }
+        }
+      }
+      const ax = Math.min(...labs.map((l) => l.x));
+      const ay = Math.min(...labs.map((l) => l.y));
+      const anti = labs.some((l) => l.x === ax + 1 && l.y === ay + 1);
+      // the internal road runs the main diagonal for MAIN and the anti-diagonal
+      // for ANTI; the haul is the SHORTER of its two ends
+      const ends = anti
+        ? [
+            [3, 0],
+            [0, 3],
+          ]
+        : [
+            [0, 0],
+            [3, 3],
+          ];
+      const haulDist = Math.min(...ends.map(([dx, dy]) => hauls[idx(ax + dx, ay + dy)]));
+      // ...and the anchor enumerations, at the two depth floors
+      // layer-labs.mjs:100-129 verbatim — the 4x4 stamp is TEN labs and FOUR
+      // road tiles down one diagonal; the two opposite corners are DROPPED, and
+      // an enumeration that fills all sixteen counts a stamp nobody builds
+      const LAB_MAIN = {
+        road: [
+          [0, 0],
+          [1, 1],
+          [2, 2],
+          [3, 3],
+        ],
+        labs: [
+          [1, 0],
+          [2, 0],
+          [3, 1],
+          [3, 2],
+          [2, 3],
+          [1, 3],
+          [0, 2],
+          [0, 1],
+          [2, 1],
+          [1, 2],
+        ],
+      };
+      const LAB_ANTI = {
+        road: LAB_MAIN.road.map(([x, y]) => [3 - x, y]),
+        labs: LAB_MAIN.labs.map(([x, y]) => [3 - x, y]),
+      };
+      const countAnchors = (minDepth, eatRoads = false) => {
+        let n = 0;
+        for (const v of [LAB_MAIN, LAB_ANTI]) {
+          for (let bx = 2; bx <= 44; bx++) {
+            for (let by = 2; by <= 44; by++) {
+              let ok = true;
+              for (const [dx, dy] of v.labs) {
+                const x = bx + dx,
+                  y = by + dy;
+                const i = idx(x, y);
+                const kk = key(x, y);
+                if (
+                  !engineBuildable(terrain, x, y, "lab") ||
+                  ext[i] ||
+                  depth[i] < minDepth ||
+                  occupied.has(kk) ||
+                  reserved.has(kk) ||
+                  // the eating passes lift the road veto and count instead
+                  (!eatRoads && road4.has(kk))
+                ) {
+                  ok = false;
+                  break;
+                }
+              }
+              if (!ok) continue;
+              for (const [dx, dy] of v.road) {
+                const x = bx + dx,
+                  y = by + dy;
+                const i = idx(x, y);
+                if (!walkable(terrain, x, y) || ext[i] || occupied.has(key(x, y))) {
+                  ok = false;
+                  break;
+                }
+              }
+              if (!ok) continue;
+              const d = Math.min(
+                ...[v.road[0], v.road[v.road.length - 1]].map(([dx, dy]) => hauls[idx(bx + dx, by + dy)]),
+              );
+              // the producer's own test is `d >= 9999` against a field that
+              // fills with 999, so an unreachable anchor enters the pool. The
+              // bug is reproduced deliberately: a re-derivation that silently
+              // fixes it is a second opinion, not a check
+              if (d >= 9999) continue;
+              n++;
+            }
+          }
+        }
+        return n;
+      };
+      return (_labBoard = {
+        haulDist,
+        deepAnchors: countAnchors(DEPTH_SAFE),
+        fallbackAnchors: countAnchors(DEPTH_SAFE - 1),
+        // the widest enumeration the road-eating passes can possibly walk: the
+        // shallower depth floor AND the road veto lifted. Whichever of passes 3
+        // and 4 produced `eatAnchors`, it counted a subset of this
+        eatCeiling: countAnchors(DEPTH_SAFE - 1, true),
+      });
+    };
+
+    // ------------------------------------------------------------------
+    // THE CONTROLLER-LINK SEAT LADDER, REPLAYED.
+    //
+    // Two boards again, and the record carries both. AS BUILT: the seats the
+    // shipped link actually feeds — D8 of the link, chebyshev <= 3 of the
+    // controller, walkable, and not under one of our blocking structures (roads,
+    // containers and ramparts do not take a seat). AT THE SEARCH: the same count
+    // over layer 1's board, where the only obstacles were the object tiles, the
+    // hub trio and the spawn fan — that is `parks`, and `built` is what six
+    // layers of extensions left of it.
+    //
+    // The candidate ladder is replayed too, because `census.maxParks` is what
+    // E17S5's paragraph turns into "5 seats is therefore the room's CEILING, not
+    // a preference": every tile in the controller's 7x7 ring outside the inner
+    // ring, buildable, unclaimed and reachable from the sitter, with its seat
+    // count, its walk and its score. What is NOT replayed is the seal test that
+    // filters that list down to the pool — see RECORD_LEAVES.
+    // ------------------------------------------------------------------
+    let _parkBoard;
+    const parkBoard = () => {
+      if (_parkBoard !== undefined) return _parkBoard;
+      const ctrl = (objects || []).find((o) => o.type === "controller") || plan.controller || null;
+      const links = s.link || [];
+      if (!ctrl || !links.length) return (_parkBoard = null);
+      const link = links[links.length - 1];
+      const BUILT_OBSTACLES = [
+        "spawn",
+        "extension",
+        "link",
+        "storage",
+        "tower",
+        "observer",
+        "lab",
+        "terminal",
+        "nuker",
+      ];
+      const builtBlocked = new Set(objectTiles);
+      for (const t of BUILT_OBSTACLES) for (const p of s[t] || []) builtBlocked.add(key(p.x, p.y));
+      const seats = [];
+      const eaters = [];
+      for (const [dx, dy] of D8) {
+        const x = link.x + dx,
+          y = link.y + dy;
+        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+        if (isWall(terrain, x, y)) continue;
+        if (chebyshev({ x, y }, ctrl) > 3) continue;
+        const kk = key(x, y);
+        if (objectTiles.has(kk)) continue;
+        if (builtBlocked.has(kk)) {
+          const ty = BUILT_OBSTACLES.find((t) => (s[t] || []).some((p) => p.x === x && p.y === y));
+          if (ty) eaters.push(`${x},${y}=${ty}`);
+          continue;
+        }
+        seats.push({ x, y });
+      }
+      // layer 1's obstacle set: object tiles, the hub trio and the spawn fan
+      const layer1 = new Set(objectTiles);
+      for (const p of [(s.storage || [])[0], (s.terminal || [])[0], links[0]]) {
+        if (p) layer1.add(key(p.x, p.y));
+      }
+      for (const p of links.slice(1, Math.max(1, links.length - 1))) layer1.add(key(p.x, p.y));
+      for (const p of s.spawn || []) layer1.add(key(p.x, p.y));
+      const parksAt = (x, y) => {
+        let n = 0;
+        for (const [ax2, ay2] of D8) {
+          const px = x + ax2,
+            py = y + ay2;
+          if (px < 0 || py < 0 || px > 49 || py > 49) continue;
+          if (!walkable(terrain, px, py)) continue;
+          const pk = key(px, py);
+          if (layer1.has(pk) || objectTiles.has(pk)) continue;
+          if (chebyshev({ x: px, y: py }, ctrl) <= 3) n++;
+        }
+        return n;
+      };
+      // the sitter-seeded field layer 1 measured `hubWalk` on
+      const INFV = 999;
+      const hub = new Int16Array(2500).fill(INFV);
+      {
+        const si = idx(sitter.x, sitter.y);
+        hub[si] = 0;
+        const q = [si];
+        for (let qi = 0; qi < q.length; qi++) {
+          const i = q[qi];
+          const x = i % 50,
+            y = (i / 50) | 0;
+          for (const [dx, dy] of D8) {
+            const nx = x + dx,
+              ny = y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            if (!walkable(terrain, nx, ny)) continue;
+            const nk = key(nx, ny);
+            if (layer1.has(nk)) continue;
+            const ni = idx(nx, ny);
+            if (hub[ni] <= hub[i] + 1) continue;
+            hub[ni] = hub[i] + 1;
+            q.push(ni);
+          }
+        }
+      }
+      const byTile = new Map();
+      let considered = 0;
+      let maxCands = 0;
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dy = -3; dy <= 3; dy++) {
+          if (Math.max(Math.abs(dx), Math.abs(dy)) < 2) continue;
+          const x = ctrl.x + dx,
+            y = ctrl.y + dy;
+          const kk = key(x, y);
+          if (!engineBuildable(terrain, x, y, "link")) continue;
+          if (layer1.has(kk) || objectTiles.has(kk)) continue;
+          if (hub[idx(x, y)] >= INFV) continue;
+          const park = parksAt(x, y);
+          const d = hub[idx(x, y)];
+          considered++;
+          if (park > maxCands) maxCands = park;
+          byTile.set(kk, { x, y, park, d, score: Math.round((park * 2 - d * 0.5) * 10) / 10 });
+        }
+      }
+      return (_parkBoard = {
+        link,
+        built: seats.length,
+        eaters,
+        parks: parksAt(link.x, link.y),
+        considered,
+        maxCands,
+        byTile,
+      });
+    };
+    const derivedRecordFor = (sf, g, k) => {
+      const der = {};
+      const put = (path, v) => {
+        if (v !== undefined) der[path] = v;
+      };
+      const cut = cutPts;
+      const cutK = new Set(cut.map((c) => key(c.x, c.y)));
+      const rampK2 = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
+      const ctrl = (objects || []).find((o) => o.type === "controller") || plan.controller || null;
+      const mineral = (objects || []).find((o) => o.type === "mineral") || plan.mineral || null;
+
+      // ---------------------------------------------------------- towerRefill
+      if (g === "towerrefill" && !k) {
+        if (batteryDerived) put("towerRefill.maxRefill", batteryDerived.maxRefill);
+        put("towerRefill.cap", MAX_REFILL);
+      }
+
+      // ---------------------------------------------------------- shell (link on cut)
+      if (g === "shell" && !k) {
+        put("linkOnCut.cutTiles", cut.length);
+        put(
+          "linkOnCut.onCut",
+          (s.link || []).filter((l) => cutK.has(key(l.x, l.y))).length,
+        );
+        if (typeof plan.meta?.shell?.linkCutForced === "boolean") {
+          put("linkOnCut.forced", plan.meta.shell.linkCutForced);
+        }
+      }
+
+      // ---------------------------------------------------------- battlements
+      if (g === "battlements") {
+        // A cut tile is UNREACHABLE when the finished base's own walk region —
+        // the same region every mobility metric in this file runs over — cannot
+        // reach it. Re-derived tile by tile off the shipped ramparts.
+        const unreachable = cut.filter(
+          (c) => rampK2.has(key(c.x, c.y)) && !garrisonWalk[idx(c.x, c.y)],
+        );
+        put("battlements.unreachable", unreachable.length);
+        put("battlements.cutTiles", cut.length);
+        if (k === "unreachable") {
+          const atL2 = sf.battlements?.unreachableAtLayer2;
+          if (typeof atL2 === "number") put("battlements.strandedByMass", unreachable.length - atL2);
+        } else if (!k) {
+          put("battlements.substitute.thisCut", cut.length);
+        }
+      }
+
+      // ---------------------------------------------------------- misc/off-network
+      if (g === "misc" && k === "off-network") {
+        if (mineral) {
+          put("offNetwork.mineral.x", mineral.x);
+          put("offNetwork.mineral.y", mineral.y);
+        }
+        put("offNetwork.roads", (s.road || []).length);
+        // `seats` counts the CONTAINER tiles this declaration names — the
+        // extractor is named on the same list and is not a seat
+        const named = (sf.tiles || []).filter((t) => t && Number.isInteger(t.x));
+        const seatPts = named.filter((t) => (s.container || []).some((c) => c.x === t.x && c.y === t.y));
+        put("offNetwork.seats", seatPts.length);
+        const exq = (s.extractor || [])[0];
+        if (exq) {
+          put("offNetwork.extractor.x", exq.x);
+          put("offNetwork.extractor.y", exq.y);
+          // the same network the seat's own count is taken over: roads and
+          // containers, minus the seat itself, which does not put itself on the
+          // network
+          const seatK = new Set(seatPts.map((t) => key(t.x, t.y)));
+          const netK = new Set((s.road || []).map((r) => key(r.x, r.y)));
+          for (const c of s.container || []) netK.add(key(c.x, c.y));
+          for (const t of seatK) netK.delete(t);
+          put(
+            "offNetwork.extractorNetTiles",
+            D8.filter(([dx, dy]) => netK.has(key(exq.x + dx, exq.y + dy))).length,
+          );
+          // A MINERAL IS AN OBSTACLE, so nothing ever stands on the extractor's
+          // tile. That is the whole argument this declaration makes about it and
+          // it is a fact about the engine, so it is re-derived rather than read.
+          put("offNetwork.extractorStands", false);
+          put("offNetwork.extractorObstacle", "mineral");
+        } else {
+          put("offNetwork.extractor", null);
+        }
+        let net = 0;
+        for (const p of seatPts) {
+          for (const [dx, dy] of D8) {
+            const nk = key(p.x + dx, p.y + dy);
+            if (roadSet.has(nk) || (s.container || []).some((c) => key(c.x, c.y) === nk)) net++;
+          }
+        }
+        put("offNetwork.netTiles", net);
+        put("offNetwork.regenTicks", 50000);
+        put("offNetwork.extractorCooldown", 5);
+      }
+
+      // ---------------------------------------------------------- runtime
+      if (g === "runtime" && k === "heavy-search") {
+        const pub = plan.meta?.compositions;
+        if (pub) {
+          put("runtime.compositions", pub.total);
+          put("runtime.seeds", pub.seeds);
+          put("runtime.complete", pub.complete);
+        }
+        put("runtime.ladder", RUNTIME_NOTE_COMPOSES);
+        if (typeof plan.meta?.seedSkip === "number") put("runtime.seedSkip", plan.meta.seedSkip);
+      }
+
+      // ---------------------------------------------------------- towers/clump
+      if (g === "towers" && k === "clump") {
+        const within = (s.tower || []).filter((t) => chebyshev(t, sitter) <= 2);
+        put("clump.within", within.length);
+        put("clump.total", (s.tower || []).length);
+        put("clump.cheb", 2);
+        put("clump.note", CLUMP_NOTE);
+        put("clump.sitter.x", sitter.x);
+        put("clump.sitter.y", sitter.y);
+        put("source", "towers");
+        const td = plan.meta?.towers?.towerDispersion;
+        if (td) {
+          if (Array.isArray(td.counted)) put("dispersion.counted", td.counted);
+          if (typeof td.after === "number") put("dispersion.windowAfter", td.after);
+        }
+      }
+
+      // ---------------------------------------------------------- towers/weak-battery
+      if (g === "towers" && k === "weak-battery" && batteryDerived) {
+        const faceDmg = (c) => {
+          let d = 0;
+          for (const t of s.tower || []) {
+            const r = chebyshev(t, c);
+            d += r <= 5 ? 600 : r >= 20 ? 150 : 600 - (r - 5) * 30;
+          }
+          return d;
+        };
+        put("source", "walls");
+        put("battery.maxRefill", batteryDerived.maxRefill);
+        put("battery.refillDists", batteryDerived.refillDists);
+        put("battery.minShellDmg", batteryDerived.minShellDmg);
+        put("battery.avgShellDmg", batteryDerived.avgShellDmg);
+        put("battery.cutTiles", batteryDerived.cutTiles);
+        put("battery.maxRefillHard", MAX_REFILL);
+        put("battery.refillNote", REFILL_NOTE);
+        put("battery.weakShellDmg", WEAK_SHELL_DMG);
+        put("battery.targetMin", TOWER_TARGET_MIN);
+        put("battery.refillUnreachable", batteryDerived.refillDists.filter((d) => !isFinite(d)).length);
+        put("towers.depthSafe", DEPTH_SAFE);
+        put("towers.refillCap", MAX_REFILL);
+        put("towers.refillNote", REFILL_NOTE);
+        put("towers.weakShellDmg", WEAK_SHELL_DMG);
+        put("towers.maxRefillHard", MAX_REFILL);
+        put("towers.targetMin", TOWER_TARGET_MIN);
+        if (cut.length) {
+          let worst = null;
+          let wd = null;
+          for (const c of cut) {
+            const d = faceDmg(c);
+            if (wd === null || d < wd) {
+              wd = d;
+              worst = c;
+            }
+          }
+          // the HARD floor, not the weak line: layer 3 counts a tile weak when
+          // it is under `targetMin`, and the 1800 beside it is the fleet band
+          // the paragraph's first clause is selected on
+          put("battery.weakTiles", cut.filter((c) => faceDmg(c) < TOWER_TARGET_MIN).length);
+          if (worst) {
+            put("battery.worst.x", worst.x);
+            put("battery.worst.y", worst.y);
+            put("battery.worstOnLink", (s.link || []).some((l) => l.x === worst.x && l.y === worst.y));
+          }
+        }
+      }
+
+      // ---------------------------------------------------------- eco
+      if (g === "eco" && !k) {
+        const hubTile = (s.storage || [])[0] || sitter;
+        const w = ecoWalks(terrain, objects, hubTile);
+        put("eco.pathController", w.pc);
+        put("eco.pathSourcesSum", w.ps);
+        put("eco.anchorSpread", w.sepCheb);
+        put("eco.anchorWalkSpread", w.sepWalk);
+        put("eco.anchorWalkFloor", w.floor);
+        put("eco.anchorFloorBasis", w.basis);
+        put("eco.chebFloor", w.chebFloor);
+        put("eco.walkFloor", w.walkFloor);
+        put("eco.spreadPair", w.spreadPair);
+        put("eco.walkPair", w.walkPair);
+        put("eco.ctrlAbs", ECO_CTRL_ABS);
+        put("eco.srcAbs", ECO_SRC_ABS);
+        put("eco.relMult", ECO_REL_MULT);
+        if (fleet) {
+          put("eco.ctrlMedian", fleet.ctrlMedian);
+          put("eco.srcMedian", fleet.srcMedian);
+          put("eco.ctrlGate", fleet.ctrlGate);
+          put("eco.srcGate", fleet.srcGate);
+          put("eco.fleetMediansMeasured.ctrlWalk", fleet.ctrlMedian);
+          put("eco.fleetMediansMeasured.srcSum", fleet.srcMedian);
+          if (typeof fleet.rooms === "number") put("eco.fleetMediansMeasured.rooms", fleet.rooms);
+        }
+        if (typeof plan.meta?.seedSkip === "number") put("eco.seedSkip", plan.meta.seedSkip);
+        // the two bearing clauses: the same octant function the producer uses,
+        // taken from the same origin (the hub, not the storage)
+        const OCT = ["E", "SE", "S", "SW", "W", "NW", "N", "NE"];
+        const bear = (from, to) =>
+          OCT[(Math.round((Math.atan2(to.y - from.y, to.x - from.x) * 4) / Math.PI) + 8) % 8];
+        const hub = plan.hub || hubTile;
+        if (ctrl) put("eco.ctrlBearing", bear(hub, ctrl));
+        put(
+          "eco.srcBearings",
+          (objects || []).filter((o) => o.type === "source").map((o) => bear(hub, o)),
+        );
+      }
+
+      // ---------------------------------------------------------- extensions/shallow
+      if (g === "extensions" && k === "shallow") {
+        put("shallowExt.count", (s.extension || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE).length);
+        put("shallowExt.total", (s.extension || []).length);
+        put("shallowExt.depthSafe", DEPTH_SAFE);
+      }
+
+      // ---------------------------------------------------------- mobility (both kinds)
+      if (g === "mobility" && mBuilt) {
+        const fr = deriveFree();
+        const lf = deriveLift();
+        const wpAny = mBuilt.worstGated || mBuilt.worst || null;
+        // THE VERDICT AND THE PAIR LABEL, DERIVED FROM SCRATCH. Not copied off
+        // `meta.shell.mobilityBuilt` — that record is re-derived a few hundred
+        // lines up and copying one onto the other would make each the other's
+        // evidence. The lift board decides the room's verdict; the as-built
+        // worst pair carries its own label; the two walks are the evidence the
+        // paragraph's CAUSE clause quotes.
+        const pcDecl = causeWalksOf(wpAny);
+        let derCauseV = "none";
+        if (mBuilt.maxGated > MOB_TARGET && lf) {
+          if (lf.maxGated <= MOB_TARGET) derCauseV = "structures";
+          else {
+            const lw = lf.worstGated || lf.worst || wpAny;
+            const pc = causeWalksOf(lw);
+            if (pc) derCauseV = pc.cause === "structures" ? "shape" : pc.cause;
+          }
+        }
+        // ...and the covered-detour entry's `cause` is the SAME lift test with
+        // no gating guard in front of it (layer-walls.mjs:812 calls
+        // `mobilityLift` unconditionally), so a room inside the target still
+        // gets a real verdict there while `mobility|`'s is "none".
+        const liftVerdict = () => {
+          if (!lf) return null;
+          if (lf.maxGated <= MOB_TARGET) return "structures";
+          const lw = lf.worstGated || lf.worst || wpAny;
+          const pc = causeWalksOf(lw);
+          return pc ? (pc.cause === "structures" ? "shape" : pc.cause) : null;
+        };
+        put("cause", k === "covered-detour" ? liftVerdict() : derCauseV);
+        if (pcDecl) {
+          put("pairCause", pcDecl.cause);
+          put("causeWalks.noStructures", pcDecl.noStructures);
+          put("causeWalks.noWalls", pcDecl.noWalls);
+        }
+        if (!k) {
+          put("source", "built");
+          put("metric.max", mBuilt.max);
+          put("metric.maxGated", mBuilt.maxGated);
+          put("metric.over", mBuilt.over);
+          put("metric.overGated", mBuilt.overGated);
+          put("metric.pairs", mBuilt.pairs);
+          put("metric.gatedPairs", mBuilt.gatedPairs);
+          put("metric.target", MOB_TARGET);
+          put("metric.detourFloor", MOB_DETOUR_FLOOR);
+          put("metric.massSharePct", MOB_MASS_SHARE_PCT);
+          put("metric.massMinorPct", MOB_MASS_MINOR_PCT);
+          put("negotiated.metric.detourFloor", MOB_DETOUR_FLOOR);
+          put("ladder.target", MOB_TARGET);
+          if (fr) {
+            put("metric.bareOver", fr.over);
+            put("metric.bareOverGated", fr.overGated);
+            put("mass.bareLap", fr.maxGated);
+          }
+          put("mass.builtLap", mBuilt.maxGated);
+          const wp = mBuilt.worstGated || mBuilt.worst || null;
+          if (wp) {
+            put("worst.a.x", wp.a.x);
+            put("worst.a.y", wp.a.y);
+            put("worst.b.x", wp.b.x);
+            put("worst.b.y", wp.b.y);
+            put("worst.din", wp.din);
+            put("worst.dout", wp.dout);
+            const pw = pairWalk(wp.a, wp.b, mobBlocked);
+            put("mass.din", pw.din);
+            put("mass.dout", pw.dout);
+            const pf = pairWalk(wp.a, wp.b, mobBlockedFree);
+            put("mass.bareDin", pf.din);
+            if (pw.din !== null && pf.din !== null) put("mass.adds", pw.din - pf.din);
+            // `worstCaused` is layer-walls.mjs:279 verbatim: the room misses,
+            // the mass-free walk of this pair exists, and that walk is NOT
+            // itself over target on the GATED reading — i.e. our own mass is
+            // what pushed this one pair over.
+            if (pf.din !== null && pw.dout) {
+              const freeOverGated = pf.din - pw.dout > MOB_DETOUR_FLOOR && pf.din / pw.dout > MOB_TARGET;
+              put("worstCaused", mBuilt.maxGated > MOB_TARGET && !freeOverGated);
+            } else {
+              put("worstCaused", false);
+            }
+          }
+          // the lift block, copied from the record this file already re-derives
+          // field by field a few hundred lines up — one room, one lift test
+          if (mBuilt.maxGated <= MOB_TARGET) put("lift", null);
+          else if (lf) {
+            put("lift.liftedLap", lf.maxGated);
+            put("lift.liftedOverGated", lf.overGated);
+            put("lift.liftedGatedPairs", lf.gatedPairs);
+            put("lift.clears", lf.maxGated <= MOB_TARGET);
+            put("lift.cause", derCauseV);
+            put(
+              "lift.ownPct",
+              mBuilt.maxGated > 0
+                ? Math.max(0, Math.round(((mBuilt.maxGated - lf.maxGated) / mBuilt.maxGated) * 100))
+                : 0,
+            );
+            put(
+              "lift.present",
+              LIFTABLE_V.filter((t) => (s[t] || []).length > 0),
+            );
+            const mbl = plan.meta?.shell?.mobilityBuilt?.lift;
+            if (mbl && Array.isArray(mbl.solo)) put("lift.solo", mbl.solo);
+            if (mbl && Array.isArray(mbl.classes)) put("lift.classes", mbl.classes);
+            const lw = lf.worstGated || lf.worst || wp || null;
+            if (lf.maxGated <= MOB_TARGET) {
+              put("lift.residual", null);
+              // perClass: the SHIPPED worst pair re-walked with one class lifted
+              for (const c of LIFTABLE_V) {
+                if (!(s[c] || []).length || !wp) continue;
+                const din = mobArrive(mobBfs(walkFor(blockedLifting([c])), wp.a), wp.b);
+                put(`lift.perClass.${c}.pairDin`, isFinite(din) ? din : null);
+              }
+            } else if (lw) {
+              const cw = causeWalksOf(lw);
+              put("lift.residual.dStruct", cw.noStructures);
+              put("lift.residual.dFree", cw.noWalls);
+              put("lift.residual.pair.a.x", lw.a.x);
+              put("lift.residual.pair.a.y", lw.a.y);
+              put("lift.residual.pair.b.x", lw.b.x);
+              put("lift.residual.pair.b.y", lw.b.y);
+            }
+          }
+        }
+        if (k === "covered-detour") {
+          const t = (sf.tiles || []).filter((p) => p && Number.isInteger(p.x));
+          put("record.target", MOB_TARGET);
+          put("record.detourFloor", MOB_DETOUR_FLOOR);
+          put("record.gatedLap", mBuilt.maxGated);
+          put("record.gatedPairs", mBuilt.gatedPairs);
+          put("record.coveredPairs", mBuilt.coveredPairs);
+          put("record.pairs", mBuilt.pairs);
+          if (lf) put("record.liftedLap", lf.maxGated);
+          put(
+            "record.present",
+            LIFTABLE_V.filter((ty) => (s[ty] || []).length > 0),
+          );
+          if (t.length === 2) {
+            const pw = pairWalk(t[0], t[1], mobBlocked);
+            put("record.din", pw.din);
+            put("record.dout", pw.dout);
+            if (pw.din !== null && pw.dout !== null) put("record.detour", pw.din - pw.dout);
+            if (pw.din !== null && pw.dout) put("record.ratio", Math.round((pw.din / pw.dout) * 100) / 100);
+            const cw = causeWalksOf({ a: t[0], b: t[1], din: pw.din, dout: pw.dout });
+            put("record.noStructures", cw.noStructures);
+            put("record.noWalls", cw.noWalls);
+          }
+        }
+      }
+
+      // ---------------------------------------------------------- labs
+      if (g === "labs") {
+        put("source", "labs");
+        put("labs.depthSafe", DEPTH_SAFE);
+        if (k === "lab-haul" || k === "lab-road-eat") put("labs.roadEatCost", ROAD_EAT_COST);
+        if (k === "lab-haul" || k === "shallow-lab") put("labs.shallowLabCost", SHALLOW_LAB_COST);
+        if (k === "lab-haul") {
+          put("labs.fleetMedian", LAB_FLEET_MEDIAN);
+          put("labs.fleetP90", LAB_FLEET_P90);
+        }
+        const labs = s.lab || [];
+        if (labs.length) {
+          const ax = Math.min(...labs.map((l) => l.x));
+          const ay = Math.min(...labs.map((l) => l.y));
+          if (k === "lab-haul") {
+            put("labs.anchor.x", ax);
+            put("labs.anchor.y", ay);
+          }
+          // MAIN puts its two inputs on the anti-diagonal shoulders and runs its
+          // internal road down the main diagonal; ANTI is the mirror. The
+          // orientation is therefore readable off the shipped stamp: ANTI is the
+          // variant that builds the (ax+1, ay+1) corner.
+          const hasMainDiagLab = labs.some((l) => l.x === ax + 1 && l.y === ay + 1);
+          if (k === "lab-haul") put("labs.orientation", hasMainDiagLab ? "anti" : "main");
+          if (k === "shallow-lab") {
+            put("labs.total", labs.length);
+            put(
+              "labs.shallow",
+              labs
+                .filter((l) => depth[idx(l.x, l.y)] < DEPTH_SAFE)
+                .map((l) => ({ x: l.x, y: l.y, depth: depth[idx(l.x, l.y)] })),
+            );
+          }
+          if (k === "lab-road-eat") {
+            put("labs.eaten", (sf.tiles || []).filter((t) => t && Number.isInteger(t.x)).length);
+          }
+        }
+        const L = labBoard();
+        if (L) {
+          if (k === "lab-haul") put("labs.haulDist", L.haulDist);
+          put("labs.deepAnchors", L.deepAnchors);
+          if (k === "shallow-lab") {
+            put("labs.fallbackAnchors", L.fallbackAnchors);
+            put("labs.dryAnchors", L.deepAnchors);
+          } else if (k === "lab-road-eat") {
+            // passes 3 and 4 are only reached when BOTH clean passes came up
+            // empty, so a room that ate road had no clean candidate at all
+            put("labs.fallbackAnchors", 0);
+            put("labs.deepAnchors", 0);
+          } else if (k === "lab-haul" && !labs.some((l) => depth[idx(l.x, l.y)] < DEPTH_SAFE)) {
+            // the winner is fully deep, so pass 1 produced it and pass 2 — the
+            // depth >= 3 fallback enumeration — never ran. `fallbackAnchors` is
+            // then 0 because nobody counted, not because the room has none.
+            put("labs.fallbackAnchors", 0);
+          }
+        }
+      }
+
+      // ---------------------------------------------------------- ctrlParks
+      if (g === "ctrlparks") {
+        const P = parkBoard();
+        put("ctrlParks.floor", k === "released" ? MIN_PARKS_FLOOR : MIN_PARKS_FLOOR);
+        if (k === "seats") {
+          put("ctrlParks.thinAt", THIN_PARKS);
+          put("ctrlParks.census.minParksFloor", MIN_PARKS_FLOOR);
+          if (ctrl) {
+            put("ctrlParks.controller.x", ctrl.x);
+            put("ctrlParks.controller.y", ctrl.y);
+          }
+          if (P) {
+            put("ctrlParks.link.x", P.link.x);
+            put("ctrlParks.link.y", P.link.y);
+            put("ctrlParks.built", P.built);
+            put("ctrlParks.eaters", P.eaters);
+            put("ctrlParks.parks", P.parks);
+            put("ctrlParks.eaten", Math.max(0, P.parks - P.built));
+            put("ctrlParks.census.chosen.x", P.link.x);
+            put("ctrlParks.census.chosen.y", P.link.y);
+            put("ctrlParks.census.chosen.parks", P.parks);
+            if (P.byTile.has(key(P.link.x, P.link.y))) {
+              const c = P.byTile.get(key(P.link.x, P.link.y));
+              put("ctrlParks.census.chosen.hubWalk", c.d);
+              put("ctrlParks.census.chosen.score", c.score);
+            }
+            put("ctrlParks.census.considered", P.considered);
+            put("ctrlParks.census.tookFirstAboveFloor", P.parks >= MIN_PARKS_FLOOR);
+            const ru = sf.ctrlParks?.census?.runnerUp;
+            if (ru && Number.isInteger(ru.x) && P.byTile.has(key(ru.x, ru.y))) {
+              const c = P.byTile.get(key(ru.x, ru.y));
+              put("ctrlParks.census.runnerUp.parks", c.park);
+              put("ctrlParks.census.runnerUp.hubWalk", c.d);
+              put("ctrlParks.census.runnerUp.score", c.score);
+            }
+          }
+        }
+        if (k === "released") {
+          if (P) put("ctrlParks.held", Math.min(P.parks, PARK_PROTECT));
+          if (typeof plan.meta?.ctrlParkFloor === "number") put("ctrlParks.kept", plan.meta.ctrlParkFloor);
+          if (P && typeof plan.meta?.ctrlParkFloor === "number") {
+            put("ctrlParks.released", Math.min(P.parks, PARK_PROTECT) - plan.meta.ctrlParkFloor);
+          }
+          if (P) put("ctrlParks.parksShipped", P.built);
+          // the release loop walks DOWN from one below the reservation it held,
+          // and the cap it stopped at is the one the shipped plan was composed
+          // with — both are facts the plan already publishes
+          if (P) put("ctrlParks.composedFrom", Math.min(P.parks, PARK_PROTECT) - 1);
+          if (typeof plan.meta?.ctrlParkFloorCap === "number") {
+            put("ctrlParks.winningCap", plan.meta.ctrlParkFloorCap);
+          }
+          put(
+            "ctrlParks.shallowReleasing",
+            (s.extension || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE).length,
+          );
+          put("ctrlParks.rampartsReleasing", (s.rampart || []).length);
+          if (typeof plan.meta?.shell?.deepTiles === "number") {
+            put("ctrlParks.deepTiles", plan.meta.shell.deepTiles);
+          }
+        }
+      }
+
+      // ---------------------------------------------------------- spawnFan
+      if (g === "spawnfan" && k === "sector") {
+        const around = (s.storage || [])[0] || sitter;
+        put("spawnFan.hub.x", around.x);
+        put("spawnFan.hub.y", around.y);
+        put("spawnFan.target", SECTOR_TARGET);
+        put("spawnFan.sectorWeight", SPAWN_SECTOR_WEIGHT);
+        put("spawnFan.census.target", SECTOR_TARGET);
+        put("spawnFan.census.depthSafe", DEPTH_SAFE);
+        put("spawnFan.census.walkCap", SPAWN_WALK_CAP);
+        put("spawnFan.census.sectorBins", SPAWN_SECTOR_BINS);
+        put("spawnFan.census.sectorDeg", Math.round(360 / SPAWN_SECTOR_BINS));
+        const bearDeg = (from, to) => (Math.atan2(to.y - from.y, to.x - from.x) * 180) / Math.PI;
+        const gap = (a, b) => {
+          let d = Math.abs(a - b) % 360;
+          if (d > 180) d = 360 - d;
+          return d;
+        };
+        const sectorOf = (ang) => Math.floor(((ang + 360) % 360) / (360 / SPAWN_SECTOR_BINS));
+        const angleSetOf = (tiles) => {
+          if (!tiles || tiles.length !== 3) return null;
+          const a = tiles.map((t) => bearDeg(around, t));
+          return {
+            minAngle: Math.round(Math.min(gap(a[0], a[1]), gap(a[0], a[2]), gap(a[1], a[2]))),
+            sectors: new Set(a.map(sectorOf)).size,
+          };
+        };
+        const shipped = angleSetOf((s.spawn || []).map((t) => ({ x: t.x, y: t.y })));
+        if (shipped) {
+          put("spawnFan.minAngle", shipped.minAngle);
+          put("spawnFan.census.winnerSectors", shipped.sectors);
+        }
+        const cen = sf.spawnFan?.census || {};
+        if (typeof cen.shortlist === "number") {
+          const Ls = cen.shortlist;
+          const total = Ls >= 3 ? (Ls * (Ls - 1) * (Ls - 2)) / 6 : 0;
+          if (typeof cen.triples === "number") {
+            put("spawnFan.census.triplesAdjacent", Math.max(0, total - cen.triples));
+          }
+        }
+        const fa = cen.fannedAvailable;
+        if (fa && Array.isArray(fa.tiles)) {
+          const rival = angleSetOf(fa.tiles.filter((t) => t && Number.isInteger(t.x)));
+          if (rival) put("spawnFan.census.fannedAvailable.minAngle", rival.minAngle);
+          put("spawnFan.census.fannedAvailable.tiles", fa.tiles);
+        }
+      }
+
+      return der;
+    };
+
     for (const sf of declared) {
       if (!sf || typeof sf !== "object") continue;
       const g = normGate(sf.gate);
@@ -5179,6 +7554,396 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               `run, precisely so that the sentence a human reads cannot say something the audited record ` +
               `does not`,
           );
+        }
+      }
+
+      // ==================================================================
+      // ...AND THE RECORD ITSELF, LEAF BY LEAF, AGAINST THE CLOSED INVENTORY.
+      //
+      // The prose gate above proves the paragraph IS the record. This is the
+      // other half of the sentence declprose.mjs's header promised and could not
+      // keep: that the record is the ROOM. Every leaf is looked up in
+      // RECORD_LEAVES; a leaf the table does not name fails the room, a leaf the
+      // table calls derived is compared against the value derived here, and a
+      // leaf the table calls witnessed is held to the bound the table states.
+      // ==================================================================
+      {
+        const dk = `${g}|${k || ""}`;
+        const table = RECORD_LEAVES.get(dk);
+        if (!table) {
+          bad.push(
+            `${dk}: this declaration kind has no record-leaf inventory, so every field of its record is ` +
+              `unclassified and nothing re-derives any of it`,
+          );
+        } else {
+          let der = {};
+          try {
+            der = derivedRecordFor(sf, g, k) || {};
+          } catch (err) {
+            bad.push(
+              `${dk}: the record re-derivation threw (${err && err.message ? err.message : String(err)}) — ` +
+                `a derivation that cannot run is a check this file promised and does not perform`,
+            );
+          }
+          for (const [leaf, val, rawPath] of recordLeaves(sf)) {
+            const cls = table[leaf];
+            if (!cls) {
+              bad.push(
+                `${dk}: the record carries \`${rawPath}\` (${JSON.stringify(val).slice(0, 60)}) and the ` +
+                  `record-leaf inventory in this file does not name it. Every leaf of every declaration ` +
+                  `record is re-derived, witnessed with a stated bound, or exempt BY NAME — an unnamed leaf ` +
+                  `is unchecked by default, which is exactly how ten declaration kinds came to ship a ` +
+                  `100% unaudited record`,
+              );
+              continue;
+            }
+            if (cls.klass === "derived") {
+              // a leaf with a dynamic segment (`lift.perClass.<class>.pairDin`)
+              // is CLASSED under its normalised name and DERIVED under its real
+              // one, so both spellings are looked up
+              if (rawPath in der) der[leaf] = der[rawPath];
+              if (!(leaf in der)) {
+                bad.push(
+                  `${dk}: the record-leaf inventory says \`${leaf}\` is RE-DERIVED and this room's ` +
+                    `derivation produced no value for it. A promised check that does not run is worse than ` +
+                    `an admitted gap, because the inventory reads as coverage`,
+                );
+                continue;
+              }
+              const want = der[leaf];
+              const same =
+                typeof want === "number" && typeof val === "number"
+                  ? near(val, want)
+                  : Array.isArray(want) || Array.isArray(val) || (want && typeof want === "object")
+                    ? JSON.stringify(val) === JSON.stringify(want)
+                    : String(val) === String(want);
+              if (!same) {
+                bad.push(
+                  `${dk}: \`${rawPath}\` says ${JSON.stringify(val)}, re-derived from this room's own ` +
+                    `board it is ${JSON.stringify(want)}`,
+                );
+              }
+            } else if (cls.klass === "witnessed" && cls.bound) {
+              const why = cls.bound(val);
+              if (why) {
+                bad.push(
+                  `${dk}: \`${rawPath}\` ${why}. It is producer-witnessed — ${cls.why} — and that is the ` +
+                    `one thing about it this file can still check`,
+                );
+              }
+            }
+          }
+        }
+      }
+
+      // ==================================================================
+      // ...AND THE BOUNDS THE INVENTORY PROMISED FOR THE WITNESSED LEAVES.
+      //
+      // A leaf classed WITNESSED carries a sentence saying what still holds it.
+      // This is where those sentences are made true. They are not decoration:
+      // E13S9's planted census (`pool` and `viable` both 999) is arithmetic
+      // nonsense the moment the pool is required to split into its own five
+      // rejection classes plus the survivors, and E17S5's deflated seat ceiling
+      // has to be paid for in sealing tiles that do not exist.
+      // ==================================================================
+      {
+        const B = (cond, msg) => {
+          if (!cond) bad.push(`${g}${k ? `/${k}` : ""}: ${msg}`);
+        };
+        const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+
+        if (g === "spawnfan" && k === "sector") {
+          const c = sf.spawnFan?.census || {};
+          // I14 — the census is published TWICE, once on the declaration and
+          // once on `meta.spawnFan`, which layer 1 writes for every room whether
+          // it declares or not. They are one object before serialisation, so any
+          // difference is an edit to one of the copies.
+          const mirror = plan.meta?.spawnFan;
+          if (!mirror || typeof mirror !== "object") {
+            bad.push(
+              `spawnFan/sector: meta.spawnFan is absent, and it is the unconditional publication of this ` +
+                `same census. The declaration is the only copy left, which makes the record its own witness`,
+            );
+          } else {
+            for (const f of ["minAngle", "target", "walkMax", "proxyDepthMin", "sectorWeight"]) {
+              if (sf.spawnFan?.[f] !== undefined && mirror[f] !== undefined && sf.spawnFan[f] !== mirror[f]) {
+                bad.push(
+                  `spawnFan/sector: \`spawnFan.${f}\` is ${JSON.stringify(sf.spawnFan[f])} on the ` +
+                    `declaration and ${JSON.stringify(mirror[f])} on meta.spawnFan — one search, one census`,
+                );
+              }
+            }
+            const mc = mirror.census || {};
+            const da = JSON.stringify(c);
+            const db = JSON.stringify(mc);
+            if (da !== db) {
+              let i = 0;
+              while (i < da.length && i < db.length && da[i] === db[i]) i++;
+              bad.push(
+                `spawnFan/sector: the declaration's census and meta.spawnFan's census are not the same ` +
+                  `census — they agree for ${i} character(s) and then diverge (declaration ` +
+                  `"…${da.slice(Math.max(0, i - 30), i + 60)}…" vs meta "…${db.slice(Math.max(0, i - 30), i + 60)}…"). ` +
+                  `Layer 1 writes one object into both, so a difference is an edit`,
+              );
+            }
+          }
+          // I1/I2 — the pool splits, exactly, into its five rejections and the
+          // seats that survived them.
+          const parts = ["rejClaimed", "rejHubRing", "rejWalk", "rejStorageFace", "rejExits", "viable"];
+          if (num(c.pool) !== null && parts.every((f) => num(c[f]) !== null)) {
+            const sum = parts.reduce((a, f) => a + c[f], 0);
+            B(
+              sum === c.pool,
+              `the census pool is ${c.pool} and its own five rejection classes plus the viable seats sum ` +
+                `to ${sum} (${parts.map((f) => `${f} ${c[f]}`).join(", ")}). Every pool tile takes exactly ` +
+                `one branch of that loop, so a census that does not close has a bucket nobody wrote down`,
+            );
+          }
+          if (num(c.pool) !== null && num(c.poolCore) !== null && num(c.poolRing) !== null) {
+            B(
+              c.poolCore + c.poolRing === c.pool,
+              `the pool is ${c.pool} and its core (${c.poolCore}) and ring (${c.poolRing}) sum to ` +
+                `${c.poolCore + c.poolRing}`,
+            );
+          }
+          // I3 — the triple enumeration is a binomial coefficient.
+          if (num(c.shortlist) !== null && num(c.triples) !== null && num(c.triplesAdjacent) !== null) {
+            const L3 = c.shortlist;
+            const total = L3 >= 3 ? (L3 * (L3 - 1) * (L3 - 2)) / 6 : 0;
+            B(
+              c.triples + c.triplesAdjacent === total,
+              `the shortlist is ${L3} seats, so there are ${total} three-seat combinations, and the census ` +
+                `accounts for ${c.triples} legal plus ${c.triplesAdjacent} adjacent = ` +
+                `${c.triples + c.triplesAdjacent}`,
+            );
+          }
+          // I4 — the shortlist takes at least one seat from every non-empty bin.
+          if (num(c.shortlistSectors) !== null && num(c.viableSectors) !== null) {
+            B(
+              c.shortlistSectors === c.viableSectors,
+              `the shortlist occupies ${c.shortlistSectors} sectors and the viable seats occupy ` +
+                `${c.viableSectors}. The per-sector pass takes a seat from EVERY non-empty bin, so these ` +
+                `two are the same number by construction`,
+            );
+          }
+          // I5 — the containments.
+          if (num(c.viable) !== null && num(c.pool) !== null) B(c.viable <= c.pool, `viable ${c.viable} exceeds the pool ${c.pool}`);
+          if (num(c.shortlist) !== null && num(c.viable) !== null) {
+            B(c.shortlist <= c.viable, `the shortlist ${c.shortlist} exceeds the viable seats ${c.viable}`);
+          }
+          if (num(c.viableCore) !== null && num(c.viable) !== null) B(c.viableCore <= c.viable, `viableCore ${c.viableCore} exceeds viable ${c.viable}`);
+          if (num(c.viableShallow) !== null && num(c.viable) !== null) {
+            B(c.viableShallow <= c.viable, `viableShallow ${c.viableShallow} exceeds viable ${c.viable}`);
+          }
+          if (num(c.fannedTriples) !== null && num(c.triples) !== null) {
+            B(c.fannedTriples <= c.triples, `fannedTriples ${c.fannedTriples} exceeds the ${c.triples} triples enumerated`);
+          }
+          // I7 — every viable seat cleared the walk cap, so the winner did too.
+          if (num(sf.spawnFan?.walkMax) !== null && num(c.walkCap) !== null) {
+            B(
+              sf.spawnFan.walkMax <= c.walkCap,
+              `the furthest spawn is a ${sf.spawnFan.walkMax}-step walk from storage and every viable seat ` +
+                `had to be within ${c.walkCap}`,
+            );
+          }
+          // I8 — the fallback is reached only by exhausting the loop.
+          if (typeof c.fallback === "boolean" && num(c.triples) !== null && num(c.triplesJointRejected) !== null) {
+            B(
+              c.fallback ? c.triplesJointRejected === c.triples : c.triplesJointRejected <= Math.max(0, c.triples - 1),
+              `\`fallback\` is ${c.fallback} with ${c.triplesJointRejected} of ${c.triples} triples jointly ` +
+                `rejected. The fallback runs only when the loop was exhausted, and every exhausted triple ` +
+                `was charged to that counter`,
+            );
+          }
+          // I9/I10 — when the rival exists, and what it has to be.
+          if (num(c.fannedTriples) !== null && typeof c.fallback === "boolean") {
+            const want = c.fallback === false && c.fannedTriples > 0;
+            B(
+              !!c.fannedAvailable === want,
+              `\`fannedAvailable\` is ${c.fannedAvailable ? "present" : "null"} with ${c.fannedTriples} ` +
+                `fanned triple(s) and fallback ${c.fallback}. It is recorded exactly when a target-reaching ` +
+                `triple existed AND the search did not fall back`,
+            );
+          }
+          if (c.fannedAvailable) {
+            const fa = c.fannedAvailable;
+            if (num(fa.minAngle) !== null && num(sf.spawnFan?.target) !== null) {
+              B(
+                fa.minAngle >= sf.spawnFan.target,
+                `the rival triple is recorded as target-reaching and its own worst pair is ${fa.minAngle} ` +
+                  `degrees against a ${sf.spawnFan.target}-degree target`,
+              );
+            }
+            if (Array.isArray(fa.tiles)) {
+              B(fa.tiles.length === 3, `the rival triple names ${fa.tiles.length} tile(s); a spawn fan is three`);
+              for (let i = 0; i < fa.tiles.length; i++) {
+                for (let j = i + 1; j < fa.tiles.length; j++) {
+                  const a = fa.tiles[i];
+                  const b2 = fa.tiles[j];
+                  if (!a || !b2 || !Number.isInteger(a.x) || !Number.isInteger(b2.x)) continue;
+                  B(
+                    chebyshev(a, b2) >= 2,
+                    `the rival triple puts ${a.x},${a.y} and ${b2.x},${b2.y} at chebyshev ` +
+                      `${chebyshev(a, b2)} — the enumeration skips any combination with an adjacent pair, so ` +
+                      `this triple was never in it`,
+                  );
+                }
+              }
+            }
+            // I16/I17 — the three published gaps are one subtraction apart, and
+            // the sector half of it is the sector weight times the shortfall.
+            if (num(fa.scoreGap) !== null && num(fa.sectorGain) !== null && num(fa.tileQualityGap) !== null) {
+              B(
+                Math.abs(fa.tileQualityGap - fa.sectorGain - fa.scoreGap) <= 0.16,
+                `the rival's gaps do not close: tileQualityGap ${fa.tileQualityGap} minus sectorGain ` +
+                  `${fa.sectorGain} is ${Math.round((fa.tileQualityGap - fa.sectorGain) * 100) / 100} and ` +
+                  `scoreGap says ${fa.scoreGap}`,
+              );
+            }
+            if (
+              num(fa.sectorGain) !== null &&
+              num(sf.spawnFan?.minAngle) !== null &&
+              num(sf.spawnFan?.target) !== null &&
+              num(sf.spawnFan?.sectorWeight) !== null
+            ) {
+              const want = sf.spawnFan.sectorWeight * (sf.spawnFan.target - sf.spawnFan.minAngle);
+              B(
+                Math.abs(fa.sectorGain - want) <= 0.26,
+                `\`sectorGain\` is ${fa.sectorGain} and the room is ${sf.spawnFan.target - sf.spawnFan.minAngle} ` +
+                  `degrees short of the target at a sector weight of ${sf.spawnFan.sectorWeight}, which is ` +
+                  `${Math.round(want * 100) / 100}`,
+              );
+            }
+            if (fa.jointlyFeasible === true && num(fa.scoreGap) !== null) {
+              B(
+                fa.scoreGap >= 0,
+                `the rival is recorded as jointly feasible AND as out-scoring the winner (scoreGap ` +
+                  `${fa.scoreGap}). A rival that sorted above the winner and was buildable would have BEEN ` +
+                  `the winner`,
+              );
+            }
+          }
+        }
+
+        if (g === "ctrlparks" && k === "seats") {
+          const c = sf.ctrlParks?.census || {};
+          const P = parkBoard();
+          if (num(c.sealing) !== null && num(c.considered) !== null) {
+            B(
+              c.sealing >= 0 && c.sealing <= c.considered,
+              `\`sealing\` is ${c.sealing} of ${c.considered} candidates considered`,
+            );
+          }
+          if (typeof c.forcedOntoSealingPool === "boolean" && num(c.sealing) !== null && num(c.considered) !== null) {
+            B(
+              c.forcedOntoSealingPool === (c.sealing === c.considered),
+              `\`forcedOntoSealingPool\` is ${c.forcedOntoSealingPool} with ${c.sealing} of ` +
+                `${c.considered} candidates sealing. The ladder falls back to the sealing pool exactly when ` +
+                `there is nothing else`,
+            );
+          }
+          // THE CEILING, BOUNDED FROM BOTH SIDES. `maxParks` is the maximum over
+          // the seal-filtered pool, so it can only be lower than the maximum over
+          // the whole candidate list by dropping candidates — and every dropped
+          // candidate is a sealing tile the room has already counted.
+          if (P && num(c.maxParks) !== null) {
+            B(
+              c.maxParks <= P.maxCands,
+              `\`maxParks\` is ${c.maxParks} and no candidate tile in this room's controller ring feeds ` +
+                `more than ${P.maxCands}`,
+            );
+            const roomier = [...P.byTile.values()].filter((t) => t.park > c.maxParks).length;
+            if (num(c.sealing) !== null) {
+              B(
+                roomier <= c.sealing,
+                `\`maxParks\` is ${c.maxParks} and ${roomier} candidate tile(s) in this room's controller ` +
+                  `ring feed more than that, against ${c.sealing} the census says were dropped for sealing ` +
+                  `a pocket. A ceiling below the board's own maximum has to be paid for tile by tile, and ` +
+                  `this room does not have the sealing tiles to pay for it — which is the difference ` +
+                  `between "the room's ceiling" and "the ladder's preference"`,
+              );
+            }
+          }
+        }
+
+        if (g === "ctrlparks" && k === "released") {
+          const c = sf.ctrlParks || {};
+          if (num(c.shallowHolding) !== null && num(c.shallowReleasing) !== null) {
+            B(
+              c.shallowReleasing <= c.shallowHolding,
+              `the composition that ships has ${c.shallowReleasing} shallow extension(s) and the holding ` +
+                `composition it beat is recorded with ${c.shallowHolding}. The release loop accepts a rung ` +
+                `only for strictly FEWER shallow extensions, so this ordering is what the trade means`,
+            );
+          }
+        }
+
+        if (g === "labs" && k === "lab-road-eat") {
+          const c = sf.labs || {};
+          const L2 = labBoard();
+          if (num(c.eatAnchors) !== null) {
+            B(c.eatAnchors >= 1, `\`eatAnchors\` is ${c.eatAnchors} and one of those anchors is the one this room built`);
+            if (L2) {
+              B(
+                c.eatAnchors <= L2.eatCeiling,
+                `\`eatAnchors\` is ${c.eatAnchors} and this room's terrain admits at most ` +
+                  `${L2.eatCeiling} lab stamp position(s) at depth >= ${DEPTH_SAFE - 1} once the road veto ` +
+                  `is lifted — which is the whole enumeration the eating passes walk`,
+              );
+            }
+          }
+        }
+
+        if (g === "extensions" && k === "shallow") {
+          const sh = sf.shallowExt || {};
+          if (sh.sharedTarget !== undefined && sh.search?.sharedTarget !== undefined) {
+            B(
+              String(sh.sharedTarget) === String(sh.search.sharedTarget),
+              `\`sharedTarget\` is ${JSON.stringify(sh.sharedTarget)} and the re-run's own copy says ` +
+                `${JSON.stringify(sh.search.sharedTarget)}`,
+            );
+          }
+          if (Array.isArray(sh.slots) && num(sh.count) !== null) {
+            B(
+              sh.slots.length === sh.count,
+              `the per-slot record has ${sh.slots.length} entries and the room ships ${sh.count} shallow ` +
+                `extension(s)`,
+            );
+          }
+        }
+
+        if (g === "mobility" && !k) {
+          const lad = sf.ladder || {};
+          if (Array.isArray(lad.rungs) && num(lad.trailLength) !== null) {
+            B(
+              lad.rungs.length === lad.trailLength,
+              `the ladder record has ${lad.rungs.length} rung(s) and \`trailLength\` says ${lad.trailLength}`,
+            );
+          }
+          if (typeof sf.lane?.dropped === "boolean") {
+            B(
+              sf.lane.dropped === (sf.lane.droppedFor !== null && sf.lane.droppedFor !== undefined),
+              `\`lane.dropped\` is ${sf.lane.dropped} and \`lane.droppedFor\` is ` +
+                `${JSON.stringify(sf.lane.droppedFor)} — a reservation is dropped exactly when there is ` +
+                `something it was dropped for`,
+            );
+          }
+          // ...and layer 2's worst pair. NOT held to the shipped cut: the whole
+          // point of the record is that it is about the wall layer 2 negotiated,
+          // and the bubbles, the adopted seal tiles and the inert prune move it
+          // afterwards — E13S4's pair names 19,2, which layer 7 took off the
+          // wall. What is immutable is that the pair is two real tiles of this
+          // room that a defender could stand on.
+          const negT = Array.isArray(sf.negotiated?.tiles) ? sf.negotiated.tiles : null;
+          if (negT) {
+            B(negT.length === 2, `layer 2's worst pair names ${negT.length} tile(s); a pair is two`);
+            for (const t of negT) {
+              B(
+                t && Number.isInteger(t.x) && Number.isInteger(t.y) && walkable(terrain, t.x, t.y),
+                `layer 2's worst pair names ${JSON.stringify(t)}, which is not a walkable tile of this room`,
+              );
+            }
+          }
         }
       }
 
@@ -5325,14 +8090,31 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         for (const p of sf.tiles || []) {
           if (!p || !Number.isInteger(p.x) || !Number.isInteger(p.y)) continue;
           const tk = key(p.x, p.y);
+          // TWO CLASSES OF TILE, AND ONLY TWO. The miner's container, and — from
+          // round 14 — the EXTRACTOR itself, which is the same argument about
+          // the same corner of the room and used to be excused by its absence
+          // from OWNED rather than by anything the plan said.
+          const isExtractor = (s.extractor || []).some((e) => e.x === p.x && e.y === p.y);
+          if (isExtractor) {
+            const onNetE = comp.has(tk) || D8.some(([dx, dy]) => comp.has(key(p.x + dx, p.y + dy)));
+            if (onNetE) {
+              bad.push(
+                `${what}: names the extractor at ${p.x},${p.y} as off the road network, and it has a road ` +
+                  `or a container on its own tile or on one of its eight neighbours — it IS on the network`,
+              );
+            }
+            continue;
+          }
           if (!(s.container || []).some((c) => c.x === p.x && c.y === p.y)) {
-            bad.push(`${what}: names ${p.x},${p.y}, which carries no container`);
+            bad.push(
+              `${what}: names ${p.x},${p.y}, which carries neither a container nor this room's extractor`,
+            );
             continue;
           }
           if (!mineralSeat.has(tk)) {
             bad.push(
               `${what}: names ${p.x},${p.y}, which is not the mineral seat — this exemption exists for ` +
-                `the miner's container and for nothing else`,
+                `the miner's container and for the extractor, and for nothing else`,
             );
             continue;
           }
@@ -5561,6 +8343,23 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           owe.push(
             `the mineral seat ${mx},${my} has no road and no other container on any of its eight ` +
               `neighbours and the room files no \`misc/off-network\` declaration naming it`,
+          );
+        }
+      }
+      // ...and the EXTRACTOR, which is the same fact about the same corner of the
+      // room and used to be excused by its absence from OWNED.
+      for (const exq of s.extractor || []) {
+        const ek = key(exq.x, exq.y);
+        // the SAME network the road gate uses — `comp`, the sitter-seeded
+        // component of roads and containers — and not "any container", because
+        // the mineral seat beside the extractor is itself off the network
+        const onNet = comp.has(ek) || D8.some(([dx, dy]) => comp.has(key(exq.x + dx, exq.y + dy)));
+        if (!onNet && !mineralOffNetworkDeclared.has(ek)) {
+          owe.push(
+            `the extractor at ${exq.x},${exq.y} has no road and no container on its own tile or on any of ` +
+              `its eight neighbours, and the room files no \`misc/off-network\` declaration naming it. 133 ` +
+              `of the fleet's 172 extractors are in this position and the exemption used to be this ` +
+              `structure's absence from the checker's own OWNED list`,
           );
         }
       }
@@ -5835,6 +8634,59 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
   }
 
   // ------------------------------------------------------------------
+  // ...AND `meta.towers.towerClump`, THE OTHER PUBLISHED 5x5 COUNTER.
+  //
+  // The clump OBLIGATION above re-derives its own trigger (`within >= 5`), so a
+  // room cannot escape the declaration by lying about this field — but the field
+  // itself is what `plan.mjs --all-claimable` prints the fleet's clump histogram
+  // from (plan.mjs:2486 reads `towerClump.withinCheb2OfSitter`), and it was
+  // compared against nothing. That is precisely the position `nukeWindow` was in
+  // for two rounds before it turned out to be wrong in 145 rooms, and it is one
+  // subtraction away from the same outcome: the document's clump figure would be
+  // the producer's opinion of the producer.
+  //
+  // Both halves are re-derived, because a count without its tiles is a number
+  // and the tiles are what a reader checks: `withinCheb2OfSitter` is the count
+  // of shipped towers at chebyshev <= 2 of the re-derived sitter, and `tiles` is
+  // exactly that set.
+  // ------------------------------------------------------------------
+  {
+    const tc = plan.meta?.towers?.towerClump;
+    const towers = s.tower || [];
+    const derTiles = towers.filter((t) => chebyshev(t, sitter) <= 2);
+    if (!tc || typeof tc !== "object" || typeof tc.withinCheb2OfSitter !== "number") {
+      fails.push(
+        `TOWER CLUMP UNPUBLISHED — meta.towers.towerClump is ${JSON.stringify(tc ?? null)} and ` +
+          `${derTiles.length} of this room's ${towers.length} towers stand within chebyshev 2 of the ` +
+          `sitter. It is the field the fleet's clump histogram is printed from; an absent one is a room ` +
+          `that never made the claim and therefore never got it wrong.`,
+      );
+    } else {
+      if (tc.withinCheb2OfSitter !== derTiles.length) {
+        fails.push(
+          `TOWER CLUMP STALE — meta.towers.towerClump.withinCheb2OfSitter is ${tc.withinCheb2OfSitter} ` +
+            `and ${derTiles.length} of the ${towers.length} shipped towers are within chebyshev 2 of the ` +
+            `sitter (${sitter.x},${sitter.y}). The clump is the shape a single nuke is cheapest against; ` +
+            `the number a reader is shown has to be the room's.`,
+        );
+      }
+      const pubTiles = (Array.isArray(tc.tiles) ? tc.tiles : [])
+        .filter((t) => t && Number.isInteger(t.x))
+        .map((t) => key(t.x, t.y))
+        .sort();
+      const wantTiles = derTiles.map((t) => key(t.x, t.y)).sort();
+      if (pubTiles.join(" ") !== wantTiles.join(" ")) {
+        fails.push(
+          `TOWER CLUMP STALE — meta.towers.towerClump.tiles is [${pubTiles.join(" ") || "nothing"}] and ` +
+            `the towers within chebyshev 2 of the sitter are [${wantTiles.join(" ") || "nothing"}]. The ` +
+            `count and the list are one claim, and a list that does not match its own count is the half ` +
+            `a reader would have used to check it.`,
+        );
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
   // RUNTIME — a NOTE, never a fail.
   //
   // The planner runs offline, so a slow room costs a developer's patience and
@@ -5947,6 +8799,10 @@ function main() {
       fleet = {
         ctrlMedian,
         srcMedian,
+        // how many rooms the median was taken over — the eco record publishes it
+        // as `fleetMediansMeasured.rooms`, and a median over a different fleet
+        // is a different median
+        rooms: list.length,
         ctrlGate: Math.min(ECO_CTRL_ABS, ECO_REL_MULT * ctrlMedian),
         srcGate: Math.min(ECO_SRC_ABS, ECO_REL_MULT * srcMedian),
       };

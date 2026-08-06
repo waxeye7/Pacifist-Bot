@@ -241,13 +241,36 @@ export function renderShallowExt(sf) {
 
 /**
  * ---------------------------------------------------------------------------
- * misc|off-network — the mineral seat that is deliberately not paved.
+ * misc|off-network — the mineral seat and the extractor beside it, neither paved.
  * ---------------------------------------------------------------------------
+ * TWO structures, one argument each, and the second one was missing entirely
+ * until round 14. The seat's exemption had at least been hardcoded in the
+ * checker; the EXTRACTOR's had never been written anywhere, because
+ * validate.mjs's OWNED list does not contain "extractor" and an unchecked
+ * structure never needs excusing. The extractor's clause is generated from
+ * `offNetwork.extractor` or it does not print — a record with no extractor on it
+ * is a room that is not claiming one.
  */
 export function renderOffNetwork(sf) {
   const m = sf.offNetwork || {};
+  const seatTile = (sf.tiles || [])[0];
+  const ex = m.extractor;
+  const extractorClause = !ex
+    ? ``
+    : `AND SO IS THE EXTRACTOR ON ${pt(ex)}, on a stronger argument than the seat's. Its only D8 ` +
+      `neighbour carrying road or container is the seat itself (${n(m.extractorNetTiles, 0)} others), so ` +
+      `it is off the network in exactly the rooms the seat is — but the rule it is being excused from ` +
+      `("every structure must touch the road network") exists so a HAULER CAN SERVICE IT, and there is ` +
+      `nothing here to service. A ${m.extractorObstacle || "mineral"} is in OBSTACLE_OBJECT_TYPES, so no ` +
+      `creep can ever stand on the tile the extractor occupies: it is the only owned structure in the ` +
+      `RCL8 program that is never entered, never filled and never emptied. The miner stands on the seat ` +
+      `at ${pt(seatTile)} and harvests at range 1; the extractor's entire interface is a cooldown. This ` +
+      `is not a structure that got away with being off-network — it is a structure the road rule has no ` +
+      `content for, and until this round nothing in the artifact said so in any of the rooms it applies ` +
+      `to. `;
   return (
-    `THE MINERAL SEAT IS OFF THE ROAD NETWORK, BY DESIGN. The container at ${pts(sf.tiles)} ` +
+    extractorClause +
+    `THE MINERAL SEAT IS OFF THE ROAD NETWORK, BY DESIGN. The container at ${pt(seatTile)} ` +
     `(mineral ${pt(m.mineral)}) has no road and no other container on any of its eight neighbours, ` +
     `re-derived over the FINISHED road set — layer 5's own reading is taken before the extension corridors, ` +
     `the rampart spurs and the swamp paving exist, and in a good part of the fleet one of those runs past ` +

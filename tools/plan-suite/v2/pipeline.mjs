@@ -735,6 +735,40 @@ function remeasureMineralNetwork(plan) {
   // So the room declares it, per room, and the validator's exemption READS the
   // declaration instead of asserting it.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // ...AND THE SEAT IS NOT THE ONLY STRUCTURE OUT THERE.
+  //
+  // The EXTRACTOR stands on the mineral tile, one step from the seat, and it is
+  // off the road network in exactly the same 133 rooms and for exactly the same
+  // reason — its only network neighbour is the seat, and the seat is the tile
+  // this declaration is about. It escaped notice because the validator's OWNED
+  // list simply does not contain "extractor": the structure was never checked, so
+  // it never needed excusing, so nothing ever said why it does not need a road.
+  // That is a weaker position than the seat's was — the seat at least had a
+  // hardcoded line in the checker. This one had nothing anywhere.
+  //
+  // Its argument is also STRONGER than the seat's, which is why it is worth
+  // stating rather than quietly bundling. A mineral is in OBSTACLE_OBJECT_TYPES,
+  // so no creep can ever stand on the tile the extractor occupies: it is the only
+  // owned structure in the RCL8 program that is never entered, never filled and
+  // never emptied. The rule "every structure must touch the road network" exists
+  // so a hauler can service it, and there is nothing here to service — the miner
+  // stands on the seat and harvests at range 1, and the extractor's whole
+  // interface is a cooldown. It is not an off-network structure that got away
+  // with it; it is a structure the rule has no content for.
+  // ------------------------------------------------------------------
+  const extractor = (plan.structures.extractor || [])[0] || null;
+  const extractorNet = [];
+  if (extractor) {
+    for (const [dx, dy] of D8) {
+      const k = `${extractor.x + dx},${extractor.y + dy}`;
+      if (net.has(k)) extractorNet.push(k);
+    }
+    misc.extractorSeatNetTiles = extractorNet;
+    // "off network" for the extractor means: nothing D8 of it carries road or
+    // container OTHER than the mineral seat, whose own status is the line above.
+    misc.extractorOffNetwork = extractorNet.length === 0 && misc.mineralOffNetwork;
+  }
   if (misc.mineralOffNetwork) {
     plan.meta.shortfalls = plan.meta.shortfalls || [];
     // GENERATED — see declprose.mjs. The paragraph was one of 233 that carried
@@ -743,7 +777,16 @@ function remeasureMineralNetwork(plan) {
     const sfMineral = {
       gate: "misc",
       kind: "off-network",
-      tiles: [{ x: seat.x, y: seat.y }],
+      // BOTH TILES ARE NAMED. The declaration excuses two structures from the
+      // road gate, so it lists two tiles: the seat, and the extractor standing on
+      // the mineral beside it. A declaration that excuses a structure it does not
+      // name is the shape this whole channel exists to prevent.
+      tiles: extractor
+        ? [
+            { x: seat.x, y: seat.y },
+            { x: extractor.x, y: extractor.y },
+          ]
+        : [{ x: seat.x, y: seat.y }],
       offNetwork: {
         mineral: { x: plan.mineral.x, y: plan.mineral.y },
         seats: 1,
@@ -751,6 +794,11 @@ function remeasureMineralNetwork(plan) {
         roads: (plan.structures.road || []).length,
         regenTicks: MINERAL_COOLDOWN_NOTE,
         extractorCooldown: EXTRACTOR_COOLDOWN_NOTE,
+        // the second structure this declaration covers — see the block above
+        extractor: extractor ? { x: extractor.x, y: extractor.y } : null,
+        extractorNetTiles: extractorNet.length,
+        extractorStands: false,
+        extractorObstacle: "mineral",
       },
     };
     sfMineral.detail = renderDecl(sfMineral);
@@ -1920,10 +1968,46 @@ function maybeReleaseParks(d, plan) {
   // strictly fewer shallow slots, ties to more parks and then fewer ramparts.
   let alt = null;
   let altShallow = shallow;
+  // ------------------------------------------------------------------
+  // WHAT WAS ACTUALLY COMPOSED, so the declaration can stop claiming otherwise.
+  //
+  // The generated paragraph said "Every cap from held-1 down to 0 was composed IN
+  // FULL and measured" — a claim about a search, derived from `held`, printed by a
+  // loop that BROKE at the first composition reaching zero shallow extensions
+  // under the comment "nothing below this can do better". Two defects, and the
+  // second one is the interesting one:
+  //
+  //   · the sentence was a lie whenever the break fired. E12S5 holds 12, and if a
+  //     cap of 9 had come back at zero shallow the paragraph would still have
+  //     claimed caps 8 through 0 were composed. Nothing composed them.
+  //   · the break's premise is FALSE ON ITS OWN TIE-BREAK. `better` does not rank
+  //     on shallow extensions alone: at equal shallow it takes MORE PARKS, and
+  //     then FEWER RAMPARTS. So a cap below a zero-shallow winner can still beat
+  //     it — that is precisely the case the comment above this loop cites (E12S5
+  //     holding two ships five parks with three fewer ramparts than holding four),
+  //     and the break was throwing exactly those compositions away unexamined.
+  //
+  // So the walk runs to the bottom, which is what the sentence always said it did,
+  // and every rung it composed is recorded. It costs at most `held` compositions
+  // in the two rooms on the fleet that reach this function at all.
+  // ------------------------------------------------------------------
+  const composedCaps = [];
+  const rejected = { error: 0, incomplete: 0, underFloor: 0 };
   for (let cap = held - 1; cap >= 0; cap--) {
     const c = composePlan(d, { ...plan.meta.composeOpts, parkCap: cap });
-    if (c.error || !c.shell || !grade(c).complete) continue;
-    if ((c.meta.ctrlParks ?? 0) < PARK_FLOOR_HARD) continue;
+    composedCaps.push(cap);
+    if (c.error || !c.shell) {
+      rejected.error++;
+      continue;
+    }
+    if (!grade(c).complete) {
+      rejected.incomplete++;
+      continue;
+    }
+    if ((c.meta.ctrlParks ?? 0) < PARK_FLOOR_HARD) {
+      rejected.underFloor++;
+      continue;
+    }
     const s = c.meta.extensions?.shallow ?? 0;
     const better =
       s < altShallow ||
@@ -1936,7 +2020,6 @@ function maybeReleaseParks(d, plan) {
       alt = c;
       altShallow = s;
     }
-    if (altShallow === 0) break; // nothing below this can do better
   }
   if (!alt) return plan;
   const kept = alt.meta.ctrlParkReserve || [];
@@ -1962,6 +2045,16 @@ function maybeReleaseParks(d, plan) {
       // the fact underneath both columns, and the one figure of the nine this
       // paragraph quoted that was NOT in the record
       deepTiles: plan.shell?.deepTiles ?? null,
+      // THE SEARCH, so the sentence about it is generated rather than asserted:
+      // the caps this walk actually composed (lowest last), how many of them the
+      // completeness and floor tests threw out, and the cap that won.
+      composedCaps: composedCaps.slice(),
+      composedFrom: held - 1,
+      composedTo: 0,
+      rejectedError: rejected.error,
+      rejectedIncomplete: rejected.incomplete,
+      rejectedUnderFloor: rejected.underFloor,
+      winningCap: alt.meta.composeOpts?.parkCap ?? alt.meta.ctrlParkFloorCap ?? null,
     },
   };
   sfReleased.detail = renderDecl(sfReleased);

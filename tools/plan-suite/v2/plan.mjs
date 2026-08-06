@@ -29,6 +29,7 @@ import {
   RAMPART_PAINT,
 } from "./render.mjs";
 import { EXT_TARGET, planRoom, redeclareEcoTax, setFleetMedians } from "./pipeline.mjs";
+import { LATE_KINDS, LATE_ORDER, lateRoadDecomp } from "./layer-walls.mjs";
 
 /**
  * Sprite kinds the animation player rasterises. Same names render.mjs uses, so
@@ -84,137 +85,13 @@ function animClaimKinds(plan) {
   return out;
 }
 
-/**
- * ---------------------------------------------------------------------------
- * LAYER 7 IS SEVEN JOBS, AND EVERY TEXT CHANNEL HAS TO SAY WHICH ONES RAN.
- * ---------------------------------------------------------------------------
- * The layer-7 road beat used to be captioned "rampart spurs and the
- * extension-face safety net" for every room, and layer 7 also stitches orphaned
- * fragments, pre-paves swamp holes, moves roads off the cut onto the interior
- * parallel, lays the 7b reflow's faces and (in finalizeRoom) bridges the
- * deferred mineral container. 20 rooms / 39 tiles ship that beat with
- * `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave, E12S6's three are 7b
- * reflow, E14S5's are along-cut swaps.
- *
- * Round 13 fixed the NOTE line by composing it from `meta.walls.roadKind`, the
- * per-tile provenance layer 7 records as it lays. It fixed exactly one channel.
- * The player renders FOUR strings for a stage — the banner name, the banner
- * why, the note, and the chip (whose tooltip is name + why, and which is also
- * the title card) — and the other three were still the hardcoded STAGE_INFO
- * row, so E1S6 read "LAYER 7 — RAMPART SPURS / roads TO the wall so defenders
- * can reach it" over a corrected note that says the room laid no spur at all.
- *
- * So the decomposition below is the ONE source for all four channels: the note
- * is composed from it, and `animStageText` composes a PER-ROOM name/why/chip
- * override from the same tally, shipped alongside NOTES and applied inside the
- * player's `info()`. A room with no spurs cannot name a spur in any channel,
- * because no channel has a spur to name.
- *
- * `extFace` IS REACHABLE AND IS KEPT, THOUGH NO ROOM IN THE FLEET USES IT.
- * layer-walls.mjs sets `kindNow = "extFace"` for the filler-face safety net
- * (a road on a D4 face of any extension layer 6 left off the network); the pass
- * runs in every room and, because layer 6 grows the mass along corridors,
- * currently adds 0 tiles fleet-wide (`meta.walls.fillerTiles` is 0 in all 172).
- * The kind is therefore in the closed set validate.mjs enforces and stays in
- * this table — but it is no longer PROMISED by any static string, because a
- * channel that names a pass which shipped nothing is the bug this block exists
- * to kill. It will caption itself the day the pass lays a tile.
- *
- * `one`/`many` are separate because 19 rooms lay exactly one layer-7 tile and
- * the caption read "1 tiles — 1 rampart spurs".
- */
-const LATE_KINDS = {
-  spur: {
-    one: "rampart spur",
-    many: "rampart spurs",
-    name: "rampart spurs",
-    chip: "7 · spurs",
-    why: "roads TO the wall, so defenders can reach the rampart they are holding",
-  },
-  extFace: {
-    one: "extension face paved by the safety net",
-    many: "extension faces paved by the safety net",
-    name: "the extension-face safety net",
-    chip: "7 · ext faces",
-    why: "a road on a D4 face of every extension layer 6 left without one",
-  },
-  stitch: {
-    one: "stranded road fragment stitched back onto the network",
-    many: "stranded road fragments stitched back onto the network",
-    name: "network stitches",
-    chip: "7 · stitch",
-    why: "road fragments the earlier layers left stranded, joined back onto the one network",
-  },
-  swampPave: {
-    one: "swamp hole pre-paved (the only way across, so nobody walks it at 5 ticks)",
-    many: "swamp holes pre-paved (the only way across, so nobody walks them at 5 ticks)",
-    name: "the swamp pre-pave",
-    chip: "7 · swamp",
-    why: "the swamp tiles the network has no way around, paved before anyone walks them at 5 ticks a step",
-  },
-  alongCutMoved: {
-    one: "road moved off the wall onto the interior parallel",
-    many: "roads moved off the wall onto the interior parallel",
-    name: "roads moved off the cut",
-    chip: "7 · off-cut",
-    why: "a road ON the rampart line is a tile the wall cannot stand on — these move one tile inward",
-  },
-  reflow: {
-    one: "face for the layer-7b extension reflow",
-    many: "faces for the layer-7b extension reflow",
-    name: "reflow faces",
-    chip: "7 · reflow",
-    why: "the road faces layer 7b's extension reflow needs on the floor the dead-end prune just handed back",
-  },
-  conductBridge: {
-    one: "join paved for the mineral container that is not built until RCL 6",
-    many: "joins paved for the mineral container that is not built until RCL 6",
-    name: "the mineral-container join",
-    chip: "7 · conduit",
-    why: "the mineral container is deferred to RCL 6, so its join to the network is paved now and waits",
-  },
-  unclassified: {
-    one: "unclassified — layer 7 laid this tile and could not name the pass that did it",
-    many: "unclassified — layer 7 laid these and could not name the pass that did it",
-    name: "unattributed late roads",
-    chip: "7 · unclassified",
-    why: "layer 7 laid these and recorded no pass for them — that is a finding, not a purpose",
-  },
-};
-/** printing order for the breakdown — the layer's own job order */
-const LATE_ORDER = Object.keys(LATE_KINDS);
-
-/**
- * The layer-7 road tally, read off meta.roadLayer + meta.walls.roadKind.
- *
- * AN UNRECOGNISED KIND IS NOT A NAMED KIND. The previous composer counted every
- * roadKind value into `named` and then built the breakdown by walking the LABEL
- * table, so a kind the table does not know (a new layer-7 pass, a typo, a
- * future rename) incremented the count and was then filtered straight back out:
- * the caption led with "7 tiles" over a breakdown reaching 4 and never tripped
- * the "with no recorded sub-kind" fallback that exists for exactly this. Only
- * kinds this file can actually print count as named; everything else falls to
- * the fallback, so the lead number and the breakdown can never disagree.
- */
-function lateRoadDecomp(plan) {
-  const m = plan.meta || {};
-  const rl = m.roadLayer || {};
-  const alive = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
-  const kindOf = m.walls?.roadKind || {};
-  const tally = {};
-  let laid = 0;
-  let named = 0;
-  for (const k of Object.keys(rl)) {
-    if (rl[k] !== 7) continue;
-    laid++;
-    if (!alive.has(k)) continue;
-    const kind = kindOf[k];
-    if (!kind || !LATE_KINDS[kind]) continue;
-    tally[kind] = (tally[kind] || 0) + 1;
-    named++;
-  }
-  return { laid, named, tally, kinds: LATE_ORDER.filter((k) => tally[k]) };
-}
+// THE LAYER-7 ROAD KINDS AND THE PER-ROOM TALLY NOW LIVE IN layer-walls.mjs,
+// beside the pass that records `roadKind` in the first place — because the FILM
+// needs them too. export-anim.mjs hardcoded its layer-7 frame banner ("rampart
+// spurs and the ext-face net") while this file was already composing a correct
+// per-room name/why/chip from the tally, so 20 rooms shipped a film whose banner
+// contradicted the STAGE_TEXT panel three inches to its right. Two copies of a
+// caption in two files is how that happens; there is one copy and three readers.
 
 /**
  * PER-ROOM STAGE TEXT — the banner name, the banner why and the chip, for the
@@ -2356,8 +2233,22 @@ ${thumbLegendHtml()}
   console.log(
     `rampart spurs: ${wm.reduce((s, p) => s + p.meta.walls.spurred, 0)} spurs / ` +
       `${wm.reduce((s, p) => s + p.meta.walls.clusters, 0)} clusters · ` +
-      `${wm.reduce((s, p) => s + p.meta.walls.spurTiles, 0)} tiles · ` +
-      `pruned ${wm.reduce((s, p) => s + p.meta.walls.pruned, 0)} dead-end road tiles · ` +
+      // LAID AND SHIPPED, BOTH. This line quoted the laid counter alone, and the
+      // dead-end prune deletes spur tiles after the spur pass has counted them:
+      // 375 laid, 370 shipped, the gap in three rooms (E11S2 13/12, E13S3 14/12,
+      // E9S8 8/6). One number for two quantities is how an inflated count goes
+      // unnoticed for thirteen rounds — see the laid-vs-shipped block in
+      // layer-walls.mjs, which is where both figures come from.
+      `${wm.reduce((s, p) => s + p.meta.walls.spurTiles, 0)} tiles laid / ` +
+      `${wm.reduce((s, p) => s + (p.meta.walls.spurTilesShipped || 0), 0)} shipped` +
+      (() => {
+        const gaps = wm.filter((p) => (p.meta.walls.spurTiles || 0) !== (p.meta.walls.spurTilesShipped || 0));
+        return gaps.length
+          ? ` (the prune took ${gaps.reduce((s, p) => s + p.meta.walls.spurTiles - (p.meta.walls.spurTilesShipped || 0), 0)} back in ${gaps.length} room(s): ` +
+            gaps.map((p) => `${p.room}:${p.meta.walls.spurTiles}/${p.meta.walls.spurTilesShipped || 0}`).join(" ") + `)`
+          : ` (the prune took none of them back)`;
+      })() +
+      ` · pruned ${wm.reduce((s, p) => s + p.meta.walls.pruned, 0)} dead-end road tiles · ` +
       `ext-face net ${wm.reduce((s, p) => s + p.meta.walls.fillerTiles, 0)} tiles`,
   );
   // ROAD + RAMPART, FLEET-WIDE, IN FIVE CLASSES. The published taxonomy had two

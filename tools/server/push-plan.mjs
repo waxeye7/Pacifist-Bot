@@ -897,13 +897,14 @@ const AUDIT_RCLS = [3, 4, 5, 6, 7, 8];
  *
  * Both audits below grant `meta.walls.conductBridge.gapTiles` conductor status:
  * the tile is bare floor a creep walks at 2 ticks instead of 1, so it joins the
- * network even though no road may be built on it. That grant is the strongest
- * thing a plan can say to these checks — it is the one input that can turn an
+ * network even though no road may be built on it. That grant WAS the strongest
+ * thing a plan could say to these checks — it is the one input that can turn an
  * orphan into a connected tile — and it used to be taken on `Number.isInteger`
- * alone. Any meta entry naming any coordinate was believed.
+ * alone. Any meta entry naming any coordinate was believed. It is granted to
+ * nothing now; the paragraph below is why.
  *
- * validate.mjs holds the same declaration to a real rule (search PAVING GAP
- * UNVERIFIABLE) and FAILS the room when it does not hold. But validate is a
+ * validate.mjs holds the same declaration to the same rule (search PAVING GAP
+ * REFUSED) and FAILS the room when it publishes one at all. But validate is a
  * separate program: push-plan.mjs runs standalone against out-v2/plans-hub.json,
  * on the VPS path against a plan this machine just produced in memory, and
  * nothing in either path makes the validator a prerequisite. One bogus meta
@@ -912,28 +913,33 @@ const AUDIT_RCLS = [3, 4, 5, 6, 7, 8];
  * the other side as a green line. The census is the channel this whole staging
  * is published on; a channel that believes its input is not an audit.
  *
- * THE RULE, MIRRORED FROM validate.mjs's F1 CLAUSE. A gap tile must be a tile no
- * road may ever be built on, which the engine defines as:
- *   · it carries a structure in OBSTACLE_OBJECT_TYPES (BLOCKING below — spawn,
- *     extension, tower, storage, terminal, link, lab, nuker, observer,
- *     extractor), or it is a room object tile (source / controller / mineral);
- *   · and it does NOT already carry a road, because a tile with a road on it is
- *     not a gap in anything.
- * ROAD, CONTAINER AND RAMPART ARE NOT OBSTACLES. That is the round-13 correction
- * validate.mjs records at length: road and container legally share a tile (60
- * tiles in 53 shipped rooms do), so both gaps this fleet used to publish were
- * ordinary floor a road closes, and the exemption was laundering two roads the
- * producer declined to lay as a terrain verdict.
+ * ROUND 14: THE RULE IS "NO", AND THE RULE THIS REPLACES WAS BACKWARDS.
  *
- * WHAT THIS COPY CANNOT SEE, AND WHY THAT IS SAFE. validate.mjs also rejects a
- * gap tile on natural wall (`!passable`) — a tile a creep cannot stand on closes
- * nothing. plans-hub.json carries no terrain, so this side cannot ask that
- * question directly; it does not need to. A natural-wall tile carries no planned
- * structure and is no room object, so it falls out of the obstacle test and is
- * denied anyway — the same verdict validate reaches, by the other road. The
- * asymmetry that matters is the one this function is built around: DENYING a
- * grant can only ever make the audit louder, and the failure mode being fixed is
- * an audit that was too quiet.
+ * What stood here mirrored validate.mjs's F1 clause: a gap tile is granted iff
+ * it carries an OBSTACLE structure (spawn, lab, storage, …) or a room object,
+ * and denied otherwise. Read that sentence next to what a grant MEANS — this
+ * function's return value is added to `conduct`, the walkable set the RCL orphan
+ * sweep and the unreachable-terminal sweep flood over — and it says: a tile with
+ * a SPAWN on it conducts creeps. It does not. A creep cannot stand on a spawn;
+ * that is what OBSTACLE_OBJECT_TYPES means. A reviewer published E11S1's spawn
+ * 26,41, storage 24,41 and lab 24,32 as gap tiles and this function granted all
+ * three, so both audits walked straight through the spawn — which is criticism
+ * 6/15's original defect, recreated inside the check that was written to stop
+ * it.
+ *
+ * AND THERE IS NO SMALLER FIX, because the honest case does not exist. A gap
+ * tile has to be WALKABLE (or it conducts nothing) and UNPAVEABLE (or it is a
+ * road the producer declined to lay). In Screeps those two sets do not
+ * intersect: the engine refuses a road only on natural wall, which is not
+ * walkable; every obstacle that forbids the road also forbids the creep; and
+ * road, container and rampart are not obstacles at all (road and container share
+ * a tile in 60 tiles across 53 shipped rooms). "Walkable but unpaveable" is the
+ * empty set. So this function GRANTS NOTHING, ever, and says why on every tile
+ * it is asked about.
+ *
+ * The room's honest options are unchanged: pave the join, or let the audit
+ * report the stranded conductors. What is gone is being handed a network by
+ * naming a tile nothing can stand on.
  *
  * ZERO ON THE CURRENT FLEET — no room in the 172 publishes a gap at all, so this
  * is dormant by construction and every warning line it can print is a line about
@@ -974,32 +980,30 @@ function verifiedGapTiles(plan) {
     if (o && Number.isInteger(o.x)) obstacles.add(k(o));
   }
   for (const ty of BLOCKING) for (const p of s[ty] || []) obstacles.add(k(p));
-  const granted = [];
   for (const t of published) {
     const tk = k(t);
+    const carried = Object.keys(s).filter((ty) => (s[ty] || []).some((p) => k(p) === tk));
     const reason = roads.has(tk)
       ? "it already carries a planned road, so it is not a gap in anything"
-      : !obstacles.has(tk)
-        ? "no OBSTACLE structure and no room object stands there — a road can simply be built on it " +
-          "(road/container/rampart are NOT obstacles; a natural-wall tile carries nothing either, and a " +
-          "creep cannot stand on one)"
-        : null;
-    if (!reason) {
-      granted.push(t);
-      continue;
-    }
+      : obstacles.has(tk)
+        ? `it carries ${carried.join("+") || "a room object"} — a creep cannot stand on an OBSTACLE, so ` +
+          "granting it as a conductor would let the orphan sweep walk through the spawn"
+        : `it carries ${carried.join("+") || "nothing"} and no obstacle — a road can simply be built on ` +
+          "it (road/container/rampart are NOT obstacles; a natural-wall tile carries nothing either, and " +
+          "a creep cannot stand on one)";
     const id = `${plan.room} ${t.x},${t.y}`;
     if (!gapWarned.has(id)) {
       gapWarned.add(id);
       console.warn(
         `WARNING ${plan.room}: meta.walls.conductBridge.gapTiles names ${t.x},${t.y} but ${reason}. ` +
-          `NOT granted as a conductor — the audits below run without it. Run ` +
-          `tools/plan-suite/v2/validate.mjs on this room: it fails a plan over exactly this ` +
-          `(PAVING GAP UNVERIFIABLE).`,
+          `NOT granted as a conductor — NO gap tile is: walkable-but-unpaveable is the empty set in ` +
+          `Screeps, so a published gap can never legitimately conduct. The audits below run without it. ` +
+          `Run tools/plan-suite/v2/validate.mjs on this room: it fails a plan over exactly this ` +
+          `(PAVING GAP REFUSED).`,
       );
     }
   }
-  return granted;
+  return [];
 }
 
 /**
@@ -1347,27 +1351,25 @@ function census() {
     const paved = plans
       .filter((p) => (p.meta?.walls?.conductBridge?.added || []).length)
       .map((p) => `${p.room}(${p.meta.walls.conductBridge.added.map((t) => `${t.x},${t.y}`).join(" ")})`);
-    // WHAT "UNPAVEABLE" MEANS, SAID ON THE LINE THAT PRINTS THE COUNT. It used
-    // to mean "something is already on the tile", and that read the engine
-    // wrong: a road and a container share a square (only OBSTACLE_OBJECT_TYPES
-    // may not be doubled up), which is how both of the rooms this line used to
-    // name — E2S5 27,23 and E5S3 32,11, 11 and 5 stranded conductors between
-    // them — were publishing a gap over their own deferred mineral container.
-    // Both are paved now. A gap is a tile an OBSTACLE structure or terrain wall
-    // sits on, and nothing else.
+    // WHAT A PUBLISHED GAP IS WORTH, SAID ON THE LINE THAT PRINTS THE COUNT.
+    // The sentence here used to define a gap as "a tile carrying an OBSTACLE
+    // structure … i.e. a tile no road may ever be built on", and that half of
+    // the definition is right and useless, because the OTHER half — a creep has
+    // to WALK the tile for the gap to close anything — excludes exactly the same
+    // tiles. A gap is never granted now (see verifiedGapTiles); the line says so
+    // rather than implying a class of gaps that would be honoured.
     console.log(
       `  RCL-deferred conduct: ${paved.length} room(s) PAVED the join${paved.length ? ` — ${paved.join(" ")}` : ""}` +
         `; ${gaps.length} room(s) publish a PAVING GAP${gaps.length ? ` — ${gaps.join(" ")}` : ""} ` +
-        `(a gap tile is one carrying an OBSTACLE structure — spawn, extension, link, storage, tower, ` +
-        `observer, lab, terminal, nuker — or a room object or terrain wall, i.e. a tile no road may ` +
-        `ever be built on. A container is NOT an obstacle: road and container share a tile, so a ` +
-        `container tile is paved rather than named here)`,
+        `(a gap tile is a claim that a creep walks a tile no road can be built on, and in Screeps that ` +
+        `is the EMPTY SET — the engine refuses a road only on natural wall, which is not walkable, and ` +
+        `every obstacle that forbids the road forbids the creep. Container and road share a tile, so a ` +
+        `container tile is paved. NO published gap is granted as a conductor by this program)`,
     );
-    // ...AND HOW MANY OF THOSE CLAIMS THIS RUN ACTUALLY BELIEVED. A published
-    // gap is only a conductor if the tile is genuinely unpaveable
-    // (verifiedGapTiles); one that is not has already printed a WARNING above,
-    // and the count belongs on the census line so a reader of the summary sees
-    // it without scrolling. Silent at 0, which is what the whole fleet is.
+    // ...AND HOW MANY CLAIMS THIS RUN REFUSED. Every published gap tile is
+    // refused, so this is the published count; it stays on the census line so a
+    // reader of the summary sees it without scrolling, and it is silent at 0,
+    // which is what the whole fleet is.
     let denied = 0;
     for (const p of plans) {
       const pub = (p.meta?.walls?.conductBridge?.gapTiles || []).length;
@@ -1375,8 +1377,8 @@ function census() {
     }
     if (denied) {
       console.log(
-        `  ...of which ${denied} published gap tile(s) were NOT granted as conductors — the tile is ` +
-          `paveable or already roaded, so the audits above ran without it. See the WARNING lines.`,
+        `  ...of which ${denied} published gap tile(s) were NOT granted as conductors — no gap tile is, ` +
+          `so the audits above ran without every one of them. See the WARNING lines.`,
       );
     }
   }

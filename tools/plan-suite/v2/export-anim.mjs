@@ -24,6 +24,7 @@ import { OUT_V2, fetchRoomsFromMongo, planStructureHash, walkable } from "./shar
 import { distanceTransform } from "./dt.mjs";
 import { distField, growBasin } from "./layer-hub.mjs";
 import { planRoom } from "./pipeline.mjs";
+import { LATE_KINDS, lateRoadDecomp } from "./layer-walls.mjs";
 
 const MAX_FIELD_RING = 25;
 const BASIN_RADIUS = 12;
@@ -425,8 +426,39 @@ const ROAD_STAGE = {
   4: ["roadsLab", "lab access"],
   5: ["roadsMisc", "the mineral run"],
   6: ["roadsExt", "extension corridors"],
-  7: ["roadsLate", "rampart spurs and the ext-face net"],
+  // ...and this row is a PLACEHOLDER, never printed. See lateWhat below: layer 7
+  // is seven jobs and the banner has to say which of them this room ran.
+  7: ["roadsLate", "the late road pass"],
 };
+
+/**
+ * THE LAYER-7 FRAME BANNER, COMPOSED PER ROOM.
+ *
+ * Every other row above is true of every room that emits it — layer 4 lays lab
+ * access and nothing else. Layer 7 is seven passes (spurs, the extension-face
+ * net, network stitches, the swamp pre-pave, the along-the-wall swap, the 7b
+ * reflow faces, the deferred mineral-container bridge) and this row read
+ * "rampart spurs and the ext-face net" for all of them. 20 rooms / 39 tiles ship
+ * that beat with `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave,
+ * E12S6's three are 7b reflow, E14S5's are along-cut swaps — so in those rooms
+ * the frame banner named two passes that laid nothing while the STAGE_TEXT panel
+ * beside it, composed from the same tally this now reads, named the right ones.
+ * A film that disagrees with its own caption panel is worse than one with no
+ * caption: the reader has to work out which half to believe.
+ *
+ * One tally, three readers: this banner, the note, and the per-room stage
+ * name/why/chip in plan.mjs. `lateRoadDecomp` and `LATE_KINDS` live in
+ * layer-walls.mjs, beside the pass that records the provenance.
+ */
+function lateWhat(plan) {
+  const d = lateRoadDecomp(plan);
+  const unnamed = d.laid - d.named;
+  if (!d.kinds.length) return LATE_KINDS.unclassified.name;
+  const names = d.kinds.map((k) => LATE_KINDS[k].name);
+  if (unnamed) names.push(LATE_KINDS.unclassified.name);
+  if (names.length === 1) return names[0];
+  return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+}
 
 function roadProvenance(plan) {
   const map = plan.meta?.roadLayer || null;
@@ -469,10 +501,12 @@ function roadProvenance(plan) {
 }
 
 /** emit one layer's roads, in place, at the moment that layer ran */
-function emitRoads(sb, rp, layer) {
+function emitRoads(sb, rp, layer, plan) {
   const tiles = rp.byLayer.get(layer) || [];
   if (!tiles.length) return;
-  const [stage, what] = ROAD_STAGE[layer];
+  const [stage, staticWhat] = ROAD_STAGE[layer];
+  // layer 7's banner is the room's own tally, not a row in a table — see lateWhat
+  const what = layer === 7 ? lateWhat(plan) : staticWhat;
   chunked(sb, stage, tiles, ROAD_CHUNK, "#d8d8d8", (a, b, n) => `layer ${layer} roads ${b}/${n} — ${what}`);
 }
 
@@ -499,7 +533,7 @@ export function buildAnim(room, terrain, plan) {
   // layer's structures, rather than as one pre-wall lump. See roadProvenance.
   const rp = roadProvenance(plan);
 
-  emitRoads(sb, rp, 1);
+  emitRoads(sb, rp, 1, plan);
 
   const ramparts = plan.structures.rampart;
   if (ramparts && ramparts.length) {
@@ -513,7 +547,7 @@ export function buildAnim(room, terrain, plan) {
   // AFTER the towers: planTowers returns the tower tiles and their refill
   // spurs from one call, and a spur to a tower that is not there yet is not a
   // thing that ever happened.
-  emitRoads(sb, rp, 3);
+  emitRoads(sb, rp, 3, plan);
 
   if (plan.structures.lab?.length) {
     chunked(sb, "labs", plan.structures.lab, 2, "#cc66ff", (a, b, n) => `lab diamond ${b}/${n}`);
@@ -522,7 +556,7 @@ export function buildAnim(room, terrain, plan) {
   // whose diamond touches the road network, so the frame in which the labs
   // land must show the road set MINUS layer 4's own access road. That frame is
   // the evidence for a "0 dry anchors" declaration.
-  emitRoads(sb, rp, 4);
+  emitRoads(sb, rp, 4, plan);
 
   for (const n of plan.structures.nuker || []) {
     sb.push("nuker", "nuker — deep, hugging the hub (300k energy to haul)", sb.flat([n], "#ff5566"));
@@ -533,7 +567,7 @@ export function buildAnim(room, terrain, plan) {
   for (const e of plan.structures.extractor || []) {
     sb.push("extractor", "extractor — built ON the mineral, the one object tile we may use", sb.flat([e], "#e0a6ff"));
   }
-  emitRoads(sb, rp, 5);
+  emitRoads(sb, rp, 5, plan);
 
   // BEFORE the extensions, unlike every other layer's roads. Layer 6 digs a
   // corridor and then hangs extensions off its faces — "every one of them D4
@@ -542,7 +576,7 @@ export function buildAnim(room, terrain, plan) {
   // passes actually interleave; splitting them into corridor-then-mass is an
   // approximation, and it is contained inside one layer rather than spanning
   // six, which is the difference between rounding and lying.
-  emitRoads(sb, rp, 6);
+  emitRoads(sb, rp, 6, plan);
 
   // --- layer 6's relocation pass, drawn as MOVES ---------------------------
   /**
@@ -787,7 +821,7 @@ export function buildAnim(room, terrain, plan) {
       sb.flat([a], "#ffd24d"),
     );
   }
-  emitRoads(sb, rp, 7);
+  emitRoads(sb, rp, 7, plan);
 
   if (rp.residual.length) {
     chunked(

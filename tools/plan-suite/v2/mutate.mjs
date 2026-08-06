@@ -61,6 +61,11 @@
 import fs from "fs";
 import path from "path";
 import { checkRoom, ecoWalks } from "./validate.mjs";
+// the producer's own renderer — the round-14 record cases plant a lie in a
+// declaration's structured record and then regenerate `detail` from it, which is
+// exactly the attack the reviewers used: the prose-identity gate is satisfied by
+// construction and only the record's own content is left standing
+import { renderDecl } from "./declprose.mjs";
 import { D4, D8, OUT_V2, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const argv = process.argv.slice(2);
@@ -161,6 +166,10 @@ const FLEET = (() => {
   return {
     ctrlMedian,
     srcMedian,
+    // the eco record publishes the size of the fleet its medians were taken
+    // over, and validate.mjs re-derives it off this — a harness that omits it
+    // tests a check that cannot run
+    rooms: plans.length,
     ctrlGate: Math.min(25, 2 * ctrlMedian),
     srcGate: Math.min(60, 2 * srcMedian),
   };
@@ -1479,17 +1488,28 @@ run("r12/M5-compositions-disagree", roomWith((p) => p.meta?.compositions && decl
     r.held = (r.held || []).slice(0, Math.max(0, (r.held || []).length - 2));
   }, "appear in neither");
 
-  run("r13/H2f-alongCutRuns-contradicts-the-refusal", acrRoom, (p) => {
+  // ...and the room has to be one where the contradiction can be BUILT: a run
+  // tile whose record lists a free parallel AND which has a refusal beside it.
+  // Selecting on `acrRoom` alone let the mutation silently do nothing the moment
+  // the fleet's first alongCutRuns room stopped listing a free tile, which is a
+  // case that reports ESCAPE for the wrong reason.
+  const acrFreeRoom = anyRoom((p) =>
+    (p.meta?.walls?.alongCutRuns || []).some(
+      (e) => (e.free || []).length && (p.meta?.walls?.alongCutRefused || []).some((q) => q.x === e.x && q.y === e.y),
+    ),
+  );
+  run("r13/H2f-alongCutRuns-contradicts-the-refusal", acrFreeRoom, (p) => {
     // the record says a parallel is free; the refusal beside it says none exists
-    const r = p.meta.walls.alongCutRuns.find((e) => (e.free || []).length)
-      || p.meta.walls.alongCutRuns[0];
+    const r = p.meta.walls.alongCutRuns.find(
+      (e) => (e.free || []).length && (p.meta.walls.alongCutRefused || []).some((q) => q.x === e.x && q.y === e.y),
+    );
     const e = (p.meta.walls.alongCutRefused || []).find((q) => q.x === r.x && q.y === r.y);
-    if (!e) return;
-    if ((r.free || []).length) {
-      e.why = `no interior parallel exists: ` + D8.map(([dx, dy]) =>
-        `${r.x + dx},${r.y + dy} is itself a cut tile — that is the same problem one tile over`).join(" · ");
-    }
-  }, "two published answers|One tile");
+    e.why =
+      `no interior parallel exists: ` +
+      D8.map(
+        ([dx, dy]) => `${r.x + dx},${r.y + dy} is itself a cut tile — that is the same problem one tile over`,
+      ).join(" · ");
+  }, "two published answers|One tile|that is FALSE");
 }
 
 // ---- M3: the as-built mobility CAUSE, whose value nothing re-derived ------
@@ -1710,8 +1730,15 @@ run("r13/F8-untriggered-gate", R, (p) => {
     return [...conduct].some((k) => !seen.has(k));
   });
 
+  // ROUND 14 RE-POINTED ALL FOUR OF THESE. The round-13 rule was "a gap tile
+  // must carry an OBSTACLE", and its `else` branch GRANTED the obstacle case as
+  // a conductor — a creep walking through the spawn. Walkable-and-unpaveable is
+  // the empty set in Screeps, so the rule is now a refusal of every gap claim
+  // and these cases are pointed at `PAVING GAP REFUSED`. The last one is the
+  // one that changed meaning: it used to be the honest case.
+  //
   // a container tile is NOT unpaveable — road and container legally share a tile
-  // — and the old clause called any occupied tile a gap, which is how both
+  // — and the round-12 clause called any occupied tile a gap, which is how both
   // shipped "gaps" turned out to be ordinary floor one road closes.
   run("r13/F1-gap-tile-is-a-container", seatRoom, (p) => {
     const roads = new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
@@ -1720,7 +1747,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
     p.meta.walls = p.meta.walls || {};
     p.meta.walls.conductBridge = p.meta.walls.conductBridge || {};
     p.meta.walls.conductBridge.gapTiles = [{ x: c.x, y: c.y }];
-  }, "NO obstacle");
+  }, "PAVING GAP REFUSED");
 
   // re-pointed from r12/M1-gap-tiles-deleted: the break exists and the room
   // publishes no gap at all.
@@ -1745,16 +1772,497 @@ run("r13/F8-untriggered-gate", R, (p) => {
         }
       }
     }
-  }, "NO obstacle");
+  }, "PAVING GAP REFUSED");
 
-  // ...and the OTHER direction, which is the honest case the clause keeps: a gap
-  // named over a real obstacle is admissible as a gap, and it still has to
-  // CLOSE the break. A tile a creep cannot walk closes nothing.
-  run("r13/F1-synthetic-break-gap-on-an-obstacle-closes-nothing", breakableRoom, (p) => {
+  // ...and the case that USED TO BE THE HONEST ONE, which is round 14's whole
+  // point: a gap named over a real obstacle was ADMITTED and granted conductor
+  // status, so the deferred-conduct flood walked through the storage. It is
+  // refused now, and the break behind it is still reported.
+  run("r14/A2-gap-on-an-obstacle-is-refused", breakableRoom, (p) => {
     isolateSeat(p);
     const st = p.structures.storage[0];
     p.meta.walls.conductBridge.gapTiles = [{ x: st.x, y: st.y }];
-  }, "RCL-DEFERRED CONDUCT");
+  }, "PAVING GAP REFUSED");
+  // ...and the exploit as the reviewer published it: three OBSTACLE tiles named
+  // as gaps on a room with no break at all. Under the round-13 rule all three
+  // were granted and validate passed; push-plan.mjs granted them too, so the
+  // RCL orphan sweep and the unreachable-terminal sweep walked through a spawn.
+  run("r14/A2-obstacle-gap-tiles-spawn-storage-lab", R, (p) => {
+    const sp = (p.structures.spawn || [])[0];
+    const st = (p.structures.storage || [])[0];
+    const lb = (p.structures.lab || [])[0];
+    p.meta.walls = p.meta.walls || {};
+    p.meta.walls.conductBridge = p.meta.walls.conductBridge || {};
+    p.meta.walls.conductBridge.gapTiles = [sp, st, lb].filter(Boolean).map((t) => ({ x: t.x, y: t.y }));
+  }, "PAVING GAP REFUSED");
+  // a gap on natural wall — nothing walks it, and it was refused before too
+  run("r14/A2-gap-on-natural-wall", R, (p, t) => {
+    p.meta.walls = p.meta.walls || {};
+    p.meta.walls.conductBridge = p.meta.walls.conductBridge || {};
+    for (let x = 1; x <= 48; x++) {
+      for (let y = 1; y <= 48; y++) {
+        if (isWall(t.terrain, x, y)) {
+          p.meta.walls.conductBridge.gapTiles = [{ x, y }];
+          return;
+        }
+      }
+    }
+  }, "PAVING GAP REFUSED");
+}
+
+// ===========================================================================
+// ROUND 14 — THE RECORD, THE SCHEMA AND THE FIELDS WITH NO READER.
+//
+// Round 13 made every declaration's PARAGRAPH generated from its record. Round
+// 14's reviewers made the obvious next move: falsify the RECORD and regenerate
+// the paragraph with the shipped renderer, so producer and validator agree
+// byte-for-byte and only the record's own content stands between the lie and a
+// pass. Nine landed. Every one of them is a case below, planted the same way —
+// `record` edited, `detail` regenerated by `renderDecl`.
+//
+// The rest of the block is the same shape one level out: fields that had no
+// reader at all (`srcEnclosed`, `towerClump`, `pairCause`, `spurTiles`),
+// obligations that could be switched off by deleting a meta key, and a
+// re-derivation whose SCOPE was its own producer's answer.
+// ===========================================================================
+{
+  /** plant a lie in a record and regenerate the paragraph from it */
+  const planted = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+  };
+  const withDecl = (gate, kind, pred) =>
+    anyRoom((p) => {
+      const d = declOf(p, gate, kind);
+      if (!d) return false;
+      return !pred || pred(d, p);
+    });
+
+  // ---- A1: the nine landed record lies, verbatim ---------------------------
+  run("r14/A1-labs-haulDist-lowered-to-the-fleet-median",
+    withDecl("labs", "lab-haul", (d) => typeof d.labs?.haulDist === "number"),
+    planted("labs", "lab-haul", (d) => { d.labs.haulDist = d.labs.fleetMedian; }),
+    "`labs.haulDist` says");
+  run("r14/A1-spawnFan-fanned-trade-laundered-into-impossibility",
+    withDecl("spawnFan", "sector", (d) => d.spawnFan?.census?.fannedAvailable),
+    planted("spawnFan", "sector", (d) => {
+      d.spawnFan.census.fannedTriples = 0;
+      d.spawnFan.census.fannedAvailable = null;
+    }),
+    "same census");
+  run("r14/A1-spawnFan-census-arithmetic-broken",
+    withDecl("spawnFan", "sector", (d) => typeof d.spawnFan?.census?.pool === "number"),
+    planted("spawnFan", "sector", (d) => {
+      d.spawnFan.census.pool = 999;
+      d.spawnFan.census.viable = 999;
+    }),
+    "(same census|does not close)");
+  run("r14/A1-ctrlParks-seat-ceiling-deflated",
+    withDecl("ctrlParks", "seats", (d) => d.ctrlParks?.census?.runnerUp),
+    planted("ctrlParks", "seats", (d) => {
+      d.ctrlParks.census.maxParks = Math.max(0, d.ctrlParks.census.maxParks - 1);
+      d.ctrlParks.census.runnerUp.parks = d.ctrlParks.census.maxParks;
+    }),
+    "runnerUp.parks");
+  run("r14/A1-ctrlParks-held-inflated",
+    withDecl("ctrlParks", "released", (d) => typeof d.ctrlParks?.held === "number"),
+    planted("ctrlParks", "released", (d) => { d.ctrlParks.held = 99; }),
+    "`ctrlParks.held` says");
+  run("r14/A1-ctrlParks-deepTiles-falsified",
+    withDecl("ctrlParks", "released", (d) => typeof d.ctrlParks?.deepTiles === "number"),
+    planted("ctrlParks", "released", (d) => { d.ctrlParks.deepTiles = 1; }),
+    "`ctrlParks.deepTiles` says");
+  run("r14/A1-battlements-strandedByMass-zeroed",
+    withDecl("battlements", "unreachable", (d) => d.battlements?.strandedByMass > 0),
+    planted("battlements", "unreachable", (d) => { d.battlements.strandedByMass = 0; }),
+    "`battlements.strandedByMass` says");
+  run("r14/A1-battlements-unreachable-zeroed",
+    withDecl("battlements", "unreachable", (d) => d.battlements?.unreachable > 0),
+    planted("battlements", "unreachable", (d) => { d.battlements.unreachable = 0; }),
+    "`battlements.unreachable` says");
+  run("r14/A1-labs-eatAnchors-inflated",
+    withDecl("labs", "lab-road-eat", (d) => typeof d.labs?.eatAnchors === "number"),
+    planted("labs", "lab-road-eat", (d) => { d.labs.eatAnchors = 99; }),
+    "eatAnchors");
+  run("r14/A1-offNetwork-road-count-and-seats-falsified",
+    withDecl("misc", "off-network"),
+    planted("misc", "off-network", (d) => {
+      d.offNetwork.roads = 1;
+      d.offNetwork.seats = 99;
+    }),
+    "`offNetwork\\.(roads|seats)` says");
+  run("r14/A1-labs-fallbackAnchors-zeroed",
+    withDecl("labs", "shallow-lab", (d) => d.labs?.fallbackAnchors > 0),
+    planted("labs", "shallow-lab", (d) => { d.labs.fallbackAnchors = 0; }),
+    "`labs.fallbackAnchors` says");
+  // ...and these two SYNTHESISE the declaration rather than looking for a room
+  // carrying one. `towerRefill` fires only on a room over the hard MAX_REFILL,
+  // and round 14's board fix took the fleet's only such room off the list — so a
+  // room-seeking case would have quietly stopped testing the gate on exactly the
+  // artifact that fixed the board. The kind's record is two numbers; both are
+  // re-derived, so a planted declaration is caught on its own content.
+  const plantTowerRefill = (edit) => (p) => {
+    const d = {
+      gate: "towerRefill",
+      kind: null,
+      detail: "",
+      towerRefill: { maxRefill: p.meta?.towers?.maxRefill ?? 0, cap: 10 },
+    };
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+    p.meta.shortfalls = [...(p.meta.shortfalls || []), d];
+  };
+  run("r14/A1-towerRefill-maxRefill-inside-its-own-cap",
+    roomWith((p) => (p.meta?.towers?.maxRefill ?? 0) !== 3),
+    plantTowerRefill((d) => { d.towerRefill.maxRefill = 3; }),
+    "`towerRefill.maxRefill` says");
+  run("r14/A1-towerRefill-cap-raised", R,
+    plantTowerRefill((d) => { d.towerRefill.cap = 99; }),
+    "`towerRefill.cap` says");
+  run("r14/A1-ctrlParks-built-inflated",
+    withDecl("ctrlParks", "seats", (d) => typeof d.ctrlParks?.built === "number"),
+    planted("ctrlParks", "seats", (d) => { d.ctrlParks.built = d.ctrlParks.built + 2; }),
+    "`ctrlParks.built` says");
+
+  // ---- A1: the closure rule itself ----------------------------------------
+  run("r14/A1-unclassified-leaf-invented", withDecl("misc", "off-network"), (p) => {
+    declOf(p, "misc", "off-network").offNetwork.freebie = 42;
+  }, "record-leaf inventory in this file does not name it");
+  run("r14/A1-unclassified-block-invented", withDecl("battlements", "unreachable"), (p) => {
+    declOf(p, "battlements", "unreachable").invented = { a: 1, b: 2 };
+  }, "record-leaf inventory in this file does not name it");
+  run("r14/A1-witnessed-counter-is-not-a-number", withDecl("towers", "clump"), (p) => {
+    declOf(p, "towers", "clump").dispersion.search.singleSwapsTried = "lots";
+  }, "not a non-negative number");
+  run("r14/A1-witnessed-boolean-is-not-a-boolean", withDecl("towers", "weak-battery"), (p) => {
+    declOf(p, "towers", "weak-battery").towers.search.converged = "yes";
+  }, "not a boolean");
+
+  // ---- A1: the rest of the derived surface, one leaf per kind --------------
+  run("r14/A1-battlements-cutTiles-falsified",
+    withDecl("battlements", "unreachable"),
+    (p) => { declOf(p, "battlements", "unreachable").battlements.cutTiles = 3; },
+    "(cutTiles|does not name it)");
+  run("r14/A1-shell-linkOnCut-count-falsified", withDecl("shell", null),
+    planted("shell", null, (d) => { d.linkOnCut.onCut = 5; }),
+    "`linkOnCut.onCut` says");
+  run("r14/A1-shell-linkOnCut-cutTiles-falsified", withDecl("shell", null),
+    planted("shell", null, (d) => { d.linkOnCut.cutTiles = 7; }),
+    "`linkOnCut.cutTiles` says");
+  run("r14/A1-offNetwork-mineral-tile-moved", withDecl("misc", "off-network"),
+    planted("misc", "off-network", (d) => { d.offNetwork.mineral = { x: 1, y: 1 }; }),
+    "`offNetwork.mineral");
+  run("r14/A1-offNetwork-cooldown-constants-falsified", withDecl("misc", "off-network"),
+    planted("misc", "off-network", (d) => { d.offNetwork.extractorCooldown = 1; d.offNetwork.regenTicks = 10; }),
+    "`offNetwork\\.(extractorCooldown|regenTicks)` says");
+  run("r14/A1-clump-sitter-moved", withDecl("towers", "clump"),
+    planted("towers", "clump", (d) => { d.clump.sitter = { x: 1, y: 1 }; }),
+    "`clump.sitter");
+  run("r14/A1-clump-note-line-moved", withDecl("towers", "clump"),
+    planted("towers", "clump", (d) => { d.clump.note = 99; }),
+    "`clump.note` says");
+  run("r14/A1-battery-weakTiles-falsified", withDecl("towers", "weak-battery"),
+    planted("towers", "weak-battery", (d) => { d.battery.weakTiles = 9; }),
+    "`battery.weakTiles` says");
+  run("r14/A1-battery-worst-tile-moved", withDecl("towers", "weak-battery"),
+    planted("towers", "weak-battery", (d) => { d.battery.worst = { x: 1, y: 1 }; }),
+    "`battery.worst");
+  run("r14/A1-battery-hard-cap-raised", withDecl("towers", "weak-battery"),
+    planted("towers", "weak-battery", (d) => { d.battery.maxRefillHard = 99; }),
+    "`battery.maxRefillHard` says");
+  run("r14/A1-eco-bearing-falsified", withDecl("eco", null, (d) => d.eco?.ctrlBearing),
+    planted("eco", null, (d) => { d.eco.ctrlBearing = d.eco.ctrlBearing === "N" ? "S" : "N"; }),
+    "`eco.ctrlBearing` says");
+  run("r14/A1-eco-spread-pair-renamed", withDecl("eco", null, (d) => d.eco?.spreadPair),
+    planted("eco", null, (d) => { d.eco.spreadPair = "controller 1,1 and source 1 2,2"; }),
+    "`eco.spreadPair` says");
+  run("r14/A1-eco-fleet-median-room-count-falsified", withDecl("eco", null),
+    planted("eco", null, (d) => { d.eco.fleetMediansMeasured.rooms = 3; }),
+    "`eco.fleetMediansMeasured.rooms` says");
+  run("r14/A1-eco-cheb-floor-falsified", withDecl("eco", null),
+    planted("eco", null, (d) => { d.eco.chebFloor = 0; }),
+    "`eco.chebFloor` says");
+  run("r14/A1-shallowExt-depthSafe-moved", withDecl("extensions", "shallow"),
+    planted("extensions", "shallow", (d) => { d.shallowExt.depthSafe = 2; }),
+    "`shallowExt.depthSafe` says");
+  run("r14/A1-shallowExt-slot-record-truncated", withDecl("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length > 1),
+    (p) => { declOf(p, "extensions", "shallow").shallowExt.slots = []; },
+    "per-slot record has");
+  run("r14/A1-runtime-ladder-length-falsified", withDecl("runtime", "heavy-search"),
+    planted("runtime", "heavy-search", (d) => { d.runtime.ladder = 40; }),
+    "`runtime.ladder` says");
+  run("r14/A1-runtime-seedSkip-falsified", withDecl("runtime", "heavy-search"),
+    planted("runtime", "heavy-search", (d) => { d.runtime.seedSkip = 9; }),
+    "`runtime.seedSkip` says");
+  run("r14/A1-mobility-metric-target-moved", withDecl("mobility", null),
+    planted("mobility", null, (d) => { d.metric.target = 9; }),
+    "`metric.target` says");
+  run("r14/A1-mobility-mass-adds-falsified", withDecl("mobility", null, (d) => typeof d.mass?.adds === "number"),
+    planted("mobility", null, (d) => { d.mass.adds = d.mass.adds + 7; }),
+    "`mass.adds` says");
+  run("r14/A1-mobility-worst-pair-moved", withDecl("mobility", null, (d) => d.worst?.a),
+    planted("mobility", null, (d) => { d.worst.a = { x: 1, y: 1 }; }),
+    "`worst.a");
+  run("r14/A1-mobility-worstCaused-flipped", withDecl("mobility", null, (d) => typeof d.worstCaused === "boolean"),
+    planted("mobility", null, (d) => { d.worstCaused = !d.worstCaused; }),
+    "`worstCaused` says");
+  run("r14/A1-mobility-lift-ownPct-inflated", withDecl("mobility", null, (d) => d.lift && typeof d.lift.ownPct === "number"),
+    planted("mobility", null, (d) => { d.lift.ownPct = 100; }),
+    "`lift.ownPct` says");
+  run("r14/A1-mobility-ladder-rung-count-mismatched",
+    withDecl("mobility", null, (d) => Array.isArray(d.ladder?.rungs) && d.ladder.rungs.length > 1),
+    (p) => { declOf(p, "mobility", null).ladder.rungs = [declOf(p, "mobility", null).ladder.rungs[0]]; },
+    "rung\\(s\\) and `trailLength` says");
+  run("r14/A1-mobility-negotiated-pair-off-the-board",
+    withDecl("mobility", null, (d) => Array.isArray(d.negotiated?.tiles) && d.negotiated.tiles.length === 2),
+    (p) => { declOf(p, "mobility", null).negotiated.tiles = [{ x: 0, y: 0 }, { x: 0, y: 0 }]; },
+    "not a walkable tile of this room");
+  run("r14/A1-covered-detour-noWalls-falsified", withDecl("mobility", "covered-detour"),
+    planted("mobility", "covered-detour", (d) => { d.record.noWalls = 1; }),
+    "`record.noWalls` says");
+  run("r14/A1-covered-detour-cause-relabelled", withDecl("mobility", "covered-detour"),
+    planted("mobility", "covered-detour", (d) => { d.cause = d.cause === "terrain" ? "shape" : "terrain"; }),
+    "`cause` says");
+
+  // ---- A2 is above, with the r13/F1 cases it re-points ---------------------
+
+  // ---- A4: roadKind presence, coverage and enum ---------------------------
+  const rkRoom = roomWith((p) => Object.keys(p.meta?.walls?.roadKind || {}).length > 0);
+  run("r14/A4-roadKind-map-deleted", rkRoom, (p) => { delete p.meta.walls.roadKind; },
+    "SCHEMA — `meta.walls.roadKind`");
+  run("r14/A4-roadKind-map-emptied", rkRoom, (p) => { p.meta.walls.roadKind = {}; },
+    "carry NO provenance");
+  run("r14/A4-roadKind-map-is-an-array", rkRoom, (p) => { p.meta.walls.roadKind = []; },
+    "SCHEMA — `meta.walls.roadKind`");
+  run("r14/A4-roadKind-one-tile-unclassified", rkRoom, (p) => {
+    delete p.meta.walls.roadKind[Object.keys(p.meta.walls.roadKind)[0]];
+  }, "carry NO provenance");
+  run("r14/A4-roadKind-phantom-key-on-an-earlier-layer-road", rkRoom, (p) => {
+    const early = Object.keys(p.meta.roadLayer || {}).find((k) => p.meta.roadLayer[k] === 1);
+    if (early) p.meta.walls.roadKind[early] = "spur";
+  }, "not a live layer-7 road");
+
+  // ---- A5 / A7: the delete-escapes -----------------------------------------
+  run("r14/A5-towerDispersion-deleted", R, (p) => { delete p.meta.towers.towerDispersion; },
+    "SCHEMA — `meta.towers.towerDispersion`");
+  run("r14/A5-towerDispersion-after-deleted", R, (p) => { delete p.meta.towers.towerDispersion.after; },
+    "SCHEMA — `meta.towers.towerDispersion`");
+  run("r14/A5-shippedMinShellDmg-deleted", R, (p) => { delete p.meta.towers.shippedMinShellDmg; },
+    "SCHEMA — `meta.towers.shippedMinShellDmg`");
+  run("r14/A5-shippedMinShellDmg-is-prose", R, (p) => { p.meta.towers.shippedMinShellDmg = "lots"; },
+    "SCHEMA — `meta.towers.shippedMinShellDmg`");
+  {
+    const rel = roomWithDecl("ctrlParks", "released");
+    run("r14/A7-released-obligation-suppressed-by-deleting-ctrlParkFloor", rel, (p) => {
+      p.meta.shortfalls = (p.meta.shortfalls || []).filter(
+        (sf) => !(sf.gate === "ctrlParks" && sf.kind === "released"),
+      );
+      delete p.meta.ctrlParkFloor;
+    }, "SCHEMA — `meta.ctrlParkFloor`");
+    run("r14/A7-released-obligation-suppressed-by-deleting-ctrlParksAtSeatSearch", rel, (p) => {
+      p.meta.shortfalls = (p.meta.shortfalls || []).filter(
+        (sf) => !(sf.gate === "ctrlParks" && sf.kind === "released"),
+      );
+      delete p.meta.ctrlParksAtSeatSearch;
+    }, "SCHEMA — `meta.ctrlParksAtSeatSearch`");
+  }
+
+  // ---- A6: srcEnclosed, the field with no reader ---------------------------
+  {
+    const openRoom = roomWith((p) => (p.meta?.shell?.srcEnclosed || []).some((v) => v === false));
+    const closedRoom = roomWith((p) => (p.meta?.shell?.srcEnclosed || []).some((v) => v === true));
+    run("r14/A6-srcEnclosed-over-claimed", openRoom, (p) => {
+      p.meta.shell.srcEnclosed = p.meta.shell.srcEnclosed.map(() => true);
+    }, "ENCLOSED SOURCES STALE");
+    run("r14/A6-srcEnclosed-under-claimed", closedRoom, (p) => {
+      p.meta.shell.srcEnclosed = p.meta.shell.srcEnclosed.map(() => false);
+    }, "ENCLOSED SOURCES STALE");
+    run("r14/A6-srcEnclosed-deleted", closedRoom, (p) => { delete p.meta.shell.srcEnclosed; },
+      "ENCLOSED SOURCES UNPUBLISHED");
+    run("r14/A6-srcEnclosed-truncated", closedRoom, (p) => { p.meta.shell.srcEnclosed = [true]; },
+      "ENCLOSED SOURCES UNPUBLISHED");
+  }
+
+  // ---- A8: pairCause, published by every room and re-derived by nothing ----
+  {
+    const pcRoom = roomWith((p) => {
+      const mb = p.meta?.shell?.mobilityBuilt;
+      return mb && mb.pairCause && mb.pairCause !== "none" && declOf(p, "mobility", null);
+    });
+    run("r14/A8-pairCause-relabelled-on-both-copies", pcRoom, (p) => {
+      const mb = p.meta.shell.mobilityBuilt;
+      const other = mb.pairCause === "terrain" ? "shape" : "terrain";
+      mb.pairCause = other;
+      const d = declOf(p, "mobility", null);
+      if (d) {
+        d.pairCause = other;
+        d.detail = renderDecl({ ...d, detail: undefined });
+      }
+    }, "`pairCause` says");
+    run("r14/A8-pairCause-on-a-room-with-no-gated-pair",
+      roomWith((p) => p.meta?.shell?.mobilityBuilt?.pairCause === "none"),
+      (p) => { p.meta.shell.mobilityBuilt.pairCause = "structures"; },
+      "`pairCause` says");
+    run("r14/A8-causeWalks-noStructures-falsified",
+      withDecl("mobility", null, (d) => typeof d.causeWalks?.noStructures === "number"),
+      planted("mobility", null, (d) => { d.causeWalks.noStructures = 1; }),
+      "`causeWalks.noStructures`");
+    run("r14/A8-causeWalks-noWalls-falsified",
+      withDecl("mobility", null, (d) => typeof d.causeWalks?.noWalls === "number"),
+      planted("mobility", null, (d) => { d.causeWalks.noWalls = 99; }),
+      "`causeWalks.noWalls`");
+  }
+
+  // ---- A9: towerClump, the other published 5x5 counter ---------------------
+  run("r14/A9-towerClump-count-inflated", R, (p) => {
+    p.meta.towers.towerClump.withinCheb2OfSitter += 3;
+  }, "TOWER CLUMP STALE");
+  run("r14/A9-towerClump-count-zeroed-on-a-clumped-room", roomWithDecl("towers", "clump"), (p) => {
+    p.meta.towers.towerClump.withinCheb2OfSitter = 0;
+  }, "TOWER CLUMP STALE");
+  run("r14/A9-towerClump-deleted", R, (p) => { delete p.meta.towers.towerClump; },
+    "TOWER CLUMP UNPUBLISHED");
+  run("r14/A9-towerClump-tiles-emptied", roomWithDecl("towers", "clump"), (p) => {
+    p.meta.towers.towerClump.tiles = [];
+  }, "TOWER CLUMP STALE");
+  run("r14/A9-towerClump-tiles-invented", R, (p) => {
+    p.meta.towers.towerClump.tiles = [{ x: 1, y: 1 }, { x: 2, y: 2 }];
+  }, "TOWER CLUMP STALE");
+
+  // ---- A10: spurTiles laid vs shipped --------------------------------------
+  {
+    const spurRoom = roomWith((p) => (p.meta?.walls?.spurTiles || 0) > 0);
+    run("r14/A10-spurTiles-inflated", spurRoom, (p) => { p.meta.walls.spurTiles *= 10; },
+      "meta.walls.spurTiles says stage 5 laid");
+    run("r14/A10-spurTiles-below-the-shipped-count", spurRoom, (p) => { p.meta.walls.spurTiles = 0; },
+      "can never be the smaller of the two");
+    // THE LOST LIST NAMES TILES THE ROOM STILL SHIPS AS SPURS. Two spellings,
+    // because the producer publishes both channels: `spurTilesLost` directly,
+    // and `spurTilesLaidList` from which lost is the subtraction. Both are held
+    // to the same fact — a tile cannot be both lost and live.
+    run("r14/A10-spurTilesLost-names-a-live-spur", spurRoom, (p) => {
+      const rk = p.meta.walls.roadKind || {};
+      const live = Object.keys(rk).filter((k) => rk[k] === "spur");
+      if (!live.length) throw new Error("no spur tiles");
+      const pts = live.map((k) => {
+        const [x, y] = k.split(",").map(Number);
+        return { x, y };
+      });
+      p.meta.walls.spurTiles = p.meta.walls.spurTiles + live.length;
+      p.meta.walls.spurTilesLost = pts;
+      // keep the laid list consistent with the inflated count so the case tests
+      // the lost-vs-live rule and not the arithmetic in front of it
+      if (Array.isArray(p.meta.walls.spurTilesLaidList)) {
+        p.meta.walls.spurTilesLaidList = [...p.meta.walls.spurTilesLaidList, ...pts];
+      }
+    }, "cannot be both lost and live");
+    run("r14/A10-lost-list-contradicts-its-own-subtraction", spurRoom, (p) => {
+      if (!Array.isArray(p.meta.walls.spurTilesLaidList)) throw new Error("no laid list");
+      p.meta.walls.spurTilesLost = [{ x: 1, y: 1 }];
+    }, "second answer to one question|accounts for");
+    run("r14/A10-laid-list-omits-a-tile-the-room-ships-as-a-spur", spurRoom, (p) => {
+      const rk = p.meta.walls.roadKind || {};
+      const live = Object.keys(rk).filter((k) => rk[k] === "spur");
+      if (!Array.isArray(p.meta.walls.spurTilesLaidList) || !live.length) throw new Error("no laid list");
+      const [lx, ly] = live[0].split(",").map(Number);
+      p.meta.walls.spurTilesLaidList = p.meta.walls.spurTilesLaidList.filter(
+        (t) => !(t.x === lx && t.y === ly),
+      );
+    }, "was laid by the spur pass|names \\d+ distinct tile");
+    run("r14/A10-spurTilesShipped-does-not-count-the-map", spurRoom, (p) => {
+      p.meta.walls.spurTilesShipped = 999;
+    }, "meta.walls.spurTilesShipped says");
+  }
+
+  // ---- A11: the run roster is the WALL's, not the cut's --------------------
+  {
+    const runRoom = roomWith((p) => {
+      const road = new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
+      const rr = new Set((p.structures.rampart || []).filter((r) => road.has(key(r.x, r.y))).map((r) => key(r.x, r.y)));
+      return [...rr].some((k) => {
+        const [x, y] = k.split(",").map(Number);
+        return D8.some(([dx, dy]) => rr.has(key(x + dx, y + dy)));
+      });
+    });
+    run("r14/A11-run-refusals-deleted", runRoom, (p) => { p.meta.walls.alongCutRefused = []; },
+      "files no refusal for it");
+    run("r14/A11-run-roster-record-emptied", runRoom, (p) => { p.meta.walls.alongCutRuns = []; },
+      "the board's own D8 run roster");
+  }
+
+  // ---- A3: the extractor's exemption belongs to the plan -------------------
+  {
+    const exRoom = anyRoom((p) => {
+      const d = declOf(p, "misc", "off-network");
+      if (!d) return false;
+      const ex = (p.structures.extractor || [])[0];
+      return ex && (d.tiles || []).some((t) => t.x === ex.x && t.y === ex.y);
+    });
+    run("r14/A3-extractor-declaration-dropped", exRoom, (p) => {
+      const d = declOf(p, "misc", "off-network");
+      const ex = (p.structures.extractor || [])[0];
+      d.tiles = (d.tiles || []).filter((t) => !(t.x === ex.x && t.y === ex.y));
+    }, "no-road x");
+    // ...and the other direction: the exemption may not be claimed for an
+    // extractor a hauler CAN already reach. Synthesised by paving one tile that
+    // joins the extractor to the network the room already has, and leaving the
+    // declaration standing.
+    const joinTile = (p, t) => {
+      const ex = (p.structures.extractor || [])[0];
+      if (!ex || !t) return null;
+      const roads = new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
+      const occ = new Set();
+      for (const [ty, arr] of Object.entries(p.structures)) {
+        if (ty === "rampart" || ty === "road") continue;
+        for (const q of arr || []) occ.add(key(q.x, q.y));
+      }
+      for (const [dx, dy] of D8) {
+        const x = ex.x + dx;
+        const y = ex.y + dy;
+        if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+        const k = key(x, y);
+        if (isWall(t.terrain, x, y) || occ.has(k) || roads.has(k)) continue;
+        if (!D8.some(([ax, ay]) => roads.has(key(x + ax, y + ay)))) continue;
+        return { x, y };
+      }
+      return null;
+    };
+    const exRoomJoinable = anyRoom((p) => {
+      const d = declOf(p, "misc", "off-network");
+      const ex = (p.structures.extractor || [])[0];
+      if (!d || !ex || !(d.tiles || []).some((q) => q.x === ex.x && q.y === ex.y)) return false;
+      return !!joinTile(p, T(p.room));
+    });
+    run("r14/A3-extractor-claimed-off-network-when-it-is-on", exRoomJoinable, (p, t) => {
+      const ex = (p.structures.extractor || [])[0];
+      const roads = new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
+      const occ = new Set();
+      for (const [ty, arr] of Object.entries(p.structures)) {
+        if (ty === "rampart" || ty === "road") continue;
+        for (const q of arr || []) occ.add(key(q.x, q.y));
+      }
+      for (const [dx, dy] of D8) {
+        const x = ex.x + dx;
+        const y = ex.y + dy;
+        if (x < 1 || y < 1 || x > 48 || y > 48) continue;
+        const k = key(x, y);
+        if (isWall(t.terrain, x, y) || occ.has(k) || roads.has(k)) continue;
+        if (!D8.some(([ax, ay]) => roads.has(key(x + ax, y + ay)))) continue;
+        p.structures.road = [...(p.structures.road || []), { x, y }];
+        p.meta.roadLayer = p.meta.roadLayer || {};
+        p.meta.roadLayer[k] = 1;
+        return;
+      }
+      throw new Error("no tile joins this extractor to the network in one pave");
+    }, "it IS on the network");
+    run("r14/A3-off-network-names-a-tile-that-is-neither", exRoom, (p) => {
+      const d = declOf(p, "misc", "off-network");
+      const st = (p.structures.storage || [])[0];
+      d.tiles = [...(d.tiles || []), { x: st.x, y: st.y }];
+    }, "neither a container nor this room's extractor");
+  }
 }
 
 // ===========================================================================

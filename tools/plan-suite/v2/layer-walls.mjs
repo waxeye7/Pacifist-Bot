@@ -2857,6 +2857,26 @@ export function planWallRoads(terrain, plan) {
   // ------------------------------------------------------------------
   // (5b) A ROAD THAT RUNS ALONG THE WALL IS A LADDER, NOT A GATE.
   //
+  // ...AND "THE WALL" IS EVERY RAMPART THIS ROOM SHIPS, NOT JUST THE CUT.
+  //
+  // This pass used to iterate `cut`, which is one of FOUR classes of ramparted
+  // tile the plan carries (see classifyRoadRamparts: 235 wall crossings on the
+  // cut, 30 bubble seats, 13 controller stand-denial ring, 0 personal cover).
+  // Scoped to the cut it saw 7 rooms / 14 run tiles; the run roster over every
+  // road+rampart tile is 12 rooms / 26 tiles. The twelve it could not see are
+  // the same anti-pattern on a rampart it was not looking at — E5S9 22,19~22,18,
+  // E14S3 10,41~9,40, E5S5 17,19~17,20, E4S1 16,42~17,42 and E21S3's four —
+  // and in E5S9's case there is a free interior parallel one tile over that was
+  // never offered, because the detector needed BOTH ends of the pair to be cut
+  // tiles and only one of them was.
+  //
+  // A creep walking a prepared surface does not know which rampart class it is
+  // standing on. So the roster is every tile carrying a road and a rampart, the
+  // "same problem one tile over" test is against the whole rampart set, and the
+  // classes that cannot be repaired at all (a bubble seat's road exists because
+  // the miner's container is there) are REFUSED BY NAME rather than by not being
+  // looked at.
+  //
   // "Roads TO ramparts, never ON them" is the doctrine, and the pipeline is
   // careful about it in every direction it controls: layer 7 refuses to pave a
   // cut tile at all (`addRoad` checks `cutSet`). The coincidences that ship come
@@ -2947,9 +2967,10 @@ export function planWallRoads(terrain, plan) {
       return null;
     };
     let live = liveNow();
-    const onCut = (k) => cutSet.has(k);
+    /** "along the wall" is along ANY rampart this room carries — see the block above */
+    const onWall = (k) => rampartSet.has(k);
     const runTiles = [];
-    for (const c of cut) {
+    for (const c of plan.structures.rampart || []) {
       const k = key(c.x, c.y);
       if (!live.has(k)) continue;
       // ----------------------------------------------------------------
@@ -2966,13 +2987,27 @@ export function planWallRoads(terrain, plan) {
       // shipped a diagonal run with nothing said about it: E2S1 25,6~26,5 and
       // E12S7 23,23~24,24.
       // ----------------------------------------------------------------
-      if (!D8.some(([dx, dy]) => onCut(key(c.x + dx, c.y + dy)) && live.has(key(c.x + dx, c.y + dy)))) continue;
-      runTiles.push(c);
+      if (!D8.some(([dx, dy]) => onWall(key(c.x + dx, c.y + dy)) && live.has(key(c.x + dx, c.y + dy)))) continue;
+      runTiles.push({ x: c.x, y: c.y });
     }
     runTiles.sort((a, b) => a.y - b.y || a.x - b.x);
     for (const c of runTiles) {
       const k = key(c.x, c.y);
       if (!live.has(k)) continue;
+      // A ROAD THAT IS SOMEBODY'S SEAT CANNOT BE MOVED, ONLY DELETED — and the
+      // refusal still owes the parallel census. A bubble seat is a miner's
+      // container outside the shell wearing its own rampart, standing on the road
+      // that exists to reach it; sliding that road one tile inboard does not
+      // slide the container, it strands it. That is a refusal on grounds that
+      // have nothing to do with what is inboard — so it would be easy to file it
+      // WITHOUT looking, and that is exactly what must not happen: every other
+      // refusal in this pass answers "is there anywhere inboard for this road to
+      // go", the `alongCutRuns` census re-derives that answer on the shipped
+      // board, and a refusal that declines to answer it leaves the two records
+      // unable to agree. So the seat is noted below, after the census, and the
+      // sentence states both facts in the order a reader (and the validator's
+      // re-derivation) asks them.
+      const isSeat = containerSet.has(k);
       // the interior parallel: a D8 neighbour that is inside the wall, free
       // floor, not the wall itself and not already paved. D8 for the same
       // reason the run detector above is D8 — a diagonal tile is one step, so
@@ -3001,12 +3036,26 @@ export function planWallRoads(terrain, plan) {
           rejected.push(`${x},${y} is natural wall`);
           continue;
         }
-        if (ext[idx(x, y)]) {
-          rejected.push(`${x},${y} is OUTSIDE the wall — moving the road there is not an interior parallel`);
+        // ORDER MATTERS, AND IT IS THE RAMPART TEST FIRST.
+        //
+        // These reasons are RE-DERIVED by the validator on the board the room
+        // SHIPS, and this pass runs mid-pipeline against layer 2's exterior
+        // flood. The two disagree about tiles the later layers ramparted: E21S3's
+        // 22,24 and E5S9's 22,18 are bubble seats, OUTSIDE layer 2's flood and
+        // INSIDE the shipped one, and asking `ext` first made the refusal say
+        // "22,24 is OUTSIDE the wall" — a claim that re-derives FALSE on the
+        // shipped board and therefore says nothing, even though the tile really
+        // is unusable. "It is itself a ramparted tile" is true on BOTH boards and
+        // is the stronger reason anyway, so it is asked first.
+        if (rampartSet.has(tk)) {
+          rejected.push(
+            `${x},${y} is itself a ramparted tile${cutSet.has(tk) ? ` on the cut` : ``} — that is the ` +
+              `same problem one tile over`,
+          );
           continue;
         }
-        if (cutSet.has(tk)) {
-          rejected.push(`${x},${y} is itself a cut tile — that is the same problem one tile over`);
+        if (ext[idx(x, y)]) {
+          rejected.push(`${x},${y} is OUTSIDE the wall — moving the road there is not an interior parallel`);
           continue;
         }
         if (occupied.has(tk)) {
@@ -3019,11 +3068,34 @@ export function planWallRoads(terrain, plan) {
         }
         targets.push({ x, y, k: tk });
       }
+      const seatTail = isSeat
+        ? ` — and this tile carries a CONTAINER in any case, so the road under it is the seat itself ` +
+          `and not a lane passing through: moving it inboard would leave the container with a road ` +
+          `beside it instead of under it, which is a worse room, not a repaired one`
+        : ``;
       if (!targets.length) {
         alongCutRefused.push({
           x: c.x,
           y: c.y,
-          why: `no interior parallel exists: ${rejected.join(" · ")}`,
+          kind: isSeat ? "seat" : "no-parallel",
+          why: `no interior parallel exists: ${rejected.join(" · ")}${seatTail}`,
+        });
+        continue;
+      }
+      if (isSeat) {
+        alongCutRefused.push({
+          x: c.x,
+          y: c.y,
+          kind: "seat",
+          offered: targets.map((t) => ({ x: t.x, y: t.y })),
+          why:
+            `this tile carries a CONTAINER, so the road under it is the seat itself and not a lane ` +
+            `passing through: moving it inboard would leave the container with a road beside it ` +
+            `instead of under it, which is a worse room, not a repaired one. ` +
+            `${targets.length} interior ${targets.length === 1 ? "parallel" : "parallels"} ` +
+            `${targets.length === 1 ? "does" : "do"} exist ` +
+            `(${targets.map((t) => `${t.x},${t.y}`).join(" ")}) and the refusal is not about them` +
+            (rejected.length ? `. The other neighbours: ${rejected.join(" · ")}` : ``),
         });
         continue;
       }
@@ -3046,6 +3118,10 @@ export function planWallRoads(terrain, plan) {
         alongCutRefused.push({
           x: c.x,
           y: c.y,
+          kind: "breaks-network",
+          // the parallels that WERE offered, named, so a gate can check the claim
+          // against the shipped board without parsing the sentence
+          offered: targets.map((t) => ({ x: t.x, y: t.y })),
           why:
             `every interior parallel breaks the network. ${broke.join(" · ")}. The swap is offered ` +
             `at equal road count and taken only when the network is measurably no worse; ` +
@@ -3130,6 +3206,51 @@ export function planWallRoads(terrain, plan) {
     const k = key(r.x, r.y);
     roadKindKept[k] = roadKind[k] || "unclassified";
   }
+  // ------------------------------------------------------------------
+  // LAID IS NOT SHIPPED, AND EVERY COUNTER ABOVE IS A LAID COUNTER.
+  //
+  // `spurTiles`, `stitchTiles`, `fillerTiles` and `swampPaved` are incremented
+  // as this layer paves. The dead-end prune then runs — twice, and a third time
+  // after the reflow — and it is allowed to delete tiles this layer laid a
+  // moment earlier. So "spurTiles: 4" means "the spur pass paved four tiles",
+  // which is not the same claim as "this room ships four spur tiles", and
+  // nothing published the second number: a reader holding the artifact could
+  // count the shipped tiles by sub-kind and get a different answer from the
+  // headline with no way to tell which was wrong. An inflated laid-count is
+  // exactly the thing a reconciliation gate has to be able to bite on.
+  //
+  // Both figures ship. The laid counters keep their names (they are what the
+  // pass did) and the shipped census is derived from the sub-kind map restricted
+  // to surviving tiles — the same map the film and the note read, so all three
+  // reconcile by construction.
+  // ------------------------------------------------------------------
+  // ...and the tiles that went MISSING between laid and shipped, named. A count
+  // difference nobody can point at is exactly the "claim about a board nobody
+  // shipped" this pair of figures exists to close, so the arithmetic is made to
+  // state itself: laid === shipped + lost, tile for tile.
+  const lostByKind = {};
+  const laidTilesByKind = {};
+  for (const k of Object.keys(roadKind)) {
+    const kind = roadKind[k];
+    (laidTilesByKind[kind] = laidTilesByKind[kind] || []).push(k);
+    if (!pruned.has(k)) continue;
+    (lostByKind[kind] = lostByKind[kind] || []).push(k);
+  }
+  for (const kind of Object.keys(lostByKind)) lostByKind[kind].sort();
+  for (const kind of Object.keys(laidTilesByKind)) laidTilesByKind[kind].sort();
+  const asTiles = (ks) =>
+    (ks || []).map((k) => {
+      const [x, y] = k.split(",").map(Number);
+      return { x, y };
+    });
+  const shippedByKind = {};
+  const shippedTilesByKind = {};
+  for (const k of Object.keys(roadKindKept)) {
+    const kind = roadKindKept[k];
+    shippedByKind[kind] = (shippedByKind[kind] || 0) + 1;
+    (shippedTilesByKind[kind] = shippedTilesByKind[kind] || []).push(k);
+  }
+  for (const kind of Object.keys(shippedTilesByKind)) shippedTilesByKind[kind].sort();
 
   // ------------------------------------------------------------------
   // (6b) THE TRUTH PASS runs in finalizeRoom, not here — see that function.
@@ -3176,7 +3297,36 @@ export function planWallRoads(terrain, plan) {
       stitchTiles,
       clusters: clusters.length,
       spurred,
+      // LAID by the spur pass. See the laid-vs-shipped block above: the dead-end
+      // prune runs after this and may delete some of them.
       spurTiles,
+      // ...and what the room actually SHIPS, tile for tile, so the two can be
+      // reconciled instead of assumed equal. Criticism 27.
+      spurTilesShipped: shippedByKind.spur || 0,
+      spurTilesShippedList: asTiles(shippedTilesByKind.spur),
+      // ...and the LAID set itself, tile by tile. Two counts and a shipped list
+      // still leave `spurTiles *= 10` passing every gate, because nothing ties
+      // the laid NUMBER to any tile — criticism 27's whole exploit. This list is
+      // the laid number's evidence: it is a superset of the shipped set and the
+      // difference is the tiles a later pass took.
+      spurTilesLaidList: asTiles(laidTilesByKind.spur),
+      spurTilesLost: asTiles(lostByKind.spur),
+      // the same reconciliation for every other late-road pass that counts as it
+      // paves — one shape, one place, no per-counter special cases
+      laidByKind: {
+        spur: spurTiles,
+        stitch: stitchTiles,
+        extFace: fillerTiles,
+        swampPave: swampPaved,
+        alongCutMoved,
+      },
+      shippedByKind,
+      lostByKind: Object.fromEntries(
+        Object.keys(lostByKind).map((kind) => [kind, asTiles(lostByKind[kind])]),
+      ),
+      laidTilesByKind: Object.fromEntries(
+        Object.keys(laidTilesByKind).map((kind) => [kind, asTiles(laidTilesByKind[kind])]),
+      ),
       servedFree,
       unreachedClusters,
       fillerTiles,
@@ -3727,16 +3877,40 @@ export function finalizeRoom(terrain, plan) {
       // This pass runs after planWallRoads has already handed its tile list to
       // the pipeline, so nothing tags these: they reached `structures.road`
       // with no `meta.roadLayer` entry and no sub-kind, which is exactly the
-      // "unattributed road" the animation exporter refuses to draw. (E5S1's
-      // 28,30 only ever carried a tag because it was a layer-1 tile the prune
-      // took and this pass re-laid — a coincidence, not a mechanism.)
+      // "unattributed road" the animation exporter refuses to draw.
+      //
+      // ...AND A STALE TAG IS NOT A TAG. The guard here used to be `if
+      // (roadLayer[k] == null)` — write the layer only when the tile has none —
+      // while the sub-kind below was written unconditionally. E5S1's 28,30 is the
+      // tile that shape was wrong about: layer 1 laid it, layer 7's dead-end
+      // prune DELETED it (the prune removes the tile from `structures.road` and
+      // deliberately leaves the `roadLayer` entry behind, because the film needs
+      // the ghost), and then this pass re-laid it. The guard saw a non-null entry
+      // and kept it, so the room shipped `roadKind["28,30"] = "conductBridge"`
+      // against `roadLayer["28,30"] = 1` — the only tile in the fleet where the
+      // sub-kind map and the layer map disagreed, and the reason "487 layer-7
+      // tiles" was a set of 486.
+      //
+      // The tile the room SHIPS was laid by this pass. Layer 1's tag describes a
+      // tile layer 7 deleted, so it is superseded rather than preserved — and the
+      // supersession is RECORDED (`relaid`) rather than done silently, because
+      // "this tile has been laid twice by two different layers" is a fact about
+      // the pipeline that a reader should not have to reconstruct.
+      const relaid = [];
       for (const t of bridged.added) {
         const k = `${t.x},${t.y}`;
-        if (plan.meta.roadLayer && plan.meta.roadLayer[k] == null) plan.meta.roadLayer[k] = 7;
+        if (plan.meta.roadLayer) {
+          const was = plan.meta.roadLayer[k];
+          if (was != null && was !== 7) relaid.push({ x: t.x, y: t.y, wasLayer: was });
+          plan.meta.roadLayer[k] = 7;
+        }
         if (plan.meta.walls) {
           plan.meta.walls.roadKind = plan.meta.walls.roadKind || {};
           plan.meta.walls.roadKind[k] = "conductBridge";
         }
+      }
+      if (relaid.length && plan.meta?.walls?.conductBridge) {
+        plan.meta.walls.conductBridge.relaid = relaid;
       }
       if (bridged.added.length) {
         const sharing = bridged.added.filter((t) =>
@@ -4018,17 +4192,23 @@ export function finalizeRoom(terrain, plan) {
   {
     const roadK = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
     const cutK = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
-    const paved = (plan.shell?.cut || []).filter((c) => roadK.has(key(c.x, c.y)));
+    // EVERY ROAD+RAMPART TILE, not just the cut ones — the same scope stage 5b
+    // now offers the swap over, for the same reason (a creep on a prepared
+    // surface does not know which rampart class it is standing on). Scoped to the
+    // cut this census reported 7 rooms / 14 tiles; the true roster is 12 / 26.
+    const rampK = new Set((plan.structures.rampart || []).map((r) => key(r.x, r.y)));
+    const paved = (plan.structures.rampart || []).filter((c) => roadK.has(key(c.x, c.y)));
     // D8, for the reason spelled out over the detector in stage 5b: a creep
     // walks diagonals at the same cost and there is no corner-cut rule, so two
-    // paved cut tiles touching at a corner are the same prepared surface as two
-    // touching on a face.
+    // paved rampart tiles touching at a corner are the same prepared surface as
+    // two touching on a face.
     const runTiles = paved.filter((c) =>
       D8.some(([dx, dy]) => {
         const k = key(c.x + dx, c.y + dy);
-        return cutK.has(k) && roadK.has(k);
+        return rampK.has(k) && roadK.has(k);
       }),
     );
+    const containerK = new Set((plan.structures.container || []).map((c) => key(c.x, c.y)));
     if (runTiles.length && plan.meta) {
       const refused = new Map(
         (plan.meta?.walls?.alongCutRefused || []).map((r) => [key(r.x, r.y), r.why]),
@@ -4051,7 +4231,8 @@ export function finalizeRoom(terrain, plan) {
           if (x < 1 || y < 1 || x > 48 || y > 48) held.push(`${x},${y} off the buildable board`);
           else if (!walkable(terrain, x, y)) held.push(`${x},${y} natural wall`);
           else if (shipExt[idx(x, y)]) held.push(`${x},${y} outside the shipped wall`);
-          else if (cutK.has(tk)) held.push(`${x},${y} is itself a cut tile`);
+          else if (rampK.has(tk))
+            held.push(`${x},${y} is itself a ramparted tile${cutK.has(tk) ? ` on the cut` : ``}`);
           else if (blockers.has(tk) || objK.has(tk))
             held.push(`${x},${y} carries a structure that blocks`);
           else if (roadK.has(tk)) held.push(`${x},${y} already paved`);
@@ -4059,20 +4240,34 @@ export function finalizeRoom(terrain, plan) {
         }
         return { free, held };
       };
-      const runs = runTiles.map((t) => ({ x: t.x, y: t.y, ...census(t) }));
+      const runs = runTiles.map((t) => ({
+        x: t.x,
+        y: t.y,
+        onCut: cutK.has(key(t.x, t.y)),
+        seat: containerK.has(key(t.x, t.y)),
+        ...census(t),
+      }));
       if (plan.meta.walls) {
         plan.meta.walls.alongCutRuns = runs.map((r) => ({
           x: r.x,
           y: r.y,
+          // which rampart class this run tile is, so the roster can be reconciled
+          // against classifyRoadRamparts without re-deriving the taxonomy
+          onCut: r.onCut,
+          seat: r.seat,
           free: r.free,
           held: r.held,
         }));
+        plan.meta.walls.alongCutScope = "every tile carrying a road and a rampart";
       }
       plan.meta.notes = plan.meta.notes || [];
       plan.meta.notes.push(
         `A PAVED RUN ALONG THE WALL, AND WHY IT IS STILL HERE: this room ships ${runTiles.length} ` +
-          `cut tile(s) that carry a road and have a D8 neighbour which is also a paved cut tile ` +
-          `(${runTiles.map((t) => `${t.x},${t.y}`).join(" ")}). A single crossing is a gate and is fine; ` +
+          `ramparted tile(s) that carry a road and have a D8 neighbour which is also a paved rampart ` +
+          `(${runs.map((t) => `${t.x},${t.y}${t.onCut ? "" : t.seat ? "[bubble seat]" : "[off-cut rampart]"}`).join(" ")}). ` +
+          `The roster is every road+rampart tile and not only the ones on the cut: a creep walking a ` +
+          `prepared surface does not know which rampart class it is standing on. A single crossing is a ` +
+          `gate and is fine; ` +
           `a RUN is a prepared surface laid along the line an attacker would want to walk, and stage 5b ` +
           `exists to move it one tile inboard. It ran on this room and moved ${moved} tile(s). Per tile ` +
           `still in a run, the interior-parallel census taken on the board this room SHIPS: ` +
@@ -4139,4 +4334,136 @@ export function finalizeRoom(terrain, plan) {
   // the bound it beat. Nothing downstream reads it and nothing serialises it.
   delete plan.extBoundModel;
   return plan;
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * LAYER 7 IS SEVEN JOBS, AND EVERY TEXT CHANNEL HAS TO SAY WHICH ONES RAN.
+ * ---------------------------------------------------------------------------
+ * The layer-7 road beat used to be captioned "rampart spurs and the
+ * extension-face safety net" for every room, and layer 7 also stitches orphaned
+ * fragments, pre-paves swamp holes, moves roads off the cut onto the interior
+ * parallel, lays the 7b reflow's faces and (in finalizeRoom) bridges the
+ * deferred mineral container. 20 rooms / 39 tiles ship that beat with
+ * `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave, E12S6's three are 7b
+ * reflow, E14S5's are along-cut swaps.
+ *
+ * Round 13 fixed the NOTE line by composing it from `meta.walls.roadKind`, the
+ * per-tile provenance layer 7 records as it lays. It fixed exactly one channel.
+ * The player renders FOUR strings for a stage — the banner name, the banner
+ * why, the note, and the chip (whose tooltip is name + why, and which is also
+ * the title card) — and the other three were still the hardcoded STAGE_INFO
+ * row, so E1S6 read "LAYER 7 — RAMPART SPURS / roads TO the wall so defenders
+ * can reach it" over a corrected note that says the room laid no spur at all.
+ *
+ * So the decomposition below is the ONE source for all four channels: the note
+ * is composed from it, and `animStageText` composes a PER-ROOM name/why/chip
+ * override from the same tally, shipped alongside NOTES and applied inside the
+ * player's `info()`. A room with no spurs cannot name a spur in any channel,
+ * because no channel has a spur to name.
+ *
+ * `extFace` IS REACHABLE AND IS KEPT, THOUGH NO ROOM IN THE FLEET USES IT.
+ * layer-walls.mjs sets `kindNow = "extFace"` for the filler-face safety net
+ * (a road on a D4 face of any extension layer 6 left off the network); the pass
+ * runs in every room and, because layer 6 grows the mass along corridors,
+ * currently adds 0 tiles fleet-wide (`meta.walls.fillerTiles` is 0 in all 172).
+ * The kind is therefore in the closed set validate.mjs enforces and stays in
+ * this table — but it is no longer PROMISED by any static string, because a
+ * channel that names a pass which shipped nothing is the bug this block exists
+ * to kill. It will caption itself the day the pass lays a tile.
+ *
+ * `one`/`many` are separate because 19 rooms lay exactly one layer-7 tile and
+ * the caption read "1 tiles — 1 rampart spurs".
+ */
+export const LATE_KINDS = {
+  spur: {
+    one: "rampart spur",
+    many: "rampart spurs",
+    name: "rampart spurs",
+    chip: "7 · spurs",
+    why: "roads TO the wall, so defenders can reach the rampart they are holding",
+  },
+  extFace: {
+    one: "extension face paved by the safety net",
+    many: "extension faces paved by the safety net",
+    name: "the extension-face safety net",
+    chip: "7 · ext faces",
+    why: "a road on a D4 face of every extension layer 6 left without one",
+  },
+  stitch: {
+    one: "stranded road fragment stitched back onto the network",
+    many: "stranded road fragments stitched back onto the network",
+    name: "network stitches",
+    chip: "7 · stitch",
+    why: "road fragments the earlier layers left stranded, joined back onto the one network",
+  },
+  swampPave: {
+    one: "swamp hole pre-paved (the only way across, so nobody walks it at 5 ticks)",
+    many: "swamp holes pre-paved (the only way across, so nobody walks them at 5 ticks)",
+    name: "the swamp pre-pave",
+    chip: "7 · swamp",
+    why: "the swamp tiles the network has no way around, paved before anyone walks them at 5 ticks a step",
+  },
+  alongCutMoved: {
+    one: "road moved off the wall onto the interior parallel",
+    many: "roads moved off the wall onto the interior parallel",
+    name: "roads moved off the cut",
+    chip: "7 · off-cut",
+    why: "a road ON the rampart line is a tile the wall cannot stand on — these move one tile inward",
+  },
+  reflow: {
+    one: "face for the layer-7b extension reflow",
+    many: "faces for the layer-7b extension reflow",
+    name: "reflow faces",
+    chip: "7 · reflow",
+    why: "the road faces layer 7b's extension reflow needs on the floor the dead-end prune just handed back",
+  },
+  conductBridge: {
+    one: "join paved for the mineral container that is not built until RCL 6",
+    many: "joins paved for the mineral container that is not built until RCL 6",
+    name: "the mineral-container join",
+    chip: "7 · conduit",
+    why: "the mineral container is deferred to RCL 6, so its join to the network is paved now and waits",
+  },
+  unclassified: {
+    one: "unclassified — layer 7 laid this tile and could not name the pass that did it",
+    many: "unclassified — layer 7 laid these and could not name the pass that did it",
+    name: "unattributed late roads",
+    chip: "7 · unclassified",
+    why: "layer 7 laid these and recorded no pass for them — that is a finding, not a purpose",
+  },
+};
+/** printing order for the breakdown — the layer's own job order */
+export const LATE_ORDER = Object.keys(LATE_KINDS);
+
+/**
+ * The layer-7 road tally, read off meta.roadLayer + meta.walls.roadKind.
+ *
+ * AN UNRECOGNISED KIND IS NOT A NAMED KIND. The previous composer counted every
+ * roadKind value into `named` and then built the breakdown by walking the LABEL
+ * table, so a kind the table does not know (a new layer-7 pass, a typo, a
+ * future rename) incremented the count and was then filtered straight back out:
+ * the caption led with "7 tiles" over a breakdown reaching 4 and never tripped
+ * the "with no recorded sub-kind" fallback that exists for exactly this. Only
+ * kinds this file can actually print count as named; everything else falls to
+ * the fallback, so the lead number and the breakdown can never disagree.
+ */
+export function lateRoadDecomp(plan) {
+  const m = plan.meta || {};
+  const rl = m.roadLayer || {};
+  const alive = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
+  const kindOf = m.walls?.roadKind || {};
+  const tally = {};
+  let laid = 0;
+  let named = 0;
+  for (const k of Object.keys(rl)) {
+    if (rl[k] !== 7) continue;
+    laid++;
+    if (!alive.has(k)) continue;
+    const kind = kindOf[k];
+    if (!kind || !LATE_KINDS[kind]) continue;
+    tally[kind] = (tally[kind] || 0) + 1;
+    named++;
+  }
+  return { laid, named, tally, kinds: LATE_ORDER.filter((k) => tally[k]) };
 }

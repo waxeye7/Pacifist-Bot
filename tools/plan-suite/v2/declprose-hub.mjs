@@ -28,6 +28,7 @@
 
 const n = (v, fallback = "?") => (v === null || v === undefined ? fallback : v);
 const pt = (t) => (t && Number.isInteger(t.x) ? `${t.x},${t.y}` : "?,?");
+const plural = (v, one, many) => (Number(v) === 1 ? one : many);
 
 /**
  * ---------------------------------------------------------------------------
@@ -242,6 +243,47 @@ export function renderCtrlSeats(sf) {
  * seats, and the deep-tile count underneath both. The floor is a field, not a
  * constant, for the same reason every other threshold in this module is.
  */
+/**
+ * THE SENTENCE ABOUT THE WALK, GENERATED FROM THE WALK.
+ *
+ * This used to read "Every cap from ${held-1} down to 0 was composed IN FULL and
+ * measured" — derived from `held`, which is the size of the RESERVATION, and not
+ * from anything the loop reported. The loop broke early (see maybeReleaseParks),
+ * so the claim was false whenever the break fired, and the break itself was wrong
+ * on the tie-break the same function uses. The loop now runs to the bottom and
+ * records the rungs; this reads them, and where the record is absent it says the
+ * claim cannot be made rather than reconstructing it from `held` again.
+ */
+function releasedSearch(r) {
+  const caps = Array.isArray(r.composedCaps) ? r.composedCaps : null;
+  if (!caps) {
+    return (
+      `THIS RECORD DOES NOT SAY WHICH CAPS WERE COMPOSED, so the claim that the walk covered all of ` +
+      `them is not made here; what is below is the winner and the two columns it was chosen on. `
+    );
+  }
+  const lo = caps.length ? caps[caps.length - 1] : null;
+  const hi = caps.length ? caps[0] : null;
+  const thrown =
+    (r.rejectedError || 0) + (r.rejectedIncomplete || 0) + (r.rejectedUnderFloor || 0);
+  return (
+    `${caps.length} ${plural(caps.length, "cap", "caps")} ${plural(caps.length, "was", "were")} composed ` +
+    `IN FULL and measured` +
+    (caps.length ? ` — ${hi} down to ${lo}, every rung, no early exit` : ``) +
+    (thrown
+      ? ` — of which ${thrown} ${plural(thrown, "was", "were")} thrown out before being ranked ` +
+        `(${n(r.rejectedError, 0)} failed to compose, ${n(r.rejectedIncomplete, 0)} did not hold the whole ` +
+        `RCL8 program, ${n(r.rejectedUnderFloor, 0)} shipped fewer than ${r.floor} parks)`
+      : ` — every one of them a complete room above the floor`) +
+    `. The walk does NOT stop at the first composition that reaches zero shallow extensions, and that ` +
+    `is not thoroughness for its own sake: the ranking below zero shallow is more parks and then fewer ` +
+    `ramparts, so a lower cap can still beat a zero-shallow winner on a tie` +
+    (Number.isFinite(Number(r.winningCap))
+      ? `. Cap ${n(r.winningCap, 0)} is the best of them` : `. This is the best of them`) +
+    `, judged on what it ships and never on what it reserves. `
+  );
+}
+
 export function renderCtrlReleased(sf) {
   const r = sf.ctrlParks || {};
   const gave = (sf.tiles || []).map(pt).join(" ");
@@ -253,8 +295,7 @@ export function renderCtrlReleased(sf) {
     `${r.shallowHolding} shallow extension(s) — ${r.shallowHolding} personal rampart(s) repaired forever, and ` +
     `${r.shallowHolding} structure(s) a ranged attacker can hit from outside the wall — against ` +
     `${r.shallowReleasing} here, at ${r.rampartsReleasing} total ramparts against ` +
-    `${r.rampartsHolding}. Every cap from ${r.held - 1} down to 0 was composed IN FULL and ` +
-    `measured; this is the best of them, judged on what it ships and never on what it reserves. ` +
+    `${r.rampartsHolding}. ${releasedSearch(r)}` +
     `${r.floor} is the floor no composition may go under because that is where the upgrader ` +
     `fleet starts being throttled by parking rather than by energy — the same number layer 1's seat ` +
     `search and the validator both treat as hard. The room being short of deep floor is the fact ` +

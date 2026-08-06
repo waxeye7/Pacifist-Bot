@@ -178,17 +178,47 @@ export function renderWeakBattery(sf) {
   const farRefill = gated && num(rec.maxRefill) > num(rec.note);
   const trig = [];
   if (weakFace) {
+    // ...and the same comparison on the floor. Layer 3 only files this
+    // declaration when its own reading clears TARGET_MIN, but the reading of
+    // record is the AS-SHIPPED one, taken after layer 7 moved the wall — so
+    // `rec.min` can be under the floor here while the producer's gate was not,
+    // and the word "legal" would then be a lie about a number printed beside it.
+    const under = Number.isFinite(num(rec.targetMin)) && num(rec.min) < num(rec.targetMin);
     trig.push(
-      `the weakest ${rec.face} sees ${n(rec.min)} damage — legal (the hard floor is ` +
-        `${n(rec.targetMin)}) but under the ${n(rec.weakDmg)} the fleet reaches almost everywhere, with ` +
+      `the weakest ${rec.face} sees ${n(rec.min)} damage — ` +
+        (!Number.isFinite(num(rec.targetMin))
+          ? `and this record carries no hard floor to judge it against, so this declaration cannot say ` +
+            `whether that is legal`
+          : under
+            ? `UNDER the hard floor of ${n(rec.targetMin)}, not merely under the fleet line: on the wall ` +
+              `this room ships the battery does not clear its own gate`
+            : `legal (the hard floor is ${n(rec.targetMin)})`) +
+        ` but under the ${n(rec.weakDmg)} the fleet reaches almost everywhere, with ` +
         `${n(rec.weak)}/${n(rec.cut)} of ${rec.wall} under the floor`,
     );
   }
   if (farRefill) {
+    // "LEGAL" IS A COMPARISON, NOT AN ADJECTIVE. This clause used to assert
+    // `legal (the hard cap is N)` in every case it printed, while printing the
+    // very number it was calling legal — so a battery walking 11 against a cap of
+    // 10 read as "11-step walk — legal (the hard cap is 10)". The word is earned
+    // by the arithmetic or it does not appear, and the OVER case says so in the
+    // same breath as the number that makes it over. (The room that produced this
+    // finding, E2S8, no longer walks 11 — see the adjacency block in
+    // layer-towers.mjs — which is exactly why the sentence has to survive without
+    // it: a clause that is only correct while no room exercises it is not
+    // correct.)
+    const over = Number.isFinite(num(rec.hard)) && num(rec.maxRefill) > num(rec.hard);
     trig.push(
       `the furthest tower is ${art(rec.maxRefill)} ${n(rec.maxRefill)}-step refill walk from the sitter — ` +
-        `legal (the hard cap is ${n(rec.hard)}) but far enough that a refill trip costs more than the ` +
-        `tower's own reload`,
+        (!Number.isFinite(num(rec.hard))
+          ? `and this record carries no hard cap to judge it against, so this declaration cannot say ` +
+            `whether that walk is legal`
+          : over
+            ? `OVER the hard cap of ${n(rec.hard)}, not merely past the note: this battery is not legal, ` +
+              `and the room owes a separate \`towerRefill\` shortfall saying so`
+            : `legal (the hard cap is ${n(rec.hard)}) but far enough that a refill trip costs more than ` +
+              `the tower's own reload`),
     );
   }
 
@@ -523,11 +553,61 @@ export { n, plural };
  * hand-written — which is exactly how E2S8 came to pass a reviewer's rewrite of
  * "11 walk" to "3 walk", a number INSIDE the limit the same sentence quotes.
  * Two numerals, both from the record, neither of them typed beside it.
+ *
+ * ...AND THE THIRD CLAUSE WAS NOT A NUMERAL, WHICH IS WHY IT SURVIVED THE FIRST
+ * PASS. The sentence ended "the room has no six legal deep tiles inside that
+ * radius" — a hard claim about the SEARCH SPACE, printed unconditionally, backed
+ * by nothing on the record and false in the one room that ever printed it. E2S8
+ * had 243 legal seats inside the cap; what it did not have was a set of six the
+ * repair pass could reach without crossing a doctrine prior. "No such tile
+ * exists" and "my search would not take the tiles that do" are opposite
+ * confessions and the paragraph made the wrong one.
+ *
+ * So the clause is derived from the seat census and the repair pass's own
+ * counters, and where the record does not carry them the paragraph says that
+ * instead of guessing. Three cases, and the record picks which one prints:
+ *   fewer than six seats  — the room genuinely cannot be fixed; say so
+ *   six or more seats     — the room could not be fixed AT THIS PRICE; quote it
+ *   no census at all      — say the claim cannot be made
  */
 export function renderTowerRefill(sf) {
   const r = sf.towerRefill || {};
+  const seats = num(r.seatsInsideCap);
+  const need = num(r.needSeats);
+  const s = r.search || {};
+  const head = `furthest tower is ${n(r.maxRefill)} walk from the sitter (want <= ${n(r.cap)}); `;
+  if (!Number.isFinite(seats) || !Number.isFinite(need)) {
+    return (
+      head +
+      `this record carries no seat census, so why the room could not be fixed is not stated here — and a ` +
+      `claim about a search space with no census behind it is not made`
+    );
+  }
+  if (seats < need) {
+    return (
+      head +
+      `the room has only ${n(seats)} legal deep ${plural(seats, "tile", "tiles")} inside that radius and ` +
+      `a battery needs ${n(need)}, so no six seats exist to be found`
+    );
+  }
+  const tried = num(s.tried);
+  const tied = num(s.scoreTied);
+  const crossed = num(s.crossOffered);
   return (
-    `furthest tower is ${n(r.maxRefill)} walk from the sitter (want <= ${n(r.cap)}); ` +
-    `the room has no six legal deep tiles inside that radius`
+    head +
+    `the room has ${n(seats)} legal deep ${plural(seats, "tile", "tiles")} inside that radius — enough ` +
+    `for a battery — so this is not a room with nowhere to stand: it is a battery the repair pass could ` +
+    `not fix AT THE PRICE IT MAY PAY. ` +
+    (Number.isFinite(tried)
+      ? `It examined ${n(tried)} single-slot ${plural(tried, "swap", "swaps")}` +
+        (Number.isFinite(tied)
+          ? `, ${n(tied)} of which held the weakest wall face and its saturation exactly`
+          : ``) +
+        (Number.isFinite(crossed) && crossed > 0
+          ? `, and ${n(crossed)} of those sat D8-adjacent to another tower and could not prove the ` +
+            `crossing free`
+          : ``) +
+        `, and none of them walked shorter.`
+      : `The pass filed no counters, so what it examined cannot be stated here.`)
   );
 }

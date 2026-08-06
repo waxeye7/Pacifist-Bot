@@ -21,15 +21,23 @@
  * damage of surplus where the room was already winning, and 57 of 159 rooms
  * duly traded their weakest face away for a prettier average.
  *
- * Hard constraints, none of them negotiable:
+ * Hard constraints:
  *   - depth >= 4 (out of a ranged attacker's reach). Towers get NO personal
  *     rampart escape: a ramparted tower is still shot through the rampart.
  *   - refill walk <= MAX_REFILL from the sitter. A tower 12 tiles from
  *     storage is decorative in a siege — the filler cannot keep it wet.
- *   - no two towers D8-adjacent. Adjacent towers share a blast: one nuke,
- *     two towers, and the pair also blocks each other's refill face.
  *   - a free (and preferably D4) face for the refill road, and the finished
  *     set may not strand any interior tile the room had before.
+ * ...and one PRIOR, which is a different kind of thing and is now labelled as
+ * one:
+ *   - no two towers D8-adjacent. It was written as a hard constraint for two
+ *     consequences — "one nuke, two towers" and "the pair blocks each other's
+ *     refill face" — and both of those consequences are now measured exactly,
+ *     by the 5x5 window sweep (round 9) and by the self-blocked filler walk
+ *     (round 11). It holds through the whole seed search, because it is a cheap
+ *     way to keep a mean-with-upkeep objective from settling into a blob. It
+ *     yields, per trial, to a REPAIR pass that reads both instruments on the
+ *     trial and finds neither worse. See the adjacency block in planTowers.
  *
  * Tower damage: 600 at range <=5, linear falloff to 150 at range >=20
  * (TOWER_POWER_ATTACK 600, TOWER_OPTIMAL_RANGE 5, TOWER_FALLOFF_RANGE 20,
@@ -269,6 +277,11 @@ export function planTowers(terrain, plan, opts = {}) {
   };
 
   let cands = gather(MAX_REFILL);
+  // THE ROOM'S OWN SEAT CENSUS, kept before anything narrows it. The towerRefill
+  // declaration makes a claim about how many legal deep tiles exist inside the
+  // hard cap; that claim must be about the ROOM, not about whatever survived the
+  // RELAX_REFILL escalation and the 2x2 thinning below. See renderTowerRefill.
+  const seatsInsideCap = cands.length;
   let refillCap = MAX_REFILL;
   for (const relax of RELAX_REFILL) {
     if (cands.length >= N_TOWERS * 2) break;
@@ -366,6 +379,19 @@ export function planTowers(terrain, plan, opts = {}) {
     Math.max(Math.abs(cands[i].x - cands[j].x), Math.abs(cands[i].y - cands[j].y)) <= 1;
   const conflicts = (set, c, skip = -1) =>
     set.some((o, si) => si !== skip && (o === c || adjacent(o, c)));
+  /**
+   * `conflicts` WITHOUT the D8-adjacency prior — the only thing left is physics
+   * (two towers cannot share a tile). See the adjacency-crossing block below for
+   * why that separation exists and what a caller has to prove to use this one.
+   */
+  const occupied2 = (set, c, skip = -1) => set.some((o, si) => si !== skip && o === c);
+  /** the D8-adjacent pairs a set holds, as slot indices — the prior, counted */
+  const adjacentPairsOf = (set) => {
+    const out = [];
+    for (let i = 0; i < set.length - 1; i++)
+      for (let j = i + 1; j < set.length; j++) if (adjacent(set[i], set[j])) out.push([i, j]);
+    return out;
+  };
 
   const partial = new Float64Array(T);
   const trialCov = new Float64Array(T);
@@ -770,6 +796,174 @@ export function planTowers(terrain, plan, opts = {}) {
     }
     return mx;
   };
+  /**
+   * ...and the same sweep over the TOWERS ALONE.
+   *
+   * `windowMax` is a MAX over the whole high-value mass, and in 170 of 172 rooms
+   * that max sits on the hub trio and the spawn fan — mass this layer cannot
+   * move. So it is insensitive to what the battery does underneath it: six towers
+   * could collapse into one 5x5 without `windowMax` changing by a point, which
+   * would let an adjacency crossing sail through a gate aimed at exactly the harm
+   * it was creating. The prior's first consequence is "one nuke, TWO TOWERS", so
+   * the instrument that replaces it has to count towers.
+   */
+  const towerWindowMax = (set) => {
+    const pts = set.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+    let mx = 0;
+    for (const a of pts) {
+      for (let ox = -2; ox <= 2; ox++) {
+        for (let oy = -2; oy <= 2; oy++) {
+          const cx = a.x + ox,
+            cy = a.y + oy;
+          let n = 0;
+          for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+          if (n > mx) mx = n;
+        }
+      }
+    }
+    return mx;
+  };
+
+  // ------------------------------------------------------------------
+  // THE FILLER'S WALK WITH THE BATTERY STANDING IN IT.
+  //
+  // `refill` is a field taken from the sitter over a board that blocks storage /
+  // terminal / link / spawn and the room objects — and NOT the six towers,
+  // because when it is computed there are no towers yet. That is the right field
+  // to GATHER candidates on (a tile's reachability is a property of the tile) and
+  // the wrong one to PUBLISH, because a tower is an OBSTACLE_OBJECT_TYPE and the
+  // other five stand between the filler and this one. 91 of 172 rooms hold three
+  // or more towers inside chebyshev 2 of the sitter, so this is not an edge case:
+  // the battery routinely walls itself in.
+  //
+  // Two rooms shipped a silent shortfall because of it. E12S4 published
+  // refillDists [1,7,2,2,3,4] and walks [1,9,2,2,3,4]; E18S3 published
+  // [1,4,2,3,4,6] and walks [1,4,2,3,4,9]. Both are over the 8-step REFILL_NOTE
+  // line the fleet declares on, and neither said a word — while E8S4, at the same
+  // as-built number, did. Lifting the towers out of the as-built board reproduces
+  // the published array exactly in both rooms, so the towers are the whole
+  // difference. It lives HERE, above the dispersion pass, because it is also one
+  // of the two instruments the adjacency prior is a proxy for — see below.
+  // ------------------------------------------------------------------
+  const arriveField = (f, t) => {
+    const v = f[idx(t.x, t.y)];
+    if (v < REFILL_INF) return v;
+    let bestD = REFILL_INF;
+    for (const [dx, dy] of D8) {
+      const x = t.x + dx,
+        y = t.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const w = f[idx(x, y)];
+      if (w < REFILL_INF && w + 1 < bestD) bestD = w + 1;
+    }
+    return bestD;
+  };
+  /** the filler's walk to each seat of `set`, with all of `set` standing */
+  const selfBlockedRefills = (set) => {
+    const blk = new Set(impassable);
+    for (const c of set) blk.add(key(cands[c].x, cands[c].y));
+    const f = fieldFrom(terrain, plan.sitter, blk);
+    return set.map((c) => arriveField(f, cands[c]));
+  };
+  const refillMaxOf = (set) => Math.max(...selfBlockedRefills(set));
+
+  // ------------------------------------------------------------------
+  // THE ADJACENCY PRIOR, AND WHERE IT YIELDS TO THE INSTRUMENT.
+  //
+  // "No two towers D8-adjacent" is stated at the top of this file as a hard
+  // constraint, and it is enforced by `conflicts` through the whole seed search.
+  // Read the reason it is given, though, and it is not one rule but two claims
+  // about consequences:
+  //
+  //   1. "one nuke, two towers" — a nuke does full damage over a 5x5, so two
+  //      structures inside one 5x5 window die together. D8-adjacency is a
+  //      SUFFICIENT condition for that and nowhere near a necessary one: two
+  //      towers four tiles apart share a window too. `windowMax` measures the
+  //      fullest 5x5 over the whole high-value mass exactly, and it strictly
+  //      subsumes the adjacency test.
+  //   2. "the pair also blocks each other's refill face" — measured exactly by
+  //      `selfBlockedRefills`, which walks the filler over a board with all six
+  //      towers standing. A finite walk to a seat IS the proof that the seat kept
+  //      a face the filler can reach.
+  //
+  // Both instruments postdate the rule (round 9 and round 11). So the prior is
+  // now strictly cruder than the evidence available beside it, and E2S8 is what
+  // that costs: 46 of the 47 score-tied single swaps its layer-3 search could
+  // make were refused by adjacency alone, including one that takes the weakest
+  // wall face from 3570 to 3600 (SATURATED) and one that takes the filler's walk
+  // to the sixth tower from 11 — over the hard MAX_REFILL ceiling, which is why
+  // the room declared — down to 10. The declaration it shipped said "1350 swaps
+  // examined, none affordable", which was true of the search and false about the
+  // room.
+  //
+  // WHAT DOES NOT CHANGE. The prior stays in force for the seed search — greedy,
+  // steepest descent, pairwise ejection, the escalation and the serviceability
+  // repair all still call `conflicts`. It is a cheap structural prior that keeps
+  // the objective honest: `val` is a mean-with-upkeep, it LIKES a blob, and a
+  // search allowed to blob would hand the dispersion pass a board it can only
+  // decline to fix (that pass is strictly non-worsening by construction). A prior
+  // is a good way to start; it is not evidence.
+  //
+  // WHAT CHANGES. A REPAIR pass — one that already holds the weakest face and its
+  // saturation exactly, and whose whole purpose is to improve one measured
+  // quantity — may cross the prior for a specific trial when the trial PROVES the
+  // prior's two consequences absent: the 5x5 window does not grow, the filler's
+  // self-blocked walk does not grow, and the room's interior floor is still
+  // whole. Refusing such a trial is refusing a measurement in favour of a proxy
+  // for the same measurement.
+  //
+  // Every crossing that ships is recorded (`adjacency` on the tower meta) with
+  // the pass that made it and both readings on either side, and the shipped pair
+  // list is re-derivable from `structures.tower` alone.
+  // ------------------------------------------------------------------
+  const adjacency = {
+    priorHeld: true,
+    pairs: 0,
+    pairTiles: [],
+    crossings: [],
+    // THE STANDING COST OF THE PRIOR, on the room's primary objective. See the
+    // block below: `reachable` is the saturated weakest face a single swap ACROSS
+    // the prior can reach with every instrument this layer owns read on the trial
+    // and none of them worse, `held` is what the room ships, and `forgone` is the
+    // difference the fleet is choosing to leave on the table this round.
+    satAcrossPrior: {
+      held: null,
+      reachable: null,
+      forgone: 0,
+      tried: 0,
+      crossOffered: 0,
+      seat: null,
+      leaves: null,
+    },
+  };
+  /** the three readings a crossing has to prove it does not worsen */
+  const crossCaps = (set) => ({
+    win: windowMax(set),
+    twin: towerWindowMax(set),
+    ref: refillMaxOf(set),
+  });
+  /**
+   * May this trial cross the prior? Only with every instrument read on the trial
+   * ITSELF and none of them worse than what the room already holds, and only if
+   * the six seats still cost the interior nothing. `twin` is the one that makes
+   * this a real gate rather than a formality — see towerWindowMax.
+   */
+  const crossingProven = (trial, caps) => {
+    if (windowMax(trial) > caps.win) return false;
+    if (towerWindowMax(trial) > caps.twin) return false;
+    if (refillMaxOf(trial) > caps.ref) return false;
+    return serviceable(trial);
+  };
+  const recordCrossing = (pass, from, to, extra) => {
+    adjacency.crossings.push({
+      pass,
+      from: { x: cands[from].x, y: cands[from].y },
+      to: { x: cands[to].x, y: cands[to].y },
+      ...extra,
+    });
+    adjacency.priorHeld = false;
+  };
+
   const nukeBefore = windowMax(best);
   let nukeAfter = nukeBefore;
   /** what the dispersion search actually tried, so a room that fails can say so */
@@ -794,6 +988,8 @@ export function planTowers(terrain, plan, opts = {}) {
     tried: 0,
     scoreTied: 0,
     dispersionOk: 0,
+    /** trials that cleared the price but sit D8-adjacent — see the adjacency block */
+    crossOffered: 0,
     moved: 0,
   };
   /**
@@ -942,53 +1138,27 @@ export function planTowers(terrain, plan, opts = {}) {
     nukeSearch.improvedBy = nukeBefore - nukeAfter;
 
     // ------------------------------------------------------------------
-    // THE REFILL WALK, MEASURED WITH THE BATTERY STANDING IN IT.
+    // THE REFILL WALK, REPAIRED.
     //
-    // `refill` above is a field taken from the sitter over a board that blocks
-    // storage / terminal / link / spawn and the room objects — and NOT the six
-    // towers, because when it is computed there are no towers yet. That is the
-    // right field to GATHER candidates on (a tile's reachability is a property
-    // of the tile) and it is the wrong one to PUBLISH, because a tower is an
-    // OBSTACLE_OBJECT_TYPE and the other five stand between the filler and this
-    // one. 91 of 172 rooms hold three or more towers inside chebyshev 2 of the
-    // sitter, so this is not an edge case: the battery routinely walls itself in.
-    //
-    // Two rooms shipped a silent shortfall because of it. E12S4 published
-    // refillDists [1,7,2,2,3,4] and walks [1,9,2,2,3,4]; E18S3 published
-    // [1,4,2,3,4,6] and walks [1,4,2,3,4,9]. Both are over the 8-step
-    // REFILL_NOTE line the fleet declares on, and neither said a word — while
-    // E8S4, at the same as-built number, did. Lifting the towers out of the
-    // as-built board reproduces the published array exactly in both rooms, so
-    // the towers are the whole difference.
-    //
-    // So the number this layer publishes is the SELF-BLOCKED one, and when it
-    // breaks the note the layer does what it already does for nuke dispersion:
-    // it searches its own candidate list for a seat that fixes it, under a price
-    // it may not exceed — the weakest face and the saturation compared exactly
-    // (`same`), and the nuke window not worsened. Layer 7 re-derives the same
-    // walk over the FULL as-built board (labs, extensions, the nuker and the
+    // `selfBlockedRefills` — defined above the dispersion pass, with the note on
+    // why the published walk is the self-blocked one — is what this repairs. When
+    // it breaks REFILL_NOTE the layer does what it already does for nuke
+    // dispersion: it searches its own candidate list for a seat that fixes it,
+    // under a price it may not exceed — the weakest face and the saturation
+    // compared exactly, and the nuke window not worsened. Layer 7 re-derives the
+    // same walk over the FULL as-built board (labs, extensions, the nuker and the
     // observer are obstacles too) and that reading is the number of record.
+    //
+    // This pass may cross the D8-adjacency prior, under the rule stated in the
+    // adjacency block above: it holds the weakest face and the saturation
+    // exactly, it already refuses any trial that grows the 5x5 window, and its
+    // own objective is a STRICT fall in the very walk the prior's second
+    // consequence is about — so a crossing here has both of the prior's
+    // consequences measured absent on the trial that makes it. E2S8 is the room
+    // that forced this: its sixth tower walked 11 against a hard ceiling of 10,
+    // 46 of its 47 score-tied swaps were adjacency-refused, and the seat that
+    // fixes it is one of them.
     // ------------------------------------------------------------------
-    const arriveField = (f, t) => {
-      const v = f[idx(t.x, t.y)];
-      if (v < REFILL_INF) return v;
-      let bestD = REFILL_INF;
-      for (const [dx, dy] of D8) {
-        const x = t.x + dx,
-          y = t.y + dy;
-        if (x < 0 || y < 0 || x > 49 || y > 49) continue;
-        const w = f[idx(x, y)];
-        if (w < REFILL_INF && w + 1 < bestD) bestD = w + 1;
-      }
-      return bestD;
-    };
-    /** the filler's walk to each seat of `set`, with all of `set` standing */
-    const selfBlockedRefills = (set) => {
-      const blk = new Set(impassable);
-      for (const c of set) blk.add(key(cands[c].x, cands[c].y));
-      const f = fieldFrom(terrain, plan.sitter, blk);
-      return set.map((c) => arriveField(f, cands[c]));
-    };
     refillSearch.before = Math.max(...selfBlockedRefills(best));
     refillSearch.after = refillSearch.before;
     if (refillSearch.before > REFILL_NOTE) {
@@ -996,6 +1166,27 @@ export function planTowers(terrain, plan, opts = {}) {
         refillSearch.rounds++;
         let pick = null;
         let pickMax = refillSearch.after;
+        let pickCross = null;
+        // WHEN THE PRIOR MAY BE CROSSED, AND IT IS NOT "WHENEVER THIS PASS RUNS".
+        //
+        // This pass runs whenever the walk breaks the soft REFILL_NOTE, and its
+        // objective — layer 3's self-blocked walk — is NOT the number of record:
+        // finalizeRoom re-derives the walk over the whole as-built board (labs,
+        // sixty extensions, the nuker, the observer) and THAT is what ships as
+        // `maxRefill`. Measured on the fleet, letting the crossing run on the soft
+        // note takes E12S4's as-built walk from 7 to 10 while layer 3's own
+        // reading falls: the pass improved the number it can see and paid in the
+        // number it cannot.
+        //
+        // So a doctrine prior is only crossed to stop the room shipping a battery
+        // the filler provably cannot keep wet — a breach of the HARD MAX_REFILL
+        // ceiling, which is a shortfall the room would otherwise have to declare —
+        // and never to shave a soft note. That is one room on this fleet (E2S8,
+        // 11 against a ceiling of 10) and it is the room the finding came from.
+        // Every other room keeps the prior intact and keeps its soft-note
+        // declaration, which is the honest outcome while layer 3 cannot read the
+        // board layer 7 measures.
+        const mayCross = refillSearch.after > MAX_REFILL;
         // EVERY SLOT, not just the slow one. The walk is long precisely BECAUSE
         // the other five towers are standing in it, so the seat that has to move
         // is frequently not the seat that is far away — E12S4's furthest tower is
@@ -1004,7 +1195,7 @@ export function planTowers(terrain, plan, opts = {}) {
         // that clear the price above pay for a distance field.
         for (let si = 0; si < best.length; si++)
         for (let c = 0; c < C; c++) {
-          if (c === best[si] || conflicts(best, c, si)) continue;
+          if (c === best[si] || occupied2(best, c, si)) continue;
           const trial = best.slice();
           trial[si] = c;
           refillSearch.tried++;
@@ -1023,12 +1214,28 @@ export function planTowers(terrain, plan, opts = {}) {
           if (windowMax(trial) > nukeAfter) continue;
           refillSearch.dispersionOk++;
           const mx = Math.max(...selfBlockedRefills(trial));
-          if (mx < pickMax) {
-            pickMax = mx;
-            pick = trial;
+          if (mx >= pickMax) continue;
+          // the crossing rule, with the caps taken off the set the room ALREADY
+          // holds: `mx < pickMax <= refillSearch.after` is a strict fall in the
+          // prior's second consequence, and `crossingProven` reads the first one
+          // over the towers alone rather than trusting the whole-mass max
+          const crosses = conflicts(best, c, si);
+          if (crosses) {
+            refillSearch.crossOffered++;
+            if (!mayCross) continue;
+            if (!crossingProven(trial, crossCaps(best))) continue;
           }
+          pickMax = mx;
+          pick = trial;
+          pickCross = crosses ? { si, c } : null;
         }
         if (!pick) break;
+        if (pickCross)
+          recordCrossing("refill", best[pickCross.si], pickCross.c, {
+            refillFrom: refillSearch.after,
+            refillTo: pickMax,
+            window: windowMax(pick),
+          });
         best = pick;
         refillSearch.after = pickMax;
         refillSearch.moved++;
@@ -1128,7 +1335,83 @@ export function planTowers(terrain, plan, opts = {}) {
     }
   }
 
+  // ------------------------------------------------------------------
+  // WHAT THE PRIOR IS COSTING THE PRIMARY OBJECTIVE — measured, published, and
+  // deliberately NOT spent. This is a finding, not a repair.
+  //
+  // This layer exists to maximise the damage on the WEAKEST cut tile, and the
+  // prior is holding eighteen rooms one falloff step under what their own
+  // candidate list can reach: E2S8 3570/3600, E3S1 1200/1260, E15S5 1350/1410,
+  // E11S9 1560/1620, E8S6 2670/2730 and thirteen more at +30. In every one of
+  // them the swap that closes the gap clears the price this layer can price —
+  // the floor is never lowered, the 5x5 window over the mass layer 3 can see
+  // does not grow, the tower-only 5x5 does not grow, the self-blocked filler
+  // walk does not grow, the interior is still whole — and is refused by
+  // D8-adjacency and by nothing else.
+  //
+  // AND IT IS STILL NOT TAKEN, because "the price this layer can price" is not
+  // the price. Taking all eighteen was built and measured on the whole fleet:
+  // the weakest-face sum rises 418770 -> 419430, and the SHIPPED nuke window
+  // (meta.towers.nukeWindow, recomputed after layer 5 over spawn / storage /
+  // terminal / NUKER / tower) rises in seven rooms — E8S6 8 -> 10, E18S4 9 -> 10,
+  // E17S2 / E19S9 / E5S2 / E7S8 / E9S3 each 8 -> 9 — and E12S4's as-built refill
+  // walk goes 7 -> 10. Neither of those is visible from here: the nuker does not
+  // exist until layer 5 and the as-built walk is not measurable until the labs,
+  // extensions and the observer are standing. A pass that cannot read the number
+  // it is moving is not a non-worsening pass, it is a gamble that happened to
+  // come out ahead on one term.
+  //
+  // So the room ships the seat it had and SAYS what the prior cost it. The
+  // refill repair below crosses the prior because its own objective — the
+  // self-blocked walk — is one of the two consequences the prior stands for and
+  // it measures it directly, on the same board, in the same pass. This one does
+  // not have that, and an honest layer does not pretend otherwise. Closing it
+  // properly means the nuker and the as-built walk moving up into the same
+  // decision, which is a layer-5 change and not this round's.
+  // ------------------------------------------------------------------
+  {
+    // scored on the board that SHIPS, not on `bestSc` — the dispersion, refill
+    // and mobility passes all move towers after the descent set `bestSc`, and a
+    // record that describes a set the room does not build is the defect this
+    // planner keeps finding in itself.
+    const shipSc = scoreOf(best);
+    const caps = crossCaps(best);
+    adjacency.satAcrossPrior.held = shipSc.sat;
+    adjacency.satAcrossPrior.reachable = shipSc.sat;
+    for (let si = 0; si < best.length; si++) {
+      for (let c = 0; c < C; c++) {
+        if (c === best[si] || occupied2(best, c, si)) continue;
+        const trial = best.slice();
+        trial[si] = c;
+        adjacency.satAcrossPrior.tried++;
+        const sc = scoreOf(trial);
+        if (sc.min < shipSc.min || sc.sat <= adjacency.satAcrossPrior.reachable) continue;
+        if (!conflicts(best, c, si)) continue; // a non-crossing lift is the descent's job
+        adjacency.satAcrossPrior.crossOffered++;
+        if (!crossingProven(trial, caps)) continue;
+        adjacency.satAcrossPrior.reachable = sc.sat;
+        adjacency.satAcrossPrior.seat = { x: cands[c].x, y: cands[c].y };
+        adjacency.satAcrossPrior.leaves = { x: cands[best[si]].x, y: cands[best[si]].y };
+      }
+    }
+    adjacency.satAcrossPrior.forgone =
+      adjacency.satAcrossPrior.reachable - adjacency.satAcrossPrior.held;
+  }
+
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+  // THE PRIOR, AS SHIPPED — re-derivable from `structures.tower` and nothing
+  // else, which is the point: a reader who distrusts the crossing record can
+  // count the D8-adjacent pairs on the board and compare.
+  {
+    const ap = adjacentPairsOf(best);
+    adjacency.pairs = ap.length;
+    adjacency.pairTiles = ap.map(([i, j]) => [
+      { x: cands[best[i]].x, y: cands[best[i]].y },
+      { x: cands[best[j]].x, y: cands[best[j]].y },
+    ]);
+    // a crossing the later passes happened to undo is not a shipped crossing
+    adjacency.priorHeld = ap.length === 0;
+  }
   // ...and the walk the filler really makes at this layer, republished over the
   // six seats that ship. See the block above; layer 7 re-derives it again over
   // the whole as-built base and that reading replaces this one.
@@ -1402,11 +1685,30 @@ export function planTowers(terrain, plan, opts = {}) {
     // numerals, and a reviewer changed the first of them from 11 to 3 — a value
     // INSIDE the limit the same sentence quotes — and E2S8 passed. Both are
     // fields now and `renderTowerRefill` reads them.
+    // ...and the third clause was not a numeral, so it survived that pass: the
+    // sentence asserted "the room has no six legal deep tiles inside that radius"
+    // unconditionally, with nothing on the record able to confirm or deny it. It
+    // was false in the only room that ever printed it — E2S8 offered 243 legal
+    // seats inside the cap; what it could not offer was six the repair pass would
+    // take. The census and the pass's own counters go on the record and
+    // renderTowerRefill derives which of the two confessions is the true one.
     const sfRefill = {
       gate: "towerRefill",
       detail: "",
       tiles: [],
-      towerRefill: { maxRefill, cap: MAX_REFILL },
+      towerRefill: {
+        maxRefill,
+        cap: MAX_REFILL,
+        // the seat census the claim is about: how many legal deep tiles the room
+        // offered INSIDE the hard cap (before any RELAX_REFILL escalation and
+        // before the 2x2 thinning, so it is the room's number and not the
+        // search's), and how many a battery needs
+        seatsInsideCap: seatsInsideCap,
+        needSeats: N_TOWERS,
+        gatheredAt: refillCap,
+        candidatesSearched: C,
+        search: { ...refillSearch },
+      },
     };
     sfRefill.detail = renderDecl(sfRefill);
     shortfalls.push(sfRefill);
@@ -1550,6 +1852,11 @@ export function planTowers(terrain, plan, opts = {}) {
       // dispersion search. `provedFree` means the six tiles cannot lengthen one
       // interior walk and nothing had to be measured.
       mobilityVeto,
+      // WHERE THE D8-ADJACENCY PRIOR YIELDED, and to which instrument. `pairs` /
+      // `pairTiles` are re-derivable from the shipped tower list alone; the
+      // crossings carry the pass that made each one and the two readings it had
+      // to prove. See the adjacency block above planTowers's dispersion search.
+      adjacency,
       spreadRadius,
       newRoads: newRoads.length,
       candidates: C,
