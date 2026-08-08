@@ -397,7 +397,7 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  * corridors are layer 6 and the rampart spurs are layer 7. The cost of the lie
  * was concrete rather than cosmetic — layer 4 picks its lab anchor by
  * requiring the diamond to be OFF the road network, so a reviewer checking
- * E20S3's "0 dry anchors at any orientation" declaration needs the road set as
+ * E2S3's "0 anchors with all ten labs deep" declaration needs the road set as
  * it stood when the labs were placed, and the film asserted a road set that
  * has never existed at any moment of the pipeline. 28 extension-corridor tiles
  * were on screen before the extension layer had run.
@@ -410,15 +410,22 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  *
  * THE GHOSTS ARE THE POINT, NOT AN ACCIDENT. `roadLayer` also holds tiles that
  * are no longer in `structures.road` — layer 7's dead-end prune is the one
- * pass allowed to delete an earlier layer's road, and it deletes 1,659 tiles
- * across the fleet (12 in E20S3, matching that room's `meta.walls.pruned`).
- * Those tiles DID exist mid-pipeline, so the film draws them in the layer that
- * laid them and then a layer-7 prune stage erases them. That is what makes the
+ * pass allowed to delete an earlier layer's road, and it deletes 1994 tagged
+ * tiles across the fleet (13 in E11S3, matching that room's
+ * `meta.walls.prunedGhosts`). Those tiles DID exist mid-pipeline, so the film
+ * draws them in the layer that laid them and then a layer-7 prune stage erases
+ * them. THE GHOST SET IS `prunedGhosts` AND NOT `pruned`, and round 16 is where
+ * the difference got a name: `meta.walls.pruned` is 2006 tiles fleet-wide and 12
+ * of those were laid AND deleted inside layer 7, so no layer ever tagged them
+ * and this film has nothing to erase for them. See prunedBasis in
+ * layer-walls.mjs — the two counts answer different questions and each is now
+ * published under its own name. That is what makes the
  * mid-pipeline road set recoverable from the film at every layer, which is the
  * whole complaint; dropping the ghosts would have left layer 4's road set 12
  * tiles short of what layer 4 actually saw. It is also the only reason a room
- * like E20S3 — spurTiles 0, fillerTiles 0 — gets a LAYER 7 banner at all: the
- * prune is the only layer-7 work it does, and it is real work.
+ * like E11S3 — spurTiles 0, fillerTiles 0, 13 pruned tiles — gets a LAYER 7
+ * banner at all: the prune is the only layer-7 work it does, and it is real
+ * work. 85 rooms of the 172 are in that position.
  */
 const ROAD_STAGE = {
   1: ["roads", "the eco kit — hub, spawns, sources, controller"],
@@ -905,7 +912,7 @@ function roomsFromGallery() {
  * E12S0, E20S1..E20S9, E21S0, E21S10 and the rest) were left over from an
  * earlier claimable list and nothing ever removed them. index.html links only
  * the current fleet, so they were invisible from the gallery — and served from
- * the gallery root, which is exactly how a reviewer ends up reading anim/E20S3
+ * the gallery root, which is exactly how a reviewer ends up reading anim/E19S6
  * as evidence about a plan this suite no longer produces.
  *
  * ONLY ON A FULL-FLEET RUN. Re-rendering one room with

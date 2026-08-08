@@ -81,8 +81,11 @@ const LAB_HAUL_FLEET_P90 = 4;
  * exists for the rooms where no fully-deep 4x4 pocket survives the wall-
  * reachability promise, and it used to rank purely on hauler distance — which
  * meant a diamond with four labs in the ranged band beat one with none by a
- * single tile of walk. E20S3 shipped exactly that: four labs at depth 3, four
- * personal ramparts, repaired forever, to save the lab hauler one step.
+ * single tile of walk — four personal ramparts, repaired forever, to save the
+ * lab hauler one step. (The room that shipped that board, E20S3, is not in the
+ * claimable fleet any more and the figure should not be quoted as if it were:
+ * on today's 172 rooms exactly ONE room ships a shallow lab, E2S3, and it ships
+ * one, at depth 3. That is the exchange rate below doing its job.)
  *
  * A personal rampart is upkeep in perpetuity; a tile of hauler distance is one
  * tick per trip on a route the link network mostly retires anyway. Three tiles

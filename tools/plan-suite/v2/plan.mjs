@@ -242,7 +242,7 @@ function animNotes(plan) {
   // reading the target is applied to and the one the room page headlines.
   // meta.shell.mobility is layer 2's negotiation reading, taken on the bare cut
   // before any mass exists — a different quantity that disagrees (E11S7: 11
-  // there, 13.5 as built), and putting it on a caption about the wall this room
+  // there, 9.33 as built), and putting it on a caption about the wall this room
   // ships is how two numbers about one room end up looking like one number
   // arguing with itself. Only the target and the detour floor are read out of
   // meta.shell.mobility, because that is where the layer publishes them.
@@ -461,7 +461,7 @@ function clipTickerLine(detail) {
  * `animNotes` above builds a caption set out of counts and never touches
  * `meta.shortfalls` or `meta.notes`. The room PAGE prints every declared
  * shortfall verbatim (shortfallsHtml) and every planner note (notesHtml), and
- * the index badges both — but 114 of the 172 rooms carry at least one shortfall
+ * the index badges both — but 157 of the 172 rooms carry at least one shortfall
  * and a viewer who watched the film and nothing else saw zero of them. E12S6
  * declares a weak battery and a missed mobility gate; its film ended on "plan
  * complete — this last frame IS the shipped plan, tile for tile" and said
@@ -472,8 +472,11 @@ function clipTickerLine(detail) {
  * PLANNER NOTE — AT THE END OF THE FILM, and only there: the ticker is hidden
  * until the last placement has landed, so it reads as the coda to the
  * completion card rather than as a warning that hangs over the whole replay.
- * Four shortfall rows was the fleet high-water mark (E12S5); notes run a little
- * longer (E7S9 ships three), which is still a coda and not a document.
+ * FIVE shortfall rows is the fleet high-water mark, in six rooms (E12S5, E19S8,
+ * E1S8, E2S3, E2S6, E9S2); notes run to four, which is still a coda and not a
+ * document. (Round 16: this said "four ... (E12S5)", which was true of the
+ * round-13 fleet and has been false of the artifact since — the same class of
+ * stale figure the artifact keeps catching in the doc, in the source instead.)
  *
  * IT IS A POINTER, NOT A REPLACEMENT. Each row is gate tag + a clipped first
  * sentence (see clipTickerLine) and the header says where the full text is. The
@@ -590,6 +593,120 @@ ${head}${list.length && notes.length ? "\n" : ""}${nhead}</div>`;
  * Scaffolding steps (whole distance-transform bands, whole flood rings) stay
  * atomic: they are one idea each, and one of them is 300 tiles wide.
  */
+/**
+ * ===========================================================================
+ * THE PLAYER'S THREE STAGE TABLES, CHECKED AT EXPORT TIME (OF9, round 16).
+ * ===========================================================================
+ * export-anim owns two stage tables and THROWS on an orphan
+ * (`STAGE_RATES` / `STAGE_SCAFFOLD`, see the orphan check there). The player
+ * owns three — `STAGE_INFO`, `STAGE_KIND`, `EXPAND` — and until now two of them
+ * failed SILENTLY: a stage missing from `STAGE_INFO` got a de-underscored name,
+ * and a stage missing from `STAGE_KIND` got `null` from `kindFor` and fell
+ * through `paintTile` to `paintRect`. That second one is not hypothetical: it is
+ * exactly how `extAdd` shipped 21 flat yellow squares in three rooms' LAST
+ * FRAME, under a HUD line reading "this last frame IS the shipped plan, tile for
+ * tile". The `EXPAND` table was given a check in round 14 (the drift block in
+ * the fetch handler, against the exporter's own `stageScaffold`) and the goal
+ * document said of the other two: "it does not have one yet, and that is stated
+ * here rather than filed as done."
+ *
+ * The obstacle was that all three live in a template string, so no runtime in
+ * this process can read them as objects. They can be read as TEXT, which is what
+ * this does: the emitted player script is parsed for the three tables and the
+ * three key sets are checked against each other and against the invariants they
+ * have always silently had —
+ *
+ *   · every `EXPAND` key and every `STAGE_KIND` key is a `STAGE_INFO` key;
+ *   · `STAGE_INFO` minus `EXPAND` is exactly the four SCAFFOLD stages, which is
+ *     the same partition `STAGE_SCAFFOLD` makes in export-anim;
+ *   · `STAGE_KIND` is exactly `EXPAND` minus `claims`, whose tiles are
+ *     heterogeneous and are keyed per tile through `CLAIMK` instead.
+ *
+ * It THROWS, for the reason the orphan check throws: a fleet run is 172 rooms
+ * and a warning on room 1 scrolls off long before the run ends, while the fix is
+ * one line in a table twenty lines up. Add a stage to the film and forget one of
+ * the five tables and the suite stops, names the table and names the stage.
+ */
+const STAGE_SCAFFOLD_KEYS = ["dt", "fields", "basin", "core"];
+/** stages whose tiles are heterogeneous and keyed per tile (CLAIMK), not per stage */
+const STAGE_KIND_EXEMPT = ["claims"];
+function playerTableKeys(src, name) {
+  const at = src.indexOf(`var ${name} = {`);
+  if (at < 0) {
+    throw new Error(`plan.mjs: the emitted player has no \`var ${name} = {\` table to check.`);
+  }
+  const open = src.indexOf("{", at);
+  let depth = 0;
+  let end = -1;
+  for (let j = open; j < src.length; j++) {
+    if (src[j] === "{") depth++;
+    else if (src[j] === "}" && --depth === 0) {
+      end = j;
+      break;
+    }
+  }
+  if (end < 0) throw new Error(`plan.mjs: \`${name}\` in the emitted player is unterminated.`);
+  // strip line comments and string literals first — a stage NAMED in prose
+  // inside a row is not a key, and the whole point of this check is that it
+  // cannot be fooled by the text it is reading
+  // ORDER MATTERS: comments come out BEFORE strings. The rows are documented in
+  // line comments and one of those comments contains an apostrophe ("The room's
+  // actual jobs arrive per-room in STAGE_TEXT.roadsLate"), so a string-first
+  // pass pairs that apostrophe with the next one and swallows the two keys in
+  // between — which is exactly the drift this check exists to catch, faked by
+  // the checker. Escapes first, then comments, then strings.
+  const body = src
+    .slice(open + 1, end)
+    .replace(/\\'/g, " ")
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/'[^']*'/g, "''")
+    .replace(/"[^"]*"/g, '""');
+  const keys = [];
+  const re = /(?:^|[,{\n])\s*([A-Za-z_$][\w$]*)\s*:/g;
+  let m;
+  while ((m = re.exec(body))) keys.push(m[1]);
+  return new Set(keys);
+}
+let stageTablesChecked = false;
+function assertStageTables(playerSrc) {
+  if (stageTablesChecked) return;
+  stageTablesChecked = true;
+  const info = playerTableKeys(playerSrc, "STAGE_INFO");
+  const kind = playerTableKeys(playerSrc, "STAGE_KIND");
+  const expand = playerTableKeys(playerSrc, "EXPAND");
+  const bad = [];
+  const missing = (set, from, label, other) =>
+    [...set].filter((k) => !from.has(k)).map((k) => `${label} has \`${k}\`, ${other} does not`);
+  bad.push(...missing(expand, info, "EXPAND", "STAGE_INFO"));
+  bad.push(...missing(kind, info, "STAGE_KIND", "STAGE_INFO"));
+  const scaff = [...info].filter((k) => !expand.has(k)).sort();
+  if (scaff.join(",") !== STAGE_SCAFFOLD_KEYS.slice().sort().join(",")) {
+    bad.push(
+      `STAGE_INFO minus EXPAND is [${scaff.join(", ")}] and the scaffold stages are ` +
+        `[${STAGE_SCAFFOLD_KEYS.join(", ")}] — EXPAND must be the exact negation of the scaffold ` +
+        `set (see STAGE_SCAFFOLD in export-anim.mjs)`,
+    );
+  }
+  const wantKind = [...expand].filter((k) => !STAGE_KIND_EXEMPT.includes(k)).sort();
+  const haveKind = [...kind].sort();
+  if (wantKind.join(",") !== haveKind.join(",")) {
+    bad.push(
+      `STAGE_KIND is [${haveKind.join(", ")}] and should be EXPAND minus ` +
+        `[${STAGE_KIND_EXEMPT.join(", ")}], i.e. [${wantKind.join(", ")}]`,
+    );
+  }
+  if (bad.length) {
+    throw new Error(
+      `plan.mjs: the player's stage tables have drifted —\n  ` +
+        bad.join("\n  ") +
+        `\nEvery stage needs a row in STAGE_INFO, STAGE_KIND and EXPAND here and in ` +
+        `STAGE_RATES and STAGE_SCAFFOLD in export-anim.mjs. A defaulted stage gets a ` +
+        `de-underscored name, flat rectangles instead of sprites and the wrong noun on the ` +
+        `HUD, and says nothing about any of it.`,
+    );
+  }
+}
+
 function animPlayerHtml(plan) {
   const marks = JSON.stringify({
     sources: plan.sources || [],
@@ -627,7 +744,7 @@ function animPlayerHtml(plan) {
   const planHash = planStructureHash(plan);
   // NOTE: the player script uses string concat, never template literals —
   // this whole file is one big JS template literal already.
-  return `<div class="card anim-card" id="anim" data-plan-hash="${esc(planHash)}"><h3>Animated plan — watch the planner build ${plan.room}</h3>
+  const html = `<div class="card anim-card" id="anim" data-plan-hash="${esc(planHash)}"><h3>Animated plan — watch the planner build ${plan.room}</h3>
 <div class="anim-wrap" id="animWrap">
   <canvas class="anim-layer" id="animTerrain"></canvas>
   <canvas class="anim-layer" id="animScaffA"></canvas>
@@ -1530,6 +1647,10 @@ ${animShortfallTicker(plan)}
   });
 })();
 </script>`;
+  // OF9: the player's three stage tables are text in this string, so they are
+  // checked as text, once per run, before the first page is written.
+  assertStageTables(html);
+  return html;
 }
 
 /** the only escape in this file — details are prose written by the layers */
@@ -1852,7 +1973,7 @@ ${notesHtml(plan)}
  * from an earlier claimable list, and nothing has ever removed a file this
  * suite stopped writing. index.html links only the current fleet, so the
  * orphans are unreachable from the gallery — and they sit in the gallery root,
- * which is precisely how a reviewer ends up opening thumbs/E20S3.svg and
+ * which is precisely how a reviewer ends up opening thumbs/E19S6.svg and
  * reading it as a plan this planner produces. A stale artifact that nobody
  * links is still an artifact anybody can open.
  *
@@ -2153,7 +2274,7 @@ ${thumbLegendHtml()}
     const nsf = (p.meta.shortfalls || []).length;
     const sfc = nsf ? `<span class="sfc" title="declared shortfalls — gates this plan knowingly failed">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
     // A NOTE IS DISCOVERABLE FROM THE INDEX OR IT MIGHT AS WELL NOT EXIST.
-    // 79 rooms carry one and nothing on this page said so, so a reviewer
+    // 118 rooms carry one and nothing on this page said so, so a reviewer
     // scanning the index had no way to find the room that had something to
     // say. Deliberately a different colour and a different word from the
     // shortfall count: they are different channels (see notesHtml).
@@ -2248,7 +2369,31 @@ ${thumbLegendHtml()}
             gaps.map((p) => `${p.room}:${p.meta.walls.spurTiles}/${p.meta.walls.spurTilesShipped || 0}`).join(" ") + `)`
           : ` (the prune took none of them back)`;
       })() +
-      ` · pruned ${wm.reduce((s, p) => s + p.meta.walls.pruned, 0)} dead-end road tiles · ` +
+      // ...AND THE PRUNE COUNTER GETS THE SAME DISCIPLINE (OF7, round 16). This
+      // line used to print the sum of `meta.walls.pruned`, which was the prune
+      // pass's EVENT count taken before layer 7b's reflow and the conduct bridge
+      // had finished paving: 2007 under a tile label, against 2006 tiles that
+      // ship no road and 1994 that the film's roadsPrune stage erases. All four
+      // figures are published per room now and all four are printed here, ten
+      // tokens after the comment above that says why.
+      (() => {
+        const ev = wm.reduce((s, p) => s + (p.meta.walls.prunedAtPass || 0), 0);
+        const ti = wm.reduce((s, p) => s + p.meta.walls.pruned, 0);
+        const gh = wm.reduce((s, p) => s + (p.meta.walls.prunedGhosts || 0), 0);
+        const tr = wm.reduce((s, p) => s + (p.meta.walls.prunedTransient || 0), 0);
+        const relaid = wm.filter((p) => (p.meta.walls.prunedRelaid || []).length);
+        return (
+          ` · pruned ${ti} dead-end road TILES (${gh} the film erases + ${tr} laid and deleted inside ` +
+          `layer 7, never tagged) from ${ev} prune events` +
+          (relaid.length
+            ? `; ${ev - ti} deleted tile(s) were re-laid and ship as roads: ` +
+              relaid
+                .map((p) => `${p.room}:${(p.meta.walls.prunedRelaid || []).map((t) => `${t.x},${t.y}`).join("/")}`)
+                .join(" ")
+            : `; no deleted tile was re-laid`) +
+          ` · `
+        );
+      })() +
       `ext-face net ${wm.reduce((s, p) => s + p.meta.walls.fillerTiles, 0)} tiles`,
   );
   // ROAD + RAMPART, FLEET-WIDE, IN FIVE CLASSES. The published taxonomy had two
@@ -2290,9 +2435,11 @@ ${thumbLegendHtml()}
   // the bare cut before a single extension exists. The comment over the
   // per-room caption in animNotes (search "WHICH READING, AND WHY NOT THE
   // OTHER ONE") forbids exactly this substitution by name, and cites exactly
-  // this room: E11S7 reads 11 on layer 2's number and 13.5 AS BUILT. The
-  // caption obeyed the rule and the fleet summary broke it one screen later,
-  // so the suite's own headline understated its worst room by 2.5.
+  // this room: E11S7 reads 11 on layer 2's number and 9.33 AS BUILT. The
+  // caption obeyed the rule and the fleet summary broke it one screen later, so
+  // the suite's own headline quoted a lap the gate does not apply to. (Round 16:
+  // both of these comments said 13.5, which was the round-11 reading; the
+  // artifact says 9.33, and the artifact is the thing being described.)
   //
   // Same precedence animNotes uses: meta.walls.mobility.builtGated, falling
   // back to meta.shell.mobilityBuilt.maxGated. (On the current fleet all 172

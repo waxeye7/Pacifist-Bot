@@ -1364,6 +1364,52 @@ export function interiorWalk(terrain, cutSet, ext, occupied, sitter) {
 }
 
 /**
+ * ---------------------------------------------------------------------------
+ * WHERE AN OWN CREEP CAN ACTUALLY GET TO — the WHOLE board, not the interior.
+ * ---------------------------------------------------------------------------
+ * `interiorWalk` answers a question about the DEFENDED region: it refuses to
+ * step outside the wall, because a garrison that leaves the wall is not holding
+ * it. That is the right question for battlements, for the cut choice and for the
+ * defender lap.
+ *
+ * It is the WRONG question for "can this room's creeps reach that tile", and the
+ * SEALED INTERIOR FLOOR note asked exactly that and answered it with the
+ * defended-region flood. Our own ramparts are passable to our own creeps, so a
+ * hauler may walk OUT through the wall, along the outside, and back IN through
+ * another rampart — E12S7's north pocket is 53 steps away with 32 of them
+ * outside the wall, and the room published it as unreachable floor. Six of that
+ * room's seven "sealed" tiles are that pocket.
+ *
+ * So the reachability question gets the reachability flood: every walkable tile
+ * of the room, blocked only by what genuinely blocks a creep (room objects and
+ * our own OBSTACLE structures). Ramparts, roads and containers do not block.
+ * The exterior is not excluded, because a creep does not stop at its own wall.
+ *
+ * The DEFENDED-region reading has not gone anywhere — it is still what chooses
+ * the cut and marks the stands. What changed is that a sentence claiming a tile
+ * "cannot be reached" is now measured against the flood that word means.
+ */
+export function ownCreepWalk(terrain, occupied, sitter) {
+  const seen = new Set([key(sitter.x, sitter.y)]);
+  const q = [sitter];
+  let qi = 0;
+  while (qi < q.length) {
+    const cur = q[qi++];
+    for (const [dx, dy] of D8) {
+      const x = cur.x + dx,
+        y = cur.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const k = key(x, y);
+      if (seen.has(k) || !walkable(terrain, x, y)) continue;
+      if (occupied.has(k)) continue;
+      seen.add(k);
+      q.push({ x, y });
+    }
+  }
+  return seen;
+}
+
+/**
  * Cut tiles the interior walk region cannot reach.
  *
  * ROOT CAUSE these exist at all: the min-cut only knows S-side / T-side, not

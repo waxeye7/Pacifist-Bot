@@ -611,3 +611,58 @@ export function renderTowerRefill(sf) {
       : `The pass filed no counters, so what it examined cannot be stated here.`)
   );
 }
+
+/**
+ * ===========================================================================
+ * `satAcrossPrior.basis` — GENERATED FROM THE RECORD (M5, round 16).
+ * ===========================================================================
+ * The basis string was a hand-typed paragraph in layer-towers, and the only
+ * thing checking it was a length test: a room could publish any sentence at all
+ * about which board its four numbers were taken on, including the opposite of
+ * the truth, and pass. It is the same defect the declaration paragraphs had
+ * before round 13 and the negotiation paragraph had before round 15, in the one
+ * field whose entire job is to say what the numbers mean.
+ *
+ * So it is a pure function of the record's own fields. Which board each reading
+ * is on is KNOWABLE from the record — `atLayer3` is the layer-3 pair,
+ * `held`/`offerOnShipped`/`reachable`/`forgone` are the shipped pair, and
+ * `seatOccupancy` says whether the seat the offer names is even available — so
+ * the sentence is derived rather than asserted, and the validator re-renders it
+ * and compares string-equal.
+ */
+export function renderSatBasis(ap) {
+  const a = ap.atLayer3 || {};
+  const occ = ap.seatOccupancy;
+  const seat = ap.seat ? `${ap.seat.x},${ap.seat.y}` : "no seat";
+  const leaves = ap.leaves ? `${ap.leaves.x},${ap.leaves.y}` : "no tower";
+  return (
+    `held/offerOnShipped/reachable/forgone are re-derived in finalizeRoom over the SHIPPED wall ` +
+    `(meta.shell.cut) and the SHIPPED battery (structures.tower) with the engine falloff — 600 at ` +
+    `chebyshev <= 5, -30 per tile to 150 at >= 20 — capped at the 3600 saturation ceiling, the same ` +
+    `call that produces meta.towers.shippedMinShellDmg. This room ships ${n(ap.held)} on its weakest ` +
+    `cut tile; ` +
+    (ap.offerOnShipped === null || ap.offerOnShipped === undefined
+      ? `layer 3 named no crossing offer this pass could re-read on the shipped battery, so ` +
+        `offerOnShipped is null and reachable is held`
+      : `the layer-3 offer (${seat} in, ${leaves} out) re-read on that same wall measures ` +
+        `${n(ap.offerOnShipped)}, which is ` +
+        (ap.offerOnShipped > ap.held
+          ? `better, so reachable is ${n(ap.reachable)} and forgone is ${n(ap.forgone)}`
+          : `NOT better on the board that ships, so reachable stays at held and forgone is 0`)) +
+    `. atLayer3 keeps the reading the search was actually made on — layer 2's cut, held ` +
+    `${n(a.held)} / reachable ${n(a.reachable)} / forgone ${n(a.forgone)} — because a refusal is only ` +
+    `explicable against the board that saw it; seat/leaves/tried/crossOffered are that same search's ` +
+    `census and are stated on that board. ` +
+    (!occ
+      ? `No seat was offered, so there is no occupancy to state.`
+      : occ.free
+        ? `The seat ${seat} is FREE on the shipped board — nothing of ` +
+          `${occ.counted.join("/")} stands on it — so the ${n(ap.forgone)} of forgone damage is ` +
+          `attributable to the D8-adjacency prior and to nothing else (forgoneToPrior ` +
+          `${n(ap.forgoneToPrior)}).`
+        : `The seat ${seat} is OCCUPIED on the shipped board by ${occ.on.join("+")}, which layer 3 ` +
+          `could not see when it made the offer, so the seat is not on sale and the ` +
+          `${n(ap.forgone)} is attributed to the occupant rather than to the prior ` +
+          `(forgoneToPrior ${n(ap.forgoneToPrior)}, forgoneToOccupant ${n(ap.forgoneToOccupant)}).`)
+  );
+}

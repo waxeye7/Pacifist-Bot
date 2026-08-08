@@ -2780,13 +2780,24 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // claiming a number nothing produced. It is a census field now, incremented by
   // the sweep itself, and the paragraph prints what the sweep actually did.
   let interiorSwept = 0;
+  // ...AND WHAT THE SWEPT BAND ACTUALLY CONTAINS (OF10, round 16). `swept` is
+  // 48x48 = 2304 in every room in the fleet, because it counts the BAND, and
+  // both this pass's refusal text and the shallow declaration called those 2304
+  // positions "interior tiles" in rooms that hold 178 of them (E9S2), 221
+  // (E2S3) and 255 (E12S6). The count was never wrong and the noun was wrong by
+  // an order of magnitude, in the paragraph attached to the owner's top
+  // criterion. So the per-room figure is counted alongside it — walkable floor
+  // inside this room's own wall — and each number is now called what it is.
+  let interiorWalkableCount = 0;
   const scanFree = (skipKeys) => {
     const out = [];
     let swept = 0;
+    let inWall = 0;
     for (let y = 1; y <= 48; y++) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
         swept++;
+        if (!isWall(terrain, x, y) && !exterior[idxOf(x, y)]) inWall++;
         if (skipKeys && skipKeys.has(k)) continue;
         if (occupiedTile.has(k)) continue;
         if (objectTiles.has(k)) continue;
@@ -2840,6 +2851,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       }
     }
     interiorSwept = swept;
+    interiorWalkableCount = inWall;
     return out;
   };
 
@@ -3931,8 +3943,9 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         lapNow: round2v(lapNow()),
         why: !order.length
           ? `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
-            `scan over all ${interiorSwept} interior tiles returned an empty candidate list in BOTH ` +
-            `classes, so there is nowhere for this slot to go`
+            `scan over all ${interiorSwept} positions of the 48x48 buildable band (of which ` +
+            `${interiorWalkableCount} are walkable floor inside this room's own wall) returned an ` +
+            `empty candidate list in BOTH classes, so there is nowhere for this slot to go`
           : legalButLap
             ? `of the ${order.length} deep target(s) offered (${byClass}) the cheapest legal one is ` +
               `${legalButLap.x},${legalButLap.y} and standing this extension there takes the as-built ` +
@@ -4031,6 +4044,12 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       // HOW BIG THE SWEEP WAS, counted by the sweep — see `interiorSwept`. The
       // paragraph used to assert 2,304 from a literal typed into the prose.
       interiorTiles: interiorSwept,
+      // the side of the swept band, so the paragraph does not have to assert
+      // "48x48" beside a count it is not derived from
+      bandSide: 48,
+      // ...and the room's own interior, which is what "interior" means — see
+      // interiorWalkableCount
+      interiorWalkable: interiorWalkableCount,
       freeDeepRoadFaced: freeDeepFaced,
       // ...AND THE CLASS THE OPENER CLAIMED TO HAVE SWEPT FOR AND THEN NEVER
       // MENTIONED AGAIN. The declaration said layer 7b looked for free deep

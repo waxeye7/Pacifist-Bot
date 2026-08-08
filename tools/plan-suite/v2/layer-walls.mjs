@@ -50,6 +50,7 @@ import {
   bfsField,
   builtMobility,
   interiorWalk,
+  ownCreepWalk,
   maskFromKeys,
   mobilityCauseDetail,
   mobilityLift,
@@ -67,6 +68,8 @@ import {
 } from "./layer-towers.mjs";
 import { reflowExtensions } from "./layer-ext.mjs";
 import { renderCutReason, renderDecl } from "./declprose.mjs";
+import { renderSatBasis } from "./declprose-towers.mjs";
+import { pushNote } from "./declprose-notes.mjs";
 
 /** a 1-tile rampart in a crack is not a defensive position worth a road */
 const MIN_CLUSTER = 2;
@@ -1972,6 +1975,61 @@ function remeasureShell(terrain, plan, reason) {
  * towers. If it is not, no swap of the shipped battery is being described and
  * the pass refuses to invent one rather than measuring a seventh tower.
  */
+/**
+ * WHAT IS STANDING ON THE OFFERED SEAT, ON THE BOARD THAT SHIPS (OF3, round 16).
+ *
+ * `seat` is the tile LAYER 3 would have moved a tower to, and layer 3 runs
+ * before layer 5 places the nuker and before the extension mass settles. On the
+ * shipped board 7 of the 9 offered seats are OCCUPIED — four by the nuker, three
+ * by an extension — so `forgone`, which is presented as "what the prior is still
+ * costing this room", is in those seven rooms costing the room nothing the prior
+ * is responsible for: the tile is spoken for by a structure the prior did not
+ * put there. That is the two-boards-one-label defect criticism 38 fixed for
+ * `held`, one axis over: round 15 rebound the WALL axis and left the OCCUPANCY
+ * axis mixed.
+ *
+ * A rampart is not an occupant — a tower and a rampart share a tile in this
+ * engine and 25 of the fleet's extensions do exactly that — and neither is a
+ * road, because a road under a tower would simply not have been laid on a board
+ * where the tower stood there. Everything else blocks, and so does a room
+ * object. The occupant is NAMED rather than counted, so the reattribution is
+ * falsifiable tile by tile.
+ */
+const SEAT_OCCUPANT_KINDS = [
+  "spawn",
+  "extension",
+  "link",
+  "storage",
+  "terminal",
+  "tower",
+  "observer",
+  "lab",
+  "nuker",
+  "factory",
+  "powerSpawn",
+  "container",
+  "extractor",
+];
+function seatOccupancyOf(plan, seat) {
+  if (!seat) return null;
+  const on = [];
+  for (const kind of SEAT_OCCUPANT_KINDS) {
+    if ((plan.structures?.[kind] || []).some((p) => p.x === seat.x && p.y === seat.y)) on.push(kind);
+  }
+  const objects = (plan.objectTiles || new Set()).has
+    ? plan.objectTiles.has(key(seat.x, seat.y))
+    : false;
+  if (objects) on.push("a room object");
+  return {
+    x: seat.x,
+    y: seat.y,
+    // roads and our own ramparts do not block a tower; everything named above does
+    free: on.length === 0,
+    on,
+    counted: SEAT_OCCUPANT_KINDS.slice(),
+  };
+}
+
 function rebindSatAcrossPrior(plan) {
   const ap = plan.meta?.towers?.adjacency?.satAcrossPrior;
   if (!ap) return;
@@ -1990,6 +2048,15 @@ function rebindSatAcrossPrior(plan) {
   ap.offerOnShipped = offer;
   ap.reachable = offer !== null && offer > held ? offer : held;
   ap.forgone = ap.reachable - ap.held;
+  // ...AND THE FORGONE DAMAGE IS ATTRIBUTED TO WHAT IS ACTUALLY HOLDING IT.
+  // The prior is only the binding constraint when the seat is FREE. When
+  // something is standing on it, the seat is not on offer at all and the honest
+  // statement names the occupant.
+  ap.seatOccupancy = seatOccupancyOf(plan, ap.seat);
+  const free = !!(ap.seatOccupancy && ap.seatOccupancy.free);
+  ap.forgoneToPrior = free ? ap.forgone : 0;
+  ap.forgoneToOccupant = free ? 0 : ap.forgone;
+  ap.basis = renderSatBasis(ap);
 }
 
 /**
@@ -2054,31 +2121,21 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
   // pricedDeltas?}` and the sentence is generated from it, so the four kept-ring
   // waivers can no longer ship one byte-identical paragraph over four different
   // prices — including one price that turned out to be zero.
-  const lines = redundant
-    .slice(0, 12)
-    .map((c) => {
-      const k = key(c.x, c.y);
-      return `${k} — ${refused[k] ? renderCutReason(refused[k]) : "held by an earlier layer's declared purpose"}`;
-    });
-  plan.meta.notes = plan.meta.notes || [];
   // A NOTE ABOUT NOTHING IS NOISE. When the prune cleared the room out entirely
   // the old text still printed "The 0 that remain are NOT double shell and each
-  // one has a named reason: ." — a colon, a full stop and no tiles.
-  plan.meta.notes.push(
-    redundant.length === 0
-      ? `NO CUT TILE IS REDUNDANT: every one of this room's ${cut.length} cut tile(s) is singly ` +
-        `load-bearing — remove any one of them alone and the exterior flood reaches the sitter — and ` +
-        `${inertPruned.length} further rampart(s) that were not already came off in layer 7's inert ` +
-        `prune this run, re-run to a fixpoint on the board the room ships. There is no double shell here.`
-      : `CUT TILES THAT ARE NOT SINGLY LOAD-BEARING: ${redundant.length} of this room's ${cut.length} cut ` +
-        `tile(s) can each be removed on their own without letting the exterior flood reach the sitter, and ` +
-        `${inertPruned.length} more already were — layer 7's inert prune deleted them this run. The ` +
-        `${redundant.length} that remain are NOT double shell and each one has a named reason, measured ` +
-        `on the post-reflow board this room ships: ` +
-        `${lines.join(" · ")}${redundant.length > lines.length ? ` · …and ${redundant.length - lines.length} more` : ""}. ` +
-        `At ${round2(redundant.length * 0.03)} e/tick of forever-upkeep this is the price of the wall that ` +
-        `holds floor the single-removal test cannot see it holding.`,
-  );
+  // one has a named reason: ." — a colon, a full stop and no tiles. Both cases
+  // are ONE class with two headings; see NOTE_CLASSES.redundantCut.
+  pushNote(plan, "redundantCut", {
+    cut: cut.length,
+    redundant: redundant.length,
+    inertPruned: inertPruned.length,
+    // the tiles the paragraph actually names, with the structured reason the
+    // sentence is generated from — never a stored sentence
+    named: redundant.slice(0, 12).map((c) => {
+      const k = key(c.x, c.y);
+      return { k, reason: refused[k] || null };
+    }),
+  });
   return plan.shell.redundantCut;
 }
 
@@ -2167,10 +2224,20 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   for (const t of BUILT_OBSTACLES) {
     for (const p of plan.structures[t] || []) blocked.add(key(p.x, p.y));
   }
-  const walk = interiorWalk(terrain, rset, ext, blocked, plan.sitter);
-  // the same flood with only room OBJECTS blocking — what the interior would be
+  // THE FLOOD THIS SENTENCE MEANS. Until round 16 this was `interiorWalk` — the
+  // DEFENDED-region flood, which refuses to step outside the wall because a
+  // garrison that leaves the wall is not holding it. That is the right flood for
+  // battlements and the wrong one for the word "reachable": our own ramparts are
+  // passable to our own creeps, so a hauler may walk OUT through the wall, along
+  // the outside and back IN somewhere else. E12S7 published seven tiles it
+  // "cannot reach" and six of them are 53 steps away with 32 of those steps
+  // outside the wall; E5S5's 21,10 is 20 steps with 9 outside, and it carries a
+  // road and an upgrader park. The claim is now measured with the flood the word
+  // means — the whole board, blocked only by what blocks a creep.
+  const walk = ownCreepWalk(terrain, blocked, plan.sitter);
+  // the same flood with only room OBJECTS blocking — what the room would reach
   // if the program had not been grown into it
-  const bare = interiorWalk(terrain, rset, ext, new Set(plan.objectTiles || []), plan.sitter);
+  const bare = ownCreepWalk(terrain, new Set(plan.objectTiles || []), plan.sitter);
 
   let sealed = 0;
   let deepSealed = 0;
@@ -2195,17 +2262,23 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   // reading a field the pipeline does not correct until AFTER this layer returns
   // — the pre-7b number, in a sentence about the shipped room.
   const shallowStructs = typeof shallowNow === "number" ? shallowNow : (plan.meta?.extensions?.shallow ?? 0);
-  plan.meta.notes = plan.meta.notes || [];
-  plan.meta.notes.push(
-    `SEALED INTERIOR FLOOR: ${sealed} tile(s) sit inside the wall, carry nothing, and cannot be reached ` +
-      `from the sitter (${tiles.map((t) => `${t.x},${t.y}`).join(" ")}${sealed > tiles.length ? " …" : ""}). ` +
-      `${deepSealed} of them are deep (>= ${DEPTH_SAFE}) and inside the buildable band, i.e. floor the ` +
-      `program could have used; this room ships ${shallowStructs} shallow extension(s). ` +
-      `${ourFault} of the ${sealed} come back if OUR OWN blocking structures are removed and the enclosure ` +
-      `is left as it is — that is the ceiling on what any re-ordering inside the placement layers could ` +
-      `recover, and the remaining ${sealed - ourFault} are the enclosure's shape, which no ordering reaches.`,
-  );
-  plan.meta.sealedFloor = { tiles: sealed, deep: deepSealed, ourFault, shallowStructs };
+  plan.meta.sealedFloor = {
+    tiles: sealed,
+    deep: deepSealed,
+    ourFault,
+    shallowStructs,
+    // the tiles the sentence names, and the band the depth test used — the
+    // record the note is rendered from carries every figure the note quotes
+    named: tiles,
+    depthSafe: DEPTH_SAFE,
+    basis:
+      `unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): ` +
+      `terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our ` +
+      `own ramparts do not, and the flood is NOT confined to the interior, because a creep may leave ` +
+      `the wall and re-enter it. deep = depth >= ${DEPTH_SAFE} and inside the 2..47 buildable band; ` +
+      `ourFault = the same flood with only room objects blocking reaches the tile.`,
+  };
+  pushNote(plan, "sealedFloor", plan.meta.sealedFloor);
   return plan.meta.sealedFloor;
 }
 
@@ -3491,7 +3564,33 @@ export function planWallRoads(terrain, plan) {
       unreachedClusters,
       fillerTiles,
       servedExts,
+      // ------------------------------------------------------------------
+      // THE PRUNE COUNTER IS A TILE COUNT, AND IT IS RECONCILED (OF7, round 16).
+      //
+      // `pruned.size` is what this pass had deleted WHEN IT RETURNED, and the
+      // fleet summary printed the sum of it as "pruned N dead-end road tiles":
+      // 2007 against 1994 tiles that actually ship no road. Thirteen tiles
+      // across eight rooms (E2S5 E13S3 E5S3 E9S8 E11S2 E18S3 E2S7 E5S1) were
+      // deleted here and then RE-LAID by a later pass — layer 7b's reflow and
+      // the conduct bridge both pave, and the conduct bridge runs after this
+      // function has already returned — so they were counted as pruned and
+      // shipped as roads. That is criticism 27's laid-vs-shipped defect, in the
+      // same printed line that applies the discipline to spurs, ~10 tokens away
+      // from a comment reading "One number for two quantities is how an inflated
+      // count goes unnoticed for thirteen rounds."
+      //
+      // So this pass publishes its EVENT count under a name that says it is one,
+      // plus the tile list that count is over, and finalizeRoom — which is the
+      // first moment the shipped road set is final — reconciles the two and
+      // rewrites `pruned` to the number of tiles that ship no road. Both halves
+      // are published, and the difference is a named tile list rather than a
+      // discrepancy a reviewer has to find.
+      prunedAtPass: pruned.size,
+      prunedAtPassTiles: asTiles([...pruned].sort()),
+      // reconciled in finalizeRoom against the shipped road set; a tile count
       pruned: pruned.size,
+      prunedTiles: asTiles([...pruned].sort()),
+      prunedRelaid: [],
       swampPaved,
       // which of this layer's jobs laid each tile it ships — see the roadKind
       // comment over addRoad. The film's layer-7 caption is composed from this.
@@ -4033,7 +4132,6 @@ export function finalizeRoom(terrain, plan) {
     const bridged = bridgeDeferredConduct(terrain, plan);
     if (bridged && (bridged.added.length || bridged.stranded?.length)) {
       if (plan.meta?.walls) plan.meta.walls.conductBridge = bridged;
-      plan.meta.notes = plan.meta.notes || [];
       // A ROAD LAID HERE IS STILL A LAYER-7 ROAD, AND THE FILM HAS TO KNOW IT.
       // This pass runs after planWallRoads has already handed its tile list to
       // the pipeline, so nothing tags these: they reached `structures.road`
@@ -4106,25 +4204,13 @@ export function finalizeRoom(terrain, plan) {
         const sharing = bridged.added.filter((t) =>
           (plan.structures.container || []).some((c) => c.x === t.x && c.y === t.y),
         );
-        plan.meta.notes.push(
-          `ROAD LAID FOR A CONTAINER THAT IS NOT BUILT YET: ${bridged.added.length} plain road tile(s) ` +
-            `(${bridged.added.map((t) => `${t.x},${t.y}`).join(" ")}) were added because this room's road ` +
-            `network was joined THROUGH its mineral-seat container, and that container is deferred to ` +
-            `RCL 6 (no extractor exists before then, so the box has nothing to fill it). Containers are ` +
-            `network nodes — true at RCL 8, false at RCL 3 — and without these tiles the controller ` +
-            `container and the roads that serve it are orphaned for three whole RCLs. The tiles are ` +
-            `floor the base already walks, so the only cost is ${round2(bridged.added.length * 0.001)} ` +
-            `e/tick of road decay, against a staged network that does not connect.` +
-            (sharing.length
-              ? ` ${sharing.length} of them (${sharing.map((t) => `${t.x},${t.y}`).join(" ")}) ` +
-                `is the container's OWN tile: a road and a container legally share a square in this ` +
-                `engine (only OBSTACLE_OBJECT_TYPES may not be doubled up, and a container is not one ` +
-                `of them), so the road is built at RCL 3, conducts from RCL 3, and is still there ` +
-                `when the box lands on top of it at RCL 6. Counting this one, this room ships ` +
-                `${(plan.structures.container || []).filter((c) => (plan.structures.road || []).some((r) => r.x === c.x && r.y === c.y)).length} ` +
-                `container tile(s) that carry a road.`
-              : ``),
-        );
+        pushNote(plan, "containerRoad", {
+          added: bridged.added.map((t) => ({ x: t.x, y: t.y })),
+          sharing: sharing.map((t) => ({ x: t.x, y: t.y })),
+          containersOnRoads: (plan.structures.container || []).filter((c) =>
+            (plan.structures.road || []).some((r) => r.x === c.x && r.y === c.y),
+          ).length,
+        });
       }
       if (bridged.stranded?.length) {
         const objK = new Set(plan.objectTiles || []);
@@ -4137,21 +4223,14 @@ export function finalizeRoom(terrain, plan) {
           if (!walkable(terrain, t.x, t.y)) on.push("natural wall");
           return on.length ? on.join("+") : "nothing this pass can name";
         };
-        plan.meta.notes.push(
-          `A PAVING GAP UNTIL RCL 6, NAMED: ${bridged.stranded.length} road tile(s) ` +
-            `(${bridged.stranded.map((t) => `${t.x},${t.y}`).join(" ")}) join the rest of this room's ` +
-            `network only across the mineral-seat container, which is not built until RCL 6, and the ` +
-            `join CANNOT be paved — the tile(s) the route crosses ` +
-            `(${bridged.gapTiles.map((t) => `${t.x},${t.y} (${holds(t)})`).join(" ") || "none"}) each ` +
-            `carry an OBSTACLE structure or are terrain wall, and no road may be built on those. ` +
-            `A container is NOT one of them — road and container share a tile, so a bare container ` +
-            `tile would simply have been paved above rather than named here. ` +
-            `${bridged.footReachable ? "A CREEP CAN STILL WALK IT" : "NO WALK EXISTS AT ALL"}: containers ` +
-            `and bare floor are not obstacles, so ` +
-            `${bridged.footReachable ? `this costs one extra tick per crossing (2 ticks on plain instead of 1) until RCL 6 closes it, and nothing is unreachable` : `these tiles are genuinely cut off before RCL 6 and that is a real break, not a paving cost`}. ` +
-            `It is named here because the guarantee this room is sold on is "0 staged orphans", and the ` +
-            `honest version of that sentence has ${bridged.stranded.length} tile(s) in it.`,
-        );
+        pushNote(plan, "pavingGap", {
+          stranded: bridged.stranded.map((t) => ({ x: t.x, y: t.y })),
+          // what each crossed tile HOLDS is a board reading, taken here and
+          // recorded, so the sentence is rendered from the record and not from
+          // a second walk of the board at print time
+          gapTiles: bridged.gapTiles.map((t) => ({ x: t.x, y: t.y, holds: holds(t) })),
+          footReachable: !!bridged.footReachable,
+        });
       }
     }
   }
@@ -4450,31 +4529,21 @@ export function finalizeRoom(terrain, plan) {
         }));
         plan.meta.walls.alongCutScope = "every tile carrying a road and a rampart";
       }
-      plan.meta.notes = plan.meta.notes || [];
-      plan.meta.notes.push(
-        `A PAVED RUN ALONG THE WALL, AND WHY IT IS STILL HERE: this room ships ${runTiles.length} ` +
-          `ramparted tile(s) that carry a road and have a D8 neighbour which is also a paved rampart ` +
-          `(${runs.map((t) => `${t.x},${t.y}${t.onCut ? "" : t.seat ? "[bubble seat]" : "[off-cut rampart]"}`).join(" ")}). ` +
-          `The roster is every road+rampart tile and not only the ones on the cut: a creep walking a ` +
-          `prepared surface does not know which rampart class it is standing on. A single crossing is a ` +
-          `gate and is fine; ` +
-          `a RUN is a prepared surface laid along the line an attacker would want to walk, and stage 5b ` +
-          `exists to move it one tile inboard. It ran on this room and moved ${moved} tile(s). Per tile ` +
-          `still in a run, the interior-parallel census taken on the board this room SHIPS: ` +
-          runs
-            .map(
-              (r) =>
-                `${r.x},${r.y} — ` +
-                (r.free.length
-                  ? `${r.free.length} free interior tile(s) (${r.free.map((f) => `${f.x},${f.y}`).join(" ")}), ` +
-                    `so the swap was offered and ${refused.has(key(r.x, r.y)) ? `refused: ${refused.get(key(r.x, r.y))}` : `either taken for a neighbour in the same run (which is why this tile is still here and the run is one shorter) or the tile entered the run after 5b had passed it`}`
-                  : `NO free interior parallel exists — every D8 neighbour is spoken for: ${r.held.join(" · ")}`),
-            )
-            .join(" · ") +
-          `. The swap is refused rather than forced because the alternative is a road network that is ` +
-          `no longer one component from the sitter, or a container or extension that loses the face the ` +
-          `haulers use — a worse room bought to make one metric look better.`,
-      );
+      pushNote(plan, "pavedRun", {
+        moved,
+        // the roster, with the per-tile census and the refusal the paragraph
+        // quotes — the refusal used to be looked up out of a live Map at print
+        // time and is a field now
+        runs: runs.map((r) => ({
+          x: r.x,
+          y: r.y,
+          onCut: r.onCut,
+          seat: r.seat,
+          free: r.free,
+          held: r.held,
+          refused: refused.get(key(r.x, r.y)) || null,
+        })),
+      });
     }
   }
 
@@ -4501,22 +4570,147 @@ export function finalizeRoom(terrain, plan) {
       };
     }
     if (plan.meta && (rr.ring.length || rr.unclassified.length)) {
-      plan.meta.notes = plan.meta.notes || [];
-      plan.meta.notes.push(
-        `ROAD ON RAMPART, CLASSIFIED: ${rr.total} tile(s) in this room carry both a road and a ` +
-          `rampart — ${rr.crossing.length} wall CROSSING(s) on the cut line, ${rr.seat.length} bubble ` +
-          `SEAT(s) (a miner's container outside the shell, on the road that exists to reach it), ` +
-          `${rr.ring.length} CONTROLLER STAND-DENIAL RING tile(s) ` +
-          `(${rr.ring.map((t) => `${t.x},${t.y}`).join(" ")}), ${rr.cover.length} personal-cover tile(s) ` +
-          `and ${rr.unclassified.length} unclassified. The ring class is the one the published ` +
-          `taxonomy did not have: these tiles are not on meta.shell.cut and carry no structure, so the ` +
-          `old classifier folded them into "wall crossing" and the accounting closed over a hole. They ` +
-          `are ramparted because a hostile claim creep standing D8 of the controller is the threat the ` +
-          `ring exists to deny, and they are paved because the eco lane to the controller has to reach ` +
-          `the controller and there is no way to the middle of a ring except across it. Same argument ` +
-          `as a crossing, different geometry, and it is now said rather than absorbed.`,
-      );
+      pushNote(plan, "roadRampart", {
+        total: rr.total,
+        crossing: rr.crossing.length,
+        seat: rr.seat.length,
+        ring: rr.ring.length,
+        cover: rr.cover.length,
+        unclassified: rr.unclassified.length,
+        ringTiles: rr.ring.map((t) => ({ x: t.x, y: t.y })),
+      });
     }
+  }
+  // ------------------------------------------------------------------
+  // THE PRUNE COUNT, RECONCILED AGAINST THE ROADS THE ROOM SHIPS (OF7).
+  //
+  // See `prunedAtPass` in the wall meta. This is the first moment the shipped
+  // road set is final — the conduct bridge above is the last pass that paves —
+  // so it is the only place the reconciliation can honestly be done. `pruned`
+  // becomes a TILE count over a published tile list, and the tiles the prune
+  // deleted and a later pass re-laid are named in `prunedRelaid` rather than
+  // silently inflating a number the fleet summary prints under a tile label.
+  // ------------------------------------------------------------------
+  if (plan.meta?.walls && Array.isArray(plan.meta.walls.prunedAtPassTiles)) {
+    const shippedRoads = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
+    const stillPruned = [];
+    const relaid = [];
+    for (const t of plan.meta.walls.prunedAtPassTiles) {
+      (shippedRoads.has(key(t.x, t.y)) ? relaid : stillPruned).push({ x: t.x, y: t.y });
+    }
+    // ...AND THE PRUNED SET ITSELF SPLITS IN TWO, which is the other half of the
+    // 2007-vs-1994 gap and the half the reviewer's definition found. A tile is
+    // GHOST if some layer tagged it in `meta.roadLayer` and it ships no road —
+    // that is exactly the set the film's `roadsPrune` stage erases, and it is
+    // 1994. The remaining 12 are TRANSIENT: laid by layer 7 itself (spur,
+    // stitch, reflow — the per-kind books hold every one of them as
+    // laid+lost) and deleted by layer 7's own prune before the pipeline ever
+    // tagged the kept set, so they were never in `meta.roadLayer` and the film
+    // never drew them. Both are genuinely pruned road tiles and the two counts
+    // answer different questions; publishing one under the other's name is the
+    // defect, not either number.
+    const tagged = plan.meta.roadLayer || {};
+    const ghosts = stillPruned.filter((t) => tagged[`${t.x},${t.y}`] != null);
+    plan.meta.walls.pruned = stillPruned.length;
+    plan.meta.walls.prunedTiles = stillPruned;
+    plan.meta.walls.prunedRelaid = relaid;
+    plan.meta.walls.prunedGhosts = ghosts.length;
+    plan.meta.walls.prunedTransient = stillPruned.length - ghosts.length;
+    plan.meta.walls.prunedBasis =
+      `pruned = TILES the dead-end prune deleted that carry NO road in structures.road on the board ` +
+      `this room ships, listed tile by tile in prunedTiles. prunedAtPass is the same pass's EVENT ` +
+      `count, taken when planWallRoads returned; the difference is prunedRelaid — tiles a later pass ` +
+      `(layer 7b's reflow, the swamp pave, the conduct bridge) put back and the room ships as roads — ` +
+      `so prunedAtPass === pruned + prunedRelaid.length. Within pruned, prunedGhosts carry a ` +
+      `meta.roadLayer entry (the set the film's roadsPrune stage erases) and prunedTransient were laid ` +
+      `and deleted inside layer 7 itself, so no layer ever tagged them and the film never drew them; ` +
+      `every one of those is in this room's laidTilesByKind AND lostByKind. ` +
+      `pruned === prunedGhosts + prunedTransient.`;
+  }
+  // ------------------------------------------------------------------
+  // WHO OWES A NOTE — derived from records, not from the notes (OF5, round 16).
+  //
+  // A full deletion sweep of all 177 planner notes bit 167 and let 10 through,
+  // every one of them a SHALLOW EXTENSIONS note in a room that ships zero
+  // shallow extensions and has an empty layer-7b reflow. Those notes are not
+  // empty: they record LAYER 6's end-of-layer relocation pass with the tiles
+  // named ("moved 2 slot(s) onto deep floor ... 18,23->22,23 19,22->20,19"), and
+  // the obligation behind them was scoped to layer 7b's reflow and blind to
+  // layer 6's. The class was checked "derive-or-die on both halves" and 10 of
+  // that class's 36 instances had no owner at all.
+  //
+  // So every note class gets an owner here, and each owner is a field that
+  // exists for its OWN reasons and can be re-derived from the shipped board or
+  // from a record that can: deleting the note now leaves an obligation standing
+  // that names the class and the facts that demand it. `why` is the list of
+  // triggering fields, so a room can say WHICH of them fired — which is exactly
+  // the distinction the layer-6 case turned on.
+  // ------------------------------------------------------------------
+  if (plan.meta) {
+    const owed = [];
+    const owe = (cls, why) => {
+      if (why.length) owed.push({ cls, why });
+    };
+    const sf = plan.meta.sealedFloor;
+    owe("sealedFloor", sf && sf.tiles > 0 ? [{ field: "meta.sealedFloor.tiles", value: sf.tiles }] : []);
+    const rc = plan.shell?.redundantCut;
+    owe(
+      "redundantCut",
+      rc
+        ? [
+            { field: "meta.shell.redundantCut.tiles", value: rc.tiles },
+            { field: "meta.shell.redundantCut.pruned", value: rc.pruned },
+          ].filter((e) => e.value > 0)
+        : [],
+    );
+    const cb = plan.meta.walls?.conductBridge;
+    owe(
+      "containerRoad",
+      cb && (cb.added || []).length
+        ? [{ field: "meta.walls.conductBridge.added", value: cb.added.length }]
+        : [],
+    );
+    owe(
+      "pavingGap",
+      cb && (cb.stranded || []).length
+        ? [{ field: "meta.walls.conductBridge.stranded", value: cb.stranded.length }]
+        : [],
+    );
+    const runs = plan.meta.walls?.alongCutRuns;
+    owe(
+      "pavedRun",
+      runs && runs.length ? [{ field: "meta.walls.alongCutRuns", value: runs.length }] : [],
+    );
+    const rr = plan.meta.walls?.roadRampart;
+    owe(
+      "roadRampart",
+      rr
+        ? [
+            { field: "meta.walls.roadRampart.ring", value: rr.ring },
+            { field: "meta.walls.roadRampart.unclassified", value: rr.unclassified },
+          ].filter((e) => e.value > 0)
+        : [],
+    );
+    const ex = plan.meta.extensions;
+    owe(
+      "shallowExt",
+      ex
+        ? [
+            { field: "meta.extensions.shallow", value: ex.shallow || 0 },
+            // THE OWNER THE OBLIGATION WAS MISSING: layer 6's own relocation
+            // pass, which is what those 10 notes are a record of.
+            { field: "meta.extensions.relocatedCount", value: ex.relocatedCount || 0 },
+            { field: "meta.extensions.reflow.moved", value: (ex.reflow?.moved || []).length },
+            { field: "meta.extensions.reflow.added", value: (ex.reflow?.added || []).length },
+          ].filter((e) => e.value > 0)
+        : [],
+    );
+    plan.meta.noteObligations = owed;
+    plan.meta.noteObligationBasis =
+      `one entry per note class this room owes, derived at the end of finalizeRoom from records that ` +
+      `exist for their own reasons — never from meta.notes, which is the thing the obligation is ` +
+      `about. A class listed here MUST appear in meta.noteRecords; a class in meta.noteRecords that ` +
+      `is not listed here is a note nothing demanded. why names every triggering field and its value.`;
   }
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;

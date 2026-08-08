@@ -280,23 +280,72 @@ per room. Rise to the bar; do not lower it.
   search worth the claim it makes: **best-improvement** single swaps rather than
   first-improvement, then a bounded **pairwise** pass for the clumps no single
   tower can leave alone. It is never bought at the cost of a hard gate, and a room
-  that has no such swap now DECLARES it with the search counters — **5 rooms put 5
+  that has no such swap now DECLARES it with the search counters — ~~**5 rooms put 5
   of their 6 towers inside chebyshev 2 of the sitter (E11S6, E14S1, E1S7, E3S5,
-  E6S1) and every one of them files a `towers/clump` shortfall** quoting how
+  E6S1) and every one of them files a `towers/clump` shortfall**~~ quoting how
   many swaps were examined, how many were score-tied and therefore legal to take,
-  and what the window did. In all five the honest answer is still "nothing moved":
-  0–6 of 613–910 single swaps were score-tied, and 0 of the pair swaps were.
+  and what the window did. ~~In all five the honest answer is still "nothing moved":
+  0–6 of 613–910 single swaps were score-tied, and 0 of the pair swaps were.~~
   (It was six through round 11. E2S5 left the list in round 12 without anyone
   aiming at it: the bubble keep-class waiver of finding F2/m3 changed what layer
   7's prune deleted, `composePlan` therefore scored a different rung best, and
   the room recomposed to a cut of 28 from 39, 33 ramparts from 43 and a clump of
   3 from 5. Strictly better on all three, and it is recorded here as luck that
   was measured rather than as a fix that was designed.)
+
+  **AND THE SEARCH BEHIND THAT DECLARATION NEVER MEASURED THE THING THE
+  DECLARATION IS ABOUT.** Two independent bugs, and the shortfall sat on top of
+  both. The pass ranked its swaps on `windowMax`, the WHOLE-MASS 5x5 — a window
+  that sits on the hub trio in 170 of 172 rooms and is blind to a battery
+  collapsing underneath it, which is the same blindness the refill-repair
+  crossing had to add a tower-only instrument to fix — while the shortfall it
+  files is about the CLUMP. "No legal swap improved it" was therefore a true
+  statement about a number nobody was optimising. And the seat list was thinned
+  before the search ever saw it: `spatialPrune` keeps one seat per 2x2 block
+  above `MAX_CANDS`, which takes E14S1's **370 legal deep seats down to 115**,
+  and the tile that retires that room's declaration was among the 255 dropped.
+  A declaration is evidence, so a search that produces one has to have looked at
+  the thing it says it could not find. The objective is the tuple
+  **`[window5x5, towerWindow5x5, clumpCheb2]`** read lexicographically, all five
+  instruments accept tiles as well as candidate indices (one definition, two
+  callers), and the **offer scan runs over the UNTHINNED census** — the descent
+  still runs on the thinned list, which is what keeps it inside the compose
+  budget, and the two are now different questions rather than one shortcut.
+  Re-scanned, **two of the five had an offer all along and three genuinely do
+  not**: E14S1 `[8,5,5] → [8,4,4]` and E3S5 `[9,5,5] → [9,4,4]`, against **0 of
+  755, 0 of 690 and 0 of 910 scanned swaps holding face and saturation exactly**
+  in E11S6, E1S7 and E6S1. Both offers were taken and both declarations are
+  retired. **The roster is three rooms — E11S6, E1S7, E6S1 — and those three are
+  EARNED**, which is the first time that sentence has been backed by a search
+  that measured the clump.
+
+  **AND THE SCAN OFFERS RATHER THAN TAKES, FOR A REASON THAT WAS BUILT AND
+  MEASURED RATHER THAN ARGUED.** The obvious move is to rank the whole dispersion
+  pass on the enriched tuple and let layer 3 keep the winner. That was built and
+  run over the fleet: **56 of 172 rooms move a tower**, and among them E11S1's
+  as-built refill walk goes **4 → 7**, E8S7's **4 → 8**, E18S4's shipped nuke
+  window **9 → 10** and E11S1's whole-mass window 8 → 9. Those are precisely the
+  two instruments layer 3 cannot read — the nuker does not exist until layer 5
+  and the self-blocked walk needs sixty extensions, ten labs and the observer
+  standing — so a tuple-ranked descent spends freedom it cannot price, which is
+  the same argument this document already makes for not crossing the adjacency
+  prior on a soft note. The design is therefore: **layer 3 OFFERS
+  (`meta.towers.towerSwapOffer`, published in every room — whole census,
+  thinned census, swaps scanned, how many held face and saturation, and the
+  before/best tuples), and `pipeline.mjs` PRICES the offer by re-composing the
+  room with it and re-reading twelve as-built instruments on the finished
+  board.** **58 rooms hold a dispersion offer today and 2 of them clear the take
+  rule — E14S1 and E3S5, the two clump declarations that are now retired**; the
+  fleet's other two takes come through the across-prior channel in the
+  tower-coverage bullet, for four moved towers in total. Every offer, taken or
+  refused, ships with both instrument panels in
+  `meta.towers.acrossPriorTake.offered`, so a refusal is a priced verdict rather
+  than a counter.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **465/465 caught** (338/338 at round 14, 260/260 at
-  round 13, 189/189 at round 12, 90/90 at round 11, 64/64 at round
+  The mutation suite is at **603/603 caught** (465/465 at round 15, 338/338 at
+  round 14, 260/260 at round 13, 189/189 at round 12, 90/90 at round 11, 64/64 at round
   10), against a 172/172 clean baseline on the unmutated artifact; every one of
   them was written because a reviewer landed the mutation first. Round 12 added
   **81**, and the block is grouped by the finding that produced it: C1 8/8 ·
@@ -344,6 +393,23 @@ per room. Rise to the bar; do not lower it.
   own load-time rule refuses — a stated bound with nothing behind it, and a
   closure-less leaf that does not admit to being one — because that rule is a
   property of the CHECKER and cannot be tested by breaking a room.
+  Round 16 adds **138**, a net add of 138 with nothing retired: **137 tagged
+  `r16`** — C1 table-iteration presence **34/34** · OF11 mirrors, array elements,
+  census room-binding and `ranBespoke` 28/28 · M3 two-sided witnessed bounds
+  19/19 · M4 planner-note inventory and `renderNote` equality 15/15 ·
+  OF1 `sealedFloor`/`inertPruned` 12/12 · M2 `negotiated.detail` string equality
+  10/10 · m6 tile-level road books 6/6 · OF7 prune bookkeeping 6/6 ·
+  OF4 the across-prior take 3/3 · M5 `satAcrossPrior.basis` 3/3 ·
+  OF3 seat occupancy 1/1 — plus **one case tagged `r17`**, and that one is worth
+  the sentence: `r17/C1-weak-battery-wall-arm-forged` was written by the fixer
+  that CLOSED the hole, against its own fix, on the same day. The round-16
+  validator left one exploit standing and said so in the rule's own `why` (a
+  record that deletes its placement census and claims the wall arm takes that arm
+  legitimately, because on the shipped board nothing distinguished the two);
+  closing it needed a producer change, and the mutation that proves it closed is
+  carried in the harness rather than in a checkpoint nobody runs. The whole
+  round's grouping is one theme — 34 + 28 + 12 of the 137 attack PRESENCE and
+  PROVENANCE rather than value, which is where the round's escapes were.
   **The harness is now committed at `tools/plan-suite/v2/mutate.mjs`** — run it
   with `fnm exec --using 22 node tools/plan-suite/v2/mutate.mjs` (~4s; honours
   `PLANS_FILE`, never writes the artifact, exits 1 on any escape or on a dirty
@@ -400,8 +466,11 @@ per room. Rise to the bar; do not lower it.
   someone got to, and the other ten kept the old contract — a paragraph a human
   typed, checked by nothing — so the architecture that "makes it impossible" was
   in force over 8 of the 18 kinds and the sentence above did not say which 8.
-  **RENDERERS covers all 18 kinds now, and all 302 declarations in the fleet
-  carry generated prose.** The regeneration was also the audit: the 31 paragraphs
+  **RENDERERS covers all 18 kinds now, and all 300 declarations in the fleet
+  carry generated prose** (302 on the round-13 artifact this sentence was written
+  against; the two that left are E14S1's and E3S5's `towers/clump` entries, which
+  round 16 retired by taking the swaps that made them false — see the dispersion
+  bullet). The regeneration was also the audit: the 31 paragraphs
   that had been hand-written under the ten unrendered kinds came back
   **byte-identical**, so the fleet was in fact honest — but it was honest by
   luck-and-diligence and nothing had ever checked it, and "we looked and it was
@@ -459,15 +528,105 @@ per room. Rise to the bar; do not lower it.
   Two load-time self-checks mirror the derived half's: a `why` that states a
   bound with no closure behind it THROWS — it caught `labs.eatAnchors` live —
   and a closure-less leaf that does not SAY it is type-only THROWS, which caught
-  13. Today the inventory reads **427 leaves — 221 re-derived · 206 witnessed, of
+  13. ~~Today the inventory reads **427 leaves — 221 re-derived · 206 witnessed, of
   which 177 carry an implemented closure and 10 are covered by bespoke blocks
   that must stamp per room that they RAN · 29 honestly type-only · 0
-  unclassified**, and the sweep is at **12 escapes, from 123**. The largest
+  unclassified**, and the sweep is at **12 escapes, from 123**.~~ The largest
   single win was not a closure at all: some thirty leaves the table had called witnessed
   turned out to be CROSS-COPIES of numbers `meta.towers.*` publishes
   unconditionally beside them, so they are re-derived by comparison and were
   never witness-only in the first place — the table had been conceding a bound it
   did not have to concede. 127 mutations.
+
+  **AND THE WHOLE MACHINE WAS READING THE RECORD INSTEAD OF THE TABLE, SO THE
+  CHEAPEST ATTACK ON IT WAS DELETION.** This is round 16's CRITICAL and it is the
+  same sentence as the two above, one indirection further in. The leaf engine
+  iterated `recordLeaves(sf)` — the leaves the RECORD happens to carry — so a leaf
+  the table names and the record omits was never looked for at all. **347 of 420
+  leaf instances delete-escaped**, whole sub-records with them
+  (`mobility.negotiated` in all 57 rooms, paragraph included — the entire subject
+  of round 15's finding 37; `mobility.lift`; `shallowExt.search`), and **all five
+  numbers round-14 reviewers had PLANTED re-landed by deletion instead of by
+  falsification** (`labs.haulDist`, `ctrlParks.deepTiles`,
+  `battlements.unreachable`, `towers.maxRefill`, `spawnFan.viable`). Two of those
+  five leave the reader-facing paragraph visibly broken and still pass —
+  E12S5 shipping "**?** deep tiles inside the widest enclosure it admits", E13S3
+  "**undefined** cut tile(s) — 14,35 — carry a rampart" — which is the tell that
+  nothing downstream was reading the record either. An inventory that is
+  authoritative about what MAY exist and permissive about what MUST is half a
+  census, and the half it drops is the half a producer controls for free.
+  **The engine iterates the TABLE now, per (gate, kind): every classed leaf must
+  be PRESENT.** Optionality was MEASURED before it was encoded rather than
+  blanket-waived — 14 of the 18 kinds turn out to have exactly ONE leaf signature
+  — so the excusals are a short, named list rather than a permission: one generic
+  rule (a child is excused iff a CLASSED ancestor is published as exactly `null`),
+  **4 `BRANCH` rules** each carrying its condition and its reason, and
+  **2 `NEVER_SHIPPED` entries**. A branch that takes NO arm fails, so "arm A
+  excuses arm B" cannot be made to excuse both. Two smaller closures came with
+  it: a derivation counts as a presence witness for dynamic-segment leaves, and a
+  dynamic MAP's key set is itself re-derived — which is what finally closed the
+  last 53 `lift.perClass` escapes.
+  **Re-swept on the shipped artifact: 11,553 single-leaf deletions, 0 escapes;
+  2,139 whole-sub-record deletions, 0 escapes.**
+
+  **AND THE SWEEP THAT SAID "12 ESCAPES, FROM 123" WAS MEASURING THE PROSE GATE,
+  NOT THE BOUNDS.** The owner-voice reviewer landed this one with a three-way
+  contrast rather than an argument, and it is the most useful thing anyone did to
+  this file all round: on E12S6, the CONTROL passes; the leaf edit with the
+  paragraph LEFT ALONE bites; **the identical leaf edit with `detail =
+  renderDecl(decl)` regenerated — which is exactly what a producer does —
+  ESCAPES.** Round 15's sweep only ever ran the middle case, so it scored a
+  paragraph-identity trip as a content check and credited bounds that do not
+  exist. **12 was a FLOOR, not a ceiling**, and the honest reading of the round-15
+  line above is that it measured a different gate than the one it named. This is
+  criticism 22's principle applied to a harness instead of a document: a number
+  produced by a measurement nobody re-derived is the same liability whether a
+  human or a script wrote it down. Four structural causes, each closed:
+  **(1) `MIRROR_*` was never a second witness** — both copies are the same
+  producer's second assignment, so single-copy edits bit and mirrored pairs
+  walked. There is a **`#board` closure channel** now: 12 quantities re-derived
+  from THIS room's terrain and shipped structures, with the mirrored censuses
+  bound to them, and `dispersion.search.clumpAfter` and `.towerWindowAfter`
+  promoted out of the witnessed half entirely — they are class **D**, re-derived
+  off the shipped towers. **(2) Arrays were opaque single leaves** —
+  `recordLeaves()` did not descend, so `shallowExt.slots[].why` was producer free
+  text rendered verbatim into the paragraph `declprose.mjs` exists to abolish, and
+  E12S6's **six priced, legal, lap-ceiling-refused trades laundered into "6 slots
+  had NO deep target of any kind" PASSED** — criticism 12's whole argument
+  inverted, in the channel criticism 17 was supposed to have closed.
+  `RECORD_ARRAY_LEAVES` is a closed per-element field inventory: 6 arrays, **25
+  classed element fields**, and **render-or-die on `slots[].why` and
+  `refused[].why`**. **(3) Closures were scale- and provenance-blind** — a whole
+  measurement family could be rescaled and two rooms' entire dispersion censuses
+  swapped, both internally legal. At least one leaf per census is bound to a
+  room-derived quantity now (`shallowExt.search.interiorWalkable` is class D and
+  the swap censuses are capped at 6 × this room's own interior floor).
+  **(4) `ranBespoke` stamped BRANCH ENTRY, not predicate execution** — deleting
+  `ctrlParks.composedCaps` fired the stamp with nothing run. The stamp is a
+  PREDICATE COUNT now, so a block entered with every check skipped credits zero
+  and fails.
+  Today the inventory reads **434 leaves — 226 re-derived · 208 witnessed, of
+  which 193 carry an implemented closure (10 bespoke blocks that must stamp per
+  room that they RAN) and 15 are honestly type-only · 0 unclassified**, beside
+  **25 array-element fields** and **73 leaves excusable by name** under the
+  presence rule. And the sweeps are re-run the way the contrast says they have to
+  be — every mutation with the paragraph REGENERATED from the mutated record:
+  **sign-impossible 9,305 bite / 8 escape, and the 8 are two leaves, `lane.cost`
+  and `lane.gain`, both on the three-name honest signed-exception list**
+  (the third, `causeWalks.*.detour`, is named there too and ships no instance the
+  sweep can reach); **gross-value 9,313 bite / 0 escape**; and the gentle ±50%
+  nudge, characterised rather than rounded off, **10,835 bite / 718 escape across
+  34 distinct leaves — 0 of them class D, 31 of them carrying 1–3 closures the
+  nudge simply stays inside** (board-derived ceilings are generous by
+  construction, because layer 3 looks at a board with fewer things standing on it
+  than the shipped one), **and 1 is `lane.gain`, whose two-sided range IS its
+  bound**. Every one of the 34 that is not a named signed exception dies on the
+  sign sweep, and every one of the 34 without exception dies on the gross sweep —
+  which is the honest way to state it, because `lane.gain` is on that list
+  precisely because its range is what it has instead of a sign. The
+  three-way contrast is itself in the harness: **controls clean 12/12, edit+regen
+  bites 12/12, prose-trip-only 0.** 81 mutations across the three fixes in this
+  paragraph, plus the one tagged `r17`.
 - **AND THE NARRATION GATES WERE OBLIGATIONS NOBODY ENFORCED.** Deleting E7S5's
   `mobility/covered-detour` declaration outright — the fleet's worst pair, 33
   tiles of detour at ratio 17.5 — cost nothing at all; the same held for the
@@ -492,7 +651,7 @@ per room. Rise to the bar; do not lower it.
   criticism 18.
 
   **AND ALL OF THAT WAS ABOUT DECLARATIONS, WHILE THE OTHER NARRATION CHANNEL —
-  THE PLANNER NOTES — HAD NO GATE OF ANY KIND.** 177 notes ship beside the 302
+  THE PLANNER NOTES — HAD NO GATE OF ANY KIND.** 177 notes ship beside the 300
   declarations; they are what the gallery page and the film's ticker read, and
   **165 of the 177 were unchecked.** Six whole classes carried neither an
   obligation nor a content check (NO CUT TILE IS REDUNDANT, SHALLOW EXTENSIONS,
@@ -507,6 +666,44 @@ per room. Rise to the bar; do not lower it.
   shown. All six classes derive-or-die on both halves now — a room whose
   re-derived record demands the note fails without it, and the note's content is
   re-derived against that record. 14 mutations.
+
+  **AND "DERIVE-OR-DIE ON BOTH HALVES" MEANT SIX ANCHORED REGEXES OVER PROSE A
+  HUMAN STILL WROTE.** Round 15 gave the notes an obligation and a content check
+  and left them HAND-WRITTEN, so the checks were content-shaped rather than
+  content: 5 of 10 mutants walked. A fabricated class passed because **there was
+  no class inventory at all** — the one completeness assertion this document has
+  applied to the declarable pairs, the renderers, the cut reasons and the record
+  leaves was missing from the channel a human actually reads, and **200 invented
+  "PERFECT ROOM" notes passed in one run**. An appended lie passed with the
+  numerals untouched. A note whose PROSE was reversed while its anchored numerals
+  were kept passed — "every one of this room's 27 cut tile(s) is REDUNDANT and
+  could be deleted for free … This room ships a DOUBLE SHELL", under the heading
+  `NO CUT TILE IS REDUNDANT`. And the ROAD ON RAMPART note's ring tile was moved
+  to `49,49` because the tile LISTS were never checked, only the counts. This is
+  criticism 17 in the last channel that had escaped it, and it is closed the same
+  way: **`declprose-notes.mjs` — a closed 7-class inventory, `renderNote({cls,
+  rec})`, and `pushNote()` as the ONLY writer of `plan.meta.notes`**, which
+  writes `meta.noteRecords` in the same call so the two arrays are parallel by
+  construction rather than by discipline (`grep -c "meta.notes.push"` across every
+  layer file and `pipeline.mjs` is **0**). The renderer throws on a class outside
+  the inventory and on a heading its class does not declare. The gate is three
+  lines — class in `NOTE_CLASSES`, arrays the same length,
+  `renderNote(noteRecords[i]) === notes[i]` — and it holds in **172/172 rooms,
+  177 of 177 notes byte-exact**. The obligation half is derived from the RECORDS
+  and never from the notes (`meta.noteObligations`, in `REQUIRED_META`), checked
+  in both directions: **177 obligations === 177 records === 177 notes.** The
+  census by class is `sealedFloor 62 · redundantCut 53 (19 "CUT TILES THAT ARE NOT
+  SINGLY LOAD-BEARING" + 34 "NO CUT TILE IS REDUNDANT") · shallowExt 36 ·
+  pavedRun 12 · roadRampart 11 · containerRoad 3`, plus `pavingGap`, which has 0
+  instances today and is in the inventory anyway — for the reason criticism 30
+  gives about gates with nothing in them.
+  Deriving the obligation from records rather than from notes is also what found
+  the last free deletion: **10 of the 177 notes could be deleted for nothing**,
+  all of them `SHALLOW EXTENSIONS` notes recording LAYER 6's relocation in rooms
+  with 0 shallow extensions and an empty layer-7b reflow — a note whose trigger
+  nobody owned, because the obligation was keyed on the shallow count and the note
+  was about the relocation. `meta.extensions.relocatedCount` is the missing owner
+  and it is 1–3 in exactly those ten rooms. 15 mutations.
 - **AND `meta.towers.maxRefill` WAS READ ONLY INSIDE A MESSAGE STRING.** It was
   interpolated into the text of a warning and never compared with anything, so
   setting E7S5's to 99 against a real 5 passed. It is re-derived and compared now,
@@ -531,7 +728,7 @@ per room. Rise to the bar; do not lower it.
 
   **AND THE LIST TOOK SIX MORE ENTRIES IN ROUND 15, WHICH IS THE HONEST WAY TO
   READ "19 PATHS" — IT WAS 19 BECAUSE 19 WAS AS FAR AS ANYONE HAD LOOKED.** It
-  stands at **25** today: `meta.towers.adjacency`, `meta.walls.spurTiles`,
+  stood at **25** after that round: `meta.towers.adjacency`, `meta.walls.spurTiles`,
   `meta.walls.spurTilesShipped`, `meta.walls.laidByKind`,
   `meta.walls.shippedByKind` and `meta.walls.lostByKind` joined it, and every one
   of the six was a delete-escape a round-15 reviewer landed — the spur block and
@@ -540,19 +737,54 @@ per room. Rise to the bar; do not lower it.
   rooms rather than only the three interesting ones, could be switched off by
   deleting the counter it reconciles. An identity that runs everywhere and is
   guarded by a presence test runs nowhere on demand.
+
+  **AND THREE MORE IN ROUND 16, TWO OF THEM UNDER A NOTE CLASS THIS DOCUMENT HAD
+  ALREADY CALLED "DERIVE-OR-DIE ON BOTH HALVES".** It stands at **28**:
+  `meta.sealedFloor`, `meta.walls.inertPruned` and `meta.noteObligations` joined
+  it. The first two are the same finding from both reviewers: neither was in the
+  list and **neither was ever re-derived** — the gate cross-checked the note text
+  against the producer's own record and called that a derivation, so nine live
+  escapes stood on one record (delete it and the note goes unchecked; delete
+  record AND note and a room that seals 12 tiles says nothing; `tiles` as a
+  STRING; a coordinated deflate 12→1; `deep`→0; `ourFault` 11→0, which is a room
+  absolving its own mass; a coordinated INFLATE naming eight invented tiles that
+  are interior, empty and fully reachable). Deleting `meta.walls.inertPruned`
+  with its note took 37 rooms' prune out of the record entirely. Both are fully
+  derivable from floods the checker already runs, and both are fully re-derived
+  now — the sealed floor including its `named` tile list, under the own-creep
+  whole-board flood criticism 43 turned out to need. The pattern is the one this
+  bullet keeps restating: the list is still a list, and what saves it from being
+  the same bug a fourth time is that a `meta` record which owns a NOTE class is
+  now reachable from the note inventory, so it cannot be added without an owner.
 - Interior connectivity invariant: interior walk region stays one component reaching
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
   `plans-hub.json` over consecutive `--all-claimable` runs of the shipped tree
-  on the 172-room world: the round-15 artifact was rebuilt **twice,
+  on the 172-room world: the round-16 artifact was rebuilt **twice,
   byte-identical** (round 12 ran the triple), md5
-  **`0e656c1e1d453197f82b36b912d2a31c`** (round 15, as shipped — this is the
+  **`c9849ee611bff811142c69297b8d16b7`** (round 16, as shipped — this is the
   number `md5sum tools/plan-suite/out-v2/plans-hub.json` prints today; a third run
   after `export-anim.mjs --all` produced the same md5 again, which is the check
-  that the film export does not touch the plan, and the check was worth having
-  this round: the rebuild changed six `meta` subtrees and **all 529 files under
-  `out-v2/` — 172 films included — came back byte-identical**, which is how the
-  round knows its producer work touched no board).
+  that the film export does not touch the plan).
+  **Round 16 is the first round where that chain has THREE links inside one
+  round, and each of them is stated rather than smoothed into one number**, because
+  the middle one is what makes the last one checkable:
+  `0e656c1e1d453197f82b36b912d2a31c` (round 15, the artifact both reviewers
+  attacked) → `02f7dcfb960ec0ba9e8f840d15de471b` (the producer cluster's rebuild:
+  four boards moved, the sealed floor re-flooded, the notes re-rendered — and the
+  two `plan.mjs --all-claimable` runs behind it left all **529** files under
+  `out-v2/` byte-identical to each other, after which `export-anim.mjs --all`
+  rewrote exactly the **4** stale films and left the other 168 alone, which is
+  the check that a board change and only a board change reached the gallery) →
+  `c9849ee611bff811142c69297b8d16b7` (the `towers|weak-battery` `source` fix).
+  The last hop is the one worth a reader's attention: it is proved to be
+  **byte-identical to its predecessor plus `"source": "towers"` inserted after
+  `"kind"` in exactly 15 layer-3 records** — same 13,417,517-byte length, +450 =
+  15 × 30, re-serialised with the producer's own `JSON.stringify(x, null, 2)` —
+  so "no board moved, no paragraph moved, no other record was touched" is an
+  identity rather than a claim. A digest is only worth quoting if the thing it
+  digests is described exactly, and a round with an intra-round rebuild is
+  precisely where that stops being pedantry.
   (`a11d30fe5292c54be0bcb691f9ecce3e` was round 14 and is retired with it, as
   `a0c94198bea96d832ad3e342774076c8` was round 13, as
   `c9ac380797f5eecadd4dc78bb890cc96` — round 12 — and
@@ -593,6 +825,8 @@ per room. Rise to the bar; do not lower it.
   | 15 (round 15, box A) | 92.4s | 85.8s | — | — | — |
   | 16 (round 15, box B) | 131.7s | 106.2s | — | — | — |
   | 17 (round 15, box B) | 100.8s | 93.0s | — | — | — |
+  | 18 (round 16) | 94.1s | 87.0s | — | — | — |
+  | 19 (round 16, post-rebuild) | 94.8s | 88.0s | — | — | — |
 
   Rows 13 and 14 are what the suite's own `SUITE WALL CLOCK` line printed on
   round-12 runs, and nothing more; the two differ by 12s of
@@ -605,6 +839,14 @@ per room. Rise to the bar; do not lower it.
   determinism pair — **identical code, byte-identical output, 13.2s apart
   in-planner on the same box.** That pair is the single most useful number in
   this table and it is not a measurement of the planner at all.
+  Rows 18 and 19 are round 16's two kept clocks and they straddle the round's
+  producer work: 18 is the mechanical reviewer's control run on the round-15 tree,
+  19 is the rebuild that shipped four moved towers, a re-flooded sealed floor, a
+  new note renderer and the offer scan running over an unthinned seat census.
+  **0.7s of wall clock and 1.0s in-planner separate them**, which is inside the
+  machine-load spread rows 8–10 and 16–17 already measured, so the round's honest
+  claim is that its producer work is not visible above the noise — not that it is
+  free. Both sit inside the band below.
   The per-room quantiles are dashes for a reason
   that is worth saying rather than hiding: `planMs` is deliberately not
   serialised (see the determinism bullet), so the p50/p90/max columns exist ONLY
@@ -867,6 +1109,28 @@ per room. Rise to the bar; do not lower it.
   had been published for a round with **no reader at all**, the same position
   `maxRefill`, `srcEnclosed` and `roadRampart` were each in on the round it
   turned out each of them was wrong. 19 mutations.
+
+  **AND REBINDING THE BOARD LEFT THE OTHER AXIS MIXED: NOTHING ASKED WHETHER THE
+  SEAT WAS EMPTY.** Round 15 fixed WHICH WALL each reading is taken on and did
+  not ask what is standing on the tile the room is being told it could move a
+  tower to. On the shipped board **7 of the 9 offered seats are OCCUPIED — 4 by
+  the nuker, 3 by an extension** — structures that land at layer 5, after the
+  offer was made and by a layer that never read it. A number labelled "what the
+  adjacency prior is costing this room" that is in fact the cost of a nuker
+  arriving later is the same defect as `held` on the wrong wall, one field over,
+  and it survived the round that was about exactly this because the fix was aimed
+  at the board and not at the tile. The record carries
+  **`seatOccupancy {x, y, free, on[], counted[]}`** now — 13 structure kinds plus
+  the room objects, with a rampart and a road explicitly NOT occupants, because a
+  tower shares a tile with either — and the loss is split at the source into
+  **`forgoneToPrior`** and **`forgoneToOccupant`**. The `basis` sentence is
+  generated from those same fields (`renderSatBasis`, string-equal — it had been a
+  40-character LENGTH check, so a 200-character basis asserting the exact opposite
+  of which board each reading was on passed), and it branches on whether an offer
+  exists at all, on whether the shipped re-read beats `held`, and on whether the
+  seat is free. **Fleet-wide today: `forgoneToPrior` 0, `forgoneToOccupant` 270.**
+  What the prior itself still costs this fleet is nothing, and that sentence is
+  now a derivation rather than a hope — see criticism 34, which closes on it.
 - Controller outside the wall: rampart ONLY its adjacent ring (denies claim-attack
   stands) + link + container. Nothing wider. **The ring defends a room OBJECT, not
   a structure of ours** — this is why the layer-7 inert-rampart prune, whose keep
@@ -1072,6 +1336,31 @@ per room. Rise to the bar; do not lower it.
   moment of intent does not describe an outcome, and `swampPaved` was the same
   defect wearing a different unit.
 
+  **AND THE COUNTER SITTING TEN TOKENS AWAY FROM ALL OF THAT WAS THE SAME BUG A
+  THIRD TIME.** `plan.mjs` printed `pruned 2007 dead-end road tiles` on the line
+  directly below the one that prints spur laid-versus-shipped correctly, and
+  `meta.walls.pruned` was `pruned.size` read at the moment `planWallRoads`
+  returned — an EVENT count wearing a TILE label, which is criticism 27's
+  sentence verbatim in the room next door. **13 tiles were counted as pruned and
+  ship as roads**, and the reviewer's 13 resolves into two entirely different
+  facts, which is why "off by 13" would have been the wrong repair: **exactly 1**
+  is a tile that was deleted and then RE-LAID (E5S1 `28,30`, the conduct bridge —
+  the same tile that was the 487th ghost in the paragraph above, found for the
+  second time from the other end), and the other **12** — E2S5 `30,23`/`32,23`/
+  `34,23` · E13S3 `20,15`/`21,16` · E5S3 `33,8`/`35,10` · E9S8 `20,38`/`21,39` ·
+  E11S2 `42,13` · E18S3 `22,38` · E2S7 `12,24` — were laid by layer 7 AND deleted
+  by layer 7 before the pipeline tagged the kept set, so they never entered
+  `meta.roadLayer` and the film has nothing to erase for them. Every one of the 12
+  is in its room's `laidTilesByKind` and its `lostByKind`, which is how they are
+  identified rather than assumed. Both counts were honest; publishing one under
+  the other's name was the whole defect. Published as five figures with their tile
+  lists, and the two identities are gated:
+  **`prunedAtPass 2007 === pruned 2006 + prunedRelaid 1`** and
+  **`pruned 2006 === prunedGhosts 1994 + prunedTransient 12`**, plus the board
+  checks that make them mean something — every `prunedTiles` entry absent from
+  `structures.road`, every `prunedRelaid` entry present in it. The fleet line
+  prints all four and names the re-laid tile.
+
   **AND THE FIX FOR THAT CAPTION WAS APPLIED TO ONE OF ITS TWO COPIES.** The
   composed caption went into `STAGE_TEXT`, the panel beside the film. The FRAME
   BANNER — `ROAD_STAGE[7]` in `export-anim.mjs`, the line burned into the layer-7
@@ -1096,17 +1385,26 @@ per room. Rise to the bar; do not lower it.
   unramparted); safety measured against the wall list instead of the exterior region.
   Measured round 12, and **printed by the suite** (`tower clump within chebyshev 2
   of the sitter`) rather than transcribed, which is the only reason it is allowed
-  in prose: exact histogram **{0:12 1:14 2:53 3:60 4:28 5:5 6:0}**, i.e.
-  **cumulative ≥3 = 93, ≥4 = 33, ≥5 = 5** of 172 (round 11 shipped 3:59 / 5:6,
-  ≥4 = 34, ≥5 = 6; E2S5 recomposed to a clump of 3). The round-10 wording — "93 …
+  in prose: exact histogram **{0:12 1:14 2:53 3:60 4:30 5:3 6:0}**, i.e.
+  **cumulative ≥3 = 93, ≥4 = 33, ≥5 = 3** of 172 (round 15 shipped 4:28 / 5:5,
+  round 11 shipped 3:59 / 5:6 with ≥4 = 34, ≥5 = 6; E2S5 recomposed to a clump of
+  3, and E14S1 and E3S5 went 5 → 4 in round 16 on the swap their own search had
+  been thinned out of seeing). **The two rooms that moved traded 5 for 4 and
+  nothing else** — the ≥3 and ≥4 cumulatives are unchanged at 93 and 33, which is
+  the shape a strictly non-worsening swap is supposed to have and is worth stating
+  because it is the check that the improvement was not bought somewhere off this
+  line. The round-10 wording — "93 …
   hold 3 …, 34 hold 4, and 6 hold 5" — was ambiguous between the exact and
   cumulative readings and, on the artifact it was written against, its 93 was a
   transcription of neither (the cumulative there was 91). Both numbers are stated
   now and the suite prints them. Some of that clumping is the interior's shape and
-  none of it may be bought back with the weakest wall face, so the five worst
+  none of it may be bought back with the weakest wall face, so the **three** worst
   DECLARE — `towers/clump`, quoting the swap search that failed — rather than
   passing in silence. A clump the room can prove it cannot leave is a verdict; one
-  nothing looked at is this anti-pattern.
+  nothing looked at is this anti-pattern — and for two rounds two of these five
+  were the second thing while reading as the first, because the search behind the
+  verdict ranked a different statistic and never saw 255 of the seats it claimed
+  to have rejected. See the dispersion bullet.
 - Score-chasing: optimizing a number while the layout worsens. The gallery is the
   final judge, not the score. **This cuts both ways and round 9 found the other
   edge:** E11S7 refused to retire five forever-ramparts because doing so moved a
@@ -1125,13 +1423,19 @@ Frozen fleet metrics: `docs/PLANNER-BASELINE-2026-08-01.json`
 enclosed ctrl 88 / sources 170 · mobility>1 in 18 rooms · parks min 5).
 Every cycle must move at least one number the right way without regressing others.
 
-Where the fleet stands after round 15 (172 rooms, the world this doc is now
+Where the fleet stands after round 16 (172 rooms, the world this doc is now
 measured against — the 159-room numbers above are kept as the frozen baseline
-they are, not as a description of today). **Every figure in this block is
-unchanged from round 14, because round 15 moved no board**: the artifact was
-rebuilt with six `meta` subtrees changed and 0 structure diffs, 0 declaration
-diffs and 0 note diffs, so a status block that moved would be the tell that
-something else had. **Every number in it is printed
+they are, not as a description of today). Round 15 moved no board and this block
+did not move with it. **Round 16 moved four**, and the discipline is the same one
+stated the other way round: exactly the figures a four-tower move can touch have
+moved, and every other figure in the block is byte-for-byte what it was. **Four
+rooms ship one tower on a different tile — E3S1, E4S3, E14S1, E3S5 — and the
+fleet's roads (14,104), ramparts (8208), extensions (60/60 in 172/172), road+rampart
+taxonomy, `roadKind` enum and every road book are unchanged by them**, which is
+what a strictly non-worsening swap is supposed to look like from the outside and
+is the reason those totals are listed here rather than re-derived in a footnote.
+What did move: **declarations 302 → 300**, the clump histogram's top two buckets,
+the sealed-floor total, and criticism 34's whole census. **Every number in it is printed
 by one of exactly three commands — `plan.mjs --all-claimable`, `validate.mjs` or
 `push-plan.mjs --census` — and that sentence is true for the first time.** It
 stood here through round 11 as an assertion rather than a fact: three of the
@@ -1141,20 +1445,26 @@ re-transcribed by hand out of `plans-hub.json` every round, which is the exact
 condition m1 and m2 caught rotting. The suite now prints all three, plus the
 notes and the road total, on one line:
 
-  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 302 · planner notes 177 · roads 14104`
+  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 300 · planner notes 177 · roads 14104`
 
 **And the reason that line names `declared shortfalls` explicitly is that a
 number which looked like it was already printed was a different quantity.**
 `validate.mjs` ends on `declared-shortfall 122`, and 122 is the count of **ROOMS
 that pass carrying a note** — its own heading says so, `122 room(s) pass with a
-note` — not the count of declarations, which is 302 across 157 rooms. Reading one
+note` — not the count of declarations, which is 300 across 157 rooms. Reading one
 as the other is how the wrong number would have survived, and the two are kept
 visibly distinct — and in round 14 they moved in OPPOSITE directions, which is the
 clearest demonstration yet that they are three quantities and not one: the
 along-cut rescope gave five rooms a new planner note (**172 → 177 notes**, in
 E14S3 E21S3 E4S1 E5S5 E5S9) of which exactly one, **E4S1**, had carried no note at
 all before and so is the whole of **121 → 122 rooms**, while E2S8's tower move
-retired the fleet's only `towerRefill` entry (**303 → 302 declarations**). The digest is quoted once, in the
+retired the fleet's only `towerRefill` entry (**303 → 302 declarations**).
+Round 16 is the cleanest case of the same point: two `towers/clump` declarations
+were retired (**302 → 300**) and **none of the other three moved** — 122 rooms
+still pass with a note, 157 rooms still carry a declaration, and the 177 notes
+are still 177, because a tower moving one seat inside its own room changes what
+the room has to declare and nothing about how many rooms have something to say.
+The digest is quoted once, in the
 determinism bullet above, and not repeated here:
 ext60 172/172 (suite) · validator 172/172 fail 0 (validator) ·
 ramparts total **8208** (suite, FLEET TOTALS) ·
@@ -1199,17 +1509,27 @@ closed them are the whole of round 13's +2 on the fleet road total; the gap gate
 does not "survive with nothing in it" any more — it REFUSES every gap claim, for
 the reason the census now prints beside the zero: walkable-and-unpaveable is the
 empty set in Screeps (criticism 6, and criticism 30 for why "nothing in it" was
-the wrong shape) · arterial **7,920 of 14,104** road tiles (census — the
-denominator did not move this round and the numerator moved by one, E2S8 having
-swapped a stitch tile it no longer needs for an arterial one when its battery
-moved) · **302 declared
+the wrong shape) · arterial **7,920 of 14,104** road tiles (census — neither
+number moved in round 16, which is the interesting half: four towers changed
+tile and no road changed stage, so the staging really is a function of the eco
+skeleton and not of where the battery happens to sit. Round 14 moved the
+numerator by one, E2S8 having swapped a stitch tile it no longer needs for an
+arterial one when its battery moved, so the two rounds together say the
+dependency exists and is small) · **300 declared
 shortfalls** (suite, FLEET TOTALS — and NOT the `declared-shortfall 122` the
 validator ends on, which counts rooms, per the note above), of which 133 are the
 per-room mineral-seat-AND-EXTRACTOR off-network exception the road gate used to
 grant silently in the checker's own source — both structures named in the
 declaration now, the extractor on the stronger argument (criticism 11) — and
 **177 planner notes** beside them (suite, same
-line).
+line), every one of them rendered from a record and obligated by a record
+(**177 notes === 177 note records === 177 note obligations**, checked both ways) ·
+**sealed interior floor 257 tiles across 62 rooms**, re-derived by the validator
+under the own-creep whole-board flood rather than the interior-confined one that
+made criticism 43 look like a one-tile wording problem · **`forgoneToPrior` 0
+fleet-wide** — the adjacency prior costs this fleet nothing that anybody can
+name, and the 270 damage that is still forgone is forgone to a structure standing
+on the seat (criticism 34).
 
 Known open criticisms, in priority order:
 1. ~~**1793 extensions sit shallow and buy personal ramparts**~~ — the owner's top
@@ -1966,11 +2286,20 @@ now makes it impossible rather than what was patched:
    visible rather than re-promising for round 16: the cheapest item on the list
    is the one that keeps losing to the interesting ones, which is precisely how
    the arterial pair and the released-parks room rotted in the first place.
+   **AND ROUND 16 DID NOT WRITE IT EITHER — THIRD ROUND, SAME LINE, AND THE ROUND
+   THAT SKIPPED IT ADDED A FLEET PRINT FOR SOMETHING ELSE.** `grep -c alongCut
+   tools/plan-suite/v2/plan.mjs` is still **0**, while the same round taught that
+   same fleet summary to print four new prune figures and name the re-laid tile
+   (criticism 52) — so the budget was there and the item lost again, this time to
+   an item found in the same file on the same day. That is the honest shape of it:
+   the cheapest fix does not lose to a lack of time, it loses to whatever a
+   reviewer happened to file, and nothing in this process ranks by cost. Recorded
+   without a round number, per the rule this paragraph's neighbour adopted.
    The
    **mutation count** was on that list too —
    the harness was a scratchpad splice and nothing committed ran it. It is now
    `tools/plan-suite/v2/mutate.mjs`, it prints
-   `BASELINE 172/172 clean · MUTATIONS 465/465 bite`, and that gap is closed.
+   `BASELINE 172/172 clean · MUTATIONS 603/603 bite`, and that gap is closed.
 
 Round-13 findings. **Two fresh reviewers, 11 confirmed findings between them** —
 the owner-voice reviewer filed 3 BLOCKING, 1 MEDIUM and 4 LOW, the mechanical
@@ -2015,7 +2344,8 @@ one of those four, either already right or one road tile away from right.
    and it generated eight kinds. The other ten kept the round-10 contract — a
    paragraph a human typed, checked by nothing — while this document described the
    architecture as though it covered the channel. **RENDERERS is all 18 kinds now
-   and all 302 declarations carry generated prose**; the 31 hand-written
+   and all 300 declarations carry generated prose** (302 when this entry was
+   written; round 16 retired two); the 31 hand-written
    paragraphs under the ten unrendered kinds regenerated **byte-identical**, so
    the fleet turns out to have been honest, and that is a fact the audit produced
    rather than a defence the audit was spared. `assertProseInventory()` asserts
@@ -2138,8 +2468,11 @@ the layer-7 frame banner (the film bullet).
    no longer lie about itself. 45 mutations. (**The words "with a stated bound
    the validator enforces" were doing more work than the file was**: seven
    generic closures stood behind all 173, and a one-leaf-at-a-time sweep escaped
-   in 123 of 375 cases — see criticism 36. The inventory is 427 leaves today and
-   the witnessed half is executable.)
+   in 123 of 375 cases — see criticism 36. **And the census itself was iterating
+   the RECORD rather than the table, so 347 of 420 leaf instances could simply be
+   DELETED — criticism 44, which is this footnote's own subject a third time.**
+   The inventory is **434 leaves** today, the witnessed half is executable, and
+   presence is required rather than assumed.)
 29. **BLOCKING (F1): E2S8's DECLARATION SAID THERE WAS NOTHING TO FIND, AND THE
    SEARCH THAT LOOKED WAS OBEYING A PRIOR.** The room shipped a filler walk of
    `[7,8,8,9,10,11]` — one step over the hard `MAX_REFILL` ceiling — under a
@@ -2220,10 +2553,14 @@ the layer-7 frame banner (the film bullet).
    principle failing in the file that states it: a number a tool prints and a
    number a human carries will diverge, and the only question is how many rounds it
    takes to notice.
-34. **STILL OPEN, AND DELIBERATELY UNSPENT: THE ADJACENCY PRIOR IS HOLDING NINE
-   ROOMS ONE FALLOFF STEP UNDER WHAT THEY CAN REACH.** Now that the prior is
+34. ~~**STILL OPEN, AND DELIBERATELY UNSPENT: THE ADJACENCY PRIOR IS HOLDING NINE
+   ROOMS ONE FALLOFF STEP UNDER WHAT THEY CAN REACH.**~~ **CLOSED, round 16, and
+   it closed to ZERO on the axis this entry was actually about.** The entry is
+   kept whole, with each round's reading under the correction that superseded it,
+   because it was wrong twice in two different ways and the sequence is the
+   lesson. As filed: now that the prior is
    measurable, the measurement is published per room
-   (`meta.towers.adjacency.satAcrossPrior`): on the SHIPPED board, **9 rooms hold
+   (`meta.towers.adjacency.satAcrossPrior`): on the round-15 board, **9 rooms held
    a weakest-face improvement they could take by crossing it — 330 damage in
    total, E11S7 30 · E11S9 60 · E15S5 60 · E17S3 30 · E19S8 30 · E2S8 30 ·
    E3S1 30 · E4S3 30 · E8S6 30**, each of them a single
@@ -2249,8 +2586,10 @@ the layer-7 frame banner (the film bullet).
    ABOUT.** It was `held` from the shipped board against `reachable` from layer
    3's — see the `satAcrossPrior` paragraph in the tower-coverage bullet — so the
    headline number of a criticism about measuring a prior honestly was itself
-   taken across two boards. Re-derived wholly on the wall the fleet ships it is
-   **9 rooms / 330**, and the interesting part is that BOTH predictions made from
+   taken across two boards. Re-derived wholly on the wall the fleet shipped at
+   round 15 it was **9 rooms / 330** (and 9/330 is where this entry stood for one
+   round; the round-16 addendum below takes it apart on a second axis), and the
+   interesting part is that BOTH predictions made from
    the mixed reading were wrong, in opposite directions:
    - **E15S5 STAYS IN**, where the owner review predicted it would drop. Its
      shipped face is 1410, and the offered seat measures **1470** on the shipped
@@ -2271,6 +2610,45 @@ the layer-7 frame banner (the film bullet).
    contradiction is what was fixed and the two mis-priced rooms are named; the
    18-room "take them all" experiment is a round-11 measurement and has NOT been
    re-run, which is stated here rather than implied by a fresh-looking number.
+
+   **AND "9 ROOMS / 330" WAS STILL A MIXED READING, ON THE AXIS NOBODY HAD
+   THOUGHT TO SEPARATE.** Round 15 fixed which WALL each number is taken on and
+   this entry re-headlined itself on the result. It never asked what is STANDING
+   on the seat being offered. On the shipped board **7 of the 9 seats are
+   occupied — 4 by the nuker, 3 by an extension** — so seven of those nine rooms
+   are not being held under by the adjacency prior at all; they are being held
+   under by a structure layer 5 put on the tile after layer 3 made the offer, and
+   an entry titled "the adjacency prior is holding nine rooms" was, for two
+   rounds and two different reasons, a number about something else. This is the
+   same defect twice in the same field, which is the argument for publishing the
+   AXES rather than the total: the record now carries `seatOccupancy` per room and
+   splits the loss into `forgoneToPrior` and `forgoneToOccupant`.
+   **`forgoneToPrior` is 0 fleet-wide.**
+
+   **AND THE TWO SEATS THAT WERE GENUINELY FREE WERE FREE, SO THEY ARE TAKEN.**
+   Once the occupancy axis is separated, the residue this entry has been deferring
+   since round 11 is two rooms, and both of them cost NOTHING on every instrument
+   the entry names as the reason not to take them. Verified the only way that
+   claim can be made honestly — by RE-COMPOSING the room with the swap and
+   re-reading twelve as-built instruments on the finished board, not by trusting
+   layer 3: **E3S1 `23,23 → 22,19`, weakest face 1200 → 1230** and **E4S3
+   `25,26 → 24,25`, 2580 → 2610**, with saturated cut tiles, shipped nuke window,
+   tower-only 5x5, as-built refill walk, unreachable towers, interior walk region,
+   clump, extensions, shallow extensions, ramparts and the gated defender lap all
+   unchanged in both. That is the layer-5-reads-the-record pass this entry
+   predicted would be needed, built as an OFFER from layer 3 priced by a
+   re-composition in `pipeline.mjs`, gated on every as-built instrument
+   non-worsening AND a strict improvement somewhere — the shape `maybeReleaseParks`
+   already established, applied to a second decision.
+   **Criticism 34 therefore closes at: 7 rooms / 270 damage still forgone,
+   `forgoneToPrior` 0, `forgoneToOccupant` 270, and nothing forgone for free
+   anywhere in the fleet.** The +600 experiment is NOT what was taken and this is
+   worth being exact about, because taking all 18 was always the wrong trade:
+   ranking the whole dispersion pass on the enriched tuple moves **56 of 172
+   rooms** and regresses as-built refill in E11S1 (4 → 7) and E8S7 (4 → 8) and the
+   shipped nuke window in E18S4 (9 → 10) — measured, on the fleet, this round.
+   Two priced takes and sixteen priced refusals is the answer; "+600 across 18
+   rooms" was the size of a bet nobody had costed.
 35. **STILL OPEN: `meta.compositions.total` UNDERCOUNTS IN THE ROOMS THAT RELEASE
    PARKS.** `maybeReleaseParks` composes a full plan per candidate cap and never
    pushes any of them onto `trail`, so the published composition count describes
@@ -2292,6 +2670,14 @@ the layer-7 frame banner (the film bullet).
    it is the same failure as the along-cut print line in criticism 22, twice in
    one round, and it is recorded here as such rather than re-promised for
    round 16.
+   **AND ROUND 16 DID NOT ATTACK IT EITHER.** Re-read on the round-16 artifact:
+   **E12S5 `total: 7` beside 7 composed caps, E9S2 `total: 3` beside 8** —
+   identical to the round-15 reading, digit for digit, which is the only thing
+   worth adding, because it says the item is genuinely untouched rather than
+   quietly changed. Two rounds of no movement on a producer-bookkeeping item
+   nobody's gate depends on is not a scandal; what it is, is the second data point
+   for the pattern criticism 22 now states outright — an item's cost has never
+   been what decides whether it gets spent.
 
 Round-15 findings. **Two fresh reviewers, 12 confirmed findings between them** —
 the owner-voice reviewer 2 BLOCKING, 3 MEDIUM and 0 LOW; the mechanical reviewer
@@ -2335,8 +2721,14 @@ correction (the road bullet, and criticism 32).
    load-time self-checks that refuse a stated-but-unimplemented bound and a
    closure-less leaf that does not admit to being one. **427 leaves — 221
    re-derived · 206 witnessed (177 closured, 10 bespoke, 29 type-only) · 0
-   unclassified**, sweep escapes **123 → 12**. Full account in the declaration
+   unclassified**, ~~sweep escapes **123 → 12**~~. Full account in the declaration
    bullet. 58 + 1 mutations.
+   **AND THE "123 → 12" WAS THE WRONG MEASUREMENT, WHICH ROUND 16 PROVED WITH A
+   THREE-WAY CONTRAST** — the sweep mutated a leaf and left the paragraph alone,
+   so it tripped the prose-identity gate and credited bounds that do not exist.
+   **12 was a floor.** Re-swept the way a producer actually behaves, the honest
+   residue is 34 leaves against a gentle nudge, 0 of them class D; the inventory
+   is **434 leaves** today. See criticisms 42 and 45.
 37. **BLOCKING: `negotiated.detail`, THE LAST HAND-WRITTEN PARAGRAPH, WAS
    UNCHECKED — AND IT IS THE DENSEST ONE.** 57 rooms ship it, it quotes a dozen
    numbers, and criticism 17's generated-prose architecture had never been
@@ -2359,6 +2751,11 @@ correction (the road bullet, and criticism 32).
    shipped board, `REQUIRED_META`, and the four sat fields rebound with
    `atLayer3` and a `basis` string kept beside them. Criticism 34 is refigured on
    the honest board and comes out **9 rooms / 330**, not 10 / 360. 19 mutations.
+   (And round 16 refigured it a third time on the axis this round never checked —
+   what is STANDING on the offered seat — closing it at **7 rooms / 270 with
+   `forgoneToPrior` 0**. Two consecutive rounds of "the headline number of a
+   criticism about measuring honestly was itself mixed" is the argument for
+   publishing the axes rather than the total; see criticism 34.)
 39. **MAJOR/MEDIUM: THE 177 PLANNER NOTES WERE THE UNGATED CHANNEL, AND THEY ARE
    THE ONE A REVIEWER READS.** `meta.notes = []` passed on every room in the
    fleet; 165 of 177 notes were unchecked across six classes. Derive-or-die on
@@ -2378,7 +2775,24 @@ correction (the road bullet, and criticism 32).
    round and this file is found wrong three or four times**, and the reason is
    the one criticism 22 gives — the artifact is re-derived by a command every
    run and the prose is re-derived by whoever is writing that round's pass.
-42. **STILL OPEN: 12 RECORD LEAVES ARE BOUNDED ONLY BY TYPE, AND THEY SAY SO.**
+42. ~~**STILL OPEN: 12 RECORD LEAVES ARE BOUNDED ONLY BY TYPE, AND THEY SAY SO.**~~
+   **RE-OPENED AND RE-CLOSED AT A DIFFERENT NUMBER, BECAUSE THE 12 WAS MEASURED
+   BY A HARNESS THAT WAS NOT DOING WHAT IT SAID.** Round 16's owner-voice reviewer
+   showed with a three-way contrast that round 15's sweep mutated a leaf WITHOUT
+   regenerating the paragraph, so it was scoring prose-identity trips as content
+   checks: **12 was a floor, not a ceiling** (the mechanism, and the four
+   structural causes it exposed, are in the declaration bullet). Re-swept with the
+   paragraph regenerated from the mutated record — what a producer actually does —
+   the honest residue is **34 distinct leaves that a gentle ±50% nudge walks past,
+   of which 0 are class D and 31 carry one to three closures the nudge simply
+   stays inside**, on 10,835 bites against 718 escaping instances. That is a
+   larger number than 12 and a much smaller claim, and the reason to prefer it is
+   the whole of criticism 22: it was produced by a harness whose own behaviour was
+   re-derived. **The unbounded set proper is the one this entry always described**
+   — the eleven `lane.*` and `shallowExt.search.*` counterfactuals below, plus the
+   named signed exceptions — and everything in the 34 dies on the sign and gross
+   sweeps, which bite 9,305 and 9,313 with 8 and 0 escapes respectively. The
+   original text stands as filed:
    The witnessed-bounds sweep drove escapes to 12 and stopped there, honestly:
    `lane.{stubsLifted, boundBeforeStubs, wanted, wantedBound, cost, premium,
    gain, droppedFor, shrunk.premium}` and
@@ -2396,7 +2810,9 @@ correction (the road bullet, and criticism 32).
    an ordering bound would be a coincidence rather than a derivation. A leaf that
    can only be bounded by inventing a second producer to check the first is a
    leaf this document should say is unbounded, which is what it now does.
-43. **STILL OPEN, AND A JUDGMENT CALL RULED THE HARD WAY: E5S5's SEALED INTERIOR
+43. ~~**STILL OPEN, AND A JUDGMENT CALL RULED THE HARD WAY:**~~ **RESOLVED,
+   round 16 — AND AS A PRODUCER BUG, WHICH IS WHY THE JUDGMENT CALL WAS THE WRONG
+   FRAME. E5S5's SEALED INTERIOR
    FLOOR NOTE DESCRIBES A TILE THE ROOM PAVED AND AN UPGRADER STANDS ON.** The
    note lists 12 tiles that "sit inside the wall, carry nothing, and cannot be
    reached from the sitter", and the first of them is **`21,10`, which carries a
@@ -2415,8 +2831,260 @@ correction (the road bullet, and criticism 32).
    reporting for that tile is "not reachable without leaving the wall", which is
    a different and much less alarming claim, and the fix is to make the sentence
    say it. The other 11 tiles re-derive as genuinely sealed and genuinely empty,
-   so `sealedFloor.tiles` is wrong by exactly one in one room — which is the
-   size of defect this project has learned to treat as the interesting kind.
+   ~~so `sealedFloor.tiles` is wrong by exactly one in one room — which is the
+   size of defect this project has learned to treat as the interesting kind.~~
+
+   **AND "WRONG BY EXACTLY ONE IN ONE ROOM" WAS THE SCOPE THIS ENTRY PUT ON A
+   DEFECT IT HAD ALREADY DIAGNOSED CORRECTLY.** The paragraph above names the
+   cause — an interior-confined flood, where the word "sealed" means "our own
+   creeps cannot get there" and our own creeps walk through our own ramparts and
+   may leave the wall and come back. Having said that, the entry then filed the
+   symptom as one tile in the room it happened to be looking at. Swept properly,
+   the room that was actually wrong is **E12S7, which publishes 7 sealed tiles of
+   which exactly 1 is genuinely sealed** — the pocket `43,20 43,21 43,22 44,22
+   43,23 44,23` is own-creep reachable by a 53-step route with 32 steps OUTSIDE
+   the wall, which is precisely the route an interior-confined flood cannot see.
+   Six wrong tiles in a room nobody filed, beside the one in the room everybody
+   did. A judgment call about what "carries nothing" ought to mean was the wrong
+   frame for a flood that was measuring the wrong region, and the tell was in the
+   entry's own second half all along.
+   The producer's `noteSealedFloor` uses a new exported `ownCreepWalk` now —
+   the whole board from the sitter, blocked only by terrain wall, room objects and
+   our own OBSTACLE structures, with roads, containers and our own ramparts
+   passable and no confinement to the interior. **Full-fleet sweep: exactly two
+   rooms shrink and no room leaves the note — E12S7 7 → 1, E5S5 12 → 11, fleet
+   264 → 257 tiles across the same 62 rooms**, and the other 60 rooms' tile sets
+   are identical, which is the check that a re-definition this broad did not
+   quietly re-classify anything else. The record gained `named`, `depthSafe` and a
+   `basis` that says in words which flood it means; `meta.sealedFloor` is in
+   `REQUIRED_META` and fully re-derived, including the named list; and the note
+   sentence says which flood it is reporting rather than leaving a reader to
+   assume the alarming reading. **Criticism 43 closes as a producer fix, not as a
+   definition** — which is the outcome the entry itself argued for when it refused
+   to write the convenient definition into this document.
+
+Round-16 findings. **Two fresh reviewers, 20 confirmed findings between them** —
+the mechanical reviewer 1 CRITICAL, 4 MAJOR, 3 MINOR and 1 LOW; the owner-voice
+reviewer 2 BLOCKING, 5 MEDIUM and 4 LOW — with **zero hard-gate breaches, zero
+rooms failing, and both board sweeps clean over 17 rooms each**, and all 20 fixed
+the same day in two parallel clusters plus a third pass on the one item that
+turned out to need a producer and a validator change in the same commit. **The
+theme is the checking channel again, one indirection deeper than round 15's, and
+it is the same sentence a third time: the round-14 census refused to let a leaf
+be UNCLASSIFIED, round 15 found that "witnessed with a stated bound" was a
+sentence for 173 of them, and round 16 found that the machine reading the table
+was iterating the RECORD** — so every bound the last two rounds bought could be
+switched off by deleting the field it was about. The most valuable single act of
+the round was not a fix: it was the owner-voice reviewer's three-way contrast,
+which showed that round 15's headline "escapes 123 → 12" had been measured by a
+harness that mutated a leaf and left the paragraph alone, so it was scoring the
+prose-identity gate and crediting bounds that did not exist. **A project that
+re-derives its artifact every run and does not re-derive its own harnesses has
+moved criticism 22's defect one level up the stack**, and that is the sentence
+this round is really about.
+Unlike round 15, **the boards moved**: four rooms ship one tower on a different
+tile, and every one of the four was found by a reviewer pointing at a search that
+was not measuring what its declaration claimed. Findings whose mechanism belongs
+beside the machinery it fixed are written up there and named here only: the
+table-iteration presence engine and the closure channel (the declaration bullet),
+the note renderer (the obligation bullet), the offer-and-price tower swap (the
+dispersion bullet and the tower-coverage bullet), `sealedFloor` under the
+own-creep flood (criticism 43), the prune books (the film bullet's `roadKind`
+paragraph), and the three new `REQUIRED_META` paths (the delete-escape bullet).
+
+44. **CRITICAL: THE LEAF ENGINE ITERATED THE RECORD, NOT THE TABLE, SO EVERY
+   BOUND IN IT WAS OPTIONAL.** `validate.mjs` walked `recordLeaves(sf)` — the
+   leaves a record HAPPENS to carry — and the table of 420 classed leaves was
+   therefore an authority on what MAY exist and silent on what MUST. **347 of 420
+   leaf instances delete-escaped**, whole sub-records with them
+   (`mobility.negotiated` in all 57 rooms, which is the entire subject of round
+   15's finding 37, paragraph included; `mobility.lift`; `shallowExt.search`), and
+   **all five numbers round-14 reviewers planted re-landed by DELETION**. Two of
+   them leave the reader-facing paragraph visibly broken and still passing — "**?**
+   deep tiles", "**undefined** cut tile(s)" — which is how you know nothing
+   downstream was reading it either. The obligation layer was intact throughout
+   (14/14 declaration deletions caught); the hole was strictly inside a
+   declaration that is present, which is why three rounds of reviewers aiming at
+   the outside of the record never touched it. Closed by iterating the TABLE per
+   (gate, kind), with optionality MEASURED before it was encoded — 14 of 18 kinds
+   have exactly one leaf signature — and expressed as one generic null-ancestor
+   rule, 4 named `BRANCH` rules and 2 `NEVER_SHIPPED` entries rather than a
+   blanket waiver. **Re-swept: 11,553 single-leaf deletions and 2,139 whole
+   sub-record deletions, 0 escapes.** 34 mutations.
+
+   **AND ONE OF THE FOUR BRANCH RULES SHIPPED WITH A HOLE IN IT, WHICH THE FILE
+   SAID OUT LOUD AND THEN A THIRD PASS CLOSED.** `towers|weak-battery` is filed by
+   two different layers — layer 3 when the placement search settles a weak or far
+   battery, layer 7's wall pass when the as-built refill walk crosses the note
+   line — and the branch picked the arm by the ABSENCE of the placement census.
+   So a record that deleted `towers.*` **and** claimed `source: "walls"` **and**
+   regenerated its paragraph took the wall arm legitimately, dropping 34 audited
+   leaves off the audit, and nothing on the board distinguished it from E18S3, the
+   fleet's one genuine wall-arm room. The validator stated this in the rule's own
+   `why` rather than hiding it, which is the only reason it got fixed rather than
+   forgotten. It needed a producer change and a validator change **in the same
+   commit**, because either alone turns the fleet red: layer 3 now publishes
+   `source: "towers"` unconditionally (15 records gained the field; the artifact is
+   provably byte-identical otherwise), and the validator's derivation — which had
+   been the hardcoded constant `"walls"`, correct only for as long as exactly one
+   room published the field — is layer 3's own trigger transcribed off
+   `meta.towers`, which layer 3 writes for every room whether it declares or not.
+   **The transcription has one trap and it is worth the sentence: it must read
+   `maxRefillAtPlacement`, not `maxRefill`, because `layer-walls.mjs` overwrites
+   `maxRefill` with the as-built walk** — using the overwritten field mis-derives
+   exactly one room, and it is E18S3, the one room the rule exists to tell apart.
+   Verified over all 172 rooms including the 156 that file nothing: **172/172, zero
+   mismatches.** The forged mutant now dies on a derivation, and the case that
+   proves it is in the harness as `r17/C1-weak-battery-wall-arm-forged`.
+45. **BLOCKING: THE CLOSURE DSL WAS AN INTRA-RECORD SHAPE CHECKER, AND THE NUMBER
+   THAT SAID OTHERWISE WAS MEASURED BY THE WRONG EXPERIMENT.** 17 coordinated
+   escapes over 28 attacks, every one re-confirmed at `pass 172/172 · fail 0`
+   against a clean control. The three-way contrast is the finding: control passes,
+   leaf edit with prose LEFT ALONE bites, **the identical edit with the paragraph
+   REGENERATED escapes** — so round 15's sweep was measuring the prose gate and
+   **12 was a floor**. Four structural causes, all closed: `MIRROR_*` was the same
+   producer's second assignment rather than a second witness; arrays were opaque
+   single leaves, which is how **E12S6's six priced, legal, lap-refused trades
+   were laundered into "6 slots had NO deep target of any kind"** — criticism 12
+   inverted, in the channel criticism 17 was supposed to have closed; closures
+   were scale- and provenance-blind, so whole per-room censuses could be permuted
+   between rooms; and `ranBespoke` stamped branch entry rather than predicate
+   execution. Mirrors are bound to a 12-quantity `#board` channel re-derived from
+   this room's terrain and structures (two of them promoted to class D outright),
+   arrays get a closed 25-field element inventory with render-or-die on the two
+   `why` fields, censuses are capped against a room-derived quantity, and the
+   bespoke stamp counts predicates. 28 mutations, plus the contrast itself, which
+   is in the harness: **controls 12/12 clean, edit+regen 12/12 biting.**
+46. **MAJOR: THE 177 PLANNER NOTES WERE FOUND UNGATED FOR THE SECOND ROUND
+   RUNNING, ONE LAYER IN.** Round 15 gave them an obligation and a content check
+   and left the prose HAND-WRITTEN, so 5 of 10 mutants walked: a fabricated class
+   passed because **there was no class inventory** — 200 invented "PERFECT ROOM"
+   notes in one run — an appended lie passed, a note whose prose was REVERSED
+   under an unchanged heading passed with its numerals intact, and a ring tile
+   moved to `49,49` passed because tile LISTS were never checked. This is the last
+   hand-written prose channel in the artifact and it is closed the same way the
+   declarations were in round 13: a shared renderer, a closed 7-class inventory,
+   `pushNote()` as the only writer, and string equality — **177/177 byte-exact in
+   172/172 rooms**, with obligations derived from records and checked both ways.
+   15 mutations.
+47. **MAJOR: THE `negotiated.detail` RESIDUE PARSER WAS ASCII-ONLY, AND THE FIX
+   WAS TO STOP PARSING.** Round 15 gated the fleet's densest paragraph by
+   accounting for every numeral against a leaf. 7 of 9 mutants escaped it:
+   a numeral-free reversal (round 15's own landed exploit with the digits
+   removed), the claim written in number-WORDS, fullwidth and Arabic-Indic digits
+   (`\d` without `/u` is ASCII), roman numerals, numerals glued to a letter and
+   numerals preceded by a dot — the last two on the lookbehind. Hardening the
+   regex was the obvious repair and the wrong one: round 15's producer half had
+   already proved the paragraph rebuilds **byte-exactly from its leaves in all 57
+   rooms**, so the gate is now full **string equality against
+   `renderNegotiated(neg)`** and unicode, words, glue and leading dots all die
+   together in one move. The residue parser is kept as a second opinion rather
+   than as the check. 10 mutations.
+48. **MAJOR: ONE-SIDED WITNESSED BOUNDS ADMIT SIGN-IMPOSSIBLE VALUES.** 14 of 14
+   hand-built impossibilities passed — a negotiated lap of **−2.5**, a lifted lap
+   of −2.5, an unblocked refill of −10, 830 declared cut tiles in a room whose
+   shipped cut is 38 — and an independent value sweep found 41 of 200 witnessed
+   instances accepting a falsification against a document claiming 12. `le`
+   without `ge` is half a bound and the table had been writing it as a whole one.
+   Every numeric witnessed leaf is two-sided now: NON-NEGATIVE by default, with
+   **three signed exceptions named in the file** (`lane.cost`, `lane.gain`,
+   `causeWalks.*.detour`) carrying two-sided ranges, and ~30 board-derived
+   ceilings added. **Re-swept: sign 9,305 bite / 8 escape — and the 8 are the two
+   named signed leaves; gross 9,313 bite / 0 escape.** 19 mutations.
+49. **MAJOR: `satAcrossPrior.basis` — THE SENTENCE THAT SAYS WHICH BOARD EACH
+   READING IS ON — WAS A 40-CHARACTER LENGTH CHECK.** A 200-character basis
+   asserting the exact opposite passed. Round 15 added that string *because* the
+   defect it was fixing was two boards wearing one label, so the one field whose
+   entire job is to prevent a recurrence was gated on being long. Generated from
+   the record now (`renderSatBasis`, string-equal), branching on whether an offer
+   exists, whether the shipped re-read beats `held`, and whether the seat is free.
+   3 mutations.
+50. **BLOCKING/MINOR: `meta.sealedFloor` AND `meta.walls.inertPruned` WERE NEVER
+   RE-DERIVED, AND ONE OF THEM OWNS A NOTE CLASS THIS DOCUMENT CALLED
+   "DERIVE-OR-DIE ON BOTH HALVES".** Nine live escapes on one record, from
+   deleting it outright to a coordinated inflate naming eight invented tiles that
+   are interior, empty and fully reachable; deleting `inertPruned` with its note
+   took 37 rooms' prune out of the record. Both in `REQUIRED_META` and both fully
+   re-derived. The producer half is the more interesting one and it resolved
+   criticism 43 in a direction nobody predicted — see that entry. 12 mutations.
+51. **MEDIUM: TWO `towers/clump` DECLARATIONS QUOTED A SEARCH THAT NEVER MEASURED
+   THE CLUMP.** The dispersion pass ranked on the whole-mass 5x5 while the
+   shortfall it files is about the clump, and `spatialPrune` had already thinned
+   E14S1's 370 legal deep seats to 115 with the retiring tile among the dropped —
+   so "no legal swap improved it" was true of a statistic nobody was optimising,
+   over a third of the seats. **E14S1 `34,25 → 34,24` and E3S5 `26,26 → 27,26`
+   each take the tower-only 5x5 and the clump 5 → 4 while holding the weakest face
+   exactly**, and both declarations are retired. The other three (E11S6, E1S7,
+   E6S1) are earned on a re-scan of the unthinned census: **0 of 755, 0 of 690 and
+   0 of 910 swaps hold face and saturation**. This is the round-14 E2S8 class
+   again — an instrument added to a search after the search's own claim was
+   written — and it is the second finding in two rounds where the fix was to make
+   the search measure the thing its declaration is about. Full account in the
+   dispersion bullet. 3 mutations, with the take gated.
+52. **MEDIUM: THE PRUNE COUNTER WAS AN EVENT COUNT WEARING A TILE LABEL, TEN
+   TOKENS FROM THE LINE THAT PRINTS SPUR LAID-VERSUS-SHIPPED CORRECTLY.**
+   `plan.mjs` printed `pruned 2007 dead-end road tiles`; **13 tiles counted as
+   pruned ship as roads**. This is criticism 27 verbatim, in the neighbouring
+   statement, and the reason it is worth its own entry rather than a footnote is
+   that the 13 resolve into two unrelated facts: **1** re-laid tile (E5S1 `28,30`,
+   the same tile that was the 487th ghost in criticism 33 — found twice, from
+   opposite ends, two rounds apart) and **12** laid-and-deleted-inside-layer-7
+   tiles that never entered `meta.roadLayer` at all. Five figures published with
+   their tile lists and two closing identities gated. Full account in the film
+   bullet. 6 mutations.
+53. **MINOR: THE PER-KIND ROAD BOOKS WERE COUNT-LEVEL, SO THREE-WAY LIES BALANCED.**
+   A fabricated 40-tile `reflow` pass with invented tiles passed; lost tiles at
+   off-grid `(-9,-9)` passed; a shipped road re-attributed between passes with all
+   four books kept consistent passed; `restoredByKind` could claim 20 arbitrary
+   shipped roads. Round 15 closed these books' ARITHMETIC and this is the same
+   record one level down — the identities were over counts and the lies were over
+   tiles. Bound to the board and to provenance now: laid-minus-lost must EQUAL the
+   `roadKind` key set per kind, lost tiles may not be shipped roads at all,
+   restored tiles must be shipped roads carrying `roadLayer < 7` evidence, and
+   off-grid or on-wall dies. 6 mutations.
+54. **AND THE LOW SHELF, WHICH IS SIX ITEMS AND FOUR OF THEM ARE PROSE THIS
+   PROJECT WROTE ABOUT ITSELF.** **(a)** 10 of the 177 notes were deletable for
+   free — layer 6's relocation record, whose obligation nobody owned;
+   `meta.extensions.relocatedCount` is the owner and it is 1–3 in exactly those
+   ten rooms. **(b)** Five source-comment figures the artifact refutes, including
+   **E20S3 cited twice in a room list it is not a member of** — the fleet has not
+   contained that room for several worlds; `grep E20S3` across the v2 tree is now
+   one hit and that hit says out loud that the room is retired. Also corrected:
+   "114 of 172 rooms carry a shortfall" (**157**), "79 rooms carry one note"
+   (**118**), "four shortfall rows" (**five, in six rooms**), E11S7's lap quoted
+   as 13.5 twice (**9.33**), and a film comment's "1,659 tiles … 12 in E20S3"
+   (**1994 ghosts, 13 in E11S3**). **(c)** `STAGE_INFO`/`STAGE_KIND` drift still
+   failed silently; the three tables live in a template string, so they are
+   asserted as TEXT — the emitted player is parsed once per run and the partitions
+   checked exactly (**STAGE_INFO 24 · STAGE_KIND 19 · EXPAND 20**), with a negative
+   test proving it throws. **(d)** A 48x48 band sweep was narrated as "2304
+   interior tiles" in rooms whose interior floor is **178** (E9S2; E2S3 221,
+   E12S6 255); the per-room figure is published and fixed in all three channels
+   that quoted it. **(e)** `validate.mjs`'s `/s+/g` was missing its backslash and
+   had been shipping mangled `why` text — "so it is never smaller" reading as "o
+   it i never maller" — and the file was grepped for siblings; there are none.
+   **(f)** `eco.basin`'s generated `why` was false in the safe direction and
+   unbounded upward; the generator now enumerates inbound closures too, which
+   found **three more instances of the same bug**, and the leaf gets a real
+   ceiling. Every one of (a)–(f) is the class this document has been describing
+   since criticism 22: a figure re-derived by a command stays true, and a figure
+   carried by a human does not.
+55. **STILL OPEN, AND STATED AS THE SMALL THING IT IS: `ladder.rungs[].mobility`
+   IS BOUNDED, NOT CLOSED.** A rung is a counterfactual — an enclosure the room
+   composed, scored and did not build — so there is no board to re-derive its lap
+   against, which puts it in the same family as the `lane.*` leaves of criticism
+   42 rather than in the family the round-16 array-element inventory closed. What
+   IS closed is the part that touches the artifact: the SHIPPED rung must be on
+   the trail, the index and the bonus schedule are class D, `fallbackBest` must be
+   a lap on the trail, and the bespoke block's mutations bite on all of those. The
+   reason this gets an entry instead of a silence is that the reviewer landed a
+   real exploit through it — three rung laps moved, and because the renderer
+   recomputes the verdict from the table, E14S6's paragraph flipped from "A WIDER
+   CUT DOES SHORTEN IT … refused on upkeep-first policy" to "No rung this room
+   composed measured a materially shorter lap", with **13 fleet rooms exposed to
+   the same rewrite**. The renderer is doing exactly what it should; the leaf
+   under it has nothing behind it. Round 16 closed the *reachable* half and is
+   saying so rather than counting the bespoke stamp as a bound.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 
@@ -2429,6 +3097,16 @@ correction (the road bullet, and criticism 32).
   mongo has all terrain. Bot users: pacifist (token in redis key
   `auth_local-pacifist-user-token-001`), pacifist-race, waxeye.
   Push code: `npm run push-pserver && npm run push-pacifist && npm run push-waxeye`.
+  **Docker does not auto-start after a host reboot, and round 16 lost 29 hours to
+  that.** The host restarted mid-round, Docker did not come back, and the local
+  server was down until someone noticed — which is worth a line here rather than
+  a shrug, because the failure is silent in exactly the way this document
+  complains about elsewhere: `validate.mjs`'s own `main()` cannot fetch without
+  mongo, so the round's harnesses ran off a cached room dump
+  (`ROOMS_FILE`/`PLANS_FILE`, which every harness in `tools/plan-suite/v2/`
+  honours) and reproduced the summary line exactly. **The world was intact on
+  restart and the VPS was unaffected**; nothing was lost but the wall clock.
+  If the API is dead, check `docker ps` before debugging anything else.
 - Live rooms E11S2/E11S5 are HYBRIDS (legacy structures hold some caps — storage/
   tower positions can't match plan there; that is known, not a planner bug).
   Rooms claimed by auto-expand (E9S2, E17S4, ...) are pure-plan rooms.

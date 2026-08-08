@@ -18,13 +18,14 @@
  */
 import { D4, D8, PARK_PROTECT, isWall } from "./shared.mjs";
 import { planHub, distField } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, planShell, RADII_WIDE } from "./layer-shell.mjs";
-import { planTowers } from "./layer-towers.mjs";
+import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
+import { CLUMP_NOTE, MIN_SAT, planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
 import { renderDecl } from "./declprose.mjs";
+import { pushNote } from "./declprose-notes.mjs";
 // NOTE: layer-ext's RAMPARTS_PER_RATIO / MOBILITY_RAMPART_CAP are deliberately
 // NOT imported any more. They price a defender LANE; the enclosure trade below
 // has its own published price and its own reasons — see MOBILITY_ENCLOSURE_*.
@@ -57,8 +58,8 @@ export function composePlan(d, shellOpts = {}) {
   // not when they happen: the eco kit's roads are layer 1, but the tower
   // spurs are layer 3, the lab access is layer 4, the mineral run is layer 5,
   // the extension corridors are layer 6 and the rampart spurs are layer 7.
-  // A reviewer trying to check E20S3's lab declaration ("0 dry anchors at any
-  // orientation", which is gated on labs being off the road network) could
+  // A reviewer trying to check E2S3's lab declaration ("0 anchors with all ten
+  // labs deep", which is gated on labs being off the road network) could
   // not recover the mid-pipeline road set from any published artifact,
   // because the artifact asserted a road set that never existed at that
   // moment.
@@ -216,147 +217,104 @@ export function composePlan(d, shellOpts = {}) {
     const l6moved = ex.extMeta.relocatedCount || 0;
     const l7moved = rf ? rf.moved.length : 0;
     if (shallowNow > 0 || l6moved > 0 || l7moved > 0) {
-      plan.meta.notes = plan.meta.notes || [];
-      const l6note = l6moved
-        ? `Layer 6's own end-of-layer pass moved ${l6moved} slot(s) onto deep floor whose road face ` +
-          `already existed (${(ex.extMeta.relocated || [])
-            .map((r) => `${r.from.x},${r.from.y}->${r.to.x},${r.to.y}`)
-            .join(" ")}). `
-        : "";
-      const l7note = l7moved
-        ? `Layer 7b then re-ran the search over the board the room SHIPS — the dead-end prune had by ` +
-          `then handed back ${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) and ` +
-          `${rf.search.freeDeepOnePave} more that are one plain pave from the conducting network, none ` +
-          `of which existed as usable floor when layer 6 looked — and moved ${l7moved} more ` +
-          `(${rf.moved.map((m) => `${m.from.x},${m.from.y}(d${m.fromDepth})->${m.to.x},${m.to.y}(d${m.toDepth})`).join(" ")})` +
-          `${rf.rampartsRetired.length ? `, retiring ${rf.rampartsRetired.length} personal rampart(s)` : ""}. `
-        : "";
-      // WHAT IS LEFT, AND WHY — quoted from the post-prune search, never inferred
-      // from layer 6's counters. `freeDeepRoadFaced` is the number of tiles that
-      // passed every hard filter (deep, free, inside the wall, engine-legal,
-      // already road-faced, reachable by a builder); `refusedCount` is how many
-      // were examined and rejected, and the first of those reasons are carried in
-      // the shortfall's evidence so the claim can be argued with tile by tile.
-      const cause = !shallowNow
-        ? `every shallow slot this room laid was relocated onto deep floor; it ships none`
-        : rf
-          ? `layer 7b scanned all ${rf.search.interiorTiles} interior positions tile by tile and found ` +
-            `${rf.search.freeDeepRoadFaced} free deep road-faced tile(s) and ` +
-            `${rf.search.freeDeepOnePave} one plain pave from the conducting network — BOTH CLASSES, ` +
-            `counted separately, which is the round-12 correction: this note reported only the ` +
-            `road-faced one while claiming to have swept for both, and the class it did not report ` +
-            `held a tile E12S6 could have taken for free. ${rf.search.paveTaken} of the one-pave tiles ` +
-            `were taken and ${rf.search.paveLeft} were left. It rejected ` +
-            `${rf.search.refusedCount} distinct tile(s) for a stated reason each ` +
-            `(${rf.search.refusedExaminations} examinations — a tile re-offered on a later round is ` +
-            `logged again and counted once). ` +
-            // ------------------------------------------------------------------
-            // WHAT HAPPENED TO THE FREE TILES, INSTEAD OF AN ASSERTION ABOUT THEM.
-            //
-            // This branch used to say, whenever any free tile existed, that the
-            // remaining shallow slots "could not take any of them without failing
-            // the acceptance test". In E9S2 that is false: `moved: []` and
-            // `rampartsRetired: []` — no move was even attempted — because the
-            // room was four extensions SHORT of 60 and the backfill spent all
-            // three free tiles closing that gap first. Ranking 60/60 over a
-            // retired rampart is correct and is the planner's stated doctrine;
-            // printing it as an acceptance-test failure is not, and it flatters.
-            // The census now names the three destinations a free tile can have.
-            // ------------------------------------------------------------------
-            (rf.search.freeDeepRoadFaced === 0 && rf.search.freeDeepOnePave === 0
-              ? `There is no deep tile left in this enclosure that is free, inside the wall, ` +
-                `engine-legal, reachable by a builder and either road-faced or one pave from the ` +
-                `network — that is a statement about a completed scan of all ` +
-                `${rf.search.interiorTiles} interior positions, not about a budget`
-              : (rf.search.spentOnAdds || rf.search.spentOnMoves
-                  ? `Of those, ${rf.search.spentOnAdds} became extension(s) this room did not have at all ` +
-                    `— the backfill to ${EXT_TARGET}/${EXT_TARGET}, which outranks retiring a rampart — and ` +
-                    `${rf.search.spentOnMoves} took a relocated shallow slot. `
-                  : "") +
-                (rf.search.left === 0 && rf.search.paveLeft === 0
-                  ? `NONE of either class were left by the time the ${shallowNow} remaining shallow ` +
-                    `slot(s) were offered them: this room did not refuse the trade, it never had it. The ` +
-                    `deep floor the prune handed back went on the extension count first`
-                  : `The ${rf.search.left} road-faced and ${rf.search.paveLeft} one-pave tile(s) still on ` +
-                    `the table could not be taken by the ${shallowNow} that remain without failing the ` +
-                    `acceptance test or the lap ceiling: a structure would lose its last walkable face, a ` +
-                    `road would be cut off from the sitter, a battlement would be stranded, the ` +
-                    `controller would lose a claim seat or an upgrader park, or the move would take the ` +
-                    `gated defender lap past this room's ceiling. The declaration beside this note prices ` +
-                    `each one per slot`))
-          : `the placement invariant refused the remaining deep tiles (each would strand a ` +
-            `structure face, a road or the wall)`;
-      // THE TRADE THIS ROOM REFUSED, PRICED. A relocation retires a
-      // forever-rampart and can lengthen the garrison's lap; layer 7b will not
-      // spend the second to buy the first, and the ones it therefore did NOT
-      // take are stated here with both numbers rather than dropped silently.
-      // This is the E11S7 shape a reviewer had to reconstruct by hand: "10
-      // forever-ramparts for 0.5 of a lap the room already declares as failed
-      // at 13.5 ... the plan never states it."
-      const rb = rf && rf.boundRollback ? rf.boundRollback : [];
-      const bounded = plan.meta.extensions?.laneMeta?.bounded;
-      const hasBound = bounded !== null && bounded !== undefined;
-      // WHICH CEILING ACTUALLY BOUND, said in the room's own numbers. There are
-      // three and the reader needs to know which one refused the trade: the lap
-      // the room already had, the RELAXED version of it a badly-failing room is
-      // entitled to (see CEILING_STRICT_BAND in layer-ext — the E11S7 fix), and
-      // layer 6's published bound, which is a proof and is never relaxed.
-      const whichCeiling = !rf
-        ? ""
-        : rf.lapCeilingSlack !== null && rf.lapCeilingSlack !== undefined
-          ? hasBound && rf.lapCeiling === bounded
-            ? ` — and that ceiling is layer 6's BOUND (${bounded}), not this room's incumbent lap: at ` +
-              `${rf.lapBeforeMoves} against a ${MOBILITY_TARGET} target this room is past ` +
-              `${rf.lapCeilingStrictBand}x the target, so it was entitled to worsen its lap by ` +
-              `${rf.lapCeilingSlackPct}% (to ${rf.lapCeilingSlack}) to retire ramparts — and the bound ` +
-              `clipped it back, because a bound is a proof about the mass and buying upkeep with a claim ` +
-              `is worse than buying it with a lap`
-            : ` — the relaxed ceiling this room was entitled to (${rf.lapCeilingSlack}, i.e. ` +
-              `${rf.lapCeilingSlackPct}% worse than the ${rf.lapBeforeMoves} it already had, which a room ` +
-              `past ${rf.lapCeilingStrictBand}x the target may spend on retiring ramparts)`
-          : hasBound && rf.lapCeiling === bounded
-            ? ` — the bound layer 6 reserved lanes to prove`
-            : ` — the lap the room already had with all 60 extensions standing. This room is inside ` +
-              `${rf.lapCeilingStrictBand}x the ${MOBILITY_TARGET} target, where the strict rule ` +
-              `applies: near the gate the difference between making it and not is worth more than the ` +
-              `rampart, and an upkeep pass may not spend the garrison's legs to buy upkeep`;
-      const tradeNote = rb.length
-        ? ` TRADE REFUSED, PRICED: ${rb.length} further shallow slot(s) could have moved onto free deep ` +
-          `floor — ${rb
-            .map((m) => `${m.from.x},${m.from.y}->${m.to.x},${m.to.y}`)
-            .join(" ")} — retiring ${rb.length} personal rampart(s) at ` +
-          `${Math.round(rb.length * 3) / 100} e/tick of forever-upkeep. Taking them would have moved the ` +
-          `as-built gated defender lap from ${rf.lapBeforeMoves} to ${rb[0].wouldLap}, past this room's ` +
-          `ceiling of ${rf.lapCeiling}` +
-          whichCeiling +
-          `. The room keeps the ramparts and keeps the lap. The trade is written down so it can be ` +
-          `argued with.`
-        : rf && rf.lapCeilingSlack !== null && rf.lapCeilingSlack !== undefined && rf.moved?.length
-          ? // ...and the trade a badly-failing room DID take, priced the same way.
-            // Silence here would hide the other half of the same decision.
-            ` LAP SLACK SPENT, PRICED: this room laps ${rf.lapBeforeMoves} against a ` +
-            `${MOBILITY_TARGET} target — past ${rf.lapCeilingStrictBand}x it, i.e. failed rather ` +
-            `than tight — so the relocation pass was allowed to worsen the lap by up to ` +
-            `${rf.lapCeilingSlackPct}% of it, ${rf.lapCeilingSlack}, in exchange for retiring personal ` +
-            `ramparts` +
-            (rf.lapCeilingBound !== null &&
-            rf.lapCeilingBound !== undefined &&
-            rf.lapCeiling < rf.lapCeilingSlack
-              ? `, CLIPPED to ${rf.lapCeiling} by layer 6's published bound — the slack is spendable ` +
-                `against this room's own incumbent lap and never against a proof`
-              : ` (ceiling ${rf.lapCeiling})`) +
-            `, and it shipped at ${rf.lapAfterMoves}. Refusing that trade is how a room ends up renting ` +
-            `forever-ramparts to protect a few percent of a number it already misses by an order of ` +
-            `magnitude.`
-          : "";
-      plan.meta.notes.push(
-        `SHALLOW EXTENSIONS: ${shallowNow} of ${total} sit at depth < 4 and rent a personal rampart ` +
-          `forever. ${l6note}${l7note}` +
-          (shallowNow ? `Cause of the ${shallowNow} that remain: ` : `Outcome: `) +
-          cause +
-          `.` +
-          tradeNote,
-      );
+      // ------------------------------------------------------------------
+      // THE RECORD FIRST, THE PARAGRAPH SECOND. Round 16 moved this paragraph
+      // — the longest hand-written note in the planner, with three nested
+      // branch families and thirty interpolated locals — into
+      // declprose-notes.mjs, for the same reason declarations moved in round 13
+      // and `negotiated` moved in round 15: prose a producer TYPES cannot be
+      // checked by a validator, and anchored regexes over it leave everything
+      // outside the anchors unexamined. Every figure below is a field of the
+      // record; the sentence is a function of the record and nothing else.
+      // ------------------------------------------------------------------
+      const rec = {
+        shallowNow,
+        total,
+        extTarget: EXT_TARGET,
+        mobilityTarget: MOBILITY_TARGET,
+        l6: l6moved
+          ? {
+              moved: l6moved,
+              tiles: (ex.extMeta.relocated || []).map((m) => ({
+                from: { x: m.from.x, y: m.from.y },
+                to: { x: m.to.x, y: m.to.y },
+              })),
+            }
+          : null,
+        l7: l7moved
+          ? {
+              moved: l7moved,
+              tiles: rf.moved.map((m) => ({
+                from: { x: m.from.x, y: m.from.y },
+                fromDepth: m.fromDepth,
+                to: { x: m.to.x, y: m.to.y },
+                toDepth: m.toDepth,
+              })),
+              rampartsRetired: rf.rampartsRetired.length,
+            }
+          : null,
+        // WHAT IS LEFT, AND WHY — quoted from the post-prune search, never
+        // inferred from layer 6's counters. `freeDeepRoadFaced` is the number of
+        // tiles that passed every hard filter (deep, free, inside the wall,
+        // engine-legal, already road-faced, reachable by a builder);
+        // `refusedCount` is how many were examined and rejected, and the first
+        // of those reasons are carried in the shortfall's evidence so the claim
+        // can be argued with tile by tile.
+        search: rf
+          ? {
+              interiorTiles: rf.search.interiorTiles,
+              // OF10: the sweep is a 48x48 BAND, and both channels called its
+              // 2304 positions "interior tiles" in rooms that hold 178 of them.
+              // Both figures are printed now and each is called what it is.
+              bandSide: rf.search.bandSide,
+              interiorWalkable: rf.search.interiorWalkable,
+              freeDeepRoadFaced: rf.search.freeDeepRoadFaced,
+              freeDeepOnePave: rf.search.freeDeepOnePave,
+              paveTaken: rf.search.paveTaken,
+              paveLeft: rf.search.paveLeft,
+              refusedCount: rf.search.refusedCount,
+              refusedExaminations: rf.search.refusedExaminations,
+              spentOnAdds: rf.search.spentOnAdds,
+              spentOnMoves: rf.search.spentOnMoves,
+              left: rf.search.left,
+            }
+          : null,
+        // THE TRADE THIS ROOM REFUSED, PRICED. A relocation retires a
+        // forever-rampart and can lengthen the garrison's lap; layer 7b will not
+        // spend the second to buy the first, and the ones it therefore did NOT
+        // take are stated with both numbers rather than dropped silently. This
+        // is the E11S7 shape a reviewer had to reconstruct by hand: "10
+        // forever-ramparts for 0.5 of a lap the room already declares as failed
+        // at 13.5 ... the plan never states it."
+        //
+        // WHICH CEILING BOUND is in the record too, because there are three and
+        // a reader needs to know which one refused the trade: the lap the room
+        // already had, the RELAXED version a badly-failing room is entitled to
+        // (CEILING_STRICT_BAND in layer-ext — the E11S7 fix), and layer 6's
+        // published bound, which is a proof and is never relaxed.
+        lap: rf
+          ? {
+              before: rf.lapBeforeMoves,
+              after: rf.lapAfterMoves,
+              ceiling: rf.lapCeiling,
+              ceilingSlack: rf.lapCeilingSlack,
+              ceilingSlackPct: rf.lapCeilingSlackPct,
+              ceilingStrictBand: rf.lapCeilingStrictBand,
+              ceilingBound: rf.lapCeilingBound,
+              bound:
+                plan.meta.extensions?.laneMeta?.bounded === undefined
+                  ? null
+                  : plan.meta.extensions.laneMeta.bounded,
+              slackSpent: !!rf.moved?.length,
+              rollback: (rf.boundRollback || []).map((m) => ({
+                from: { x: m.from.x, y: m.from.y },
+                to: { x: m.to.x, y: m.to.y },
+                wouldLap: m.wouldLap,
+              })),
+            }
+          : null,
+      };
+      pushNote(plan, "shallowExt", rec);
       // ------------------------------------------------------------------
       // ...AND A SHALLOW EXTENSION IS A DECLARATION, NOT A NOTE.
       //
@@ -2062,6 +2020,223 @@ function maybeReleaseParks(d, plan) {
   return alt;
 }
 
+/**
+ * ===========================================================================
+ * THE ACROSS-PRIOR TAKE — priced on the board that ships (OF4 / OF6, round 16).
+ * ===========================================================================
+ * Layer 3 publishes two swaps it can see and cannot price:
+ *
+ *   · `adjacency.satAcrossPrior` — a single tower move ACROSS the D8-adjacency
+ *     prior that lifts the weakest cut-tile face. Nine rooms carry one, worth
+ *     330 damage between them, and the plan has been printing that number as
+ *     "what the prior is still costing this room" for five rounds while
+ *     declining to spend it.
+ *   · `towerSwapOffer` — a swap the prior ALLOWS which holds the weakest face
+ *     and its saturation exactly and improves the tower-only 5x5 or the clump.
+ *
+ * The reason both were refused is written in layer-towers and it is a good one:
+ * "the SHIPPED nuke window rises in seven rooms and E12S4's as-built refill walk
+ * goes 7 -> 10 ... a pass that cannot read the number it is moving is not a
+ * non-worsening pass, it is a gamble that happened to come out ahead on one
+ * term." That argument is about WHERE the decision is made, not about whether it
+ * should be. Here, it can be read: the room is RE-COMPOSED with the swap taken,
+ * finalized, and every as-built instrument is measured on the finished board and
+ * compared with the finished board the room would otherwise have shipped.
+ *
+ * WHAT MUST NOT WORSEN, all of it on the shipped board:
+ *   weakest cut-tile face · saturated cut tiles · the 5x5 nuke window over the
+ *   whole high-value mass · the 5x5 window over the towers alone · the as-built
+ *   self-blocked refill walk (and the count of towers the filler cannot reach) ·
+ *   the interior walk region · the clump · extensions placed · shallow
+ *   extensions · ramparts · the as-built gated defender lap.
+ *
+ * WHAT MUST IMPROVE, and this is the scope rule: the swap has to buy the room
+ * out of something it would otherwise have to say. Either the weakest face goes
+ * UP — the objective this whole layer exists for — or the clump falls below
+ * CLUMP_NOTE and the room stops filing a clump declaration. A shipped tower is
+ * not moved for a soft tie-break, because the fleet-wide experiment says what
+ * that costs: ranking the dispersion pass itself on the enriched tuple moves 56
+ * of 172 rooms and takes E11S1's as-built refill from 4 to 7, E8S7's from 4 to
+ * 8 and E18S4's shipped nuke window from 9 to 10. Offers that are merely legal
+ * are published (`towerSwapOffer`) and not taken, which is the same discipline
+ * the rest of this planner applies to a trade it cannot price.
+ *
+ * Cost: at most one extra composition in the handful of rooms holding an offer
+ * that could clear the rule — two in the fleet for the face lift, two for the
+ * clump. Every other room composes exactly as many times as before.
+ */
+const HV_WINDOW_TYPES = ["spawn", "storage", "terminal", "nuker", "tower"];
+function windowMaxOver(pts) {
+  let mx = 0;
+  for (const a of pts) {
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        const cx = a.x + ox,
+          cy = a.y + oy;
+        let n = 0;
+        for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+        if (n > mx) mx = n;
+      }
+    }
+  }
+  return mx;
+}
+/** the instrument panel, read off a FINALIZED plan and nothing else */
+function asBuiltInstruments(terrain, plan) {
+  const tw = plan.meta?.towers || {};
+  const towers = plan.structures?.tower || [];
+  const cut = plan.shell?.cut || [];
+  const dmgAt = (t) => {
+    let sum = 0;
+    for (const w of towers) {
+      const r = Math.max(Math.abs(w.x - t.x), Math.abs(w.y - t.y));
+      sum += r <= 5 ? 600 : r >= 20 ? 150 : 600 - (r - 5) * 30;
+    }
+    return sum;
+  };
+  const faces = cut.map(dmgAt);
+  const hv = [];
+  for (const t of HV_WINDOW_TYPES) for (const p of plan.structures?.[t] || []) hv.push(p);
+  const rset = new Set((plan.structures?.rampart || []).map((r) => `${r.x},${r.y}`));
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures?.[t] || []) blocked.add(`${p.x},${p.y}`);
+  }
+  const ext = plan.shippedExterior || plan.exterior;
+  const interior =
+    ext && plan.sitter ? interiorWalk(terrain, rset, ext, blocked, plan.sitter).size : null;
+  return {
+    face: faces.length ? Math.min(...faces) : 0,
+    saturatedCutTiles: faces.filter((v) => v >= MIN_SAT).length,
+    nukeWindow: windowMaxOver(hv),
+    towerWindow: windowMaxOver(towers),
+    refill: typeof tw.maxRefill === "number" ? tw.maxRefill : null,
+    refillUnreachable: tw.refillUnreachable ?? 0,
+    interior,
+    clump: tw.towerClump?.withinCheb2OfSitter ?? null,
+    extensions: (plan.structures?.extension || []).length,
+    shallowExts: plan.meta?.extensions?.shallow ?? 0,
+    ramparts: (plan.structures?.rampart || []).length,
+    lap: plan.meta?.walls?.mobility?.builtGated ?? null,
+  };
+}
+/** every instrument, with the direction each one is allowed to move */
+const INSTRUMENT_DIRECTION = {
+  face: "up",
+  saturatedCutTiles: "up",
+  nukeWindow: "down",
+  towerWindow: "down",
+  refill: "down",
+  refillUnreachable: "down",
+  interior: "up",
+  clump: "down",
+  extensions: "up",
+  shallowExts: "down",
+  ramparts: "down",
+  lap: "down",
+};
+function instrumentsHold(before, after) {
+  const worse = [];
+  for (const k of Object.keys(INSTRUMENT_DIRECTION)) {
+    const a = before[k],
+      b = after[k];
+    if (a === null || a === undefined || b === null || b === undefined) continue;
+    if (INSTRUMENT_DIRECTION[k] === "up" ? b < a : b > a) worse.push(`${k} ${a}->${b}`);
+  }
+  return worse;
+}
+function maybeTakeTowerSwap(d, plan) {
+  if (!plan || plan.error || !plan.meta?.composeOpts || plan.meta.composeOpts.takeTowerSwap) {
+    return plan;
+  }
+  const tw = plan.meta.towers;
+  if (!tw) return plan;
+  const ap = tw.adjacency?.satAcrossPrior;
+  const offer = tw.towerSwapOffer;
+  const candidates = [];
+  // (1) the lift across the prior — only when the seat is genuinely FREE on the
+  //     shipped board. The seven rooms whose seat carries a nuker or an
+  //     extension are not refusing a trade, they never had one; see
+  //     seatOccupancyOf in layer-walls.
+  if (ap && ap.seat && ap.leaves && ap.forgoneToPrior > 0) {
+    candidates.push({ why: "lift", from: ap.leaves, to: ap.seat });
+  }
+  // (2) the swap that retires a clump declaration
+  if (
+    offer &&
+    offer.best &&
+    offer.before?.[2] >= CLUMP_NOTE &&
+    offer.best.after?.[2] < CLUMP_NOTE
+  ) {
+    candidates.push({ why: "clump", from: offer.best.from, to: offer.best.to });
+  }
+  if (!candidates.length) return plan;
+  const before = asBuiltInstruments(d.terrain, plan);
+  const tried = [];
+  for (const c of candidates) {
+    const alt = composePlan(d, { ...plan.meta.composeOpts, takeTowerSwap: { from: c.from, to: c.to } });
+    if (alt.error || !alt.shell || !grade(alt).complete) {
+      tried.push({ ...c, verdict: "the re-composition did not produce a complete room" });
+      continue;
+    }
+    finalizeRoom(d.terrain, alt);
+    const after = asBuiltInstruments(d.terrain, alt);
+    const worse = instrumentsHold(before, after);
+    if (worse.length) {
+      tried.push({ ...c, before, after, verdict: `refused: ${worse.join(", ")}` });
+      continue;
+    }
+    const lifts = after.face > before.face;
+    const retires = before.clump >= CLUMP_NOTE && after.clump < CLUMP_NOTE;
+    if (!lifts && !retires) {
+      tried.push({
+        ...c,
+        before,
+        after,
+        verdict:
+          `refused: every instrument holds but nothing the room has to declare changes — the ` +
+          `weakest face is unchanged at ${after.face} and the clump is ${after.clump} against a ` +
+          `${CLUMP_NOTE} line`,
+      });
+      continue;
+    }
+    tried.push({ ...c, before, after, verdict: "TAKEN" });
+    alt.meta.towers.acrossPriorTake = {
+      taken: { from: c.from, to: c.to, why: c.why },
+      lifts,
+      retiresClumpDeclaration: retires,
+      clumpNote: CLUMP_NOTE,
+      before,
+      after,
+      offered: tried,
+      instruments: Object.keys(INSTRUMENT_DIRECTION),
+      directions: { ...INSTRUMENT_DIRECTION },
+      basis:
+        `the room was RE-COMPOSED with this swap taken (opts.takeTowerSwap, applied in layer 3 after ` +
+        `every one of its searches has run) and finalized, and both instrument panels are read off ` +
+        `finished boards: before is the plan this room would otherwise ship, after is the plan it ` +
+        `does. A swap is kept only when no instrument moves the wrong way AND either the weakest ` +
+        `cut-tile face rises or the clump falls below ${CLUMP_NOTE}, which is the line the clump ` +
+        `declaration fires at.`,
+    };
+    return alt;
+  }
+  // nothing was kept — say so on the plan the room does ship, so a reader can
+  // see the offer WAS priced on the shipped board rather than ignored
+  plan.meta.towers.acrossPriorTake = {
+    taken: null,
+    before,
+    offered: tried,
+    instruments: Object.keys(INSTRUMENT_DIRECTION),
+    directions: { ...INSTRUMENT_DIRECTION },
+    clumpNote: CLUMP_NOTE,
+    basis:
+      `every offer above was re-composed and finalized, and the instrument panel of the finished ` +
+      `board refused it. before is the plan this room ships.`,
+  };
+  return plan;
+}
+
 export function planRoom(d) {
   const t0 = performance.now();
   let best = null;
@@ -2082,12 +2257,17 @@ export function planRoom(d) {
     return c;
   };
   const done = (p0) => {
-    const p = maybeReleaseParks(d, p0);
+    let p = maybeReleaseParks(d, p0);
     if (p && p.meta) {
       // THE TRUTH PASS, on the composition this room ships and no other. It
       // files the mobility declaration attachRungProof then staples the ladder
       // to, so it has to come first.
       finalizeRoom(d.terrain, p);
+      // ...and the one pass that is allowed to REPLACE the composition after the
+      // truth pass, because its whole argument is that it needs the finished
+      // board to price its trade. It finalizes whatever it returns. See
+      // maybeTakeTowerSwap.
+      p = maybeTakeTowerSwap(d, p);
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
       declareRuntime(p, trail);

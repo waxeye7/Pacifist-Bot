@@ -123,6 +123,15 @@ import {
 // the planner — every NUMBER in every record is still re-derived here from
 // terrain and the shipped structure lists.
 import { AUDITED_KINDS, declKey, normText, renderDecl } from "./declprose.mjs";
+// ...and the two OTHER prose channels, now that they are generated too. Round
+// 13 closed declaration paragraphs by making the producer and this file run ONE
+// template; round 16 does the same for the planner NOTES (the channel the
+// gallery and the film ticker read) and for `satAcrossPrior.basis` (the
+// sentence that says which of two boards each reading is on). A renderer this
+// file imports is a renderer this file can re-run: the gate is string equality,
+// not a regex over prose somebody typed.
+import { NOTE_CLASSES, renderNote } from "./declprose-notes.mjs";
+import { renderSatBasis } from "./declprose-towers.mjs";
 
 const idx = (x, y) => x + y * 50;
 
@@ -868,11 +877,174 @@ export function ecoWalks(terrain, objects, hubTile) {
  * than a spot-check: a paragraph may quote its own record and the arithmetic of
  * its own sentences, and a number from anywhere else has no way in.
  */
+/**
+ * ==========================================================================
+ * M2. THE NEGOTIATION PARAGRAPH IS REGENERATED, NOT PARSED.
+ * ==========================================================================
+ * The residue parser below is a good parser and it was the wrong instrument.
+ * Its numeral scanner is `/(?<![A-Za-z0-9.])\d+(?:\.\d+)?/g` — ASCII, no `/u`
+ * — so seven of nine mutations walked past it in one sitting:
+ *
+ *   - a NUMERAL-FREE reversal ("COMFORTABLY INSIDE the target on every pair"),
+ *     which is round 15's landed exploit with its digits removed
+ *   - the same claim in number-WORDS ("nine inside against fourteen")
+ *   - FULLWIDTH (０.４２) and ARABIC-INDIC (٠.٤٢) digits, which `\d` without
+ *     the unicode flag does not see
+ *   - roman numerals
+ *   - numerals GLUED to a letter (`readsx1`) and numerals preceded by a DOT
+ *     (`.42`), both eaten by the lookbehind
+ *
+ * Every one of those is the same defect: a residue rule can only refuse
+ * numbers it can SEE, and prose is not made of numbers. The parse also cannot
+ * refuse a sentence that quotes the record correctly and MEANS the opposite.
+ *
+ * And it was never necessary. Layer 2's paragraph is a template over leaves the
+ * record already publishes — the round-15 pass put all thirty-three of them
+ * there for exactly this reason — so it is BYTE-EXACTLY reconstructible, and
+ * all 57 of the fleet's records rebuild character for character. So the gate is
+ * the gate every other prose channel in this artifact now has: render it from
+ * the record and require equality. Unicode, number-words, glued digits and
+ * reversed meaning all die together, because none of them can be GENERATED.
+ *
+ * The residue parser is KEPT below and still runs. It is a second opinion now,
+ * and it is the one that survives if the renderer is ever changed to agree with
+ * a corrupted record.
+ */
+function renderNegotiated(neg) {
+  const m = neg.metric || {};
+  const w = neg.walk || {};
+  const cw = neg.causeWalks || {};
+  const wd = neg.worstDetour;
+  const t2 = neg.tiles;
+  const need = [
+    ["metric.maxGated", m.maxGated],
+    ["metric.detourFloor", m.detourFloor],
+    ["metric.target", m.target],
+    ["metric.maxUngated", m.maxUngated],
+    ["metric.exact", m.exact],
+    ["metric.endpoints", m.endpoints],
+    ["metric.maxStrict", m.maxStrict],
+    ["walk.din", w.din],
+    ["walk.dout", w.dout],
+    ["cause", neg.cause],
+    ["floor", neg.floor],
+    ["candidates", neg.candidates],
+    ["tiebreakBudget", neg.tiebreakBudget],
+    ["metric.overGated", m.overGated],
+    ["metric.gatedPairs", m.gatedPairs],
+    ["metric.over", m.over],
+    ["metric.pairs", m.pairs],
+    ["metric.p90", m.p90],
+    ["metric.maxDetour", m.maxDetour],
+  ];
+  for (const [n2, v] of need) {
+    if (v === undefined || v === null) throw new Error(`negotiated.${n2} is ${JSON.stringify(v)}`);
+  }
+  if (!Array.isArray(t2) || t2.length !== 2 || !Number.isInteger(t2[0]?.x) || !Number.isInteger(t2[1]?.x)) {
+    throw new Error("negotiated.tiles is not a pair of tiles");
+  }
+  const dout = w.dout;
+  /** layer 2's own `verdictOf`, from the leaves that record what it printed */
+  const verdictOf = (leaf) => {
+    if (!leaf || leaf.d === null || leaf.d === undefined) return "does not connect at all";
+    const d = leaf.d;
+    const detour = d - dout;
+    const ratio = leaf.ratio;
+    return detour <= 0
+      ? `${d} against the attacker's ${dout} — SHORTER than the attacker's own lap, so it CLEARS ` +
+          `the gate outright`
+      : detour <= m.detourFloor
+        ? `${d} against the attacker's ${dout} — a ${detour}-tile detour, inside the ` +
+            `${m.detourFloor}-tile floor, so it CLEARS the gate`
+        : ratio <= m.target
+          ? `${d} against the attacker's ${dout} — ratio ${ratio}, inside the ${m.target} ` +
+              `target, so it CLEARS the gate`
+          : `${d} against the attacker's ${dout} — a ${detour}-tile detour at ratio ${ratio}, ` +
+              `which is STILL OVER the ${m.target} target`;
+  };
+  const why = {
+    terrain:
+      `a natural wall inside the enclosure forces the detour — with interior walls ignored the same ` +
+      `walk is ${verdictOf(cw.noWalls)}. The length is therefore the basin's shape and not the mass ` +
+      `inside it (with structures removed alone it is ${verdictOf(cw.noStructures)}); the room is a ` +
+      `ring around a mountain`,
+    shape:
+      `the enclosure is concave here and the attacker is cutting across a bay the defender must walk ` +
+      `around — with structures removed the walk is ${verdictOf(cw.noStructures)} and with interior ` +
+      `walls removed as well it is ${verdictOf(cw.noWalls)}, so it is the outline of this cut, not ` +
+      `its contents`,
+    structures:
+      `the planner's own mass is in the way — with structures removed the same walk is ` +
+      `${verdictOf(cw.noStructures)}. The shell does not own the extension/road layers, so this one ` +
+      `is a lead for them, not a shell miss`,
+  }[String(neg.cause)];
+  if (why === undefined) throw new Error(`negotiated.cause is ${JSON.stringify(neg.cause)}, not one of terrain/shape/structures`);
+  const eco = neg.eco;
+  return (
+    `defender mobility max ${m.maxGated} over pairs that cost more than ` +
+    `${m.detourFloor} tiles of detour (target ${m.target}; the ungated maximum over ` +
+    `every pair including two-tile ones is ${m.maxUngated}, ` +
+    `${m.exact ? `exact all-pairs over ${m.endpoints}` : `SAMPLED over ${m.endpoints}/${m.reachable}`} ` +
+    `reachable wall tiles; stand-to-stand it is ${m.maxStrict}): between wall tiles ${t2[0].x},${t2[0].y} ` +
+    `and ${t2[1].x},${t2[1].y} the defender walks ${w.din} inside while the attacker walks ${dout} outside. ` +
+    `Cause: ${neg.cause} — ${why}. Measured floor ${neg.floor} over ${neg.candidates} ` +
+    `enclosure(s) within +${neg.tiebreakBudget} ramparts of the cheapest cut this room admits` +
+    (eco
+      ? `; the negotiation reached ${neg.floor} before the eco enclosures were bid in, but the ` +
+        `bare enclosure held only ${eco.bareDeep} deep tiles against a floor of ${eco.needDeep} — too little ` +
+        `to refuse a lobe that brings interior with it (the room ends up with ${eco.deepTiles}), so it was ` +
+        `bought and the lap grew by ${eco.ecoCost}`
+      : "") +
+    `. ${m.overGated}/${m.gatedPairs} wall pairs with a real detour exceed the target ` +
+    `(${m.over}/${m.pairs} on the ungated reading, p90 ${m.p90}); ` +
+    `the longest extra walk anywhere on this wall is ${m.maxDetour} tile(s)` +
+    (wd
+      ? ` (${wd.a.x},${wd.a.y} to ${wd.b.x},` +
+        `${wd.b.y}: ${wd.din} in / ${wd.dout} out, ` +
+        `ratio ${wd.ratio})`
+      : "") +
+    `.`
+  );
+}
+
 function negotiatedDetailFaults(neg) {
   const out = [];
   if (!neg || typeof neg !== "object") return out;
   const t = neg.detail;
   if (typeof t !== "string" || !t.trim()) return out;
+  // ---- M2: THE PARAGRAPH IS THE RECORD, character for character ----------
+  // See the renderNegotiated header. This runs FIRST because it is the check
+  // that subsumes the parse below: a paragraph that is not the one these leaves
+  // generate cannot be repaired by quoting them correctly somewhere else.
+  {
+    let want = null;
+    let err2 = null;
+    try {
+      want = renderNegotiated(neg);
+    } catch (e2) {
+      err2 = e2 && e2.message ? e2.message : String(e2);
+    }
+    if (err2) {
+      out.push(
+        `\`negotiated\` cannot be re-rendered into its own paragraph (${err2}) — layer 2's sentence is a ` +
+          `template over the leaves beside it and a record that will not render is missing one of them`,
+      );
+    } else if (normText(want) !== normText(t)) {
+      const a2 = normText(t);
+      const b2 = normText(want);
+      let ci = 0;
+      while (ci < a2.length && ci < b2.length && a2[ci] === b2[ci]) ci++;
+      out.push(
+        `\`negotiated.detail\` is not the paragraph its own leaves generate. They agree for ${ci} ` +
+          `character(s) and then diverge — shipped: "…${a2.slice(Math.max(0, ci - 40), ci + 90)}…" vs ` +
+          `generated: "…${b2.slice(Math.max(0, ci - 40), ci + 90)}…". This paragraph is quoted VERBATIM ` +
+          `into the room's declaration; the residue parser below could only refuse numerals it could see, ` +
+          `so a numeral-free reversal, number-words, fullwidth and Arabic-Indic digits, roman numerals, ` +
+          `glued numerals and leading-dot numerals all walked through it. A generated sentence cannot say ` +
+          `something its record does not`,
+      );
+    }
+  }
   const m = neg.metric || {};
   const w = neg.walk || {};
   const cw = neg.causeWalks || {};
@@ -1990,6 +2162,46 @@ const CLOSURE_OPS = {
 const near2 = (a, b) =>
   typeof a === "number" && typeof b === "number" ? Math.abs(a - b) < 1e-6 : JSON.stringify(a) === JSON.stringify(b);
 
+/**
+ * ==========================================================================
+ * A CEILING TAKEN OFF THE BOARD, NOT OFF THE RECORD.
+ * ==========================================================================
+ * Round 16's owner-voice reviewer (F11, cause 3): "every closure is scale- and
+ * provenance-blind. `GE`/`LE`/`EQ`/`DIFFEQ`/`QUOT` are ratio- or
+ * difference-based, so a whole measurement family can be rescaled" — E11S6's
+ * worst detour rendered as 1 tile instead of 5 in a paragraph that still says
+ * 6/6 pairs cost more than 4 — "and S1 swapped E11S6's and E3S5's ENTIRE
+ * dispersion censuses: both internally legal, both mirrors consistent. Every
+ * per-room search census in the fleet can be permuted arbitrarily."
+ *
+ * The cause is that a closure could only name a sibling leaf (`path`) or the
+ * plan's own meta (`@path`) — and the meta copy is written by the same producer
+ * in the same pass, so it moves with the census. Nothing in the vocabulary
+ * could say "and this room's BOARD does not admit that number".
+ *
+ * `#path` is that: a small set of facts re-derived from THIS room's terrain and
+ * THIS room's shipped structures, built fresh per room, that a census cannot be
+ * carried across a room boundary without contradicting. Binding one leaf of a
+ * census to a `#` fact is what makes the census this room's.
+ */
+const BOARD_FACTS = [
+  "interiorWalkable", // walkable tiles inside the wall
+  "interiorTiles", // walkable tiles anywhere in the room
+  "walkRegion", // tiles the garrison's own walk region reaches
+  "shippedCut", // |meta.shell.cut|
+  "shippedRamparts",
+  "shippedRoads",
+  "shippedTowers",
+  "shippedExtensions",
+  "gatedPairs", // as-built gated cut-tile pairs
+  "builtGated", // as-built worst gated lap
+  "freeDeepInterior", // empty walkable interior tiles at or past the depth floor
+  "lapCeiling", // this file's own exact-metric ceiling
+];
+const BOARD = (f) => {
+  if (!BOARD_FACTS.includes(f)) throw new Error(`validate.mjs: #${f} is not a board fact`);
+  return `#${f}`;
+};
 const LE = (other) => ({ op: "le", other });
 const GE = (other) => ({ op: "ge", other });
 const EQ = (other) => ({ op: "eq", other });
@@ -2113,6 +2325,29 @@ const WITNESS_NUM_OR_NULL = (v) =>
   v === null || (typeof v === "number" && Number.isFinite(v))
     ? null
     : `is ${JSON.stringify(v)}, not a finite number or null`;
+/**
+ * ==========================================================================
+ * ROUND 16: A ONE-SIDED BOUND ADMITS A SIGN-IMPOSSIBLE VALUE.
+ * ==========================================================================
+ * `LAYER_EARLIER` held its leaves to `WITNESS_NUM_OR_NULL` and, where a sibling
+ * existed, ONE `le`/`ge` closure. So the negotiated lap could be **-2.5** and
+ * render "the negotiated lap of 1.56 reads -2.5 on the wall this room ships";
+ * `repair.mass.liftedLap` -2.5; `towers.maxRefillUnblocked` -10;
+ * `dispersion.withinAtLayer3` -6. Fourteen hand-built arithmetic
+ * impossibilities passed in one batch, and an independent value sweep found 41
+ * of 200 witnessed leaf instances accepting a falsification.
+ *
+ * A lap, a distance, a tile count and a damage figure are all NON-NEGATIVE by
+ * construction, and "the board it was taken on is gone" is a reason this file
+ * cannot re-derive the number — it is not a reason the number can be negative.
+ * So non-negative is the DEFAULT, and the exceptions are named, one at a time,
+ * with the reason the quantity really can go below zero. There are exactly two
+ * in the fleet and they are both DELTAS.
+ */
+const WITNESS_NONNEG_OR_NULL = (v) =>
+  v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0)
+    ? null
+    : `is ${JSON.stringify(v)}, not a non-negative finite number or null`;
 
 /**
  * A SEARCH COUNTER. The tail of the sentence is BUILT FROM THE CLOSURES, so a
@@ -2141,12 +2376,35 @@ const LAYER_EARLIER = (what, ...closures) =>
     `${what} — a measurement taken on an earlier layer's board, which the layers after it moved. It is ` +
       `kept because the decision was really made on it and a record edited to agree with the outcome is ` +
       `not a record; it is bounded rather than re-derived, and the AS-SHIPPED reading of the same quantity ` +
-      `is a separate, re-derived field beside it. It is a finite number or null` +
+      `is a separate, re-derived field beside it. It is a NON-NEGATIVE finite number or null — the board ` +
+      `it was read on is gone, which is why this file cannot re-derive it and is not a reason a lap, a ` +
+      `distance, a tile count or a damage figure can be below zero` +
       (closures.length
         ? `, and where the record carries the other side of the comparison, ${closureSentence(closures)}`
         : `, and THAT IS THE WHOLE BOUND — the board it was taken on is gone and no surviving number on ` +
           `this record closes around it`),
-    WITNESS_NUM_OR_NULL,
+    WITNESS_NONNEG_OR_NULL,
+    closures,
+  );
+/**
+ * ...and the named exceptions. A DELTA between two boards is the one shape of
+ * layer-earlier measurement that is legitimately signed, and the fleet ships
+ * exactly two of them (`lane.cost` -2, `lane.gain` -0.06). `bothWays` is the
+ * two-sided bound that replaces the sign rule, so the leaf is still held from
+ * BOTH directions rather than dropping out of the bounds regime entirely.
+ */
+const LAYER_EARLIER_SIGNED = (what, whyNegative, lo, hi, ...closures) =>
+  W(
+    `${what} — a measurement taken on an earlier layer's board, which the layers after it moved. It is a ` +
+      `finite number or null, and it is one of this table's two NAMED SIGNED exceptions to the ` +
+      `non-negative rule: ${whyNegative}. It is bounded on BOTH sides, in [${lo}, ${hi}]` +
+      (closures.length
+        ? `, and ${closureSentence(closures)}`
+        : `, and THAT IS THE WHOLE BOUND — no other number on this record closes around it`),
+    (v) =>
+      v === null || (typeof v === "number" && Number.isFinite(v) && v >= lo && v <= hi)
+        ? null
+        : `is ${JSON.stringify(v)}, not null and not a finite number in [${lo}, ${hi}]`,
     closures,
   );
 
@@ -2173,6 +2431,7 @@ const RECORD_LEAVES = new Map(([
           `prune SUBTRACTS, so an inequality here would be a coincidence of this artifact rather than a ` +
           `property of the pass`,
         ATLEAST(1, "a cut that enclosed a room had tiles in it"),
+        LE(BOARD("interiorWalkable")),
       ),
     },
   ],
@@ -2300,11 +2559,84 @@ const RECORD_LEAVES = new Map(([
         LE("dispersion.totalAtLayer3"),
       ),
       "dispersion.tiebreakBudget": SEARCH_COUNTER(`the swap budget the dispersion pass was allowed to spend on ties`, KONST("TOWER_TIEBREAK_BUDGET", TOWER_TIEBREAK_BUDGET)),
-      "dispersion.search.rounds": SEARCH_COUNTER(`dispersion pass rounds`, MIRROR_DISP("search.rounds")),
+      // ==================================================================
+      // ROUND 16, OF6/F11-cause-3: THE THREE STATISTICS THE PASS RANKS ON,
+      // AND THE TWO OF THEM THAT ARE ON THE BOARD.
+      //
+      // The dispersion pass used to rank swaps on the whole-mass 5x5 window
+      // alone while its declaration is about the CLUMP; the objective is a
+      // tuple now and the record publishes all three. Two of the three
+      // "after" readings are the SHIPPED board, so they are re-derived here
+      // rather than mirrored — which is what stops this census from being
+      // carried across a room boundary. S1 swapped E11S6's and E3S5's whole
+      // dispersion censuses and both stayed internally legal; against
+      // `clumpAfter` and `towerWindowAfter` re-derived from the room's own
+      // towers, a permuted census names the wrong room's battery.
+      // ==================================================================
+      "dispersion.search.instruments": D,
+      "dispersion.search.clumpAfter": D,
+      "dispersion.search.towerWindowAfter": D,
+      "dispersion.search.clumpBefore": LAYER_EARLIER(
+        `the clump reading before the dispersion pass ran`,
+        GE("dispersion.search.clumpAfter"),
+        ATMOST(6, "the RCL8 tower program is six"),
+      ),
+      "dispersion.search.towerWindowBefore": LAYER_EARLIER(
+        `the tower-only 5x5 window before it ran`,
+        GE("dispersion.search.towerWindowAfter"),
+        ATMOST(6, "the RCL8 tower program is six"),
+      ),
+      "dispersion.search.rounds": SEARCH_COUNTER(
+        `dispersion pass rounds`,
+        MIRROR_DISP("search.rounds"),
+        // A4: a dispersion pass that examined ZERO swaps printed the unchanged
+        // claim "every legal swap either left the window where it was or cost
+        // the wall damage" above it, and every intra-record relation still
+        // closed — because a census of nothing closes trivially. A round of a
+        // swap pass is a pass over the candidate swaps; a round that examined
+        // none did not run. Same rule `repair.mass.rounds` already carries.
+        PRED(
+          "and a round that examined no swap at all did not run — a pass over the candidates that " +
+            "looked at none of them is not a round",
+          (self, get) => {
+            const r2 = cnum(self);
+            if (r2 === null || r2 === 0) return null;
+            const tried = cnum(get("dispersion.search.singleSwapsTried"));
+            const pairs = cnum(get("dispersion.search.pairSwapsTried"));
+            if (tried === null && pairs === null) return null;
+            return (tried || 0) + (pairs || 0) > 0
+              ? null
+              : `is ${r2} and the pass is recorded as having examined 0 single-slot and 0 pair swaps. ` +
+                  `The declaration this census sits under says every legal swap either left the window ` +
+                  `where it was or cost the wall damage — a claim about a set the record says was empty`;
+          },
+        ),
+      ),
       "dispersion.search.singleSwapsTried": SEARCH_COUNTER(
         `single-slot swaps examined`,
         GE("dispersion.search.singleSwapsScoreTied"),
         MIRROR_DISP("search.singleSwapsTried"),
+        // ...and a single-slot swap is (one of the six towers) x (one seat of
+        // this room's interior floor), so the enumeration has a room-derived
+        // ceiling. It is generous — layer 3 looks at a board with fewer things
+        // on it than the shipped one — and that is the point: it is a bound
+        // taken off the ROOM, which is the thing a permuted census cannot carry
+        // with it. E2S8's hill-climb was laundered to 24300 seats and 284400
+        // swaps and every intra-record relation still closed.
+        PRED(
+          "and it is at most six towers' worth of this room's own interior floor, which is every " +
+            "single-slot swap the room can offer",
+          (self, get) => {
+            const a = cnum(self);
+            const w = cnum(get(BOARD("interiorWalkable")));
+            if (a === null || w === null) return null;
+            const cap = 6 * w;
+            return a <= cap
+              ? null
+              : `is ${a} and this room has ${w} walkable interior tile(s), so six towers cannot be offered ` +
+                  `more than ${cap} single-slot swaps between them`;
+          },
+        ),
       ),
       // E11S6 SHIPPED 900 SCORE-TIED OUT OF 755 TRIED, AND 500 OUT OF ZERO PAIR
       // SWAPS, AND RENDERED IT. "Of those" is a subset word; this is the
@@ -2373,9 +2705,24 @@ for (const [k, v] of [
       "eco.fleetMediansMeasured.srcSum": D,
       "eco.fleetMediansMeasured.rooms": D,
       "eco.seedSkip": D,
+      // L9. This leaf's generated `why` used to end "and THAT IS THE WHOLE
+      // BOUND — no other number on this record closes around it", and that was
+      // FALSE IN THE SAFE DIRECTION: `eco.coreSize` carries `LE("eco.basin")`,
+      // so the basin was already bounded from below by the core it contains.
+      // The generator only enumerated a leaf's OUTBOUND closures, so an inbound
+      // one — the whole point of which is that it constrains the leaf it names —
+      // read as absent. The generator is fixed (see the inbound-closure check in
+      // `assertRecordInventory`, which now REFUSES a leaf that claims to be
+      // unbounded while a sibling is held to it) and the missing upper bound is
+      // supplied: a basin is a set of walkable interior tiles and cannot hold
+      // more of them than this room has.
       "eco.basin": SEARCH_COUNTER(
         `how many tiles layer 1's hub basin held when it ranked the seeds. The basin is a scoring ` +
           `intermediate; no structure records it`,
+        GE("eco.coreSize"),
+        // ...against the room's WALKABLE FLOOR, not its interior: layer 1 ranks
+        // seeds before any wall exists, so the basin is not confined by one.
+        LE(BOARD("interiorTiles")),
       ),
       "eco.coreSize": SEARCH_COUNTER(
         `the size of the core layer 1 grew around the chosen seed`,
@@ -2412,8 +2759,38 @@ for (const [k, v] of [
       "shallowExt.impossible": SEARCH_COUNTER(
         `slots for which no deep tile existed at all`,
         LE("shallowExt.count"),
+        PRED(
+          "and it is the number of SLOT ROWS that were offered nothing — the headline counter and the rows " +
+            "underneath it are one census",
+          (self, get) => {
+            const a = cnum(self);
+            const rows = carr(get("shallowExt.slots"));
+            if (a === null || !rows) return null;
+            const n = rows.filter((r) => r && cnum(r.targets) === 0).length;
+            return a === n
+              ? null
+              : `is ${a} and ${n} of the ${rows.length} slot row(s) were offered no deep target at all. ` +
+                  `This is where "no deep tile existed" absorbs a slot that WAS priced and refused — E12S6's ` +
+                  `six priced legal trades were laundered into exactly this counter`;
+          },
+        ),
       ),
-      "shallowExt.priced": SEARCH_COUNTER(`slots whose relocation was priced`, LE("shallowExt.count")),
+      "shallowExt.priced": SEARCH_COUNTER(
+        `slots whose relocation was priced`,
+        LE("shallowExt.count"),
+        PRED(
+          "and it is the number of SLOT ROWS that WERE offered a deep target",
+          (self, get) => {
+            const a = cnum(self);
+            const rows = carr(get("shallowExt.slots"));
+            if (a === null || !rows) return null;
+            const n = rows.filter((r) => r && cnum(r.targets) !== null && r.targets > 0).length;
+            return a === n
+              ? null
+              : `is ${a} and ${n} of the ${rows.length} slot row(s) were offered at least one deep target`;
+          },
+        ),
+      ),
       "shallowExt.refusedByTest": SEARCH_COUNTER(
         `slots a guard refused`,
         LE("shallowExt.count"),
@@ -2448,6 +2825,15 @@ for (const [k, v] of [
         GE("shallowExt.search.freeDeepOnePave"),
         GE("shallowExt.search.freeDeepRoadFaced"),
       ),
+      // OF10. The scan sweeps the 48x48 BAND and the sentence used to call the
+      // 2304 positions "interior tiles" in both channels, in rooms that have
+      // 178, 221 and 255 of them. The producer now publishes the band's side
+      // and the room's own interior floor separately, and THIS one is not a
+      // counter at all — it is a property of the room's shipped wall, so it is
+      // re-derived here rather than witnessed. It is also the anchor that makes
+      // this census un-swappable between rooms.
+      "shallowExt.search.bandSide": D,
+      "shallowExt.search.interiorWalkable": D,
       "shallowExt.search.freeDeepOnePave": SEARCH_COUNTER(
         `free deep tiles one pave from the network`,
         LE("shallowExt.search.interiorTiles"),
@@ -2457,8 +2843,24 @@ for (const [k, v] of [
         LE("shallowExt.search.interiorTiles"),
       ),
       "shallowExt.search.left": SEARCH_COUNTER(
-        `slots still shallow after the re-run`,
-        LE("shallowExt.count"),
+        `free deep road-faced tiles still on the table when the re-run finished`,
+        LE("shallowExt.search.freeDeepRoadFaced"),
+        PRED(
+          "and it is exactly `freeDeepRoadFaced` minus what the backfill and the relocations spent — the " +
+            "scan counted those tiles once and every one of them went to an add, to a move, or nowhere",
+          (self, get) => {
+            const a = cnum(self);
+            const f = cnum(get("shallowExt.search.freeDeepRoadFaced"));
+            const adds = cnum(get("shallowExt.search.spentOnAdds"));
+            const moves = cnum(get("shallowExt.search.spentOnMoves"));
+            if (a === null || f === null || adds === null || moves === null) return null;
+            return a === f - adds - moves
+              ? null
+              : `is ${a} and the scan found ${f} free deep road-faced tile(s), of which ${adds} went to ` +
+                  `adds and ${moves} to moves — ${f - adds - moves} left. A tile that was counted, not ` +
+                  `spent and not left is a tile the census lost`;
+          },
+        ),
       ),
       "shallowExt.search.paveLeft": SEARCH_COUNTER(`pave budget left`),
       "shallowExt.search.paveTaken": SEARCH_COUNTER(
@@ -2483,6 +2885,7 @@ for (const [k, v] of [
       "shallowExt.search.refusedExaminations": SEARCH_COUNTER(
         `how many examinations those refusals cost`,
         GE("shallowExt.search.refusedCount"),
+        LE(BOARD("interiorWalkable")),
       ),
       "shallowExt.search.sharedTarget": W(
         `the re-run's own copy of \`sharedTarget\`. It is a tile key or null`,
@@ -2492,6 +2895,27 @@ for (const [k, v] of [
       "shallowExt.search.sharedTargetSlots": SEARCH_COUNTER(
         `how many slots wanted that one tile`,
         LE("shallowExt.count"),
+        PRED(
+          "and it is the number of SLOT ROWS whose cheapest legal target IS that tile, and it is zero " +
+            "exactly when there is no shared target to want",
+          (self, get) => {
+            const a = cnum(self);
+            const rows = carr(get("shallowExt.slots"));
+            const st = get("shallowExt.sharedTarget");
+            if (a === null || !rows) return null;
+            if (st === null || st === undefined) {
+              return a === 0
+                ? null
+                : `is ${a} and \`sharedTarget\` is null — ${a} slot(s) are recorded as competing for a tile ` +
+                    `the record says does not exist`;
+            }
+            const n = rows.filter((r) => r && r.bestLegal && `${r.bestLegal.x},${r.bestLegal.y}` === String(st)).length;
+            return a === n
+              ? null
+              : `is ${a} and ${n} of the ${rows.length} slot row(s) name ${st} as their cheapest legal ` +
+                  `target. The contest and the rows that entered it are one fact`;
+          },
+        ),
       ),
       "shallowExt.search.spentOnAdds": SEARCH_COUNTER(
         `relocations that added a tile`,
@@ -2549,7 +2973,13 @@ for (const [k, v] of [
           },
         ),
       ),
-      "labs.refused.mineral": SEARCH_COUNTER(`anchors refused because the stamp left the mineral no reachable seat`),
+      "labs.refused.mineral": SEARCH_COUNTER(
+        `anchors refused because the stamp left the mineral no reachable seat`,
+        // ...and an anchor is a tile of this room, so the count cannot outrun
+        // the room's own anchor pool. It is generous, and it is a bound taken
+        // off the BOARD rather than off the record beside it
+        LE(BOARD("interiorWalkable")),
+      ),
       "labs.refused.network": SEARCH_COUNTER(
         `anchors refused because eating their roads would split the network. It is nominally the same ` +
           `counter as \`eatBlockedByNet\` on a lab-road-eat record — but that identity is CROSS-KIND and ` +
@@ -2560,6 +2990,7 @@ for (const [k, v] of [
       "labs.refused.lap": SEARCH_COUNTER(
         `anchors refused for creating or worsening a gated-over-target defender pair. Budget-dependent: ` +
           `once the 16-anchor veto budget is spent every undecided anchor counts as breaching`,
+        LE(BOARD("interiorWalkable")),
       ),
     },
   ],
@@ -2740,7 +3171,7 @@ for (const [k, v] of [
         WITNESS_NONNEG,
         // the release loop accepts a rung only for STRICTLY fewer shallow
         // extensions, so this ordering is what the trade means
-        [GE("ctrlParks.shallowReleasing")],
+        [GE("ctrlParks.shallowReleasing"), LE(BOARD("shippedExtensions"))],
       ),
       "ctrlParks.rampartsHolding": SEARCH_COUNTER(
         `the discarded holding composition's rampart count — the other half of the trade, and on the same ` +
@@ -2748,6 +3179,11 @@ for (const [k, v] of [
           `ramparts against M"), so an inverted one turns a saving into a cost and reads clean; the ` +
           `direction of the trade is what is held here`,
         GE("ctrlParks.rampartsReleasing"),
+        // ...against the room's own walkable floor rather than its shipped
+        // rampart count: the HOLDING composition is the one that was thrown
+        // away, and it was thrown away partly FOR costing more ramparts — two
+        // of the fleet's two records are above the shipped count by design.
+        LE(BOARD("interiorWalkable")),
       ),
     },
   ],
@@ -2818,11 +3254,18 @@ for (const [k, v] of [
         MIRROR_L3("minShellDmg"),
       ),
       "towers.avgShellDmg": LAYER_EARLIER(`the mean face damage over that same cut`, GE("towers.minShellDmg"), MIRROR_L3("avgShellDmg")),
+      // m8: this `why` shipped through `.replace(/s+/g, " ")` — a missing
+      // backslash — so the sentence a reader got was "how many tile that cut
+      // had — layer 3' cut ... o it i never maller than the cut the room hip".
+      // Every `s` in the string was deleted. The whole file was grepped for
+      // siblings of the same shape (`/s+/`, `/S+/`, `/d+/`, `/w+/`, `/b/`) and
+      // this was the only one.
       "towers.declaredCutTiles": LAYER_EARLIER(
-        `how many tiles that cut had — layer 3's cut, before the inert prune and the seal reconciliation
-        moved it, so it is never smaller than the cut the room ships`.replace(/s+/g, " "),
+        `how many tiles that cut had — layer 3's cut, before the inert prune and the seal reconciliation ` +
+          `moved it, so it is never smaller than the cut the room ships`,
         GE("towers.weakTiles"),
         GE("battery.cutTiles"),
+        LE(BOARD("interiorWalkable")),
       ),
       "towers.weakTiles": LAYER_EARLIER(
         `how many of them were under the weak line`,
@@ -2836,10 +3279,16 @@ for (const [k, v] of [
       "towers.maxRefillHard": D,
       "towers.targetMin": D,
       "towers.spreadRadius": SEARCH_COUNTER(`the mean tower-to-centroid radius layer 3 achieved`, MIRROR_L3("spreadRadius"), ATMOST(25, "half the room")),
+      // OF11 cause 1/3: the mirror is not a second witness — both copies are
+      // written by the same producer in the same pass, so a mirrored-pair edit
+      // is one extra assignment. What a permuted or rescaled census CANNOT
+      // survive is a bound taken off the room's own board: a candidate tower
+      // tile is a walkable tile of THIS room.
       "towers.candidates": SEARCH_COUNTER(
         `tower tiles layer 3 considered`,
         ATLEAST(6, "the six tiles it ended up taking were among them"),
         MIRROR_L3("candidates"),
+        LE(BOARD("interiorTiles")),
       ),
       "towers.starts": SEARCH_COUNTER(
         `distinct starting placements the search actually took`,
@@ -3158,7 +3607,27 @@ for (const [k, v] of [
           `its LAST rung, and 40 of the fleet's 57 records prove it; a bound that said otherwise would have ` +
           `been a sentence, not a check.)`,
         null,
-        [LENIS("ladder.trailLength"), BESPOKE("mobility.ladder.rungs", "every rung carries the four fields a rung is made of, and the trail is non-empty")],
+        [
+          LENIS("ladder.trailLength"),
+          PRED(
+            "and the rung the room SHIPPED is ON it — some row carries exactly (`shippedLap`, " +
+              "`shippedRamparts`), which is true of all 57 of the fleet's records and is the ladder's " +
+              "version of the rule that `winningCap` has to be one of the caps that were composed",
+            (self, get) => {
+              const rows = carr(self);
+              const lap = cnum(get("ladder.shippedLap"));
+              const ram = cnum(get("ladder.shippedRamparts"));
+              if (!rows || lap === null || ram === null) return null;
+              return rows.some((r) => r && near2(r.mobility, lap) && near2(r.ramparts, ram))
+                ? null
+                : `does not contain the rung this room SHIPPED (lap ${lap} at ${ram} rampart(s)); the rows ` +
+                    `are ${JSON.stringify(rows.map((r) => [r && r.mobility, r && r.ramparts]))}. Every rung ` +
+                    `but one is an enclosure nobody built — the one that IS on the board is the only anchor ` +
+                    `the trail has, and a trail that does not contain it is describing a different room`;
+            },
+          ),
+          BESPOKE("mobility.ladder.rungs", "every rung carries the four fields a rung is made of, and the trail is non-empty"),
+        ],
       ),
       "ladder.trailLength": SEARCH_COUNTER(
         `how many rungs of this seed the room composed`,
@@ -3189,21 +3658,37 @@ for (const [k, v] of [
         WITNESS_NUM_OR_NULL,
         [KONST("MOB_MATERIAL_LAP", MOB_MATERIAL_LAP), EQ("negotiated.materialLap")],
       ),
-      "ladder.fallbackBest": W(
+      "ladder.fallbackBest": LAYER_EARLIER(
         `the best rung of the fallback seed, when one was walked — a lap measured on a seed this room did ` +
-          `not take, so no other number on the record touches it and its type is the only bound this file ` +
-          `holds it to`,
-        WITNESS_NUM_OR_NULL,
+          `not take. All 57 of the fleet's records are null here, and a NON-null value is a claim that a ` +
+          `second seed was walked, so it has to be a lap and it has to be a lap this trail contains`,
+        ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
+        PRED(
+          "and, when it is not null, it is one of the laps on `ladder.rungs` — a fallback BEST is the " +
+            "best of something that was walked, and the trail is the record of what was",
+          (self, get) => {
+            const a = cnum(self);
+            const rows = carr(get("ladder.rungs"));
+            if (a === null || !rows) return null;
+            return rows.some((r) => r && near2(r.mobility, a))
+              ? null
+              : `is ${a} and the trail's rungs measure ` +
+                  `${JSON.stringify(rows.map((r) => r && r.mobility))} — a "best rung" that is not a rung`;
+          },
+        ),
       ),
-      "lane.tiles": SEARCH_COUNTER(`tiles layer 6's defender-lane reservation wanted`, GE("lane.deep")),
-      "lane.deep": SEARCH_COUNTER(`of those, the deep ones`, LE("lane.tiles")),
-      "lane.rounds": SEARCH_COUNTER(`rounds the reservation ran`, GE("lane.strandRounds")),
-      "lane.strandRounds": SEARCH_COUNTER(`rounds spent on stranded stubs`, LE("lane.rounds")),
-      "lane.stubsLifted": W(
+      "lane.tiles": SEARCH_COUNTER(
+        `tiles layer 6's defender-lane reservation wanted`,
+        GE("lane.deep"),
+        LE(BOARD("interiorWalkable")),
+      ),
+      "lane.deep": SEARCH_COUNTER(`of those, the deep ones`, LE("lane.tiles"), LE(BOARD("interiorWalkable"))),
+      "lane.rounds": SEARCH_COUNTER(`rounds the reservation ran`, GE("lane.strandRounds"), LE(BOARD("interiorWalkable"))),
+      "lane.strandRounds": SEARCH_COUNTER(`rounds spent on stranded stubs`, LE("lane.rounds"), LE(BOARD("interiorWalkable"))),
+      "lane.stubsLifted": LAYER_EARLIER(
         `how many stranded road stubs the lane reservation lifted before it took its bound. The stubs were ` +
-          `lifted from a mid-layer-6 board and the reservation itself is not on the shipped one, so its ` +
-          `type is the only bound this file holds it to`,
-        WITNESS_NUM_OR_NULL,
+          `lifted from a mid-layer-6 board and the reservation itself is not on the shipped one`,
+        LE(BOARD("shippedRoads")),
       ),
       "lane.dropped": W(
         `whether the reservation was dropped rather than taken. \`lane.droppedFor\` beside it is held to ` +
@@ -3230,30 +3715,33 @@ for (const [k, v] of [
           `the worst mass this room could grow at N — and the room shipped at M, inside it". A room ` +
           `shipping OUTSIDE its own published bound is the one reading that sentence cannot survive`,
         GE("mass.builtLap"),
+        ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
       ),
-      "lane.boundBeforeStubs": LAYER_EARLIER(`the same bound before the stub lift`),
+      "lane.boundBeforeStubs": LAYER_EARLIER(`the same bound before the stub lift`, ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap")),
       "lane.wanted": LAYER_EARLIER(
         `the size of the reservation layer 6 would have taken, against the smaller one it did`,
         GE("lane.tiles"),
+        LE(BOARD("interiorWalkable")),
       ),
-      "lane.wantedBound": LAYER_EARLIER(`...and the bound that would have come with it`),
-      "lane.cost": W(
-        `what the reservation would have cost in personal ramparts — a price for a reservation this room ` +
-          `did NOT take, on layer 6's board, and the fleet's four records include a NEGATIVE one, so no ` +
-          `ordering against anything here would be a property of the pass. Its type is the only bound ` +
-          `this file holds it to`,
-        WITNESS_NUM_OR_NULL,
+      "lane.wantedBound": LAYER_EARLIER(`...and the bound that would have come with it`, ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap")),
+      "lane.cost": LAYER_EARLIER_SIGNED(
+        `what the reservation would have cost in personal ramparts`,
+        `it is a PRICE DELTA for a reservation this room did NOT take, on layer 6's board, and the fleet's ` +
+          `four records include a negative one — a reservation that FREES ramparts costs less than nothing`,
+        -2500,
+        2500,
+        LE(BOARD("shippedRamparts")),
       ),
-      "lane.gain": W(
-        `the lap the reservation would have gained, measured on layer 6's board before the mass finished ` +
-          `growing. The board is gone and the reservation was not taken, so its type is the only bound ` +
-          `this file holds it to`,
-        WITNESS_NUM_OR_NULL,
+      "lane.gain": LAYER_EARLIER_SIGNED(
+        `the lap the reservation would have gained, measured on layer 6's board before the mass finished growing`,
+        `it is a LAP DELTA and the fleet ships one at -0.06 — a reservation that made the lap slightly ` +
+          `worse gained a negative amount, which is the honest reading of the counterfactual`,
+        -MOB_EXACT_MAX,
+        MOB_EXACT_MAX,
       ),
-      "lane.premium": W(
-        `the premium the room was willing to pay for it — a budget, not a measurement; its type is the ` +
-          `only bound this file holds it to`,
-        WITNESS_NUM_OR_NULL,
+      "lane.premium": LAYER_EARLIER(
+        `the premium the room was willing to pay for it — a budget, not a measurement`,
+        LE(BOARD("shippedRamparts")),
       ),
       "lane.shrunk": W(
         `the reservation the room shrank to, or null. Its three fields below carry their own bounds; the ` +
@@ -3264,13 +3752,14 @@ for (const [k, v] of [
         `the reservation size layer 6 wanted before it shrank`,
         GE("lane.shrunk.to"),
         GE("lane.tiles"),
+        LE(BOARD("interiorWalkable")),
       ),
       "lane.shrunk.to": SEARCH_COUNTER(
         `the size it settled on — which is the reservation the room actually ran`,
         LE("lane.shrunk.wanted"),
         EQ("lane.rounds"),
       ),
-      "lane.shrunk.premium": SEARCH_COUNTER(`the premium that shrink bought`),
+      "lane.shrunk.premium": SEARCH_COUNTER(`the premium that shrink bought`, LE(BOARD("shippedRamparts"))),
       "repair.mass.rounds": SEARCH_COUNTER(
         `rounds of the bounded mass-relocation attempt`,
         PRED("an attempt that ran no rounds tried nothing, moved nothing and saw no blockers — and one that ran a round tried at least one relocation", (self, get) => {
@@ -3291,7 +3780,7 @@ for (const [k, v] of [
       ),
       "repair.mass.trials": SEARCH_COUNTER(`relocations it tried`, GE("repair.mass.moved")),
       "repair.mass.moved": SEARCH_COUNTER(`relocations it took`, LE("repair.mass.trials")),
-      "repair.mass.blockersSeen": SEARCH_COUNTER(`blocking tiles it examined`),
+      "repair.mass.blockersSeen": SEARCH_COUNTER(`blocking tiles it examined`, LE(BOARD("interiorWalkable"))),
       "repair.mass.lapBefore": LAYER_EARLIER(
         `the lap before the attempt — which is the lap the room SHIPS, because the attempt is the last ` +
           `thing in the pipeline that could have moved it`,
@@ -3323,6 +3812,20 @@ for (const [k, v] of [
         GE("repair.tower.affordable"),
         GE("repair.tower.scoreTied"),
         MIRROR_VETO("tried"),
+        PRED(
+          "and it is at most six towers' worth of this room's own interior floor, which is every " +
+            "single-slot swap the room can offer — the one bound in this census that a producer would " +
+            "have to move the ROOM to change",
+          (self, get) => {
+            const a = cnum(self);
+            const w2 = cnum(get(BOARD("interiorWalkable")));
+            if (a === null || w2 === null) return null;
+            return a <= 6 * w2
+              ? null
+              : `is ${a} and this room has ${w2} walkable interior tile(s), so six towers cannot be ` +
+                  `offered more than ${6 * w2} single-slot swaps between them`;
+          },
+        ),
         PRED("a pass that examined nothing found nothing, took nothing and proved nothing", (self, get) => {
           if (cnum(self) !== 0) return null;
           const dirty = ["affordable", "scoreTied", "moved"].filter((f) => (cnum(get("repair.tower." + f)) || 0) > 0);
@@ -3359,6 +3862,7 @@ for (const [k, v] of [
       ]),
       "repair.tower.baseLap": LAYER_EARLIER(
         `the lap of layer 2's empty room`,
+        ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
         MIRROR_VETO("baseLap"),
         EQ("ladder.shippedLap"),
         LE("repair.tower.lapWithBattery"),
@@ -3367,16 +3871,19 @@ for (const [k, v] of [
         `how many pairs were over target on it`,
         MIRROR_VETO("baseOver"),
         LE("repair.tower.overWithBattery"),
+        LE(BOARD("interiorWalkable")),
       ),
       "repair.tower.lapWithBattery": LAYER_EARLIER(
         `the lap once the battery landed. Six towers are six more obstacles on the interior, so the walk ` +
           `this measures never gets shorter for having them`,
+        ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
         MIRROR_VETO("lapWithBattery"),
         GE("repair.tower.baseLap"),
       ),
       "repair.tower.overWithBattery": LAYER_EARLIER(
         `...and the pairs over target then`,
         MIRROR_VETO("overWithBattery"),
+        LE(BOARD("interiorWalkable")),
         GE("repair.tower.baseOver"),
       ),
       "negotiated.cause": W(
@@ -3503,7 +4010,10 @@ for (const [k, v] of [
         `how far the defender walked on the worst gated pair, inside the wall`,
         GE("negotiated.walk.dout"),
       ),
-      "negotiated.walk.dout": LAYER_EARLIER(`...and how far the attacker walked outside it`),
+      "negotiated.walk.dout": LAYER_EARLIER(
+        `...and how far the attacker walked outside it`,
+        LE(BOARD("interiorTiles")),
+      ),
       // THE TWO COUNTERFACTUAL RE-WALKS THE CAUSE CLAUSE IS BUILT OUT OF. Each
       // carries its own subtraction and its own quotient, so the sentence
       // "…it walks D against the attacker's O — a K-tile detour at ratio R" is
@@ -3517,8 +4027,14 @@ for (const [k, v] of [
         `the attacker's side of it, which no interior change can move`,
         EQ("negotiated.walk.dout"),
       ),
-      "negotiated.causeWalks.noStructures.detour": LAYER_EARLIER(
+      "negotiated.causeWalks.noStructures.detour": LAYER_EARLIER_SIGNED(
         `the extra walk that leaves`,
+        `it is a DETOUR, i.e. a difference between two walks, and with our own structures lifted the ` +
+          `defender's route can be shorter than the attacker's. No record in this fleet is negative here ` +
+          `today, but it is the SAME quantity as its noWalls twin, which is negative in 16 of 57, and two ` +
+          `readings of one measurement do not get two sign rules`,
+        -MOB_EXACT_MAX,
+        MOB_EXACT_MAX,
         DIFFEQ("negotiated.causeWalks.noStructures.d", "negotiated.causeWalks.noStructures.dout"),
       ),
       "negotiated.causeWalks.noStructures.ratio": LAYER_EARLIER(
@@ -3534,8 +4050,13 @@ for (const [k, v] of [
         `the attacker's side of that one`,
         EQ("negotiated.walk.dout"),
       ),
-      "negotiated.causeWalks.noWalls.detour": LAYER_EARLIER(
+      "negotiated.causeWalks.noWalls.detour": LAYER_EARLIER_SIGNED(
         `the extra walk that leaves`,
+        `it is a DETOUR, i.e. a difference between two walks, and lifting the interior's natural walls as ` +
+          `well as our structures can make the defender's route SHORTER than the attacker's — 16 of the ` +
+          `fleet's 57 records are negative here, down to -3, and that is the counterfactual's whole point`,
+        -MOB_EXACT_MAX,
+        MOB_EXACT_MAX,
         DIFFEQ("negotiated.causeWalks.noWalls.d", "negotiated.causeWalks.noWalls.dout"),
       ),
       "negotiated.causeWalks.noWalls.ratio": LAYER_EARLIER(
@@ -3563,7 +4084,10 @@ for (const [k, v] of [
         `the defender's walk on the longest-detour pair`,
         GE("negotiated.worstDetour.dout"),
       ),
-      "negotiated.worstDetour.dout": LAYER_EARLIER(`...and the attacker's`),
+      "negotiated.worstDetour.dout": LAYER_EARLIER(
+        `...and the attacker's`,
+        LE(BOARD("interiorTiles")),
+      ),
       "negotiated.worstDetour.ratio": LAYER_EARLIER(
         `...and their quotient, which is a ratio over one of the pairs the ungated maximum ranges over`,
         QUOT("negotiated.worstDetour.din", "negotiated.worstDetour.dout"),
@@ -3582,7 +4106,10 @@ for (const [k, v] of [
         DIFFEQ("negotiated.lap", "negotiated.floor"),
       ),
       "negotiated.eco.bareDeep": SEARCH_COUNTER(`the deep tiles the bare enclosure held before the lobe`),
-      "negotiated.eco.needDeep": SEARCH_COUNTER(`the program's deep-tile floor`),
+      "negotiated.eco.needDeep": SEARCH_COUNTER(
+        `the program's deep-tile floor`,
+        LE(BOARD("interiorWalkable")),
+      ),
       "negotiated.eco.deepTiles": SEARCH_COUNTER(
         `...and what the room ends up with, which is what the lobe was bought to reach`,
         GE("negotiated.eco.needDeep"),
@@ -3590,6 +4117,7 @@ for (const [k, v] of [
       "negotiated.metric.endpoints": SEARCH_COUNTER(
         `wall tiles layer 2's metric ran over`,
         GE("negotiated.metric.reachable"),
+        LE(BOARD("interiorWalkable")),
       ),
       "negotiated.metric.reachable": SEARCH_COUNTER(
         `of those, the ones its walk region reached`,
@@ -3630,6 +4158,568 @@ for (const [k, v] of [
 ]) {
   RECORD_LEAVES.set(normPair(k), v);
 }
+
+/**
+ * ==========================================================================
+ * PRESENCE. THE TABLE IS ITERATED, NOT THE RECORD.
+ * ==========================================================================
+ * Round 16's mechanical reviewer deleted every classified leaf of every shipped
+ * declaration, one at a time: **347 of 420 leaf instances escaped**, and whole
+ * sub-records went with them — `mobility.negotiated` in all 57 rooms that ship
+ * it (paragraph included), `mobility.lift`, `shallowExt.search`. All five of the
+ * numbers round 14's reviewers PLANTED re-landed BY DELETION instead of by
+ * falsification, and two of them left reader-facing prose standing that still
+ * passed: "? deep tiles inside the widest enclosure it admits" and "undefined
+ * cut tile(s) — 14,35 — carry a rampart".
+ *
+ * The cause was one line. The engine walked `recordLeaves(sf)` — the RECORD —
+ * so a leaf this table named and the record omitted was never looked for. An
+ * inventory that a producer satisfies by DELETING the thing being inventoried
+ * is not an inventory; it is a catalogue of what happened to be there. It is the
+ * same shape as criticisms 14/27/40 (delete-escape) one level in, and it is the
+ * shape that survives longest, because every positive check still passes.
+ *
+ * So the loop is over the TABLE now, and a classed leaf the record does not
+ * carry FAILS THE ROOM — unless this table says otherwise, BY NAME, with the
+ * condition it is legitimately absent under and the reason that condition makes
+ * it legitimate.
+ *
+ * AND THE OPTIONALITY BELOW WAS MEASURED, NOT ASSUMED. Blanket-requiring every
+ * leaf would have failed 18 rooms on records that are honestly shaped two
+ * different ways, and blanket-allowing absence would have been the bug again
+ * with a comment on it. So every (gate,kind) in the fleet was grouped by its
+ * leaf SIGNATURE: fourteen of the eighteen kinds have exactly one signature —
+ * every leaf in every instance — and the four that do not differ structurally,
+ * not accidentally:
+ *
+ *   mobility|            four independent NULLABLE sub-records (`lane.shrunk`
+ *                        null in 51 of 57, `negotiated.eco` null in 54, `lift`
+ *                        null in 2, `lift.residual` null in 1) plus a per-class
+ *                        table that exists only where the lift CLEARS
+ *   spawnfan|sector      `spawnFan.census.fannedAvailable` null in 1 of 7
+ *   ctrlparks|seats      two branches: the parks the extension mass ATE
+ *                        (`built`/`eaten`/`eaters`) or the seat search that came
+ *                        up thin (`thinAt` + the whole `census`)
+ *   towers|weak-battery  two branches: filed by layer 3 (carries layer 3's
+ *                        placement census) or filed by the wall layer (`source`)
+ *   battlements|         three branches, one per answer the substitute search
+ *                        can give — already gated by a bespoke block, now the
+ *                        presence half is gated by the same discriminator
+ *   misc|off-network     two branches: the room has an extractor or it does not
+ *
+ * A NULLABLE SUB-RECORD IS GENERIC AND COSTS NOTHING. If an ancestor of the leaf
+ * is ITSELF a classed leaf of this table and the record publishes it as exactly
+ * `null`, the children are excused — because the record has SAID the sub-record
+ * does not exist, and that `null` is checked like any other leaf (all four of
+ * the fleet's are class D and re-derived). Deleting the parent instead of
+ * nulling it is a missing classed leaf and fails.
+ *
+ * A BRANCH IS NOT MUTUAL EXCUSING. The obvious way to write a two-armed record
+ * is "arm A's leaves are absent when arm B's are present, and vice versa" — and
+ * that lets a producer delete BOTH arms, which is the deletion hole again in
+ * two pieces. So a branch names a DISCRIMINATOR that must return one of the
+ * arms: a record that takes none of them fails.
+ */
+/** the record carries this leaf path (as a value or as a sub-object); `*` matches any key */
+function recordHasLeaf(sf, leaf) {
+  const segs = leaf.split(".");
+  const walk = (cur, i) => {
+    if (cur === undefined) return false;
+    if (i === segs.length) return true;
+    if (cur === null || typeof cur !== "object" || Array.isArray(cur)) return false;
+    if (segs[i] === "*") return Object.values(cur).some((v) => walk(v, i + 1));
+    if (!(segs[i] in cur)) return false;
+    return walk(cur[segs[i]], i + 1);
+  };
+  return walk(sf, 0);
+}
+/** the value at a dotted path, or `undefined` (no wildcards — ancestors are concrete) */
+function recordAt(sf, path) {
+  let cur = sf;
+  for (const seg of path.split(".")) {
+    if (cur === null || cur === undefined || typeof cur !== "object") return undefined;
+    cur = cur[seg];
+  }
+  return cur;
+}
+/**
+ * A leaf whose absence is admissible when `when(sf)` holds. `why` is the reason
+ * the condition makes it legitimate and is printed with the census.
+ */
+const ABSENT_WHEN = (why, when, ...leaves) => ({ form: "when", why, when, leaves });
+/**
+ * A leaf NO record in the fleet carries. The class is kept so that a producer
+ * which starts shipping it is CHECKED rather than rejected as unclassified; the
+ * absence is admitted here rather than left to the reader to notice.
+ */
+const NEVER_SHIPPED = (why, ...leaves) => ({ form: "when", why, when: () => true, leaves, never: true });
+/**
+ * A record with N shapes, one per answer a search can give. `pick(sf)` returns
+ * the arm this record took or `null`; a record that takes NO arm fails, which is
+ * what stops "each arm excuses the other" from excusing both.
+ */
+const BRANCH = (why, pick, arms) => ({ form: "branch", why, pick, arms });
+
+const RECORD_ABSENCE = new Map(
+  [
+    [
+      "mobility|",
+      [
+        ABSENT_WHEN(
+          `the per-class lift table is the OUTPUT of the lift experiment, and layer 2 only tabulates it in ` +
+            `a room where lifting the mass actually clears the target. 56 of the fleet's 57 records ship ` +
+            `\`lift.clears: false\` and have nothing to tabulate. The condition is \`lift.clears\`, which is ` +
+            `class D and re-derived from this room's own board, so the excuse cannot be manufactured`,
+          (sf) => !(sf.lift && sf.lift.clears === true),
+          "lift.perClass.*.pairDin",
+          "lift.perClass.*.lap",
+        ),
+        NEVER_SHIPPED(
+          `no record in the fleet carries a per-class \`lap\`: the one lift record that exists (E11S6) ` +
+            `tabulates \`pairDin\` per class and reports the lap once, for the whole lift. The class is kept ` +
+            `so a producer that starts publishing it is re-derived rather than rejected`,
+          "lift.perClass.*.lap",
+        ),
+      ],
+    ],
+    [
+      "spawnfan|sector",
+      [
+        NEVER_SHIPPED(
+          `the sector target is published once, on \`spawnFan.target\`, and the census does not repeat it. ` +
+            `The class is kept because the derivation for it exists (it is this file's own SECTOR_TARGET) ` +
+            `and would run the moment a producer wrote the field`,
+          "spawnFan.census.target",
+        ),
+      ],
+    ],
+    [
+      "ctrlparks|seats",
+      [
+        BRANCH(
+          `a thin-parks declaration is filed for one of two reasons and the record is shaped by which: the ` +
+            `extension mass ATE seats the layer-1 search had counted (the room reports what it built, what ` +
+            `was eaten and which structures ate it), or the seat search never found more than the floor in ` +
+            `the first place (the room reports the whole search census and the layer the count went thin at). ` +
+            `Neither record is a subset of the other and neither is optional: a record carrying NEITHER ` +
+            `discriminator has filed a thin-parks declaration without saying which thing happened`,
+          (sf) =>
+            sf.ctrlParks?.eaten !== undefined ? "eaten" : sf.ctrlParks?.thinAt !== undefined ? "search" : null,
+          {
+            eaten: ["ctrlParks.built", "ctrlParks.eaten", "ctrlParks.eaters"],
+            search: [
+              "ctrlParks.thinAt",
+              "ctrlParks.census.considered",
+              "ctrlParks.census.sealing",
+              "ctrlParks.census.forcedOntoSealingPool",
+              "ctrlParks.census.maxParks",
+              "ctrlParks.census.minParksFloor",
+              "ctrlParks.census.tookFirstAboveFloor",
+              "ctrlParks.census.chosen.x",
+              "ctrlParks.census.chosen.y",
+              "ctrlParks.census.chosen.parks",
+              "ctrlParks.census.chosen.hubWalk",
+              "ctrlParks.census.chosen.score",
+              "ctrlParks.census.runnerUp.x",
+              "ctrlParks.census.runnerUp.y",
+              "ctrlParks.census.runnerUp.parks",
+              "ctrlParks.census.runnerUp.hubWalk",
+              "ctrlParks.census.runnerUp.score",
+            ],
+          },
+        ),
+      ],
+    ],
+    [
+      "towers|weak-battery",
+      [
+        BRANCH(
+          `a weak-battery declaration is filed either by layer 3, which carries its own placement census ` +
+            `into the record, or by the wall layer after the inert prune moved the wall, which names itself ` +
+            `in \`source\` and has no placement search to report. The AS-BUILT half (\`battery.*\`, 17 leaves, ` +
+            `every one re-derived from the shipped board) is required on BOTH arms and is what the ` +
+            `declaration is actually about; the arms differ only in whether layer 3's search is quoted. ` +
+            `KNOWN GAP, stated rather than hidden: 15 of the 16 records take the layer-3 arm and one (E18S3) ` +
+            `takes the wall arm, and nothing on the board distinguishes them, so a producer that deleted the ` +
+            `placement census AND wrote \`source: "walls"\` would take the wall arm legitimately. The fix is ` +
+            `on the producer side — publish \`source\` unconditionally — not here`,
+          (sf) => (sf.source === "towers" ? "layer3" : sf.source === "walls" ? "walls" : null),
+          {
+            layer3: [
+              "towers.maxRefill",
+              "towers.refillDists",
+              "towers.minShellDmg",
+              "towers.avgShellDmg",
+              "towers.weakShellDmg",
+              "towers.weakTiles",
+              "towers.declaredCutTiles",
+              "towers.maxRefillHard",
+              "towers.maxRefillUnblocked",
+              "towers.refillNote",
+              "towers.refillCap",
+              "towers.targetMin",
+              "towers.depthSafe",
+              "towers.spreadRadius",
+              "towers.starts",
+              "towers.candidates",
+              "towers.escRounds",
+              "towers.pairK",
+              "towers.search.ran",
+              "towers.search.rounds",
+              "towers.search.restarts",
+              "towers.search.starts",
+              "towers.search.pairK",
+              "towers.search.improvements",
+              "towers.search.improvedFrom",
+              "towers.search.improvedTo",
+              "towers.search.converged",
+              "towers.refillSearch.rounds",
+              "towers.refillSearch.tried",
+              "towers.refillSearch.moved",
+              "towers.refillSearch.scoreTied",
+              "towers.refillSearch.crossOffered",
+              "towers.refillSearch.dispersionOk",
+              "towers.refillSearch.before",
+              "towers.refillSearch.after",
+            ],
+            walls: ["source"],
+          },
+        ),
+      ],
+    ],
+    [
+      "battlements|",
+      [
+        BRANCH(
+          `layer 2's alternative-enclosure search gives one of three answers and each answer owns a ` +
+            `different set of numbers: "swap" prices an alternative cut against a budget, "small" measures ` +
+            `the best reachable enclosure against the program's deep-tile floor, and "none" has nothing to ` +
+            `report because no protect radius produced a reachable cut at all. The bespoke block ` +
+            `\`battlements.substitute.branch\` already refuses a record carrying another branch's numbers; ` +
+            `this is the other half of the same rule — the branch's OWN numbers cannot be deleted either`,
+          (sf) => {
+            const kk = String(sf.battlements?.substitute?.kind);
+            return ["swap", "small", "none"].includes(kk) ? kk : null;
+          },
+          {
+            swap: ["battlements.substitute.altCut", "battlements.substitute.thisCut", "battlements.substitute.budget"],
+            small: [
+              "battlements.substitute.radius",
+              "battlements.substitute.cut",
+              "battlements.substitute.deep",
+              "battlements.substitute.needDeep",
+            ],
+            none: [],
+          },
+        ),
+      ],
+    ],
+    [
+      "misc|off-network",
+      [
+        BRANCH(
+          `the mineral seat's record names the extractor that stands on the mineral. A room whose plan has ` +
+            `no extractor publishes \`offNetwork.extractor: null\` and none of the five extractor readings; ` +
+            `a room that has one publishes the five and not the null. All 133 records in this fleet take the ` +
+            `second arm. A record taking NEITHER has not said whether the extractor exists`,
+          (sf) =>
+            sf.offNetwork?.extractor === null
+              ? "absent"
+              : sf.offNetwork?.extractor !== undefined
+                ? "present"
+                : null,
+          {
+            absent: ["offNetwork.extractor"],
+            present: [
+              "offNetwork.extractor.x",
+              "offNetwork.extractor.y",
+              "offNetwork.extractorNetTiles",
+              "offNetwork.extractorStands",
+              "offNetwork.extractorObstacle",
+            ],
+          },
+        ),
+      ],
+    ],
+  ].map(([k, v]) => [normPair(k), v]),
+);
+
+/**
+ * ==========================================================================
+ * ARRAYS ARE NOT LEAVES. THEIR ELEMENTS ARE.
+ * ==========================================================================
+ * `recordLeaves()` does not descend into an array, and the comment above it
+ * says why: an array's CONTENT is checked by the per-kind derivation that knows
+ * what it is a list of. Round 16's owner-voice reviewer (F11, cause 2) checked
+ * whether that was true. It was not.
+ *
+ *   - `shallowExt.slots[].why` is PRODUCER FREE TEXT rendered verbatim into the
+ *     paragraph `declprose.mjs` exists to abolish. E12S6's six PRICED legal
+ *     trades — each one a real deep target refused on a defender-lap ceiling —
+ *     were laundered into "6 slots had NO deep target of any kind" and passed
+ *     172/172. That is criticism 12 and criticism 1's whole argument, inverted,
+ *     shipping.
+ *   - `ladder.rungs[].mobility` is not checked by the bespoke block whose own
+ *     `say` text claims "every rung carries the four fields a rung is made of":
+ *     the block checked `rung` and `ramparts`. Moving three mobilities flips the
+ *     renderer's verdict from "A WIDER CUT DOES SHORTEN IT … refused on
+ *     upkeep-first policy" to "No rung this room composed measured a materially
+ *     shorter lap". 13 fleet rooms were exposed.
+ *
+ * So an array of records gets the same treatment the record got: a CLOSED field
+ * inventory per element, a class per field, and — for the two free-text fields —
+ * RENDER-OR-DIE. The `why` on a slot is generated here from the slot's own
+ * numbers and compared string-for-string, exactly as `detail` is generated from
+ * the record. A sentence that is generated cannot be a sentence that lies about
+ * the numbers it was generated from.
+ */
+/** a per-element field this file RE-DERIVES; `derive(el,i,ctx)` returns the value or undefined to skip */
+const AD = (why, derive) => ({ klass: "derived", why, derive });
+/** a per-element field held to a type bound and to closures over its own element and record */
+const AW = (why, bound, closures = []) => ({ klass: "witnessed", why, bound, closures });
+/**
+ * A per-element field that is PROSE. `classes` is a closed list of
+ * `{ id, when(el, sf), render(el, sf, ctx) }`: exactly one class must claim the
+ * element, and the field must equal that class's rendering character for
+ * character. A `why` matching no class fails; a `why` matching the wrong class
+ * fails; a `why` whose numerals disagree with the element fails, because the
+ * numerals are not READ out of the text, they are PUT into it.
+ */
+const APROSE = (why, classes) => ({ klass: "prose", why, classes });
+/** the element inventory of one array leaf */
+const ELEMENTS = (why, fields, closures = []) => ({ why, fields, closures });
+/** a closure path that reads the ELEMENT rather than the record */
+const SELF = (f) => `~${f}`;
+
+const R2N = (v) => Math.round(v * 100) / 100;
+const INT_COORD = (v) => (Number.isInteger(v) && v >= 0 && v <= 49 ? null : `is ${JSON.stringify(v)}, not a room coordinate`);
+const NUM_NONNEG = WITNESS_NONNEG;
+
+const RECORD_ARRAY_LEAVES = new Map(
+  [
+    [
+      "extensions|shallow",
+      {
+        "shallowExt.slots": ELEMENTS(
+          `one row per shallow extension the room ships, and the row is what the paragraph's per-slot ` +
+            `lines are printed from`,
+          {
+            x: AD(`the slot's own tile — it must BE one of the shallow extensions this room ships`, (el, i, ctx) => ctx.shallowExts[i]?.x),
+            y: AD(`...and its y, taken from the same shipped shallow-extension list in the same order`, (el, i, ctx) => ctx.shallowExts[i]?.y),
+            depth: AD(`the tile's depth, re-derived from this room's own exterior flood`, (el, i, ctx) =>
+              Number.isInteger(el.x) && Number.isInteger(el.y) ? ctx.depthAt(el.x, el.y) : undefined,
+            ),
+            targets: AW(
+              `how many deep targets were still on the table when this slot was priced. It is the sum of ` +
+                `the two surviving classes the search census publishes, which is what makes the "there was ` +
+                `nowhere to go" sentence checkable rather than assertable`,
+              NUM_NONNEG,
+              [SUMEQ("shallowExt.search.left", "shallowExt.search.paveLeft")],
+            ),
+            targetsFaced: AW(
+              `of those, the ones already carrying a D4 road face; it may not exceed the whole offer and ` +
+                `may not exceed the road-faced tiles the census counted`,
+              NUM_NONNEG,
+              [LE(SELF("targets")), LE("shallowExt.search.freeDeepRoadFaced")],
+            ),
+            targetsOnePave: AW(
+              `...and the ones one plain pave from the network; the two classes are the whole offer`,
+              NUM_NONNEG,
+              [LE(SELF("targets")), LE("shallowExt.search.freeDeepOnePave"), DIFFEQ(SELF("targets"), SELF("targetsFaced"))],
+            ),
+            examined: AW(
+              `how many of the offered targets this slot actually priced. A slot cannot examine a target it ` +
+                `was not offered`,
+              NUM_NONNEG,
+              [LE(SELF("targets"))],
+            ),
+            bestLegal: AW(
+              `the cheapest target that passed the engine's own legality test, with the defender lap ` +
+                `standing the extension there produced. It is null exactly when the offer was empty, and ` +
+                `when it is not null the tile is a real, empty, deep tile of this room and the lap is over ` +
+                `the ceiling — a target UNDER the ceiling would have been taken, not reported`,
+              null,
+            ),
+            ceiling: AW(
+              `the defender-lap ceiling the trade was priced against. A trade may not make the room WORSE ` +
+                `than it already is, so the honest ceiling is the larger of this file's own MOB_TARGET and ` +
+                `the room's as-built lap — both of which are re-derived from this room's own board. It is ` +
+                `null where no trade was priced`,
+              null,
+              [
+                PRED(
+                  "it is exactly the larger of MOB_TARGET and this room's as-built gated lap, or null",
+                  (self, get) => {
+                    const lap = cnum(get(SELF("lapNow")));
+                    if (self === null || self === undefined || lap === null) return null;
+                    const want = R2N(Math.max(MOB_TARGET, lap));
+                    return near2(self, want)
+                      ? null
+                      : `is ${self} and the larger of the ${MOB_TARGET} target and this room's own ` +
+                          `as-built lap of ${lap} is ${want}`;
+                  },
+                ),
+              ],
+            ),
+            lapNow: AD(
+              `the as-built gated defender lap before the trade — the number the ceiling is measured ` +
+                `against. It is this room's own shipped mobility, re-derived here from the board, which is ` +
+                `what stops a slot from pricing its refusal against a lap the room does not have`,
+              (el, i, ctx) => ctx.builtGated,
+            ),
+            why: APROSE(
+              `the per-slot sentence the declaration prints. GENERATED from the row, not written beside it`,
+              [
+                {
+                  id: "priced",
+                  when: (el) => cnum(el.targets) !== null && el.targets > 0,
+                  render: (el) =>
+                    `of the ${el.targets} deep target(s) offered (${el.targetsFaced} already road-faced and ` +
+                    `${el.targetsOnePave} one plain pave away) the cheapest legal one is ` +
+                    `${el.bestLegal?.x},${el.bestLegal?.y} and standing this extension there takes the ` +
+                    `as-built gated defender lap to ${el.bestLegal?.lap}, past this room's ceiling of ${el.ceiling}`,
+                },
+                {
+                  id: "impossible",
+                  when: (el) => cnum(el.targets) === 0,
+                  render: (el, sf) =>
+                    `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
+                    `scan over all ${sf.shallowExt?.search?.interiorTiles} positions of the ` +
+                    `${sf.shallowExt?.search?.bandSide}x${sf.shallowExt?.search?.bandSide} buildable band ` +
+                    `(of which ${sf.shallowExt?.search?.interiorWalkable} are walkable floor inside this ` +
+                    `room's own wall) returned an empty candidate list in BOTH classes, so there is nowhere ` +
+                    `for this slot to go`,
+                },
+              ],
+            ),
+          },
+          [
+            PRED(
+              "the offer is empty exactly when there is no cheapest legal target and no ceiling was priced",
+              (el) => {
+                const t = cnum(el.targets);
+                if (t === null) return null;
+                if (t > 0 && !el.bestLegal) {
+                  return `is offered ${t} deep target(s) and names no cheapest legal one — a priced trade ` +
+                    `with nothing priced`;
+                }
+                if (t === 0 && el.bestLegal) {
+                  return `is offered NO deep target and still names ${JSON.stringify(el.bestLegal)} as the ` +
+                    `cheapest legal one`;
+                }
+                return null;
+              },
+            ),
+            PRED(
+              "a target reported as refused priced OVER the ceiling — one under it would have been taken",
+              (el) => {
+                if (!el.bestLegal || cnum(el.bestLegal.lap) === null || cnum(el.ceiling) === null) return null;
+                return el.bestLegal.lap > el.ceiling
+                  ? null
+                  : `names ${el.bestLegal.x},${el.bestLegal.y} at a lap of ${el.bestLegal.lap} against a ` +
+                      `ceiling of ${el.ceiling}. A trade that passes the ceiling is a trade the pass TAKES; ` +
+                      `reporting it as the reason the slot stayed shallow inverts the test`;
+              },
+            ),
+          ],
+        ),
+        "shallowExt.search.refused": ELEMENTS(
+          `one row per candidate tile the backfill/relocation acceptance test threw away`,
+          {
+            k: AW(
+              `the tile key the test refused, as "x,y". It is a real tile of this room's own 50x50 grid`,
+              (v) => {
+                const m = /^(\d+),(\d+)$/.exec(String(v));
+                if (!m) return `is ${JSON.stringify(v)}, not an "x,y" tile key`;
+                const x = +m[1];
+                const y = +m[2];
+                return x >= 0 && x <= 49 && y >= 0 && y <= 49 ? null : `is ${v}, outside the room`;
+              },
+            ),
+            why: APROSE(`the refusal's own sentence, GENERATED from the class it belongs to`, [
+              {
+                id: "no-face",
+                when: () => true,
+                render: () =>
+                  `no D4 road face, and the free-floor backfill never paves (the priced ladder below may ` +
+                  `buy one, but only while the room is still short of 60)`,
+              },
+            ]),
+          },
+        ),
+      },
+    ],
+    [
+      "mobility|",
+      {
+        "ladder.rungs": ELEMENTS(
+          `layer 2's escalation ladder, one row per rung it composed. Every rung but the one that shipped ` +
+            `is an enclosure this room did not build, so the board carries no trace of them — which is ` +
+            `exactly why the rows have to close on each other and on the rung that DID ship`,
+          {
+            rung: AD(`the rung's own index on the trail; the list is the walk, in order`, (el, i) => i),
+            needDeepBonus: AD(
+              `the deep-tile bonus this rung asked for. The ladder's schedule is fixed — 0, 25, 55, 85 — ` +
+                `and all 57 of the fleet's records walk exactly it, so the value is a function of the index`,
+              (el, i) => [0, 25, 55, 85][i],
+            ),
+            mobility: AW(
+              `the defender lap this rung's enclosure measured. LAYER-EARLIER and genuinely not ` +
+                `re-derivable — the enclosure was never built — so what holds it is that it is a ` +
+                `non-negative number under this file's own exact-metric ceiling, and that the pair ` +
+                `(mobility, ramparts) of the rung the room SHIPPED appears on this list`,
+              (v) => (typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= MOB_EXACT_MAX ? null : `is ${JSON.stringify(v)}, not a lap in [0, ${MOB_EXACT_MAX}]`),
+            ),
+            ramparts: AW(
+              `what that enclosure would have cost in ramparts. A whole number, and no enclosure of a ` +
+                `50x50 room costs more ramparts than the room has tiles`,
+              (v) => (Number.isInteger(v) && v >= 0 && v <= 2500 ? null : `is ${JSON.stringify(v)}, not a rampart count`),
+            ),
+            complete: AW(
+              `whether the composition at this rung finished. Its type is the only bound this file holds ` +
+                `it to and that is the whole bound`,
+              WITNESS_BOOL,
+            ),
+          },
+        ),
+        "negotiated.tiles": ELEMENTS(
+          `the two endpoints of layer 2's worst pair. Walked by the \`mobility.negotiated.pair\` block`,
+          {
+            x: AW(`a whole number inside this rooms own 50x50 grid; the PAIR it belongs to is walked by the worst-pair bespoke block, which requires both endpoints to be walkable tiles of this room`, INT_COORD),
+            y: AW(`...and the other half of the same coordinate, held to the same grid and walked by the same block`, INT_COORD),
+          },
+        ),
+      },
+    ],
+    [
+      "labs|shallow-lab",
+      {
+        "labs.shallow": ELEMENTS(
+          `one row per lab this room ships under the depth floor; the row is where the declaration gets the tile it names`,
+          {
+            x: AD(`the lab's own tile — it must BE one of the shallow labs this room ships`, (el, i, ctx) => ctx.shallowLabs[i]?.x),
+            y: AD(`...and its y, taken from the same shipped shallow-lab list in the same order`, (el, i, ctx) => ctx.shallowLabs[i]?.y),
+            depth: AD(`the tile's depth, re-derived from this room's own exterior flood`, (el, i, ctx) =>
+              Number.isInteger(el.x) && Number.isInteger(el.y) ? ctx.depthAt(el.x, el.y) : undefined,
+            ),
+          },
+        ),
+      },
+    ],
+    [
+      "spawnFan|sector",
+      {
+        "spawnFan.census.fannedAvailable.tiles": ELEMENTS(
+          `the three seats of the rival triple, walked by the census lattice block`,
+          {
+            x: AW(`a whole number inside this rooms own 50x50 grid; the three seats together are walked by the census lattice block, which requires them pairwise non-adjacent and target-reaching`, INT_COORD),
+            y: AW(`...and the other half of the same coordinate, held to the same grid and walked by the same block`, INT_COORD),
+          },
+        ),
+      },
+    ],
+  ].map(([k, v]) => [normPair(k), v]),
+);
 
 /**
  * The load-time consistency check on the table above, in the same spirit as the
@@ -3739,6 +4829,13 @@ function assertRecordInventory() {
           const other = c.other || (c.parts && c.parts[0]) || (c.minus && c.minus[0]);
           for (const path of [c.other, ...(c.parts || []), ...(c.minus || [])].filter(Boolean)) {
             if (path.startsWith("@")) continue;
+            if (path.startsWith("#")) {
+              if (!BOARD_FACTS.includes(path.slice(1))) {
+                problems.push(`${k} ${leaf} has a closure against \`${path}\`, which is not a board fact`);
+              }
+              continue;
+            }
+            if (path.startsWith("~")) continue;
             if (!(path in table) && !(normLeaf(path) in table)) {
               problems.push(
                 `${k} ${leaf} has a closure against \`${path}\`, which is not a leaf of this declaration ` +
@@ -3752,11 +4849,161 @@ function assertRecordInventory() {
       }
     }
   }
+  // ==================================================================
+  // ...AND THE `why` GENERATOR ONLY EVER LOOKED ONE WAY.
+  //
+  // Round 16, L9: `eco.basin`'s generated sentence ended "and THAT IS THE
+  // WHOLE BOUND — no other number on this record closes around it" while
+  // `eco.coreSize`, three lines below it, carried `LE("eco.basin")`. The
+  // core is grown INSIDE the basin, so the basin was bounded from below by
+  // the core all along — the generator enumerated a leaf's OUTBOUND
+  // closures and an inbound one, whose entire purpose is to constrain the
+  // leaf it names, read as absent.
+  //
+  // False in the safe direction is still false, and a reader deciding
+  // where to attack reads that sentence as an invitation. So a leaf that
+  // SAYS it is held to nothing while a sibling is held to IT does not
+  // load.
+  // ==================================================================
+  for (const [k, table] of RECORD_LEAVES) {
+    const inbound = new Map();
+    for (const [leaf, cls] of Object.entries(table)) {
+      for (const c of (cls && cls.closures) || []) {
+        for (const path of [c.other, ...(c.parts || []), ...(c.minus || []), ...(c.over || [])].filter(Boolean)) {
+          if (typeof path !== "string" || path.startsWith("@") || path.startsWith("#") || path.startsWith("~")) continue;
+          const t = normLeaf(path) in table ? normLeaf(path) : path;
+          if (!inbound.has(t)) inbound.set(t, []);
+          inbound.get(t).push(leaf);
+        }
+      }
+    }
+    for (const [leaf, cls] of Object.entries(table)) {
+      if (!cls || cls.klass !== "witnessed") continue;
+      if ((cls.closures || []).length) continue;
+      if (!TYPE_ONLY_RE.test(cls.why)) continue;
+      const held = inbound.get(leaf);
+      if (held && held.length) {
+        problems.push(
+          `${k} ${leaf} says it is held to nothing but its type, and ${held.join(", ")} ` +
+            `${held.length > 1 ? "are" : "is"} held to IT. A closure constrains BOTH of the leaves it ` +
+            `names; the \`why\` generator enumerated only the outbound ones, so a leaf with an inbound ` +
+            `bound advertised itself as unbounded. False in the safe direction is still false`,
+        );
+      }
+    }
+  }
   // ...and the other direction: a bespoke block nobody claims is a check with
   // no reader, which is how a rule quietly stops applying to anything.
   for (const id of BESPOKE_CLOSURES) {
     if (!bespokeClaimed.has(id)) {
       problems.push(`BESPOKE_CLOSURES names "${id}" and no record leaf claims it — a dead check`);
+    }
+  }
+  // ==================================================================
+  // ...AND THE ABSENCE TABLE, WHICH IS THE ONLY WAY A CLASSED LEAF IS
+  // ALLOWED TO BE MISSING. A rule against a leaf that does not exist is a
+  // typo that reads as coverage, and a rule with no reason is the blanket
+  // this round exists to refuse.
+  // ==================================================================
+  let excusable = 0;
+  for (const [k, rules] of RECORD_ABSENCE) {
+    const table = RECORD_LEAVES.get(k);
+    if (!table) {
+      problems.push(`RECORD_ABSENCE names ${k}, which has no record-leaf table`);
+      continue;
+    }
+    if (!Array.isArray(rules) || !rules.length) {
+      problems.push(`${k} has an empty absence rule list — delete the entry rather than ship an empty one`);
+      continue;
+    }
+    for (const r of rules) {
+      if (typeof r.why !== "string" || r.why.trim().length < 60) {
+        problems.push(
+          `${k} carries an absence rule with no stated reason. A leaf allowed to be missing is a leaf ` +
+            `nothing checks; the reason the ABSENCE is legitimate is the whole of what a reader gets`,
+        );
+      }
+      const named = r.form === "branch" ? Object.values(r.arms).flat() : r.leaves;
+      if (!named.length) problems.push(`${k} carries an absence rule naming no leaf`);
+      for (const leaf of named) {
+        if (!(leaf in table)) {
+          problems.push(
+            `${k} has an absence rule for \`${leaf}\`, which is not a leaf of this kind's record table — ` +
+              `a rule against a field that cannot exist is a rule that never runs`,
+          );
+        }
+      }
+      excusable += named.length;
+      if (r.form === "branch") {
+        if (typeof r.pick !== "function") problems.push(`${k} has a branch rule with no discriminator`);
+        if (Object.keys(r.arms).length < 2) problems.push(`${k} has a branch rule with fewer than two arms`);
+        const seen = new Set();
+        for (const leaf of named) {
+          if (seen.has(leaf)) {
+            problems.push(
+              `${k} branch rule names \`${leaf}\` in two arms — a leaf owned by both arms is owned by ` +
+                `neither, and both arms would excuse it`,
+            );
+          }
+          seen.add(leaf);
+        }
+      } else if (typeof r.when !== "function") {
+        problems.push(`${k} has a conditional absence rule with no condition`);
+      }
+    }
+  }
+  // ==================================================================
+  // ...AND THE ARRAY-ELEMENT TABLE. An array leaf whose elements are
+  // records must name the array in the leaf table too (or the element
+  // inventory is describing a field that is not part of the record), and
+  // every element field must carry exactly one class with a reason.
+  // ==================================================================
+  let elemFields = 0;
+  for (const [k, arrays] of RECORD_ARRAY_LEAVES) {
+    const table = RECORD_LEAVES.get(k);
+    if (!table) {
+      problems.push(`RECORD_ARRAY_LEAVES names ${k}, which has no record-leaf table`);
+      continue;
+    }
+    for (const [arrPath, spec] of Object.entries(arrays)) {
+      if (!(arrPath in table)) {
+        problems.push(
+          `${k} has an element inventory for \`${arrPath}\`, which is not a leaf of this kind's record ` +
+            `table — an element inventory for an array that is not part of the record never runs`,
+        );
+      }
+      if (typeof spec.why !== "string" || spec.why.trim().length < 40) {
+        problems.push(`${k} ${arrPath} element inventory carries no stated reason`);
+      }
+      const fields = Object.entries(spec.fields || {});
+      if (!fields.length) problems.push(`${k} ${arrPath} element inventory classes no field`);
+      for (const [f, cls] of fields) {
+        elemFields++;
+        if (!cls || !["derived", "witnessed", "prose"].includes(cls.klass)) {
+          problems.push(`${k} ${arrPath}[].${f} is class ${JSON.stringify(cls && cls.klass)}`);
+          continue;
+        }
+        if (typeof cls.why !== "string" || cls.why.trim().length < 40) {
+          problems.push(`${k} ${arrPath}[].${f} carries no stated reason`);
+        }
+        if (cls.klass === "prose") {
+          if (!Array.isArray(cls.classes) || !cls.classes.length) {
+            problems.push(`${k} ${arrPath}[].${f} is prose with no closed class list — that is free text again`);
+          } else {
+            for (const c of cls.classes) {
+              if (!c || typeof c.id !== "string" || typeof c.when !== "function" || typeof c.render !== "function") {
+                problems.push(`${k} ${arrPath}[].${f} has a prose class that is not {id, when, render}`);
+              }
+            }
+          }
+        }
+        if (cls.klass === "derived" && typeof cls.derive !== "function") {
+          problems.push(`${k} ${arrPath}[].${f} is class DERIVED and carries no derivation`);
+        }
+        for (const c of cls.closures || []) {
+          if (!c || !CLOSURE_OPS[c.op]) problems.push(`${k} ${arrPath}[].${f} carries a closure with no operator`);
+        }
+      }
     }
   }
   if (problems.length) {
@@ -3767,7 +5014,7 @@ function assertRecordInventory() {
         `whose stated bound this file does not evaluate is the same gap wearing the inventory's own words.`,
     );
   }
-  return { derived, witnessed, exempt, closured, bespoke: bespokeClaimed.size };
+  return { derived, witnessed, exempt, closured, bespoke: bespokeClaimed.size, excusable, elemFields };
 }
 const RECORD_LEAF_CENSUS = assertRecordInventory();
 
@@ -3792,6 +5039,12 @@ export function witnessSilentlyTypeOnly(cls) {
 }
 /** ...and the inventory's own shape, so the suite can assert it is not empty */
 export const RECORD_LEAF_STATS = RECORD_LEAF_CENSUS;
+/**
+ * The table itself, exported so the gate suite can assert the C1 presence rule
+ * from the outside (every classed leaf of a shipped record is either present or
+ * excused BY NAME) without re-typing 420 leaf paths.
+ */
+export const RECORD_LEAF_TABLE = RECORD_LEAVES;
 
 /**
  * Walk a declaration's RECORD leaves — everything that is not the envelope.
@@ -4058,6 +5311,57 @@ const REQUIRED_META = [
     path: "meta.shell.redundantCut",
     is: (v) => v && typeof v === "object" && typeof v.tiles === "number" && v.reasons && typeof v.reasons === "object",
     why: "the per-tile justification for every cut tile that is not singly load-bearing. The cut is published as a superset-with-per-tile-justification; without the record it is just a superset",
+  },
+  // ==================================================================
+  // m7 / OF1. THE SEALED INTERIOR FLOOR, WHICH WAS NEVER RE-DERIVED AND
+  // WAS NOT REQUIRED TO EXIST.
+  //
+  // Criticism 39 says all six note classes are "derive-or-die on both
+  // halves". `meta.sealedFloor` was not in this list and its three numbers
+  // were never computed here: the gate cross-checked the NOTE TEXT against
+  // the producer's own record and applied three weak per-tile predicates.
+  // Nine live escapes on two rooms, all passing 172/172 against a clean
+  // control: delete the record (the note is then checked by nothing);
+  // delete the record AND the note (the board seals 12 tiles and the room
+  // says nothing); ship `tiles` as the STRING "12" (the whole block is
+  // skipped); deflate 12 -> 1 with the note rewritten; `deep` 7 -> 0;
+  // `ourFault` 11 -> 0 ("blames the enclosure, absolves our own mass");
+  // and a coordinated INFLATE 12 -> 20 naming eight invented tiles that
+  // are interior, empty AND fully reachable.
+  //
+  // The reviewer's own twenty-line derivation reproduced the shipped
+  // numbers exactly in both rooms, so "not derivable" was never the
+  // reason. It is derived below, tile for tile, under the flood the WORD
+  // means (OF2): the whole board from the sitter, blocked only by what
+  // blocks a creep — our own ramparts and roads do not, because a hauler
+  // may walk out through the wall and back in somewhere else.
+  // ==================================================================
+  {
+    // PRESENCE is owned by the re-derivation, which is strictly stronger than a
+    // list: 110 of the 172 rooms seal nothing and correctly publish nothing, and
+    // in the 62 that do, an absent record fails on the board rather than on the
+    // schema. What this entry owns is the SHAPE — which is how `tiles: "12"`
+    // (the string) used to skip the entire note block and pass.
+    path: "meta.sealedFloor",
+    is: (v) =>
+      v === undefined ||
+      v === null ||
+      (v &&
+        typeof v === "object" &&
+        ["tiles", "deep", "ourFault", "shallowStructs", "depthSafe"].every((k) => typeof v[k] === "number") &&
+        Array.isArray(v.named) &&
+        typeof v.basis === "string"),
+    why: "floor the program could have used and did not, and one of the six note classes criticism 39 calls derive-or-die on both halves. It was in neither this list nor any re-derivation: nine mutations escaped on it in one sweep, including deleting the whole record and leaving the note standing, and shipping `tiles` as a STRING, which skipped every check under it",
+  },
+  {
+    path: "meta.noteObligations",
+    is: (v) => Array.isArray(v),
+    why: "the list of note classes this room owes, derived at the end of finalizeRoom from records that exist for their own reasons and never from meta.notes. It is what makes a note undeletable: 10 of the fleet's 177 were deletable for free because the obligation for their class was scoped to layer 7b's reflow and blind to layer 6's. All 172 rooms publish it, empty in the 54 that owe nothing",
+  },
+  {
+    path: "meta.walls.inertPruned",
+    is: (v) => typeof v === "number" && Number.isFinite(v) && v >= 0,
+    why: "how many ramparts layer 7's inert prune took off this run. It is quoted in both redundant-cut notes and is the other half of the trigger for them; deleting it plus the note took 37 rooms' prune out of the record with nothing failing",
   },
   {
     path: "meta.walls.roadRampart",
@@ -7725,6 +9029,178 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     {
       const bad2 = [];
       const noteOf = (head) => (plan.meta?.notes || []).find((n) => typeof n === "string" && n.startsWith(head));
+      // ==================================================================
+      // M4. THE NOTE CHANNEL WAS THE LAST HAND-WRITTEN PROSE IN THE ARTIFACT,
+      // AND IT HAD NO CLASS INVENTORY AT ALL.
+      //
+      // Every other channel got one: `assertPairInventory`,
+      // `assertProseInventory`, `assertRecordInventory`,
+      // `assertCutReasonInventory`. Notes got a set of anchored regexes over
+      // whatever prose happened to be there, so 5 of 10 mutations escaped:
+      //   - a FABRICATED class ("PERFECT ROOM: …") — 200 of them passed,
+      //     because there was no list saying which classes exist
+      //   - an arbitrary lie APPENDED to a checked note, numerals untouched
+      //   - the note's PROSE REVERSED while its anchored numerals were kept:
+      //     "every one of this room's 27 cut tile(s) is REDUNDANT and could be
+      //     deleted for free … This room ships a DOUBLE SHELL." under the
+      //     heading "NO CUT TILE IS REDUNDANT" — passing
+      //   - a ring tile in the ROAD ON RAMPART note moved from 20,10 to 49,49
+      //
+      // Round 13 closed declaration paragraphs by making the producer and this
+      // file run ONE renderer and comparing the output character for character.
+      // This is the same move, one channel over. `declprose-notes.mjs` owns a
+      // closed class list and is the ONLY writer of `meta.notes`; it writes
+      // `meta.noteRecords` in the same call, so the two arrays are parallel BY
+      // CONSTRUCTION. The gate is therefore not a regex over prose: it is
+      // `renderNote(noteRecords[i]) === notes[i]`, for every i, plus the
+      // obligation table derived from the records rather than from the notes.
+      //
+      // The anchored-regex checks below are KEPT. They are now a second opinion
+      // rather than the only one, and they are the half that survives if a
+      // renderer is ever changed to agree with a corrupted record.
+      // ==================================================================
+      {
+        // 54 of the 172 rooms have nothing to say and publish neither array;
+        // `meta.noteObligations` is written for ALL 172 (empty in those 54) and
+        // is the one that is genuinely required, because it is the list derived
+        // from the records rather than from the notes.
+        const notesArr = plan.meta?.notes === undefined ? [] : plan.meta.notes;
+        const recs = plan.meta?.noteRecords === undefined ? [] : plan.meta.noteRecords;
+        if (!Array.isArray(notesArr)) {
+          bad2.push(`\`meta.notes\` is not an array (${String(JSON.stringify(notesArr)).slice(0, 40)})`);
+        } else if (!Array.isArray(recs)) {
+          bad2.push(
+            `\`meta.noteRecords\` is ${recs === undefined ? "ABSENT" : "not an array"} and \`meta.notes\` ` +
+              `carries ${notesArr.length} paragraph(s). The records are what the paragraphs are GENERATED ` +
+              `from; without them every note is free text again`,
+          );
+        } else if (notesArr.length !== recs.length) {
+          bad2.push(
+            `\`meta.notes\` has ${notesArr.length} entr(y/ies) and \`meta.noteRecords\` has ${recs.length}. ` +
+              `One call writes both, so a difference is an edit to one of them — which is exactly how a ` +
+              `fabricated note class gets into the channel a reader reads`,
+          );
+        } else {
+          for (let i = 0; i < recs.length; i++) {
+            const e = recs[i];
+            if (!e || typeof e !== "object" || typeof e.cls !== "string") {
+              bad2.push(`\`meta.noteRecords[${i}]\` is ${String(JSON.stringify(e)).slice(0, 60)}, not a {cls, rec} entry`);
+              continue;
+            }
+            if (!(e.cls in NOTE_CLASSES)) {
+              bad2.push(
+                `\`meta.noteRecords[${i}].cls\` is ${JSON.stringify(e.cls)} and the note-class inventory ` +
+                  `holds ${Object.keys(NOTE_CLASSES).join(", ")}. A class nobody registered is a note ` +
+                  `nobody renders and nobody checks — 200 fabricated "PERFECT ROOM" notes passed on the ` +
+                  `absence of this list`,
+              );
+              continue;
+            }
+            let want = null;
+            try {
+              want = renderNote(e);
+            } catch (err) {
+              bad2.push(
+                `\`meta.noteRecords[${i}]\` (class ${e.cls}) cannot be rendered (${err && err.message}) — ` +
+                  `a record the shared note template throws on is a record missing a field the note is ` +
+                  `made of`,
+              );
+              continue;
+            }
+            if (normText(String(notesArr[i])) !== normText(want)) {
+              const a = normText(String(notesArr[i]));
+              const b3 = normText(want);
+              let ci = 0;
+              while (ci < a.length && ci < b3.length && a[ci] === b3[ci]) ci++;
+              bad2.push(
+                `\`meta.notes[${i}]\` is not the note its own record generates (class ${e.cls}). They agree ` +
+                  `for ${ci} character(s) and then diverge — shipped: "…${a.slice(Math.max(0, ci - 40), ci + 90)}…" ` +
+                  `vs generated: "…${b3.slice(Math.max(0, ci - 40), ci + 90)}…". Notes are the channel the ` +
+                  `gallery and the film ticker read; a reversed sentence with its numerals kept used to ` +
+                  `pass because only the numerals were checked`,
+              );
+            }
+          }
+          // ...AND THE OBLIGATION TABLE, DERIVED FROM RECORDS RATHER THAN FROM
+          // NOTES. OF5: ten `SHALLOW EXTENSIONS` notes deleted for free because
+          // the obligation was scoped to layer 7b's reflow and blind to layer
+          // 6's. The producer now derives one entry per class the room OWES
+          // from the records that exist for their own reasons; this checks the
+          // two lists against each other in both directions.
+          const obl = plan.meta?.noteObligations;
+          if (!Array.isArray(obl)) {
+            bad2.push(
+              `\`meta.noteObligations\` is ${obl === undefined ? "ABSENT" : "not an array"} — it is the ` +
+                `list of note classes this room owes, derived from records rather than from the notes ` +
+                `themselves, and without it a note is deletable exactly as far as nobody happened to ` +
+                `write a trigger for it`,
+            );
+          } else {
+            const owed = new Set(obl.map((o) => o && o.cls));
+            const have = new Set(recs.map((r2) => r2 && r2.cls));
+            for (const c of owed) {
+              if (!c) continue;
+              if (!(c in NOTE_CLASSES)) {
+                bad2.push(`\`meta.noteObligations\` names class ${JSON.stringify(c)}, which is not in the inventory`);
+              } else if (!have.has(c)) {
+                bad2.push(
+                  `\`meta.noteObligations\` says this room owes a "${c}" note and \`meta.noteRecords\` ` +
+                    `carries none. The obligation is derived from the room's own records, so a class owed ` +
+                    `and not written is a note that was deleted`,
+                );
+              }
+            }
+            for (const c of have) {
+              if (c && !owed.has(c)) {
+                bad2.push(
+                  `this room publishes a "${c}" note and \`meta.noteObligations\` — derived from its own ` +
+                    `records — does not say it owes one. A note nothing obliges is a note nothing checks ` +
+                    `the absence of`,
+                );
+              }
+            }
+            for (const o of obl) {
+              if (!o || !Array.isArray(o.why) || !o.why.length) {
+                bad2.push(
+                  `\`meta.noteObligations\` carries an entry with no triggering field ` +
+                    `(${String(JSON.stringify(o)).slice(0, 60)}) — the obligation IS the field that fires it`,
+                );
+                continue;
+              }
+              for (const w of o.why) {
+                if (!w || typeof w.field !== "string") continue;
+                const raw2 = w.field.split(".").reduce((cur, seg) => (cur === null || cur === undefined ? cur : cur[seg]), plan);
+                // the producer records the SIZE of a list-valued trigger, which
+                // is what "the room owes a note because there are N of these"
+                // means; a scalar trigger is quoted as itself
+                const v = Array.isArray(raw2) && typeof w.value === "number" ? raw2.length : raw2;
+                if (JSON.stringify(v) !== JSON.stringify(w.value)) {
+                  bad2.push(
+                    `\`meta.noteObligations\` fires the "${o.cls}" note off \`${w.field}\` = ` +
+                      `${JSON.stringify(w.value)} and that field on this plan says ${JSON.stringify(v)}. ` +
+                      `The obligation is derived from the record; a trigger that quotes a value the record ` +
+                      `does not have is an obligation with its own copy of the facts`,
+                  );
+                }
+              }
+            }
+          }
+          // ...AND THE COUNT BOUNDS. A class may appear more than once only
+          // where its record can (redundantCut has two headings and a room
+          // takes one of them); everything else is one note per class per room.
+          const perClass = new Map();
+          for (const r2 of recs) if (r2 && r2.cls) perClass.set(r2.cls, (perClass.get(r2.cls) || 0) + 1);
+          for (const [c, n] of perClass) {
+            if (n > 1) {
+              bad2.push(
+                `this room publishes ${n} "${c}" notes. Every note class in the inventory is a fact about ` +
+                  `the whole room and is written once; a repeated class is the channel being used as a ` +
+                  `free list again`,
+              );
+            }
+          }
+        }
+      }
       const cutN = (plan.meta?.shell?.cut || []).length;
       const rc = plan.meta?.shell?.redundantCut || {};
       const inert = plan.meta?.walls?.inertPruned;
@@ -7822,9 +9298,130 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       }
 
       // ---- 3. SEALED INTERIOR FLOOR ---------------------------------------
+      //
+      // ==================================================================
+      // ...AND IT IS RE-DERIVED NOW, TILE FOR TILE. See the REQUIRED_META
+      // entry for the nine escapes this closes. The flood is the OWN-CREEP
+      // one (OF2): the WHOLE board from the sitter, blocked by terrain
+      // wall, room objects and our own OBSTACLE structures — ramparts,
+      // roads and containers do NOT block, and it is not confined to the
+      // interior, because our own creeps may leave the wall and re-enter.
+      // The old producer used the DEFENDED-region flood, which by
+      // construction never steps outside the wall, so E12S7 published
+      // seven "unreachable" tiles of which six are 53 steps away with 32
+      // of those steps outside the wall.
+      // ==================================================================
       {
         const sf2 = plan.meta?.sealedFloor;
         const note = noteOf("SEALED INTERIOR FLOOR");
+        {
+          const OBSTACLE_BUILT = ["spawn", "extension", "link", "storage", "tower", "observer", "lab", "terminal", "nuker"];
+          const creepBlocked = new Set(objectTiles);
+          for (const t of OBSTACLE_BUILT) for (const q of s[t] || []) creepBlocked.add(key(q.x, q.y));
+          const flood = (blockSet) => {
+            const seen = new Set([key(sitter.x, sitter.y)]);
+            const q = [sitter];
+            for (let qi = 0; qi < q.length; qi++) {
+              const cur = q[qi];
+              for (const [dx, dy] of D8) {
+                const x = cur.x + dx;
+                const y = cur.y + dy;
+                if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+                const k2 = key(x, y);
+                if (seen.has(k2) || !walkable(terrain, x, y) || blockSet.has(k2)) continue;
+                seen.add(k2);
+                q.push({ x, y });
+              }
+            }
+            return seen;
+          };
+          const ownWalk = flood(creepBlocked);
+          const bareWalk = flood(new Set(objectTiles));
+          let wantTiles = 0;
+          let wantDeep = 0;
+          let wantOurFault = 0;
+          const wantNamed = [];
+          for (let y = 0; y < 50; y++) {
+            for (let x = 0; x < 50; x++) {
+              if (!walkable(terrain, x, y)) continue;
+              const i2 = idx(x, y);
+              if (ext[i2]) continue;
+              const k2 = key(x, y);
+              if (rampartSet.has(k2) || creepBlocked.has(k2) || ownWalk.has(k2)) continue;
+              wantTiles++;
+              if (wantNamed.length < 24) wantNamed.push({ x, y });
+              if (depth[i2] >= DEPTH_SAFE && x >= 2 && x <= 47 && y >= 2 && y <= 47) wantDeep++;
+              if (bareWalk.has(k2)) wantOurFault++;
+            }
+          }
+          if (wantTiles === 0) {
+            if (sf2 !== null && sf2 !== undefined) {
+              bad2.push(
+                `\`meta.sealedFloor\` is published and this room's own board seals NO floor: every walkable ` +
+                  `interior tile that carries nothing is reachable from the sitter under the own-creep flood`,
+              );
+            }
+            if (note) bad2.push(`this room publishes a SEALED INTERIOR FLOOR note and its board seals no floor`);
+          } else if (!sf2 || typeof sf2 !== "object") {
+            bad2.push(
+              `this room's board seals ${wantTiles} interior tile(s) (${wantNamed.slice(0, 6).map((t) => `${t.x},${t.y}`).join(" ")}${wantNamed.length > 6 ? " …" : ""}) ` +
+                `and \`meta.sealedFloor\` is ${sf2 === undefined ? "ABSENT" : JSON.stringify(sf2)}. Sealed ` +
+                `floor is floor the program could have used and did not; a record that is not there is not ` +
+                `a room with nothing to report`,
+            );
+          } else {
+            const cmpSF = (f, want) => {
+              if (sf2[f] !== want) {
+                bad2.push(
+                  `\`meta.sealedFloor.${f}\` says ${JSON.stringify(sf2[f])} and re-derived from this room's ` +
+                    `own board under the own-creep flood it is ${want}`,
+                );
+              }
+            };
+            cmpSF("tiles", wantTiles);
+            cmpSF("deep", wantDeep);
+            cmpSF("ourFault", wantOurFault);
+            cmpSF("depthSafe", DEPTH_SAFE);
+            const gotNamed = Array.isArray(sf2.named) ? sf2.named : [];
+            const wantK2 = new Set(wantNamed.map((t) => key(t.x, t.y)));
+            const gotK2 = gotNamed.map((t) => (t && Number.isInteger(t.x) ? key(t.x, t.y) : String(t)));
+            if (JSON.stringify(gotK2) !== JSON.stringify([...wantK2])) {
+              bad2.push(
+                `\`meta.sealedFloor.named\` lists ${JSON.stringify(gotK2).slice(0, 120)} and the tiles this ` +
+                  `board actually seals, in the producer's own scan order, are ` +
+                  `${JSON.stringify([...wantK2]).slice(0, 120)}. The note reads this list out; a coordinated ` +
+                  `inflation naming eight invented tiles that happen to be interior, empty and fully ` +
+                  `reachable passed 172/172 for a whole round`,
+              );
+            }
+            // ...AND THE SENTENCE NAMING WHICH FLOOD THE WORD MEANS. This is
+            // the field OF2 turned on: the old producer measured "cannot be
+            // reached" with the DEFENDED-region flood, which by construction
+            // never steps outside the wall, and published seven tiles in E12S7
+            // of which six are 53 steps away with 32 of those steps outside it.
+            // The numbers above are re-derived under the own-creep flood; a
+            // basis that names a different one is a record describing a
+            // measurement this file did not make.
+            const bs = String(sf2.basis || "");
+            if (!/OWN-CREEP/i.test(bs) || !/whole board/i.test(bs) || !/ownCreepWalk/.test(bs)) {
+              bad2.push(
+                `\`meta.sealedFloor.basis\` does not name the flood these numbers are measured under ` +
+                  `("…${bs.slice(0, 90)}…"). They are re-derived here under the OWN-CREEP flood over the ` +
+                  `WHOLE board from the sitter (ownCreepWalk) — ramparts, roads and containers do not ` +
+                  `block and the flood is not confined to the interior — and a basis naming the ` +
+                  `defended-region flood instead is the sentence that made criticism 43 wrong by six ` +
+                  `tiles in the room nobody looked at`,
+              );
+            }
+            const shallowWant = shallowExtsNow.length;
+            if (typeof sf2.shallowStructs === "number" && sf2.shallowStructs !== shallowWant) {
+              bad2.push(
+                `\`meta.sealedFloor.shallowStructs\` says ${sf2.shallowStructs} and this room ships ` +
+                  `${shallowWant} shallow extension(s)`,
+              );
+            }
+          }
+        }
         if (sf2 && typeof sf2 === "object" && typeof sf2.tiles === "number") {
           if (sf2.tiles > 0 && !note) {
             bad2.push(
@@ -8281,12 +9878,35 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           // refill walk it saved. An empty list on such a room is a prior
           // silently abandoned: the whole point of the round-14 rule is that
           // the crossing has to be paid for out loud.
-          if (!adj.crossings.length && wantK.length > 0) {
+          // ...AND ROUND 16 ADDED A SECOND PASS THAT MAY CROSS THE PRIOR.
+          // `maybeTakeTowerSwap` runs after finalizeRoom, re-composes the room
+          // with a layer-3 offer and keeps it only if twelve as-built
+          // instruments all hold — which is precisely the "pay for the crossing
+          // out loud" the rule below demands, in a different record. So a pair
+          // created BY THE TAKE is explained by the take, and a pair that is
+          // not is still an abandoned prior. The take is not a blanket excuse:
+          // every unexplained pair still fails, and the take's own destination
+          // has to be a tower this room ships.
+          const takeTo =
+            plan.meta?.towers?.acrossPriorTake?.taken && Number.isInteger(plan.meta.towers.acrossPriorTake.taken.to?.x)
+              ? key(plan.meta.towers.acrossPriorTake.taken.to.x, plan.meta.towers.acrossPriorTake.taken.to.y)
+              : null;
+          const explainedByTake = (pk) => takeTo !== null && pk.split("~").includes(takeTo);
+          const unexplained = wantK.filter((pk) => !explainedByTake(pk));
+          if (!adj.crossings.length && unexplained.length > 0) {
             bad2.push(
               `this room ships ${wantK.length} adjacent tower pair(s) (${wantK.join(" ")}) and \`crossings\` ` +
-                `is empty. Two towers on neighbouring tiles are one nuke; layer 3 is only allowed to put ` +
-                `them there by CROSSING the adjacency prior, and a crossing with no record is the prior ` +
-                `abandoned rather than spent`,
+                `is empty${takeTo ? `, and ${unexplained.length} of them (${unexplained.join(" ")}) do not touch the tile the across-prior take moved a tower to (${takeTo})` : ""}. ` +
+                `Two towers on neighbouring tiles are one nuke; a pass is only allowed to put them there ` +
+                `by CROSSING the adjacency prior, and a crossing with no record is the prior abandoned ` +
+                `rather than spent`,
+            );
+          }
+          if (takeTo !== null && !towers.some((t) => key(t.x, t.y) === takeTo)) {
+            bad2.push(
+              `\`acrossPriorTake.taken\` says a tower moved to ${takeTo} and this room ships no tower ` +
+                `there. The take is the record that explains the adjacency this room's crossings list ` +
+                `does not, so a take whose destination is empty explains nothing`,
             );
           }
           const towerK = new Set(towers.map((t) => key(t.x, t.y)));
@@ -8421,11 +10041,33 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `is a measurement with no decision attached`,
             );
           } else {
+            // THE MIRROR, AND THE ONE PASS THAT MOVES THE BOARD UNDER IT.
+            // `atLayer3.held` is layer 3's reading and `meta.towers.
+            // minShellDmg` is layer 3's publication of the same number — one
+            // measurement, two places, which is the whole point of the mirror.
+            // Round 16's across-prior take re-composes the room AFTER layer 3,
+            // so in the rooms where a swap was TAKEN `minShellDmg` is the
+            // post-take reading and the mirror would be comparing two boards.
+            // It is not dropped there: it is re-pointed at the take's own
+            // BEFORE panel, and the take's AFTER panel is required to be the
+            // post-take publication. Two extra equalities, not one fewer.
             const pubL3 = plan.meta?.towers?.minShellDmg;
-            if (typeof pubL3 === "number" && typeof a3.held === "number" && a3.held !== pubL3) {
+            const take = plan.meta?.towers?.acrossPriorTake;
+            const tookIt = !!(take && take.taken);
+            const l3Face = tookIt && typeof take.before?.face === "number" ? take.before.face : pubL3;
+            if (typeof l3Face === "number" && typeof a3.held === "number" && a3.held !== l3Face) {
               bad2.push(
-                `\`satAcrossPrior.atLayer3.held\` says ${a3.held} and \`meta.towers.minShellDmg\` — layer ` +
-                  `3's own reading of the same wall — says ${pubL3}`,
+                `\`satAcrossPrior.atLayer3.held\` says ${a3.held} and ` +
+                  `${tookIt ? "`acrossPriorTake.before.face` — the reading this room had before the swap it took" : "`meta.towers.minShellDmg` — layer 3's own reading of the same wall"} ` +
+                  `— says ${l3Face}`,
+              );
+            }
+            if (tookIt && typeof take.after?.face === "number" && typeof pubL3 === "number" && take.after.face !== pubL3) {
+              bad2.push(
+                `\`acrossPriorTake.after.face\` says ${take.after.face} and \`meta.towers.minShellDmg\` — ` +
+                  `re-read after the swap was applied — says ${pubL3}. The take publishes the panel it ` +
+                  `decided on; a panel that does not end where the board ends is a decision about a ` +
+                  `different room`,
               );
             }
             if (typeof a3.reachable === "number" && typeof a3.held === "number" && typeof a3.forgone === "number") {
@@ -8457,6 +10099,48 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           }
           if (sap.seat && Number.isInteger(sap.seat.x) && !walkable(terrain, sap.seat.x, sap.seat.y)) {
             bad2.push(`\`satAcrossPrior.seat\` names ${sap.seat.x},${sap.seat.y}, which is not a buildable tile of this room`);
+          }
+          // ==============================================================
+          // M5. `basis` WAS A LENGTH CHECK: `typeof === "string" &&
+          // trim().length >= 40`. A 200-character basis asserting the exact
+          // OPPOSITE — which board each reading is on — passed, in the one
+          // field whose entire job is to stop a reader mixing two boards.
+          // A shape gate on the sentence that disambiguates two numbers is
+          // the same defect as a shape gate on the numbers.
+          //
+          // The producer generates it now (`renderSatBasis` in
+          // declprose-towers.mjs, a pure function of `atLayer3`, `held`,
+          // `offerOnShipped`, `reachable`, `forgone`, `seat`, `leaves` and
+          // `seatOccupancy`), so the gate is the declaration-prose gate:
+          // re-render from the record this plan publishes and require
+          // equality. The sentence cannot say something the record does not.
+          // ==============================================================
+          {
+            let wantBasis = null;
+            let renderErr = null;
+            try {
+              wantBasis = renderSatBasis(sap);
+            } catch (err) {
+              renderErr = err && err.message ? err.message : String(err);
+            }
+            if (renderErr) {
+              bad2.push(
+                `\`satAcrossPrior\` cannot be rendered into its own basis sentence (${renderErr}) — a ` +
+                  `record the shared template throws on is a record missing a field the sentence is made of`,
+              );
+            } else if (normText(String(sap.basis)) !== normText(wantBasis)) {
+              const a = normText(String(sap.basis));
+              const b3 = normText(wantBasis);
+              let ci = 0;
+              while (ci < a.length && ci < b3.length && a[ci] === b3[ci]) ci++;
+              bad2.push(
+                `\`satAcrossPrior.basis\` is not the sentence this record generates. They agree for ${ci} ` +
+                  `character(s) and then diverge — shipped: "…${a.slice(Math.max(0, ci - 40), ci + 90)}…" vs ` +
+                  `generated: "…${b3.slice(Math.max(0, ci - 40), ci + 90)}…". Until round 16 the only gate ` +
+                  `on this field was that it was a string of at least 40 characters, so a 200-character ` +
+                  `basis asserting the OPPOSITE of which board each reading is on passed 172/172`,
+              );
+            }
           }
           if (typeof sap.basis !== "string" || sap.basis.trim().length < 40) {
             bad2.push(
@@ -8574,10 +10258,59 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               );
             }
           }
+          // m6 (1). A LAID TILE IS A TILE. The books were free to name
+          // anything: a fabricated 40-tile "reflow" (laid 40 = shipped 0 + lost
+          // 40) with invented coordinates passed, and so did lost tiles at
+          // (-9,-9). A road pass lays roads on walkable floor inside the room,
+          // and that is checkable without knowing anything about the pass.
+          for (const t of Array.isArray(tiles) ? tiles : []) {
+            if (!t || !Number.isInteger(t.x) || !Number.isInteger(t.y)) {
+              bad2.push(`\`laidTilesByKind.${k2}\` carries an entry that names no tile (${String(JSON.stringify(t)).slice(0, 40)})`);
+              continue;
+            }
+            if (t.x < 0 || t.x > 49 || t.y < 0 || t.y > 49) {
+              bad2.push(`\`laidTilesByKind.${k2}\` names ${t.x},${t.y}, which is not a tile of this room`);
+            } else if (!walkable(terrain, t.x, t.y)) {
+              bad2.push(
+                `\`laidTilesByKind.${k2}\` names ${t.x},${t.y}, which is natural WALL — no pass laid a road ` +
+                  `there, on any board`,
+              );
+            }
+          }
+          for (const t of Array.isArray(lost) ? lost : []) {
+            if (!t || !Number.isInteger(t.x) || !Number.isInteger(t.y)) continue;
+            if (t.x < 0 || t.x > 49 || t.y < 0 || t.y > 49) {
+              bad2.push(`\`lostByKind.${k2}\` names ${t.x},${t.y}, which is not a tile of this room`);
+            } else if (!walkable(terrain, t.x, t.y)) {
+              bad2.push(`\`lostByKind.${k2}\` names ${t.x},${t.y}, which is natural WALL`);
+            }
+          }
           if (typeof laid === "number" && Array.isArray(tiles)) {
             const tk = [...new Set(tiles.filter((t) => t && Number.isInteger(t.x)).map((t) => key(t.x, t.y)))];
             if (tk.length !== laid) {
               bad2.push(`\`laidTilesByKind.${k2}\` names ${tk.length} distinct tile(s) and \`laidByKind.${k2}\` says ${laid}`);
+            }
+            // m6 (4). THE TILE-LEVEL IDENTITY, STATED AS ONE THING RATHER THAN
+            // THREE INEQUALITIES. `laid minus lost` IS the provenance map's key
+            // set for this kind — not "the same size as", the same TILES. A
+            // shipped road re-attributed between two passes keeps all four
+            // counts consistent and fails here.
+            if (lostK !== null) {
+              const derivedShipped = tk.filter((t) => !lostK.includes(t)).sort();
+              const onSorted = onBoard.slice().sort();
+              if (derivedShipped.join(" ") !== onSorted.join(" ")) {
+                const extraT = derivedShipped.filter((t) => !onSorted.includes(t));
+                const missT = onSorted.filter((t) => !derivedShipped.includes(t));
+                bad2.push(
+                  `\`${k2}\`: the tiles this pass laid MINUS the tiles it lost are ` +
+                    `[${derivedShipped.join(" ") || "nothing"}] and the tiles the board actually carries ` +
+                    `with the "${k2}" provenance are [${onSorted.join(" ") || "nothing"}]` +
+                    `${extraT.length ? ` — ${extraT.join(" ")} survived on paper and not on the board` : ""}` +
+                    `${missT.length ? ` — ${missT.join(" ")} is on the board and in neither book` : ""}. ` +
+                    `The books close at the COUNT level under a re-attribution and only at the TILE level ` +
+                    `against one`,
+                );
+              }
             }
             for (const t of onBoard) {
               if (!tk.includes(t)) {
@@ -8601,6 +10334,19 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           for (const t of lostK || []) {
             if (rk[t] === k2) {
               bad2.push(`\`lostByKind.${k2}\` names ${t} as taken and the room ships a road there carrying the "${k2}" provenance today`);
+            }
+            // m6 (2). "A LATER PASS TOOK IT" MEANS THERE IS NO ROAD THERE.
+            // Checking only that the tile is not shipped AS THIS KIND lets a
+            // shipped road be re-attributed between two passes with all four
+            // books kept consistent — which is exactly the coordinated
+            // three-way lie the reviewer landed. A tile in `lostByKind` is a
+            // tile the board does not pave, full stop.
+            if (roadSet.has(t)) {
+              bad2.push(
+                `\`lostByKind.${k2}\` says a later pass TOOK ${t} and this room ships a road there ` +
+                  `(provenance ${JSON.stringify(rk[t] ?? "an earlier layer")}). "Lost" is not "lost to ` +
+                  `another book" — a tile that still carries a road was not taken`,
+              );
             }
           }
         }
@@ -8640,6 +10386,26 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                       `was LAID. A tile the pass un-deleted is a tile it did not push`,
                   );
                 }
+                // m6 (3). ...AND THE EVIDENCE THAT IT WAS THERE TO RESTORE.
+                // "Restored" means an EARLIER layer laid the tile, the prune
+                // took it and this pass un-deleted it — so the room's own
+                // `roadLayer` map has to remember an earlier layer at that
+                // tile. Without this, `restoredByKind` can claim any twenty
+                // shipped roads it likes, which is what it did.
+                const lay2 = plan.meta?.roadLayer?.[tk];
+                if (!Number.isInteger(lay2)) {
+                  bad2.push(
+                    `\`restoredByKind.${k2}\` says ${tk} is a road this pass BROUGHT BACK and ` +
+                      `\`meta.roadLayer\` remembers no layer laying it. A tile with no earlier provenance ` +
+                      `was never there to restore`,
+                  );
+                } else if (lay2 >= 7) {
+                  bad2.push(
+                    `\`restoredByKind.${k2}\` says ${tk} is a road this pass brought back and ` +
+                      `\`meta.roadLayer\` says layer ${lay2} laid it — layer 7 IS this pass. A tile the ` +
+                      `late layer laid is laid, not restored`,
+                  );
+                }
               }
             }
           }
@@ -8650,6 +10416,129 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               `seven laying passes actually put on the board, and it was published unread for two rounds.`,
           );
         }
+      }
+    }
+
+    // ==================================================================
+    // OF7. THE DEAD-END PRUNE COUNTER WAS AN EVENT COUNT UNDER A TILE LABEL.
+    //
+    // `plan.mjs` printed "pruned 2007 dead-end road tiles" and 1994 tiles
+    // actually carry a `meta.roadLayer` entry and no shipped road. Thirteen
+    // tiles across eight rooms were counted as "pruned dead-end road tiles" and
+    // SHIP AS ROADS — criticism 27 verbatim (`spurTiles` laid 375 vs shipped
+    // 370), in the same printed line, about ten tokens later, under a comment
+    // reading "One number for two quantities is how an inflated count goes
+    // unnoticed for thirteen rounds."
+    //
+    // The producer now publishes five figures and two tile lists, and the
+    // thirteen resolve into two different facts: ONE tile was deleted and
+    // re-laid (E5S1 28,30, the conduct bridge) and TWELVE were laid AND deleted
+    // inside layer 7, so they never entered `meta.roadLayer` and the film has
+    // nothing to erase for them. Both counts are honest; publishing one under
+    // the other's name was the defect. These are the identities that keep them
+    // apart, and they are checked against the BOARD, not against each other.
+    // ==================================================================
+    {
+      const W3 = plan.meta?.walls || {};
+      const bad3 = [];
+      const num3 = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
+      const asK = (a) =>
+        Array.isArray(a) ? [...new Set(a.filter((t) => t && Number.isInteger(t.x)).map((t) => key(t.x, t.y)))] : null;
+      const tilesK = asK(W3.prunedTiles);
+      const atPassK = asK(W3.prunedAtPassTiles);
+      const relaidK = asK(W3.prunedRelaid);
+      const pruned = num3(W3.pruned);
+      const atPass = num3(W3.prunedAtPass);
+      const ghosts = num3(W3.prunedGhosts);
+      const transient = num3(W3.prunedTransient);
+      for (const [n, v] of [
+        ["pruned", pruned],
+        ["prunedAtPass", atPass],
+        ["prunedGhosts", ghosts],
+        ["prunedTransient", transient],
+      ]) {
+        if (v === null) bad3.push(`\`${n}\` is ${JSON.stringify(W3[n])}, not a number`);
+      }
+      for (const [n, v] of [
+        ["prunedTiles", tilesK],
+        ["prunedAtPassTiles", atPassK],
+        ["prunedRelaid", relaidK],
+      ]) {
+        if (v === null) bad3.push(`\`${n}\` is ${String(JSON.stringify(W3[n])).slice(0, 40)}, not a list of tiles`);
+      }
+      if (!bad3.length) {
+        if (tilesK.length !== pruned) {
+          bad3.push(`\`pruned\` says ${pruned} and \`prunedTiles\` names ${tilesK.length} distinct tile(s)`);
+        }
+        if (atPassK.length !== atPass) {
+          bad3.push(`\`prunedAtPass\` says ${atPass} and \`prunedAtPassTiles\` names ${atPassK.length} distinct tile(s)`);
+        }
+        if (atPass !== pruned + relaidK.length) {
+          bad3.push(
+            `\`prunedAtPass\` is ${atPass}, \`pruned\` is ${pruned} and \`prunedRelaid\` names ` +
+              `${relaidK.length} tile(s). The pass's EVENT count is the tile count plus the tiles a later ` +
+              `pass put back — that identity is the whole reason both numbers exist`,
+          );
+        }
+        if (pruned !== ghosts + transient) {
+          bad3.push(
+            `\`pruned\` is ${pruned} and its two halves — ${ghosts} ghost(s) the film erases and ` +
+              `${transient} tile(s) laid and deleted inside layer 7 — sum to ${ghosts + transient}`,
+          );
+        }
+        // ...AND THE BOARD. This is what makes the counts tile-true rather than
+        // internally consistent: a pruned tile is a tile with no road on it.
+        const stillPaved = tilesK.filter((k2) => roadSet.has(k2));
+        if (stillPaved.length) {
+          bad3.push(
+            `\`prunedTiles\` names ${stillPaved.length} tile(s) the room SHIPS A ROAD ON ` +
+              `(${stillPaved.slice(0, 8).join(" ")}${stillPaved.length > 8 ? " …" : ""}). "Pruned dead-end ` +
+              `road tiles" is a count of tiles that are not there; a tile that ships is not one of them`,
+          );
+        }
+        const relaidGone = relaidK.filter((k2) => !roadSet.has(k2));
+        if (relaidGone.length) {
+          bad3.push(
+            `\`prunedRelaid\` names ${relaidGone.length} tile(s) as deleted and PUT BACK ` +
+              `(${relaidGone.join(" ")}) and the room ships no road there`,
+          );
+        }
+        for (const k2 of relaidK) {
+          if (tilesK.includes(k2)) {
+            bad3.push(`\`prunedRelaid\` and \`prunedTiles\` both name ${k2} — a tile is either back on the board or it is not`);
+          }
+          if (!atPassK.includes(k2)) {
+            bad3.push(`\`prunedRelaid\` names ${k2} and \`prunedAtPassTiles\` — what the pass actually deleted — does not`);
+          }
+        }
+        // the ghost/transient split is a fact about `meta.roadLayer`: a ghost is
+        // a pruned tile an earlier layer had tagged (so the film has something
+        // to erase), a transient is one it never did
+        const rl = plan.meta?.roadLayer;
+        if (rl && typeof rl === "object") {
+          const wantGhosts = tilesK.filter((k2) => Number.isInteger(rl[k2])).length;
+          if (wantGhosts !== ghosts) {
+            bad3.push(
+              `\`prunedGhosts\` says ${ghosts} and ${wantGhosts} of the ${tilesK.length} pruned tile(s) ` +
+                `carry a \`meta.roadLayer\` entry. The ghosts are exactly the tiles the film's roadsPrune ` +
+                `stage has something to erase for; the rest were laid and deleted inside layer 7 and were ` +
+                `never drawn`,
+            );
+          }
+          if (transient !== tilesK.length - wantGhosts) {
+            bad3.push(
+              `\`prunedTransient\` says ${transient} and ${tilesK.length - wantGhosts} pruned tile(s) carry ` +
+                `no \`meta.roadLayer\` entry`,
+            );
+          }
+        }
+      }
+      for (const b of bad3) {
+        fails.push(
+          `META — the dead-end prune: ${b}. The fleet summary prints this counter as "pruned N dead-end ` +
+            `road tiles", and an EVENT counter under a TILE label is criticism 27 in the same printed line ` +
+            `that applies the laid-vs-shipped discipline to spurs.`,
+        );
       }
     }
 
@@ -9450,6 +11339,51 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         byTile,
       });
     };
+    // ==================================================================
+    // THE BOARD FACTS — see the `BOARD()` header. Re-derived from THIS
+    // room's terrain and THIS room's shipped structures, once, so that a
+    // closure can bound a search census against something a producer would
+    // have to move the ROOM to change. Without one of these on a census,
+    // two rooms' censuses can be swapped whole and both stay internally
+    // legal (round 16, F11 cause 3: S1 permuted E11S6's and E3S5's
+    // dispersion censuses and both passed, mirrors and all).
+    // ==================================================================
+    const boardFacts = (() => {
+      let interiorWalkable = 0;
+      let interiorTiles = 0;
+      let freeDeepInterior = 0;
+      const occupiedAll = new Set();
+      for (const [t2, arr2] of Object.entries(s)) {
+        if (t2 === "road" || t2 === "rampart") continue;
+        for (const q2 of arr2 || []) occupiedAll.add(key(q2.x, q2.y));
+      }
+      for (let y = 0; y < 50; y++) {
+        for (let x = 0; x < 50; x++) {
+          if (!walkable(terrain, x, y)) continue;
+          interiorTiles++;
+          const i2 = idx(x, y);
+          if (ext[i2]) continue;
+          interiorWalkable++;
+          if (x >= 1 && x <= 48 && y >= 1 && y <= 48 && depth[i2] >= DEPTH_SAFE && !occupiedAll.has(key(x, y))) {
+            freeDeepInterior++;
+          }
+        }
+      }
+      return {
+        interiorWalkable,
+        interiorTiles,
+        walkRegion: interior ? interior.size : interiorWalkable,
+        shippedCut: cutPts.length,
+        shippedRamparts: (s.rampart || []).length,
+        shippedRoads: (s.road || []).length,
+        shippedTowers: (s.tower || []).length,
+        shippedExtensions: (s.extension || []).length,
+        gatedPairs: mBuilt ? mBuilt.gatedPairs : undefined,
+        builtGated: mBuilt ? mround2(mBuilt.maxGated) : undefined,
+        freeDeepInterior,
+        lapCeiling: MOB_EXACT_MAX,
+      };
+    })();
     const derivedRecordFor = (sf, g, k) => {
       const der = {};
       const put = (path, v) => {
@@ -9570,6 +11504,23 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (td) {
           if (Array.isArray(td.counted)) put("dispersion.counted", td.counted);
           if (typeof td.after === "number") put("dispersion.windowAfter", td.after);
+          // ...and the two AFTER readings that are the shipped board, re-derived
+          // from this room's own towers rather than copied off the mirror.
+          if (Array.isArray(td.search?.instruments)) put("dispersion.search.instruments", td.search.instruments);
+          if (td.search && typeof td.search.clumpAfter === "number") {
+            put("dispersion.search.clumpAfter", within.length);
+          }
+          if (td.search && typeof td.search.towerWindowAfter === "number") {
+            let best = 0;
+            for (let cy = 2; cy <= 47; cy++) {
+              for (let cx = 2; cx <= 47; cx++) {
+                let n = 0;
+                for (const t of s.tower || []) if (Math.abs(t.x - cx) <= 2 && Math.abs(t.y - cy) <= 2) n++;
+                if (n > best) best = n;
+              }
+            }
+            put("dispersion.search.towerWindowAfter", best);
+          }
         }
       }
 
@@ -9583,7 +11534,15 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           }
           return d;
         };
-        put("source", "walls");
+        {
+          const tw3 = plan.meta?.towers || {};
+          const l3Filed =
+            typeof tw3.minShellDmg === "number" &&
+            typeof tw3.maxRefillAtPlacement === "number" &&
+            tw3.minShellDmg >= TOWER_TARGET_MIN &&
+            (tw3.minShellDmg < WEAK_SHELL_DMG || tw3.maxRefillAtPlacement > REFILL_NOTE);
+          put("source", l3Filed ? "towers" : "walls");
+        }
         put("battery.maxRefill", batteryDerived.maxRefill);
         put("battery.refillDists", batteryDerived.refillDists);
         put("battery.minShellDmg", batteryDerived.minShellDmg);
@@ -9667,6 +11626,10 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         put("shallowExt.count", (s.extension || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE).length);
         put("shallowExt.total", (s.extension || []).length);
         put("shallowExt.depthSafe", DEPTH_SAFE);
+        // OF10: the band the scan swept, and the room's OWN interior floor —
+        // two different numbers that one sentence used to call by one name.
+        put("shallowExt.search.bandSide", Math.round(Math.sqrt(BUILDABLE_BAND_TILES)));
+        put("shallowExt.search.interiorWalkable", boardFacts.interiorWalkable);
       }
 
       // ---------------------------------------------------------- mobility (both kinds)
@@ -10006,6 +11969,10 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // honour them — a claim nobody stamps fails the room, so a bespoke
       // bound cannot be deleted from under the sentence that promises it.
       const closureGet = (path) => {
+        // `#fact` is a quantity re-derived from THIS room's terrain and THIS
+        // room's shipped structures — the one thing in the closure vocabulary
+        // that a census cannot be carried across a room boundary against.
+        if (path.startsWith("#")) return boardFacts[path.slice(1)];
         const fromPlan = path.startsWith("@");
         let cur = fromPlan ? plan : sf;
         for (const seg of (fromPlan ? path.slice(1) : path).split(".")) {
@@ -10016,9 +11983,37 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         return cur;
       };
       const bespokeWanted = [];
-      const bespokeRan = new Set();
-      /** a bespoke closure block says it ran, by id */
-      const ranBespoke = (id) => bespokeRan.add(id);
+      /** id -> how many PREDICATES the block evaluated on this room */
+      const bespokeRan = new Map();
+      /**
+       * ==================================================================
+       * A BESPOKE BLOCK SAYS IT RAN BY SAYING HOW MANY PREDICATES IT RAN.
+       * ==================================================================
+       * Round 16's owner-voice reviewer (F11, cause 4): the stamp fired on
+       * BRANCH ENTRY. `if (g === "ctrlparks" && k === "released") {
+       * ranBespoke("ctrlParks.composedCaps.descent"); if (Array.isArray(
+       * c.composedCaps)) { …every check… } }` — so a record with no
+       * `composedCaps` at all entered the branch, stamped the id, evaluated
+       * NOTHING, and satisfied the "the block executed" gate that exists
+       * precisely to stop a promised check from not executing. Four ids had
+       * that shape (`ctrlParks.composedCaps.descent`,
+       * `ctrlParks.seats.ceiling`, `labs.eatAnchors.ceiling`,
+       * `labs.refused.network.dormant`).
+       *
+       * So the stamp is a COUNT now, and it is incremented by the assertion
+       * helper the block is written with rather than by hand: `bespoke(id,
+       * (B) => …)` shadows `B` with one that counts every predicate it
+       * evaluates. A block that evaluated zero predicates did not run, and
+       * the leaf that named it fails exactly as if the block were deleted.
+       */
+      const ranBespoke = (id, n = 1) => bespokeRan.set(id, (bespokeRan.get(id) || 0) + Math.max(0, n));
+      /**
+       * The block whose predicates are being counted. `ranBespoke(id)` OPENS a
+       * region and the assertion helper credits every predicate it evaluates to
+       * it; a region that closes with zero predicates has not run. Set per
+       * declaration so a block cannot inherit a previous record's cursor.
+       */
+      let bespokeRegion = null;
 
       // ==================================================================
       // THE PARAGRAPH IS THE RECORD — regenerated here and compared.
@@ -10116,6 +12111,308 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `a derivation that cannot run is a check this file promised and does not perform`,
             );
           }
+          // ============================================================
+          // THE TABLE IS ITERATED FIRST. See the RECORD_ABSENCE header:
+          // until this loop existed the engine walked the RECORD, so 347
+          // of 420 leaf instances could be DELETED, and whole sub-records
+          // with them. A classed leaf the record does not carry fails the
+          // room unless RECORD_ABSENCE excuses it by name.
+          // ============================================================
+          {
+            const rules = RECORD_ABSENCE.get(dk) || [];
+            /** the arm each branch rule resolves to, computed once */
+            const armOf = new Map();
+            for (const r of rules) {
+              if (r.form !== "branch") continue;
+              const arm = r.pick(sf);
+              armOf.set(r, arm);
+              if (arm === null || !(arm in r.arms)) {
+                bad.push(
+                  `${dk}: this record takes NONE of the ${Object.keys(r.arms).length} shapes this ` +
+                    `declaration kind has (${Object.keys(r.arms).join(" / ")}), so every field of every ` +
+                    `shape is excused and the record can be empty. ${r.why}`,
+                );
+              }
+            }
+            /**
+             * THE GENERIC EXCUSE, AND THE ONLY ONE THAT NEEDS NO TABLE ENTRY:
+             * an ancestor of this leaf is ITSELF a classed leaf of this
+             * inventory and the record publishes it as exactly `null`. The
+             * record has SAID the sub-record does not exist, and it said it in
+             * a field that is checked like any other — all four of the fleet's
+             * (`lane.shrunk`, `negotiated.eco`, `lift`, `lift.residual`, plus
+             * `spawnFan.census.fannedAvailable`) are held to a class here.
+             * DELETING the parent rather than nulling it is a missing classed
+             * leaf and fails on the loop below.
+             */
+            const nulledAncestor = (leaf) => {
+              const segs = leaf.split(".");
+              for (let i = 1; i < segs.length; i++) {
+                const anc = segs.slice(0, i).join(".");
+                if (segs.slice(0, i).includes("*")) return null;
+                if (!(anc in table)) continue;
+                if (recordAt(sf, anc) === null) return anc;
+              }
+              return null;
+            };
+            const excusedBy = (leaf) => {
+              if (nulledAncestor(leaf)) return { why: "a classed ancestor is published as null" };
+              for (const r of rules) {
+                if (r.form === "branch") {
+                  const arm = armOf.get(r);
+                  if (arm === null || !(arm in r.arms)) continue;
+                  for (const [name, ls] of Object.entries(r.arms)) {
+                    if (name !== arm && ls.includes(leaf)) return r;
+                  }
+                } else if (r.leaves.includes(leaf) && r.when(sf)) {
+                  return r;
+                }
+              }
+              return null;
+            };
+            for (const leaf of Object.keys(table)) {
+              if (recordHasLeaf(sf, leaf)) continue;
+              const excuse = excusedBy(leaf);
+              if (excuse) continue;
+              bad.push(
+                `${dk}: the record-leaf inventory names \`${leaf}\` and this record DOES NOT CARRY IT. A ` +
+                  `leaf that can be deleted is a leaf nothing checks: until round 16 this engine walked ` +
+                  `the record rather than the table, and 347 of 420 leaf instances — whole sub-records ` +
+                  `included — could simply be removed, taking five planted lies off the audit and leaving ` +
+                  `the prose that quoted them standing. Absence is admissible only where RECORD_ABSENCE ` +
+                  `names the leaf, the condition it is absent under, and the reason`,
+              );
+            }
+            // ============================================================
+            // ...AND THE DERIVATION IS A PRESENCE WITNESS OF ITS OWN.
+            //
+            // A leaf whose path carries a DYNAMIC segment — `lift.perClass.
+            // <class>.pairDin` — is classed under one normalised name, so the
+            // table loop above is satisfied by ONE surviving row and the other
+            // four can be deleted. (Measured: the fleet's single lift record
+            // shipped five per-class rows and all five deleted clean under the
+            // table rule alone.) But this file DERIVED each of those rows from
+            // the board, by name. A row the derivation produced and the record
+            // does not publish is a deleted leaf, whatever the table's
+            // normalised spelling says.
+            // ============================================================
+            for (const derPath of Object.keys(der)) {
+              if (!derPath.includes(".")) continue;
+              const normed = normLeaf(derPath);
+              if (normed === derPath) continue; // no dynamic segment; the table loop covers it
+              if (!(normed in table)) continue;
+              if (recordAt(sf, derPath) !== undefined) continue;
+              if (excusedBy(normed)) continue;
+              bad.push(
+                `${dk}: this file re-derived \`${derPath}\` from this room's own board and the record does ` +
+                  `not publish it. The inventory classes this leaf under its normalised name ` +
+                  `(\`${normed}\`), so one surviving row satisfies the presence rule and the rest can be ` +
+                  `deleted — the derivation names them one at a time and is the witness that they existed`,
+              );
+            }
+
+            // ...AND THE KEY SET OF A DYNAMIC CONTAINER IS DERIVED TOO.
+            // `lift.perClass` is a map whose KEYS are a measurement (which
+            // structure classes this room has to lift). The table can only
+            // class the rows; the map itself is checked here, both ways —
+            // present when the derivation ran, and carrying exactly the keys
+            // the derivation named. Without this the whole map deletes clean
+            // in the 54 rooms whose map is legitimately empty.
+            {
+              const dynParents = new Set();
+              for (const leaf of Object.keys(table)) {
+                const segs = leaf.split(".");
+                const i = segs.indexOf("*");
+                if (i > 0) dynParents.add(segs.slice(0, i).join("."));
+              }
+              for (const parent of dynParents) {
+                if (nulledAncestor(`${parent}.*`)) continue;
+                const want = new Set();
+                for (const derPath of Object.keys(der)) {
+                  if (!derPath.startsWith(`${parent}.`)) continue;
+                  if (normLeaf(derPath) === derPath) continue;
+                  want.add(derPath.slice(parent.length + 1).split(".")[0]);
+                }
+                const got = recordAt(sf, parent);
+                if (got === undefined || got === null || typeof got !== "object" || Array.isArray(got)) {
+                  bad.push(
+                    `${dk}: the record does not carry \`${parent}\`, and it is a MAP whose keys are a ` +
+                      `measurement of this room (${want.size} of them re-derived here` +
+                      `${want.size ? `: ${[...want].join(", ")}` : `, and an empty map is still the claim ` +
+                        `that the pass ran and found nothing`}). A map that can be deleted whole says ` +
+                      `nothing and reads as having said it`,
+                  );
+                  continue;
+                }
+                const have = new Set(Object.keys(got));
+                const missing = [...want].filter((x) => !have.has(x));
+                const extra = [...have].filter((x) => !want.has(x));
+                if (missing.length || extra.length) {
+                  bad.push(
+                    `${dk}: \`${parent}\` is keyed ${JSON.stringify([...have])} and this room's board ` +
+                      `re-derives ${JSON.stringify([...want])}` +
+                      `${missing.length ? ` — missing ${missing.join(", ")}` : ""}` +
+                      `${extra.length ? ` — invented ${extra.join(", ")}` : ""}`,
+                  );
+                }
+              }
+            }
+
+            // ...and the null that buys a sub-record's children their absence
+            // has to be a null the inventory CLASSES, not an untyped hole.
+            for (const leaf of Object.keys(table)) {
+              const segs = leaf.split(".");
+              for (let i = 1; i < segs.length; i++) {
+                const anc = segs.slice(0, i).join(".");
+                if (segs.slice(0, i).includes("*")) break;
+                if (recordAt(sf, anc) !== null) continue;
+                if (anc in table) break;
+                bad.push(
+                  `${dk}: \`${anc}\` is published as null, which removes \`${leaf}\` and every other leaf ` +
+                    `under it from this audit, and \`${anc}\` is not itself a classed leaf of the ` +
+                    `inventory. A sub-record may be absent only when its own absence is a checked fact`,
+                );
+                break;
+              }
+            }
+          }
+
+          // ============================================================
+          // ...AND THE ELEMENTS OF EVERY ARRAY THE ELEMENT INVENTORY NAMES.
+          // See the RECORD_ARRAY_LEAVES header. Until round 16 an array was
+          // one opaque leaf, so `shallowExt.slots[].why` was free text
+          // rendered verbatim into the paragraph — E12S6's six priced legal
+          // trades laundered into "NO deep target of any kind" — and
+          // `ladder.rungs[].mobility` was unchecked by the very block whose
+          // sentence claims it checks "the four fields a rung is made of".
+          // ============================================================
+          {
+            const arrays = RECORD_ARRAY_LEAVES.get(dk);
+            if (arrays) {
+              const elemCtx = {
+                depthAt: (x, y) => depth[idx(x, y)],
+                builtGated: mBuilt ? mround2(mBuilt.maxGated) : undefined,
+                shallowExts: (s.extension || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE),
+                shallowLabs: (s.lab || []).filter((e) => depth[idx(e.x, e.y)] < DEPTH_SAFE),
+              };
+              for (const [arrPath, spec] of Object.entries(arrays)) {
+                const arr = recordAt(sf, arrPath);
+                if (arr === undefined || arr === null) continue; // presence is the loop above's job
+                if (!Array.isArray(arr)) {
+                  bad.push(`${dk}: \`${arrPath}\` is ${JSON.stringify(arr).slice(0, 60)} and the element inventory says it is a list`);
+                  continue;
+                }
+                const classed = Object.keys(spec.fields);
+                for (let i = 0; i < arr.length; i++) {
+                  const el = arr[i];
+                  const at = `${arrPath}[${i}]`;
+                  if (!el || typeof el !== "object" || Array.isArray(el)) {
+                    bad.push(`${dk}: \`${at}\` is ${JSON.stringify(el)} and every element of this list is a record`);
+                    continue;
+                  }
+                  // the element's field set is CLOSED, both ways
+                  for (const f of Object.keys(el)) {
+                    if (!classed.includes(f)) {
+                      bad.push(
+                        `${dk}: \`${at}.${f}\` is ${String(JSON.stringify(el[f])).slice(0, 60)} and the ` +
+                          `element inventory does not name it. An unnamed field of an array element is ` +
+                          `unchecked by default, which is what made \`slots[].why\` a free-text channel ` +
+                          `inside an audited record`,
+                      );
+                    }
+                  }
+                  const elemGet = (path) => {
+                    if (path.startsWith("~")) return el[path.slice(1)];
+                    return closureGet(path);
+                  };
+                  for (const f of classed) {
+                    const fc = spec.fields[f];
+                    if (!(f in el)) {
+                      bad.push(
+                        `${dk}: \`${at}\` does not carry \`${f}\`, which the element inventory classes ` +
+                          `${fc.klass}. ${fc.why}`,
+                      );
+                      continue;
+                    }
+                    const v = el[f];
+                    if (fc.klass === "derived") {
+                      let want;
+                      try {
+                        want = fc.derive(el, i, elemCtx);
+                      } catch {
+                        want = undefined;
+                      }
+                      if (want === undefined) {
+                        bad.push(
+                          `${dk}: \`${at}.${f}\` is classed RE-DERIVED and this room's derivation produced ` +
+                            `no value for it — most often because the list is LONGER than the board's own ` +
+                            `answer (${arr.length} rows against a board that supports fewer)`,
+                        );
+                      } else if (JSON.stringify(v) !== JSON.stringify(want)) {
+                        bad.push(`${dk}: \`${at}.${f}\` says ${JSON.stringify(v)}, re-derived it is ${JSON.stringify(want)}`);
+                      }
+                    } else if (fc.klass === "prose") {
+                      const hits = fc.classes.filter((c) => {
+                        try {
+                          return !!c.when(el, sf);
+                        } catch {
+                          return false;
+                        }
+                      });
+                      if (hits.length !== 1) {
+                        bad.push(
+                          `${dk}: \`${at}\` claims ${hits.length} of the ${fc.classes.length} sentence ` +
+                            `classes this field has (${fc.classes.map((c) => c.id).join(", ")}). Exactly one ` +
+                            `class describes a row, and the row's own numbers pick it — a row that picks ` +
+                            `none or two is a row whose sentence is not a function of it`,
+                        );
+                        continue;
+                      }
+                      let want = null;
+                      try {
+                        want = hits[0].render(el, sf, elemCtx);
+                      } catch (err) {
+                        bad.push(`${dk}: \`${at}.${f}\` cannot be generated from the row (${err && err.message})`);
+                        continue;
+                      }
+                      if (normText(String(v)) !== normText(want)) {
+                        const a = normText(String(v));
+                        const b2 = normText(want);
+                        let ci = 0;
+                        while (ci < a.length && ci < b2.length && a[ci] === b2[ci]) ci++;
+                        bad.push(
+                          `${dk}: \`${at}.${f}\` is not the sentence this row generates. They agree for ` +
+                            `${ci} character(s) and then diverge — shipped: "…${a.slice(Math.max(0, ci - 30), ci + 80)}…" ` +
+                            `vs generated: "…${b2.slice(Math.max(0, ci - 30), ci + 80)}…". This is the ` +
+                            `declaration-prose rule applied inside the array: the sentence is GENERATED from ` +
+                            `the row, so it cannot say something the row does not`,
+                        );
+                      }
+                    } else {
+                      if (fc.bound) {
+                        const whyB = fc.bound(v);
+                        if (whyB) bad.push(`${dk}: \`${at}.${f}\` ${whyB}. It is producer-witnessed — ${fc.why}`);
+                      }
+                      for (const c of fc.closures || []) {
+                        const whyC = CLOSURE_OPS[c.op].run(c, v, elemGet);
+                        if (whyC) {
+                          bad.push(
+                            `${dk}: \`${at}.${f}\` ${whyC} — and the element inventory holds it to exactly ` +
+                              `that ("${CLOSURE_OPS[c.op].say(c)}")`,
+                          );
+                        }
+                      }
+                    }
+                  }
+                  for (const c of spec.closures || []) {
+                    const whyC = CLOSURE_OPS[c.op].run(c, el, elemGet);
+                    if (whyC) bad.push(`${dk}: \`${at}\` ${whyC}`);
+                  }
+                }
+              }
+            }
+          }
+
           for (const [leaf, val, rawPath] of recordLeaves(sf)) {
             const cls = table[leaf];
             if (!cls) {
@@ -10198,14 +12495,22 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // has to be paid for in sealing tiles that do not exist.
       // ==================================================================
       {
+        /**
+         * Every predicate this helper evaluates is credited to the bespoke
+         * region that is open — see `bespokeRegion`. That is what turns "the
+         * block was entered" into "the block ran": a record shaped so that
+         * every guarded check is skipped now credits ZERO and fails the leaf
+         * that pointed at the block.
+         */
         const B = (cond, msg) => {
+          if (bespokeRegion) ranBespoke(bespokeRegion);
           if (!cond) bad.push(`${g}${k ? `/${k}` : ""}: ${msg}`);
         };
         const num = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 
         if (g === "spawnfan" && k === "sector") {
           const c = sf.spawnFan?.census || {};
-          ranBespoke("spawnFan.census.lattice");
+          bespokeRegion = "spawnFan.census.lattice";
           // I14 — the census is published TWICE, once on the declaration and
           // once on `meta.spawnFan`, which layer 1 writes for every room whether
           // it declares or not. They are one object before serialisation, so any
@@ -10380,7 +12685,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (g === "ctrlparks" && k === "seats") {
           const c = sf.ctrlParks?.census || {};
           const P = parkBoard();
-          ranBespoke("ctrlParks.seats.ceiling");
+          bespokeRegion = "ctrlParks.seats.ceiling";
           if (num(c.sealing) !== null && num(c.considered) !== null) {
             B(
               c.sealing >= 0 && c.sealing <= c.considered,
@@ -10449,7 +12754,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `only for strictly FEWER shallow extensions, so this ordering is what the trade means`,
             );
           }
-          ranBespoke("ctrlParks.composedCaps.descent");
+          bespokeRegion = "ctrlParks.composedCaps.descent";
           if (Array.isArray(c.composedCaps)) {
             const caps = c.composedCaps;
             B(
@@ -10506,10 +12811,12 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `rung it walked`,
               );
             }
-          } else if (c.composedCaps !== undefined) {
-            bad.push(
-              `ctrlParks/released: \`composedCaps\` is ${JSON.stringify(c.composedCaps)} and not a list of ` +
-                `caps — the paragraph reads a range out of it`,
+          } else {
+            B(
+              false,
+              `\`composedCaps\` is ${JSON.stringify(c.composedCaps)} and not a list of caps — the paragraph ` +
+                `reads a range out of it, and the descent block that this record's leaves name as their ` +
+                `bound has nothing to walk`,
             );
           }
         }
@@ -10517,7 +12824,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (g === "labs" && k === "lab-road-eat") {
           const c = sf.labs || {};
           const L2 = labBoard();
-          ranBespoke("labs.eatAnchors.ceiling");
+          bespokeRegion = "labs.eatAnchors.ceiling";
           if (num(c.eatAnchors) !== null) {
             B(c.eatAnchors >= 1, `\`eatAnchors\` is ${c.eatAnchors} and one of those anchors is the one this room built`);
             if (L2) {
@@ -10533,13 +12840,42 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
 
         if (g === "extensions" && k === "shallow") {
           const sh = sf.shallowExt || {};
-          ranBespoke("shallowExt.sharedTarget.crosscopy");
+          bespokeRegion = "shallowExt.sharedTarget.crosscopy";
           if (sh.sharedTarget !== undefined && sh.search?.sharedTarget !== undefined) {
             B(
               String(sh.sharedTarget) === String(sh.search.sharedTarget),
               `\`sharedTarget\` is ${JSON.stringify(sh.sharedTarget)} and the re-run's own copy says ` +
                 `${JSON.stringify(sh.search.sharedTarget)}`,
             );
+          }
+          // ...AND THE TILE IS A REAL ONE. The cross-copy compares the two
+          // copies to EACH OTHER, so `0,0` — the room's own corner, a wall in
+          // most rooms and outside the buildable band in all of them — passed
+          // in both copies at once (round 16, K4). A shared target is a tile
+          // several slots were competing to STAND AN EXTENSION ON: it has to be
+          // walkable floor, inside the wall, inside the 48x48 band, at or past
+          // the depth floor, and EMPTY on the board the room ships. That is the
+          // whole of what makes it a target.
+          if (sh.sharedTarget !== undefined && sh.sharedTarget !== null) {
+            const m = /^(-?\d+),(-?\d+)$/.exec(String(sh.sharedTarget));
+            if (m) {
+              const tx = +m[1];
+              const ty = +m[2];
+              const inBand = tx >= 1 && tx <= 48 && ty >= 1 && ty <= 48;
+              const i2 = inBand ? idx(tx, ty) : -1;
+              const occupiedHere = new Set();
+              for (const [t2, arr2] of Object.entries(s)) {
+                if (t2 === "road" || t2 === "rampart") continue;
+                for (const q2 of arr2 || []) occupiedHere.add(key(q2.x, q2.y));
+              }
+              B(
+                inBand && walkable(terrain, tx, ty) && !ext[i2] && depth[i2] >= DEPTH_SAFE && !occupiedHere.has(key(tx, ty)),
+                `\`sharedTarget\` names ${sh.sharedTarget}, which is not a free deep interior tile of this ` +
+                  `room's shipped board (${!inBand ? "outside the 48x48 buildable band" : !walkable(terrain, tx, ty) ? "not walkable floor" : ext[i2] ? "outside the wall" : depth[i2] < DEPTH_SAFE ? `at depth ${depth[i2]}, under the ${DEPTH_SAFE} floor` : "already carries a structure"}). ` +
+                  `The two copies of this key are compared to each other and nothing checked the tile was ` +
+                  `real, so the room's own corner passed both`,
+              );
+            }
           }
           if (Array.isArray(sh.slots) && num(sh.count) !== null) {
             B(
@@ -10565,7 +12901,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // now a fact this file asserts rather than an accident of the roster.
         // ==================================================================
         if (g === "labs" && k === "lab-haul") {
-          ranBespoke("labs.refused.network.dormant");
+          bespokeRegion = "labs.refused.network.dormant";
           const twin = (declared || []).find(
             (d) => d && normGate(d.gate) === "labs" && String(d.kind) === "lab-road-eat",
           );
@@ -10578,13 +12914,18 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `${twin.labs.eatBlockedByNet} on this same room's lab-road-eat record. One pass counts ` +
                 `network-splitting refusals once`,
             );
-          } else if (netN !== null && netN !== 0) {
+          } else {
             // ...AND THE ROOM THAT DOES NOT: the counter has no twin to agree
             // with, so a NON-ZERO count is a claim about a pass whose own
             // declaration this room does not file. Zero is the inert reading
-            // and is admitted; anything else has to be declared.
-            bad.push(
-              `labs/lab-haul: \`labs.refused.network\` is ${netN} and this room files no ` +
+            // and is admitted; anything else has to be declared. This arm is
+            // written as a PREDICATE rather than as a conditional `bad.push`
+            // because the bespoke stamp counts predicates now, and the dormant
+            // arm is the one every room in the fleet takes — a block whose only
+            // live arm evaluates nothing has not run.
+            B(
+              netN === null || netN === 0,
+              `\`labs.refused.network\` is ${netN} and this room files no ` +
                 `\`labs/lab-road-eat\` declaration, so the counter it is defined to equal ` +
                 `(\`labs.eatBlockedByNet\`) is not published anywhere on this room. The identity the ` +
                 `record-leaf inventory states for this leaf is CROSS-KIND and therefore dormant on every ` +
@@ -10596,7 +12937,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
 
         if (g === "mobility" && !k) {
           const lad = sf.ladder || {};
-          ranBespoke("mobility.ladder.rungs");
+          bespokeRegion = "mobility.ladder.rungs";
           if (Array.isArray(lad.rungs) && num(lad.trailLength) !== null) {
             B(
               lad.rungs.length === lad.trailLength,
@@ -10628,8 +12969,9 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           // afterwards — E13S4's pair names 19,2, which layer 7 took off the
           // wall. What is immutable is that the pair is two real tiles of this
           // room that a defender could stand on.
-          ranBespoke("mobility.negotiated.pair");
+          bespokeRegion = "mobility.negotiated.pair";
           const negT = Array.isArray(sf.negotiated?.tiles) ? sf.negotiated.tiles : null;
+          B(!!negT, `layer 2's worst pair is not a list of tiles (\`negotiated.tiles\` is ${JSON.stringify(sf.negotiated?.tiles)})`);
           if (negT) {
             B(negT.length === 2, `layer 2's worst pair names ${negT.length} tile(s); a pair is two`);
             for (const t of negT) {
@@ -10640,8 +12982,16 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             }
           }
           // ...AND THE PARAGRAPH INSIDE THE RECORD.
-          ranBespoke("mobility.negotiated.detail.parse");
-          for (const m of negotiatedDetailFaults(sf.negotiated)) bad.push(`mobility: ${m}`);
+          bespokeRegion = "mobility.negotiated.detail.parse";
+          B(
+            !!sf.negotiated && typeof sf.negotiated === "object",
+            `the negotiated sub-record is ${JSON.stringify(sf.negotiated)} and the paragraph identity below ` +
+              `has nothing to render from`,
+          );
+          for (const m of negotiatedDetailFaults(sf.negotiated)) {
+            ranBespoke("mobility.negotiated.detail.parse");
+            bad.push(`mobility: ${m}`);
+          }
         }
 
         // ---- battlements/substitute: the branch and its numbers ----------
@@ -10653,7 +13003,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // cut at all. A record carrying "swap"'s numbers under "none" is a
         // search result attached to the answer that says there was no result.
         if (g === "battlements" && !k && sf.battlements?.substitute) {
-          ranBespoke("battlements.substitute.branch");
+          bespokeRegion = "battlements.substitute.branch";
           const sub = sf.battlements.substitute;
           const kindOf = String(sub.kind);
           const present = (f) => sub[f] !== undefined && sub[f] !== null;
@@ -10947,11 +13297,14 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // failure this round is about, one turn of the screw further out.
       // ==================================================================
       for (const [dk, rawPath, c] of bespokeWanted) {
-        if (!bespokeRan.has(c.id)) {
+        if (!bespokeRan.get(c.id)) {
           bad.push(
             `${dk}: \`${rawPath}\` is witnessed and the record-leaf inventory says its bound is "${c.text}" ` +
-              `(bespoke closure "${c.id}") — and that block did not run on this room. A promised check ` +
-              `that does not execute is worse than an admitted gap, because the inventory reads as coverage`,
+              `(bespoke closure "${c.id}") — and that block EVALUATED NO PREDICATE on this room ` +
+              `(${bespokeRan.has(c.id) ? "it was entered and every check inside it was skipped" : "it was not entered at all"}). ` +
+              `A promised check that does not execute is worse than an admitted gap, because the inventory ` +
+              `reads as coverage — and until round 16 the stamp fired on branch ENTRY, so a record shaped ` +
+              `to skip every check inside the block satisfied the gate that exists to catch exactly that`,
           );
         }
       }

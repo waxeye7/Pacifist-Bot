@@ -66,6 +66,10 @@ import { checkRoom, ecoWalks, witnessPromiseUnbacked, witnessSilentlyTypeOnly, R
 // exactly the attack the reviewers used: the prose-identity gate is satisfied by
 // construction and only the record's own content is left standing
 import { renderDecl } from "./declprose.mjs";
+// ...and the note renderer, for the same reason: round 16 closed the planner-note
+// channel by generating it, so a note case that does not REGENERATE is testing
+// the prose-identity gate rather than the record underneath it.
+import { renderNote } from "./declprose-notes.mjs";
 import { D4, D8, OUT_V2, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const argv = process.argv.slice(2);
@@ -2879,6 +2883,735 @@ run("r13/F8-untriggered-gate", R, (p) => {
   ), planted15("labs", "lab-haul", (d) => {
     d.labs.refused.network = 4;
   }), "refused.network|dormant|cross-kind");
+}
+
+
+// ===========================================================================
+// ROUND 16 — THE MECHANICAL AND OWNER-VOICE REVIEWS' OWN EXPLOITS.
+//
+// Two reviewers, one CRITICAL, two BLOCKING, and a common shape underneath all
+// of them: a rule that is checked WHERE THE DATA HAPPENS TO BE rather than
+// where the inventory says it is.
+//
+//   · C1 — the leaf engine walked the RECORD, not the TABLE, so 347 of 420
+//     leaf instances DELETE-escaped and whole sub-records with them
+//     (`mobility.negotiated` in 57 rooms, `mobility.lift`, `shallowExt.search`).
+//     All five of round 14's planted lies re-landed by deletion, two of them
+//     leaving broken reader-facing prose ("? deep tiles", "undefined cut
+//     tile(s)") standing.
+//   · OF11 — the closure DSL is an INTRA-RECORD shape checker: MIRROR leaves
+//     are the same producer's second assignment, arrays are opaque single
+//     leaves, every closure is scale- and provenance-blind, and `ranBespoke`
+//     stamped BRANCH ENTRY rather than predicate execution.
+//   · M2/M4/M5 — three prose channels still hand-written: layer 2's
+//     negotiation paragraph (whose residue parser is ASCII-numeral-only), the
+//     planner NOTES (no class inventory at all — 200 fabricated "PERFECT ROOM"
+//     notes passed) and `satAcrossPrior.basis` (a 40-character length check).
+//   · M3 — one-sided witnessed bounds admitted sign-impossible values.
+//   · m6/m7/OF1/OF7 — the per-kind books, the sealed interior floor and the
+//     dead-end prune counter.
+//
+// Every case is planted the way its reviewer planted it, and where the defect
+// is in a record the paragraph is REGENERATED from the mutated record with the
+// shipped renderer — which is the whole point of the owner's three-way
+// contrast: a leaf edit WITHOUT prose regen trips the prose-identity gate and
+// proves nothing about the leaf.
+// ===========================================================================
+{
+  const planted16 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+  };
+  /** ...and the same edit with the paragraph left alone */
+  const raw16 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+  };
+  const withDecl16 = (gate, kind, pred) =>
+    anyRoom((p) => {
+      const d = declOf(p, gate, kind);
+      return d ? !pred || pred(d, p) : false;
+    });
+  const at16 = (o, path) => {
+    let cur = o;
+    for (const sgg of path.split(".")) {
+      if (cur === null || cur === undefined) return undefined;
+      cur = cur[sgg];
+    }
+    return cur;
+  };
+  const delPath16 = (o, path) => {
+    const segs = path.split(".");
+    let cur = o;
+    for (let i = 0; i < segs.length - 1; i++) {
+      cur = cur?.[segs[i]];
+      if (!cur) throw new Error(`no ${path}`);
+    }
+    if (!(segs[segs.length - 1] in cur)) throw new Error(`no ${path}`);
+    delete cur[segs[segs.length - 1]];
+  };
+  const setPath16 = (o, path, v) => {
+    const segs = path.split(".");
+    let cur = o;
+    for (let i = 0; i < segs.length - 1; i++) cur = cur[segs[i]];
+    cur[segs[segs.length - 1]] = v;
+  };
+
+  // ---- C1: LEAF DELETION. The five round-14 lies, re-landed BY DELETION ---
+  //
+  // Deleting a leaf used to be strictly better than falsifying it: the
+  // falsification was compared against a derivation and the deletion was not
+  // looked for at all. Two of these leave the prose quoting a number that is
+  // no longer there — "? deep tiles inside the widest enclosure it admits",
+  // "undefined cut tile(s) — 14,35 — carry a rampart" — and passed.
+  const c1 = [
+    ["labs-haulDist", "labs", "lab-haul", "labs.haulDist"],
+    ["ctrlParks-parks", "ctrlParks", "seats", "ctrlParks.parks"],
+    ["battlements-unreachable", "battlements", "unreachable", "battlements.unreachable"],
+    ["towers-maxRefill", "towers", "weak-battery", "battery.maxRefill"],
+    ["spawnFan-viable", "spawnFan", "sector", "spawnFan.census.viable"],
+    ["mobility-metric-maxGated", "mobility", null, "metric.maxGated"],
+    ["mobility-negotiated-lap", "mobility", null, "negotiated.lap"],
+    ["eco-basin", "eco", null, "eco.basin"],
+    ["shell-linkOnCut-negotiatedCutTiles", "shell", null, "linkOnCut.negotiatedCutTiles"],
+    ["shallowExt-search-left", "extensions", "shallow", "shallowExt.search.left"],
+    ["towers-clump-within", "towers", "clump", "clump.within"],
+    ["misc-offNetwork-seats", "misc", "off-network", "offNetwork.seats"],
+    ["runtime-compositions", "runtime", "heavy-search", "runtime.compositions"],
+    ["ctrlParks-released-winningCap", "ctrlParks", "released", "ctrlParks.winningCap"],
+    ["mobility-covered-detour-record", "mobility", "covered-detour", "record.din"],
+    ["towers-declaredCutTiles", "towers", "weak-battery", "towers.declaredCutTiles"],
+  ];
+  for (const [name, gate, kind, path] of c1) {
+    run(
+      `r16/C1-leaf-deleted-${name}`,
+      withDecl16(gate, kind, (d) => at16(d, path) !== undefined),
+      raw16(gate, kind, (d) => delPath16(d, path)),
+      "DOES NOT CARRY IT|re-derived|the record carries",
+    );
+  }
+  // ...and the WHOLE SUB-RECORDS, which is the shape that took the entire
+  // round-15 finding-37 subject off the audit in 57 rooms at once.
+  for (const [name, gate, kind, path] of [
+    ["mobility-negotiated", "mobility", null, "negotiated"],
+    ["mobility-lift", "mobility", null, "lift"],
+    ["mobility-ladder", "mobility", null, "ladder"],
+    ["mobility-lane", "mobility", null, "lane"],
+    ["mobility-repair", "mobility", null, "repair"],
+    ["shallowExt-search", "extensions", "shallow", "shallowExt.search"],
+    ["towers-refillSearch", "towers", "weak-battery", "towers.refillSearch"],
+    ["towers-clump-dispersion-search", "towers", "clump", "dispersion.search"],
+    ["spawnFan-census", "spawnFan", "sector", "spawnFan.census"],
+    ["lift-perClass-map", "mobility", null, "lift.perClass"],
+    ["negotiated-causeWalks", "mobility", null, "negotiated.causeWalks"],
+    ["negotiated-metric", "mobility", null, "negotiated.metric"],
+  ]) {
+    run(
+      `r16/C1-subrecord-deleted-${name}`,
+      withDecl16(gate, kind, (d) => {
+        const v = at16(d, path);
+        return v !== undefined && v !== null;
+      }),
+      raw16(gate, kind, (d) => delPath16(d, path)),
+      "DOES NOT CARRY IT|MAP|re-derived|does not carry",
+    );
+  }
+  // ...and the branch discriminators, which is how "arm A excuses arm B and
+  // arm B excuses arm A" would let a producer delete BOTH.
+  run("r16/C1-ctrlParks-seats-takes-neither-branch",
+    withDecl16("ctrlParks", "seats", (d) => d.ctrlParks?.eaten !== undefined),
+    raw16("ctrlParks", "seats", (d) => { delete d.ctrlParks.eaten; delete d.ctrlParks.built; delete d.ctrlParks.eaters; }),
+    "NONE of the|DOES NOT CARRY IT");
+  run("r16/C1-weak-battery-takes-neither-branch",
+    withDecl16("towers", "weak-battery", (d) => d.towers !== undefined),
+    raw16("towers", "weak-battery", (d) => { delete d.towers; }),
+    "NONE of the|DOES NOT CARRY IT");
+  run("r17/C1-weak-battery-wall-arm-forged",
+    withDecl16("towers", "weak-battery", (d) => d.towers !== undefined),
+    raw16("towers", "weak-battery", (d) => { delete d.towers; d.source = "walls"; d.detail = renderDecl({ ...d, detail: undefined }); }),
+    "`source` says|NONE of the|DOES NOT CARRY IT");
+  run("r16/C1-offNetwork-says-nothing-about-its-extractor",
+    withDecl16("misc", "off-network", (d) => d.offNetwork?.extractor !== undefined),
+    raw16("misc", "off-network", (d) => { delete d.offNetwork.extractor; }),
+    "NONE of the|DOES NOT CARRY IT");
+  run("r16/C1-nulling-a-subrecord-the-inventory-does-not-class",
+    withDecl16("mobility", null, (d) => !!d.negotiated),
+    raw16("mobility", null, (d) => { d.negotiated = null; }),
+    "published as null|DOES NOT CARRY IT|does not name it");
+  run("r16/C1-lift-perClass-loses-one-row",
+    withDecl16("mobility", null, (d) => d.lift?.perClass && Object.keys(d.lift.perClass).length > 1),
+    raw16("mobility", null, (d) => { delete d.lift.perClass[Object.keys(d.lift.perClass)[0]]; }),
+    "re-derived|keyed");
+  run("r16/C1-lift-perClass-gains-an-invented-class",
+    withDecl16("mobility", null, (d) => !!d.lift?.perClass),
+    raw16("mobility", null, (d) => { d.lift.perClass.rampart = { pairDin: 3 }; }),
+    "keyed|invented|does not name it");
+
+  // ---- OF11 (1): MIRRORED PAIRS. Editing in two places is one assignment --
+  //
+  // "THE STRONGEST BOUND A WITNESSED LEAF CAN HAVE… a producer would have to
+  // edit in two places." Both copies are written by the same producer in the
+  // same pass. Every case below edits BOTH and is caught by a bound taken off
+  // the room's own board instead.
+  run("r16/OF11-mirror-pair-repair-baseOver-both-copies",
+    withDecl16("mobility", null, (d, p) => typeof d.repair?.tower?.baseOver === "number" && p.meta?.towers?.mobilityVeto),
+    planted16("mobility", null, (d, p) => {
+      const v = 900000;
+      d.repair.tower.baseOver = v;
+      d.repair.tower.overWithBattery = v;
+      p.meta.towers.mobilityVeto.baseOver = v;
+      p.meta.towers.mobilityVeto.overWithBattery = v;
+    }),
+    "baseOver|overWithBattery|interiorWalkable");
+  run("r16/OF11-mirror-pair-dispersion-census-rescaled",
+    withDecl16("towers", "clump", (d, p) => d.dispersion?.search && p.meta?.towers?.towerDispersion?.search),
+    planted16("towers", "clump", (d, p) => {
+      const n2 = 900000;
+      d.dispersion.search.singleSwapsTried = n2;
+      p.meta.towers.towerDispersion.search.singleSwapsTried = n2;
+    }),
+    "singleSwapsTried|single-slot swap");
+  run("r16/OF11-mirror-pair-towers-candidates-both-copies",
+    withDecl16("towers", "weak-battery", (d, p) => typeof d.towers?.candidates === "number" && p.meta?.towers),
+    planted16("towers", "weak-battery", (d, p) => {
+      d.towers.candidates = 99999;
+      p.meta.towers.candidates = 99999;
+    }),
+    "candidates|interiorTiles");
+  run("r16/OF11-mirror-pair-veto-tried-both-copies",
+    withDecl16("mobility", null, (d, p) => typeof d.repair?.tower?.tried === "number" && p.meta?.towers?.mobilityVeto),
+    planted16("mobility", null, (d, p) => {
+      d.repair.tower.tried = 284400;
+      d.repair.tower.affordable = 0;
+      d.repair.tower.scoreTied = 0;
+      p.meta.towers.mobilityVeto.tried = 284400;
+      p.meta.towers.mobilityVeto.affordable = 0;
+      p.meta.towers.mobilityVeto.scoreTied = 0;
+    }),
+    "tried|single-slot swap");
+  run("r16/OF11-dispersion-clumpAfter-detached-from-the-board",
+    withDecl16("towers", "clump", (d) => typeof d.dispersion?.search?.clumpAfter === "number"),
+    planted16("towers", "clump", (d, p) => {
+      d.dispersion.search.clumpAfter += 3;
+      d.dispersion.search.clumpBefore = d.dispersion.search.clumpAfter + 1;
+      if (p.meta?.towers?.towerDispersion?.search) {
+        p.meta.towers.towerDispersion.search.clumpAfter = d.dispersion.search.clumpAfter;
+        p.meta.towers.towerDispersion.search.clumpBefore = d.dispersion.search.clumpBefore;
+      }
+    }),
+    "clumpAfter|re-derived");
+  // A4 — a dispersion pass that examined ZERO swaps, printed above the
+  // unchanged claim "every legal swap either left the window where it was or
+  // cost the wall damage". A census of nothing closes arithmetically.
+  run("r16/OF11-A4-dispersion-examined-zero-swaps",
+    withDecl16("towers", "clump", (d) => d.dispersion?.search?.rounds > 0),
+    planted16("towers", "clump", (d, p) => {
+      d.dispersion.search.singleSwapsTried = 0;
+      d.dispersion.search.singleSwapsScoreTied = 0;
+      d.dispersion.search.pairSwapsTried = 0;
+      d.dispersion.search.pairSwapsScoreTied = 0;
+      d.dispersion.search.pairImproved = 0;
+      const ms = p.meta?.towers?.towerDispersion?.search;
+      if (ms) {
+        ms.singleSwapsTried = 0;
+        ms.singleSwapsScoreTied = 0;
+        ms.pairSwapsTried = 0;
+        ms.pairSwapsScoreTied = 0;
+        ms.pairImproved = 0;
+      }
+    }),
+    "examined 0 single-slot|did not run|rounds");
+  run("r16/OF11-tower-window-after-detached-from-the-board",
+    withDecl16("towers", "clump", (d) => typeof d.dispersion?.search?.towerWindowAfter === "number"),
+    planted16("towers", "clump", (d) => { d.dispersion.search.towerWindowAfter = 1; }),
+    "towerWindowAfter|re-derived");
+  run("r16/OF11-shallow-census-swapped-to-another-rooms-interior",
+    withDecl16("extensions", "shallow", (d) => typeof d.shallowExt?.search?.interiorWalkable === "number"),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.search.interiorWalkable += 40; }),
+    "interiorWalkable|re-derived");
+
+  // ---- OF11 (2): ARRAY ELEMENTS. `slots[].why` was free text -------------
+  //
+  // C1b, verified by the reviewer on E12S6 against a clean control: six PRICED
+  // legal trades — each a real deep target refused on a defender-lap ceiling —
+  // laundered into "6 slots had NO deep target of any kind". Criticism 12 and
+  // criticism 1's whole argument, inverted, passing 172/172.
+  run("r16/OF11-C1b-priced-trades-laundered-into-impossibility",
+    withDecl16("extensions", "shallow", (d) => d.shallowExt?.priced > 0),
+    planted16("extensions", "shallow", (d) => {
+      const n2 = d.shallowExt.slots.length;
+      d.shallowExt.priced = 0;
+      d.shallowExt.impossible = n2;
+      for (const sl of d.shallowExt.slots) {
+        sl.targets = 0;
+        sl.targetsFaced = 0;
+        sl.targetsOnePave = 0;
+        sl.examined = 0;
+        sl.bestLegal = null;
+        sl.why =
+          `this room has NO free deep tile that is road-faced or one pave away — the post-prune scan ` +
+          `over all ${d.shallowExt.search.interiorTiles} positions of the ${d.shallowExt.search.bandSide}x` +
+          `${d.shallowExt.search.bandSide} buildable band (of which ${d.shallowExt.search.interiorWalkable} ` +
+          `are walkable floor inside this room's own wall) returned an empty candidate list in BOTH ` +
+          `classes, so there is nowhere for this slot to go`;
+      }
+    }),
+    "targets|sharedTarget|left|competing");
+  run("r16/OF11-slot-why-rewritten-as-free-text",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => {
+      d.shallowExt.slots[0].why = "this slot had NO deep target of any kind and nothing could be done about it";
+    }),
+    "not the sentence this row generates");
+  run("r16/OF11-slot-why-numerals-kept-prose-reversed",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => {
+      const sl = d.shallowExt.slots[0];
+      sl.why = String(sl.why)
+        .replace("there is nowhere for this slot to go", "there was somewhere for this slot to go and it was taken")
+        .replace("past this room's ceiling of", "comfortably inside this room's ceiling of");
+    }),
+    "not the sentence this row generates");
+  run("r16/OF11-slot-gains-an-unclassed-field",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.slots[0].verdict = "PERFECT"; }),
+    "element inventory does not name it");
+  run("r16/OF11-slot-loses-a-classed-field",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => { delete d.shallowExt.slots[0].targets; }),
+    "does not carry");
+  run("r16/OF11-slot-tile-is-not-a-shallow-extension",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.slots[0].x = 1; d.shallowExt.slots[0].y = 1; }),
+    "re-derived");
+  run("r16/OF11-slot-depth-detached-from-the-board",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.slots[0].depth = 9; }),
+    "re-derived");
+  run("r16/OF11-slot-lapNow-detached-from-the-board",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.slots[0].lapNow = 0.42; }),
+    "re-derived");
+  run("r16/OF11-slot-priced-under-a-ceiling-it-passes",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.slots || []).some((sl) => sl.bestLegal)),
+    planted16("extensions", "shallow", (d) => {
+      const sl = d.shallowExt.slots.find((q) => q.bestLegal);
+      sl.bestLegal.lap = 0.1;
+      sl.why = String(sl.why).replace(/lap to [\d.]+/, "lap to 0.1");
+    }),
+    "ceiling|the pass TAKES|not the sentence");
+  run("r16/OF11-refusal-why-rewritten",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.search?.refused || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.search.refused[0].why = "the tile was fine, we simply did not want it"; }),
+    "not the sentence this row generates");
+  run("r16/OF11-refusal-names-an-off-grid-tile",
+    withDecl16("extensions", "shallow", (d) => (d.shallowExt?.search?.refused || []).length),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.search.refused[0].k = "-9,-9"; }),
+    "outside the room|tile key");
+  // H1 — `ladder.rungs[].mobility` was unchecked by the block whose own `say`
+  // text claims it checks "the four fields a rung is made of". 13 rooms.
+  run("r16/OF11-H1-ladder-rung-mobility-moved",
+    withDecl16("mobility", null, (d) => (d.ladder?.rungs || []).length > 1),
+    planted16("mobility", null, (d) => { for (const r2 of d.ladder.rungs) r2.mobility = 99; }),
+    "shipped|rung|mobility|lap");
+  run("r16/OF11-ladder-rung-index-is-not-its-position",
+    withDecl16("mobility", null, (d) => (d.ladder?.rungs || []).length > 1),
+    planted16("mobility", null, (d) => { d.ladder.rungs[1].rung = 7; }),
+    "re-derived");
+  run("r16/OF11-ladder-rung-bonus-off-the-schedule",
+    withDecl16("mobility", null, (d) => (d.ladder?.rungs || []).length > 1),
+    planted16("mobility", null, (d) => { d.ladder.rungs[1].needDeepBonus = 500; }),
+    "re-derived");
+  run("r16/OF11-ladder-rung-loses-a-field",
+    withDecl16("mobility", null, (d) => (d.ladder?.rungs || []).length),
+    planted16("mobility", null, (d) => { delete d.ladder.rungs[0].mobility; }),
+    "does not carry|rung is");
+  run("r16/OF11-ladder-rung-gains-an-unclassed-field",
+    withDecl16("mobility", null, (d) => (d.ladder?.rungs || []).length),
+    planted16("mobility", null, (d) => { d.ladder.rungs[0].verdict = "the lap is what it is"; }),
+    "element inventory does not name it");
+  run("r16/OF11-ladder-fallbackBest-is-not-on-the-trail",
+    withDecl16("mobility", null, (d) => Array.isArray(d.ladder?.rungs)),
+    planted16("mobility", null, (d) => { d.ladder.fallbackBest = 42; }),
+    "fallbackBest|best rung");
+  // K4 — the cross-copy compares the two copies to each other, so the room's
+  // own corner passed in both.
+  run("r16/OF11-K4-sharedTarget-is-the-room-corner",
+    withDecl16("extensions", "shallow", (d) => d.shallowExt?.sharedTarget),
+    planted16("extensions", "shallow", (d) => { d.shallowExt.sharedTarget = "0,0"; d.shallowExt.search.sharedTarget = "0,0"; }),
+    "free deep interior tile|sharedTargetSlots|competing");
+
+  // ---- OF11 (4): `ranBespoke` stamped BRANCH ENTRY -----------------------
+  run("r16/OF11-bespoke-stamped-with-no-predicate-composedCaps",
+    withDecl16("ctrlParks", "released", (d) => Array.isArray(d.ctrlParks?.composedCaps)),
+    raw16("ctrlParks", "released", (d) => { d.ctrlParks.composedCaps = 5; }),
+    "not a list of caps|EVALUATED NO PREDICATE");
+  run("r16/OF11-bespoke-stamped-with-no-predicate-negotiated-pair",
+    withDecl16("mobility", null, (d) => Array.isArray(d.negotiated?.tiles)),
+    raw16("mobility", null, (d) => { d.negotiated.tiles = "27,10~36,10"; }),
+    "not a list of tiles|EVALUATED NO PREDICATE|entr");
+
+  // ---- M2: the negotiation paragraph, in every alphabet ------------------
+  //
+  // Seven of nine of these walked past the residue parser, which is
+  // ASCII-numeral-only and can only refuse numbers it can SEE. The gate is
+  // string equality against the paragraph the leaves generate now.
+  const negRoom16 = withDecl16("mobility", null, (d) => typeof d.negotiated?.detail === "string");
+  const negProse = (name, edit) =>
+    run(`r16/M2-${name}`, negRoom16,
+      planted16("mobility", null, (d) => { d.negotiated.detail = edit(d.negotiated.detail); }),
+      "not the paragraph its own leaves generate");
+  negProse("numeral-free-reversal", () =>
+    "defender mobility is COMFORTABLY INSIDE the target on every pair this wall admits; nothing is owed here.");
+  negProse("claim-in-number-words", (t) =>
+    t.replace(/the defender walks \d+ inside while the attacker walks \d+ outside/,
+      "the defender walks nine inside while the attacker walks fourteen outside"));
+  negProse("fullwidth-numerals", (t) => t.replace(/ratio [\d.]+\)/, "ratio ０.４２)"));
+  negProse("arabic-indic-numerals", (t) => t.replace(/ratio [\d.]+\)/, "ratio ٠.٤٢)"));
+  negProse("roman-numerals", (t) => t.replace(/ratio [\d.]+\)/, "ratio I.II)"));
+  negProse("numerals-glued-to-a-letter", (t) => `${t} The as-built reading readsx1 and clears.`);
+  negProse("leading-dot-numerals", (t) => `${t} The as-built ratio is .42 and the detour is .0 tiles.`);
+  negProse("appended-lie-with-no-numerals", (t) => `${t} Nothing is owed on this wall.`);
+  negProse("cause-clause-verdict-flipped", (t) =>
+    t.replace("which is STILL OVER the 1.2 target", "which is comfortably INSIDE the 1.2 target"));
+  negProse("counterfactual-walk-verdict-flipped", (t) =>
+    t.replace("so it CLEARS the gate outright", "so it does NOT clear the gate"));
+
+  // ---- M3: sign-impossible values, the reviewer's own batch ---------------
+  const signs = [
+    ["negotiated-shippedWallLap", "mobility", null, "negotiated.shippedWallLap", -2.5],
+    ["repair-mass-liftedLap", "mobility", null, "repair.mass.liftedLap", -2.5],
+    ["towers-maxRefillUnblocked", "towers", "weak-battery", "towers.maxRefillUnblocked", -10],
+    ["dispersion-withinAtLayer3", "towers", "clump", "dispersion.withinAtLayer3", -6],
+    ["negotiated-metric-endpoints", "mobility", null, "negotiated.metric.endpoints", -810],
+    ["lane-bounded", "mobility", null, "lane.bounded", -3],
+    ["ladder-shippedLap", "mobility", null, "ladder.shippedLap", -1.5],
+    ["negotiated-floor", "mobility", null, "negotiated.floor", -1],
+    ["towers-minShellDmg", "towers", "weak-battery", "towers.minShellDmg", -600],
+    ["lane-stubsLifted", "mobility", null, "lane.stubsLifted", -4],
+    ["repair-tower-baseLap", "mobility", null, "repair.tower.baseLap", -1.5],
+    ["shallowExt-search-refusedExaminations", "extensions", "shallow", "shallowExt.search.refusedExaminations", -17],
+  ];
+  for (const [name, gate, kind, path, v] of signs) {
+    run(`r16/M3-sign-impossible-${name}`,
+      withDecl16(gate, kind, (d) => typeof at16(d, path) === "number"),
+      planted16(gate, kind, (d) => setPath16(d, path, v)),
+      "non-negative|below|exceeds|re-derived|not the paragraph|not a lap");
+  }
+  // ...and the two HONEST signed exceptions, which must still be bounded from
+  // BOTH sides. A negative `lane.cost` is legitimate; a reservation that frees
+  // more ramparts than the room has tiles is not.
+  run("r16/M3-honest-signed-exception-lane-cost-out-of-range",
+    withDecl16("mobility", null, (d) => typeof d.lane?.cost === "number"),
+    planted16("mobility", null, (d) => { d.lane.cost = -99999; }),
+    "lane.cost|not null and not a finite number");
+  run("r16/M3-honest-signed-exception-lane-gain-out-of-range",
+    withDecl16("mobility", null, (d) => typeof d.lane?.gain === "number"),
+    planted16("mobility", null, (d) => { d.lane.gain = 4242; }),
+    "lane.gain|not null and not a finite number");
+  run("r16/M3-honest-signed-exception-causeWalks-detour-out-of-range",
+    withDecl16("mobility", null, (d) => typeof d.negotiated?.causeWalks?.noWalls?.detour === "number"),
+    planted16("mobility", null, (d) => { d.negotiated.causeWalks.noWalls.detour = -99999; }),
+    "detour|not null and not a finite number|not the paragraph");
+  run("r16/M3-eco-basin-larger-than-the-room",
+    withDecl16("eco", null, (d) => typeof d.eco?.basin === "number"),
+    planted16("eco", null, (d) => { d.eco.basin = 99999; }),
+    "eco.basin|interiorTiles");
+  run("r16/M3-declaredCutTiles-larger-than-the-room",
+    withDecl16("towers", "weak-battery", (d) => typeof d.towers?.declaredCutTiles === "number"),
+    planted16("towers", "weak-battery", (d) => { d.towers.declaredCutTiles = 830; }),
+    "declaredCutTiles|interiorWalkable");
+  run("r16/M3-lane-tiles-larger-than-the-interior",
+    withDecl16("mobility", null, (d) => typeof d.lane?.tiles === "number"),
+    planted16("mobility", null, (d) => { d.lane.tiles = 9999; d.lane.deep = 9999; }),
+    "lane.tiles|interiorWalkable");
+  run("r16/M3-eco-basin-says-it-is-unbounded-while-coreSize-is-held-to-it",
+    withDecl16("eco", null, (d) => typeof d.eco?.basin === "number" && typeof d.eco?.coreSize === "number"),
+    planted16("eco", null, (d) => { d.eco.basin = d.eco.coreSize - 1; }),
+    "eco.basin|coreSize");
+
+  // ---- M4: the note channel, which had no class inventory at all ---------
+  const noteRoom = anyRoom((p) => (p.meta?.notes || []).length && (p.meta?.noteRecords || []).length);
+  run("r16/M4-fabricated-note-class", noteRoom, (p) => {
+    p.meta.notes.push("PERFECT ROOM: this room is perfect and needs no further review.");
+    p.meta.noteRecords.push({ cls: "perfectRoom", rec: {} });
+  }, "inventory|not in the inventory|noteObligations");
+  run("r16/M4-fabricated-note-with-no-record", noteRoom, (p) => {
+    p.meta.notes.push("PERFECT ROOM: this room is perfect and needs no further review.");
+  }, "noteRecords|entr");
+  run("r16/M4-two-hundred-fabricated-notes", noteRoom, (p) => {
+    for (let i = 0; i < 200; i++) {
+      p.meta.notes.push(`PERFECT ROOM: pass ${i} found nothing to say.`);
+      p.meta.noteRecords.push({ cls: "perfectRoom", rec: { i } });
+    }
+  }, "inventory|not in the inventory|noteObligations");
+  run("r16/M4-appended-lie-on-a-checked-note", noteRoom, (p) => {
+    p.meta.notes[0] = `${p.meta.notes[0]} Nothing here costs this room anything.`;
+  }, "not the note its own record generates");
+  run("r16/M4-note-prose-reversed-numerals-kept", noteRoom, (p) => {
+    // the round-16 exploit verbatim: keep every anchored numeral, reverse the
+    // sentence around them
+    const t0 = String(p.meta.notes[0]);
+    const head = t0.slice(0, t0.indexOf(":") + 1);
+    const nums = (t0.match(/\d+(?:\.\d+)?/g) || []).join(" ");
+    p.meta.notes[0] =
+      `${head} this room is in the best shape of any in the fleet on this axis and owes a reader ` +
+      `nothing at all. [audit tokens: ${nums}]`;
+  }, "not the note its own record generates");
+  run("r16/M4-note-deleted", noteRoom, (p) => {
+    p.meta.notes.pop();
+    p.meta.noteRecords.pop();
+  }, "owes a|noteObligations|SEALED|redundant|seals");
+  run("r16/M4-shallow-note-deleted-the-ten-that-were-free",
+    anyRoom((p) => (p.meta?.noteRecords || []).some((r2) => r2.cls === "shallowExt")),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((r2) => r2.cls === "shallowExt");
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.notes.splice(i, 1);
+    },
+    "owes a|shallowExt");
+  run("r16/M4-note-record-swapped-for-another-class", noteRoom, (p) => {
+    p.meta.noteRecords[0].cls = "pavingGap";
+  }, "cannot be rendered|not the note|noteObligations");
+  run("r16/M4-note-record-field-moved-under-a-regenerated-note",
+    anyRoom((p) => (p.meta?.noteRecords || []).some((r2) => r2.cls === "sealedFloor")),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((r2) => r2.cls === "sealedFloor");
+      p.meta.noteRecords[i].rec = { ...p.meta.noteRecords[i].rec, deep: 0 };
+      p.meta.notes[i] = renderNote(p.meta.noteRecords[i]);
+    },
+    "re-derived|deep");
+  run("r16/M4-note-obligation-quotes-a-value-the-record-does-not-have",
+    anyRoom((p) => (p.meta?.noteObligations || []).some((o) => (o.why || []).length)),
+    (p) => { p.meta.noteObligations[0].why[0].value = 424242; },
+    "fires the|does not have");
+  run("r16/M4-note-obligations-emptied",
+    anyRoom((p) => (p.meta?.noteObligations || []).length),
+    (p) => { p.meta.noteObligations = []; },
+    "does not say it owes");
+  run("r16/M4-note-obligations-deleted",
+    anyRoom((p) => (p.meta?.noteObligations || []).length),
+    (p) => { delete p.meta.noteObligations; },
+    "noteObligations");
+  run("r16/M4-both-note-arrays-deleted",
+    anyRoom((p) => (p.meta?.notes || []).length),
+    (p) => { delete p.meta.notes; delete p.meta.noteRecords; },
+    "owes a|noteObligations|SEALED|redundant|seals");
+  run("r16/M4-notes-and-records-drift-in-length", noteRoom, (p) => {
+    p.meta.noteRecords.push({ ...p.meta.noteRecords[0] });
+  }, "entr|records");
+  run("r16/M4-two-notes-of-one-class", noteRoom, (p) => {
+    p.meta.noteRecords.push({ ...p.meta.noteRecords[0] });
+    p.meta.notes.push(p.meta.notes[0]);
+  }, "publishes 2|entr|notes");
+
+  // ---- M5: satAcrossPrior.basis was a 40-character length check -----------
+  const sapRoom = anyRoom((p) => typeof p.meta?.towers?.adjacency?.satAcrossPrior?.basis === "string");
+  run("r16/M5-basis-asserts-the-opposite-board", sapRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.basis =
+      "held/offerOnShipped/reachable/forgone are stated on LAYER 3's board (meta.towers.minShellDmg) and " +
+      "atLayer3 is the SHIPPED re-read, which is the opposite of what every other room in this fleet " +
+      "publishes, and this sentence is two hundred characters long so that it clears the length gate.";
+  }, "not the sentence this record generates");
+  run("r16/M5-basis-emptied", sapRoom, (p) => {
+    p.meta.towers.adjacency.satAcrossPrior.basis = "";
+  }, "basis");
+  run("r16/M5-basis-drops-its-closing-clause", sapRoom, (p) => {
+    const sap = p.meta.towers.adjacency.satAcrossPrior;
+    sap.basis = String(sap.basis).slice(0, Math.max(60, sap.basis.length - 120));
+  }, "not the sentence this record generates|basis");
+
+  // ---- m6: the per-kind books, at TILE level ------------------------------
+  const bookRoom = anyRoom((p) => {
+    const w2 = p.meta?.walls;
+    return w2 && w2.laidTilesByKind && Object.values(w2.laidTilesByKind).some((a) => Array.isArray(a) && a.length);
+  });
+  const someKind = (p) => Object.keys(p.meta.walls.laidTilesByKind).find((k2) => (p.meta.walls.laidTilesByKind[k2] || []).length);
+  run("r16/m6-laid-tile-off-the-grid", bookRoom, (p) => {
+    const k2 = someKind(p);
+    p.meta.walls.laidTilesByKind[k2].push({ x: -9, y: -9 });
+    p.meta.walls.laidByKind[k2] += 1;
+    p.meta.walls.lostByKind[k2] = [...(p.meta.walls.lostByKind[k2] || []), { x: -9, y: -9 }];
+  }, "not a tile of this room|natural WALL");
+  run("r16/m6-lost-tile-is-a-shipped-road", bookRoom, (p) => {
+    const k2 = someKind(p);
+    const live = p.meta.walls.laidTilesByKind[k2].find((t) => (p.structures.road || []).some((r2) => r2.x === t.x && r2.y === t.y));
+    if (!live) throw new Error("no live tile of this kind");
+    p.meta.walls.lostByKind[k2] = [...(p.meta.walls.lostByKind[k2] || []), { x: live.x, y: live.y }];
+    p.meta.walls.shippedByKind[k2] -= 1;
+  }, "lost|Lost|ships a road there|was not taken");
+  run("r16/m6-shipped-road-reattributed-between-passes", bookRoom, (p) => {
+    const w2 = p.meta.walls;
+    const kinds = Object.keys(w2.laidTilesByKind);
+    const from = kinds.find((k2) => (w2.shippedByKind[k2] || 0) > 0);
+    const to = kinds.find((k2) => k2 !== from);
+    if (!from || !to) throw new Error("needs two kinds");
+    const tk = Object.keys(w2.roadKind).find((t) => w2.roadKind[t] === from);
+    w2.roadKind[tk] = to;
+    w2.shippedByKind[from] -= 1;
+    w2.shippedByKind[to] = (w2.shippedByKind[to] || 0) + 1;
+    const [tx, ty] = tk.split(",").map(Number);
+    w2.laidTilesByKind[to] = [...(w2.laidTilesByKind[to] || []), { x: tx, y: ty }];
+    w2.laidByKind[to] = (w2.laidByKind[to] || 0) + 1;
+    w2.laidTilesByKind[from] = w2.laidTilesByKind[from].filter((t) => `${t.x},${t.y}` !== tk);
+    w2.laidByKind[from] -= 1;
+  }, "laid MINUS|late-road books|provenance");
+  run("r16/m6-restored-tile-claims-a-layer-7-road",
+    anyRoom((p) => {
+      const w2 = p.meta?.walls;
+      if (!w2 || !w2.laidTilesByKind || !w2.roadKind) return false;
+      return Object.keys(w2.roadKind).length > 0;
+    }),
+    (p) => {
+      const w2 = p.meta.walls;
+      const k2 = Object.keys(w2.laidTilesByKind)[0];
+      // a tile layer 7 itself laid: "restored" means an EARLIER layer laid it,
+      // the prune took it and this pass un-deleted it
+      const tk = Object.keys(w2.roadKind).find((t) => w2.roadKind[t] !== k2) || Object.keys(w2.roadKind)[0];
+      const [tx, ty] = tk.split(",").map(Number);
+      w2.restoredByKind = { ...(w2.restoredByKind || {}), [k2]: [{ x: tx, y: ty }] };
+    },
+    "restoredByKind|never there to restore|is this pass");
+  run("r16/m6-restored-tile-is-not-a-road-at-all", bookRoom, (p) => {
+    const w2 = p.meta.walls;
+    const k2 = Object.keys(w2.laidTilesByKind)[0];
+    w2.restoredByKind = { ...(w2.restoredByKind || {}), [k2]: [{ x: 0, y: 0 }] };
+  }, "restoredByKind|ships no road");
+  run("r16/m6-fabricated-reflow-pass",
+    anyRoom((p) => p.meta?.walls?.laidByKind && "reflow" in p.meta.walls.laidByKind),
+    (p) => {
+      const w2 = p.meta.walls;
+      const fake = [];
+      for (let i = 0; i < 40; i++) fake.push({ x: 5 + (i % 8), y: 40 + Math.floor(i / 8) });
+      w2.laidByKind.reflow = (w2.laidByKind.reflow || 0) + 40;
+      w2.laidTilesByKind.reflow = [...(w2.laidTilesByKind.reflow || []), ...fake];
+      w2.lostByKind.reflow = [...(w2.lostByKind.reflow || []), ...fake];
+    },
+    "natural WALL|not a tile of this room|laid MINUS|Lost IS laid|ships a road");
+
+  // ---- m7 / OF1: the sealed interior floor, nine live escapes -------------
+  const sealRoom = anyRoom((p) => p.meta?.sealedFloor && p.meta.sealedFloor.tiles > 0);
+  const reNote = (p) => {
+    const i = (p.meta.noteRecords || []).findIndex((r2) => r2.cls === "sealedFloor");
+    if (i >= 0) {
+      p.meta.noteRecords[i].rec = p.meta.sealedFloor;
+      p.meta.notes[i] = renderNote(p.meta.noteRecords[i]);
+    }
+  };
+  run("r16/OF1-sealedFloor-deleted", sealRoom, (p) => { delete p.meta.sealedFloor; },
+    "seals|ABSENT|owes");
+  run("r16/OF1-sealedFloor-and-its-note-deleted", sealRoom, (p) => {
+    delete p.meta.sealedFloor;
+    const i = (p.meta.noteRecords || []).findIndex((r2) => r2.cls === "sealedFloor");
+    if (i >= 0) { p.meta.noteRecords.splice(i, 1); p.meta.notes.splice(i, 1); }
+  }, "seals|ABSENT|owes");
+  run("r16/OF1-sealedFloor-tiles-as-a-string", sealRoom, (p) => {
+    p.meta.sealedFloor.tiles = String(p.meta.sealedFloor.tiles);
+  }, "wrong shape|re-derived");
+  run("r16/OF1-sealedFloor-coordinated-deflate", sealRoom, (p) => {
+    const sf2 = p.meta.sealedFloor;
+    sf2.tiles = 1;
+    sf2.deep = 0;
+    sf2.ourFault = 0;
+    sf2.named = sf2.named.slice(0, 1);
+    reNote(p);
+  }, "re-derived");
+  run("r16/OF1-sealedFloor-deep-zeroed", sealRoom, (p) => {
+    p.meta.sealedFloor.deep = 0;
+    reNote(p);
+  }, "re-derived");
+  run("r16/OF1-sealedFloor-ourFault-zeroed", sealRoom, (p) => {
+    p.meta.sealedFloor.ourFault = 0;
+    reNote(p);
+  }, "re-derived");
+  run("r16/OF1-sealedFloor-coordinated-inflate-with-invented-tiles", sealRoom, (p) => {
+    const sf2 = p.meta.sealedFloor;
+    sf2.tiles += 8;
+    sf2.deep += 8;
+    for (let i = 0; i < 8; i++) sf2.named.push({ x: 23 + (i % 4), y: 17 + Math.floor(i / 4) });
+    reNote(p);
+  }, "re-derived|named");
+  run("r16/OF1-sealedFloor-named-list-emptied", sealRoom, (p) => {
+    p.meta.sealedFloor.named = [];
+    reNote(p);
+  }, "named|re-derived");
+  run("r16/OF1-sealedFloor-basis-names-the-wrong-flood", sealRoom, (p) => {
+    p.meta.sealedFloor.basis = "unreachable under the DEFENDED-region flood, which never steps outside the wall.";
+    reNote(p);
+  }, "basis|flood");
+  run("r16/OF1-sealedFloor-depthSafe-moved", sealRoom, (p) => {
+    p.meta.sealedFloor.depthSafe = 2;
+    reNote(p);
+  }, "re-derived|depthSafe");
+  run("r16/OF1-sealedFloor-published-where-the-board-seals-nothing",
+    anyRoom((p) => !p.meta?.sealedFloor),
+    (p) => {
+      p.meta.sealedFloor = {
+        tiles: 4, deep: 4, ourFault: 4, shallowStructs: 0, depthSafe: 4,
+        named: [{ x: 23, y: 17 }, { x: 24, y: 17 }, { x: 23, y: 18 }, { x: 24, y: 18 }],
+        basis: "unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk).",
+      };
+    },
+    "seals NO floor|re-derived");
+  run("r16/OF1-inertPruned-deleted",
+    anyRoom((p) => typeof p.meta?.walls?.inertPruned === "number"),
+    (p) => { delete p.meta.walls.inertPruned; },
+    "inertPruned");
+
+  // ---- OF7: the dead-end prune counter -----------------------------------
+  const pruneRoom = anyRoom((p) => typeof p.meta?.walls?.pruned === "number" && (p.meta.walls.prunedTiles || []).length);
+  run("r16/OF7-pruned-counts-a-tile-that-ships-a-road", pruneRoom, (p) => {
+    const r2 = (p.structures.road || [])[0];
+    p.meta.walls.prunedTiles = [...p.meta.walls.prunedTiles, { x: r2.x, y: r2.y }];
+    p.meta.walls.prunedAtPassTiles = [...p.meta.walls.prunedAtPassTiles, { x: r2.x, y: r2.y }];
+    p.meta.walls.pruned += 1;
+    p.meta.walls.prunedAtPass += 1;
+    p.meta.walls.prunedTransient += 1;
+  }, "SHIPS A ROAD ON|dead-end prune");
+  run("r16/OF7-event-count-published-as-the-tile-count",
+    anyRoom((p) => p.meta?.walls?.prunedAtPass > p.meta?.walls?.pruned),
+    (p) => { p.meta.walls.pruned = p.meta.walls.prunedAtPass; },
+    "dead-end prune");
+  run("r16/OF7-ghost-transient-split-does-not-close", pruneRoom, (p) => {
+    p.meta.walls.prunedGhosts += 3;
+  }, "dead-end prune|ghost");
+  run("r16/OF7-relaid-tile-is-not-on-the-board",
+    anyRoom((p) => (p.meta?.walls?.prunedRelaid || []).length),
+    (p) => { p.meta.walls.prunedRelaid = [{ x: 0, y: 0 }]; },
+    "dead-end prune|prunedRelaid");
+  run("r16/OF7-prune-tile-list-deleted", pruneRoom, (p) => { delete p.meta.walls.prunedTiles; },
+    "dead-end prune|prunedTiles");
+  run("r16/OF7-ghost-count-detached-from-roadLayer",
+    anyRoom((p) => (p.meta?.walls?.prunedTransient || 0) > 0),
+    (p) => {
+      p.meta.walls.prunedGhosts = p.meta.walls.pruned;
+      p.meta.walls.prunedTransient = 0;
+    },
+    "dead-end prune|roadLayer|ghost");
+
+  // ---- OF3 / OF4: the across-prior take ----------------------------------
+  const takeRoom = anyRoom((p) => p.meta?.towers?.acrossPriorTake?.taken);
+  run("r16/OF4-take-claims-a-destination-with-no-tower", takeRoom, (p) => {
+    p.meta.towers.acrossPriorTake.taken.to = { x: 1, y: 1 };
+  }, "no tower there|adjacency|crossings");
+  run("r16/OF4-take-panel-does-not-end-where-the-board-ends", takeRoom, (p) => {
+    p.meta.towers.acrossPriorTake.after.face += 300;
+  }, "after.face|minShellDmg");
+  run("r16/OF4-take-deleted-leaving-the-adjacency-unexplained",
+    anyRoom((p) => {
+      if (!p.meta?.towers?.acrossPriorTake?.taken) return false;
+      const tw = p.structures?.tower || [];
+      return tw.some((a, i) => tw.some((b, j) => j > i && Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y)) === 1));
+    }),
+    (p) => { delete p.meta.towers.acrossPriorTake; },
+    "crossings|adjacency|abandoned|atLayer3");
+  run("r16/OF3-seat-occupancy-dropped",
+    anyRoom((p) => p.meta?.towers?.adjacency?.satAcrossPrior?.seatOccupancy),
+    (p) => { delete p.meta.towers.adjacency.satAcrossPrior.seatOccupancy; },
+    "basis|not the sentence this record generates");
 }
 
 // ===========================================================================

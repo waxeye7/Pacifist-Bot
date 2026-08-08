@@ -208,8 +208,15 @@ export function renderShallowExt(sf) {
     `${plural(sh.count, "structure", "structures")} a ranged attacker can hit from outside the wall. This is a ` +
     `cost the room took because it could not do better, and here is the search that says so, re-run at the ` +
     `end against the board this room ships. ` +
+    // OF10 (round 16): `interiorTiles` is 2304 in every room in the fleet because
+    // it counts the 48x48 BAND, and this sentence called those positions
+    // "interior" in a room that holds 178 of them. The count was right and the
+    // noun was wrong by an order of magnitude, in the declaration attached to the
+    // owner's top criterion. Both figures are printed and each is named.
     `THE CANDIDATE SCAN, BOTH CLASSES, COUNTED SEPARATELY: layer 7b swept all ${n(se.interiorTiles, 2304)} ` +
-    `interior positions for free, deep, engine-legal floor and found ${n(se.freeDeepRoadFaced, 0)} already ` +
+    `positions of the ${n(se.bandSide, 48)}x${n(se.bandSide, 48)} buildable band — ` +
+    `${n(se.interiorWalkable, 0)} of them are walkable floor inside this room's own wall, which is what ` +
+    `"interior" means here — for free, deep, engine-legal floor and found ${n(se.freeDeepRoadFaced, 0)} already ` +
     `road-faced and ${n(se.freeDeepOnePave, 0)} more that are ONE PLAIN PAVE from the network. Of the ` +
     `road-faced class, ${n(se.spentOnAdds, 0)} went to the backfill (extensions this room did not have at ` +
     `all, which outranks retiring a rampart), ${n(se.spentOnMoves, 0)} took a relocated shallow slot, and ` +

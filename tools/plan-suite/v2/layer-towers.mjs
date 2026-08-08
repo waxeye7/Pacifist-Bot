@@ -296,6 +296,15 @@ export function planTowers(terrain, plan, opts = {}) {
   // and six towers in a blob beside storage is the guaranteed outcome. Only
   // an absurdly open room gets thinned, and then by 2x2 block so the geometry
   // survives the cut.
+  // THE SEAT LIST BEFORE THE 2x2 THINNING, kept (OF6, round 16). `spatialPrune`
+  // only fires in an absurdly open room, and E14S1 is one: 368 legal deep seats
+  // thinned to 115, and `32,24` -- the tile that retires that room's clump
+  // declaration for nothing -- is one of the 253 the thinning dropped. The
+  // SEARCH is unchanged and still runs on the thinned list, because that cap is
+  // what keeps a multi-start descent inside the compose budget. The offer scan
+  // below is a single-slot pass over the room's whole seat census, which is what
+  // "there was nothing to find" has to be a claim about.
+  const seatsUnthinned = cands;
   if (cands.length > MAX_CANDS) cands = spatialPrune(cands, refillWeight);
   const C = cands.length;
 
@@ -684,9 +693,16 @@ export function planTowers(terrain, plan, opts = {}) {
   // stronger and exact: blocking all six towers may remove exactly those six
   // tiles from the sitter's walk region and nothing else.
   // ------------------------------------------------------------------
+  /**
+   * Every instrument below takes a SET, and a set is either candidate indices
+   * (what the search works in) or plain tiles (what the offer scan works in,
+   * because its seats are drawn from the unthinned census and have no index).
+   * One definition of each instrument, two callers, no second copy to drift.
+   */
+  const seatsOf = (set) => set.map((c) => (typeof c === "number" ? cands[c] : c));
   const reachCount = (set) => {
     const blocked = new Set(blockers);
-    for (const c of set) blocked.add(key(cands[c].x, cands[c].y));
+    for (const c of seatsOf(set)) blocked.add(key(c.x, c.y));
     const f = fieldFrom(terrain, plan.sitter, blocked);
     let n = 0;
     for (let i = 0; i < 2500; i++) if (f[i] < 9999) n++;
@@ -696,9 +712,7 @@ export function planTowers(terrain, plan, opts = {}) {
   const serviceable = (set) => {
     const { n, f } = reachCount(set);
     if (n < baseReach - set.length) return false; // stranded interior floor
-    return set.every((c) =>
-      D8.some(([dx, dy]) => f[idx(cands[c].x + dx, cands[c].y + dy)] < 9999),
-    );
+    return seatsOf(set).every((c) => D8.some(([dx, dy]) => f[idx(c.x + dx, c.y + dy)] < 9999));
   };
   for (let repair = 0; repair < N_TOWERS && !serviceable(best); repair++) {
     // Find the slot whose removal restores service, then re-fill it with the
@@ -779,7 +793,7 @@ export function planTowers(terrain, plan, opts = {}) {
   for (const t of HIGH_VALUE) for (const p of plan.structures[t] || []) fixedHV.push(p);
   /** the fullest 5x5 window over the fixed high-value mass plus this tower set */
   const windowMax = (set) => {
-    const pts = fixedHV.concat(set.map((c) => ({ x: cands[c].x, y: cands[c].y })));
+    const pts = fixedHV.concat(seatsOf(set).map((c) => ({ x: c.x, y: c.y })));
     let mx = 0;
     for (const a of pts) {
       // every maximal window contains some structure, so centring on each of
@@ -808,7 +822,7 @@ export function planTowers(terrain, plan, opts = {}) {
    * the instrument that replaces it has to count towers.
    */
   const towerWindowMax = (set) => {
-    const pts = set.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+    const pts = seatsOf(set).map((c) => ({ x: c.x, y: c.y }));
     let mx = 0;
     for (const a of pts) {
       for (let ox = -2; ox <= 2; ox++) {
@@ -861,9 +875,10 @@ export function planTowers(terrain, plan, opts = {}) {
   /** the filler's walk to each seat of `set`, with all of `set` standing */
   const selfBlockedRefills = (set) => {
     const blk = new Set(impassable);
-    for (const c of set) blk.add(key(cands[c].x, cands[c].y));
+    const tiles = seatsOf(set);
+    for (const c of tiles) blk.add(key(c.x, c.y));
     const f = fieldFrom(terrain, plan.sitter, blk);
-    return set.map((c) => arriveField(f, cands[c]));
+    return tiles.map((c) => arriveField(f, c));
   };
   const refillMaxOf = (set) => Math.max(...selfBlockedRefills(set));
 
@@ -966,14 +981,14 @@ export function planTowers(terrain, plan, opts = {}) {
       crossOffered: 0,
       seat: null,
       leaves: null,
-      basis:
-        `held/offerOnShipped/reachable/forgone are re-derived in finalizeRoom over the SHIPPED wall ` +
-        `(meta.shell.cut) and the SHIPPED battery (structures.tower) with the engine falloff — 600 at ` +
-        `chebyshev <= 5, -30 per tile to 150 at >= 20 — capped at the ${MIN_SAT} saturation ceiling, the ` +
-        `same call that produces meta.towers.shippedMinShellDmg. atLayer3 keeps the reading the search ` +
-        `was actually made on (layer 2's cut, meta.towers.minShellDmg), because a refusal is only ` +
-        `explicable against the board that saw it. seat/leaves/tried/crossOffered are the layer-3 ` +
-        `search's own census and are stated on that board.`,
+      // M5 (round 16): `basis` is GENERATED in finalizeRoom from this record's
+      // own fields — see renderSatBasis in declprose-towers.mjs. It used to be a
+      // hand-typed paragraph, and the validator's only check on it was that it
+      // was a string of some length, so a room could publish any sentence at all
+      // about which board its numbers were taken on. It is now a function of
+      // atLayer3/held/offerOnShipped/reachable/forgone/seatOccupancy and nothing
+      // else, and the validator re-renders and compares.
+      basis: null,
     },
   };
   /** the three readings a crossing has to prove it does not worsen */
@@ -1004,8 +1019,51 @@ export function planTowers(terrain, plan, opts = {}) {
     adjacency.priorHeld = false;
   };
 
+  // ------------------------------------------------------------------
+  // THE THREE STATISTICS THE DECLARATION IS ABOUT (OF6, round 16).
+  //
+  // The dispersion pass below ranks swaps on `windowMax` alone -- the whole-mass
+  // 5x5 -- and the declaration it feeds is about the CLUMP. E14S1 published "1
+  // single-swap round over 613 candidate swaps, of which 1 was score-tied and
+  // therefore legal to take", took nothing, and shipped 5 of 6 towers inside
+  // chebyshev 2 of the sitter. The tie-break is the whole-mass window, which
+  // TIES on that swap (9 -> 9) -- while `32,25 -> 32,24` (empty, depth 12) holds
+  // the weakest face exactly at 2070, holds saturation, holds the refill walk
+  // and the interior, and takes the TOWER-ONLY 5x5 from 5 to 4 and the clump
+  // from 5 to 4. The search was honest about what it searched and it searched
+  // the wrong statistic -- criticism 29's shape (E2S8, "there was nothing to
+  // find" while 243 legal seats existed), one layer over.
+  //
+  // So the three instruments are defined here and the search below OFFERS on all
+  // three, ranked lexicographically: whole-mass 5x5 first, then the tower-only
+  // 5x5 (added in round 14 precisely because the whole-mass max sits on the hub
+  // trio in 170 of 172 rooms and is blind to a battery collapsing underneath
+  // it), then the clump.
+  //
+  // WHY THIS LAYER OFFERS AND DOES NOT TAKE. Ranking the dispersion pass itself
+  // on the tuple was built and measured on the whole fleet: 56 of 172 rooms move
+  // a tower, and among them E11S1's as-built refill walk goes 4 -> 7, E8S7's 4
+  // -> 8 and E18S4's shipped nuke window 9 -> 10. Those are the same two
+  // instruments -- the walk that only exists once sixty extensions, ten labs,
+  // the nuker and the observer are standing, and the window that only exists
+  // once the nuker is placed -- that this file already refuses to spend blind in
+  // the satAcrossPrior block twenty lines below. A pass that cannot read the
+  // number it is moving is not a non-worsening pass. So the tuple produces an
+  // OFFER, the offer is published, and pipeline.mjs re-composes the room with
+  // the swap taken and re-measures every as-built instrument on the board that
+  // ships before anything is kept. See `maybeTakeTowerSwap`.
+  // ------------------------------------------------------------------
+  const clumpOf = (set) =>
+    seatsOf(set).filter(
+      (c) => Math.max(Math.abs(c.x - plan.sitter.x), Math.abs(c.y - plan.sitter.y)) <= 2,
+    ).length;
+  /** the three instruments, in the order the search ranks them */
+  const dispTuple = (set) => [windowMax(set), towerWindowMax(set), clumpOf(set)];
+  const dispBetter = (a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2];
   const nukeBefore = windowMax(best);
   let nukeAfter = nukeBefore;
+  const dispBefore = dispTuple(best);
+  let dispNow = dispBefore.slice();
   /** what the dispersion search actually tried, so a room that fails can say so */
   const nukeSearch = {
     singleSwapsTried: 0,
@@ -1015,6 +1073,13 @@ export function planTowers(terrain, plan, opts = {}) {
     rounds: 0,
     improvedBy: 0,
     pairImproved: 0,
+    // ...and the two instruments round 16 added to the objective, before and
+    // after, so "the search found nothing" is a claim about all three
+    towerWindowBefore: dispBefore[1],
+    towerWindowAfter: dispBefore[1],
+    clumpBefore: dispBefore[2],
+    clumpAfter: dispBefore[2],
+    instruments: ["window5x5", "towerWindow5x5", "clumpCheb2"],
   };
   /**
    * ...and the same for the self-blocked refill repair below: what it measured
@@ -1176,6 +1241,8 @@ export function planTowers(terrain, plan, opts = {}) {
       nukeSearch.pairImproved++;
     }
     nukeSearch.improvedBy = nukeBefore - nukeAfter;
+    nukeSearch.towerWindowAfter = towerWindowMax(best);
+    nukeSearch.clumpAfter = clumpOf(best);
 
     // ------------------------------------------------------------------
     // THE REFILL WALK, REPAIRED.
@@ -1452,19 +1519,152 @@ export function planTowers(terrain, plan, opts = {}) {
     l3.forgone = l3.reachable - l3.held;
   }
 
+  // ------------------------------------------------------------------
+  // THE SWAP THIS LAYER CAN SEE AND CANNOT PRICE -- OFFERED, NOT TAKEN (OF6).
+  //
+  // Same shape as satAcrossPrior above and the opposite direction: that block
+  // records a swap the D8 prior refuses; this one records a swap the prior
+  // ALLOWS, the price clears, and the objective is blind to. It is a single-slot
+  // scan over the final layer-3 battery with the prior respected, the weakest
+  // face and its saturation held EXACTLY (not within the tie-break budget --
+  // this offer is not the dispersion pass and does not get to spend the wall),
+  // and every instrument this layer can read proved non-worsening on the trial
+  // itself: the whole-mass 5x5, the tower-only 5x5, the self-blocked refill walk
+  // and the interior's serviceability. What it then requires is a STRICT
+  // improvement on the tuple, so an offer is always a room getting measurably
+  // better at something it publishes.
+  //
+  // The offer is not taken here. See the header above the dispersion pass: the
+  // instruments that would refuse it -- the as-built refill walk and the shipped
+  // nuke window -- do not exist until layers 5 and 6 have run. pipeline.mjs
+  // re-composes with the swap and re-reads all of them on the board that ships.
+  // ------------------------------------------------------------------
+  const swapOffer = (() => {
+    const baseTiles = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+    const cut = plan.shell.cut;
+    const faceOfSet = (tiles) => {
+      const mn = shellDamage(tiles, cut).min;
+      return { min: mn, sat: mn < MIN_SAT ? mn : MIN_SAT };
+    };
+    const baseFace = faceOfSet(baseTiles);
+    const capWin = windowMax(best);
+    const capTwin = towerWindowMax(best);
+    const capRef = refillMaxOf(best);
+    const base = [capWin, capTwin, clumpOf(best)];
+    const cheb = (a, b) => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+    let pick = null;
+    let scanned = 0;
+    let held = 0;
+    let priced = 0;
+    for (let si = 0; si < baseTiles.length; si++) {
+      for (const seat of seatsUnthinned) {
+        // the D8 prior, respected: the new seat may not touch a tower that stays
+        if (baseTiles.some((t, k) => k !== si && cheb(t, seat) <= 1)) continue;
+        if (seat.x === baseTiles[si].x && seat.y === baseTiles[si].y) continue;
+        scanned++;
+        const trial = baseTiles.slice();
+        trial[si] = { x: seat.x, y: seat.y };
+        // exact, both of them: this is not the dispersion pass and it does not
+        // get to spend the wall inside a tie-break budget
+        const fc = faceOfSet(trial);
+        if (fc.min !== baseFace.min || fc.sat !== baseFace.sat) continue;
+        held++;
+        // the cheap instruments first, so the two floods below run on the
+        // handful of trials that are still alive rather than on all of them
+        const win = windowMax(trial);
+        if (win > capWin) continue;
+        const twin = towerWindowMax(trial);
+        if (twin > capTwin) continue;
+        const t = [win, twin, clumpOf(trial)];
+        if (dispBetter(t, base) >= 0) continue;
+        if (refillMaxOf(trial) > capRef) continue;
+        if (!serviceable(trial)) continue;
+        priced++;
+        if (!pick || dispBetter(t, pick.after) < 0) {
+          pick = {
+            from: { x: baseTiles[si].x, y: baseTiles[si].y },
+            to: { x: seat.x, y: seat.y },
+            after: t,
+          };
+        }
+      }
+    }
+    return {
+      // the room's whole seat census, before the 2x2 thinning the SEARCH runs on
+      seats: seatsUnthinned.length,
+      searchedSeats: C,
+      scanned,
+      faceAndSatHeld: held,
+      priceProven: priced,
+      instruments: ["window5x5", "towerWindow5x5", "clumpCheb2"],
+      before: base,
+      // the single best offer on the tuple, or null when the search really did
+      // find nothing -- which is now a claim about all three statistics, over
+      // every legal deep seat in the room rather than over the thinned list
+      best: pick,
+      basis:
+        `single-slot scan over every legal deep seat this room has (seats), with the D8 prior ` +
+        `respected; the weakest cut-tile face and its saturation held EXACTLY; the whole-mass 5x5, ` +
+        `the tower-only 5x5, the self-blocked refill walk and interior serviceability each proved ` +
+        `non-worsening on the trial; and a strict improvement required on ` +
+        `[window5x5, towerWindow5x5, clumpCheb2] read lexicographically. before/after are that ` +
+        `tuple. NOT taken here -- the as-built refill walk and the shipped nuke window are not ` +
+        `measurable from layer 3, so pipeline.mjs re-composes the room with the swap and re-reads ` +
+        `every as-built instrument on the board that ships before anything is kept.`,
+    };
+  })();
+
   const towers = best.map((c) => ({ x: cands[c].x, y: cands[c].y }));
+
+  // ------------------------------------------------------------------
+  // A SWAP THIS LAYER OFFERED AND THE SHIPPED BOARD ACCEPTED (OF4/OF6).
+  //
+  // `opts.takeTowerSwap` is set by `maybeTakeTowerSwap` in pipeline.mjs, which
+  // re-composes the room with one of this layer's own published offers taken —
+  // either `adjacency.satAcrossPrior` (a lift across the D8 prior) or
+  // `towerSwapOffer.best` (a clump/tower-window improvement the objective is
+  // blind to) — and keeps the result only if every AS-BUILT instrument on the
+  // finished board is non-worsening. It is applied here, after every search has
+  // run, so this layer's own records describe the search it really did and the
+  // battery it really ships: the swap is an input from a re-composition, not a
+  // hand placement, and the tile it names came out of the scan above.
+  //
+  // Everything below this line reads `towers` rather than `best`, so the
+  // records, the roads, the refill array and the clump all describe the shipped
+  // six. The one block that read `best` — the adjacency pair census — is
+  // re-derived from the tiles for exactly that reason.
+  // ------------------------------------------------------------------
+  let swapTaken = null;
+  if (opts.takeTowerSwap) {
+    const { from, to } = opts.takeTowerSwap;
+    const i = towers.findIndex((t) => t.x === from.x && t.y === from.y);
+    if (i >= 0) {
+      towers[i] = { x: to.x, y: to.y };
+      swapTaken = { from: { x: from.x, y: from.y }, to: { x: to.x, y: to.y } };
+    }
+  }
+
   // THE PRIOR, AS SHIPPED — re-derivable from `structures.tower` and nothing
   // else, which is the point: a reader who distrusts the crossing record can
   // count the D8-adjacent pairs on the board and compare.
   {
-    const ap = adjacentPairsOf(best);
-    adjacency.pairs = ap.length;
-    adjacency.pairTiles = ap.map(([i, j]) => [
-      { x: cands[best[i]].x, y: cands[best[i]].y },
-      { x: cands[best[j]].x, y: cands[best[j]].y },
+    const pairs = [];
+    for (let i = 0; i < towers.length - 1; i++) {
+      for (let j = i + 1; j < towers.length; j++) {
+        if (
+          Math.max(Math.abs(towers[i].x - towers[j].x), Math.abs(towers[i].y - towers[j].y)) <= 1
+        ) {
+          pairs.push([i, j]);
+        }
+      }
+    }
+    adjacency.pairs = pairs.length;
+    adjacency.pairTiles = pairs.map(([i, j]) => [
+      { x: towers[i].x, y: towers[i].y },
+      { x: towers[j].x, y: towers[j].y },
     ]);
     // a crossing the later passes happened to undo is not a shipped crossing
-    adjacency.priorHeld = ap.length === 0;
+    adjacency.priorHeld = pairs.length === 0;
   }
   // ...and the walk the filler really makes at this layer, republished over the
   // six seats that ship. See the block above; layer 7 re-derives it again over
@@ -1823,6 +2023,32 @@ export function planTowers(terrain, plan, opts = {}) {
     const sf = {
       gate: "towers",
       kind: "weak-battery",
+      // ------------------------------------------------------------------
+      // WHICH LAYER FILED THIS, ON THE RECORD, UNCONDITIONALLY.
+      //
+      // `weak-battery` is the one declaration kind two different layers can
+      // open: this one, which can explain the placement search and carries it
+      // in `towers.*`, and layer 7's `declareShippedBattery` /
+      // `declareShippedRefill`, which speak for a wall layer 3 never saw and
+      // have no search to quote. The two records are therefore differently
+      // SHAPED, and the validator's record-leaf inventory branches on that
+      // shape — which is fine until you ask what pins the branch.
+      //
+      // Until this line, nothing did. `source` was published by the wall arm
+      // ONLY, so the discriminator had to read it as "present => walls", and a
+      // record that deleted `towers.*` and wrote `source: "walls"` took the
+      // wall arm legitimately: 34 audited leaves — the whole placement census,
+      // every counter the paragraph quotes about the search — dropped off the
+      // audit, and the one genuinely wall-sourced room in the fleet (E18S3)
+      // was indistinguishable from the lie. A branch whose arm is chosen by
+      // the ABSENCE of evidence is a branch an editor picks, not a producer.
+      //
+      // So both arms state their arm, always, and the field is a fact about
+      // this run that `meta.towers` (written for every room, declaring or not)
+      // re-derives: layer 3 files exactly when its own reading over layer 2's
+      // cut is legal-but-poor, which is the condition on the `if` above.
+      // ------------------------------------------------------------------
+      source: "towers",
       detail: "",
       tiles: towers.map((t) => ({ x: t.x, y: t.y })),
       towers: {
@@ -1887,6 +2113,12 @@ export function planTowers(terrain, plan, opts = {}) {
       // recomputeNukeWindow in pipeline.mjs, and validate.mjs re-derives it from
       // the shipped structure lists rather than trusting either field.
       // ------------------------------------------------------------------
+      // the offer scan above -- what a search over all three of the declaration's
+      // statistics found, whether or not anything downstream took it
+      towerSwapOffer: swapOffer,
+      // ...and the one the shipped board accepted, filled by the re-composition
+      // in pipeline.mjs (null in every room that composed once)
+      towerSwapTaken: swapTaken,
       towerDispersion: {
         before: nukeBefore,
         after: nukeAfter,
