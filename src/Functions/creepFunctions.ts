@@ -169,7 +169,29 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
 
 
     if(this.memory.role == "ControllerLinkFiller" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller && this.room.controller.level >= 2) {
-        if(this.room.controller && this.room.controller.level < 7) {
+        // A LINK always wins from RCL5 up, whatever the level split below says.
+        //
+        // The `level < 7` branch searches CONTAINERS ONLY, but links unlock at
+        // RCL5 — so an RCL5/6 room with a real controller link had the key
+        // pinned to a container and the link was invisible to every consumer of
+        // the key. Live W2N1 (RCL6): key = the EMPTY container at (10,9) while
+        // the controller link at (9,9), one tile closer to the controller, held
+        // a full 800 energy through 444+ ticks of zero controller progress.
+        // Matches the RCL5+ rung in rooms.spawning.ts:1866-1869.
+        let ctrlLink:any = null;
+        if(this.room.controller.level >= 5) {
+            let ctrlLinks = this.room.find(FIND_MY_STRUCTURES, {filter: building =>
+                building.structureType == STRUCTURE_LINK &&
+                building.id !== this.room.memory.Structures.StorageLink &&
+                building.pos.getRangeTo(this.room.controller) <= 3});
+            if(ctrlLinks.length > 0) {
+                ctrlLink = this.room.controller.pos.findClosestByRange(ctrlLinks);
+            }
+        }
+        if(ctrlLink) {
+            this.room.memory.Structures.controllerLink = ctrlLink.id;
+        }
+        else if(this.room.controller && this.room.controller.level < 7) {
             /*
              * `getRangeTo(controller) == 3` — EXACTLY three — is what this used
              * to ask for, so a depot the planner put at range 1, 2 or 4 was

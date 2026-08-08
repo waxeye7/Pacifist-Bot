@@ -4270,7 +4270,38 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
 
                     if(needNow && notThrashing) {
 
-                        if(room.memory.danger || (storage && storage.store[RESOURCE_ENERGY] < 25000)) {
+                        /*
+                         * AFFORDABILITY, NOT AFFLUENCE.
+                         *
+                         * This used to be a flat `storage < 25000`. The reserver
+                         * it guards costs 650 per CLAIM/MOVE pair — 1,950 at
+                         * RCL6 — so the gate demanded a ~13x margin over the
+                         * thing it was protecting, and it did so in the one
+                         * situation where reserving pays best.
+                         *
+                         * That is a deadlock, not a safety margin. Live W2N1
+                         * (RCL6, one in-room source, storage 0): remote W3N1 sat
+                         * `reserved:false` and therefore at HALF source yield,
+                         * which is precisely why storage could never climb to
+                         * 25 000 — and the unreserved remote was the cause.
+                         * reserverGate() itself passed the room (RCL6>=5,
+                         * capacity 2300>=1300); this line was the whole blocker.
+                         *
+                         * So scale the floor to the body: enough banked to pay
+                         * for the creep several times over and still have a
+                         * cushion, but reachable by a room that is recovering.
+                         * A room at 0 still cannot spawn one — nothing is
+                         * force-spawned here — and the head-of-line relief
+                         * (see spawnStall, ~line 3024) means a queued Reserver
+                         * cannot hold the spawn hostage while it waits.
+                         */
+                        const reserverPairs = room.controller.level <= 4 ? 2
+                            : room.controller.level == 5 ? 2
+                            : room.controller.level == 6 ? 3
+                            : room.controller.level == 7 ? 7 : 8;
+                        const reserverCost = reserverPairs * (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]);
+                        const reserverFloor = Math.max(2000, reserverCost * 3);
+                        if(room.memory.danger || (storage && storage.store[RESOURCE_ENERGY] < reserverFloor)) {
                             return;
                         }
 

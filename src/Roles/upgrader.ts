@@ -30,31 +30,51 @@ function controllerDepot(creep: any): any {
 	if (!ctrl) return null;
 	if (!room.memory.Structures) room.memory.Structures = {};
 
-	const fromRoom: any = Game.getObjectById(room.memory.Structures.controllerLink);
-	if (fromRoom) return fromRoom;
-
-	const mem: any = creep.memory.controllerLink;
-	if (mem && mem.id && Game.time - (mem.t || 0) < 100) {
-		const cached: any = Game.getObjectById(mem.id);
-		if (cached) return cached;
-	}
-
 	const S: any = room.memory.Structures;
 	const sources = room.find(FIND_SOURCES);
-	const candidates = room.find(FIND_STRUCTURES, {
+	const candidates: any[] = room.find(FIND_STRUCTURES, {
 		filter: (s: any) =>
 			(s.structureType == STRUCTURE_CONTAINER || (s.structureType == STRUCTURE_LINK && s.my)) &&
 			s.id !== S.bin &&
 			s.id !== S.storage &&
+			s.id !== S.StorageLink &&
 			s.pos.getRangeTo(ctrl) <= 4 &&
 			s.pos.findInRange(sources, 1).length == 0,
 	});
+
+	// The room key is a HINT, not gospel. It used to be an unconditional early
+	// return, and that is exactly how W2N1 (RCL6) sat 444+ ticks at zero
+	// controller progress: creepFunctions' depot derivation only looks at
+	// CONTAINERS below RCL7, so the key was pinned to the empty container at
+	// (10,9) while the controller LINK at (9,9) — one tile closer to the
+	// controller — held a full 800 energy that nobody would ever draw. Keep it
+	// as a candidate and let the stocked-first ranking below decide.
+	const fromRoom: any = Game.getObjectById(S.controllerLink);
+	if (fromRoom && !_.some(candidates, (c: any) => c.id === fromRoom.id)) {
+		candidates.push(fromRoom);
+	}
+
 	if (!candidates.length) {
 		delete creep.memory.controllerLink;
 		return null;
 	}
 
-	const depot: any = ctrl.pos.findClosestByRange(candidates);
+	// Prefer a depot that actually HAS energy. An empty container must never
+	// out-rank a full link, otherwise the upgrader parks on a dry depot and
+	// falls through to the storage path in a room whose storage is also dry.
+	// Among equally-stocked candidates, closest to the controller wins.
+	const stocked = _.filter(candidates, (c: any) => c.store && c.store[RESOURCE_ENERGY] > 0);
+	const pool: any[] = stocked.length ? stocked : candidates;
+
+	// Only fall back to the cached pick when it is still in the winning pool —
+	// a cache hit must not resurrect the dry depot we just ruled out.
+	const mem: any = creep.memory.controllerLink;
+	if (mem && mem.id && Game.time - (mem.t || 0) < 100) {
+		const cached: any = Game.getObjectById(mem.id);
+		if (cached && _.some(pool, (c: any) => c.id === cached.id)) return cached;
+	}
+
+	const depot: any = ctrl.pos.findClosestByRange(pool);
 	if (!mem || mem.id !== depot.id) creep.memory.controllerLink = { id: depot.id, t: Game.time };
 	else mem.t = Game.time;
 	return depot;

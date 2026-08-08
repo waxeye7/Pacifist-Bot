@@ -200,8 +200,47 @@ function rooms() {
             Memory.targetRampRoom.urgent = false;
           }
         }
-      } else if (Game.time % 1000 == 0) {
-        Memory.CPU.reduce = false;
+      } else {
+        if (Game.time % 1000 == 0) {
+          Memory.CPU.reduce = false;
+        }
+
+        /*
+         * RELEASE THE RAMPART-EMERGENCY LATCH.
+         *
+         * `urgent` is raised at the top of this block, and its ONLY reset
+         * (`Game.time % 400 == 0`) lived INSIDE `danger && danger_timer > 100`
+         * and `storage < 175000` — i.e. the reset was only reachable while the
+         * room was still under attack. The moment the raid ended the branch
+         * stopped running and the flag stayed true forever.
+         *
+         * Live cost on W1N1 (RCL7, no hostiles, danger:false, danger_timer:0):
+         * `Memory.targetRampRoom = {room:"W1N1", urgent:true}` kept the room
+         * pinned as the empire's rampart target with an extra filler and the
+         * SpecialRepair rung primed, while two 36-WORK repairers burned ~72
+         * energy/tick into ramparts already at 4.2-7.5M hits — storage fell
+         * 35 454 -> 19 826 in 444 ticks and the upgrader starved.
+         *
+         * We are in the no-danger branch for this room, so if this room is the
+         * one that raised the flag, the emergency is over: drop `urgent` once
+         * the ramparts are back above a sane floor. Below that floor the room
+         * still needs the reinforcement budget even in peacetime, so the flag
+         * is left alone and only the shooting-war rungs (which all require
+         * `room.memory.danger`) stay closed.
+         */
+        // throttled: while the ramparts really are thin this check would
+        // otherwise run a room-wide find() every tick, forever.
+        if (Game.time % 25 == 0 && Memory.targetRampRoom && Memory.targetRampRoom.urgent && Memory.targetRampRoom.room == room.name) {
+          const RAMPART_PEACETIME_FLOOR = room.controller.level >= 8 ? 10000000 : 3000000;
+          const weakRamparts = room.find(FIND_MY_STRUCTURES, {
+            filter: (s: any) => s.structureType == STRUCTURE_RAMPART && s.hits < RAMPART_PEACETIME_FLOOR
+          });
+          if (weakRamparts.length == 0) {
+            Memory.targetRampRoom.urgent = false;
+            console.log("[ramp-latch]", room.name, "no danger and all ramparts >=",
+              RAMPART_PEACETIME_FLOOR, "- releasing targetRampRoom.urgent");
+          }
+        }
       }
 
       if (

@@ -407,12 +407,23 @@ function roomDefence(room) {
             room.memory.danger = false;
             room.memory.rampartToMan = false
 
-            // let myCreeps = room.find(FIND_MY_CREEPS);
-
-            // if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && room.memory.danger == false ||
-            //     Memory.DistressSignals && Memory.DistressSignals.reinforce_me && room.name == Memory.DistressSignals.reinforce_me && myCreeps.length <= 1) {
-            //     delete Memory.DistressSignals.reinforce_me;
-            // }
+            /*
+             * RELEASE THE DISTRESS LATCH.
+             *
+             * `reinforce_me` is raised above (HostileCreeps.length > 1 && danger)
+             * and this — the only clear — was commented out, so it was a
+             * write-once flag: whichever room called for help first kept calling
+             * forever. Live W1N1 held `Memory.DistressSignals.reinforce_me =
+             * "W1N1"` with `danger:false`, `danger_timer:0`, no hostiles in the
+             * room and ramparts at 4.2-7.5M hits.
+             *
+             * This branch is the no-hostiles branch, and we have just written
+             * danger = false, so the signal has nothing left to describe. Drop it
+             * and let the next real raid raise it again.
+             */
+            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me == room.name) {
+                delete Memory.DistressSignals.reinforce_me;
+            }
         }
         if(HostileCreeps.length > 0) {
             room.memory.blown_fuse = true;
