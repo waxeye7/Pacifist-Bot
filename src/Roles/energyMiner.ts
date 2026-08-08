@@ -41,6 +41,67 @@ function linkNetworkDelivers(room):boolean {
     return works;
 }
 
+/**
+ * Push a loaded link into the controller link.
+ *
+ * This exists as a separate pass because link forwarding is a STRUCTURE action,
+ * not a creep action, and the in-room miner's main body is full of early
+ * `return`s — feeding an adjacent extension (energyMiner.ts:218), repairing its
+ * rampart (:267, :275) — that sit BEFORE the link-routing block. Every one of
+ * them is reachable in the exact state where routing matters most.
+ *
+ * Live W2N1 (RCL6): the source link at (16,16) was pinned at 800, the
+ * controller link at (9,9) at 0, and the controller made no progress. The miner
+ * could not unload into its already-full source link, so it fell into the
+ * `getFreeCapacity() < potential` branch and returned into a starving extension
+ * every single tick — so the very code that would have drained the source link
+ * never ran. That is the deadlock this file's own header comment describes,
+ * reached through the extension rung instead of a missing hub link.
+ *
+ * It also repairs `Structures.controllerLink` when that key is pointing at a
+ * CONTAINER, which is what creepFunctions writes below RCL7 even in a room that
+ * has had a real controller link since RCL5. The room cannot self-heal the key
+ * otherwise: the only other writer is a ControllerLinkFiller, and that creep
+ * cannot be spawned in a room whose storage is empty.
+ *
+ * DRIVEN FROM Rooms/rooms.ts, ONCE PER OWNED ROOM PER TICK — deliberately not
+ * from a creep. The first attempt hung it off the in-room miner and still did
+ * nothing, because by then W2N1 had no in-room miner left at all: its only
+ * surviving EnergyMiners were remotes (targetRoom W3N1), and a room starved
+ * badly enough to lose its miner is exactly the room that cannot afford to
+ * leave 800 energy stranded in a link. Moving energy between links is a
+ * structure action and needs no creep to be alive.
+ */
+export function forwardToControllerLink(room:any):void {
+    if(!room.controller || !room.memory.Structures) return;
+    const S:any = room.memory.Structures;
+
+    let ctrlLink:any = Game.getObjectById(S.controllerLink);
+    if(!ctrlLink || ctrlLink.structureType !== STRUCTURE_LINK) {
+        const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+            s.structureType == STRUCTURE_LINK &&
+            s.id !== S.StorageLink &&
+            s.pos.getRangeTo(room.controller) <= 3});
+        if(!ctrlLinks.length) return;
+        ctrlLink = room.controller.pos.findClosestByRange(ctrlLinks);
+        S.controllerLink = ctrlLink.id;
+    }
+
+    // Same bar as the original rung: top it up while it is at or below half.
+    if(ctrlLink.store[RESOURCE_ENERGY] > 400) return;
+
+    // Source links only — the storage link keeps its own job, exactly as before.
+    const donors = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+        s.structureType == STRUCTURE_LINK &&
+        s.id !== ctrlLink.id &&
+        s.id !== S.StorageLink &&
+        s.cooldown == 0 &&
+        s.store[RESOURCE_ENERGY] >= 400});
+    if(!donors.length) return;
+    donors.sort((a:any, b:any) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
+    donors[0].transferEnergy(ctrlLink);
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
 	if(creep.evacuate()) {
@@ -182,6 +243,12 @@ const run = function (creep) {
                 creep.memory.potential = creep.getActiveBodyparts(WORK) * 2;
             }
         }
+
+        // NOTE: forwardToControllerLink() is driven from Rooms/rooms.ts, not
+        // from here. Tying it to a creep is what broke it — see the comment on
+        // the function: W2N1 lost its last IN-ROOM miner (only remote miners,
+        // whose targetRoom != homeRoom, were left), so a miner-driven pass
+        // would still never have run in the room that needed it.
 
 
         if(creep.ticksToLive <= 2) {
@@ -369,7 +436,39 @@ const run = function (creep) {
             }
 
             let targetLink:any = Game.getObjectById(creep.room.memory.Structures.StorageLink) || creep.room.findStorageLink();
+
+            /*
+             * Structures.controllerLink is NOT guaranteed to be a link.
+             *
+             * creepFunctions writes a CONTAINER under that key below RCL7, so in
+             * an RCL5/6 room with a real controller link this resolved to the
+             * container and `transferEnergy` below silently had no valid target
+             * — the link half of the network simply never ran.
+             *
+             * Live W2N1 (RCL6): key = the container at (10,9), source link
+             * (16,16) sat on a full 800 while the controller link at (9,9) sat
+             * at 0 and the controller made no progress. The room could not even
+             * self-heal the key, because the only writer is a
+             * ControllerLinkFiller and that creep cannot be spawned in a room
+             * whose storage is empty (rooms.spawning.ts `feedable`).
+             *
+             * So resolve a LINK here, from the room, and repair the key when the
+             * cache is pointing at something that is not one.
+             */
             let closestLinkToController:any = Game.getObjectById(creep.room.memory.Structures.controllerLink);
+            if((!closestLinkToController || closestLinkToController.structureType !== STRUCTURE_LINK) && creep.room.controller) {
+                const ctrlLinks = creep.room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+                    s.structureType == STRUCTURE_LINK &&
+                    s.id !== creep.room.memory.Structures.StorageLink &&
+                    s.pos.getRangeTo(creep.room.controller) <= 3});
+                if(ctrlLinks.length > 0) {
+                    closestLinkToController = creep.room.controller.pos.findClosestByRange(ctrlLinks);
+                    creep.room.memory.Structures.controllerLink = closestLinkToController.id;
+                }
+                else {
+                    closestLinkToController = null;
+                }
+            }
             let extraLink = null;
             if(creep.room.memory.Structures.extraLinks && creep.room.memory.Structures.extraLinks.length > 0) {
                 for(let linkID of creep.room.memory.Structures.extraLinks) {

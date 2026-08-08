@@ -14,6 +14,7 @@ import { powerDisabled, speedrunEnabled } from "utils/Features";
 import { applySpeedrunSpawnHints } from "utils/Speedrun";
 import { placeFromPlanV2 } from "utils/PlanV2";
 import { refreshUnreachable, pruneBadFill } from "utils/Reachability";
+import { forwardToControllerLink } from "../Roles/energyMiner";
 
 function rooms() {
   /* */
@@ -134,6 +135,14 @@ function rooms() {
 
       if (!room.memory.reserveFill) {
         room.memory.reserveFill = [];
+      }
+
+      // Keep the controller link fed. Room-level on purpose: this is a
+      // structure action, and the rooms that strand energy in a link are the
+      // ones that have already lost the creep that used to drive it.
+      // See Roles/energyMiner.ts forwardToControllerLink().
+      if (room.controller.level >= 5) {
+        forwardToControllerLink(room);
       }
 
       if (room.controller.level >= 5 && room.memory.Structures.container) {

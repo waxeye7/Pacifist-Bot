@@ -367,7 +367,23 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
 
 
     if(this.memory.role == "filler" && (!this.room.memory.Structures.controllerLink || Game.time % 10000 == 0) && this.room.controller.level >= 2) {
-        if(this.room.controller.level < 7) {
+        // Same RCL5+ link precedence as the ControllerLinkFiller branch above:
+        // the `level < 7` container-only search below is blind to links, which
+        // exist from RCL5. See the comment there for the live W2N1 case.
+        let ctrlLinkF:any = null;
+        if(this.room.controller.level >= 5) {
+            let ctrlLinksF = this.room.find(FIND_MY_STRUCTURES, {filter: building =>
+                building.structureType == STRUCTURE_LINK &&
+                building.id !== this.room.memory.Structures.StorageLink &&
+                building.pos.getRangeTo(this.room.controller) <= 3});
+            if(ctrlLinksF.length > 0) {
+                ctrlLinkF = this.room.controller.pos.findClosestByRange(ctrlLinksF);
+            }
+        }
+        if(ctrlLinkF) {
+            this.room.memory.Structures.controllerLink = ctrlLinkF.id;
+        }
+        else if(this.room.controller.level < 7) {
             let containers = this.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && building.id !== this.room.memory.Structures.bin && building.id !== this.room.memory.Structures.storage && building.pos.getRangeTo(this.room.controller) == 3});
             if(containers.length > 0) {
                 let controllerLink = this.room.controller.pos.findClosestByRange(containers);
