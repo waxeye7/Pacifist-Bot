@@ -49,6 +49,7 @@ import {
   arriveAt,
   bfsField,
   builtMobility,
+  countDeep,
   interiorWalk,
   ownCreepWalk,
   maskFromKeys,
@@ -2243,6 +2244,8 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   let deepSealed = 0;
   let ourFault = 0;
   const tiles = [];
+  /** every sealed tile with its depth verdict — the pocket pass below needs the set, not the count */
+  const sealedTiles = [];
   for (let y = 0; y < 50; y++) {
     for (let x = 0; x < 50; x++) {
       if (!walkable(terrain, x, y)) continue;
@@ -2255,9 +2258,103 @@ function noteSealedFloor(terrain, plan, shallowNow) {
       const usable = depth[i] >= DEPTH_SAFE && x >= 2 && x <= 47 && y >= 2 && y <= 47;
       if (usable) deepSealed++;
       if (bare.has(k)) ourFault++;
+      sealedTiles.push({ x, y, k, deep: usable });
     }
   }
   if (!sealed) return null;
+  // ------------------------------------------------------------------
+  // O3 (round 17): WHICH ONE STRUCTURE, AND HOW MANY TILES.
+  //
+  // `ourFault` is a WHOLE-MASS counterfactual — every blocking structure of ours
+  // removed at once — and the note calls it "the ceiling on what any re-ordering
+  // inside the placement layers could recover". A ceiling nobody tries to reach
+  // is criticism 2's defect (E16S5's 2.25 was ONE observer tile) in the note
+  // channel: the reviewer measured it by hand and found 220 of the fleet's 257
+  // sealed tiles come back on a SINGLE structure move, with 42 of the 62 rooms
+  // at >= 90% single-structure. E15S6's 72-tile seal is 69 tiles behind any ONE
+  // of three extensions and its 16-tile cut pays for none of it.
+  //
+  // So the counterfactual is published per POCKET and per STRUCTURE, and it is
+  // exhaustive rather than sampled. A pocket is a D8-connected component of the
+  // sealed set; the only structures that can open it with one removal are the
+  // ones D8-adjacent to a pocket tile (removing a structure makes exactly one
+  // tile walkable, so it can only join the pocket to the flood if it touches
+  // it) — and each candidate is PRICED by actually re-flooding with that one
+  // structure gone, never by adjacency alone.
+  //
+  // The measured answer, fleet-wide: every pocket in all 62 rooms comes back
+  // WHOLE on any one of its named holders. `ourFault`'s ceiling is not merely
+  // approached by a single move, it is reached, pocket by pocket — which is why
+  // pipeline.mjs now runs a bounded one-move recovery pass against this record
+  // (`maybeTakeSealedRecovery`) instead of printing the ceiling and stopping.
+  // ------------------------------------------------------------------
+  const sealedKeys = new Map(sealedTiles.map((t) => [t.k, t]));
+  const owner = new Map();
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures[t] || []) owner.set(key(p.x, p.y), t);
+  }
+  const pockets = [];
+  {
+    const seen = new Set();
+    for (const s of sealedTiles) {
+      if (seen.has(s.k)) continue;
+      const comp = [];
+      const q = [s];
+      seen.add(s.k);
+      while (q.length) {
+        const c = q.pop();
+        comp.push(c);
+        for (const [dx, dy] of D8) {
+          const nk = key(c.x + dx, c.y + dy);
+          if (sealedKeys.has(nk) && !seen.has(nk)) {
+            seen.add(nk);
+            q.push(sealedKeys.get(nk));
+          }
+        }
+      }
+      comp.sort((a, b) => a.y - b.y || a.x - b.x);
+      const adj = new Set();
+      for (const c of comp) {
+        for (const [dx, dy] of D8) {
+          const nk = key(c.x + dx, c.y + dy);
+          if (owner.has(nk)) adj.add(nk);
+        }
+      }
+      const holders = [];
+      for (const ck of [...adj].sort()) {
+        const trial = new Set(blocked);
+        trial.delete(ck);
+        const w2 = ownCreepWalk(terrain, trial, plan.sitter);
+        let back = 0;
+        let backDeep = 0;
+        for (const c of comp) {
+          if (!w2.has(c.k)) continue;
+          back++;
+          if (c.deep) backDeep++;
+        }
+        if (!back) continue;
+        const [hx, hy] = ck.split(",").map(Number);
+        holders.push({ type: owner.get(ck), x: hx, y: hy, recovers: back, recoversDeep: backDeep });
+      }
+      holders.sort(
+        (a, b) => b.recovers - a.recovers || b.recoversDeep - a.recoversDeep || a.x - b.x || a.y - b.y,
+      );
+      pockets.push({
+        at: { x: comp[0].x, y: comp[0].y },
+        tiles: comp.length,
+        deep: comp.filter((c) => c.deep).length,
+        // the whole pocket, tile by tile — a pocket is small (the largest in the
+        // fleet is 69) and the counterfactual below is a claim about exactly
+        // these tiles, so listing them is what makes it re-derivable
+        named: comp.map((c) => ({ x: c.x, y: c.y })),
+        holders,
+        best: holders[0] || null,
+      });
+    }
+    pockets.sort((a, b) => b.deep - a.deep || b.tiles - a.tiles || a.at.y - b.at.y || a.at.x - b.at.x);
+  }
+  const singleStructureTiles = pockets.reduce((s, p2) => s + (p2.best ? p2.best.recovers : 0), 0);
+  const singleStructureDeep = pockets.reduce((s, p2) => s + (p2.best ? p2.best.recoversDeep : 0), 0);
   // 7b's own census, passed in. Reading `plan.meta.extensions.shallow` here is
   // reading a field the pipeline does not correct until AFTER this layer returns
   // — the pre-7b number, in a sentence about the shipped room.
@@ -2271,6 +2368,19 @@ function noteSealedFloor(terrain, plan, shallowNow) {
     // record the note is rendered from carries every figure the note quotes
     named: tiles,
     depthSafe: DEPTH_SAFE,
+    // O3: the per-pocket, per-structure counterfactual — see the header above
+    pockets,
+    pocketCount: pockets.length,
+    singleStructureTiles,
+    singleStructureDeep,
+    counterfactualBasis:
+      `pockets are the D8-connected components of the sealed set. For each pocket, every structure of ` +
+      `ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running ` +
+      `the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. ` +
+      `Only D8-adjacent structures are candidates and that is not an approximation — removing one ` +
+      `structure makes exactly one tile walkable, so a structure that touches no tile of this pocket ` +
+      `cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single ` +
+      `holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.`,
     basis:
       `unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): ` +
       `terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our ` +
@@ -4432,6 +4542,64 @@ export function finalizeRoom(terrain, plan) {
 
   const sealedFloor = noteSealedFloor(terrain, plan, plan.meta?.extensions?.shallow);
   if (plan.meta?.walls) plan.meta.walls.sealedFloor = sealedFloor;
+
+  // ------------------------------------------------------------------
+  // O4 (round 17) — `deepTiles` IS TWO BOARDS UNDER ONE LABEL.
+  //
+  // `meta.shell.deepTiles` is `countDeep` run inside layer 2's shell
+  // NEGOTIATION, over a board that holds the hub kit, the room objects and the
+  // eco roads and NOTHING else — no towers, no labs, no nuker, no observer, no
+  // sixty extensions. It is the free-floor supply the enclosure was BOUGHT for,
+  // and `budgetPass` (deepTiles >= needDeep) is the decision it was bought by.
+  // Then the gallery card printed it as `cut N · deep M` beside the SHIPPED cut,
+  // plan.mjs printed it as "deep tiles sealed in" (l.282) and "deep tiles
+  // inside" (l.1949), and it is neither: countDeep excludes cut, occupied and
+  // road tiles, so it is not "deep tiles inside" on any board, and the board it
+  // IS the free count of stopped existing five layers earlier. W0S5's card said
+  // 215 for a room that ships 164 free deep tiles.
+  //
+  // Both figures ship now, each named for its own board, and one function
+  // produces both — `countDeep` is exported from layer-shell for exactly that
+  // reason. `deepTiles` keeps its value and its meaning (every reader of the
+  // negotiation, `budgetPass` and `needDeep` included, is reading the right
+  // number); `negotiationFreeDeep` is the same figure under a name that says so,
+  // and `shippedFreeDeep` is the same definition re-run over the wall, the
+  // structures and the roads the room actually ships.
+  // ------------------------------------------------------------------
+  if (plan.shell) {
+    const { ext: shipExt } = shippedFlood(terrain, plan);
+    const shipDepth = depthFromExterior(shipExt);
+    const cutSetNow = new Set((plan.shell.cut || []).map((c) => key(c.x, c.y)));
+    const occNow = new Set(plan.objectTiles || []);
+    for (const t of Object.keys(plan.structures || {})) {
+      if (t === "road" || t === "rampart") continue;
+      for (const p of plan.structures[t] || []) occNow.add(key(p.x, p.y));
+    }
+    const roadSetNow = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
+    plan.shell.negotiationFreeDeep = plan.shell.deepTiles;
+    plan.shell.shippedFreeDeep = countDeep(terrain, shipExt, shipDepth, cutSetNow, occNow, roadSetNow);
+    // ...and the figure the two prints were reaching for and neither had: deep
+    // interior floor inside the buildable band, whatever is standing on it.
+    let deepInterior = 0;
+    for (let x = 2; x <= 47; x++) {
+      for (let y = 2; y <= 47; y++) {
+        const i = idxOf(x, y);
+        if (shipExt[i] || !walkable(terrain, x, y)) continue;
+        if (shipDepth[i] >= DEPTH_SAFE) deepInterior++;
+      }
+    }
+    plan.shell.shippedDeepInterior = deepInterior;
+    plan.shell.deepTilesBasis =
+      `THREE DIFFERENT BOARDS, THREE NAMES. deepTiles === negotiationFreeDeep is countDeep on layer ` +
+      `2's negotiation board — deep (>= ${DEPTH_SAFE}), buildable, inside the 2..47 band, not exterior, ` +
+      `not cut, not road, not occupied — where "occupied" is the hub kit plus the room objects, ` +
+      `because towers, labs, the nuker, the observer and the extensions do not exist when the shell is ` +
+      `chosen. It is the supply budgetPass (>= needDeep) was decided on and it is the only figure that ` +
+      `explains that decision. shippedFreeDeep is the SAME function over the shipped rampart flood, ` +
+      `the shipped cut, the shipped roads and every structure this room ships. shippedDeepInterior ` +
+      `counts deep floor in the band whatever stands on it, which is what the phrase "deep tiles ` +
+      `inside" means and what neither of the other two is.`;
+  }
 
   // ------------------------------------------------------------------
   // A PAVED RUN ALONG THE WALL, AND THE SWAP IT REFUSED — per room, by tile.

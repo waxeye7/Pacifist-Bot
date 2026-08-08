@@ -70,6 +70,9 @@ import { renderDecl } from "./declprose.mjs";
 // channel by generating it, so a note case that does not REGENERATE is testing
 // the prose-identity gate rather than the record underneath it.
 import { renderNote } from "./declprose-notes.mjs";
+// ...and the basis sentence the across-prior take generates, so a round-17
+// occupancy mutation can regenerate it exactly as the producer would (F4)
+import { renderSatBasis } from "./declprose-towers.mjs";
 import { D4, D8, OUT_V2, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const argv = process.argv.slice(2);
@@ -3612,6 +3615,504 @@ run("r13/F8-untriggered-gate", R, (p) => {
     anyRoom((p) => p.meta?.towers?.adjacency?.satAcrossPrior?.seatOccupancy),
     (p) => { delete p.meta.towers.adjacency.satAcrossPrior.seatOccupancy; },
     "basis|not the sentence this record generates");
+}
+
+// ===========================================================================
+// ROUND 17 — the six mechanical findings, the owner's blocking one, and the
+// two re-composing passes the producer added this round.
+//
+// Every case below is a roster a reviewer LANDED on the round-17 artifact, not
+// a hypothetical: F3's 436 falsify-and-delete-the-referent escapes and its 451
+// coordinated-write escapes, F2's 10-of-15 forged wall arm, F4's nine occupied
+// seats declaring themselves free, F1's 14 free note deletions, F5's whole
+// prune census deflating to zero, F6's 2304-band ceilings, and O1's seven
+// unbound note lists.
+// ===========================================================================
+{
+  const decl17 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+  };
+  const raw17 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+  };
+  const withDecl17 = (gate, kind, pred) =>
+    anyRoom((p) => {
+      const d = declOf(p, gate, kind);
+      return d ? !pred || pred(d, p) : false;
+    });
+  const regenNotes = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try {
+        p.meta.notes[i] = renderNote(p.meta.noteRecords[i]);
+      } catch {
+        /* a record the template throws on is its own failure */
+      }
+    }
+  };
+  const noteRoom17 = (cls, pred) =>
+    anyRoom((p) => (p.meta?.noteRecords || []).some((r2) => r2.cls === cls && (!pred || pred(r2.rec, p))));
+  const noteRec = (p, cls) => (p.meta.noteRecords || []).find((r2) => r2.cls === cls).rec;
+  const noteIdx = (p, cls) => (p.meta.noteRecords || []).findIndex((r2) => r2.cls === cls);
+
+  // ---- F3: the closure that passed when its referent was missing ---------
+  run("r17/F3-refill-census-falsified-and-its-mirror-deleted",
+    withDecl17("towers", "weak-battery", (d) => typeof d.towers?.refillSearch?.tried === "number"),
+    decl17("towers", "weak-battery", (d, p) => {
+      d.towers.refillSearch.tried = 533;
+      delete p.meta.towers.refillSearch.tried;
+    }),
+    "referent|ABSENT|SCHEMA|census-anchor");
+  run("r17/F3-clump-search-falsified-and-its-mirror-deleted",
+    withDecl17("towers", "clump", (d) => typeof d.dispersion?.search?.singleSwapsTried === "number"),
+    decl17("towers", "clump", (d, p) => {
+      d.dispersion.search.singleSwapsTried = 3;
+      delete p.meta.towers.towerDispersion.search.singleSwapsTried;
+    }),
+    "referent|ABSENT|SCHEMA|census-anchor");
+  run("r17/F3-mirror-deleted-on-its-own",
+    anyRoom((p) => typeof p.meta?.towers?.refillSearch?.tried === "number"),
+    (p) => { delete p.meta.towers.refillSearch.tried; },
+    "SCHEMA|referent|census-anchor");
+  run("r17/F3-eco-mirror-deleted",
+    anyRoom((p) => typeof p.meta?.seedPool === "number"),
+    (p) => { delete p.meta.seedPool; },
+    "SCHEMA|seed-pool|referent");
+  run("r17/F3-veto-mirror-deleted",
+    anyRoom((p) => typeof p.meta?.towers?.mobilityVeto?.tried === "number"),
+    (p) => { delete p.meta.towers.mobilityVeto.tried; },
+    "SCHEMA|referent");
+  run("r17/F3-search-census-published-while-the-search-is-denied",
+    anyRoom((p) => p.meta?.towers?.search?.ran === true),
+    (p) => { p.meta.towers.search.ran = false; },
+    "SCHEMA|PUBLISHED|referent|search.ran|did not run");
+  run("r17/F3-a-nulled-lap-that-is-not-a-measured-null",
+    withDecl17("mobility", null, (d) => d.repair?.mass && d.repair.mass.lapBefore !== null),
+    decl17("mobility", null, (d) => { d.repair.mass.lapBefore = null; }),
+    "null while|mass.builtLap|is null");
+  run("r17/F3-a-lap-published-where-the-record-says-there-is-none",
+    withDecl17("mobility", null, (d) => d.repair?.mass && d.repair.mass.lapAfter === null),
+    decl17("mobility", null, (d) => { d.repair.mass.lapAfter = 1; }),
+    "TRUE|moved|referent|lapAfter");
+  // ...and the coordinated write, which is what a real producer bug does
+  run("r17/F3-coordinated-refill-census-in-both-copies",
+    withDecl17("towers", "weak-battery", (d) => typeof d.towers?.refillSearch?.tried === "number"),
+    decl17("towers", "weak-battery", (d, p) => {
+      d.towers.refillSearch.tried = 533;
+      p.meta.towers.refillSearch.tried = 533;
+    }),
+    "census-anchor|exhaustive loop|exactly");
+  run("r17/F3-coordinated-clump-search-in-both-copies",
+    withDecl17("towers", "clump", (d) => typeof d.dispersion?.search?.singleSwapsTried === "number"),
+    decl17("towers", "clump", (d, p) => {
+      d.dispersion.search.singleSwapsTried = 3;
+      p.meta.towers.towerDispersion.search.singleSwapsTried = 3;
+    }),
+    "census-anchor|dispersion pass|lies in");
+  run("r17/F3-coordinated-candidate-list-shrunk-to-fit",
+    anyRoom((p) => typeof p.meta?.towers?.candidates === "number"),
+    (p) => {
+      const T2 = (p.structures.tower || []).length;
+      p.meta.towers.candidates = 12;
+      p.meta.towers.refillSearch.tried = p.meta.towers.refillSearch.rounds * T2 * (12 - T2);
+    },
+    "census-anchor|deep tower seat|block");
+  run("r17/F3-candidates-over-the-thinning-cap",
+    anyRoom((p) => typeof p.meta?.towers?.candidates === "number"),
+    (p) => { p.meta.towers.candidates = 900; },
+    "census-anchor|thinning cap|walkable interior");
+  run("r17/F3-veto-examined-swaps-in-zero-rounds",
+    anyRoom((p) => p.meta?.towers?.mobilityVeto && p.meta.towers.mobilityVeto.rounds === 0),
+    (p) => { p.meta.towers.mobilityVeto.tried = 40; },
+    "census-anchor|positive together|referent");
+  run("r17/F3-spread-radius-moved",
+    anyRoom((p) => typeof p.meta?.towers?.spreadRadius === "number"),
+    (p) => { p.meta.towers.spreadRadius = 2; },
+    "spread-radius|centroid|re-derived");
+  run("r17/F3-seed-pool-deflated-in-both-copies",
+    withDecl17("eco", null, (d) => typeof d.eco?.seedPool === "number"),
+    decl17("eco", null, (d, p) => {
+      d.eco.seedPool = 8;
+      p.meta.seedPool = 8;
+    }),
+    "seed-pool|confluence|terrain admits");
+  run("r17/F3-core-size-deflated-in-both-copies",
+    withDecl17("eco", null, (d) => d.eco?.coreSize === 30),
+    decl17("eco", null, (d, p) => {
+      d.eco.coreSize = 9;
+      p.meta.coreSize = 9;
+    }),
+    "CORE_SIZE|basin|short of");
+  run("r17/F3-escalation-breadth-invented",
+    withDecl17("towers", "weak-battery", (d) => typeof d.towers?.search?.pairK === "number"),
+    decl17("towers", "weak-battery", (d, p) => {
+      d.towers.search.pairK = 40;
+      p.meta.towers.search.pairK = 40;
+    }),
+    "ESC_PAIR_K|constant");
+  run("r17/F3-weak-tiles-charged-against-a-strong-wall",
+    withDecl17("towers", "weak-battery", (d) => d.towers?.weakTiles === 0 && d.towers?.minShellDmg >= 1200),
+    decl17("towers", "weak-battery", (d, p) => {
+      d.towers.weakTiles = 7;
+      p.meta.towers.weakTiles = 7;
+    }),
+    "TOWER_TARGET_MIN|weakest face|positive exactly");
+
+  // ---- F2: the forged wall arm ------------------------------------------
+  run("r17/F2-placement-refill-clamped-under-the-note",
+    anyRoom((p) => Array.isArray(p.meta?.towers?.refillDistsAtPlacement)),
+    (p) => {
+      p.meta.towers.refillDistsAtPlacement = p.meta.towers.refillDistsAtPlacement.map(() => 3);
+      p.meta.towers.maxRefillAtPlacement = 3;
+    },
+    "placement-refill|re-walked|furthest of those walks");
+  run("r17/F2-the-whole-forged-wall-arm",
+    withDecl17("towers", "weak-battery", (d) => d.source === "towers" && d.battery && d.towers),
+    decl17("towers", "weak-battery", (d, p) => {
+      d.source = "walls";
+      d.battery.maxRefillAtPlacement = 3;
+      d.battery.refillDistsAtPlacement = d.battery.refillDistsAtPlacement.map(() => 3);
+      p.meta.towers.maxRefillAtPlacement = 3;
+      p.meta.towers.refillDistsAtPlacement = p.meta.towers.refillDistsAtPlacement.map(() => 3);
+      delete d.towers;
+    }),
+    "placement-refill|re-derived|source");
+
+  // ---- F4: the seat that stands empty because it says so -----------------
+  const satRoom17 = (pred) =>
+    anyRoom((p) => {
+      const sp = p.meta?.towers?.adjacency?.satAcrossPrior;
+      return sp && sp.seat && (!pred || pred(sp, p));
+    });
+  run("r17/F4-occupied-seat-declares-itself-free",
+    satRoom17((sp) => sp.seatOccupancy && sp.seatOccupancy.free === false),
+    (p) => {
+      const sp = p.meta.towers.adjacency.satAcrossPrior;
+      sp.seatOccupancy.free = true;
+      sp.seatOccupancy.on = [];
+      sp.forgoneToPrior = sp.forgoneToOccupant;
+      sp.forgoneToOccupant = 0;
+      sp.basis = renderSatBasis(sp);
+    },
+    "seatOccupancy|carries|charges");
+  run("r17/F4-free-seat-invents-an-occupant",
+    satRoom17((sp) => sp.seatOccupancy && sp.seatOccupancy.free === true),
+    (p) => {
+      const sp = p.meta.towers.adjacency.satAcrossPrior;
+      sp.seatOccupancy.free = false;
+      sp.seatOccupancy.on = ["nuker"];
+      sp.forgoneToOccupant = sp.forgoneToPrior;
+      sp.forgoneToPrior = 0;
+      sp.basis = renderSatBasis(sp);
+    },
+    "seatOccupancy|carries nothing|stands EMPTY");
+  run("r17/F4-forgone-charged-to-the-prior-instead-of-the-occupant",
+    satRoom17((sp) => sp.forgoneToOccupant > 0),
+    (p) => {
+      const sp = p.meta.towers.adjacency.satAcrossPrior;
+      sp.forgoneToPrior = sp.forgoneToOccupant;
+      sp.forgoneToOccupant = 0;
+      sp.basis = renderSatBasis(sp);
+    },
+    "charges|OCCUPANT|forgone");
+  run("r17/F4-occupancy-inventory-thinned",
+    satRoom17((sp) => sp.seatOccupancy),
+    (p) => { p.meta.towers.adjacency.satAcrossPrior.seatOccupancy.counted = ["spawn", "tower"]; },
+    "counted|omits|inventory");
+
+  // ---- F5: the prune census that deflated to zero ------------------------
+  const pruneRoom17 = anyRoom((p) => (p.meta?.walls?.prunedTiles || []).length > 3);
+  run("r17/F5-prune-census-deflated-to-zero", pruneRoom17, (p) => {
+    const w = p.meta.walls;
+    w.pruned = 0;
+    w.prunedGhosts = 0;
+    w.prunedTransient = 0;
+    w.prunedTiles = [];
+    w.prunedAtPass = (w.prunedRelaid || []).length;
+    w.prunedAtPassTiles = (w.prunedRelaid || []).slice();
+  }, "ghost census|roadLayer|does not name");
+  run("r17/F5-prune-census-halved", pruneRoom17, (p) => {
+    const w = p.meta.walls;
+    const keep = w.prunedTiles.slice(0, Math.floor(w.prunedTiles.length / 2));
+    w.prunedTiles = keep;
+    w.pruned = keep.length;
+    w.prunedGhosts = Math.min(w.prunedGhosts, keep.length);
+    w.prunedTransient = keep.length - w.prunedGhosts;
+    w.prunedAtPass = w.pruned + (w.prunedRelaid || []).length;
+    w.prunedAtPassTiles = [...keep, ...(w.prunedRelaid || [])];
+  }, "ghost census|roadLayer|does not name");
+  run("r17/F5-one-ghost-tile-dropped",
+    anyRoom((p) => (p.meta?.walls?.prunedGhosts || 0) > 1),
+    (p) => {
+      const w = p.meta.walls;
+      const rl = p.meta.roadLayer || {};
+      const rs = new Set((p.structures.road || []).map((r2) => `${r2.x},${r2.y}`));
+      const i = w.prunedTiles.findIndex((t) => Number.isInteger(rl[`${t.x},${t.y}`]) && !rs.has(`${t.x},${t.y}`));
+      w.prunedTiles.splice(i, 1);
+      w.pruned--;
+      w.prunedGhosts--;
+      w.prunedAtPass--;
+    },
+    "ghost census|does not name");
+
+  // ---- F6: the ceiling that was the band, not the room -------------------
+  run("r17/F6-free-deep-scan-accepts-the-whole-2304-band",
+    withDecl17("extensions", "shallow", (d) => typeof d.shallowExt?.search?.freeDeepOnePave === "number"),
+    decl17("extensions", "shallow", (d) => { d.shallowExt.search.freeDeepOnePave = 2303; }),
+    "interiorWalkable|freeDeepInterior|exceeds");
+  run("r17/F6-lane-census-inflated-fivefold",
+    withDecl17("mobility", null, (d) => typeof d.lane?.tiles === "number"),
+    decl17("mobility", null, (d) => { d.lane.tiles = d.lane.tiles * 5 + 5; }),
+    "lanes.tiles|same number");
+  run("r17/F6-lane-bound-inflated-fivefold",
+    withDecl17("mobility", null, (d) => typeof d.lane?.bounded === "number"),
+    decl17("mobility", null, (d) => { d.lane.bounded = d.lane.bounded * 5 + 5; }),
+    "lanes.bounded|same number");
+  run("r17/F6-layer-3-cut-inflated-fivefold",
+    withDecl17("towers", "weak-battery", (d) => typeof d.towers?.declaredCutTiles === "number"),
+    decl17("towers", "weak-battery", (d) => { d.towers.declaredCutTiles *= 5; }),
+    "shipped cut|1.13x|twice");
+  run("r17/F6-layer-2-cut-inflated-fivefold",
+    withDecl17("shell", null, (d) => typeof d.linkOnCut?.negotiatedCutTiles === "number"),
+    decl17("shell", null, (d) => { d.linkOnCut.negotiatedCutTiles *= 5; }),
+    "shipped cut|0.96x|twice");
+  run("r17/F6-pave-budget-left-invented",
+    withDecl17("extensions", "shallow", (d) => typeof d.shallowExt?.search?.paveLeft === "number"),
+    decl17("extensions", "shallow", (d) => { d.shallowExt.search.paveLeft = 40; }),
+    "one-pave class|counted once|exceed");
+
+  // ---- F1: the note that was owed by nothing -----------------------------
+  run("r17/F1-shallow-note-record-and-obligation-deleted-together",
+    noteRoom17("shallowExt"),
+    (p) => {
+      const i = noteIdx(p, "shallowExt");
+      p.meta.notes.splice(i, 1);
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.noteObligations = p.meta.noteObligations.filter((o) => o.cls !== "shallowExt");
+    },
+    "OWES|re-derived here|shallowExt");
+  run("r17/F1-sealed-note-record-and-obligation-deleted-together",
+    noteRoom17("sealedFloor"),
+    (p) => {
+      const i = noteIdx(p, "sealedFloor");
+      p.meta.notes.splice(i, 1);
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.noteObligations = p.meta.noteObligations.filter((o) => o.cls !== "sealedFloor");
+    },
+    "OWES|re-derived here|sealedFloor|seals");
+  run("r17/F1-the-trigger-deleted-too",
+    noteRoom17("shallowExt"),
+    (p) => {
+      const i = noteIdx(p, "shallowExt");
+      p.meta.notes.splice(i, 1);
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.noteObligations = p.meta.noteObligations.filter((o) => o.cls !== "shallowExt");
+      delete p.meta.extensions;
+    },
+    "SCHEMA|meta.extensions|OWES");
+  run("r17/F1-an-obligation-nothing-triggers",
+    anyRoom((p) => Array.isArray(p.meta?.noteObligations) && !p.meta.noteObligations.some((o) => o.cls === "pavingGap")),
+    (p) => { p.meta.noteObligations.push({ cls: "pavingGap", why: [{ field: "meta.walls.conductBridge.stranded", value: 3 }] }); },
+    "owes|does not|derived");
+
+  // ---- O1: the note record's lists, bound to nothing ---------------------
+  run("r17/O1-ring-tiles-moved-to-49-49",
+    noteRoom17("roadRampart", (r2) => (r2.ringTiles || []).length),
+    (p) => {
+      noteRec(p, "roadRampart").ringTiles = noteRec(p, "roadRampart").ringTiles.map(() => ({ x: 49, y: 49 }));
+      regenNotes(p);
+    },
+    "roadRampart|ringTiles|says");
+  run("r17/O1-sealed-floor-names-an-invented-tile",
+    noteRoom17("sealedFloor", (r2) => (r2.named || []).length),
+    (p) => { noteRec(p, "sealedFloor").named[0] = { x: 1, y: 1 }; regenNotes(p); },
+    "named|sealed-floor record|re-derives");
+  run("r17/O1-sealed-floor-name-list-truncated",
+    noteRoom17("sealedFloor", (r2) => (r2.named || []).length > 1),
+    (p) => { noteRec(p, "sealedFloor").named.shift(); regenNotes(p); },
+    "named|sealed-floor record|re-derives");
+  run("r17/O1-cut-refusal-blames-a-different-tile",
+    noteRoom17("redundantCut", (r2) => (r2.named || []).length),
+    (p) => {
+      const r2 = noteRec(p, "redundantCut");
+      r2.named[0].reason = { ...r2.named[0].reason, tile: "1,1" };
+      regenNotes(p);
+    },
+    "reason|redundantCut.reasons|says");
+  run("r17/O1-shallow-search-census-inflated-in-the-note",
+    noteRoom17("shallowExt", (r2) => r2.search),
+    (p) => { noteRec(p, "shallowExt").search.freeDeepRoadFaced = 60; regenNotes(p); },
+    "reflow search|freeDeepRoadFaced|says");
+  run("r17/O1-a-relocation-that-never-happened",
+    noteRoom17("shallowExt", (r2) => r2.l7 && (r2.l7.tiles || []).length),
+    (p) => {
+      noteRec(p, "shallowExt").l7.tiles[0] = { from: { x: 2, y: 2 }, to: { x: 3, y: 3 }, fromDepth: 1, toDepth: 9 };
+      regenNotes(p);
+    },
+    "layer-7b relocations|reflow.moved|lists");
+  run("r17/O1-a-layer-6-relocation-that-never-happened",
+    noteRoom17("shallowExt", (r2) => r2.l6 && (r2.l6.tiles || []).length),
+    (p) => {
+      noteRec(p, "shallowExt").l6.tiles[0] = { from: { x: 2, y: 2 }, to: { x: 3, y: 3 } };
+      regenNotes(p);
+    },
+    "layer-6 relocations|extensions.relocated|lists");
+  run("r17/O1-a-refusal-the-room-never-made",
+    noteRoom17("pavedRun", (r2) => (r2.runs || []).length),
+    (p) => {
+      noteRec(p, "pavedRun").runs[0].refused = "no interior parallel exists: nothing at all";
+      regenNotes(p);
+    },
+    "refusal|alongCutRefused|says");
+  run("r17/O1-a-free-tile-the-run-never-had",
+    noteRoom17("pavedRun", (r2) => (r2.runs || []).length),
+    (p) => { noteRec(p, "pavedRun").runs[0].free = [{ x: 1, y: 1 }]; regenNotes(p); },
+    "alongCutRuns|does not");
+  run("r17/O1-a-note-that-renders-the-word-undefined",
+    noteRoom17("pavedRun", (r2) => (r2.runs || []).length),
+    (p) => {
+      const r2 = noteRec(p, "pavedRun");
+      delete r2.runs[0].x;
+      delete r2.runs[0].y;
+      regenNotes(p);
+    },
+    "undefined|alongCutRuns");
+  run("r17/O1-container-sharing-invented",
+    noteRoom17("containerRoad"),
+    (p) => { noteRec(p, "containerRoad").sharing = [{ x: 1, y: 1 }]; regenNotes(p); },
+    "sharing a road tile|board carries");
+
+  // ---- O4: three boards, three names, and a reader for each ---------------
+  run("r17/O4-shipped-free-deep-inflated",
+    anyRoom((p) => typeof p.meta?.shell?.shippedFreeDeep === "number"),
+    (p) => { p.meta.shell.shippedFreeDeep = 9999; },
+    "shippedFreeDeep|free deep tile");
+  run("r17/O4-shipped-deep-interior-zeroed",
+    anyRoom((p) => typeof p.meta?.shell?.shippedDeepInterior === "number"),
+    (p) => { p.meta.shell.shippedDeepInterior = 0; },
+    "shippedDeepInterior|deep interior");
+  run("r17/O4-the-alias-stops-being-an-alias",
+    anyRoom((p) => typeof p.meta?.shell?.negotiationFreeDeep === "number"),
+    (p) => { p.meta.shell.negotiationFreeDeep = 9999; },
+    "negotiationFreeDeep|deepTiles");
+  run("r17/O4-budget-verdict-flipped",
+    anyRoom((p) => p.meta?.shell?.budgetPass === true),
+    (p) => { p.meta.shell.budgetPass = false; },
+    "budgetPass|floor of");
+  run("r17/O4-upkeep-halved",
+    anyRoom((p) => typeof p.meta?.shell?.upkeepPerTick === "number" && p.meta.shell.upkeepPerTick > 0),
+    (p) => { p.meta.shell.upkeepPerTick = p.meta.shell.upkeepPerTick / 2; },
+    "upkeepPerTick|energy/tick");
+  run("r17/O4-the-basis-that-names-no-board",
+    anyRoom((p) => typeof p.meta?.shell?.deepTilesBasis === "string"),
+    (p) => { p.meta.shell.deepTilesBasis = "deep tiles"; },
+    "deepTilesBasis|which board");
+
+  // ---- O2 / O3: the two re-composing passes ------------------------------
+  const panelRoom17 = anyRoom((p) => {
+    const t2 = p.meta?.towers?.acrossPriorTake;
+    return t2 && Array.isArray((t2.taken ? t2.after : t2.before)?.refillWalks);
+  });
+  const panelOf17 = (p) => {
+    const t2 = p.meta.towers.acrossPriorTake;
+    return t2.taken ? t2.after : t2.before;
+  };
+  run("r17/O2-take-panel-hides-a-filler-walk-regression", panelRoom17, (p) => {
+    const pan = panelOf17(p);
+    pan.refillWalks = pan.refillWalks.map(() => 1);
+  }, "filler walks|board this room ships");
+  run("r17/O2-take-panel-total-understated", panelRoom17, (p) => {
+    panelOf17(p).refillTotal = 1;
+  }, "refillTotal|walks total|filler walks");
+  run("r17/O2-take-panel-forgets-a-walk-at-the-cap", panelRoom17, (p) => {
+    panelOf17(p).refillAtCap = 99;
+    panelOf17(p).refillOverNote = 99;
+  }, "hard cap|note|walk");
+  run("r17/O2-take-panel-ends-on-an-illegal-board", panelRoom17, (p) => {
+    panelOf17(p).stackedOnRoad = 1;
+  }, "stackedOnRoad|HARD failure");
+  run("r17/O2-take-panel-ends-with-a-road-serving-nothing", panelRoom17, (p) => {
+    panelOf17(p).orphanRoads = 3;
+  }, "orphanRoads|serving nothing");
+  run("r17/O2-a-refusal-with-no-instrument-in-it",
+    anyRoom((p) => p.meta?.towers?.adjacency?.satAcrossPrior?.takeOutcome),
+    (p) => { p.meta.towers.adjacency.satAcrossPrior.takeOutcome.verdict = "refused"; },
+    "verdict|refusal that does not quote|not the sentence");
+  run("r17/O3-a-pocket-that-is-not-on-the-board",
+    anyRoom((p) => (p.meta?.sealedFloor?.pockets || []).length),
+    (p) => { p.meta.sealedFloor.pockets[0].at = { x: 1, y: 1 }; },
+    "no sealed pocket|contains that tile");
+  run("r17/O3-a-holder-that-returns-more-than-it-holds",
+    anyRoom((p) => (p.meta?.sealedFloor?.pockets || []).some((q) => (q.holders || []).length)),
+    (p) => {
+      const q = p.meta.sealedFloor.pockets.find((z) => (z.holders || []).length);
+      q.holders[0].recovers = 99;
+      q.holders[0].recoversDeep = 99;
+    },
+    "removing the|own-creep flood");
+  run("r17/O3-the-holder-roster-loses-a-candidate",
+    anyRoom((p) => (p.meta?.sealedFloor?.pockets || []).some((q) => (q.holders || []).length > 1)),
+    (p) => {
+      const q = p.meta.sealedFloor.pockets.find((z) => (z.holders || []).length > 1);
+      q.holders.shift();
+    },
+    "holders|D8-adjacent|missing");
+  run("r17/O3-the-single-structure-ceiling-understated",
+    anyRoom((p) => (p.meta?.sealedFloor?.singleStructureDeep || 0) > 0),
+    (p) => {
+      p.meta.sealedFloor.singleStructureDeep = 0;
+      p.meta.sealedFloor.singleStructureTiles = 0;
+    },
+    "singleStructure|best single holder");
+  run("r17/O3-the-pocket-list-deleted",
+    anyRoom((p) => (p.meta?.sealedFloor?.pockets || []).length),
+    (p) => { delete p.meta.sealedFloor.pockets; },
+    "pockets|D8 pocket");
+
+  // ---- O6: crossings completeness ---------------------------------------
+  run("r17/O6-a-crossing-that-reaches-none-of-the-pairs",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).length && (p.meta.towers.adjacency.pairTiles || []).length),
+    (p) => {
+      for (const c of p.meta.towers.adjacency.crossings) c.to = { x: 1, y: 1 };
+      if (p.meta.towers.acrossPriorTake) delete p.meta.towers.acrossPriorTake.taken;
+    },
+    "no recorded crossing reaches|no tower there|crossing");
+  run("r17/O6-the-take-crossing-deleted",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => c.pass === "acrossPriorTake")),
+    (p) => {
+      p.meta.towers.adjacency.crossings = p.meta.towers.adjacency.crossings.filter((c) => c.pass !== "acrossPriorTake");
+      delete p.meta.towers.acrossPriorTake;
+    },
+    "crossing|abandoned|atLayer3|unexplained|reaches");
+
+  // ---- F7: the shallow slot's two facts ----------------------------------
+  run("r17/F7-a-spent-census-claiming-it-was-always-empty",
+    withDecl17("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length && d.shallowExt.search?.freeDeepRoadFaced > 0),
+    raw17("extensions", "shallow", (d) => {
+      d.shallowExt.slots[0].why =
+        `this room has NO free deep tile that is road-faced or one pave away and never had one — the ` +
+        `post-prune scan over all ${d.shallowExt.search.interiorTiles} positions of the 48x48 buildable ` +
+        `band (of which ${d.shallowExt.search.interiorWalkable} are walkable floor inside this room's own ` +
+        `wall) returned an empty candidate list in BOTH classes at the census AND on the re-scan after ` +
+        `every placement, so there is nowhere for this slot to go`;
+    }),
+    "not the sentence this row generates");
+  run("r17/F7-an-empty-census-with-a-spent-sentence",
+    withDecl17("extensions", "shallow", (d) => (d.shallowExt?.slots || []).length),
+    decl17("extensions", "shallow", (d) => {
+      d.shallowExt.search.freeDeepRoadFaced = 0;
+      d.shallowExt.search.freeDeepOnePave = 0;
+      d.shallowExt.search.spentOnAdds = 0;
+      d.shallowExt.search.spentOnMoves = 0;
+      d.shallowExt.search.paveTaken = 0;
+      d.shallowExt.search.left = 0;
+      d.shallowExt.search.paveLeft = 0;
+    }),
+    "not the sentence this row generates|re-derived|freeDeep|reflow search");
 }
 
 // ===========================================================================

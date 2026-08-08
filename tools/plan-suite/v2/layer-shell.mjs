@@ -1515,8 +1515,18 @@ export function pickBattlements(terrain, cut, extMask, walkSet) {
   };
 }
 
-/** deep, buildable, unoccupied interior tiles left for the RCL8 program */
-function countDeep(terrain, ext, depth, cutSet, occupied, roadSet) {
+/**
+ * deep, buildable, unoccupied interior tiles left for the RCL8 program
+ *
+ * EXPORTED since round 17 (O4) so `finalizeRoom` can run the SAME definition
+ * over the board the room ships. `meta.shell.deepTiles` is this function's
+ * answer on layer 2's NEGOTIATION board — before the towers, labs, nuker,
+ * observer and sixty extensions exist — and the gallery card printed it as
+ * "deep tiles sealed in" on a finished plan. Two boards, one label. Both
+ * numbers ship now, under names that say which board each is from, and one
+ * definition produces both.
+ */
+export function countDeep(terrain, ext, depth, cutSet, occupied, roadSet) {
   let deep = 0;
   for (let x = 2; x <= 47; x++) {
     for (let y = 2; y <= 47; y++) {

@@ -317,6 +317,49 @@ const PARK_PROTECT = 8;
 const SPAWN_SECTOR_WEIGHT = 0.4;
 const SPAWN_SECTOR_BINS = 12;
 const SPAWN_WALK_CAP = 5;
+/**
+ * ...and the third, added in round 17 for the census anchor. `MAX_CANDS` is
+ * layer 3's own 2x2 thinning cap on the tower seat list, and `N_TOWERS` is the
+ * RCL8 battery. Both appear in the arithmetic of every tower search census this
+ * file now bounds against the board (see `towers/census-anchor`), so both are
+ * transcribed where a reader can check them against `layer-towers.mjs`.
+ */
+const MAX_CANDS = 260;
+const N_TOWERS = 6;
+/**
+ * Every structure kind that can stand on a tile — the inventory a seat is
+ * called FREE against (round 17, F4). It is the producer's own `counted` list,
+ * transcribed, and the record's copy of it is checked against this one: "free"
+ * has to mean free, not free of the kinds someone remembered to look for.
+ * Roads and ramparts are absent on purpose — both share a tile with anything.
+ */
+const SAT_SEAT_KINDS = [
+  "spawn",
+  "extension",
+  "link",
+  "storage",
+  "terminal",
+  "tower",
+  "observer",
+  "lab",
+  "nuker",
+  "factory",
+  "powerSpawn",
+  "container",
+  "extractor",
+];
+/** layer-hub.mjs — the core is the first CORE_SIZE tiles of the chosen basin */
+const CORE_SIZE = 30;
+/**
+ * layer-shell.mjs — the deep-tile floor the RCL8 program needs, and the two
+ * numbers it is made of. `budgetPass` is `deepTiles >= NEED_DEEP` and was read
+ * by nothing until round 17 (O4).
+ */
+const PROGRAM_TILES = 78;
+const CORRIDOR_OVERHEAD = 45;
+const NEED_DEEP = PROGRAM_TILES + CORRIDOR_OVERHEAD;
+/** the engine's rampart upkeep, energy per tick per rampart */
+const RAMPART_UPKEEP = 0.03;
 
 /**
  * Passability the way the ENGINE moves a creep, not the way terrain reads.
@@ -537,6 +580,16 @@ const MOB_EXACT_MAX = 90;
 const TOWER_TIEBREAK_BUDGET = 30;
 const TOWER_ESC_ROUNDS = 6;
 const TOWER_ESC_PAIR_K = 6;
+/**
+ * ...and the escalation loop's OWN two, which are different numbers from the
+ * two above and were held to nothing (round 17, F3: a coordinated edit of the
+ * record and its mirror moved `towers.search.pairK` and `.restarts` freely in
+ * all 15 rooms that ship the census). `layer-towers.mjs` names them
+ * `ESC_PAIR_K` and `ESC_RESTARTS`; both are constants of the producer, so the
+ * record's copy of them is re-derivable by comparison rather than witnessed.
+ */
+const TOWER_ESC_SEARCH_PAIR_K = 12;
+const TOWER_ESC_RESTARTS = 12;
 /** the buildable band a room's interior scans run over: 48 x 48, never anything else */
 const BUILDABLE_BAND_TILES = 48 * 48;
 /** layer 2 keeps every enclosure within this many ramparts of the cheapest cut it admits */
@@ -1992,40 +2045,159 @@ const X = (why) => ({ klass: "exempt", why });
 // Every entry is `{ op, ... }` plus the two things a closure is for: `say`
 // builds the clause that goes into the leaf's `why`, and `run` evaluates it
 // against the declaration record and returns null or the sentence that says
-// how it broke. `get(path)` reads a dotted path off the record; a path that is
-// absent or null makes the closure SKIP — a record legitimately omits fields,
-// and a closure that fired on absence would be a presence gate wearing an
-// arithmetic gate's name.
+// how it broke. `get(path)` reads a dotted path off the record.
+//
+// ===========================================================================
+// ROUND 17, F3 (CRITICAL): "A PATH THAT IS ABSENT MAKES THE CLOSURE SKIP."
+// ===========================================================================
+// That sentence used to be the paragraph above, and it was wrong in the one
+// way that matters: it described the SELF side (a record legitimately omits a
+// field) and it was implemented on the REFERENT side too. `le`/`ge`/`eq`/
+// `sumeq`/`diffeq`/`quot`/`len`/`maxof`/`lenis`/`iff` all `return null` — i.e.
+// PASS — when the thing they compare against is missing. Since the referent is
+// very often `@meta.towers.…`, and the `@meta` mirror was in no presence list,
+// the exploit was two edits long: falsify the record leaf, delete the mirror.
+// Round 17's mechanical reviewer swept exactly that: **1109 tried, 436 ESCAPE
+// across 29 leaves**, every one of them a falsified reader-facing number
+// re-rendered into the paragraph. The worst was E11S6's clump paragraph
+// reading "it ran 1 single-swap round(s) over 3 candidate swap(s)" against a
+// truth of 755 — criticism 51's exact defect, on a room this doc calls EARNED.
+//
+// So: A MISSING REFERENT IS A FAILURE, EVERYWHERE. The closure's whole job is
+// to be a relation between two published numbers; with one of them gone there
+// is no relation, and "no relation" must not read like "relation holds". The
+// SELF side keeps its skip — a leaf published as `null` is a leaf the absence
+// engine (RECORD_ABSENCE) owns, and a leaf that is simply not there never
+// reaches here — but a self that is PRESENT and not a number fails too, since
+// `cnum` returning null on the string "3" was the same silent pass one type
+// further out.
+//
+// The presence half of the fix is `REQUIRED_META` + `META_MIRRORS`: every
+// `@meta.*` path any closure in this file names is required to exist, in every
+// room or under a measured condition, so "delete the referent" is not a way to
+// turn this failure into a legal absence either.
 // ---------------------------------------------------------------------------
 const cnum = (v) => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const carr = (v) => (Array.isArray(v) ? v : null);
 const R2 = (v) => Math.round(v * 100) / 100;
+
+/** the tail every missing-referent message ends with, written once */
+const NOREF_TAIL =
+  `A closure whose referent is missing compares nothing and used to return null — which this file reads as ` +
+  `"the relation holds". Round 17 swept it: 436 of 1109 falsify-the-leaf-and-delete-its-referent pairs ` +
+  `escaped across 29 leaves, every one a false number re-rendered into the paragraph a human reads`;
+/** the referent named by a closure is absent, or present and not the type the relation needs */
+const noref = (self, path, v, want = "a finite number") =>
+  `is ${JSON.stringify(self)} and its referent \`${path}\` is ` +
+  `${v === undefined ? "ABSENT from this room" : `published as ${JSON.stringify(v).slice(0, 60)}`}, not ${want}. ${NOREF_TAIL}`;
+/** the leaf ITSELF is present and not the type its own relation needs */
+const noself = (self, want = "a finite number") =>
+  `is ${JSON.stringify(self)}, which is not ${want}, so the arithmetic the inventory states for it could ` +
+  `not be evaluated at all. ${NOREF_TAIL}`;
+/**
+ * Reads the self side. `null`/`undefined` SKIPS (the absence engine owns it);
+ * anything else that is not a finite number FAILS.
+ */
+const selfNum = (self) => (self === null || self === undefined ? { skip: true } : cnum(self) === null ? { err: noself(self) } : { v: cnum(self) });
+/**
+ * ==========================================================================
+ * ...AND THE ONE PLACE A REFERENT IS LEGITIMATELY ABSENT IS A MEASURED,
+ * TWO-SIDED CONDITION, NOT A SHRUG.
+ * ==========================================================================
+ * Making a missing referent fail found exactly one honest instance in the
+ * fleet: `mobility`'s `repair.mass.lapAfter` is `null` in all 57 rooms that
+ * ship the record, because the bounded mass-relocation attempt KEPT NOTHING
+ * (`moved === 0`) and a lap "after" a relocation that did not happen is not a
+ * number. `NULLREF` says that in the form this file requires of every other
+ * excuse: the referent may be null EXACTLY WHEN the stated relation holds —
+ * null while the condition is false fails, and PRESENT while the condition is
+ * true fails too. So "delete the referent" cannot be turned into "the referent
+ * was legitimately absent" without also faking the condition, which is a leaf
+ * with its own class.
+ */
+const NULLREF = (c, when, text) => ({ ...c, nullRef: { when, text } });
+/** Reads a referent. Absent or non-numeric is a failure unless `NULLREF` licenses it. */
+const refNum = (c, self, get, path) => {
+  const v = get(path);
+  const licensed = c.nullRef ? c.nullRef.when(get) : false;
+  if (v === null || v === undefined) {
+    if (licensed === true) return { skip: true };
+    if (licensed === null) {
+      return {
+        err:
+          `is ${JSON.stringify(self)}, its referent \`${path}\` is absent, and the condition that would ` +
+          `license the absence (${c.nullRef.text}) could not itself be evaluated. ${NOREF_TAIL}`,
+      };
+    }
+    return {
+      err: c.nullRef
+        ? `is ${JSON.stringify(self)} and its referent \`${path}\` is absent while ${c.nullRef.text} is ` +
+          `FALSE — that condition is the only thing that licenses the absence. ${NOREF_TAIL}`
+        : noref(self, path, v),
+    };
+  }
+  if (c.nullRef && licensed === true) {
+    return {
+      err:
+        `is ${JSON.stringify(self)} and its referent \`${path}\` is published as ${JSON.stringify(v).slice(0, 40)} ` +
+        `while ${c.nullRef.text} — the condition under which that referent carries NOTHING. An excuse that ` +
+        `holds in both directions is a measurement; one that holds in one is an escape hatch`,
+    };
+  }
+  const n = cnum(v);
+  return n === null ? { err: noref(self, path, v) } : { v: n };
+};
+/** ...the same, for a referent that has to be an array */
+const refArr = (c, self, get, path) => {
+  const v = get(path);
+  const a = carr(v);
+  return a === null ? { err: noref(self, path, v, "a list") } : { v: a };
+};
 
 const CLOSURE_OPS = {
   /** this leaf <= the value at `other` */
   le: {
     say: (c) => `it may not exceed \`${c.other}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const b = cnum(get(c.other));
-      return a === null || b === null || a <= b ? null : `is ${a}, which exceeds \`${c.other}\` (${b})`;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const b = refNum(c, self, get, c.other);
+      if (b.err) return b.err;
+      if (b.skip) return null;
+      return a.v <= b.v ? null : `is ${a.v}, which exceeds \`${c.other}\` (${b.v})`;
     },
   },
   /** this leaf >= the value at `other` */
   ge: {
     say: (c) => `it may not fall below \`${c.other}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const b = cnum(get(c.other));
-      return a === null || b === null || a >= b ? null : `is ${a}, below \`${c.other}\` (${b})`;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const b = refNum(c, self, get, c.other);
+      if (b.err) return b.err;
+      if (b.skip) return null;
+      return a.v >= b.v ? null : `is ${a.v}, below \`${c.other}\` (${b.v})`;
     },
   },
-  /** this leaf === the value at `other` — a cross-copy of one number */
+  /**
+   * this leaf === the value at `other` — a cross-copy of one number.
+   *
+   * `eq` is the op the `@meta.*` mirrors are built out of, so it is the op the
+   * round-17 exploit lived in: 20 of the 22 mirrored paths deleted clean, and
+   * with the mirror gone the record leaf was held to its type and nothing else.
+   * The referent side is now REQUIRED (`META_MIRRORS` puts every one of those
+   * 22 paths into `REQUIRED_META` under a measured presence condition), and a
+   * referent that is nevertheless absent fails HERE as well, so the two halves
+   * cannot both be argued away.
+   */
   eq: {
     say: (c) => `it is the same number as \`${c.other}\`, published twice`,
     run: (c, self, get) => {
+      if (self === undefined || self === null) return null;
       const b = get(c.other);
-      if (b === undefined || b === null || self === undefined || self === null) return null;
+      if (b === undefined || b === null) return noref(self, c.other, b, "a published value");
       return near2(self, b) ? null : `is ${JSON.stringify(self)} and \`${c.other}\` says ${JSON.stringify(b)}`;
     },
   },
@@ -2054,70 +2226,111 @@ const CLOSURE_OPS = {
   sumeq: {
     say: (c) => `it is exactly ${c.parts.map((p) => `\`${p}\``).join(" + ")}`,
     run: (c, self, get) => {
-      const a = cnum(self);
-      if (a === null) return null;
-      const vs = c.parts.map((p) => cnum(get(p)));
-      if (vs.some((v) => v === null)) return null;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const vs = [];
+      for (const p of c.parts) {
+        const r = refNum(c, self, get, p);
+        if (r.err) return r.err;
+        if (r.skip) return null;
+        vs.push(r.v);
+      }
       const s = vs.reduce((x, y) => x + y, 0);
-      return near2(a, s) ? null : `is ${a} and ${c.parts.map((p, i) => `${p} ${vs[i]}`).join(" + ")} is ${s}`;
+      return near2(a.v, s) ? null : `is ${a.v} and ${c.parts.map((p, i) => `${p} ${vs[i]}`).join(" + ")} is ${s}`;
     },
   },
   /** this leaf === the difference `minus[0] - minus[1]` */
   diffeq: {
     say: (c) => `it is exactly \`${c.minus[0]}\` minus \`${c.minus[1]}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const x = cnum(get(c.minus[0]));
-      const y = cnum(get(c.minus[1]));
-      if (a === null || x === null || y === null) return null;
-      return near2(a, x - y) ? null : `is ${a} and \`${c.minus[0]}\` ${x} minus \`${c.minus[1]}\` ${y} is ${x - y}`;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const x = refNum(c, self, get, c.minus[0]);
+      if (x.err) return x.err;
+      if (x.skip) return null;
+      const y = refNum(c, self, get, c.minus[1]);
+      if (y.err) return y.err;
+      if (y.skip) return null;
+      return near2(a.v, x.v - y.v)
+        ? null
+        : `is ${a.v} and \`${c.minus[0]}\` ${x.v} minus \`${c.minus[1]}\` ${y.v} is ${x.v - y.v}`;
     },
   },
   /** this leaf === `over[0]` divided by `over[1]`, at the producer's rounding */
   quot: {
     say: (c) => `it is exactly \`${c.over[0]}\` divided by \`${c.over[1]}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const x = cnum(get(c.over[0]));
-      const y = cnum(get(c.over[1]));
-      if (a === null || x === null || y === null || y === 0) return null;
-      const want = R2(x / y);
-      return Math.abs(a - want) < 0.011
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const x = refNum(c, self, get, c.over[0]);
+      if (x.err) return x.err;
+      if (x.skip) return null;
+      const y = refNum(c, self, get, c.over[1]);
+      if (y.err) return y.err;
+      if (y.skip) return null;
+      if (y.v === 0) {
+        return (
+          `is ${a.v} and its divisor \`${c.over[1]}\` is ZERO, so the quotient the inventory says it equals ` +
+          `does not exist. ${NOREF_TAIL}`
+        );
+      }
+      const want = R2(x.v / y.v);
+      return Math.abs(a.v - want) < 0.011
         ? null
-        : `is ${a} and \`${c.over[0]}\` ${x} over \`${c.over[1]}\` ${y} is ${want}`;
+        : `is ${a.v} and \`${c.over[0]}\` ${x.v} over \`${c.over[1]}\` ${y.v} is ${want}`;
     },
   },
   /** this leaf === the LENGTH of the array at `other` */
   len: {
     say: (c) => `it is the number of entries in \`${c.other}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const arr = carr(get(c.other));
-      if (a === null || !arr) return null;
-      return a === arr.length ? null : `is ${a} and \`${c.other}\` has ${arr.length} entr(y/ies)`;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const arr = refArr(c, self, get, c.other);
+      if (arr.err) return arr.err;
+      if (arr.skip) return null;
+      return a.v === arr.v.length ? null : `is ${a.v} and \`${c.other}\` has ${arr.v.length} entr(y/ies)`;
     },
   },
   /** this leaf === the MAXIMUM of the numeric array at `other` */
   maxof: {
     say: (c) => `it is the largest entry of \`${c.other}\``,
     run: (c, self, get) => {
-      const a = cnum(self);
-      const arr = carr(get(c.other));
-      if (a === null || !arr || !arr.length) return null;
-      const ns = arr.map(cnum).filter((v) => v !== null);
-      if (!ns.length) return null;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
+      const arr = refArr(c, self, get, c.other);
+      if (arr.err) return arr.err;
+      if (arr.skip) return null;
+      const ns = arr.v.map(cnum).filter((v) => v !== null);
+      if (ns.length !== arr.v.length) {
+        return (
+          `is ${a.v} and \`${c.other}\`, the list it is supposed to be the largest entry of, has ` +
+          `${arr.v.length - ns.length} entr(y/ies) that are not numbers at all. ${NOREF_TAIL}`
+        );
+      }
+      if (!ns.length) {
+        return `is ${a.v} and \`${c.other}\` is EMPTY, so it has no largest entry. ${NOREF_TAIL}`;
+      }
       const mx = Math.max(...ns);
-      return a === mx ? null : `is ${a} and the largest entry of \`${c.other}\` is ${mx}`;
+      return a.v === mx ? null : `is ${a.v} and the largest entry of \`${c.other}\` is ${mx}`;
     },
   },
   /** THIS array's length === the value at `other` */
   lenis: {
     say: (c) => `it has exactly \`${c.other}\` entries`,
     run: (c, self, get) => {
+      if (self === null || self === undefined) return null;
       const arr = carr(self);
-      const n = cnum(get(c.other));
-      if (!arr || n === null) return null;
-      return arr.length === n ? null : `has ${arr.length} entr(y/ies) and \`${c.other}\` says ${n}`;
+      if (!arr) return noself(self, "a list");
+      const n = refNum(c, self, get, c.other);
+      if (n.err) return n.err;
+      if (n.skip) return null;
+      return arr.length === n.v ? null : `has ${arr.length} entr(y/ies) and \`${c.other}\` says ${n.v}`;
     },
   },
   /** THIS array's length === a constant */
@@ -2133,11 +2346,48 @@ const CLOSURE_OPS = {
   iff: {
     say: (c) => `it is positive exactly when ${c.text}`,
     run: (c, self, get) => {
-      const a = cnum(self);
-      if (a === null) return null;
+      const a = selfNum(self);
+      if (a.skip) return null;
+      if (a.err) return a.err;
       const w = c.when(get);
-      if (w === null) return null;
-      return a > 0 === w ? null : `is ${a} and ${c.text} is ${w}`;
+      if (w === null) {
+        return (
+          `is ${a.v} and the condition it is supposed to track — ${c.text} — could not be evaluated, ` +
+          `because one of the leaves it reads is absent or is not a number. ${NOREF_TAIL}`
+        );
+      }
+      return a.v > 0 === w ? null : `is ${a.v} and ${c.text} is ${w}`;
+    },
+  },
+  /**
+   * THIS leaf is published as `null` exactly when the named relation holds.
+   *
+   * The mirror image of `NULLREF`. A leaf whose value is `null` skips every
+   * arithmetic closure it carries — that is correct, because there is no
+   * arithmetic to do — so the fact that it is null has to be a checked fact of
+   * its own, or "publish null" is a way to switch a leaf's whole audit off.
+   * (`repair.mass.lapBefore` / `.lapAfter` / `.liftedLap` are the fleet's three
+   * instances, and all three nulls are a measurement: the attempt kept nothing,
+   * or the room's built lap is zero and there was nothing to relocate FOR.)
+   */
+  nulliff: {
+    say: (c) => `it is published as null exactly when ${c.text}`,
+    run: (c, self, get) => {
+      if (self === undefined) return null; // absence is the presence engine's job
+      const w = c.when(get);
+      if (w === null) {
+        return (
+          `is ${JSON.stringify(self)} and the condition that decides whether it may be null — ${c.text} — ` +
+          `could not be evaluated, because a leaf it reads is absent or is not a number. ${NOREF_TAIL}`
+        );
+      }
+      const isNull = self === null;
+      if (isNull === w) return null;
+      return isNull
+        ? `is null while ${c.text} is FALSE. A null leaf skips every arithmetic closure it carries, so ` +
+          `nulling it is how a census turns itself off; the null has to be a measured fact`
+        : `is ${JSON.stringify(self)} while ${c.text} is TRUE — that is the condition under which this ` +
+          `leaf has nothing to report, so a number here is a number about a pass that did not happen`;
     },
   },
   /** a hand-written predicate over the whole record, named so it can be listed */
@@ -2196,6 +2446,9 @@ const BOARD_FACTS = [
   "gatedPairs", // as-built gated cut-tile pairs
   "builtGated", // as-built worst gated lap
   "freeDeepInterior", // empty walkable interior tiles at or past the depth floor
+  "deepSeats", // ...of those, the ones that are legal TOWER seats on the shipped board
+  "deepSeatsWithTowers", // ...plus the six seats the towers are standing on
+  "deepSeatBlocks", // ...counted by 2x2 block, which survives layer 3's thinning
   "lapCeiling", // this file's own exact-metric ceiling
 ];
 const BOARD = (f) => {
@@ -2216,6 +2469,7 @@ const MAXOF = (other) => ({ op: "maxof", other });
 const LENIS = (other) => ({ op: "lenis", other });
 const LENK = (value, note) => ({ op: "lenk", value, note });
 const IFFPOS = (text, when) => ({ op: "iff", text, when });
+const NULLIFF = (text, when) => ({ op: "nulliff", text, when });
 const PRED = (text, check) => ({ op: "pred", text, check });
 const BESPOKE = (id, text) => ({ op: "bespoke", id, text });
 
@@ -2258,6 +2512,17 @@ const BESPOKE_CLOSURES = new Set([
 const MIRROR_L3 = (field) => EQ(`@meta.towers.${field}`);
 const MIRROR_VETO = (field) => EQ(`@meta.towers.mobilityVeto.${field}`);
 const MIRROR_DISP = (field) => EQ(`@meta.towers.towerDispersion.${field}`);
+/**
+ * ROUND 17 / F6 — the lane reservation's own unconditional publication.
+ * `meta.walls.mobility.lanes` is written by layer 6 for every room, declared or
+ * not, and the `mobility` record's `lane` block is a copy of it. Until this
+ * round the lane family was held to sibling inequalities and to ceilings taken
+ * off the room's interior FLOOR — 200-400 tiles, against numbers whose real
+ * values are 6 to 20 — so a x5 inflation with the paragraph regenerated walked
+ * past every one of them: 216 of the 290 escapes in round 17's x5 band sweep
+ * were lane leaves.
+ */
+const MIRROR_LANE = (field) => EQ(`@meta.walls.mobility.lanes.${field}`);
 
 /**
  * The one census that WAS closed before this round, named once so the leaves
@@ -2432,6 +2697,21 @@ const RECORD_LEAVES = new Map(([
           `property of the pass`,
         ATLEAST(1, "a cut that enclosed a room had tiles in it"),
         LE(BOARD("interiorWalkable")),
+        // ROUND 17 / F6: "deliberately not ordered against the shipped count"
+        // was right and left the leaf with a ceiling 10x its own scale, which a
+        // x5 inflation walked past in all 12 rooms. An ORDER would be a
+        // coincidence; a BAND is the property — the passes between layer 2 and
+        // the shipped wall add and subtract a tile or two (0.96x to 1.05x on
+        // this fleet), so half to twice is generous by a factor of 20.
+        PRED("and it is between half and twice the cut this room ships — the passes between move that wall, they do not redraw it", (self, get) => {
+          const a = cnum(self);
+          const shipped = cnum(get(BOARD("shippedCut")));
+          if (a === null || shipped === null) return null;
+          return a >= shipped / 2 && a <= 2 * shipped
+            ? null
+            : `is ${a} against a shipped cut of ${shipped} tile(s) — the bubbles ADD and the prune ` +
+                `SUBTRACTS, and across this fleet the two together move the count between 0.96x and 1.05x`;
+        }),
       ),
     },
   ],
@@ -2665,6 +2945,9 @@ const RECORD_LEAVES = new Map(([
       "dispersion.search.pairImproved": SEARCH_COUNTER(
         `how many pair swaps improved it`,
         LE("dispersion.search.pairSwapsTried"),
+        // an improving swap is chosen from the SCORE-TIED ones, so this is the
+        // last link of that chain and not merely a subset of the first
+        LE("dispersion.search.pairSwapsScoreTied"),
         MIRROR_DISP("search.pairImproved"),
       ),
     },
@@ -2724,16 +3007,46 @@ for (const [k, v] of [
         // seeds before any wall exists, so the basin is not confined by one.
         LE(BOARD("interiorTiles")),
       ),
+      // ROUND 17 / F3: both of these were witnessed numbers whose only real
+      // bound was a mirror written in the same pass, and a coordinated edit of
+      // record and mirror moved either one anywhere (38 declarations each).
+      // Neither is actually unknowable.
       "eco.coreSize": SEARCH_COUNTER(
         `the size of the core layer 1 grew around the chosen seed`,
         // the core is grown INSIDE the basin, so it cannot be larger than it
         LE("eco.basin"),
         EQ("@meta.coreSize"),
+        // ...and it is a SLICE of the basin, of a length this file owns. The
+        // core is `basin.filter(not an object tile).slice(0, CORE_SIZE)`, so it
+        // is CORE_SIZE unless the basin could not supply that many — and the
+        // smallest basin the fleet ships is 142, against at most four object
+        // tiles a basin can contain (two sources, the controller, the mineral).
+        ATMOST(CORE_SIZE, "layer 1's CORE_SIZE — the core IS the first CORE_SIZE tiles of the basin"),
+        PRED(
+          "a core shorter than CORE_SIZE is a basin that could not supply CORE_SIZE non-object tiles",
+          (self, get) => {
+            const a = cnum(self);
+            const b = cnum(get("eco.basin"));
+            if (a === null || b === null || a >= CORE_SIZE) return null;
+            return b - 4 >= CORE_SIZE
+              ? `is ${a}, short of the ${CORE_SIZE} tiles layer 1 slices off the basin, in a room whose ` +
+                  `basin holds ${b} tiles — at most four of which (the sources, the controller, the ` +
+                  `mineral) are object tiles the core skips`
+              : null;
+          },
+        ),
       ),
       "eco.seedPool": SEARCH_COUNTER(
         `how many seeds layer 1 ranked before it took this one`,
         ATLEAST(1, "the seed it took was one of them"),
         EQ("@meta.seedPool"),
+        // ...and the mirror is no longer the whole of it: `eco/seed-pool`
+        // re-derives the pool from this room's TERRAIN in all 172 rooms (the
+        // admissibility half of layer 1's seed score — pocket depth, edge
+        // margin, every anchor reachable, not glued to one of them — capped at
+        // the 25 layer 1 ranks), and it reproduces the published number in 172
+        // of 172. This closure names the leaf that check stands behind.
+        GE("eco.seedSkip"),
       ),
     },
   ],
@@ -2834,13 +3147,31 @@ for (const [k, v] of [
       // this census un-swappable between rooms.
       "shallowExt.search.bandSide": D,
       "shallowExt.search.interiorWalkable": D,
+      // ==============================================================
+      // ROUND 17 / F6 — THE CEILING WAS THE BAND, NOT THE ROOM.
+      // ==============================================================
+      // Both of these were bounded by `interiorTiles`, which is the 48x48
+      // BAND — the constant 2304, in every room in the game — while
+      // `interiorWalkable` (this room's own floor: 178 in E9S2, 221 in E2S3,
+      // 255 in E12S6) sat two lines above, already class D. `freeDeepOnePave`
+      // accepted **2303** in all three rooms. Criticism 54(d) said the 2304
+      // figure had been "published and fixed in all three channels that quoted
+      // it"; the closure was a fourth channel still quoting it.
+      //
+      // The room's own floor is the honest ceiling, and `#freeDeepInterior` —
+      // empty walkable interior tiles at or past the depth floor, re-derived
+      // off the shipped board — is tighter still. It is a CEILING and not an
+      // equality because the scan ran on the post-prune board, which is not
+      // quite the board the room ships.
       "shallowExt.search.freeDeepOnePave": SEARCH_COUNTER(
         `free deep tiles one pave from the network`,
-        LE("shallowExt.search.interiorTiles"),
+        LE("shallowExt.search.interiorWalkable"),
+        LE(BOARD("freeDeepInterior")),
       ),
       "shallowExt.search.freeDeepRoadFaced": SEARCH_COUNTER(
         `free deep tiles that already had a road face`,
-        LE("shallowExt.search.interiorTiles"),
+        LE("shallowExt.search.interiorWalkable"),
+        LE(BOARD("freeDeepInterior")),
       ),
       "shallowExt.search.left": SEARCH_COUNTER(
         `free deep road-faced tiles still on the table when the re-run finished`,
@@ -2862,7 +3193,26 @@ for (const [k, v] of [
           },
         ),
       ),
-      "shallowExt.search.paveLeft": SEARCH_COUNTER(`pave budget left`),
+      "shallowExt.search.paveLeft": SEARCH_COUNTER(
+        `pave budget left`,
+        // the one-pave class is counted once, and what was TAKEN plus what is
+        // LEFT cannot exceed it (a member can also be refused, which is why
+        // this is an inequality and not the identity `left` carries for the
+        // road-faced class — E12S6 ships 4 found, 3 taken and 0 left). It had
+        // no closure at all, so a x5 inflation with the prose regenerated
+        // walked past it.
+        LE("shallowExt.search.freeDeepOnePave"),
+        PRED("and what the pave budget took plus what it has left cannot exceed the class it was counted from", (self, get) => {
+          const a = cnum(self);
+          const t = cnum(get("shallowExt.search.paveTaken"));
+          const f = cnum(get("shallowExt.search.freeDeepOnePave"));
+          if (a === null || t === null || f === null) return null;
+          return a + t <= f
+            ? null
+            : `is ${a} with ${t} taken, against a one-pave class of ${f} tile(s) — the scan counted those ` +
+                `tiles once`;
+        }),
+      ),
       "shallowExt.search.paveTaken": SEARCH_COUNTER(
         `pave budget spent — one plain pave per free deep tile that needed one, so it cannot outrun the ` +
           `tiles that were one pave away`,
@@ -3219,22 +3569,16 @@ for (const [k, v] of [
         // places and a difference is an edit to one copy.
         EQ("@meta.walls.inertPruned"),
       ),
-      "battery.maxRefillAtPlacement": LAYER_EARLIER(
-        `the furthest refill walk as layer 3 measured it, before the mass grew`,
-        MAXOF("battery.refillDistsAtPlacement"),
-        EQ("@meta.towers.maxRefillAtPlacement"),
-      ),
-      "battery.refillDistsAtPlacement": W(
-        `layer 3's own refill walks, tower by tower, on the board it was placing against. The layers after ` +
-          `it move the walk; the AS-SHIPPED list beside this one is re-derived tile by tile. It is one walk ` +
-          `per tower of the six-tower program, and its own maximum is the number published beside it`,
-        null,
-        [
-          LENK(6, "one walk per tower of the RCL8 program"),
-          LENIS("@structures.tower.length"),
-          EQ("@meta.towers.refillDistsAtPlacement"),
-        ],
-      ),
+      // ROUND 17 / F2: these two were the LAST unaudited inputs to the
+      // `source` derivation — layer-3 witnesses about a board nobody could
+      // reconstruct, so clamping them under the soft note and writing
+      // `source: "walls"` took the wall arm in 10 of the 15 layer-3 rooms.
+      // The board IS reconstructible: the walk is a BFS around obstacles and
+      // roads are not obstacles, so it is this room's terrain with the hub and
+      // the six towers standing and nothing later on it. Re-derived that way
+      // the walks reproduce tower for tower in 172 of 172 rooms.
+      "battery.maxRefillAtPlacement": D,
+      "battery.refillDistsAtPlacement": D,
       // ---- layer 3's search half: a different board, honestly named
       "towers.maxRefill": LAYER_EARLIER(`layer 3's furthest refill walk`, MAXOF("towers.refillDists"), GE("towers.maxRefillUnblocked"), MIRROR_L3("maxRefill")),
       "towers.maxRefillUnblocked": LAYER_EARLIER(
@@ -3246,7 +3590,7 @@ for (const [k, v] of [
         `layer 3's per-tower refill walks; see \`refillDistsAtPlacement\`. One walk per tower of the ` +
           `six-tower program, with \`towers.maxRefill\` as its own largest entry`,
         null,
-        [LENK(6, "one walk per tower of the RCL8 program"), LENIS("@structures.tower.length")],
+        [LENK(6, "one walk per tower of the RCL8 program"), LENIS(BOARD("shippedTowers"))],
       ),
       "towers.minShellDmg": LAYER_EARLIER(
         `the weakest face of the cut LAYER 3 was given, which the prune and the seal reconciliation then moved`,
@@ -3266,11 +3610,39 @@ for (const [k, v] of [
         GE("towers.weakTiles"),
         GE("battery.cutTiles"),
         LE(BOARD("interiorWalkable")),
+        // ROUND 17 / F6: `interiorWalkable` is 200-400 tiles and a cut is 9 to
+        // 59, so the only ceiling this leaf had was two orders of magnitude
+        // out and a x5 inflation walked past it in all 15 rooms. The prune and
+        // the seal reconciliation MOVE this cut; they do not rebuild it, and
+        // measured over the fleet layer 3's cut runs 1.00x to 1.13x the cut
+        // the room ships. The band is taken at twice, so no honest room can
+        // grow into it and no x5 can stay inside it.
+        PRED("and it is at most twice the cut this room actually ships — the later passes move that wall, they do not replace it", (self, get) => {
+          const a = cnum(self);
+          const shipped = cnum(get(BOARD("shippedCut")));
+          if (a === null || shipped === null) return null;
+          return a <= 2 * shipped
+            ? null
+            : `is ${a} against a shipped cut of ${shipped} tile(s); the inert prune and the seal ` +
+                `reconciliation move that wall by a tile or two (1.00x to 1.13x across this fleet), they do ` +
+                `not double it`;
+        }),
       ),
       "towers.weakTiles": LAYER_EARLIER(
         `how many of them were under the weak line`,
         LE("towers.declaredCutTiles"),
         MIRROR_L3("weakTiles"),
+        // ROUND 17 / F3: it is counted in the SAME loop that produces
+        // `minShellDmg` — one pass over layer 3's cut, incrementing on
+        // `faceDamage < TARGET_MIN` and tracking the minimum — so the two are
+        // one measurement, and the weak count is positive exactly when the
+        // weakest face is under that floor. Held to `declaredCutTiles` and a
+        // mirror alone, a coordinated edit charged a room 7 weak tiles beside
+        // a published weakest face of 2010.
+        IFFPOS("the weakest face layer 3 measured is under TOWER_TARGET_MIN", (get) => {
+          const mn = cnum(get("towers.minShellDmg"));
+          return mn === null ? null : mn < TOWER_TARGET_MIN;
+        }),
       ),
       "towers.depthSafe": D,
       "towers.refillCap": D,
@@ -3278,7 +3650,10 @@ for (const [k, v] of [
       "towers.weakShellDmg": D,
       "towers.maxRefillHard": D,
       "towers.targetMin": D,
-      "towers.spreadRadius": SEARCH_COUNTER(`the mean tower-to-centroid radius layer 3 achieved`, MIRROR_L3("spreadRadius"), ATMOST(25, "half the room")),
+      // ...and this one turned out not to be a layer-3 witness at all: it is
+      // computed from the battery the producer FINISHES with, so it is the
+      // spread of the six towers this room ships, and it is re-derived here.
+      "towers.spreadRadius": D,
       // OF11 cause 1/3: the mirror is not a second witness — both copies are
       // written by the same producer in the same pass, so a mirrored-pair edit
       // is one extra assignment. What a permuted or rescaled census CANNOT
@@ -3331,17 +3706,32 @@ for (const [k, v] of [
         GE("towers.refillSearch.crossOffered"),
         EQ("@meta.towers.refillSearch.tried"),
       ),
-      "towers.refillSearch.rounds": SEARCH_COUNTER(`rounds it ran`, EQ("@meta.towers.refillSearch.rounds")),
+      "towers.refillSearch.rounds": SEARCH_COUNTER(
+        `rounds it ran`,
+        EQ("@meta.towers.refillSearch.rounds"),
+        // the pass is `for (pass = 0; pass < 4 && still over the note; pass++)`
+        // and it takes at most one tower per round
+        ATMOST(4, "the refill-repair pass's own round budget in layer-towers.mjs"),
+        GE("towers.refillSearch.moved"),
+      ),
       "towers.refillSearch.scoreTied": SEARCH_COUNTER(`swaps that scored equal`, LE("towers.refillSearch.tried"), EQ("@meta.towers.refillSearch.scoreTied")),
       "towers.refillSearch.dispersionOk": SEARCH_COUNTER(
         `swaps the dispersion guard allowed`,
         LE("towers.refillSearch.tried"),
+        // ...and the guard runs INSIDE the score-tie test, so the swaps it let
+        // through are a subset of the swaps that got that far. The chain was
+        // three counters each held to `tried` and to each other not at all,
+        // which is what let a coordinated edit inflate the middle of it.
+        LE("towers.refillSearch.scoreTied"),
         EQ("@meta.towers.refillSearch.dispersionOk"),
       ),
       "towers.refillSearch.crossOffered": SEARCH_COUNTER(
         `swaps the refill-repair pass was offered ACROSS the tower-adjacency prior — the crossings round 14 ` +
           `let it make once a room is over the hard refill ceiling`,
         LE("towers.refillSearch.tried"),
+        // ...offered only to a swap that already cleared the score tie AND the
+        // dispersion guard, so it is the last link of that same chain
+        LE("towers.refillSearch.dispersionOk"),
         EQ("@meta.towers.refillSearch.crossOffered"),
       ),
       "towers.search.ran": W(
@@ -3368,8 +3758,12 @@ for (const [k, v] of [
       ),
       "towers.search.improvedTo": LAYER_EARLIER(
         `...and ended at. The search only accepts a placement that does not weaken the wall, so the end is ` +
-          `never below the start; where it took no improvement at all the two are equal`,
+          `never below the start; where it took no improvement at all the two are equal — and it is the ` +
+          `weakest face of the placement layer 3 SETTLED on, so it never exceeds the weakest face this ` +
+          `record publishes for that placement (a later pass may improve it, as round 16's across-prior ` +
+          `take did in E3S1, 1200 -> 1230; nothing after layer 3 makes it worse)`,
         GE("towers.search.improvedFrom"),
+        LE("towers.minShellDmg"),
         PRED("with zero accepted improvements it is the number the search started from", (self, get) => {
           const imp = cnum(get("towers.search.improvements"));
           const from = cnum(get("towers.search.improvedFrom"));
@@ -3382,11 +3776,53 @@ for (const [k, v] of [
         }),
         EQ("@meta.towers.search.improvedTo"),
       ),
-      "towers.search.improvements": SEARCH_COUNTER(`accepted improvements`, LE("towers.search.rounds"), EQ("@meta.towers.search.improvements")),
-      "towers.search.rounds": SEARCH_COUNTER(`rounds`, GE("towers.search.improvements"), EQ("@meta.towers.search.rounds")),
+      // ROUND 17 / F3: the escalation census was five counters bounded by each
+      // other and by a mirror written in the same pass. Its two loops are a
+      // descent per settled START and a descent per RESTART, each running at
+      // most ESC_ROUNDS pair-ejection rounds and accepting at most one
+      // improvement — so the budget the record itself declares bounds the work
+      // the record itself claims.
+      "towers.search.improvements": SEARCH_COUNTER(
+        `accepted improvements`,
+        LE("towers.search.rounds"),
+        PRED(
+          "and it is at most one per descent — one descent per settled start and one per restart",
+          (self, get) => {
+            const a = cnum(self);
+            const st = cnum(get("towers.search.starts"));
+            const re = cnum(get("towers.search.restarts"));
+            if (a === null || st === null || re === null) return null;
+            return a <= st + re
+              ? null
+              : `is ${a} against ${st} settled start(s) plus ${re} restart(s); each descent accepts at ` +
+                  `most one improvement, so there were at most ${st + re} of them`;
+          },
+        ),
+        EQ("@meta.towers.search.improvements"),
+      ),
+      "towers.search.rounds": SEARCH_COUNTER(
+        `rounds`,
+        GE("towers.search.improvements"),
+        PRED(
+          "and it is at most ESC_ROUNDS per descent, over the settled starts plus the restarts",
+          (self, get) => {
+            const a = cnum(self);
+            const st = cnum(get("towers.search.starts"));
+            const re = cnum(get("towers.search.restarts"));
+            if (a === null || st === null || re === null) return null;
+            const cap = TOWER_ESC_ROUNDS * (st + re);
+            return a <= cap
+              ? null
+              : `is ${a} and the escalation runs at most ${TOWER_ESC_ROUNDS} pair-ejection round(s) on ` +
+                  `each of ${st} settled start(s) and ${re} restart(s), which is ${cap}`;
+          },
+        ),
+        EQ("@meta.towers.search.rounds"),
+      ),
       "towers.search.restarts": SEARCH_COUNTER(
         `the restart BUDGET the search was given`,
         GE("towers.search.starts"),
+        KONST("ESC_RESTARTS", TOWER_ESC_RESTARTS),
         EQ("@meta.towers.search.restarts"),
       ),
       "towers.search.starts": SEARCH_COUNTER(
@@ -3394,7 +3830,11 @@ for (const [k, v] of [
         LE("towers.search.restarts"),
         EQ("@meta.towers.search.starts"),
       ),
-      "towers.search.pairK": SEARCH_COUNTER(`the pair-swap breadth inside the placement search`, EQ("@meta.towers.search.pairK")),
+      "towers.search.pairK": SEARCH_COUNTER(
+        `the pair-swap breadth inside the placement search`,
+        KONST("ESC_PAIR_K", TOWER_ESC_SEARCH_PAIR_K),
+        EQ("@meta.towers.search.pairK"),
+      ),
     },
   ],
   // ---------------------------------------------------------------- mobility/covered-detour
@@ -3643,7 +4083,7 @@ for (const [k, v] of [
       "ladder.shippedRamparts": LAYER_EARLIER(
         `the rampart count that rung cost — and the room built exactly that many`,
         ATLEAST(0, "a count of ramparts"),
-        EQ("@structures.rampart.length"),
+        EQ(BOARD("shippedRamparts")),
       ),
       "ladder.buyFloor": SEARCH_COUNTER(`the ladder's own purchase floor`, KONST("MOB_LADDER_BUY_FLOOR", MOB_LADDER_BUY_FLOOR)),
       "ladder.cap": SEARCH_COUNTER(
@@ -3681,14 +4121,16 @@ for (const [k, v] of [
         `tiles layer 6's defender-lane reservation wanted`,
         GE("lane.deep"),
         LE(BOARD("interiorWalkable")),
+        MIRROR_LANE("tiles"),
       ),
-      "lane.deep": SEARCH_COUNTER(`of those, the deep ones`, LE("lane.tiles"), LE(BOARD("interiorWalkable"))),
-      "lane.rounds": SEARCH_COUNTER(`rounds the reservation ran`, GE("lane.strandRounds"), LE(BOARD("interiorWalkable"))),
-      "lane.strandRounds": SEARCH_COUNTER(`rounds spent on stranded stubs`, LE("lane.rounds"), LE(BOARD("interiorWalkable"))),
+      "lane.deep": SEARCH_COUNTER(`of those, the deep ones`, LE("lane.tiles"), LE(BOARD("interiorWalkable")), MIRROR_LANE("deep")),
+      "lane.rounds": SEARCH_COUNTER(`rounds the reservation ran`, GE("lane.strandRounds"), LE(BOARD("interiorWalkable")), MIRROR_LANE("rounds")),
+      "lane.strandRounds": SEARCH_COUNTER(`rounds spent on stranded stubs`, LE("lane.rounds"), LE(BOARD("interiorWalkable")), MIRROR_LANE("strandRounds")),
       "lane.stubsLifted": LAYER_EARLIER(
         `how many stranded road stubs the lane reservation lifted before it took its bound. The stubs were ` +
           `lifted from a mid-layer-6 board and the reservation itself is not on the shipped one`,
         LE(BOARD("shippedRoads")),
+        MIRROR_LANE("stubsLifted"),
       ),
       "lane.dropped": W(
         `whether the reservation was dropped rather than taken. \`lane.droppedFor\` beside it is held to ` +
@@ -3716,12 +4158,14 @@ for (const [k, v] of [
           `shipping OUTSIDE its own published bound is the one reading that sentence cannot survive`,
         GE("mass.builtLap"),
         ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
+        MIRROR_LANE("bounded"),
       ),
-      "lane.boundBeforeStubs": LAYER_EARLIER(`the same bound before the stub lift`, ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap")),
+      "lane.boundBeforeStubs": LAYER_EARLIER(`the same bound before the stub lift`, ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"), MIRROR_LANE("boundBeforeStubs")),
       "lane.wanted": LAYER_EARLIER(
         `the size of the reservation layer 6 would have taken, against the smaller one it did`,
         GE("lane.tiles"),
         LE(BOARD("interiorWalkable")),
+        MIRROR_LANE("wanted"),
       ),
       "lane.wantedBound": LAYER_EARLIER(`...and the bound that would have come with it`, ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap")),
       "lane.cost": LAYER_EARLIER_SIGNED(
@@ -3753,13 +4197,15 @@ for (const [k, v] of [
         GE("lane.shrunk.to"),
         GE("lane.tiles"),
         LE(BOARD("interiorWalkable")),
+        MIRROR_LANE("shrunk.wanted"),
       ),
       "lane.shrunk.to": SEARCH_COUNTER(
         `the size it settled on — which is the reservation the room actually ran`,
         LE("lane.shrunk.wanted"),
         EQ("lane.rounds"),
+        MIRROR_LANE("shrunk.to"),
       ),
-      "lane.shrunk.premium": SEARCH_COUNTER(`the premium that shrink bought`, LE(BOARD("shippedRamparts"))),
+      "lane.shrunk.premium": SEARCH_COUNTER(`the premium that shrink bought`, LE(BOARD("shippedRamparts")), MIRROR_LANE("shrunk.premium")),
       "repair.mass.rounds": SEARCH_COUNTER(
         `rounds of the bounded mass-relocation attempt`,
         PRED("an attempt that ran no rounds tried nothing, moved nothing and saw no blockers — and one that ran a round tried at least one relocation", (self, get) => {
@@ -3781,21 +4227,42 @@ for (const [k, v] of [
       "repair.mass.trials": SEARCH_COUNTER(`relocations it tried`, GE("repair.mass.moved")),
       "repair.mass.moved": SEARCH_COUNTER(`relocations it took`, LE("repair.mass.trials")),
       "repair.mass.blockersSeen": SEARCH_COUNTER(`blocking tiles it examined`, LE(BOARD("interiorWalkable"))),
+      // ROUND 17 / F3: all three of these laps are `null` in the fleet's 57
+      // records, and until this round that null was worth more than a number:
+      // a null SELF skips every closure it carries, and a null REFERENT made
+      // the closure pointing at it pass. Both halves are measured facts now —
+      // `NULLIFF` on the leaf, `NULLREF` on the closure that reads it — and
+      // both are two-sided, so neither direction is a free move.
       "repair.mass.lapBefore": LAYER_EARLIER(
         `the lap before the attempt — which is the lap the room SHIPS, because the attempt is the last ` +
-          `thing in the pipeline that could have moved it`,
-        GE("repair.mass.lapAfter"),
+          `thing in the pipeline that could have moved it. It is null exactly when the room's own built ` +
+          `lap is zero, i.e. there was no walk for the attempt to be about`,
+        NULLREF(GE("repair.mass.lapAfter"), (get) => cnum(get("repair.mass.moved")) === 0, "`repair.mass.moved` is 0 — the attempt kept no relocation, so there is no lap after one"),
         EQ("mass.builtLap"),
-        GE("repair.mass.liftedLap"),
+        NULLREF(GE("repair.mass.liftedLap"), (get) => cnum(get("mass.builtLap")) === 0, "`mass.builtLap` is 0"),
+        NULLIFF("`mass.builtLap` is 0", (get) => {
+          const b = cnum(get("mass.builtLap"));
+          return b === null ? null : b === 0;
+        }),
       ),
       "repair.mass.lapAfter": LAYER_EARLIER(
-        `...and after it. The attempt keeps a relocation only when the lap did not get worse`,
-        LE("repair.mass.lapBefore"),
+        `...and after it. The attempt keeps a relocation only when the lap did not get worse. It is null ` +
+          `exactly when the attempt kept nothing`,
+        NULLREF(LE("repair.mass.lapBefore"), (get) => cnum(get("mass.builtLap")) === 0, "`mass.builtLap` is 0"),
+        NULLIFF("`repair.mass.moved` is 0 — a lap after a relocation that did not happen is not a number", (get) => {
+          const m = cnum(get("repair.mass.moved"));
+          return m === null ? null : m === 0;
+        }),
       ),
       "repair.mass.liftedLap": LAYER_EARLIER(
         `the lifted lap that decided whether the attempt was worth paying for — lifting mass out cannot ` +
-          `lengthen a walk, so it never exceeds the lap the attempt started from`,
-        LE("repair.mass.lapBefore"),
+          `lengthen a walk, so it never exceeds the lap the attempt started from. It is null exactly when ` +
+          `the room's built lap is zero`,
+        NULLREF(LE("repair.mass.lapBefore"), (get) => cnum(get("mass.builtLap")) === 0, "`mass.builtLap` is 0"),
+        NULLIFF("`mass.builtLap` is 0", (get) => {
+          const b = cnum(get("mass.builtLap"));
+          return b === null ? null : b === 0;
+        }),
       ),
       "repair.mass.lastRefusal": W(
         `the last refusal the attempt recorded, in the producer's own words — free text about a ` +
@@ -3837,6 +4304,10 @@ for (const [k, v] of [
         `of those, the ones the weakest wall face could afford`,
         LE("repair.tower.tried"),
         GE("repair.tower.moved"),
+        // the affordability test runs INSIDE the score-tie test, so this is a
+        // subset of `scoreTied` and not just of `tried` — the chain was three
+        // counters each held to the first one only
+        LE("repair.tower.scoreTied"),
         MIRROR_VETO("affordable"),
       ),
       "repair.tower.scoreTied": SEARCH_COUNTER(
@@ -3867,24 +4338,40 @@ for (const [k, v] of [
         EQ("ladder.shippedLap"),
         LE("repair.tower.lapWithBattery"),
       ),
+      // ROUND 17 / F3: the veto's four lap readings were held to each other, to
+      // a mirror written in the same pass and to the room's interior floor — a
+      // ceiling of 400-odd on a number whose real value is 6. A coordinated
+      // edit of record and mirror moved `baseOver` in 45 of the 57 records and
+      // `lapWithBattery` in 43. The fix is that the veto's BASE reading is not
+      // a private measurement at all: it is taken on layer 2's mass-free
+      // interior at the shipped rampart set, which is the same board
+      // `negotiated.*` publishes in the same record — `baseLap` already had
+      // that cross-copy (`ladder.shippedLap`), `baseOver` did not, and the two
+      // agree in 57 of 57.
       "repair.tower.baseOver": LAYER_EARLIER(
         `how many pairs were over target on it`,
         MIRROR_VETO("baseOver"),
         LE("repair.tower.overWithBattery"),
         LE(BOARD("interiorWalkable")),
+        EQ("negotiated.metric.overGated"),
+        LE("negotiated.metric.gatedPairs"),
       ),
       "repair.tower.lapWithBattery": LAYER_EARLIER(
         `the lap once the battery landed. Six towers are six more obstacles on the interior, so the walk ` +
-          `this measures never gets shorter for having them`,
+          `this measures never gets shorter for having them — and it is still a lap over the SAME pair ` +
+          `set layer 2 negotiated, so the strict worst walk on that board bounds it from above`,
         ATMOST(MOB_EXACT_MAX, "this file's own exact-metric ceiling — a lap above it is not a lap"),
         MIRROR_VETO("lapWithBattery"),
         GE("repair.tower.baseLap"),
+        LE("negotiated.metric.maxStrict"),
       ),
       "repair.tower.overWithBattery": LAYER_EARLIER(
-        `...and the pairs over target then`,
+        `...and the pairs over target then. Six towers can change which pairs are GATED, so it is not ` +
+          `bounded by layer 2's gated count; what it cannot exceed is the number of pairs there are`,
         MIRROR_VETO("overWithBattery"),
         LE(BOARD("interiorWalkable")),
         GE("repair.tower.baseOver"),
+        LE("negotiated.metric.pairs"),
       ),
       "negotiated.cause": W(
         `layer 2's cause label — about layer 2's worst pair, on layer 2's mass-free interior, taken before ` +
@@ -4579,16 +5066,61 @@ const RECORD_ARRAY_LEAVES = new Map(
                     `${el.bestLegal?.x},${el.bestLegal?.y} and standing this extension there takes the ` +
                     `as-built gated defender lap to ${el.bestLegal?.lap}, past this room's ceiling of ${el.ceiling}`,
                 },
+                // ==================================================
+                // ROUND 17 / F7 — TWO DISTINCT FACTS, TWO SENTENCES.
+                // ==================================================
+                // There was ONE class here and it fired on `targets === 0`,
+                // where `targets` is what REMAINED after the backfill, the
+                // relocations and the paves had spent the opening census —
+                // while the sentence asserted the scan RETURNED an empty
+                // candidate list. On the round-17 baseline 19 of the fleet's
+                // 25 shallow slots rendered it against records that say
+                // otherwise: E9S2's fifteen slots all read "NO free deep
+                // tile … in BOTH classes" beside `freeDeepRoadFaced 3`,
+                // `freeDeepOnePave 1`, `spentOnAdds 3`, `paveTaken 1`. The
+                // room HAD four and spent them elsewhere. A reader was told
+                // the room has no such tile; that is criticism 19's defect
+                // class inside the channel criticism 19 created.
+                //
+                // The discriminator is the OPENING census, not the re-scan.
+                // Today's board: 0 slots take `impossible-empty`, 19 take
+                // `impossible-spent`. The empty class stays so the two facts
+                // remain separable — a room that genuinely never had one
+                // must be able to say so, and a mutation proves it would.
                 {
-                  id: "impossible",
-                  when: (el) => cnum(el.targets) === 0,
+                  id: "impossible-empty",
+                  when: (el, sf) =>
+                    cnum(el.targets) === 0 &&
+                    cnum(sf.shallowExt?.search?.freeDeepRoadFaced) === 0 &&
+                    cnum(sf.shallowExt?.search?.freeDeepOnePave) === 0,
                   render: (el, sf) =>
-                    `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
-                    `scan over all ${sf.shallowExt?.search?.interiorTiles} positions of the ` +
-                    `${sf.shallowExt?.search?.bandSide}x${sf.shallowExt?.search?.bandSide} buildable band ` +
-                    `(of which ${sf.shallowExt?.search?.interiorWalkable} are walkable floor inside this ` +
-                    `room's own wall) returned an empty candidate list in BOTH classes, so there is nowhere ` +
-                    `for this slot to go`,
+                    `this room has NO free deep tile that is road-faced or one pave away and never had one — ` +
+                    `the post-prune scan over all ${sf.shallowExt?.search?.interiorTiles} positions of the 48x48 ` +
+                    `buildable band (of which ${sf.shallowExt?.search?.interiorWalkable} are walkable floor ` +
+                    `inside this room's own wall) returned an empty candidate list in BOTH classes at the census ` +
+                    `AND on the re-scan after every placement, so there is nowhere for this slot to go`,
+                },
+                {
+                  id: "impossible-spent",
+                  when: (el, sf) =>
+                    cnum(el.targets) === 0 &&
+                    (cnum(sf.shallowExt?.search?.freeDeepRoadFaced) > 0 ||
+                      cnum(sf.shallowExt?.search?.freeDeepOnePave) > 0),
+                  render: (el, sf) => {
+                    const se = sf.shallowExt?.search || {};
+                    return (
+                      `this room HAD free deep tiles and SPENT them: the post-prune scan over all ` +
+                      `${se.interiorTiles} positions of the 48x48 buildable band (of which ${se.interiorWalkable} ` +
+                      `are walkable floor inside this room's own wall) found ${se.freeDeepRoadFaced} already ` +
+                      `road-faced and ${se.freeDeepOnePave} one plain pave away, and by the time this slot was ` +
+                      `offered them ${se.spentOnAdds} of the road-faced class had gone to the backfill ` +
+                      `(extensions this room did not have at all), ${se.spentOnMoves} had taken a relocated ` +
+                      `shallow slot and ${se.paveTaken} of the one-pave class had been TAKEN — leaving ${se.left} ` +
+                      `road-faced and ${se.paveLeft} one-pave candidate(s) by that arithmetic, and 0 of either ` +
+                      `class on the re-scan against the board this room ships. Nothing was refused for this slot; ` +
+                      `there was nothing left to refuse`
+                    );
+                  },
                 },
               ],
             ),
@@ -5052,6 +5584,230 @@ export const RECORD_LEAF_TABLE = RECORD_LEAVES;
  * that knows what it is a list of, and descending into one would make the leaf
  * set a function of the data rather than of the schema.
  */
+/**
+ * ==========================================================================
+ * ROUND 17 / O1 (BLOCKING) — THE NOTE RECORD'S LISTS WERE BOUND TO NOTHING.
+ * ==========================================================================
+ * Round 16 closed the note channel by making the paragraph a function of the
+ * record (`renderNote(rec) === notes[i]`) and the record's EXISTENCE a function
+ * of the room (`meta.noteObligations`). What it did not do is bind the record's
+ * CONTENTS to anything. The owner-voice reviewer walked straight through the
+ * gap with the attack a producer actually makes — edit the record AND let the
+ * note regenerate from it:
+ *
+ *   `roadRampart.ringTiles` -> `[{x:49,y:49}]` (the exact round-16-closed
+ *      exploit, re-landed one channel over) and -> the sitter's own tile
+ *   `sealedFloor.named` -> invented tiles that are reachable and occupied
+ *   `shallowExt.search.freeDeepRoadFaced` 5 -> 60
+ *   `shallowExt.l7.tiles` -> relocations that never happened
+ *   `redundantCut.named[].reason.tile` -> "1,1"
+ *   `pavedRun.runs[].free` / `.refused` -> a refusal the room never made
+ *
+ * Every SCALAR in the same records bit, and so did every META-side copy of the
+ * same lists — because the meta copies are class-D re-derived elsewhere in this
+ * file. The record is a SECOND, UNBOUND copy of a checked object. So the fix is
+ * not a new derivation: it is an IDENTITY. Each note record's lists and
+ * sub-records are bound, field for field, to the class-D twin the plan already
+ * publishes and this file already re-derives — and the two that have no twin
+ * (`containerRoad.sharing`, `containerRoad.containersOnRoads`) are re-derived
+ * from the shipped board directly.
+ *
+ * The binding is SUBSET-SHAPED on purpose: a note record legitimately carries
+ * fewer fields than its twin (the `roadRampart` note omits `unclassifiedTiles`;
+ * the `shallowExt` note's `search` omits three of the reflow search's fields).
+ * What it may not do is carry a field the twin has and DISAGREE with it, or
+ * carry a list entry the twin does not have.
+ */
+function noteRecordBindingProblems(entry, plan, s) {
+  const out = [];
+  const rec = entry && entry.rec;
+  if (!rec || typeof rec !== "object") return out;
+  const J = (v) => String(JSON.stringify(v)).slice(0, 90);
+  const at = (root, p) =>
+    p === "" ? root : p.split(".").reduce((a, k) => (a === null || a === undefined ? undefined : a[k]), root);
+  /** every field the record carries under `here` must equal the twin's */
+  const sub = (here, twinPath, what) => {
+    const mine = at(rec, here);
+    const theirs = at(plan, twinPath);
+    if (mine === undefined || mine === null) return;
+    if (theirs === undefined || theirs === null) {
+      out.push(
+        `carries \`${here}\` and the plan does not publish \`${twinPath}\`, which is ${what} and the only ` +
+          `thing this record's copy is held to`,
+      );
+      return;
+    }
+    if (typeof mine !== "object" || Array.isArray(mine)) {
+      if (JSON.stringify(mine) !== JSON.stringify(theirs)) {
+        out.push(`says \`${here}\` is ${J(mine)} and \`${twinPath}\` — ${what} — says ${J(theirs)}`);
+      }
+      return;
+    }
+    for (const [k, v] of Object.entries(mine)) {
+      if (JSON.stringify(v) !== JSON.stringify(theirs[k])) {
+        out.push(`says \`${here}.${k}\` is ${J(v)} and \`${twinPath}.${k}\` — ${what} — says ${J(theirs[k])}`);
+      }
+    }
+  };
+  switch (entry.cls) {
+    case "sealedFloor":
+      // the whole record, including `named`, is the object this file floods
+      // for tile by tile (`meta.sealedFloor`, re-derived under the own-creep
+      // whole-board flood in all 62 sealing rooms)
+      sub("", "meta.sealedFloor", "the sealed-floor record this file re-derives tile by tile");
+      break;
+    case "roadRampart":
+      sub("", "meta.walls.roadRampart", "the five-class road-on-rampart taxonomy this file re-derives");
+      break;
+    case "redundantCut": {
+      sub("cut", "meta.shell.cut.length", "the cut this room ships");
+      sub("redundant", "meta.shell.redundantCut.tiles", "how many cut tiles are not singly load-bearing");
+      sub("inertPruned", "meta.walls.inertPruned", "what layer 7's inert prune took");
+      const reasons = at(plan, "meta.shell.redundantCut.reasons") || {};
+      for (const n2 of rec.named || []) {
+        if (!n2 || typeof n2 !== "object") {
+          out.push(`carries a \`named\` entry that is not a record (${J(n2)})`);
+          continue;
+        }
+        const twin = reasons[n2.k];
+        if (twin === undefined) {
+          out.push(
+            `names cut tile \`${n2.k}\` and \`meta.shell.redundantCut.reasons\` — the per-tile ` +
+              `justification this file re-derives by DELETING the rampart — has no entry for it`,
+          );
+          continue;
+        }
+        if (JSON.stringify(n2.reason) !== JSON.stringify(twin)) {
+          out.push(
+            `gives cut tile \`${n2.k}\` the reason ${J(n2.reason)} and \`meta.shell.redundantCut.reasons\` ` +
+              `says ${J(twin)}`,
+          );
+        }
+      }
+      break;
+    }
+    case "shallowExt": {
+      sub("total", "meta.extensions.placed", "the extensions this room placed");
+      sub("extTarget", "meta.extensions.target", "the extension target");
+      sub("search", "meta.walls.reflow.search", "layer 7b's own reflow search census");
+      if (rec.l6) {
+        const rel = at(plan, "meta.extensions.relocated") || [];
+        if (rec.l6.moved !== rel.length) {
+          out.push(`says layer 6 moved ${J(rec.l6.moved)} extension(s) and \`meta.extensions.relocated\` lists ${rel.length}`);
+        }
+        const mine = (rec.l6.tiles || []).map((t) => [t.from, t.to]);
+        const theirs = rel.map((t) => [t.from, t.to]);
+        if (JSON.stringify(mine) !== JSON.stringify(theirs)) {
+          out.push(`lists layer-6 relocations ${J(mine)} and \`meta.extensions.relocated\` lists ${J(theirs)}`);
+        }
+      }
+      if (rec.l7) {
+        const mv = at(plan, "meta.walls.reflow.moved") || [];
+        if (rec.l7.moved !== mv.length) {
+          out.push(`says layer 7b moved ${J(rec.l7.moved)} extension(s) and \`meta.walls.reflow.moved\` lists ${mv.length}`);
+        }
+        const mine = (rec.l7.tiles || []).map((t) => [t.from, t.to, t.fromDepth, t.toDepth]);
+        const theirs = mv.map((t) => [t.from, t.to, t.fromDepth, t.toDepth]);
+        if (JSON.stringify(mine) !== JSON.stringify(theirs)) {
+          out.push(`lists layer-7b relocations ${J(mine)} and \`meta.walls.reflow.moved\` lists ${J(theirs)}`);
+        }
+        const ret = at(plan, "meta.walls.reflow.rampartsRetired") || [];
+        if (rec.l7.rampartsRetired !== ret.length) {
+          out.push(`says ${J(rec.l7.rampartsRetired)} rampart(s) were retired and \`meta.walls.reflow.rampartsRetired\` lists ${ret.length}`);
+        }
+      }
+      if (rec.lap) {
+        sub("lap.ceiling", "meta.walls.reflow.lapCeiling", "layer 7b's own lap ceiling");
+        sub("lap.ceilingSlack", "meta.walls.reflow.lapCeilingSlack", "the slack it was given");
+        sub("lap.ceilingSlackPct", "meta.walls.reflow.lapCeilingSlackPct", "the slack percentage");
+        sub("lap.ceilingStrictBand", "meta.walls.reflow.lapCeilingStrictBand", "the strict band");
+        sub("lap.ceilingBound", "meta.walls.reflow.lapCeilingBound", "the bound it held");
+        sub("lap.before", "meta.walls.reflow.lapBeforeMoves", "the lap before the moves");
+        sub("lap.after", "meta.walls.reflow.lapAfterMoves", "the lap after them");
+        sub("lap.bound", "meta.extensions.laneMeta.bounded", "layer 6's published lane bound, which is a proof and is never relaxed");
+        // `slackSpent` and `rollback` are FUNCTIONS of the reflow record rather
+        // than copies of a field, so they are re-derived from it here
+        {
+          const mv = at(plan, "meta.walls.reflow.moved") || [];
+          if (typeof rec.lap.slackSpent === "boolean" && rec.lap.slackSpent !== mv.length > 0) {
+            out.push(
+              `says the lap slack was ${rec.lap.slackSpent ? "" : "not "}spent and \`meta.walls.reflow.moved\` ` +
+                `lists ${mv.length} relocation(s) — spending the slack IS moving an extension`,
+            );
+          }
+          const rb = at(plan, "meta.walls.reflow.boundRollback") || [];
+          const mine = (rec.lap.rollback || []).map((m) => [m.from, m.to, m.wouldLap]);
+          const theirs = rb.map((m) => [
+            { x: m.from && m.from.x, y: m.from && m.from.y },
+            { x: m.to && m.to.x, y: m.to && m.to.y },
+            m.wouldLap,
+          ]);
+          if (JSON.stringify(mine) !== JSON.stringify(theirs)) {
+            out.push(`lists bound-rollback moves ${J(mine)} and \`meta.walls.reflow.boundRollback\` lists ${J(theirs)}`);
+          }
+        }
+      }
+      break;
+    }
+    case "pavedRun": {
+      sub("moved", "meta.walls.alongCutMoved", "the along-cut roads layer 7 actually moved");
+      const runs = at(plan, "meta.walls.alongCutRuns") || [];
+      const refused = at(plan, "meta.walls.alongCutRefused") || [];
+      const mine = (rec.runs || []).map((r) => {
+        const { refused: _r, ...rest } = r || {};
+        return rest;
+      });
+      if (JSON.stringify(mine) !== JSON.stringify(runs)) {
+        out.push(
+          `lists along-cut runs the plan's own \`meta.walls.alongCutRuns\` does not: ${J(mine)} against ` +
+            `${J(runs)}. The run list is where the note's free/held tile sets come from, and a free tile ` +
+            `the room never had is a refusal the room never made`,
+        );
+      }
+      for (const r of rec.runs || []) {
+        if (!r || typeof r !== "object") continue;
+        const tw = refused.find((z) => z && z.x === r.x && z.y === r.y);
+        if (r.refused === undefined || r.refused === null) {
+          if (tw) out.push(`gives run ${r.x},${r.y} no refusal and \`meta.walls.alongCutRefused\` carries one for it`);
+        } else if (!tw) {
+          out.push(`gives run ${r.x},${r.y} a refusal and \`meta.walls.alongCutRefused\` carries none for that tile`);
+        } else if (tw.why !== r.refused) {
+          out.push(`gives run ${r.x},${r.y} the refusal ${J(r.refused)} and \`meta.walls.alongCutRefused\` says ${J(tw.why)}`);
+        }
+      }
+      break;
+    }
+    case "containerRoad": {
+      // `added` IS the conductBridge road list; `sharing` and the count have
+      // no twin at all and are re-derived off the shipped board here
+      sub("added", "meta.walls.laidTilesByKind.conductBridge", "the conduct-bridge roads layer 7 laid");
+      const roadK = new Set((s.road || []).map((r) => key(r.x, r.y)));
+      const share = (s.container || []).filter((c) => roadK.has(key(c.x, c.y)));
+      const mineK = (rec.sharing || []).map((t) => key(t.x, t.y)).sort();
+      const wantK = share.map((c) => key(c.x, c.y)).sort();
+      if (JSON.stringify(mineK) !== JSON.stringify(wantK)) {
+        out.push(`says the containers sharing a road tile are ${J(mineK)} and this room's board carries ${J(wantK)}`);
+      }
+      if (rec.containersOnRoads !== share.length) {
+        out.push(`says ${J(rec.containersOnRoads)} container(s) share a road tile and the board carries ${share.length}`);
+      }
+      break;
+    }
+    case "pavingGap":
+      // the fleet ships none; the class is registered and its record has no
+      // list-valued field to bind. Left named so the switch is an inventory
+      // rather than a default.
+      break;
+    default:
+      out.push(
+        `is class "${entry.cls}", which \`noteRecordBindingProblems\` does not bind. Every note class's ` +
+          `lists and sub-records are bound to the class-D twin the plan publishes; a class with no binding ` +
+          `is a second unbound copy of a checked object, which is what let seven falsified lists ship`,
+      );
+  }
+  return out;
+}
+
 function recordLeaves(sf) {
   const out = [];
   const walk = (o, pre) => {
@@ -5387,6 +6143,11 @@ const REQUIRED_META = [
     why: "the furthest of those walks, quoted by the declaration and compared against the note line",
   },
   {
+    path: "meta.towers.spreadRadius",
+    is: (v) => typeof v === "number" && Number.isFinite(v),
+    why: "the spread of the battery — the largest chebyshev distance from a tower to the six towers' own centroid. It reads as a layer-3 witness and is not one: the producer computes it from the placement it FINISHES with, so it is re-derived tile for tile in `towers/spread-radius` for all 172 rooms, declared or not",
+  },
+  {
     path: "meta.towers.shippedCutTiles",
     is: (v) => typeof v === "number",
     why: "the size of the wall the battery was scored against AS SHIPPED, as opposed to the wall layer 3 optimised over",
@@ -5456,12 +6217,268 @@ const REQUIRED_META = [
     is: (v) => v && typeof v === "object" && !Array.isArray(v),
     why: "...and the tiles a later pass took, NAMED. The identity laid === shipped + lost is the whole reader-facing truth channel for the late-road layer, and it needs all three books to close",
   },
+  // ==================================================================
+  // ROUND 17 / F1 — THE FIELDS THE NOTE OBLIGATIONS ARE DERIVED FROM.
+  //
+  // A derived obligation is only undeletable while the thing it is derived
+  // FROM is undeletable. Every field `noteObligations` is re-derived from is
+  // required here, and every one of them is published by all 172 rooms (the
+  // two that are not — `meta.walls.conductBridge` in 3 rooms and
+  // `meta.walls.alongCutRuns` in 12 — are deliberately NOT what the
+  // corresponding obligation hangs on; `containerRoad` hangs on
+  // `meta.walls.laidTilesByKind.conductBridge`, which every room publishes).
+  // ==================================================================
+  {
+    path: "meta.extensions",
+    is: (v) =>
+      v &&
+      typeof v === "object" &&
+      typeof v.shallow === "number" &&
+      typeof v.relocatedCount === "number" &&
+      Array.isArray(v.relocated) &&
+      typeof v.placed === "number" &&
+      typeof v.target === "number",
+    why: "layer 6's extension census — how many landed shallow, how many it RELOCATED, and the roster of those relocations. It is the trigger for the `shallowExt` note and the twin its record's `l6` list is bound to. 14 of the fleet's 177 notes deleted for free (note + record + obligation, all three self-consistent) because nothing re-derived that the obligation had to exist, and every one of the 14 was a room whose only surviving record of a layer-6 relocation was the note itself",
+  },
+  {
+    path: "meta.walls.reflow",
+    is: (v) => v && typeof v === "object" && Array.isArray(v.moved) && Array.isArray(v.added) && v.search && typeof v.search === "object",
+    why: "layer 7b's reflow: the extensions it moved, the ones it added, and the post-prune search census. It is the other half of the `shallowExt` trigger and the class-D twin the note record's `l7` and `search` blocks are bound to — without it those two lists are a second unbound copy of a checked object",
+  },
+  {
+    path: "meta.walls.alongCutRefused",
+    is: (v) => Array.isArray(v),
+    why: "the along-cut paving refusals, per tile with the sentence the note quotes. The `pavedRun` note's `runs[].refused` is bound to it; a refusal the room never made used to render into the channel a human reads",
+  },
   {
     path: "meta.compositions",
     is: (v) => v && typeof v === "object" && typeof v.total === "number",
     why: "how many complete plans this room composed, across every seed. It is the trigger for the `runtime/heavy-search` obligation, and until it existed that trigger read the declaration's own copy of the number — so deleting the declaration deleted the evidence that it was owed",
   },
 ];
+
+/**
+ * ==========================================================================
+ * ROUND 17 / F3 — EVERY MIRROR A CLOSURE POINTS AT IS REQUIRED TO EXIST, AND
+ * THE LIST IS DERIVED FROM THE CLOSURES RATHER THAN REMEMBERED.
+ * ==========================================================================
+ * The record-leaf inventory's strongest witnessed bound is the cross-copy: the
+ * declaration says 755 swaps, `meta.towers.towerDispersion.search` says 755
+ * too, and the two were written by passes that do not know whether the room
+ * will declare. That argument has one premise: THE MIRROR IS THERE. It was in
+ * no presence list. Round 17's sweep deleted the referent of 22 named `@meta.*`
+ * paths and 20 of them deleted clean in every room — combined with the
+ * null-passing closures above, that is 436 escapes over 29 leaves.
+ *
+ * Two things stop it now, and they are two because either one alone is an
+ * argument rather than a check:
+ *   1. the closure FAILS on a missing referent (see `CLOSURE_OPS` above), so
+ *      deletion cannot be silent, and
+ *   2. the mirror is REQUIRED to exist, so deletion is not even a legal shape.
+ *
+ * And the list of what to require is not typed out from a reviewer's grep: it
+ * is COLLECTED from the inventory at load. `assertMirrorsRequired` walks every
+ * closure of every leaf (and every array-element field), takes every referent
+ * that starts with `@`, and demands that this table cover it — and that this
+ * table carry nothing the inventory does not point at. A new
+ * `EQ("@meta.towers.somethingNew")` in the table above is a LOAD-TIME FAILURE
+ * until its presence is declared here. Which is the point: the reason the 22
+ * were unguarded is that nobody had to say anything when they were added.
+ *
+ * `when` is the measured presence condition, and it is two-sided at load: a
+ * path declared always-present that is absent anywhere fails the room, and the
+ * one conditional group (`meta.towers.search.*`, published exactly in the 15
+ * rooms whose placement search RAN) fails a room that publishes the fields
+ * without the flag as well as one that publishes the flag without the fields.
+ */
+const META_MIRROR_GROUPS = [
+  {
+    paths: ["meta.coreSize", "meta.seedPool"],
+    is: (v) => typeof v === "number" && Number.isFinite(v),
+    why:
+      "layer 1's eco basin census, mirrored by every `eco` declaration's `coreSize`/`seedPool`. Both are " +
+      "published for all 172 rooms whether the room declares or not, which is the whole reason the " +
+      "declaration's copy is checkable at all; delete the mirror and the declaration's number is held to " +
+      "`typeof === number` (38 declarations each)",
+  },
+  {
+    paths: [
+      "meta.towers.avgShellDmg",
+      "meta.towers.candidates",
+      "meta.towers.minShellDmg",
+      "meta.towers.starts",
+      "meta.towers.weakTiles",
+    ],
+    is: (v) => typeof v === "number" && Number.isFinite(v),
+    why:
+      "layer 3's unconditional publication of the board it placed the battery against. These are the " +
+      "referents of the `towers/weak-battery` record's cross-copies (`meta.walls.inertPruned`, the other " +
+      "one, was already required in its own right — it is the only one of the 22 the round-17 sweep could " +
+      "not delete)",
+  },
+  {
+    paths: [
+      "meta.towers.refillSearch.after",
+      "meta.towers.refillSearch.before",
+      "meta.towers.refillSearch.crossOffered",
+      "meta.towers.refillSearch.dispersionOk",
+      "meta.towers.refillSearch.moved",
+      "meta.towers.refillSearch.rounds",
+      "meta.towers.refillSearch.scoreTied",
+      "meta.towers.refillSearch.tried",
+    ],
+    is: (v) => typeof v === "number" && Number.isFinite(v),
+    why:
+      "the refill-directed swap pass's own census. The record's copy is what the paragraph quotes " +
+      "(`tried` reads 1440 across the 15 declaring rooms), and deleting this mirror let it read 533",
+  },
+  {
+    paths: [
+      "meta.walls.mobility.lanes.tiles",
+      "meta.walls.mobility.lanes.deep",
+      "meta.walls.mobility.lanes.rounds",
+      "meta.walls.mobility.lanes.strandRounds",
+      "meta.walls.mobility.lanes.bounded",
+      "meta.walls.mobility.lanes.boundBeforeStubs",
+      "meta.walls.mobility.lanes.stubsLifted",
+      "meta.walls.mobility.lanes.wanted",
+      "meta.walls.mobility.lanes.shrunk.wanted",
+      "meta.walls.mobility.lanes.shrunk.to",
+      "meta.walls.mobility.lanes.shrunk.premium",
+    ],
+    // the four fields layer 6 leaves undefined in a room whose reservation
+    // never shrank or never lifted a stub are `null` on the record's side too,
+    // and a null SELF skips its own closure — so presence here is required only
+    // where the census carries a number
+    when: (plan) => plan?.meta?.walls?.mobility?.lanes && typeof plan.meta.walls.mobility.lanes === "object",
+    is: (v) => v === undefined || v === null || typeof v === "number",
+    why:
+      "layer 6's defender-lane reservation census, published for every room whether it declares or not. " +
+      "The `mobility` record's whole `lane` block is a copy of it, and until round 17 that block was held " +
+      "to sibling inequalities and to ceilings taken off the room's interior FLOOR (200-400 tiles, against " +
+      "numbers whose real values are 6 to 20) — so a x5 inflation with the paragraph regenerated walked " +
+      "past every one of them, 216 escapes in one sweep",
+  },
+  {
+    paths: ["meta.towers.search.ran"],
+    is: (v) => typeof v === "boolean",
+    why: "whether layer 3's placement search ran on this room at all — published for all 172 and the condition the rest of `meta.towers.search` is present under",
+  },
+  {
+    paths: [
+      "meta.towers.search.converged",
+      "meta.towers.search.improvedFrom",
+      "meta.towers.search.improvedTo",
+      "meta.towers.search.improvements",
+      "meta.towers.search.pairK",
+      "meta.towers.search.restarts",
+      "meta.towers.search.rounds",
+      "meta.towers.search.starts",
+    ],
+    when: (plan) => plan?.meta?.towers?.search?.ran === true,
+    is: (v) => typeof v === "number" || typeof v === "boolean",
+    why:
+      "the placement search's own census, published in exactly the 15 rooms where it RAN (measured: 15 " +
+      "of 172, zero mismatches against `search.ran`). The condition is two-sided — a room that publishes " +
+      "`ran: true` and no census fails here, and a room that publishes the census while claiming the " +
+      "search did not run fails the leaf's own predicate",
+  },
+  {
+    paths: [
+      "meta.towers.mobilityVeto.affordable",
+      "meta.towers.mobilityVeto.baseLap",
+      "meta.towers.mobilityVeto.baseOver",
+      "meta.towers.mobilityVeto.lapWithBattery",
+      "meta.towers.mobilityVeto.moved",
+      "meta.towers.mobilityVeto.overWithBattery",
+      "meta.towers.mobilityVeto.provedFree",
+      "meta.towers.mobilityVeto.scoreTied",
+      "meta.towers.mobilityVeto.tried",
+    ],
+    is: (v) => typeof v === "number" || typeof v === "boolean",
+    why: "the mobility veto's nine-leaf census, mirrored by `mobility`'s `repair.tower` block in 57 rooms — the single largest mirrored family in the fleet",
+  },
+  {
+    paths: [
+      "meta.towers.towerDispersion.before",
+      "meta.towers.towerDispersion.search.improvedBy",
+      "meta.towers.towerDispersion.search.pairImproved",
+      "meta.towers.towerDispersion.search.pairSwapsScoreTied",
+      "meta.towers.towerDispersion.search.pairSwapsTried",
+      "meta.towers.towerDispersion.search.rounds",
+      "meta.towers.towerDispersion.search.singleSwapsScoreTied",
+      "meta.towers.towerDispersion.search.singleSwapsTried",
+    ],
+    is: (v) => typeof v === "number" && Number.isFinite(v),
+    why:
+      "the dispersion pass's census — the referent of the clump declaration's search block. This is where " +
+      "the round-17 sweep did its worst: with `singleSwapsTried` deleted, E11S6's paragraph read \"it ran " +
+      "1 single-swap round(s) over 3 candidate swap(s)\" against a truth of 755, and passed, on one of the " +
+      "three rooms this planner's own document calls EARNED",
+  },
+];
+for (const grp of META_MIRROR_GROUPS) {
+  for (const p of grp.paths) {
+    REQUIRED_META.push({
+      path: p,
+      is: grp.is,
+      when: grp.when,
+      mirror: true,
+      why: `${grp.why}. It is a MIRROR: the record-leaf inventory holds a declaration's copy of this number to it, so an absent mirror is a leaf held to its type and nothing else`,
+    });
+  }
+}
+
+/**
+ * The two-way inventory rule, applied to the mirrors. Collect every `@` path
+ * any closure in the record-leaf inventory or the array-element inventory
+ * names, and require that the table above cover it — and that the table above
+ * name nothing the inventory does not point at. Neither list can drift from
+ * the other without the file refusing to start.
+ */
+function assertMirrorsRequired() {
+  const wanted = new Set();
+  const eat = (closures) => {
+    for (const c of closures || []) {
+      if (!c || typeof c !== "object") continue;
+      for (const path of [c.other, ...(c.parts || []), ...(c.minus || []), ...(c.over || [])].filter(Boolean)) {
+        if (typeof path === "string" && path.startsWith("@")) wanted.add(path.slice(1).replace(/\.length$/, ""));
+      }
+    }
+  };
+  for (const table of RECORD_LEAVES.values()) for (const cls of Object.values(table)) eat(cls && cls.closures);
+  for (const arrays of RECORD_ARRAY_LEAVES.values()) {
+    for (const spec of Object.values(arrays)) {
+      eat(spec.closures);
+      for (const cls of Object.values(spec.fields || {})) eat(cls && cls.closures);
+    }
+  }
+  // a path already required for another reason (`meta.towers.maxRefill` is the
+  // trigger for half the battery obligation) is required, and that is what the
+  // rule asks for — it does not have to be required TWICE
+  const covered = new Set(REQUIRED_META.map((r) => r.path));
+  const mirrorOnly = new Set(REQUIRED_META.filter((r) => r.mirror).map((r) => r.path));
+  const problems = [];
+  for (const p of wanted) {
+    if (!covered.has(p)) {
+      problems.push(
+        `a closure names \`@${p}\` as its referent and REQUIRED_META does not require it to exist. A ` +
+          `cross-copy is only a check while both copies are there: round 17 deleted 20 of 22 such referents ` +
+          `clean in every room, which turned 436 falsified leaves into passing ones`,
+      );
+    }
+  }
+  for (const p of mirrorOnly) {
+    if (!wanted.has(p)) {
+      problems.push(`META_MIRROR_GROUPS requires \`${p}\` and no closure in this file points at it — a presence rule with no reader`);
+    }
+  }
+  if (problems.length) {
+    throw new Error(`validate.mjs mirror inventory is inconsistent — ${problems.join("; ")}.`);
+  }
+  return wanted.size;
+}
+const META_MIRROR_COUNT = assertMirrorsRequired();
 
 const MIN_DETAIL_CHARS = 40;
 /** two distinct numbers, not one: one number is a room name, two are an argument */
@@ -6248,7 +7265,24 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // here so the rule stays true rather than lucky
     const cutArr = read("meta.shell.cut");
     for (const req of REQUIRED_META) {
-      if (req.when && !req.when(plan)) continue;
+      if (req.when && !req.when(plan)) {
+        // ...AND THE OTHER DIRECTION, FOR THE MIRRORS. A conditional presence
+        // rule that only fires one way is a rule a producer satisfies by
+        // falsifying the condition: publish `meta.towers.search.ran: false`
+        // and the eight-leaf census under it becomes optional, so the
+        // declaration's copy of it is held to its type again. The condition is
+        // a measurement of this room (15 of 172 rooms ran the placement
+        // search, zero mismatches), so a room that publishes the census while
+        // denying the pass fails here.
+        if (req.mirror && read(req.path) !== undefined) {
+          schemaFails.push(
+            `SCHEMA — \`${req.path}\` is PUBLISHED and the condition it is published under does not hold ` +
+              `for this room. It is a mirror: ${req.why}. A presence rule that fires in one direction only ` +
+              `is an off switch — falsify the condition and the whole family becomes optional`,
+          );
+        }
+        continue;
+      }
       if (req.path === "meta.shell.redundantCut" && !(Array.isArray(cutArr) && cutArr.length)) continue;
       const v = read(req.path);
       if (req.is(v)) continue;
@@ -9107,6 +10141,29 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               );
               continue;
             }
+            // ==========================================================
+            // ROUND 17 / O1 (BLOCKING) — RENDER-OR-DIE.
+            // ==========================================================
+            // `renderNote` only THROWS on a record missing a field it
+            // dereferences; a field it interpolates comes out as the four
+            // characters "undefined" and the note ships. The owner-voice
+            // reviewer landed exactly that: a `pavedRun` record whose run
+            // lost its coordinates rendered "(undefined,undefined)" into
+            // the channel the gallery and the film ticker read, and the
+            // room passed 172/172. A generated sentence that says
+            // `undefined` is a sentence generated from a hole.
+            if (/\b(undefined|NaN)\b/.test(want)) {
+              bad2.push(
+                `\`meta.notes[${i}]\` (class ${e.cls}) renders the token "${(want.match(/\b(undefined|NaN)\b/) || [])[0]}" ` +
+                  `into its own prose — the note template read a field the record does not carry and ` +
+                  `interpolated the hole. \`renderNote\` throwing is the only failure this file used to ` +
+                  `see, so a field that is merely INTERPOLATED (a coordinate, a count) came out as the word ` +
+                  `"undefined" in the channel a human reads: "…${want.slice(Math.max(0, want.search(/\b(undefined|NaN)\b/) - 60), want.search(/\b(undefined|NaN)\b/) + 60)}…"`,
+              );
+            }
+            for (const p2 of noteRecordBindingProblems(e, plan, s)) {
+              bad2.push(`\`meta.noteRecords[${i}]\` (class ${e.cls}) ${p2}`);
+            }
             if (normText(String(notesArr[i])) !== normText(want)) {
               const a = normText(String(notesArr[i]));
               const b3 = normText(want);
@@ -9119,6 +10176,116 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `gallery and the film ticker read; a reversed sentence with its numerals kept used to ` +
                   `pass because only the numerals were checked`,
               );
+            }
+          }
+          // ==========================================================
+          // ROUND 17 / F1 — THE OBLIGATION HAS TO BE DERIVED TO EXIST.
+          // ==========================================================
+          // Round 16 checked the obligation list against the record list BOTH
+          // WAYS and each trigger's value against the field it names. Nothing
+          // re-derived that the obligation must EXIST — so deleting the note,
+          // the record AND the obligation together left a self-consistent
+          // plan. Measured: 177 notes tried, 163 bit, **14 escaped**, all
+          // `shallowExt`, all in rooms whose `meta.extensions.relocatedCount`
+          // is 1 or 2 — i.e. the exact rooms whose note is the only record
+          // that layer 6 moved an extension at all.
+          //
+          // So the owed set is COMPUTED HERE, from the same records the
+          // producer derives it from, and compared three ways: against the
+          // producer's list, against the records, and (for the classes whose
+          // trigger this file re-derives) against the board. The trigger
+          // fields are in REQUIRED_META, so "delete the trigger too" is a
+          // schema failure rather than one more step of the same move.
+          {
+            const M = plan.meta || {};
+            const W2 = M.walls || {};
+            const owedHere = new Map();
+            const owe = (cls, why) => {
+              if (why.length) owedHere.set(cls, why);
+            };
+            owe(
+              "sealedFloor",
+              (M.sealedFloor?.tiles || 0) > 0 ? [`\`meta.sealedFloor.tiles\` is ${M.sealedFloor.tiles}`] : [],
+            );
+            {
+              const rc2 = M.shell?.redundantCut || {};
+              owe(
+                "redundantCut",
+                [
+                  (rc2.tiles || 0) > 0 ? `\`meta.shell.redundantCut.tiles\` is ${rc2.tiles}` : null,
+                  (rc2.pruned || 0) > 0 ? `\`meta.shell.redundantCut.pruned\` is ${rc2.pruned}` : null,
+                ].filter(Boolean),
+              );
+            }
+            // the conduct-bridge roads layer 7 LAID, which is the list the
+            // note's own `added` is bound to and is published for all 172
+            // rooms — `meta.walls.conductBridge` is published only in the 3
+            // that have one, so it is not what the obligation may hang on
+            owe(
+              "containerRoad",
+              (W2.laidTilesByKind?.conductBridge || []).length
+                ? [`\`meta.walls.laidTilesByKind.conductBridge\` lists ${W2.laidTilesByKind.conductBridge.length} tile(s)`]
+                : [],
+            );
+            owe(
+              "pavingGap",
+              (W2.conductBridge?.stranded || []).length
+                ? [`\`meta.walls.conductBridge.stranded\` lists ${W2.conductBridge.stranded.length} tile(s)`]
+                : [],
+            );
+            owe(
+              "pavedRun",
+              (W2.alongCutRuns || []).length ? [`\`meta.walls.alongCutRuns\` lists ${W2.alongCutRuns.length} run(s)`] : [],
+            );
+            {
+              const rr2 = W2.roadRampart || {};
+              owe(
+                "roadRampart",
+                [
+                  (rr2.ring || 0) > 0 ? `\`meta.walls.roadRampart.ring\` is ${rr2.ring}` : null,
+                  (rr2.unclassified || 0) > 0 ? `\`meta.walls.roadRampart.unclassified\` is ${rr2.unclassified}` : null,
+                ].filter(Boolean),
+              );
+            }
+            {
+              const ex2 = M.extensions || {};
+              owe(
+                "shallowExt",
+                [
+                  (ex2.shallow || 0) > 0 ? `\`meta.extensions.shallow\` is ${ex2.shallow}` : null,
+                  (ex2.relocatedCount || 0) > 0 ? `\`meta.extensions.relocatedCount\` is ${ex2.relocatedCount}` : null,
+                  (ex2.relocated || []).length ? `\`meta.extensions.relocated\` lists ${ex2.relocated.length}` : null,
+                  (W2.reflow?.moved || []).length ? `\`meta.walls.reflow.moved\` lists ${W2.reflow.moved.length}` : null,
+                  (W2.reflow?.added || []).length ? `\`meta.walls.reflow.added\` lists ${W2.reflow.added.length}` : null,
+                ].filter(Boolean),
+              );
+            }
+            const haveRec = new Set(recs.map((r2) => r2 && r2.cls));
+            const pubOwed = new Set((Array.isArray(plan.meta?.noteObligations) ? plan.meta.noteObligations : []).map((o) => o && o.cls));
+            for (const [c, why] of owedHere) {
+              if (!haveRec.has(c)) {
+                bad2.push(
+                  `this room OWES a "${c}" note — re-derived here from the records that trigger it ` +
+                    `(${why.join("; ")}) — and \`meta.noteRecords\` carries none. Round 16 checked the ` +
+                    `obligation list against the record list and never asked whether the obligation had to ` +
+                    `exist, so deleting note, record and obligation together was free in 14 rooms`,
+                );
+              }
+              if (!pubOwed.has(c)) {
+                bad2.push(
+                  `this room owes a "${c}" note (${why.join("; ")}) and \`meta.noteObligations\` — the ` +
+                    `producer's own derivation of the same set — does not list it`,
+                );
+              }
+            }
+            for (const c of pubOwed) {
+              if (c && !owedHere.has(c) && c in NOTE_CLASSES) {
+                bad2.push(
+                  `\`meta.noteObligations\` says this room owes a "${c}" note and re-deriving the owed set ` +
+                    `from the records that trigger it says it does not. The obligation is not a list a ` +
+                    `producer keeps; it is a function of the room`,
+                );
+              }
             }
           }
           // ...AND THE OBLIGATION TABLE, DERIVED FROM RECORDS RATHER THAN FROM
@@ -9341,6 +10508,8 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           let wantDeep = 0;
           let wantOurFault = 0;
           const wantNamed = [];
+          /** every sealed tile, in the same scan order — the pocket derivation needs all of them */
+          const wantAll = [];
           for (let y = 0; y < 50; y++) {
             for (let x = 0; x < 50; x++) {
               if (!walkable(terrain, x, y)) continue;
@@ -9349,6 +10518,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               const k2 = key(x, y);
               if (rampartSet.has(k2) || creepBlocked.has(k2) || ownWalk.has(k2)) continue;
               wantTiles++;
+              wantAll.push({ x, y });
               if (wantNamed.length < 24) wantNamed.push({ x, y });
               if (depth[i2] >= DEPTH_SAFE && x >= 2 && x <= 47 && y >= 2 && y <= 47) wantDeep++;
               if (bareWalk.has(k2)) wantOurFault++;
@@ -9382,6 +10552,178 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             cmpSF("deep", wantDeep);
             cmpSF("ourFault", wantOurFault);
             cmpSF("depthSafe", DEPTH_SAFE);
+            // ==========================================================
+            // ROUND 17 / O3 — THE PER-POCKET COUNTERFACTUAL, RE-DERIVED.
+            // ==========================================================
+            // The note published `ourFault` — the WHOLE-mass counterfactual —
+            // and called it "the ceiling on what any re-ordering inside the
+            // placement layers could recover". Nobody asked whether ONE move
+            // reaches that ceiling, and it does: 220 of the round-16 fleet's
+            // 257 sealed tiles came back on a single structure. Round 17's
+            // producer publishes the pockets, their holders and what each
+            // holder returns — and the recovery pass ACTS on it. That record
+            // is the evidence for eight board changes, so it is re-derived
+            // here: the pockets are the D8 components of the sealed set, the
+            // holders are our own structures D8-adjacent to a pocket tile
+            // (exact, not a heuristic — removing a structure makes exactly
+            // one tile walkable, so a structure touching no tile of the
+            // pocket cannot join it to the flood), and each holder's
+            // `recovers` is measured by DELETING THAT ONE STRUCTURE and
+            // re-running the same own-creep flood.
+            {
+              const sealedK = new Set(wantAll.map((t) => key(t.x, t.y)));
+              /** D8 components of the sealed set, in the producer's scan order */
+              const comps = [];
+              const seenC = new Set();
+              for (const t of wantAll) {
+                const k0 = key(t.x, t.y);
+                if (seenC.has(k0)) continue;
+                const comp = [t];
+                seenC.add(k0);
+                for (let ci = 0; ci < comp.length; ci++) {
+                  const cur = comp[ci];
+                  for (const [dx, dy] of D8) {
+                    const k2 = key(cur.x + dx, cur.y + dy);
+                    if (!sealedK.has(k2) || seenC.has(k2)) continue;
+                    seenC.add(k2);
+                    comp.push({ x: cur.x + dx, y: cur.y + dy });
+                  }
+                }
+                comps.push(comp);
+              }
+              const pockets = Array.isArray(sf2.pockets) ? sf2.pockets : null;
+              if (!pockets) {
+                bad2.push(
+                  `\`meta.sealedFloor.pockets\` is ${sf2.pockets === undefined ? "ABSENT" : "not a list"} and ` +
+                    `this room's seal falls into ${comps.length} D8 pocket(s). The per-pocket counterfactual ` +
+                    `is what the one-move recovery pass decides on, and eight rooms changed on it this round`,
+                );
+              } else if (pockets.length !== comps.length) {
+                bad2.push(
+                  `\`meta.sealedFloor.pockets\` lists ${pockets.length} pocket(s) and this room's sealed set ` +
+                    `falls into ${comps.length} D8 component(s)`,
+                );
+              } else {
+                if (sf2.pocketCount !== comps.length) {
+                  bad2.push(`\`meta.sealedFloor.pocketCount\` says ${JSON.stringify(sf2.pocketCount)} and the seal falls into ${comps.length} pocket(s)`);
+                }
+                const isDeep = (t) => depth[idx(t.x, t.y)] >= DEPTH_SAFE && t.x >= 2 && t.x <= 47 && t.y >= 2 && t.y <= 47;
+                let singleTiles = 0;
+                let singleDeep = 0;
+                // MATCHED BY THE TILE THEY NAME, not by index: the producer
+                // orders its pockets its own way and lists each pocket's tiles
+                // row-major where this scan finds them by flood, and neither
+                // ordering is the fact being checked.
+                const byAt = new Map();
+                for (const comp2 of comps) {
+                  for (const t of comp2) byAt.set(key(t.x, t.y), comp2);
+                }
+                const usedComp = new Set();
+                for (let pi = 0; pi < pockets.length; pi++) {
+                  const p2 = pockets[pi];
+                  if (!p2 || typeof p2 !== "object") {
+                    bad2.push(`\`meta.sealedFloor.pockets[${pi}]\` is not a record`);
+                    continue;
+                  }
+                  const comp = p2.at && Number.isInteger(p2.at.x) ? byAt.get(key(p2.at.x, p2.at.y)) : null;
+                  if (!comp) {
+                    bad2.push(
+                      `\`pockets[${pi}].at\` is ${String(JSON.stringify(p2.at))} and no sealed pocket of this ` +
+                        `room contains that tile`,
+                    );
+                    continue;
+                  }
+                  if (usedComp.has(comp)) {
+                    bad2.push(`\`pockets[${pi}]\` names a tile of a pocket another entry already claims — one pocket, one record`);
+                    continue;
+                  }
+                  usedComp.add(comp);
+                  const compK = new Set(comp.map((t) => key(t.x, t.y)));
+                  if (p2.tiles !== comp.length) {
+                    bad2.push(`\`pockets[${pi}]\` says ${JSON.stringify(p2.tiles)} tile(s) and the component at ${key(comp[0].x, comp[0].y)} holds ${comp.length}`);
+                  }
+                  const cDeep = comp.filter(isDeep).length;
+                  if (p2.deep !== cDeep) {
+                    bad2.push(`\`pockets[${pi}]\` says ${JSON.stringify(p2.deep)} deep tile(s) and the component holds ${cDeep}`);
+                  }
+                  const gotN = (p2.named || []).map((t) => (t && Number.isInteger(t.x) ? key(t.x, t.y) : String(t)));
+                  const strayN = gotN.filter((k2) => !compK.has(k2));
+                  if (strayN.length || new Set(gotN).size !== gotN.length) {
+                    bad2.push(
+                      `\`pockets[${pi}].named\` lists ${JSON.stringify(gotN).slice(0, 90)} and ` +
+                        `${strayN.length ? `${strayN.join(" ")} ${strayN.length > 1 ? "are" : "is"} not in this pocket` : `it repeats a tile`}`,
+                    );
+                  }
+                  // the holder roster: OUR structures D8-adjacent to the pocket
+                  const holderWant = [];
+                  for (const t2 of OBSTACLE_BUILT) {
+                    for (const q of s[t2] || []) {
+                      const kq = key(q.x, q.y);
+                      if (!D8.some(([dx, dy]) => compK.has(key(q.x + dx, q.y + dy)))) continue;
+                      holderWant.push({ type: t2, x: q.x, y: q.y, k: kq });
+                    }
+                  }
+                  const gotH = Array.isArray(p2.holders) ? p2.holders : [];
+                  const gotHK = new Set(gotH.map((h) => (h && Number.isInteger(h.x) ? key(h.x, h.y) : String(h))));
+                  const missH = holderWant.filter((h) => !gotHK.has(h.k));
+                  const extraH = [...gotHK].filter((k2) => !holderWant.some((h) => h.k === k2));
+                  if (missH.length || extraH.length) {
+                    bad2.push(
+                      `\`pockets[${pi}].holders\` names ${JSON.stringify([...gotHK]).slice(0, 90)} and the ` +
+                        `structures of ours D8-adjacent to this pocket are ` +
+                        `${JSON.stringify(holderWant.map((h) => h.k)).slice(0, 90)}` +
+                        `${missH.length ? ` — missing ${missH.map((h) => h.k).join(" ")}` : ""}` +
+                        `${extraH.length ? ` — invented ${extraH.join(" ")}` : ""}. A holder roster that ` +
+                        `omits a candidate is a recovery the pass was never offered`,
+                    );
+                  }
+                  // ...and what each one RETURNS, by deleting it and re-flooding
+                  for (const h of gotH) {
+                    if (!h || !Number.isInteger(h.x)) continue;
+                    const without = new Set(creepBlocked);
+                    without.delete(key(h.x, h.y));
+                    const w2 = flood(without);
+                    let back = 0;
+                    let backDeep = 0;
+                    for (const t of comp) {
+                      if (!w2.has(key(t.x, t.y))) continue;
+                      back++;
+                      if (isDeep(t)) backDeep++;
+                    }
+                    if (h.recovers !== back || h.recoversDeep !== backDeep) {
+                      bad2.push(
+                        `\`pockets[${pi}]\` says removing the ${h.type} at ${h.x},${h.y} returns ` +
+                          `${JSON.stringify(h.recovers)} tile(s) (${JSON.stringify(h.recoversDeep)} deep) and ` +
+                          `deleting exactly that structure and re-running the own-creep flood returns ` +
+                          `${back} (${backDeep} deep)`,
+                      );
+                    }
+                  }
+                  const bestWant = gotH.length
+                    ? gotH.reduce((a, b) => ((b.recoversDeep || 0) > (a.recoversDeep || 0) ? b : a))
+                    : null;
+                  if (bestWant && p2.best && (p2.best.x !== bestWant.x || p2.best.y !== bestWant.y)) {
+                    bad2.push(
+                      `\`pockets[${pi}].best\` names ${p2.best.x},${p2.best.y} (${JSON.stringify(p2.best.recoversDeep)} deep) ` +
+                        `and the roster's own best is ${bestWant.x},${bestWant.y} (${bestWant.recoversDeep} deep)`,
+                    );
+                  }
+                  if (bestWant) {
+                    singleTiles += bestWant.recovers || 0;
+                    singleDeep += bestWant.recoversDeep || 0;
+                  }
+                }
+                if (sf2.singleStructureTiles !== singleTiles || sf2.singleStructureDeep !== singleDeep) {
+                  bad2.push(
+                    `\`meta.sealedFloor.singleStructureTiles/Deep\` say ` +
+                      `${JSON.stringify(sf2.singleStructureTiles)}/${JSON.stringify(sf2.singleStructureDeep)} ` +
+                      `and summing each pocket's own best single holder gives ${singleTiles}/${singleDeep}. ` +
+                      `This is the figure the recovery pass is aimed at and the one criticism 2's finding is ` +
+                      `about — a whole-mass ceiling nobody had asked one move to reach`,
+                  );
+                }
+              }
+            }
             const gotNamed = Array.isArray(sf2.named) ? sf2.named : [];
             const wantK2 = new Set(wantNamed.map((t) => key(t.x, t.y)));
             const gotK2 = gotNamed.map((t) => (t && Number.isInteger(t.x) ? key(t.x, t.y) : String(t)));
@@ -9902,6 +11244,33 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `rather than spent`,
             );
           }
+          // ==========================================================
+          // ROUND 17 / O6 — COMPLETENESS, NOT "AT LEAST ONE".
+          // ==========================================================
+          // The rule above fires only when `crossings` is EMPTY, so a room
+          // could record one crossing and leave the rest of its adjacent
+          // pairs unaccounted for — which is what E3S1 and E4S3 did last
+          // round with the take's readings living in `acrossPriorTake` and
+          // adjacency's own contract ("every crossing with the readings it
+          // proved") unmet. Every pair the BOARD carries must touch the
+          // destination of some recorded crossing, or the take's.
+          {
+            const dests = new Set();
+            if (takeTo !== null) dests.add(takeTo);
+            for (const c of adj.crossings) {
+              if (c && c.to && Number.isInteger(c.to.x)) dests.add(key(c.to.x, c.to.y));
+            }
+            const orphanPairs = wantK.filter((pk) => !pk.split("~").some((t2) => dests.has(t2)));
+            if (orphanPairs.length) {
+              bad2.push(
+                `this room ships ${orphanPairs.length} adjacent tower pair(s) (${orphanPairs.join(" ")}) ` +
+                  `that no recorded crossing reaches — the crossings this room DOES record land on ` +
+                  `${dests.size ? [...dests].join(" ") : "nothing"}. "Every crossing with the readings it ` +
+                  `proved" is a completeness claim: one recorded crossing used to satisfy it for any number ` +
+                  `of pairs, so a second pass could put two towers together and file nothing`,
+              );
+            }
+          }
           if (takeTo !== null && !towers.some((t) => key(t.x, t.y) === takeTo)) {
             bad2.push(
               `\`acrossPriorTake.taken\` says a tower moved to ${takeTo} and this room ships no tower ` +
@@ -10099,6 +11468,82 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           }
           if (sap.seat && Number.isInteger(sap.seat.x) && !walkable(terrain, sap.seat.x, sap.seat.y)) {
             bad2.push(`\`satAcrossPrior.seat\` names ${sap.seat.x},${sap.seat.y}, which is not a buildable tile of this room`);
+          }
+          // ==============================================================
+          // ROUND 17 / F4 — THE SEAT'S OCCUPANCY IS A FACT ABOUT THE BOARD,
+          // AND IT WAS NEVER READ OFF ONE.
+          // ==============================================================
+          // `seatOccupancy` decides which of the two `forgone` figures the
+          // room's refusal is charged to: a seat standing EMPTY means the
+          // adjacency prior is what the room gave the damage up for, and a
+          // seat with something on it means the occupant is. Until round 17
+          // the only gate on all three fields was `renderSatBasis` string
+          // equality — a pure function of the record itself — so the record
+          // and its own sentence agreed about anything. All NINE occupied
+          // seats in the fleet could declare themselves FREE and pass, which
+          // turns the goal document's `forgoneToPrior 0 / forgoneToOccupant
+          // 270` into `270 / 0` with the sentence regenerated to say it: the
+          // exact inversion of criticism 34's closing claim. The reverse
+          // walked too (E21S8's genuinely free seat claiming a nuker).
+          //
+          // It is `plan.structures`. Read it.
+          if (sap.seat && Number.isInteger(sap.seat.x) && Number.isInteger(sap.seat.y)) {
+            const occ = sap.seatOccupancy;
+            const kinds = Array.isArray(occ && occ.counted) ? occ.counted : SAT_SEAT_KINDS;
+            const onHere = SAT_SEAT_KINDS.filter((t) =>
+              (s[t] || []).some((q) => q.x === sap.seat.x && q.y === sap.seat.y),
+            );
+            if (!occ || typeof occ !== "object") {
+              bad2.push(
+                `\`satAcrossPrior.seatOccupancy\` is ${occ === undefined ? "ABSENT" : String(JSON.stringify(occ)).slice(0, 40)} ` +
+                  `and the seat this record names carries ${onHere.length ? onHere.join("+") : "nothing"} on ` +
+                  `the board this room ships. Which of the two \`forgone\` figures the refusal is charged to ` +
+                  `is decided by this field`,
+              );
+            } else {
+              const missKind = SAT_SEAT_KINDS.filter((t) => !kinds.includes(t));
+              if (missKind.length) {
+                bad2.push(
+                  `\`satAcrossPrior.seatOccupancy.counted\` omits ${missKind.join(", ")} — the inventory a ` +
+                    `seat is called FREE against has to be every structure kind that can stand on a tile, ` +
+                    `or "free" means "free of the kinds we looked for"`,
+                );
+              }
+              if (occ.x !== sap.seat.x || occ.y !== sap.seat.y) {
+                bad2.push(
+                  `\`satAcrossPrior.seatOccupancy\` is about ${occ.x},${occ.y} and the seat is ` +
+                    `${sap.seat.x},${sap.seat.y} — an occupancy reading of a different tile`,
+                );
+              }
+              if (JSON.stringify((occ.on || []).slice().sort()) !== JSON.stringify(onHere.slice().sort())) {
+                bad2.push(
+                  `\`satAcrossPrior.seatOccupancy.on\` says ${String(JSON.stringify(occ.on)).slice(0, 60)} and ` +
+                    `${sap.seat.x},${sap.seat.y} carries ${onHere.length ? onHere.join("+") : "nothing"} on the ` +
+                    `board this room ships`,
+                );
+              }
+              if (occ.free !== (onHere.length === 0)) {
+                bad2.push(
+                  `\`satAcrossPrior.seatOccupancy.free\` says ${JSON.stringify(occ.free)} and the seat ` +
+                    `${sap.seat.x},${sap.seat.y} carries ${onHere.length ? onHere.join("+") : "nothing"}`,
+                );
+              }
+              // ...and the two sums the fleet figure is made of follow from it
+              const gap = typeof sap.reachable === "number" && typeof sap.held === "number" ? sap.reachable - sap.held : null;
+              if (gap !== null) {
+                const wantPrior = onHere.length === 0 ? gap : 0;
+                const wantOcc = onHere.length === 0 ? 0 : gap;
+                if (sap.forgoneToPrior !== wantPrior || sap.forgoneToOccupant !== wantOcc) {
+                  bad2.push(
+                    `\`satAcrossPrior\` charges ${JSON.stringify(sap.forgoneToPrior)} of the forgone damage to ` +
+                      `the adjacency prior and ${JSON.stringify(sap.forgoneToOccupant)} to the seat's occupant; ` +
+                      `the gap between reachable and held is ${gap} and the seat ` +
+                      `${onHere.length ? `carries ${onHere.join("+")}, so all of it is the OCCUPANT's` : `stands EMPTY, so all of it is the PRIOR's`}. ` +
+                      `The split is the whole of the fleet figure the goal document quotes (0 / 270)`,
+                  );
+                }
+              }
+            }
           }
           // ==============================================================
           // M5. `basis` WAS A LENGTH CHECK: `typeof === "string" &&
@@ -10516,6 +11961,43 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // to erase), a transient is one it never did
         const rl = plan.meta?.roadLayer;
         if (rl && typeof rl === "object") {
+          // ==========================================================
+          // ROUND 17 / F5 — THE CENSUS IS RE-DERIVED, NOT RECONCILED.
+          // ==========================================================
+          // Everything above this line is `prunedTiles` checked against
+          // itself and against the board in ONE direction: a tile it names
+          // must carry no road. Nothing said which tiles it must NAME — so
+          // the whole census DEFLATED. E15S3 ships `pruned 29 / ghosts 29`
+          // and passed with `pruned 0`, `prunedGhosts 0`, `prunedTiles []`,
+          // every identity above still closing. (Inflation already bit;
+          // only the direction a producer would actually use was open.)
+          //
+          // The ghost half is FULLY derivable and always was: a ghost is a
+          // tile an earlier layer tagged in `meta.roadLayer` and the room
+          // ships no road on. Re-derived independently it reproduces the
+          // fleet's 1994 in 172 of 172 rooms, so `prunedGhosts` is a class-D
+          // quantity and `prunedTiles` is required to CONTAIN every one of
+          // them. What stays witnessed is the transient half — tiles laid
+          // and deleted inside layer 7, which by construction left no trace
+          // on any board — and it is bounded by the identity above.
+          const ghostK = Object.keys(rl).filter((k2) => Number.isInteger(rl[k2]) && !roadSet.has(k2));
+          if (ghostK.length !== ghosts) {
+            bad3.push(
+              `\`prunedGhosts\` says ${ghosts} and this room's own board carries ${ghostK.length} tile(s) ` +
+                `that an earlier layer tagged in \`meta.roadLayer\` and that ship no road. That set IS the ` +
+                `ghost census — re-derived here rather than reconciled against the producer's own list, ` +
+                `because reconciliation let the whole census deflate to zero and stay self-consistent`,
+            );
+          }
+          const ghostMissing = ghostK.filter((k2) => !tilesK.includes(k2));
+          if (ghostMissing.length) {
+            bad3.push(
+              `\`prunedTiles\` does not name ${ghostMissing.length} tile(s) that carry a \`meta.roadLayer\` ` +
+                `entry and no road (${ghostMissing.slice(0, 8).join(" ")}${ghostMissing.length > 8 ? " …" : ""}). ` +
+                `Every one of them is a road an earlier layer laid and this room does not ship, which is ` +
+                `what "pruned" means`,
+            );
+          }
           const wantGhosts = tilesK.filter((k2) => Number.isInteger(rl[k2])).length;
           if (wantGhosts !== ghosts) {
             bad3.push(
@@ -11352,11 +12834,55 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       let interiorWalkable = 0;
       let interiorTiles = 0;
       let freeDeepInterior = 0;
+      // ROUND 17 / F3: THE SEAT CENSUS LAYER 3'S SEARCH RAN OVER, BOUNDED FROM
+      // THE BOARD THIS ROOM SHIPS.
+      //
+      // Every tower-search census in this file (`towers.refillSearch`,
+      // `mobilityVeto`, `towerDispersion.search`) is a nested loop over SLOTS x
+      // CANDIDATE SEATS, and until this round the only thing under them was the
+      // mirror — so a coordinated edit of record and mirror moved any of them
+      // anywhere (451 of 918 such pairs escaped). `deepSeats` is the floor that
+      // cannot move with them: a tile of THIS room that is buildable, interior,
+      // at or past the depth floor, carries no structure and no road, and has a
+      // walkable D8 face for the filler — which is `layer-towers.gather()`
+      // minus the refill test, evaluated on the board the room SHIPS. Layer 3
+      // gathered on a board with strictly FEWER blockers on it (no extensions,
+      // no labs, no nuker), so every seat legal today was legal then: the
+      // shipped count is a genuine LOWER bound on the list layer 3 searched,
+      // plus the towers themselves, which are standing on seats it chose from.
+      let deepSeats = 0;
+      /**
+       * ...AND THE FLOOR SURVIVES THE THINNING. Layer 3 caps its candidate list
+       * at MAX_CANDS by `spatialPrune`, which keeps the cheapest ONE seat per
+       * 2x2 block — so the count of seats is not a floor on the list it
+       * searched, but the count of 2x2 BLOCKS holding a seat is: every block
+       * that contains a seat contributes exactly one candidate after thinning,
+       * and at least one before it. Both branches of the producer's `if` land
+       * above this number, which is what makes it a bound rather than an
+       * observation about the branch that happened to run.
+       */
+      const seatBlocks = new Set();
       const occupiedAll = new Set();
+      /**
+       * ...AND THE FILLER-WALK CAP, WHICH IS MONOTONE THE RIGHT WAY. Layer 3
+       * also refused a seat whose filler walk broke `MAX_REFILL`, measured on
+       * ITS board. That board carried strictly fewer obstacles than this one,
+       * so a walk measured HERE is never shorter than the walk measured THERE:
+       * a tile inside the cap today was inside the cap then. Applying the cap
+       * on the shipped board therefore keeps the subset claim honest instead of
+       * weakening it.
+       */
+      const seatRefillBlocked = new Set(objectTiles);
+      for (const [t2, arr2] of Object.entries(s)) {
+        if (t2 === "road" || t2 === "rampart") continue;
+        for (const q2 of arr2 || []) seatRefillBlocked.add(key(q2.x, q2.y));
+      }
+      const seatRefill = walkField(terrain, sitter, seatRefillBlocked);
       for (const [t2, arr2] of Object.entries(s)) {
         if (t2 === "road" || t2 === "rampart") continue;
         for (const q2 of arr2 || []) occupiedAll.add(key(q2.x, q2.y));
       }
+      const roadK0 = new Set((s.road || []).map((r) => key(r.x, r.y)));
       for (let y = 0; y < 50; y++) {
         for (let x = 0; x < 50; x++) {
           if (!walkable(terrain, x, y)) continue;
@@ -11366,10 +12892,27 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           interiorWalkable++;
           if (x >= 1 && x <= 48 && y >= 1 && y <= 48 && depth[i2] >= DEPTH_SAFE && !occupiedAll.has(key(x, y))) {
             freeDeepInterior++;
+            if (
+              x >= 2 &&
+              x <= 47 &&
+              y >= 2 &&
+              y <= 47 &&
+              !roadK0.has(key(x, y)) &&
+              seatRefill[i2] <= MAX_REFILL &&
+              D8.some(([dx, dy]) => walkable(terrain, x + dx, y + dy) && !occupiedAll.has(key(x + dx, y + dy)))
+            ) {
+              deepSeats++;
+              seatBlocks.add(((y >> 1) << 6) | (x >> 1));
+            }
           }
         }
       }
+      for (const q2 of s.tower || []) seatBlocks.add(((q2.y >> 1) << 6) | (q2.x >> 1));
       return {
+        deepSeats,
+        /** ...and the towers are standing on seats of the same census */
+        deepSeatsWithTowers: deepSeats + (s.tower || []).length,
+        deepSeatBlocks: seatBlocks.size,
         interiorWalkable,
         interiorTiles,
         walkRegion: interior ? interior.size : interiorWalkable,
@@ -11384,6 +12927,521 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         lapCeiling: MOB_EXACT_MAX,
       };
     })();
+    // ==================================================================
+    // ROUND 17 / F3 — THE SEED POOL, RE-DERIVED FROM TERRAIN ALONE.
+    // ==================================================================
+    // `eco.seedPool` ("this hub is seed rank 0 of 25 scored confluences") and
+    // its `meta.seedPool` mirror were two copies of one witnessed number, so a
+    // coordinated edit moved both and the sentence read "rank 0 of 8". It is
+    // not witnessed at all: layer 1's seed list is the tiles that clear a
+    // closed set of TERRAIN admissibility tests, ranked, and its pool is the
+    // first 25 of them. The tests are reproduced here from this room's terrain
+    // and its three object kinds — nothing of the plan is read — and the count
+    // reproduces the published pool in 172 of 172 rooms.
+    //
+    // Only the ADMISSIBILITY half is reproduced, not the score: the pool size
+    // is `min(25, |admissible|)` and the ordering inside it changes nothing
+    // about how many there were.
+    const seedPoolDerived = (() => {
+      const MIN_EDGE = 6;
+      const MIN_ANCHOR_PATH = 4;
+      const SEED_POOL_CAP = 25;
+      const srcs = (objects || []).filter((o) => o.type === "source");
+      const ctrlO = (objects || []).find((o) => o.type === "controller");
+      if (!ctrlO || !srcs.length) return null;
+      const minO = (objects || []).find((o) => o.type === "mineral");
+      const objK = new Set([
+        ...srcs.map((o) => key(o.x, o.y)),
+        key(ctrlO.x, ctrlO.y),
+        ...(minO ? [key(minO.x, minO.y)] : []),
+      ]);
+      // dt[i] = chebyshev distance to the nearest wall, out-of-bounds counting
+      // as wall — the two-pass transform, written out rather than imported
+      const dt = new Uint8Array(2500);
+      const BIG = 60;
+      for (let y = 0; y < 50; y++) {
+        for (let x = 0; x < 50; x++) {
+          const i = idx(x, y);
+          if (isWall(terrain, x, y)) {
+            dt[i] = 0;
+            continue;
+          }
+          let d = Math.min(BIG, x + 1, y + 1, 50 - x, 50 - y);
+          if (x > 0) d = Math.min(d, dt[i - 1] + 1);
+          if (y > 0) d = Math.min(d, dt[i - 50] + 1);
+          if (x > 0 && y > 0) d = Math.min(d, dt[i - 51] + 1);
+          if (x < 49 && y > 0) d = Math.min(d, dt[i - 49] + 1);
+          dt[i] = d;
+        }
+      }
+      for (let y = 49; y >= 0; y--) {
+        for (let x = 49; x >= 0; x--) {
+          const i = idx(x, y);
+          if (dt[i] === 0) continue;
+          let d = dt[i];
+          if (x < 49) d = Math.min(d, dt[i + 1] + 1);
+          if (y < 49) d = Math.min(d, dt[i + 50] + 1);
+          if (x < 49 && y < 49) d = Math.min(d, dt[i + 51] + 1);
+          if (x > 0 && y < 49) d = Math.min(d, dt[i + 49] + 1);
+          dt[i] = d;
+        }
+      }
+      // one D8 walk field per anchor, seeded on the anchor's walkable ring
+      // (a source stands ON a wall tile, so it seeds its neighbours)
+      const FAR = 30000;
+      const fieldOf = (o) => {
+        const dist = new Int16Array(2500).fill(FAR);
+        const q = [];
+        const seed = (x, y) => {
+          if (x < 0 || y < 0 || x > 49 || y > 49) return;
+          if (!walkable(terrain, x, y)) return;
+          const i = idx(x, y);
+          if (dist[i] > 0) {
+            dist[i] = 0;
+            q.push(i);
+          }
+        };
+        seed(o.x, o.y);
+        for (const [dx, dy] of D8) seed(o.x + dx, o.y + dy);
+        for (let qi = 0; qi < q.length; qi++) {
+          const i = q[qi];
+          const x = i % 50;
+          const y = (i / 50) | 0;
+          for (const [dx, dy] of D8) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+            if (!walkable(terrain, nx, ny)) continue;
+            const ni = idx(nx, ny);
+            if (dist[ni] <= dist[i] + 1) continue;
+            dist[ni] = dist[i] + 1;
+            q.push(ni);
+          }
+        }
+        return dist;
+      };
+      const fields = [...srcs, ctrlO].map(fieldOf);
+      let admissible = 0;
+      for (let x = MIN_EDGE; x <= 49 - MIN_EDGE; x++) {
+        for (let y = MIN_EDGE; y <= 49 - MIN_EDGE; y++) {
+          if (x < 2 || x > 47 || y < 2 || y > 47 || isWall(terrain, x, y)) continue;
+          if (objK.has(key(x, y))) continue;
+          if (dt[idx(x, y)] < 3) continue; // "a real pocket, not a crack"
+          if (Math.min(x, y, 49 - x, 49 - y) < MIN_EDGE) continue;
+          let reach = true;
+          let minD = FAR;
+          for (const f of fields) {
+            const fd = f[idx(x, y)];
+            if (fd >= FAR) {
+              reach = false;
+              break;
+            }
+            if (fd < minD) minD = fd;
+          }
+          if (!reach || minD < MIN_ANCHOR_PATH) continue; // not glued to one anchor
+          admissible++;
+        }
+      }
+      return { admissible, pool: Math.min(SEED_POOL_CAP, admissible), cap: SEED_POOL_CAP };
+    })();
+    if (seedPoolDerived) {
+      const pub = plan.meta?.seedPool;
+      if (pub !== seedPoolDerived.pool) {
+        fails.push(
+          `eco/seed-pool — the plan says layer 1 ranked ${JSON.stringify(pub)} confluence(s) and this room's ` +
+            `terrain admits ${seedPoolDerived.admissible} seed candidate(s), which layer 1 takes the first ` +
+            `${seedPoolDerived.cap} of: ${seedPoolDerived.pool}. The pool is quoted to a reader as "seed rank ` +
+            `N of M scored confluences" and it was a witnessed number with one mirror; both copies are ` +
+            `written in the same pass, so the pair is one edit`,
+        );
+      }
+      const pubCore = plan.meta?.coreSize;
+      if (typeof pubCore === "number" && pubCore > CORE_SIZE) {
+        fails.push(
+          `eco/core-size — the plan says the core pocket holds ${pubCore} tile(s) and layer 1 takes the ` +
+            `first ${CORE_SIZE} tiles of the basin (CORE_SIZE). A core cannot be larger than the slice it is`,
+        );
+      }
+    }
+
+    // ==================================================================
+    // ROUND 17 / F3 — THE MIRROR IS ANCHORED TO THE BOARD, IN EVERY ROOM,
+    // DECLARED OR NOT.
+    // ==================================================================
+    // The record-leaf inventory's cross-copies (`MIRROR_L3`, `MIRROR_VETO`,
+    // `MIRROR_DISP`, `@meta.towers.refillSearch.*`) all rest on the same
+    // argument: the mirror was written by a pass that does not know whether
+    // the room will declare, so keeping the two copies consistent is an edit a
+    // declaration-shaped exploit is not making. Round 17 made it: writing the
+    // SAME lie into both copies — which is exactly what a real producer bug
+    // does — walked 451 of 918 falsified leaves past this file, including
+    // E11S6's clump paragraph reading "1 single-swap round(s) over 3 candidate
+    // swap(s)" against a truth of 755 candidate swaps.
+    //
+    // A second copy of a number is not evidence about the number. So the
+    // MIRROR itself is bounded here, against this room's board, for all 172
+    // rooms — and the record's copy is `EQ` to the mirror, so the record
+    // inherits the anchor. The bounds are the loops' own arithmetic:
+    //
+    //   * `candidates` is layer 3's seat list. Its floor is `#deepSeatBlocks`
+    //     (see the board-fact header: one candidate survives thinning per 2x2
+    //     block, and every block holding a seat on the SHIPPED board held one
+    //     then), its ceiling is `MAX_CANDS`, this file's copy of the producer's
+    //     own thinning cap. Measured slack on the fleet: 19 at the tightest.
+    //   * the refill-directed pass is an EXHAUSTIVE double loop — every slot
+    //     against every candidate that is not one of the six seats — so
+    //     `tried === rounds * towers * (candidates - towers)` EXACTLY, and it
+    //     is exact in 172 of 172 rooms.
+    //   * the dispersion pass is the same loop with the D8 prior skipping
+    //     instead of occupancy, and a tower has at most 8 D8 neighbours, so
+    //     `tried` lies between `rounds*T*(C-1-8*(T-1))` and `rounds*T*(C-1)`.
+    //     Tightest slack on the fleet: 66 swaps (E17S5).
+    //   * the mobility veto stops early (a `MOBILITY_TRIALS` budget and a
+    //     satisfied-lap break), so it gets the ceiling and the zero-identity
+    //     only — stated, rather than a floor it would not deserve.
+    // ==================================================================
+    /** layer 3's own filler walks, re-derived — see the F2 block below */
+    let placementRefill = null;
+    {
+      const tw = plan.meta?.towers || {};
+      const T = boardFacts.shippedTowers;
+      const C = typeof tw.candidates === "number" ? tw.candidates : null;
+      const anchor = (msg) => fails.push(`towers/census-anchor — ${msg}`);
+      // ==============================================================
+      // ROUND 17 / F2 — LAYER 3'S OWN REFILL WALK, RECONSTRUCTED.
+      // ==============================================================
+      // `towers/weak-battery` derives its `source` — whether the battery is
+      // weak because of the WALL or because of the REFILL — from
+      // `meta.towers.minShellDmg` and `meta.towers.maxRefillAtPlacement`.
+      // The first is mirrored and audited; the second was a layer-3 witness
+      // describing a board that no longer exists, so nothing re-derived it.
+      // Clamping it under REFILL_NOTE, deleting the placement census and
+      // writing `source: "walls"` took the wall arm in 10 of the 15 layer-3
+      // rooms and dropped 20 sub-records and 34 audited leaves off the audit
+      // with it. A derivation whose inputs are the same producer's unaudited
+      // numbers is not a derivation.
+      //
+      // The board is reconstructible after all, and it does not need the road
+      // set: the walk is a BFS over walkable terrain around OBSTACLES, and
+      // roads are not obstacles. What stood at layer 3 is the hub (spawn,
+      // storage, terminal, link) and the six towers themselves — the
+      // extensions, labs, nuker and observer all land later. Reconstructed
+      // that way the walk reproduces `meta.towers.refillDistsAtPlacement`
+      // TOWER FOR TOWER in 172 of 172 rooms.
+      placementRefill = (() => {
+        const imp = new Set(objectTiles);
+        for (const t2 of ["spawn", "storage", "terminal", "link", "tower"]) {
+          for (const q2 of s[t2] || []) imp.add(key(q2.x, q2.y));
+        }
+        const f = walkField(terrain, sitter, imp);
+        const arrive = (t2) => {
+          const v = f[idx(t2.x, t2.y)];
+          if (v < 9999) return v;
+          let best = 9999;
+          for (const [dx, dy] of D8) {
+            const x = t2.x + dx;
+            const y = t2.y + dy;
+            if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+            const w = f[idx(x, y)];
+            if (w < 9999 && w + 1 < best) best = w + 1;
+          }
+          return best;
+        };
+        const dists = (s.tower || []).map(arrive);
+        return { dists, max: dists.length ? Math.max(...dists) : 0 };
+      })();
+      if (T > 0) {
+        const pubD = tw.refillDistsAtPlacement;
+        if (!Array.isArray(pubD) || JSON.stringify(pubD) !== JSON.stringify(placementRefill.dists)) {
+          fails.push(
+            `towers/placement-refill — the plan says layer 3 measured the filler walks ` +
+              `[${Array.isArray(pubD) ? pubD.join(",") : String(JSON.stringify(pubD))}] when it placed the ` +
+              `battery, and re-walked on the board layer 3 actually had — this room's terrain with the hub ` +
+              `and the six towers standing and nothing later on it — they are ` +
+              `[${placementRefill.dists.join(",")}]. This is the number \`towers/weak-battery\` derives its ` +
+              `\`source\` from, and it was a witness to a board nobody could check`,
+          );
+        }
+        if (tw.maxRefillAtPlacement !== placementRefill.max) {
+          fails.push(
+            `towers/placement-refill — the plan says the furthest of those walks was ` +
+              `${JSON.stringify(tw.maxRefillAtPlacement)} and the walks re-derived here run to ` +
+              `${placementRefill.max}. Clamping this one number under the soft note took the WALL arm of ` +
+              `the weak-battery declaration in 10 of the 15 rooms that publish the census`,
+          );
+        }
+      }
+      const why =
+        `A search census is the whole evidence for "the pass looked and there was nothing to find", and ` +
+        `the only thing under it was a second copy of itself written in the same pass. Both copies moving ` +
+        `together is what a producer bug looks like, and 451 of 918 such coordinated edits used to pass`;
+      if (T > 0) {
+        // the spread of the battery, re-derived off the six towers the room
+        // ships — see the REQUIRED_META entry
+        const tws = s.tower || [];
+        const cx = tws.reduce((a, t) => a + t.x, 0) / tws.length;
+        const cy = tws.reduce((a, t) => a + t.y, 0) / tws.length;
+        const wantSpread =
+          Math.round(Math.max(...tws.map((t) => Math.max(Math.abs(t.x - cx), Math.abs(t.y - cy)))) * 10) / 10;
+        if (typeof tw.spreadRadius !== "number" || Math.abs(tw.spreadRadius - wantSpread) > 1e-9) {
+          fails.push(
+            `towers/spread-radius — the plan says the battery's spread is ${JSON.stringify(tw.spreadRadius)} ` +
+              `and the six towers it ships sit at most ${wantSpread} from their own centroid. ${why}`,
+          );
+        }
+      }
+      if (C === null) {
+        anchor(`\`meta.towers.candidates\` is ${JSON.stringify(tw.candidates)}, not a number. ${why}`);
+      } else if (T > 0) {
+        if (C < boardFacts.deepSeatBlocks) {
+          anchor(
+            `layer 3 says it searched ${C} candidate seat(s) and this room's own board carries ` +
+              `${boardFacts.deepSeats} legal deep tower seat(s) spread over ${boardFacts.deepSeatBlocks} ` +
+              `2x2 block(s). Layer 3 gathered on a board with FEWER obstacles than this one and keeps one ` +
+              `seat per block when it thins, so its list cannot have been shorter than the block count. ${why}`,
+          );
+        }
+        if (C > MAX_CANDS) {
+          anchor(`layer 3 says it searched ${C} candidate seat(s) against its own thinning cap of ${MAX_CANDS}. ${why}`);
+        }
+        if (C > boardFacts.interiorWalkable) {
+          anchor(`layer 3 says it searched ${C} candidate seat(s) and this room has ${boardFacts.interiorWalkable} walkable interior tile(s) in total. ${why}`);
+        }
+        const rs = tw.refillSearch || {};
+        if (typeof rs.tried === "number" && typeof rs.rounds === "number") {
+          const want = rs.rounds * T * (C - T);
+          if (rs.tried !== want) {
+            anchor(
+              `the refill-directed swap pass says it examined ${rs.tried} swap(s) over ${rs.rounds} ` +
+                `round(s). That pass is an exhaustive loop over ${T} slot(s) x the ${C - T} candidate ` +
+                `seat(s) no tower is standing on, so the count is exactly ${want}. ${why}`,
+            );
+          }
+        }
+        const ds = tw.towerDispersion?.search || {};
+        if (typeof ds.singleSwapsTried === "number" && typeof ds.rounds === "number") {
+          const hi = ds.rounds * T * (C - 1);
+          const lo = ds.rounds * T * Math.max(0, C - 1 - 8 * (T - 1));
+          if (ds.singleSwapsTried > hi || ds.singleSwapsTried < lo) {
+            anchor(
+              `the dispersion pass says it examined ${ds.singleSwapsTried} single swap(s) over ${ds.rounds} ` +
+                `round(s). It offers every one of ${T} slot(s) every one of ${C} candidate seat(s) except ` +
+                `its own and those the D8 tower-adjacency prior refuses — at most 8 per standing tower — ` +
+                `so the count lies in [${lo}, ${hi}]. ${why}`,
+            );
+          }
+        }
+        const mv = tw.mobilityVeto || {};
+        if (typeof mv.tried === "number") {
+          const rounds = typeof mv.rounds === "number" ? mv.rounds : 0;
+          if (mv.tried > rounds * T * (C - 1)) {
+            anchor(
+              `the mobility veto says it examined ${mv.tried} swap(s) over ${rounds} round(s), and ` +
+                `${T} slot(s) against ${C} candidate seat(s) is at most ${rounds * T * (C - 1)} of them. ${why}`,
+            );
+          }
+          if (mv.tried > 0 !== rounds > 0) {
+            anchor(
+              `the mobility veto says it examined ${mv.tried} swap(s) in ${rounds} round(s). The counter ` +
+                `is incremented inside the round loop, so the two are positive together or not at all. ${why}`,
+            );
+          }
+        }
+      }
+    }
+    // ==================================================================
+    // ROUND 17 / O4 — THREE BOARDS, THREE NAMES, AND A READER FOR EACH.
+    // ==================================================================
+    // `meta.shell.deepTiles` was one label over two different boards and NO
+    // reader at all: 9999 escaped, 0 escaped, deleting it escaped, and
+    // flipping `budgetPass` escaped — while the gallery card printed it as
+    // shipped fact ("cut N · deep M") and plan.mjs called it "deep tiles
+    // sealed in". Round 17's producer publishes all three figures under names
+    // that say which board each is on. All three are re-derived here, and so
+    // are the two numbers that were computed FROM the first one and read by
+    // nothing: the space-budget verdict and the rampart upkeep.
+    {
+      const bad4 = [];
+      const sh = plan.meta?.shell || {};
+      const cutK4 = new Set(cutPts.map((c) => key(c.x, c.y)));
+      const roadK4 = new Set((s.road || []).map((r) => key(r.x, r.y)));
+      const occ4 = new Set();
+      for (const [t2, arr2] of Object.entries(s)) {
+        if (t2 === "road" || t2 === "rampart") continue;
+        for (const q2 of arr2 || []) occ4.add(key(q2.x, q2.y));
+      }
+      let shippedFreeDeep = 0;
+      let shippedDeepInterior = 0;
+      for (let y = 2; y <= 47; y++) {
+        for (let x = 2; x <= 47; x++) {
+          const i2 = idx(x, y);
+          if (isWall(terrain, x, y)) continue;
+          if (ext[i2]) continue;
+          if (depth[i2] < DEPTH_SAFE) continue;
+          shippedDeepInterior++;
+          const k4 = key(x, y);
+          if (cutK4.has(k4) || roadK4.has(k4) || occ4.has(k4)) continue;
+          shippedFreeDeep++;
+        }
+      }
+      if (typeof sh.negotiationFreeDeep === "number" && sh.negotiationFreeDeep !== sh.deepTiles) {
+        bad4.push(
+          `\`negotiationFreeDeep\` says ${sh.negotiationFreeDeep} and \`deepTiles\` says ` +
+            `${JSON.stringify(sh.deepTiles)}. They are the same measurement under two names — the honest ` +
+            `one and the one every reader had to guess at`,
+        );
+      }
+      if (sh.shippedFreeDeep !== shippedFreeDeep) {
+        bad4.push(
+          `\`shippedFreeDeep\` says ${JSON.stringify(sh.shippedFreeDeep)} and the board this room ships ` +
+            `carries ${shippedFreeDeep} free deep tile(s) (depth >= ${DEPTH_SAFE}, inside the 2..47 band, ` +
+            `not exterior, not cut, not road, nothing standing on it)`,
+        );
+      }
+      if (sh.shippedDeepInterior !== shippedDeepInterior) {
+        bad4.push(
+          `\`shippedDeepInterior\` says ${JSON.stringify(sh.shippedDeepInterior)} and this room's shipped ` +
+            `wall encloses ${shippedDeepInterior} deep interior tile(s), whatever is standing on them`,
+        );
+      }
+      if (typeof sh.deepTilesBasis !== "string" || sh.deepTilesBasis.trim().length < 60) {
+        bad4.push(
+          `\`deepTilesBasis\` is ${String(JSON.stringify(sh.deepTilesBasis)).slice(0, 40)} — three figures ` +
+            `that differ by 100-plus tiles need the sentence that says which board each one is on, which is ` +
+            `precisely what one label over two boards cost the gallery card for a whole round`,
+        );
+      }
+      // ...and the two numbers computed FROM the negotiation figure, which
+      // nothing read: the space-budget verdict (`deepTiles >= NEED_DEEP`, and
+      // NEED_DEEP is PROGRAM_TILES 78 + CORRIDOR_OVERHEAD 45) and the upkeep
+      // the wall costs per tick (ramparts x RAMPART_UPKEEP).
+      if (typeof sh.deepTiles === "number" && sh.budgetPass !== sh.deepTiles >= NEED_DEEP) {
+        bad4.push(
+          `\`budgetPass\` says ${JSON.stringify(sh.budgetPass)} and this room negotiated ${sh.deepTiles} ` +
+            `free deep tile(s) against the program's floor of ${NEED_DEEP} (${PROGRAM_TILES} program tiles ` +
+            `plus ${CORRIDOR_OVERHEAD} of corridor). The verdict is the comparison; publishing it and ` +
+            `reading neither side of it is how a false one ships`,
+        );
+      }
+      const wantUpkeep = Math.round((s.rampart || []).length * RAMPART_UPKEEP * 100) / 100;
+      if (typeof sh.upkeepPerTick === "number" && Math.abs(sh.upkeepPerTick - wantUpkeep) > 0.005) {
+        bad4.push(
+          `\`upkeepPerTick\` says ${sh.upkeepPerTick} and ${(s.rampart || []).length} rampart(s) at ` +
+            `${RAMPART_UPKEEP} energy/tick each is ${wantUpkeep}`,
+        );
+      }
+      for (const b of bad4) {
+        fails.push(
+          `META — meta.shell (the deep-tile figures): ${b}. One label over two boards, printed by the ` +
+            `gallery as shipped fact and read by nothing — 9999, 0, deletion and a flipped budget verdict ` +
+            `all passed 172/172 in round 17.`,
+        );
+      }
+    }
+
+    // ==================================================================
+    // ROUND 17 / O2 + O3 — THE TWO RE-COMPOSING PASSES END ON THIS BOARD.
+    // ==================================================================
+    // Round 16's across-prior take read `refill` as a MAX, so E3S1 bought +30
+    // damage for a filler-walk regression its own instrument could not see:
+    // the moved tower's walk went 6 -> 10 and the room's total 42 -> 46 in a
+    // room that DECLARES `towers/weak-battery` on that very walk. Round 17's
+    // producer puts the whole battery on the panel — the per-tower walk
+    // vector, its total, how many walks sit at the hard cap and how many over
+    // the soft note — plus the two legality readings a re-composition can
+    // break without moving any instrument (`stackedOnRoad`, `orphanRoads`).
+    // Round 17 also adds a SECOND re-composing pass, the one-move sealed-floor
+    // recovery, with panels of the same shape.
+    //
+    // A panel is only worth the decision made on it if it ENDS WHERE THE BOARD
+    // ENDS. The final panel of each pass — `after` when the pass took
+    // something, `before` when it did not — is checked here against this
+    // room's own shipped readings, field by field.
+    {
+      const bad5 = [];
+      const shippedWalks = batteryDerived ? batteryDerived.refillDists.slice().sort((a, b) => a - b) : null;
+      const finalPanel = (rec) =>
+        rec && rec.taken ? rec.after : rec ? rec.before : null;
+      const checkPanel = (what, panel) => {
+        if (!panel || typeof panel !== "object") return;
+        if (shippedWalks && Array.isArray(panel.refillWalks)) {
+          const mine = panel.refillWalks.slice().sort((a, b) => a - b);
+          if (JSON.stringify(mine) !== JSON.stringify(shippedWalks)) {
+            bad5.push(
+              `${what} publishes the battery's filler walks as [${panel.refillWalks.join(",")}] and the ` +
+                `board this room ships walks [${shippedWalks.join(",")}]. The walks are the panel's whole ` +
+                `answer to "does this move cost the filler anything" — round 16 read only their MAXIMUM, ` +
+                `and E3S1 bought a 42 -> 46 total regression the maximum could not see`,
+            );
+          }
+        } else if (shippedWalks && panel.refillWalks !== undefined) {
+          bad5.push(`${what} publishes \`refillWalks\` as ${String(JSON.stringify(panel.refillWalks)).slice(0, 40)}, not a list of walks`);
+        }
+        if (shippedWalks) {
+          const total = shippedWalks.reduce((a, b) => a + b, 0);
+          const atCap = shippedWalks.filter((d) => d >= MAX_REFILL).length;
+          const overNote = shippedWalks.filter((d) => d > REFILL_NOTE).length;
+          if (panel.refillTotal !== undefined && panel.refillTotal !== total) {
+            bad5.push(`${what} says the walks total ${JSON.stringify(panel.refillTotal)} and this room's walks total ${total}`);
+          }
+          if (panel.refillAtCap !== undefined && panel.refillAtCap !== atCap) {
+            bad5.push(`${what} says ${JSON.stringify(panel.refillAtCap)} walk(s) sit at the hard cap of ${MAX_REFILL} and this room ships ${atCap}`);
+          }
+          if (panel.refillOverNote !== undefined && panel.refillOverNote !== overNote) {
+            bad5.push(`${what} says ${JSON.stringify(panel.refillOverNote)} walk(s) are over the ${REFILL_NOTE}-step note and this room ships ${overNote}`);
+          }
+        }
+        // the two legality readings the pass added because a re-composition
+        // broke them without moving any instrument (P17's own E11S7 finding)
+        if (panel.stackedOnRoad !== undefined && panel.stackedOnRoad !== 0) {
+          bad5.push(
+            `${what} ends with \`stackedOnRoad\` ${JSON.stringify(panel.stackedOnRoad)} — a structure ` +
+              `standing on a road tile is a HARD failure of this file, so a panel that ends there is a panel ` +
+              `describing a room this room is not`,
+          );
+        }
+        if (panel.orphanRoads !== undefined && panel.orphanRoads !== 0) {
+          bad5.push(`${what} ends with \`orphanRoads\` ${JSON.stringify(panel.orphanRoads)} and this file fails a room with a road serving nothing`);
+        }
+        if (panel.extensions !== undefined && panel.extensions !== (s.extension || []).length) {
+          bad5.push(`${what} says the room holds ${JSON.stringify(panel.extensions)} extension(s) and it ships ${(s.extension || []).length}`);
+        }
+        if (panel.ramparts !== undefined && panel.ramparts !== (s.rampart || []).length) {
+          bad5.push(`${what} says the room holds ${JSON.stringify(panel.ramparts)} rampart(s) and it ships ${(s.rampart || []).length}`);
+        }
+      };
+      const takeRec = plan.meta?.towers?.acrossPriorTake;
+      const recovRec = plan.meta?.sealedRecovery;
+      // the sealed recovery runs BEFORE the take, so the take's final panel is
+      // the board and the recovery's is the board the take then read
+      if (takeRec) checkPanel("`acrossPriorTake`'s final panel", finalPanel(takeRec));
+      else if (recovRec) checkPanel("`sealedRecovery`'s final panel", finalPanel(recovRec));
+      // ...and the take's refusal, when it refused, has to say what refused it
+      const outcome = plan.meta?.towers?.adjacency?.satAcrossPrior?.takeOutcome;
+      if (outcome) {
+        if (outcome.taken !== false) {
+          bad5.push(`\`satAcrossPrior.takeOutcome\` is written only for a REFUSED lift and says \`taken\` ${JSON.stringify(outcome.taken)}`);
+        }
+        if (typeof outcome.verdict !== "string" || outcome.verdict.trim().length < 40 || !/\d/.test(outcome.verdict)) {
+          bad5.push(
+            `\`satAcrossPrior.takeOutcome.verdict\` is ${String(JSON.stringify(outcome.verdict)).slice(0, 50)} — ` +
+              `a refusal that does not quote the instrument that refused it is the "a reason exists" rule ` +
+              `round 10 retired, in the record that prices the forgone damage`,
+          );
+        }
+        if (takeRec && takeRec.taken) {
+          bad5.push(`\`satAcrossPrior.takeOutcome\` records a REFUSED lift and \`acrossPriorTake.taken\` records a taken one`);
+        }
+      }
+      for (const b of bad5) {
+        fails.push(
+          `META — the re-composing passes: ${b}. A pass that re-composes the room and keeps the result on ` +
+            `an instrument panel is only as honest as the panel, and the panel has to end where the board ` +
+            `ends.`,
+        );
+      }
+    }
+
     const derivedRecordFor = (sf, g, k) => {
       const der = {};
       const put = (path, v) => {
@@ -11553,7 +13611,32 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         put("battery.weakShellDmg", WEAK_SHELL_DMG);
         put("battery.targetMin", TOWER_TARGET_MIN);
         put("battery.refillUnreachable", batteryDerived.refillDists.filter((d) => !isFinite(d)).length);
+        // ROUND 17 / F2: layer 3's own walks, re-derived on the board layer 3
+        // had (see `towers/placement-refill`). These two were the unaudited
+        // inputs the `source` derivation stood on.
+        if (placementRefill) {
+          put("battery.refillDistsAtPlacement", placementRefill.dists);
+          put("battery.maxRefillAtPlacement", placementRefill.max);
+        }
         put("towers.depthSafe", DEPTH_SAFE);
+        // ROUND 17 / F3: `spreadRadius` was a witnessed layer-3 number with a
+        // mirror and a ceiling of "half the room", so a coordinated edit put it
+        // anywhere inside [0, 25] in all 15 declaring rooms. It is not layer
+        // 3's at all — the producer computes it from the battery it FINISHES
+        // with, which is the battery the room ships, and it reproduces here in
+        // 172 of 172 rooms: the largest chebyshev distance from a tower to the
+        // six towers' own centroid, at the producer's one decimal place.
+        {
+          const tws = s.tower || [];
+          if (tws.length) {
+            const cx = tws.reduce((a, t) => a + t.x, 0) / tws.length;
+            const cy = tws.reduce((a, t) => a + t.y, 0) / tws.length;
+            put(
+              "towers.spreadRadius",
+              Math.round(Math.max(...tws.map((t) => Math.max(Math.abs(t.x - cx), Math.abs(t.y - cy)))) * 10) / 10,
+            );
+          }
+        }
         put("towers.refillCap", MAX_REFILL);
         put("towers.refillNote", REFILL_NOTE);
         put("towers.weakShellDmg", WEAK_SHELL_DMG);

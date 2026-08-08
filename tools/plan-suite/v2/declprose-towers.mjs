@@ -663,6 +663,20 @@ export function renderSatBasis(ap) {
         : `The seat ${seat} is OCCUPIED on the shipped board by ${occ.on.join("+")}, which layer 3 ` +
           `could not see when it made the offer, so the seat is not on sale and the ` +
           `${n(ap.forgone)} is attributed to the occupant rather than to the prior ` +
-          `(forgoneToPrior ${n(ap.forgoneToPrior)}, forgoneToOccupant ${n(ap.forgoneToOccupant)}).`)
+          `(forgoneToPrior ${n(ap.forgoneToPrior)}, forgoneToOccupant ${n(ap.forgoneToOccupant)}).`) +
+    // O2 (round 17): a FREE seat with forgone damage on it is an offer that
+    // pipeline.mjs's across-prior take re-composes and prices on the finished
+    // board. When that take REFUSES, the refusal is the reason the damage is
+    // still forgone, and it belongs in the sentence the forgone number is read
+    // out of — not only in acrossPriorTake, which a reader of this record has no
+    // reason to open.
+    (!ap.takeOutcome
+      ? ``
+      : ` AND IT WAS PRICED, NOT LEFT ALONE: the across-prior take re-composed this room with the ` +
+        `move ${ap.takeOutcome.from ? `${ap.takeOutcome.from.x},${ap.takeOutcome.from.y}` : "?"} -> ` +
+        `${ap.takeOutcome.to ? `${ap.takeOutcome.to.x},${ap.takeOutcome.to.y}` : "?"} taken, ` +
+        `finalized it, and read every as-built instrument on both finished boards. The verdict was ` +
+        `"${ap.takeOutcome.verdict}". Taking this seat costs that; the ${n(ap.forgone)} is what NOT ` +
+        `taking it costs, and both numbers are on the record.`)
   );
 }

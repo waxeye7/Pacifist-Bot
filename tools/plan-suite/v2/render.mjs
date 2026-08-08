@@ -330,7 +330,16 @@ export const THUMB_PAINT = [
   ["nuker", "#ff5566", "Nuker"],
   ["observer", "#66ddff", "Observer"],
   ["extractor", "#e0a6ff", "Extractor"],
-  ["factory", "#9aa0a6", "Factory"],
+  // O7 (round 17): NO FACTORY ROW. The RCL8 program this planner ships forbids
+  // the factory and the power spawn outright (pipeline.mjs's layer-5 header
+  // says so, and plan.mjs's own structure table prints "no factory, no power
+  // spawn" two lines away), so the thumbnail key was advertising a swatch for a
+  // structure no room in the fleet can ever contain. A legend entry is a claim
+  // that the reader will find that colour on a thumbnail; this one could not be
+  // found anywhere, and a key that names structures the plan refuses to build
+  // is the same defect as a paragraph naming a search nobody ran. Nothing else
+  // changes: `plan.structures.factory` is undefined in 172/172 rooms, so the
+  // draw order this table also feeds paints exactly what it painted before.
 ];
 const THUMB_COLOR = Object.fromEntries(THUMB_PAINT.map(([t, c]) => [t, c]));
 

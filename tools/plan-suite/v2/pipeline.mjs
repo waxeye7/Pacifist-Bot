@@ -19,12 +19,13 @@
 import { D4, D8, PARK_PROTECT, isWall } from "./shared.mjs";
 import { planHub, distField } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
-import { CLUMP_NOTE, MIN_SAT, planTowers } from "./layer-towers.mjs";
+import { CLUMP_NOTE, MAX_REFILL, MIN_SAT, REFILL_NOTE, planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
 import { planMisc } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
 import { renderDecl } from "./declprose.mjs";
+import { renderSatBasis } from "./declprose-towers.mjs";
 import { pushNote } from "./declprose-notes.mjs";
 // NOTE: layer-ext's RAMPARTS_PER_RATIO / MOBILITY_RAMPART_CAP are deliberately
 // NOT imported any more. They price a defender LANE; the enclosure trade below
@@ -383,7 +384,11 @@ export function composePlan(d, shellOpts = {}) {
         gate: "extension",
         detail:
           `only ${total}/${EXT_TARGET} extensions fit — the widest shell the escalation ladder would ` +
-          `pay for still encloses ${plan.shell?.deepTiles ?? "?"} deep tiles, and the post-prune ` +
+          // O4: layer 2's negotiation free-deep count, named for the board it
+          // came off. This clause IS about that board (it is the supply the
+          // ladder bought), so the figure stays and the label changes.
+          `pay for was negotiated over ${plan.shell?.deepTiles ?? "?"} free deep tiles on layer 2's ` +
+          `own board, and the post-prune ` +
           `reflow then scanned the finished interior and found ` +
           `${rf ? rf.search.freeDeepRoadFaced : "?"} free deep road-faced tile(s), rejecting ` +
           `${rf ? rf.search.refusedCount : "?"} more for a stated reason each`,
@@ -2105,6 +2110,27 @@ function asBuiltInstruments(terrain, plan) {
   const ext = plan.shippedExterior || plan.exterior;
   const interior =
     ext && plan.sitter ? interiorWalk(terrain, rset, ext, blocked, plan.sitter).size : null;
+  // ------------------------------------------------------------------
+  // O2 (round 17) — `refill` IS A MAX, AND A MAX IS BLIND TO ITS OWN BATTERY.
+  //
+  // E3S1's take moved a tower 23,23 -> 22,19 and the panel read `refill 10 ->
+  // 10`, so the basis string said "no instrument moves the wrong way". The
+  // room's SIX per-tower filler walks went 3/5/6/8/10/10 -> 3/5/8/10/10/10:
+  // the moved tower's own walk went 6 -> 10, taking the room from two towers at
+  // the hard cap to three, and the battery's total from 42 steps to 46. E3S1 is
+  // a room that FILES `towers|weak-battery` on that very walk, and the take
+  // bought the regression for +30 damage — one falloff step — on one cut tile.
+  // The instrument could not see it because the max was already at the cap and
+  // a max cannot rise past its own ceiling.
+  //
+  // So the whole distribution is on the panel: the sorted per-tower walk
+  // vector, its total, how many towers sit AT the hard cap, and how many are
+  // over the line the room declares at. Sorted rather than per-seat because the
+  // take MOVES a tower — the battery is a multiset of walks and the honest
+  // comparison is between the two multisets, not between two arrays indexed by
+  // a seat identity that changed.
+  // ------------------------------------------------------------------
+  const walks = Array.isArray(tw.refillDists) ? tw.refillDists.slice().sort((a, b) => a - b) : null;
   return {
     face: faces.length ? Math.min(...faces) : 0,
     saturatedCutTiles: faces.filter((v) => v >= MIN_SAT).length,
@@ -2112,15 +2138,131 @@ function asBuiltInstruments(terrain, plan) {
     towerWindow: windowMaxOver(towers),
     refill: typeof tw.maxRefill === "number" ? tw.maxRefill : null,
     refillUnreachable: tw.refillUnreachable ?? 0,
+    // the four O2 readings — see the header
+    refillWalks: walks,
+    refillTotal: walks ? walks.reduce((a, b) => a + b, 0) : null,
+    refillAtCap: walks ? walks.filter((v) => v >= MAX_REFILL).length : null,
+    refillOverNote: walks ? walks.filter((v) => v > REFILL_NOTE).length : null,
     interior,
     clump: tw.towerClump?.withinCheb2OfSitter ?? null,
     extensions: (plan.structures?.extension || []).length,
     shallowExts: plan.meta?.extensions?.shallow ?? 0,
     ramparts: (plan.structures?.rampart || []).length,
     lap: plan.meta?.walls?.mobility?.builtGated ?? null,
+    // O3: the objective of the sealed-floor recovery pass, and an instrument for
+    // every other re-composition in this file — a swap that seals deep floor off
+    // is a swap that costs the room buildable ground nobody was counting.
+    sealedTiles: plan.meta?.sealedFloor?.tiles ?? 0,
+    sealedDeep: plan.meta?.sealedFloor?.deep ?? 0,
+    // O3: "every extension has a D4 road face" is a hard gate elsewhere; a
+    // re-composition that breaks it must not be able to pass this panel either.
+    extNoD4Face: countExtNoD4Face(plan),
+    // O3: structures our own road network does not reach — the network
+    // instrument, counted rather than asserted.
+    offNetwork: countOffNetwork(plan),
+    // ------------------------------------------------------------------
+    // ...AND THE TWO HARD GATES A RE-COMPOSITION CAN BREAK.
+    //
+    // Found by running the sealed-floor recovery: E11S7's third candidate
+    // re-composed into a room that recovers its pocket, holds every instrument
+    // above, and ships an extension standing ON a road at 18,21 with a
+    // three-tile road stub (18,21 17,20 16,19) that conducts to nothing. Both
+    // are HARD validator failures, neither was an instrument, and "no
+    // instrument moves the wrong way" was therefore not the same statement as
+    // "this room is legal". A pass allowed to replace the composition has to be
+    // able to see everything the composition can break, so the two gates are
+    // read here with the validator's own derivations.
+    //
+    // (The stack itself is a latent layer-6/7b defect: no room in the fleet
+    // ships one today, and it only appears in this one re-composition. It is
+    // recorded rather than chased here — the bounded fix is that this pass
+    // cannot ship it, and it now cannot.)
+    // ------------------------------------------------------------------
+    stackedOnRoad: countStacks(plan),
+    orphanRoads: countOrphanRoads(plan),
   };
 }
-/** every instrument, with the direction each one is allowed to move */
+/** tiles carrying a road AND a solid that is not a container — a hard validator fail */
+function countStacks(plan) {
+  const byTile = new Map();
+  for (const [t, list] of Object.entries(plan.structures || {})) {
+    for (const p of list || []) {
+      const k = `${p.x},${p.y}`;
+      if (!byTile.has(k)) byTile.set(k, []);
+      byTile.get(k).push(t);
+    }
+  }
+  let n = 0;
+  for (const types of byTile.values()) {
+    if (new Set(types).size !== types.length) n++;
+    const solids = types.filter((t) => t !== "rampart" && t !== "road");
+    if (new Set(solids).size > 1) n++;
+    if (types.includes("road") && solids.some((t) => t !== "container")) n++;
+  }
+  return n;
+}
+/** roads not in the sitter's conducting component — verbatim roadComponent */
+function countOrphanRoads(plan) {
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures?.[t] || []) blocked.add(`${p.x},${p.y}`);
+  }
+  const net = new Set();
+  for (const r of plan.structures?.road || []) {
+    const k = `${r.x},${r.y}`;
+    if (blocked.has(k)) continue; // dead tile, conducts nothing
+    net.add(k);
+  }
+  for (const c of plan.structures?.container || []) net.add(`${c.x},${c.y}`);
+  const sitter = plan.sitter;
+  if (!sitter) return 0;
+  net.add(`${sitter.x},${sitter.y}`);
+  const comp = new Set([`${sitter.x},${sitter.y}`]);
+  const q = [sitter];
+  for (let qi = 0; qi < q.length; qi++) {
+    const cur = q[qi];
+    for (const [dx, dy] of D8) {
+      const x = cur.x + dx,
+        y = cur.y + dy;
+      const k = `${x},${y}`;
+      if (comp.has(k) || !net.has(k)) continue;
+      comp.add(k);
+      q.push({ x, y });
+    }
+  }
+  return (plan.structures?.road || []).filter((r) => !comp.has(`${r.x},${r.y}`)).length;
+}
+/** extensions with no D4 road neighbour on the shipped board */
+function countExtNoD4Face(plan) {
+  const roads = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
+  let n = 0;
+  for (const e of plan.structures?.extension || []) {
+    if (!D4.some(([dx, dy]) => roads.has(`${e.x + dx},${e.y + dy}`))) n++;
+  }
+  return n;
+}
+/**
+ * Owned structures with no road/container on any of their eight neighbours.
+ * The mineral seat and its extractor are the fleet's declared exemption (see
+ * renderOffNetwork), so they are counted like everything else and the panel
+ * compares BEFORE with AFTER: a constant exemption cancels, a newly stranded
+ * structure does not.
+ */
+const NETWORK_KINDS = ["spawn", "extension", "tower", "lab", "link", "storage", "terminal", "nuker", "observer", "container"];
+function countOffNetwork(plan) {
+  const conduct = new Set([
+    ...(plan.structures?.road || []).map((r) => `${r.x},${r.y}`),
+    ...(plan.structures?.container || []).map((c) => `${c.x},${c.y}`),
+  ]);
+  let n = 0;
+  for (const t of NETWORK_KINDS) {
+    for (const p of plan.structures?.[t] || []) {
+      if (!D8.some(([dx, dy]) => conduct.has(`${p.x + dx},${p.y + dy}`))) n++;
+    }
+  }
+  return n;
+}
+/** every SCALAR instrument, with the direction each one is allowed to move */
 const INSTRUMENT_DIRECTION = {
   face: "up",
   saturatedCutTiles: "up",
@@ -2128,12 +2270,25 @@ const INSTRUMENT_DIRECTION = {
   towerWindow: "down",
   refill: "down",
   refillUnreachable: "down",
+  // O2 — the two lines the room's own declaration channel fires at. MAX_REFILL
+  // is layer 3's hard cap (a battery over it is refused outright); REFILL_NOTE
+  // is the line `declareShippedRefill` files a weak-battery declaration at. A
+  // take may not push another tower across either of them.
+  refillAtCap: "down",
+  refillOverNote: "down",
   interior: "up",
   clump: "down",
   extensions: "up",
   shallowExts: "down",
   ramparts: "down",
   lap: "down",
+  // O3
+  sealedTiles: "down",
+  sealedDeep: "down",
+  extNoD4Face: "down",
+  offNetwork: "down",
+  stackedOnRoad: "down",
+  orphanRoads: "down",
 };
 function instrumentsHold(before, after) {
   const worse = [];
@@ -2143,7 +2298,64 @@ function instrumentsHold(before, after) {
     if (a === null || a === undefined || b === null || b === undefined) continue;
     if (INSTRUMENT_DIRECTION[k] === "up" ? b < a : b > a) worse.push(`${k} ${a}->${b}`);
   }
+  const walkWhy = refillPriceHolds(before, after);
+  if (walkWhy) worse.push(walkWhy);
   return worse;
+}
+/**
+ * ---------------------------------------------------------------------------
+ * O2 — THE TOTAL WALK IS PRICED, NOT FREE, AND IT IS NOT FREE AT ALL IN A ROOM
+ * THAT DECLARES ON IT.
+ * ---------------------------------------------------------------------------
+ * `refillAtCap` and `refillOverNote` above catch a tower crossing a line the
+ * room has to speak about. They do not catch a battery that simply gets slower
+ * underneath both lines, and "slower underneath the line" is still the filler
+ * walking further on every refill cycle for the life of the room.
+ *
+ * The rule, stated rather than tuned: a re-composition may cost the battery at
+ * most ONE extra step, on at most ONE tower — the minimum perturbation a
+ * one-tile move can make — and only in a room whose furthest walk is inside
+ * REFILL_NOTE on both boards. A room that already declares its walk pays for
+ * that declaration on every reader; it does not get to make the declared
+ * quantity worse in exchange for a tie-break, so its slack is ZERO.
+ *
+ * Measured on the fleet's four round-16 takes: E4S3, E14S1 and E3S5 each cost
+ * +1 total step with the max unmoved and no tower near either line, and clear.
+ * E3S1 costs +4 with a tower crossing both lines, in the one room of the four
+ * that declares — and is refused, which is the finding this rule exists for.
+ */
+const TAKE_WALK_SLACK_TOWERS = 1;
+const TAKE_WALK_SLACK_STEPS = 1;
+function refillPriceHolds(before, after) {
+  const a = before.refillWalks,
+    b = after.refillWalks;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return null;
+  const totalA = a.reduce((s, v) => s + v, 0);
+  const totalB = b.reduce((s, v) => s + v, 0);
+  if (totalB <= totalA) return null;
+  const declares = before.refill > REFILL_NOTE || after.refill > REFILL_NOTE;
+  if (declares) {
+    return (
+      `refillTotal ${totalA}->${totalB} in a room whose furthest filler walk is ` +
+      `${Math.max(before.refill, after.refill)}, over the ${REFILL_NOTE}-step line this room DECLARES ` +
+      `at — a declared quantity gets no slack (walks ${a.join("/")} -> ${b.join("/")})`
+    );
+  }
+  let lengthened = 0;
+  for (let i = 0; i < a.length; i++) if (b[i] > a[i]) lengthened++;
+  if (lengthened > TAKE_WALK_SLACK_TOWERS) {
+    return (
+      `refillWalks ${a.join("/")} -> ${b.join("/")} lengthens ${lengthened} of the ${a.length} ` +
+      `per-tower walks and the bounded price is ${TAKE_WALK_SLACK_TOWERS}`
+    );
+  }
+  if (totalB - totalA > TAKE_WALK_SLACK_STEPS) {
+    return (
+      `refillTotal ${totalA}->${totalB} costs ${totalB - totalA} steps and the bounded price is ` +
+      `${TAKE_WALK_SLACK_STEPS} (walks ${a.join("/")} -> ${b.join("/")})`
+    );
+  }
+  return null;
 }
 function maybeTakeTowerSwap(d, plan) {
   if (!plan || plan.error || !plan.meta?.composeOpts || plan.meta.composeOpts.takeTowerSwap) {
@@ -2211,14 +2423,24 @@ function maybeTakeTowerSwap(d, plan) {
       offered: tried,
       instruments: Object.keys(INSTRUMENT_DIRECTION),
       directions: { ...INSTRUMENT_DIRECTION },
+      walkRule: TAKE_WALK_RULE,
       basis:
         `the room was RE-COMPOSED with this swap taken (opts.takeTowerSwap, applied in layer 3 after ` +
         `every one of its searches has run) and finalized, and both instrument panels are read off ` +
         `finished boards: before is the plan this room would otherwise ship, after is the plan it ` +
         `does. A swap is kept only when no instrument moves the wrong way AND either the weakest ` +
         `cut-tile face rises or the clump falls below ${CLUMP_NOTE}, which is the line the clump ` +
-        `declaration fires at.`,
+        `declaration fires at. ${TAKE_WALK_RULE}`,
     };
+    // O6 (round 17): if this swap put two towers on neighbouring tiles, the
+    // crossing record is where the adjacency contract says the evidence lives —
+    // see recordTakeCrossing.
+    recordTakeCrossing(alt, c, before, after);
+    // the sealed-floor recovery ran BEFORE this pass and its record is written
+    // by the pipeline, not by composePlan, so the re-composition does not carry
+    // it. Its two panels describe the recovery's own decision point — the board
+    // this take then re-priced on top of — which is what its basis says.
+    if (plan.meta.sealedRecovery) alt.meta.sealedRecovery = plan.meta.sealedRecovery;
     return alt;
   }
   // nothing was kept — say so on the plan the room does ship, so a reader can
@@ -2230,12 +2452,258 @@ function maybeTakeTowerSwap(d, plan) {
     instruments: Object.keys(INSTRUMENT_DIRECTION),
     directions: { ...INSTRUMENT_DIRECTION },
     clumpNote: CLUMP_NOTE,
+    walkRule: TAKE_WALK_RULE,
     basis:
       `every offer above was re-composed and finalized, and the instrument panel of the finished ` +
-      `board refused it. before is the plan this room ships.`,
+      `board refused it. before is the plan this room ships. ${TAKE_WALK_RULE}`,
   };
+  // ...and the refusal has to reach the record the forgone damage is summed out
+  // of, or the reader of `satAcrossPrior` still sees a seat that is "free" and
+  // an offer nobody priced. See restateSatBasis.
+  restateSatBasis(plan);
   return plan;
 }
+const TAKE_WALK_RULE =
+  `THE FILLER'S WALK IS READ PER TOWER, NOT AS A MAX (O2, round 17): refillWalks is the sorted ` +
+  `per-tower walk vector, refillTotal its sum, refillAtCap the towers at the ${MAX_REFILL}-step hard ` +
+  `cap and refillOverNote those over the ${REFILL_NOTE}-step line a weak-battery declaration fires ` +
+  `at. The last two are non-worsening like every other instrument. The TOTAL is priced rather than ` +
+  `free: a take may cost at most ${TAKE_WALK_SLACK_STEPS} extra step on at most ` +
+  `${TAKE_WALK_SLACK_TOWERS} tower, and ZERO in a room whose furthest walk is already over ` +
+  `${REFILL_NOTE} — a room that declares its battery does not get to make the declared quantity ` +
+  `worse for a tie-break.`;
+
+/**
+ * O6 (round 17) — the take's readings, filed where adjacency says they live.
+ *
+ * `adjacency.crossings` carries the contract "every crossing of the D8 prior,
+ * with the readings that proved it". The across-prior take can create an
+ * adjacent tower pair — it did in E3S1 and E4S3 in round 16 — and it filed its
+ * evidence in `acrossPriorTake` instead, leaving `crossings` empty in a room
+ * publishing `priorHeld: false`. Both records are true and only one of them is
+ * where a reader of the adjacency prior looks.
+ *
+ * The crossing is written from the same two panels the take was decided on, so
+ * it is a LINK and not a second copy of the argument: `pass` names the pass,
+ * `from`/`to` are the move, and the readings are the before/after of the
+ * instruments this crossing had to prove. `refillFrom`/`refillTo` are
+ * deliberately NOT written — those two fields mean "the refill-repair pass
+ * SHORTENED the walk to buy this adjacency", which is not what this pass did
+ * and not what it claims.
+ */
+function recordTakeCrossing(alt, c, before, after) {
+  const adj = alt.meta?.towers?.adjacency;
+  if (!adj || !Array.isArray(adj.crossings)) return;
+  const towers = alt.structures?.tower || [];
+  const to = { x: c.to.x, y: c.to.y };
+  const neighbours = towers.filter(
+    (t) => !(t.x === to.x && t.y === to.y) && Math.max(Math.abs(t.x - to.x), Math.abs(t.y - to.y)) <= 1,
+  );
+  if (!neighbours.length) return; // no pair created — nothing crossed
+  adj.crossings.push({
+    pass: "acrossPriorTake",
+    from: { x: c.from.x, y: c.from.y },
+    to,
+    why: c.why,
+    neighbours: neighbours.map((t) => ({ x: t.x, y: t.y })),
+    // the readings this crossing proved, straight off the take's own panels
+    faceFrom: before.face,
+    faceTo: after.face,
+    nukeWindowFrom: before.nukeWindow,
+    nukeWindowTo: after.nukeWindow,
+    towerWindowFrom: before.towerWindow,
+    towerWindowTo: after.towerWindow,
+    refillWalksFrom: before.refillWalks,
+    refillWalksTo: after.refillWalks,
+    refillTotalFrom: before.refillTotal,
+    refillTotalTo: after.refillTotal,
+    interiorFrom: before.interior,
+    interiorTo: after.interior,
+    basis:
+      `this pair exists because the across-prior take moved a tower here. The readings are the take's ` +
+      `own two as-built instrument panels (meta.towers.acrossPriorTake.before/after), not a second ` +
+      `measurement — one decision, one set of numbers, filed in both records. refillFrom/refillTo are ` +
+      `absent on purpose: those name the refill-repair pass's claim to have SHORTENED the walk, and ` +
+      `this pass makes no such claim.`,
+  });
+  adj.priorHeld = false;
+}
+
+/**
+ * O2 — the seat that comes back to `forgone` when the take refuses it.
+ *
+ * `satAcrossPrior.basis` is generated in finalizeRoom, before this pass runs.
+ * When the take refuses an offer the room keeps its forgone damage AND now has
+ * a priced reason for keeping it, so the sentence is re-rendered with the
+ * verdict attached: "the prior costs this room N" becomes "…and taking it was
+ * re-composed and priced at <the instrument that refused it>".
+ */
+function restateSatBasis(plan) {
+  const ap = plan.meta?.towers?.adjacency?.satAcrossPrior;
+  const take = plan.meta?.towers?.acrossPriorTake;
+  if (!ap || !take || take.taken) return;
+  const lift = (take.offered || []).find((o) => o.why === "lift");
+  if (!lift) return;
+  ap.takeOutcome = { taken: false, verdict: lift.verdict, from: lift.from, to: lift.to };
+  ap.basis = renderSatBasis(ap);
+}
+
+/**
+ * ===========================================================================
+ * THE SEALED-FLOOR ONE-MOVE RECOVERY (O3, round 17).
+ * ===========================================================================
+ * `meta.sealedFloor` has for two rounds published `ourFault` — the whole-mass
+ * counterfactual — and called it "the ceiling on what any re-ordering inside
+ * the placement layers could recover". Nothing tried to reach it. Round 17's
+ * owner review measured what ONE move gets: 220 of the fleet's 257 sealed tiles
+ * come back on a single structure, 42 of the 62 rooms are >= 90%
+ * single-structure, and E15S6's 72-tile seal is 69 tiles behind any ONE of
+ * three extensions while its 16-tile cut is not D8-adjacent to the pocket at
+ * all. That is criticism 2's shape — E16S5's whole 2.25 lap was ONE observer
+ * tile — in the note channel, and a published ceiling nobody attempts is a
+ * number printed in place of a decision.
+ *
+ * `noteSealedFloor` now prices the counterfactual per POCKET and per
+ * STRUCTURE, exhaustively, by deleting each boundary structure and re-flooding.
+ * This pass acts on it, and it is bounded in every direction:
+ *
+ *   · EXTENSIONS ONLY. The extension mass is the flexible layer and the seal is
+ *     its ordering — the note's own sentence is "a row of extensions across a
+ *     one-wide corridor seals the pocket behind it". A pocket whose only
+ *     holders are the hub kit, the lab diamond, a tower, the nuker or the
+ *     observer is fixed geometry: those are placed by their own layers against
+ *     their own constraints and "move it one tile" is not a bounded change to
+ *     them. Such a pocket publishes a refusal naming its holders.
+ *   · A THRESHOLD, STATED. The move has to bring back at least
+ *     SEALED_RECOVERY_MIN tiles of DEEP floor — buildable ground the program
+ *     could have used — because a one-tile pocket is not worth a re-composition
+ *     and a pass that fires on everything is a pass with no rule.
+ *   · AT MOST SEALED_RECOVERY_TRIES COMPOSITIONS, over the holders of the
+ *     single largest-deep pocket, in the record's own published order.
+ *   · THE WHOLE PANEL. Same `asBuiltInstruments` the across-prior take uses,
+ *     which since this round also carries sealedTiles/sealedDeep, the per-tower
+ *     refill walks, the extension D4-face count and the off-network count. The
+ *     move must not move ANY of them the wrong way, and it must actually
+ *     deliver the deep floor it was taken for.
+ *   · REFUSAL WITH EVIDENCE. Every candidate that was tried publishes its two
+ *     panels and the instrument that refused it; every pocket that was not
+ *     tried publishes why.
+ *
+ * The move itself is a seat WITHDRAWN, not a structure teleported: the room is
+ * re-composed with `opts.forbidExtSeat` set, and layer 6 places its sixty
+ * extensions again with that one tile off the board. That is why the answer is
+ * a real plan and not a hand edit — the corridor stays open, the mass flows
+ * into the pocket, and every downstream layer runs on the result.
+ */
+const SEALED_RECOVERY_MIN = 4;
+const SEALED_RECOVERY_TRIES = 3;
+function maybeTakeSealedRecovery(d, plan) {
+  if (!plan || plan.error || !plan.meta?.composeOpts || plan.meta.composeOpts.forbidExtSeat) {
+    return plan;
+  }
+  const sf = plan.meta.sealedFloor;
+  if (!sf || !sf.pockets?.length) return plan;
+  const ranked = sf.pockets
+    .filter((p) => p.best && p.best.recoversDeep >= SEALED_RECOVERY_MIN)
+    .sort((a, b) => b.best.recoversDeep - a.best.recoversDeep || b.best.recovers - a.best.recovers);
+  const record = {
+    threshold: SEALED_RECOVERY_MIN,
+    tryCap: SEALED_RECOVERY_TRIES,
+    kindsAttempted: ["extension"],
+    taken: null,
+    offered: [],
+    instruments: Object.keys(INSTRUMENT_DIRECTION),
+    directions: { ...INSTRUMENT_DIRECTION },
+    walkRule: TAKE_WALK_RULE,
+    basis: SEALED_RECOVERY_BASIS,
+  };
+  if (!ranked.length) {
+    record.offered.push({
+      verdict:
+        `no pocket in this room is held shut by a single structure returning ` +
+        `${SEALED_RECOVERY_MIN} or more DEEP tiles — the largest single-structure recovery here is ` +
+        `${Math.max(0, ...sf.pockets.map((p) => (p.best ? p.best.recoversDeep : 0)))} deep tile(s)`,
+    });
+    plan.meta.sealedRecovery = record;
+    return plan;
+  }
+  const target = ranked[0];
+  const extHolders = target.holders.filter((h) => h.type === "extension");
+  if (!extHolders.length) {
+    record.offered.push({
+      pocket: { at: target.at, tiles: target.tiles, deep: target.deep },
+      verdict:
+        `this pocket's ${target.holders.length} holder(s) are all fixed geometry ` +
+        `(${[...new Set(target.holders.map((h) => h.type))].join(", ")}) — this pass re-seats ` +
+        `extensions and nothing else, because the extension mass is the layer whose ordering the ` +
+        `seal is, and a hub structure, a lab of the diamond or a tower is placed against its own ` +
+        `constraints by its own layer`,
+    });
+    plan.meta.sealedRecovery = record;
+    return plan;
+  }
+  const before = asBuiltInstruments(d.terrain, plan);
+  for (const h of extHolders.slice(0, SEALED_RECOVERY_TRIES)) {
+    const withdrawn = { x: h.x, y: h.y };
+    const alt = composePlan(d, { ...plan.meta.composeOpts, forbidExtSeat: withdrawn });
+    if (alt.error || !alt.shell || !grade(alt).complete) {
+      record.offered.push({
+        withdrawn,
+        recoversDeep: h.recoversDeep,
+        verdict: "the re-composition did not produce a complete room",
+      });
+      continue;
+    }
+    finalizeRoom(d.terrain, alt);
+    const after = asBuiltInstruments(d.terrain, alt);
+    const worse = instrumentsHold(before, after);
+    if (worse.length) {
+      record.offered.push({ withdrawn, recoversDeep: h.recoversDeep, before, after, verdict: `refused: ${worse.join(", ")}` });
+      continue;
+    }
+    const gainedDeep = before.sealedDeep - after.sealedDeep;
+    if (gainedDeep < SEALED_RECOVERY_MIN) {
+      record.offered.push({
+        withdrawn,
+        recoversDeep: h.recoversDeep,
+        before,
+        after,
+        verdict:
+          `refused: every instrument holds but the re-composed room only recovers ${gainedDeep} deep ` +
+          `sealed tile(s) against a threshold of ${SEALED_RECOVERY_MIN} — the counterfactual said ` +
+          `${h.recoversDeep} would come back if this structure simply vanished, and layer 6 re-seats ` +
+          `the sixty extensions when it is withdrawn, which is a different question`,
+      });
+      continue;
+    }
+    record.offered.push({ withdrawn, recoversDeep: h.recoversDeep, before, after, verdict: "TAKEN" });
+    record.taken = { withdrawn, pocket: { at: target.at, tiles: target.tiles, deep: target.deep } };
+    record.recoveredTiles = before.sealedTiles - after.sealedTiles;
+    record.recoveredDeep = gainedDeep;
+    record.before = before;
+    record.after = after;
+    alt.meta.sealedRecovery = record;
+    return alt;
+  }
+  record.offered.push({
+    verdict:
+      `every candidate above was re-composed and finalized and the panel refused it; this room ships ` +
+      `the plan it would have shipped without this pass`,
+  });
+  plan.meta.sealedRecovery = record;
+  return plan;
+}
+const SEALED_RECOVERY_BASIS =
+  `the candidate is read off meta.sealedFloor.pockets[].holders — the per-structure counterfactual, ` +
+  `priced by deleting each boundary structure and re-running the own-creep flood — and the move is a ` +
+  `SEAT WITHDRAWN, not a structure teleported: the room is RE-COMPOSED from layer 1 with ` +
+  `opts.forbidExtSeat set, so layer 6 places its sixty extensions again with that one tile off the ` +
+  `board and every later layer runs on the result. before/after are the same as-built instrument ` +
+  `panel the across-prior take uses, read off two FINISHED rooms. A withdrawal is kept only when no ` +
+  `instrument moves the wrong way AND the finished room actually gives back at least ` +
+  `${SEALED_RECOVERY_MIN} deep sealed tiles — the counterfactual is a claim about deleting a ` +
+  `structure, and this is the claim about re-composing without its seat, which is a strictly harder ` +
+  `test and the only one that ships.`;
 
 export function planRoom(d) {
   const t0 = performance.now();
@@ -2263,10 +2731,19 @@ export function planRoom(d) {
       // files the mobility declaration attachRungProof then staples the ladder
       // to, so it has to come first.
       finalizeRoom(d.terrain, p);
-      // ...and the one pass that is allowed to REPLACE the composition after the
-      // truth pass, because its whole argument is that it needs the finished
-      // board to price its trade. It finalizes whatever it returns. See
-      // maybeTakeTowerSwap.
+      // ...and the two passes that are allowed to REPLACE the composition after
+      // the truth pass, because their whole argument is that they need the
+      // finished board to price their trade. Each finalizes whatever it returns.
+      //
+      // ORDER MATTERS AND IT IS NOT ARBITRARY. The sealed-floor recovery
+      // withdraws an extension SEAT and re-composes from layer 1; the
+      // across-prior take moves a TOWER and re-composes from layer 1. Running
+      // the recovery first means the take's two instrument panels are read on
+      // top of whatever the recovery decided, and the take's re-composition
+      // inherits `forbidExtSeat` through composeOpts — so the room the take
+      // prices is the room the recovery left. The other order would leave the
+      // take's panels describing a board the recovery then replaced.
+      p = maybeTakeSealedRecovery(d, p);
       p = maybeTakeTowerSwap(d, p);
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;

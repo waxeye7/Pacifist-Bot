@@ -484,10 +484,37 @@ function shortestLane(mask, a, b, penalty) {
   return out;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * O3 (round 17) — ONE SEAT THIS LAYER MAY NOT TAKE.
+ * ---------------------------------------------------------------------------
+ * `opts.forbidExtSeat` is set by `maybeTakeSealedRecovery` in pipeline.mjs.
+ * That pass reads the shipped board's sealed-floor record — which names, per
+ * sealed pocket, exactly which single structure of ours is holding it shut —
+ * and RE-COMPOSES the room with the named extension seat withdrawn, then keeps
+ * the result only if the whole as-built instrument panel holds and the deep
+ * sealed floor actually comes back.
+ *
+ * It is one tile, and it is withdrawn rather than moved: this layer knows where
+ * sixty extensions go and the recovery pass does not. Withdrawing the seat lets
+ * the corridor stay open, and the mass then flows into the pocket it was
+ * sealing — which is the whole content of the claim "one move recovers it".
+ *
+ * Read off `plan.meta.composeOpts` rather than a new parameter because that is
+ * where composePlan already records the exact options a composition was built
+ * with, and it is what `maybeReleaseParks` and `maybeTakeTowerSwap` re-compose
+ * from — a second channel for the same fact is a second channel that drifts.
+ */
+export function forbiddenExtSeat(plan) {
+  const f = plan?.meta?.composeOpts?.forbidExtSeat;
+  return f && Number.isInteger(f.x) && Number.isInteger(f.y) ? key(f.x, f.y) : null;
+}
+
 export function planExtensions(terrain, plan) {
   if (!plan.shell) return { error: "extensions need a shell (layer 2 missing)" };
   const depth = plan.depth;
   const ext = plan.exterior;
+  const forbidSeat = forbiddenExtSeat(plan);
 
   // structures whose faces must stay reachable
   const faced = [];
@@ -699,6 +726,9 @@ export function planExtensions(terrain, plan) {
     if (hubField[i] > cap) return false; // cohesion ceiling
     if (tierOf(i) < 0) return false;
     const k = key(x, y);
+    // O3: the one seat the sealed-floor recovery pass withdrew — see
+    // forbiddenExtSeat above
+    if (forbidSeat === k) return false;
     // a reserved defender lane is a cut tile as far as the mass is concerned
     if (laneSet.has(k)) return false;
     // ...and so is the controller claim seat and its approach
@@ -2480,6 +2510,11 @@ const round2v = (v) => (v === null || v === undefined || !isFinite(v) ? v : Math
 export function reflowExtensions(terrain, plan, liveRoadKeys) {
   const idxOf = (x, y) => x + y * 50;
   const objectTiles = new Set(plan.objectTiles || []);
+  // O3: layer 7b relocates and backfills extensions too, so the seat the
+  // sealed-floor recovery pass withdrew is withdrawn from THIS pass's candidate
+  // scans as well — a seat forbidden in layer 6 and handed back in layer 7b is
+  // not a withdrawn seat. See forbiddenExtSeat.
+  const forbidSeat = forbiddenExtSeat(plan);
   // the claim seat, the mineral stand, their approaches and the protected
   // upgrader parking — 7b places extensions like any other layer and is held
   // to the same bans. See reservedTiles in shared.mjs.
@@ -2799,6 +2834,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         swept++;
         if (!isWall(terrain, x, y) && !exterior[idxOf(x, y)]) inWall++;
         if (skipKeys && skipKeys.has(k)) continue;
+        if (forbidSeat === k) continue; // O3 — the withdrawn seat
         if (occupiedTile.has(k)) continue;
         if (objectTiles.has(k)) continue;
         const i = idxOf(x, y);
@@ -3069,6 +3105,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
         if (skipKeys && skipKeys.has(k)) continue;
+        if (forbidSeat === k) continue; // O3 — the withdrawn seat
         if (occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
         if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
         const i = idxOf(x, y);
@@ -3886,6 +3923,30 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   //   · targets exist and are legal but taking one costs the lap more than this
   //     room's ceiling allows — which is a priced trade, and the price is the
   //     number the declaration has to print.
+  // ------------------------------------------------------------------
+  // F7 (round 17) — WHERE THE CANDIDATES WENT, HOISTED ABOVE THE SLOT LOOP.
+  //
+  // The per-slot sentence below used to have ONE branch for `targets === 0`
+  // and it asserted the post-prune scan "returned an empty candidate list in
+  // BOTH classes". `targets` is `deepTargets()` re-scanned HERE, after the
+  // backfill, the relocations and the paves have spent whatever the opening
+  // census found — so 0 means "nothing is left", and the sentence said
+  // "nothing was ever there". Nineteen of the fleet's twenty-five shallow
+  // slots printed it: E9S2's fifteen slots all did, over a record that says
+  // `freeDeepRoadFaced 3 · freeDeepOnePave 1 · spentOnAdds 3 · paveTaken 1`.
+  // The scan returned four candidates and the room SPENT them. E2S3's four
+  // slots are the same shape.
+  //
+  // Two facts, two sentences. The spend census is computed once here — the
+  // same expressions the returned `search` block used to compute inline — so
+  // the sentence and the census cannot disagree: they are the same values.
+  // ------------------------------------------------------------------
+  const spentOnAdds = added.filter((a) => freeKeys0.has(key(a.x, a.y))).length;
+  const spentOnMoves = movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length;
+  const facedLeft = Math.max(0, freeDeepFaced - spentOnAdds - spentOnMoves);
+  const paveLeft = scanOnePave(taken).length;
+  const paveTaken = added.filter((a) => a.paved).length + movedLog.filter((m) => m.paved).length;
+
   const shallowSurvivors = extensions.filter(shallowOf);
   const shallowRefused = [];
   if (shallowSurvivors.length) {
@@ -3942,10 +4003,27 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         ceiling: lapCeiling === null ? null : round2v(lapCeiling),
         lapNow: round2v(lapNow()),
         why: !order.length
-          ? `this room has NO free deep tile that is road-faced or one pave away — the post-prune ` +
-            `scan over all ${interiorSwept} positions of the 48x48 buildable band (of which ` +
-            `${interiorWalkableCount} are walkable floor inside this room's own wall) returned an ` +
-            `empty candidate list in BOTH classes, so there is nowhere for this slot to go`
+          ? // F7: TWO facts, and they are not the same fact. See the header
+            // above the census. Which branch a room takes is decided by the
+            // OPENING census (`freeDeepRoadFaced` + `freeDeepOnePave`), not by
+            // the re-scan, because the question a reader has is "did this room
+            // ever have one".
+            freeDeepFaced === 0 && freeDeepOnePave === 0
+            ? `this room has NO free deep tile that is road-faced or one pave away and never had one — ` +
+              `the post-prune scan over all ${interiorSwept} positions of the 48x48 buildable band (of ` +
+              `which ${interiorWalkableCount} are walkable floor inside this room's own wall) returned ` +
+              `an empty candidate list in BOTH classes at the census AND on the re-scan after every ` +
+              `placement, so there is nowhere for this slot to go`
+            : `this room HAD free deep tiles and SPENT them: the post-prune scan over all ` +
+              `${interiorSwept} positions of the 48x48 buildable band (of which ` +
+              `${interiorWalkableCount} are walkable floor inside this room's own wall) found ` +
+              `${freeDeepFaced} already road-faced and ${freeDeepOnePave} one plain pave away, and by ` +
+              `the time this slot was offered them ${spentOnAdds} of the road-faced class had gone to ` +
+              `the backfill (extensions this room did not have at all), ${spentOnMoves} had taken a ` +
+              `relocated shallow slot and ${paveTaken} of the one-pave class had been TAKEN — leaving ` +
+              `${facedLeft} road-faced and ${paveLeft} one-pave candidate(s) by that arithmetic, and 0 ` +
+              `of either class on the re-scan against the board this room ships. Nothing was refused ` +
+              `for this slot; there was nothing left to refuse`
           : legalButLap
             ? `of the ${order.length} deep target(s) offered (${byClass}) the cheapest legal one is ` +
               `${legalButLap.x},${legalButLap.y} and standing this extension there takes the as-built ` +
@@ -3989,17 +4067,15 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   const sharedTarget = sharedTargetPick ? sharedTargetPick.k : null;
   const sharedTargetSlots = sharedTargetPick ? sharedTargetPick.n : 0;
 
-  // WHAT IS STILL ON THE TABLE IN THE ONE-PAVE CLASS, re-scanned against the
-  // board this room ships rather than subtracted from the opening census. A
-  // candidate can leave that class without being taken — the commonest way is
-  // that its neighbour took it as ITS pave, which is exactly what 35,13 is in
-  // E12S6 — so `freeDeepOnePave - paveTaken` would be a fiction. This is a
-  // second search, and it answers the question a reader actually has: could the
-  // room still do it again?
-  const paveLeft = scanOnePave(taken).length;
-  const paveTaken =
-    added.filter((a) => a.paved).length + movedLog.filter((m) => m.paved).length;
-
+  // WHAT IS STILL ON THE TABLE IN THE ONE-PAVE CLASS (`paveLeft`) is re-scanned
+  // against the board this room ships rather than subtracted from the opening
+  // census. A candidate can leave that class without being taken — the commonest
+  // way is that its neighbour took it as ITS pave, which is exactly what 35,13
+  // is in E12S6 — so `freeDeepOnePave - paveTaken` would be a fiction. That
+  // second search, and the road-faced spend census beside it, are computed ABOVE
+  // the shallow-slot loop since round 17 (F7), because the per-slot sentence has
+  // to say where the candidates went and a sentence that recomputes its own
+  // numbers is a sentence that can disagree with the record.
   return {
     added,
     // per surviving shallow slot: the post-search evidence a declaration quotes
@@ -4065,14 +4141,12 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       // was still on the table when the remaining shallow slots were offered it.
       // All three are the ROAD-FACED class only; the one-pave class is accounted
       // for separately below, because the two cost different money.
-      spentOnAdds: added.filter((a) => freeKeys0.has(key(a.x, a.y))).length,
-      spentOnMoves: movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
-      left: Math.max(
-        0,
-        freeDeepFaced -
-          added.filter((a) => freeKeys0.has(key(a.x, a.y))).length -
-          movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length,
-      ),
+      // ...and all three are the SAME values the per-slot sentence prints —
+      // hoisted above the slot loop in round 17 (F7), one derivation, two
+      // readers, so the sentence cannot disagree with the census it quotes.
+      spentOnAdds,
+      spentOnMoves,
+      left: facedLeft,
       // WHERE THE ONE-PAVE ONES WENT. `paveTaken` counts the placements that
       // actually bought a road — one road each, which is why it is also the
       // number of road tiles this pass added for a face — and `paveLeft` is the

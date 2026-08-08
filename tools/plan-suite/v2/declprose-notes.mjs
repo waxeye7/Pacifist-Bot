@@ -39,6 +39,7 @@ import { renderCutReason } from "./declprose.mjs";
 
 const round2 = (v) => Math.round(v * 100) / 100;
 const xy = (t) => `${t.x},${t.y}`;
+const plural = (v, one, many) => (Number(v) === 1 ? one : many);
 
 // ---------------------------------------------------------------------------
 // SEALED INTERIOR FLOOR
@@ -64,7 +65,31 @@ function renderSealedFloor(r) {
     `${r.ourFault} of the ${r.tiles} come back if OUR OWN blocking structures are removed and the ` +
     `enclosure is left as it is — that is the ceiling on what any re-ordering inside the placement ` +
     `layers could recover, and the remaining ${r.tiles - r.ourFault} are the enclosure's shape, which ` +
-    `no ordering reaches.`
+    `no ordering reaches. ` +
+    // O3 (round 17): the ceiling above was published for two rounds with nothing
+    // asking how close ONE move gets to it. It is per-POCKET and per-STRUCTURE
+    // now, priced by deleting each candidate and re-flooding — see
+    // counterfactualBasis on the record.
+    `AND HOW MUCH OF IT IS ONE STRUCTURE: the seal is ${r.pocketCount} ` +
+    `${plural(r.pocketCount, "pocket", "pockets")}, and removing the single best-placed structure ` +
+    `on each pocket's boundary returns ${r.singleStructureTiles} of the ${r.tiles} ` +
+    `(${r.singleStructureDeep} of the ${r.deep} deep). ` +
+    r.pockets
+      .map(
+        (p) =>
+          `${xy(p.at)}+${p.tiles - 1} (${p.deep} deep) is behind ` +
+          (p.best
+            ? `${p.holders.length} ${plural(p.holders.length, "structure", "structures")}, any one of ` +
+              `which returns ${p.best.recovers}: ` +
+              p.holders
+                .slice(0, 6)
+                .map((h) => `${h.type} ${xy(h)}=${h.recovers}/${h.recoversDeep}`)
+                .join(", ") +
+              (p.holders.length > 6 ? ` …` : ``)
+            : `no single structure of ours — this pocket is the enclosure's own shape`),
+      )
+      .join(" · ") +
+    `.`
   );
 }
 

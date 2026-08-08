@@ -299,8 +299,12 @@ export function renderCtrlReleased(sf) {
     `${r.floor} is the floor no composition may go under because that is where the upgrader ` +
     `fleet starts being throttled by parking rather than by energy — the same number layer 1's seat ` +
     `search and the validator both treat as hard. The room being short of deep floor is the fact ` +
-    `underneath both columns: ${n(r.deepTiles)} deep tiles inside the widest enclosure ` +
-    `it admits.`
+    // O4 (round 17): this figure is layer 2's NEGOTIATION free-deep count and
+    // that is exactly the right one here — the sentence is about the enclosure
+    // the room could afford to buy, not about what is still free after the
+    // program was placed in it. The name it prints under now says so.
+    `underneath both columns: the widest enclosure this room admits was negotiated over ` +
+    `${n(r.deepTiles)} free deep tiles (layer 2's board, before the program was placed in it).`
   );
 }
 

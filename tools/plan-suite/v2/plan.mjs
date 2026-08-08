@@ -279,7 +279,16 @@ function animNotes(plan) {
   }
   if (plan.shell) {
     bits.push(
-      `${plan.shell.cut.length} cut tiles · ${plan.shell.upkeepPerTick} e/tick upkeep · ${plan.shell.deepTiles} deep tiles sealed in` +
+      // O4 (round 17): this said "N deep tiles sealed in" and N was layer 2's
+      // NEGOTIATION free-deep count — the supply the enclosure was bought for,
+      // measured before the towers, labs, nuker, observer and sixty extensions
+      // existed. On a finished plan it is neither "sealed in" nor current.
+      // Both figures print now, each named for its own board; see
+      // meta.shell.deepTilesBasis.
+      `${plan.shell.cut.length} cut tiles · ${plan.shell.upkeepPerTick} e/tick upkeep · ` +
+        `${plan.shell.shippedFreeDeep ?? "?"} free deep tiles left on the board this room SHIPS ` +
+        `(layer 2 bought the enclosure on ${plan.shell.negotiationFreeDeep ?? plan.shell.deepTiles} — ` +
+        `the same count on the negotiation board, before the program was placed in it)` +
         ` · controller ${plan.shell.enclosedController ? "inside" : "outside"}, sources ${plan.shell.enclosedSources}/${(plan.sources || []).length} inside`,
     );
   }
@@ -1946,7 +1955,7 @@ ${legendHtml()}
 <tr><td>containers</td><td>${m.container ?? 0}</td><td>one miner seat per source, plus the controller upgrader bin (the pre-RCL7 energy drop), plus the mineral miner seat when the room has a mineral</td></tr>
 <tr><td>spawn</td><td>${m.spawn ?? 0}</td><td>RCL8 = 3, fanned into sectors</td></tr>
 <tr><td>road</td><td>${m.road ?? 0}</td><td>one connected network: hub ↔ spawns ↔ sources ↔ controller</td></tr>
-<tr><td>rampart</td><td>${m.rampart ?? 0}</td><td>weighted min-cut shell (no openings) + eco bubbles · ${plan.shell ? plan.shell.upkeepPerTick + " e/tick upkeep, " + plan.shell.deepTiles + " deep tiles inside" : "—"}</td></tr>
+<tr><td>rampart</td><td>${m.rampart ?? 0}</td><td>weighted min-cut shell (no openings) + eco bubbles · ${plan.shell ? plan.shell.upkeepPerTick + " e/tick upkeep, " + (plan.shell.shippedDeepInterior ?? "?") + " deep tiles inside the wall of which " + (plan.shell.shippedFreeDeep ?? "?") + " are still free on the shipped board (layer 2 negotiated the enclosure on " + (plan.shell.negotiationFreeDeep ?? plan.shell.deepTiles) + " free deep tiles)" : "—"}</td></tr>
 <tr><td>extension</td><td>${m.extension ?? 0}</td><td>60/60 required — every one has a D4 face on the interior</td></tr>
 <tr><td>lab</td><td>${m.lab ?? 0}</td><td>4×4 diamond, both inputs in range 2 of all outputs</td></tr>
 <tr><td>tower</td><td>${m.tower ?? 0}</td><td>weighted set-cover of the cut, refill-ease weighted in</td></tr>
@@ -2154,7 +2163,7 @@ function main() {
       `spawn=${c.spawn}`,
       `roads=${c.road}`,
       sh
-        ? `cut=${sh.cut.length} deep=${sh.deepTiles} upkeep=${sh.upkeepPerTick}e/t${sh.budgetPass ? "" : " SPACE-SHORT"}${sh.priceyWall ? " pricey-wall" : ""}`
+        ? `cut=${sh.cut.length} freedeep[negotiated=${sh.negotiationFreeDeep ?? sh.deepTiles} shipped=${sh.shippedFreeDeep ?? "?"}] upkeep=${sh.upkeepPerTick}e/t${sh.budgetPass ? "" : " SPACE-SHORT"}${sh.priceyWall ? " pricey-wall" : ""}`
         : "no-shell",
       sh ? `encl[ctrl=${sh.enclosedController ? "Y" : "n"} src=${sh.enclosedSources}/${plan.sources.length}]` : "",
       // the as-built GATED lap is the verdict; the shell's mass-free max is the raw record
@@ -2247,7 +2256,10 @@ ${thumbLegendHtml()}
   fs.mkdirSync(thumbDir, { recursive: true });
   for (const p of ok) {
     fs.writeFileSync(path.join(thumbDir, `${p.room}.svg`), renderThumbSvg(p, 8));
-    const sh = p.shell ? `cut ${p.shell.cut.length} · deep ${p.shell.deepTiles}` : "no shell";
+    // O4: the card's `deep` was layer 2's negotiation free-deep count printed
+    // beside the SHIPPED cut — two boards, one label. The card reads the
+    // shipped figure now and says which board it is from.
+    const sh = p.shell ? `cut ${p.shell.cut.length} · free deep (shipped) ${p.shell.shippedFreeDeep ?? "?"}` : "no shell";
     const lb = p.structures.lab?.length ? `${p.structures.lab.length} labs` : "NO LABS";
     // ------------------------------------------------------------------
     // TWO NUMBERS, TWO CHIPS, EACH SAYING WHICH ONE IT IS.
