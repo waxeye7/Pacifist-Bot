@@ -242,7 +242,10 @@ function verifyMobility(terrain, plan) {
     // different fact and is already declared by the adopted-seal and
     // shipped-battery shortfalls. That lazy second measurement is also why
     // this is affordable — an unconditional all-pairs re-derivation on every
-    // one of the 150 rooms that carry a bound cost the suite 20 seconds.
+    // room that carries a bound, which is nearly all of them, cost the suite 20
+    // seconds. (A hand-typed room count stood here and had gone stale; round 20
+    // deleted it, since the cost argument survives without it and the count is
+    // derivable from `meta.walls.mobility.bound`. Criticism 80.)
     if (b === null || b === undefined) {
       meta.boundHeld = null;
     } else if (mBuilt.maxGated <= b + 1e-9) {
@@ -419,8 +422,11 @@ function verifyMobility(terrain, plan) {
     // A claim that the very next clause of the same paragraph refutes is worse
     // than no claim. The claim now has to hold to be printed, and when it does
     // not the declaration says so in those words. (After the layer-6 rewrite it
-    // holds in 159/159; the branch stays because a bound nobody checks is how
-    // the last one rotted, and plan.mjs asserts the same thing fleet-wide.)
+    // held in 159/159 — that was a sweep over the 159-room world this planner
+    // planned at the time, and it is not restated for today's fleet here: the
+    // branch stays because a bound nobody checks is how the last one rotted,
+    // and plan.mjs asserts the same thing fleet-wide on every run, which is the
+    // channel a reader should trust for whether it still holds. Criticism 80.)
     // ------------------------------------------------------------------
     // ...and the sentence that says all of that is in `renderMobility`, which
     // recomputes "the room shipped inside it" from `metric.maxGated` and
@@ -964,8 +970,9 @@ function verifyMobility(terrain, plan) {
  * ------------------------------------------------------------------------
  * ...AND THE PRUNE MAY NOT MOVE THE WALL, ONLY SHRINK IT
  * ------------------------------------------------------------------------
- * Measured at HEAD: before this pass runs, the layer-2 cut is a complete and
- * correct seal in all 159 rooms and NOT ONE rampart outside it is load-bearing.
+ * Measured at HEAD, on the 159-room world this planner planned at the time:
+ * before this pass runs, the layer-2 cut is a complete and correct seal in
+ * every room and NOT ONE rampart outside it is load-bearing.
  * After it runs, four rooms (E11S10, E1S8, E11S3, E12S4) have a seal that
  * partly rests on tiles that were bought as bubbles. The mechanism is subtle
  * and the removal test is blameless: deleting a genuinely doubled inner wall
@@ -1280,7 +1287,8 @@ function pruneInertRamparts(terrain, plan) {
   let promoted = 0; // deletions that handed a piece of the seal to a bubble
   // WHY EACH SURVIVOR SURVIVED. The reviewer's standing complaint about this
   // pass was not that it kept the wrong tiles — it is that `uselessCut` was
-  // `[]` in all 159 rooms and NOTHING said why, so a reader had to re-derive
+  // `[]` in every room of the fleet as it then stood and NOTHING said why, so a
+  // reader had to re-derive
   // the whole removal test to find out whether a redundant-looking rampart was
   // load-bearing or just unexamined. Every refusal is recorded with the tile
   // that caused it, the last round's verdict winning (the wall it was judged
@@ -1786,9 +1794,11 @@ function remeasureShell(terrain, plan, reason) {
   plan.shell.battlementGap = b.battlementGap;
   plan.shell.battlementUnreachable = b.battlementUnreachable;
   // ...and WHICH tiles they are. The count alone has been published for a while
-  // and 12 rooms carry a non-zero one; without the tiles there is nothing for a
-  // declaration to name, which is most of why only one of the 12 declares. See
-  // declareUnreachableCut.
+  // and a handful of rooms carry a non-zero one; without the tiles there is
+  // nothing for a declaration to name, which is most of why almost none of them
+  // declare. (A room count was typed here and is a fleet reading that moves with
+  // the fleet — `meta.shell.battlementUnreachable` publishes it per room and the
+  // fleet summary totals it. Round 20; criticism 80.) See declareUnreachableCut.
   plan.shell.battlementUnreachableTiles = cut
     .filter((c) => !walkFinal.has(key(c.x, c.y)))
     .map((c) => ({ x: c.x, y: c.y }));
@@ -1890,9 +1900,14 @@ function remeasureShell(terrain, plan, reason) {
     // a claim about coverage instead, and every controller in the fleet passes
     // it — because the controller's stand-denial ring IS ramparts, so its ring
     // tiles are never in the exterior flood by construction. Re-deriving it here
-    // reads 172/172 and means nothing: a controller sitting outside the wall in
+    // would read EVERY room — no count can rot, because the code cannot produce
+    // any other answer — and mean nothing: a controller sitting outside the wall in
     // its own sealed one-tile pocket is not "enclosed" in the sense the number
-    // is quoted for, and the fleet headline (91/172) would become a tautology.
+    // is quoted for, and the fleet headline — the enclosed-controller count
+    // layer 2 publishes and the fleet summary totals — would become a
+    // tautology. (That headline used to be hand-typed into this sentence and
+    // had gone stale by a room; round 20 deleted it and named the channel that
+    // publishes it instead. Criticism 80.)
     //
     // The source verdict does not have that problem: a source's works and ring
     // being inside the union is exactly the operational claim ("no attacker
@@ -1949,10 +1964,15 @@ function remeasureShell(terrain, plan, reason) {
  * layer owns says it is free, and the room does not take it. Layer 3 measured
  * it on the only wall that existed when it ran — layer 2's min-cut — and
  * published `held` under a field doc reading "what the room ships". It was
- * `meta.towers.minShellDmg` in 172/172 rooms and `meta.towers.shippedMinShellDmg`
- * in none: the two disagree in five rooms (E15S5 E21S8 E2S6 E3S6 E6S4) because
- * the inert prune and the single-removal seal reconciliation above BOTH move the
- * line. A cost stated about a wall the room does not build is the same defect
+ * `meta.towers.minShellDmg` in EVERY room by construction — same call, same
+ * board — and `meta.towers.shippedMinShellDmg` in none: the two disagree in a
+ * handful of rooms because the inert prune and the single-removal seal
+ * reconciliation above BOTH move the line. (A room count and a hand-typed
+ * roster of the disagreeing rooms stood here; both are fleet readings that move
+ * with the fleet, so round 20 deleted them — the two fields ship side by side
+ * in `meta.towers` for every room and the fleet summary totals the
+ * disagreement. Criticism 80.)
+ * A cost stated about a wall the room does not build is the same defect
  * `shippedMinShellDmg`, `mobilityBuilt`, `nukeWindow` and `maxRefill` were each
  * added to close, arriving one object deeper.
  *
@@ -1990,7 +2010,11 @@ function remeasureShell(terrain, plan, reason) {
  * axis mixed.
  *
  * A rampart is not an occupant — a tower and a rampart share a tile in this
- * engine and 25 of the fleet's extensions do exactly that — and neither is a
+ * engine and a standing minority of the fleet's extensions do exactly that (the
+ * count was typed here and is a fleet reading that moves with the fleet; it is
+ * re-derivable tile by tile from `structures.extension` against
+ * `structures.rampart` in any room's record, and the fleet summary totals it —
+ * round 20, criticism 80) — and neither is a
  * road, because a road under a tower would simply not have been laid on a board
  * where the tower stood there. Everything else blocks, and so does a room
  * object. The occupant is NAMED rather than counted, so the reattribution is
@@ -2143,8 +2167,12 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
 /**
  * INTERIOR FLOOR THE FINISHED BASE SEALED OFF FROM ITSELF.
  *
- * 137 tiles across 42 rooms are inside the wall, are not wall, carry nothing,
- * and cannot be walked to from the sitter. Some of that is the enclosure: the
+ * A tail of tiles across a large minority of rooms is inside the wall, is not
+ * wall, carries nothing, and cannot be walked to from the sitter. (A tile count
+ * and a room count were typed here and had both gone stale by round 20 — the
+ * fleet grew and the numbers did not. `meta.walls.sealedFloor` carries the
+ * per-room tally, tile by tile and pocket by pocket, and the fleet summary
+ * totals it. Criticism 80.) Some of that is the enclosure: the
  * min-cut is free to wall a lobe the basin could never reach anyway, and no
  * ordering of the program recovers it. Some of it is US: a row of extensions
  * across a one-wide corridor seals the pocket behind it, and that pocket was
@@ -2188,9 +2216,11 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
  * different piece of geometry, and it deserves to be said rather than absorbed.
  *
  * The fifth class is `unclassified`, which is what the old `else` was pretending
- * did not exist. It is 0 today. It is printed anyway, per room and fleet-wide,
- * because a residue bucket that is only reported when it is empty is not a
- * check.
+ * did not exist. It is printed anyway, per room and fleet-wide, because a
+ * residue bucket that is only reported when it is empty is not a check — and
+ * that is exactly why its size is not typed into this comment: read
+ * `meta.walls.roadRampart.unclassified` in any room, or the fleet summary's
+ * total, for what it is today. (Round 20; criticism 80.)
  */
 export function classifyRoadRamparts(plan) {
   const roads = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
@@ -2269,10 +2299,14 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   // removed at once — and the note calls it "the ceiling on what any re-ordering
   // inside the placement layers could recover". A ceiling nobody tries to reach
   // is criticism 2's defect (E16S5's 2.25 was ONE observer tile) in the note
-  // channel: the reviewer measured it by hand and found 220 of the fleet's 257
-  // sealed tiles come back on a SINGLE structure move, with 42 of the 62 rooms
-  // at >= 90% single-structure. E15S6's 72-tile seal is 69 tiles behind any ONE
-  // of three extensions and its 16-tile cut pays for none of it.
+  // channel: on the fleet as it stood when that review ran, the reviewer
+  // measured it by hand and found 220 of the fleet's 257 sealed tiles came back
+  // on a SINGLE structure move, with 42 of the 62 rooms then carrying a seal at
+  // >= 90% single-structure. E15S6's 72-tile seal was 69 tiles behind any ONE of
+  // three extensions and its 16-tile cut paid for none of it. (Round 20 put the
+  // review in the past tense and named the world it was taken in; the live
+  // per-pocket and per-structure counterfactual is `meta.sealedRecovery`, which
+  // is what a reader should go to for today's split. Criticism 80.)
   //
   // So the counterfactual is published per POCKET and per STRUCTURE, and it is
   // exhaustive rather than sampled. A pocket is a D8-connected component of the
@@ -2282,8 +2316,14 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   // it) — and each candidate is PRICED by actually re-flooding with that one
   // structure gone, never by adjacency alone.
   //
-  // The measured answer, fleet-wide: every pocket in all 62 rooms comes back
-  // WHOLE on any one of its named holders. `ourFault`'s ceiling is not merely
+  // The measured answer, fleet-wide: every pocket in every room that seals
+  // anything at all comes back
+  // WHOLE on any one of its named holders. (The count that stood here said 62,
+  // which is not how many rooms seal anything — it is how many carry a
+  // `meta.sealedRecovery` record, a different quantity that this comment had
+  // quietly borrowed. Round 20 deleted the numeral rather than swap one
+  // hand-typed count for another; both are derived per room and totalled by the
+  // fleet summary. Criticism 80/81.) `ourFault`'s ceiling is not merely
   // approached by a single move, it is reached, pocket by pocket — which is why
   // pipeline.mjs now runs a bounded one-move recovery pass against this record
   // (`maybeTakeSealedRecovery`) instead of printing the ceiling and stopping.
@@ -2596,10 +2636,14 @@ export function planWallRoads(terrain, plan) {
   // is not one job — it is stitching, rampart spurs, the extension-face safety
   // net, swamp-hole pre-paving, the along-the-cut swap and (in finalizeRoom)
   // the deferred-conduct bridge. The film captioned all of them "rampart spurs
-  // and the extension-face safety net", which is false in 20 rooms / 39 tiles:
+  // and the extension-face safety net", which is false in every room that ships
+  // a layer-7 road and no spur at all:
   // E12S6's three layer-7 tiles are 7b reflow, E1S6's four are swamp pre-pave,
   // E14S5's are along-cut swaps, and every one of those rooms has `spurTiles`
-  // at 0. A caption is a claim; this map is what makes it checkable.
+  // at 0. A caption is a claim; this map is what makes it checkable — and it is
+  // also what a reader should count off, rather than this comment. (The room and
+  // tile counts that stood here had gone stale; round 20 deleted them.
+  // Criticism 80.)
   // ------------------------------------------------------------------
   const roadKind = {};
   let kindNow = "stitch";
@@ -3136,10 +3180,14 @@ export function planWallRoads(terrain, plan) {
   // ...AND "THE WALL" IS EVERY RAMPART THIS ROOM SHIPS, NOT JUST THE CUT.
   //
   // This pass used to iterate `cut`, which is one of FOUR classes of ramparted
-  // tile the plan carries (see classifyRoadRamparts: 235 wall crossings on the
-  // cut, 30 bubble seats, 13 controller stand-denial ring, 0 personal cover).
-  // Scoped to the cut it saw 7 rooms / 14 run tiles; the run roster over every
-  // road+rampart tile is 12 rooms / 26 tiles. The twelve it could not see are
+  // tile the plan carries (wall crossing on the cut, bubble seat, controller
+  // stand-denial ring, personal cover — see classifyRoadRamparts, which counts
+  // all four per room and is what the fleet summary totals; the class census
+  // was hand-typed here and is a fleet reading that moves with the fleet, so
+  // round 20 deleted it. Criticism 80). Measured at round 20, scoping the
+  // detector to the cut saw 7 rooms / 14 run tiles against a run roster over
+  // every road+rampart tile of 12 rooms / 26 tiles — a reading taken at a
+  // moment, not a property of the pass. The tiles it could not see are
   // the same anti-pattern on a rampart it was not looking at — E5S9 22,19~22,18,
   // E14S3 10,41~9,40, E5S5 17,19~17,20, E4S1 16,42~17,42 and E21S3's four —
   // and in E5S9's case there is a free interior parallel one tile over that was
@@ -3158,15 +3206,24 @@ export function planWallRoads(terrain, plan) {
   // cut tile at all (`addRoad` checks `cutSet`). The coincidences that ship come
   // from the other direction — layer 1 lays the eco lanes to the sources and the
   // controller BEFORE the shell exists, and layer 2's min-cut is then free to
-  // run down one of them. 241 of the fleet's 286 road+rampart tiles are exactly
-  // that and they are fine: one paved tile where the lane CROSSES the wall is a
-  // gate, and a gate is what a lane needs.
+  // run down one of them. Nearly every road+rampart tile the fleet ships is
+  // exactly that — the "wall crossing" class classifyRoadRamparts counts, which
+  // the census thirty lines up already breaks out against the shipped board —
+  // and they are fine: one paved tile where the lane CROSSES the wall is a
+  // gate, and a gate is what a lane needs. (A hand-typed pair of counts stood
+  // here, and they were figures from the old 159-room world sitting a screen
+  // away from the live census of the same quantity. Round 20 deleted them.
+  // Criticism 80.)
   //
   // What is not fine is a run of them. Where the cut turns and follows the lane,
   // the room ships two or three consecutive paved rampart tiles — a prepared
   // surface for anything that breaks in, laid along the exact line it would want
   // to walk. E14S5 ships 42,36 42,37 42,38 with 41,36 41,37 41,38 sitting bare
-  // one tile west, inside the wall, going the same way. 12 tiles in 10 rooms.
+  // one tile west, inside the wall, going the same way. The run roster is the
+  // one stated twenty lines up — every road+rampart tile, not just the cut ones
+  // — and it is re-derived there rather than restated here. (A second, smaller
+  // pair of counts stood on this line and disagreed with that roster; round 20
+  // deleted it. Criticism 80.)
   //
   // So a run of two or more is offered the interior parallel, one tile at a
   // time, and the swap is accepted only if the network is measurably no worse:
@@ -3586,14 +3643,16 @@ export function planWallRoads(terrain, plan) {
   //
   // It used to run at (0a2), before the roads and before 7b, and it was
   // wrong in the way an ordering bug is always wrong: quietly, in prose, about a
-  // room that had not finished existing. What it published:
+  // room that had not finished existing. What it published, on the fleet as it
+  // stood when the bug was found — these are the symptom counts of the day and
+  // are NOT restated for today's boards (round 20; criticism 80):
   //
   //   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
-  //     structure at X,Y would drop from depth 4 to 3". Measured on the shipped
-  //     plan every one of them drops 4 -> 0: the named structure leaves the wall
-  //     entirely, because 7b retired the personal rampart that was holding it.
-  //     E11S7's five (17,2 18,2 19,2 20,2 21,2) are the standing example, and the
-  //     same strings are printed verbatim into meta.notes.
+  //     structure at X,Y would drop from depth 4 to 3". Re-measured on the
+  //     shipped plan every one of them dropped 4 -> 0: the named structure left
+  //     the wall entirely, because 7b retired the personal rampart that was
+  //     holding it. E11S7's five (17,2 18,2 19,2 20,2 21,2) were the standing
+  //     example, and the same strings were printed verbatim into meta.notes.
   //   · `mobilityShipped` — stale in 6 rooms (E11S1 0.95 vs 0.96 and maxDetour 1
   //     vs 2, E11S7, E13S2, E8S7, E9S4, E9S9), for the same reason: 7b adds
   //     extensions and retires ramparts after the measurement was taken.
@@ -3602,10 +3661,16 @@ export function planWallRoads(terrain, plan) {
   //
   // The fix is the ordering, not the strings: layer 7 is allowed exactly one
   // moment at which the room is finished, and this is it. The prune is re-run
-  // to a fixpoint against the shipped board — it deletes nothing in 172/172,
+  // to a fixpoint against the shipped board and finds nothing left to delete,
   // which is the property that makes the earlier run's DECISIONS safe, and its
   // refusal reasons are now measured on the tiles the room ships rather than on
-  // the tiles it had before the reflow.
+  // the tiles it had before the reflow. (A room count stood on that "finds
+  // nothing" and had gone stale by round 20. It is a checkable claim, not a
+  // remembered one: `meta.walls.inertPruned` is the running total of BOTH prune
+  // passes and `meta.shell.redundantCut.pruned` is the early pass's own count,
+  // so the late run deleted something in exactly the rooms where those two
+  // differ — no numeral in this comment is needed to read it off the artifact.
+  // Criticism 80.)
   // ------------------------------------------------------------------
   // ...and the truth pass itself is NOT run here. See finalizeRoom below: it is
   // about the room that SHIPS, and this function runs once per rung of the
@@ -3738,14 +3803,16 @@ export function planWallRoads(terrain, plan) {
  * It also has to be LAST, and that is the round-8 finding it exists for. These
  * measurements used to be taken at the top of planWallRoads, before the roads
  * and before layer 7b, and they published prose about a room that had not
- * finished existing:
+ * finished existing. What follows is the symptom count taken on the fleet as it
+ * stood when the round-8 finding landed; it is NOT restated for today's boards
+ * (round 20; criticism 80):
  *
  *   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
  *     structure at X,Y would drop from depth 4 to 3". Re-measured on the shipped
- *     plan every one of them drops 4 -> 0: the named structure leaves the wall
+ *     plan every one of them dropped 4 -> 0: the named structure left the wall
  *     entirely, because 7b had retired the personal rampart holding it. E11S7's
- *     five (17,2 18,2 19,2 20,2 21,2) are the standing example, and the strings
- *     are printed verbatim into meta.notes.
+ *     five (17,2 18,2 19,2 20,2 21,2) were the standing example, and the strings
+ *     were printed verbatim into meta.notes.
  *   · `mobilityShipped` — stale in 6 rooms (E11S1 0.95 vs 0.96 and maxDetour 1
  *     vs 2, plus E11S7, E13S2, E8S7, E9S4, E9S9).
  *   · the SEALED INTERIOR FLOOR note's shallow-extension count — stale in 8
@@ -3754,10 +3821,15 @@ export function planWallRoads(terrain, plan) {
  *   · the shipped-battery, adopted-seal and unreachable-wall declarations, all
  *     arguing about a wall 7b could still move.
  *
- * The prune is re-run here to a fixpoint against the shipped board. It deletes
- * nothing in 172/172 — which is exactly the property that makes the earlier
+ * The prune is re-run here to a fixpoint against the shipped board and finds
+ * nothing left to delete — which is exactly the property that makes the earlier
  * run's DECISIONS safe to keep — and what it produces that matters is a refusal
- * reason measured on the tiles the room ships.
+ * reason measured on the tiles the room ships. (A room count stood on that
+ * "finds nothing" and had gone stale by round 20. It is checkable rather than
+ * remembered: `meta.walls.inertPruned` totals BOTH prune passes and
+ * `meta.shell.redundantCut.pruned` is the early pass's own count, so this late
+ * run deleted something in exactly the rooms where the two differ. Criticism
+ * 80.)
  */
 /**
  * ------------------------------------------------------------------------
@@ -3769,11 +3841,16 @@ export function planWallRoads(terrain, plan) {
  * produced by layer 3, which runs two layers before the nuker is placed, so the
  * array it iterated was empty and the published number was the window over
  * spawn/storage/terminal/tower. Measured on the round-9 fleet: the shipped
- * window exceeds the published `after` by exactly 1 in 145 of 172 rooms; E6S1
- * and E6S9 ship 11 and published 10; and the nuker lands inside its own room's
- * worst 5x5 in 154 of 172. The fleet headline in the goal doc (worst 11, mean
- * 7.97) was the TRUE number and was therefore inconsistent with the per-room
- * field it was summarising (max 10, mean 7.13).
+ * window exceeded the published `after` by exactly 1 in most rooms; E6S1 and
+ * E6S9 shipped 11 and published 10; and the nuker landed inside its own room's
+ * worst 5x5 in most of them. The fleet headline in the goal doc was the TRUE
+ * number and was therefore inconsistent with the per-room field it was
+ * summarising. (Room counts and both headline means were hand-typed here on a
+ * fleet that has since grown, so round 20 put the finding in the past tense and
+ * deleted the numerals rather than pass off round-9 readings as today's:
+ * `meta.towers.nukeWindow` — with its `nukerInWindow` flag — and
+ * `meta.towers.towerDispersion.after` publish the two quantities per room, and
+ * the fleet summary totals them. Criticism 80.)
  *
  * So the field is written HERE, from the shipped structure lists, after every
  * layer that places one of them has run. Layer 3's own before/after survives as
@@ -3852,12 +3929,17 @@ function recomputeNukeWindow(plan) {
  * validator's cross-check written to reproduce the PRODUCER's board rather
  * than the shipped one.
  *
- * Fleet effect when it was measured honestly: 15 of 172 rooms walk further than
- * they published, up to +3, and the count over the 8-step REFILL_NOTE line goes
- * 15 -> 17. Two of the extra rooms shipped no shortfall at all (E12S4 published
- * maxRefill 7 and walked 9; E18S3 published 6 and walked 9) while E8S4, at the
- * same as-built number, did declare — so the threshold was real and two rooms
- * were under it in silence.
+ * Fleet effect when it was first measured honestly, on the fleet as it stood
+ * then: 15 rooms walked further than they published, up to +3, and the count
+ * over the 8-step REFILL_NOTE line went 15 -> 17. Two of the extra
+ * rooms shipped no shortfall at all (E12S4 published maxRefill 7 and walked 9;
+ * E18S3 published 6 and walked 9) while E8S4, at the same as-built number, did
+ * declare — so the threshold was real and two rooms were under it in silence.
+ * (Round 20 put this in the past tense and named the world it was taken in: the
+ * gap it describes is what motivated the re-derivation, not a standing property
+ * of today's boards. `meta.towers.maxRefillAtPlacement` is layer 3's reading and
+ * `meta.towers.maxRefill` is the as-built one, both per room, and the fleet
+ * summary's "furthest-tower refill AS BUILT" line totals them. Criticism 80.)
  *
  * So the number of record is taken here, last, on the whole as-built board, and
  * layer 3's own reading is kept beside it under a name that says what it is.
@@ -4631,8 +4713,10 @@ export function finalizeRoom(terrain, plan) {
     const cutK = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
     // EVERY ROAD+RAMPART TILE, not just the cut ones — the same scope stage 5b
     // now offers the swap over, for the same reason (a creep on a prepared
-    // surface does not know which rampart class it is standing on). Scoped to the
-    // cut this census reported 7 rooms / 14 tiles; the true roster is 12 / 26.
+    // surface does not know which rampart class it is standing on). Measured at
+    // round 20, scoping this census to the cut reported 7 rooms / 14 tiles
+    // against a true roster of 12 / 26 — a reading taken at a moment, and the
+    // roster this block emits per room is what totals it. (Criticism 80.)
     const rampK = new Set((plan.structures.rampart || []).map((r) => key(r.x, r.y)));
     const paved = (plan.structures.rampart || []).filter((c) => roadK.has(key(c.x, c.y)));
     // D8, for the reason spelled out over the detector in stage 5b: a creep
@@ -4896,9 +4980,12 @@ export function finalizeRoom(terrain, plan) {
  * extension-face safety net" for every room, and layer 7 also stitches orphaned
  * fragments, pre-paves swamp holes, moves roads off the cut onto the interior
  * parallel, lays the 7b reflow's faces and (in finalizeRoom) bridges the
- * deferred mineral container. 20 rooms / 39 tiles ship that beat with
+ * deferred mineral container. A couple of dozen rooms ship that beat with
  * `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave, E12S6's three are 7b
- * reflow, E14S5's are along-cut swaps.
+ * reflow, E14S5's are along-cut swaps — and `meta.walls.roadKind` is what a
+ * reader counts them off, not this paragraph. (The room and tile counts that
+ * stood here had gone stale, in step with the copy of them over addRoad; round
+ * 20 deleted both. Criticism 80.)
  *
  * Round 13 fixed the NOTE line by composing it from `meta.walls.roadKind`, the
  * per-tile provenance layer 7 records as it lays. It fixed exactly one channel.
@@ -4917,15 +5004,21 @@ export function finalizeRoom(terrain, plan) {
  * `extFace` IS REACHABLE AND IS KEPT, THOUGH NO ROOM IN THE FLEET USES IT.
  * layer-walls.mjs sets `kindNow = "extFace"` for the filler-face safety net
  * (a road on a D4 face of any extension layer 6 left off the network); the pass
- * runs in every room and, because layer 6 grows the mass along corridors,
- * currently adds 0 tiles fleet-wide (`meta.walls.fillerTiles` is 0 in all 172).
+ * runs in every room and, because layer 6 grows the mass along corridors, has
+ * so far added no tile in any room — `meta.walls.fillerTiles` is the per-room
+ * channel that says so and the fleet summary totals it, which is where a reader
+ * checks whether that is still true rather than trusting a count typed here.
+ * (Round 20; criticism 80.)
  * The kind is therefore in the closed set validate.mjs enforces and stays in
  * this table — but it is no longer PROMISED by any static string, because a
  * channel that names a pass which shipped nothing is the bug this block exists
  * to kill. It will caption itself the day the pass lays a tile.
  *
- * `one`/`many` are separate because 19 rooms lay exactly one layer-7 tile and
- * the caption read "1 tiles — 1 rampart spurs".
+ * `one`/`many` are separate because a sizeable cohort of rooms lays exactly one
+ * layer-7 tile and the caption read "1 tiles — 1 rampart spurs". (The room
+ * count was typed here and had gone stale by round 20 — it is a fleet reading,
+ * and `meta.walls.laidByKind` / `shippedByKind` carry it per room with the
+ * fleet summary totalling them. Criticism 80.)
  */
 export const LATE_KINDS = {
   spur: {

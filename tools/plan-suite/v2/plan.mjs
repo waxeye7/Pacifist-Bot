@@ -343,7 +343,11 @@ function animNotes(plan) {
   // These two captions were built from `relocated` alone, so E12S6's banner
   // read "3 slots ... layer 6 came back for" and "3 moves onto deep floor"
   // over a film that plays SIX extGhost tiles and SIX extMove tiles — 3 + 3.
-  // Fleet-wide the undercount is 48 moves in 18 rooms. A caption that counts
+  // The undercount was fleet-wide, and its size is not typed here: the two
+  // records are published per room (meta.extensions.relocated and
+  // meta.extensions.reflow.moved) and the fleet summary totals them, so the
+  // figure has an owner that re-derives it every run. (A "48 moves in 18 rooms"
+  // stood here and had gone stale by round 20. Criticism 80.) A caption that counts
   // fewer beats than the film plays is exactly the bug this file exists to
   // avoid, so the totals are the union and each pass is named for its share.
   //
@@ -482,8 +486,12 @@ function clipTickerLine(detail) {
  * `animNotes` above builds a caption set out of counts and never touches
  * `meta.shortfalls` or `meta.notes`. The room PAGE prints every declared
  * shortfall verbatim (shortfallsHtml) and every planner note (notesHtml), and
- * the index badges both — but 157 of the 172 rooms carry at least one shortfall
- * and a viewer who watched the film and nothing else saw zero of them. E12S6
+ * the index badges both — but the overwhelming majority of the fleet carries at
+ * least one shortfall and a viewer who watched the film and nothing else saw
+ * zero of them. (The count was typed here and is a fleet measurement that moves
+ * with the fleet, so the numeral is gone rather than re-typed: the index's
+ * shortfall badge publishes it per room from the room's own record and the fleet
+ * summary totals it at the end of a run. Round 20, criticism 80.) E12S6
  * declares a weak battery and a missed mobility gate; its film ended on "plan
  * complete — this last frame IS the shipped plan, tile for tile" and said
  * nothing about either. "Every shortfall must be loud" is not a claim the suite
@@ -644,8 +652,10 @@ ${head}${list.length && notes.length ? "\n" : ""}${nhead}</div>`;
  *   · `STAGE_KIND` is exactly `EXPAND` minus `claims`, whose tiles are
  *     heterogeneous and are keyed per tile through `CLAIMK` instead.
  *
- * It THROWS, for the reason the orphan check throws: a fleet run is 172 rooms
- * and a warning on room 1 scrolls off long before the run ends, while the fix is
+ * It THROWS, for the reason the orphan check throws: a fleet run is the whole
+ * claimable list (the room count was typed here and moves with the list; the
+ * fleet summary at the end of a run prints it. Criticism 80) and a warning on
+ * room 1 scrolls off long before the run ends, while the fix is
  * one line in a table twenty lines up. Add a stage to the film and forget one of
  * the five tables and the suite stops, names the table and names the stage.
  */
@@ -852,16 +862,26 @@ ${animShortfallTicker(plan)}
   // published fields the note line uses) — see info() below, which is the one
   // door all four text channels go through: the title card, the banner name,
   // the banner why and the chip + its tooltip. roadsLate is the only stage
-  // that needs it today: layer 7 runs seven different road jobs and 20 rooms
-  // ship the beat having run no spur at all.
+  // that needs it today: layer 7 runs seven different road jobs and a whole
+  // cohort of rooms ship the beat having run no spur at all. (The room count
+  // was typed here and had gone stale by round 20 — the same figure export-anim
+  // deleted from its layer-7 banner note. meta.walls.spurTiles answers it per
+  // room and the fleet summary's rampart-spur line totals the spur work at the
+  // end of a run. Criticism 80.)
   //
   // roadsMisc AND roadsResid ARE RESERVED, NOT DEAD — and they are kept rather
   // than deleted deliberately. roadsMisc is layer 5's haul road to the mineral
   // seat and roadsResid is the catch-all for road tiles carrying no
   // meta.roadLayer entry. Neither is emitted by any film in the current fleet:
-  // all 172 rooms have a mineral, but the mineral seat is deliberately OFF the
-  // road network (see the extractor row on the room page), so layer 5 lays no
-  // road, and road provenance is currently total, so nothing is unattributed.
+  // every room has a mineral, but layer 5 deliberately grows no haul road to
+  // the mineral seat (see the extractor row on the room page, and
+  // meta.misc.mineralOffNetwork, which measures per room whether the seat
+  // nevertheless ended up D8 of a road laid for something else) — so no tile
+  // carries a layer-5 provenance, and road provenance is otherwise total, so
+  // nothing is unattributed either. (A room count stood in this sentence and a
+  // fleet-wide "the seat is off the network" was read off it; both were typed
+  // rather than measured. The per-room flag is the channel, meta.roadLayer is
+  // the provenance record, and neither is copied here. Round 20, criticism 80.)
   // Both are one planner decision away from emitting again, and the invariant
   // export-anim enforces is one-directional: every EMITTED stage must be in
   // STAGE_INFO / STAGE_RATES / STAGE_SCAFFOLD, and EXPAND[s] must be the
@@ -894,7 +914,10 @@ ${animShortfallTicker(plan)}
     extAdd:     [7, 'layer 7b backfill', 'extensions the post-prune reflow ADDS on deep, road-faced floor the dead-end prune handed back — the pass that takes a short room to 60/60', 'extensions', '7b · backfill'],
     roadsPrune: [7, 'the dead-end prune', 'the one pass allowed to DELETE an earlier layer\\'s road — these led somewhere before the later layers filled it in', 'tiles', '7 · prune'],
     // NEUTRAL BY CONSTRUCTION — this row names the LAYER, not a job, because the
-    // job varies: 20 of the 172 rooms play this beat without laying one spur.
+    // job varies: plenty of rooms play this beat without laying one spur at all,
+    // and how many is a thing meta.walls.roadKind answers per room rather than
+    // something this line should be holding a copy of. (A hand-typed count stood
+    // here and had gone stale; round 20 deleted it. Criticism 80.)
     // The room's actual jobs arrive per-room in STAGE_TEXT.roadsLate.
     roadsLate:  [7, 'the late road pass', 'layer 7\\'s last road work — spurs to the wall, swamp pre-pave, stitches, swaps off the cut, the reflow\\'s faces: which of them ran here is on the line below', 'tiles', '7 · late roads'],
     // RESERVED — no film in the fleet emits this stage (road provenance is total)
@@ -1779,8 +1802,11 @@ ${items}</div>`;
  *
  * `meta.notes` is the planner's observation channel: layers write into it when
  * they have measured something about the room that a reader needs in order to
- * judge the plan, but which excuses nothing. 79 of the 159 rooms carry at least
- * one. Not one of them was rendered anywhere. E8S5's page printed "Declared
+ * judge the plan, but which excuses nothing. In the 159-room world this defect
+ * was found in, 79 of those rooms carried at least one — and not one of them
+ * was rendered anywhere. (The share moves with the fleet and is not re-typed
+ * here; the index's note badge prints each room's count from its own record.
+ * Round 20, criticism 80.) E8S5's page printed "Declared
  * shortfalls · 3" and said nothing at all about its own
  * "SEALED INTERIOR FLOOR: 2 tile(s) ... (24,35 24,36)" note — the strings
  * SEALED, 24,35 and 24,36 appeared zero times in E8S5.html, and neither SEALED
@@ -1834,7 +1860,10 @@ ${items}</div>`;
  *              around a closed loop; the alternative is not paving to the source.
  *   BUBBLE SEATS  a miner's container outside the shell carries its own personal
  *              rampart, and the seat is on the hauling road because it IS the
- *              hauling road's destination. Fleet-wide that is 27 tiles.
+ *              hauling road's destination. (A fleet-wide tile count stood here
+ *              and was false by round 20. meta.walls.roadRampart.seat carries
+ *              each room's, and the note below prints it on the room page.
+ *              Criticism 80.)
  *
  * Printed from the plan rather than asserted, so the exception cannot drift away
  * from the thing it is excusing.
@@ -2099,7 +2128,7 @@ ${notesHtml(plan)}
  * links is still an artifact anybody can open.
  *
  * ONLY ON A FULL-FLEET RUN, AND THAT GUARD IS THE POINT. `plan.mjs --rooms
- * E11S7` plans one room; letting that run delete the other 171 rooms' thumbs
+ * E11S7` plans one room; letting that run delete every other room's thumbs
  * and films would be a far worse bug than the one being fixed here. Nothing is
  * unlinked unless the caller asked for the whole claimable list.
  *
@@ -2162,7 +2191,8 @@ function pruneOrphanArtifacts(rooms) {
  * plan, tile for tile".
  *
  * Round 10 walked into exactly that: after a planner change, an independent
- * final-frame check read 152/172 — 20 rooms whose film painted an observer,
+ * final-frame check read 152 of the round-10 fleet's 172 rooms — 20 rooms whose
+ * film painted an observer,
  * five roads and a handful of extensions the shipped plan does not have, with
  * no warning anywhere. The films were not wrong about anything; they were
  * answers to a question nobody had re-asked.
@@ -2426,7 +2456,9 @@ ${thumbLegendHtml()}
   // THUMBNAILS ON DISK, LAZY-LOADED. The index used to inline
   // renderRoomSvg(p, 10) — a ~1MB sprite-heavy SVG — once per room, and came
   // to 159,056,753 bytes: 13.8s of transfer and 17.2s to domComplete on
-  // localhost, with 24 of the 159 cards still missing at the 10-second mark.
+  // localhost, with 24 of the cards still missing at the 10-second mark — all
+  // of that measured on the 159-room world the experiment was run in, and kept
+  // as the record of a rejected approach rather than as a live figure.
   // renderThumbSvg writes a ~30KB resource-free SVG per room (the WHY, and the
   // three approaches rejected on the way there, are in render.mjs); the index
   // references it with loading=lazy, so the browser fetches only the cards the
@@ -2677,9 +2709,11 @@ ${thumbLegendHtml()}
   // measurement does. Criticism 80.)
   //
   // Same precedence animNotes uses: meta.walls.mobility.builtGated, falling
-  // back to meta.shell.mobilityBuilt.maxGated. (On the current fleet all 172
-  // rooms carry the first, so the fallback is insurance against an older plan,
-  // not a live path.)
+  // back to meta.shell.mobilityBuilt.maxGated. (Every room in the current fleet
+  // carries the first, so the fallback is insurance against an older plan, not
+  // a live path. The room count was typed here; it is a fleet measurement and
+  // the fallback branch is the thing that would notice, not a comment.
+  // Criticism 80.)
   //
   // A ZERO IS NOT A GOOD ROOM, IT IS AN UNJUDGED ONE — most of the fleet has no
   // pair of wall tiles the gate will judge (either no pair's absolute detour

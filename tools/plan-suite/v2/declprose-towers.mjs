@@ -482,10 +482,14 @@ export function renderClump(sf) {
     );
   }
 
-  // THE NOTE LINE, RE-DERIVED. Five of six, not four: 93 of 172 rooms hold 3 of
-  // 6 inside chebyshev 2 and 34 hold 4, and at those densities the shape is the
-  // interior rather than a choice. Whether THIS room is over the line is a
+  // THE NOTE LINE, RE-DERIVED. Five of six, not four: most of the fleet holds 3
+  // of 6 inside chebyshev 2 and a large minority holds 4, and at those densities
+  // the shape is the interior rather than a choice. The argument for the line
+  // lives on CLUMP_NOTE in layer-towers.mjs, which is also where the counts
+  // behind it stopped being hand-typed. Whether THIS room is over the line is a
   // comparison of the record's own two numbers, not a flag.
+  // (Round 20 deleted this comment's copy of those counts; it had gone stale in
+  // step with the one it was copied from. Criticism 80.)
   const over = Number.isFinite(num(c.note)) && num(c.within) >= num(c.note);
   const lineText = !Number.isFinite(num(c.note))
     ? `This record does not carry the line this channel speaks at, so whether the huddle is over it ` +

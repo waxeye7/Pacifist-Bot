@@ -399,7 +399,8 @@ export function renderMobility(sf) {
   // (Round 19: this comment carried a six-room roster of before/after laps and a
   // fleet-wide "18% to 35%" band. Three of the six pairs were stale, one of the
   // six rooms has no lift record at all, and the band was false at both ends —
-  // the shipped ownPct spans 3% to 100%. A roster of measurements typed beside
+  // the shipped ownPct spanned 3% to 100% in the fleet that check was run
+  // against. A roster of measurements typed beside
   // the code that measures them is criticism 69's defect and it is gone rather
   // than corrected.)
   // ------------------------------------------------------------------
@@ -515,8 +516,10 @@ export function renderMobility(sf) {
   // very next clause of the same paragraph refutes is worse than no claim. The
   // claim has to hold to be printed, and the holding is recomputed here from
   // `metric.maxGated` and `lane.bounded`; when it does not hold the declaration
-  // says so in those words. (After the layer-6 rewrite it holds in 159/159; the
-  // branch stays because a bound nobody checks is how the last one rotted.)
+  // says so in those words. (After the layer-6 rewrite it held in every room of
+  // the 159-room fleet it was re-checked on; the branch stays because a bound
+  // nobody checks is how the last one rotted — and a comment claiming a clean
+  // sweep over a fleet that has grown since is the same rot. Criticism 80.)
   // ------------------------------------------------------------------
   const lane = sf.lane || null;
   const shrunkNote =

@@ -134,12 +134,54 @@ function renderSealedFloor(r) {
  * take actually opened are read off the after board, and the only refusal made
  * without composing anything quotes a ceiling that cannot be wrong.
  *
+ * OM1 (round 20) widened the CANDIDATES from the pocket holders to every movable
+ * seat the room ships. So the census this paragraph publishes changed shape with
+ * it: "how many movable holders the pockets have between them" is now one number
+ * inside a larger one — the seats the counterfactual points at, out of the seats
+ * that were actually composed — and the per-candidate list says of each seat
+ * whether it stood beside a pocket at all. A refusal that means "every seat in
+ * the room" is a stronger sentence than one that meant "every seat beside a
+ * pocket", and it is the sentence this pass can now honestly make.
+ *
+ * OL5 (round 20) made the pass run to a fixpoint, so a record can carry a `next`
+ * — the run that judged the board this take produced. This renderer recurses on
+ * it, which is why a take's paragraph can be followed by a refusal's: they are
+ * two runs of one pass over two boards, and the room shipped the second.
+ *
  * Rendered from `meta.sealedRecovery` and nothing else, like every renderer in
  * this file. `outcome` is the record's own branch tag, so the paragraph shape is
  * a field of the record rather than a guess made from which keys happen to be
  * present.
  */
 function renderSealedRecovery(r) {
+  return renderSealedRecoveryRun(r) + renderSealedRecoveryTail(r);
+}
+/**
+ * The residual the take left, and the run that judged it (OL5, round 20).
+ *
+ * Every take says what its OWN re-composed board still seals and whether that
+ * was enough to run the pass again — the two halves of a fixpoint claim. A room
+ * that took six deep tiles back and left four behind used to publish the four
+ * under a SEALED INTERIOR FLOOR note calling them "the ceiling on what any
+ * re-ordering inside the placement layers could recover", with nothing anywhere
+ * having attempted them.
+ */
+function renderSealedRecoveryTail(r) {
+  let out = "";
+  if (r.residual) {
+    out +=
+      ` THE PASS RUNS TO A FIXPOINT (OL5): ${r.residual.why}.` +
+      (r.residual.reran ? `` : ` No further run was needed here.`);
+  }
+  if (r.next) {
+    out +=
+      ` AND THEN, ON THE BOARD THIS TAKE PRODUCED — the same pass, run again with the withdrawal above ` +
+      `held, so this second answer is about the board the room actually ships: ` +
+      renderSealedRecovery(r.next);
+  }
+  return out;
+}
+function renderSealedRecoveryRun(r) {
   const deltaWord = (v) =>
     v === null || v === undefined ? "not measured" : v === 0 ? "unchanged" : v > 0 ? `+${v}` : `${v}`;
   const tourTaken =
@@ -198,14 +240,15 @@ function renderSealedRecovery(r) {
       `gated lap ${r.before.lap} -> ${r.after.lap}, the sealed floor ${r.before.sealedTiles} -> ` +
       `${r.after.sealedTiles} (${r.before.sealedDeep} -> ${r.after.sealedDeep} deep) — measured on two ` +
       `FINISHED rooms rather than on a promise. ` +
-      `Across this room's ${r.pockets.length} ${plural(r.pockets.length, "pocket", "pockets")} there ` +
-      `are ${r.candidates} distinct movable ${plural(r.candidates, "holder", "holders")}, and EVERY ` +
-      `one of them was re-composed from layer 1 and finalized — ${r.tried} ` +
-      `${plural(r.tried, "composition", "compositions")}, never a prefix and never one pocket's ` +
-      `holders, and each was admitted or refused on the deep floor its own finished board hands back ` +
-      `BOARD-WIDE (round 18: this pass used to try three in raster order and then report that every ` +
-      `candidate had been examined; round 19: it used to admit on the best single-pocket ` +
-      `counterfactual, which cannot see a withdrawal that opens two pockets at once). ` +
+      seatCensus(r) +
+      ` EVERY one of them was re-composed from layer 1 and finalized — ${r.tried} ` +
+      `${plural(r.tried, "composition", "compositions")}, never a prefix — and each was admitted or ` +
+      `refused on the deep floor its own finished board hands back BOARD-WIDE (round 18: this pass used ` +
+      `to try three holders in raster order and then report that every candidate had been examined; ` +
+      `round 19: it used to admit on the best single-pocket counterfactual, which cannot see a ` +
+      `withdrawal that opens two pockets at once; round 20: it used to PROPOSE only the seats standing ` +
+      `beside a pocket, which cannot see that re-seating sixty extensions moves floor the withdrawn ` +
+      `seat never touched). ` +
       (rivals.length
         ? `${r.accepted} of them cleared the whole panel and this seat won the published tie-break — ` +
           `largest deep recovery, then largest total recovery, then the cheapest panel (least ` +
@@ -239,15 +282,17 @@ function renderSealedRecovery(r) {
     return (
       `SEALED FLOOR NOT RECOVERED: this room seals ${r.pockets.length} ` +
       `${plural(r.pockets.length, "pocket", "pockets")} ` +
-      `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) and NOT ONE of ` +
-      `their holders is a structure this pass may move ` +
-      `(${r.fixedHolders.map((h) => `${h.type} ${xy(h)}=${h.recovers}/${h.recoversDeep}`).join(", ")}). ` +
+      `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) and ships NO seat ` +
+      `this pass may withdraw — no ${r.kindsAttempted.join(" and no ")} — while its pockets are held by ` +
+      `${(r.fixedHolders || []).map((h) => `${h.type} ${xy(h)}=${h.recovers}/${h.recoversDeep}`).join(", ")}. ` +
       `The two classes it does move are ${r.kindsAttempted.join(" and ")}: an extension because the ` +
       `mass is the flexible layer and the seal is its ordering, and the observer because its own ` +
       `placement rule is "the furthest leftover tile" and its position is irrelevant to what it does. ` +
       `A hub structure, a lab of the diamond, a tower or the nuker that is hauled 300k energy by hand ` +
       `is placed against a real constraint by its own layer, and "move it one tile" is not a bounded ` +
-      `change to it.`
+      `change to it. (Round 20: this branch used to fire when every HOLDER was fixed geometry, which ` +
+      `stopped being a reason to refuse when the candidates became every movable seat — a seat that ` +
+      `holds nothing can still open a pocket, because withdrawing it re-seats the whole mass.)`
     );
   }
   const tried = (r.offered || []).filter((o) => o.withdrawn);
@@ -258,28 +303,81 @@ function renderSealedRecovery(r) {
   return (
     `SEALED FLOOR NOT RECOVERED: this room seals ${r.pockets.length} ` +
     `${plural(r.pockets.length, "pocket", "pockets")} ` +
-    `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) with ` +
-    `${r.candidates} distinct movable ${plural(r.candidates, "holder", "holders")} between them, ` +
-    `and EVERY one of them was re-composed from layer 1 with the seat withdrawn and finalized — ` +
-    `${r.tried} ${plural(r.tried, "composition", "compositions")}, never a prefix and never one ` +
-    `pocket's holders, each judged on the deep floor its own finished board hands back BOARD-WIDE ` +
-    `(round 18: this pass used to try three in raster order and then report that every candidate had ` +
-    `been refused; round 19: it used to look at one pocket's holders only). Each one, and the ` +
-    `instrument that refused it: ` +
-    tried
-      .map(
-        (o) =>
-          `${o.kind} ${xy(o.withdrawn)} (counterfactual ${o.recoversDeep} deep) — ` +
-          `${o.verdict.replace(/^refused: /, "")}` +
-          (o.extTourDelta === null || o.extTourDelta === undefined
-            ? ``
-            : `; extension tour ${deltaWord(o.extTourDelta)}`),
-      )
-      .join(" · ") +
+    `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}).` +
+    seatCensus(r) +
+    ` EVERY one of them was re-composed from layer 1 with the seat withdrawn and finalized — ` +
+    `${r.tried} ${plural(r.tried, "composition", "compositions")}, never a prefix — each judged on the ` +
+    `deep floor its own finished board hands back BOARD-WIDE (round 18: this pass used to try three ` +
+    `holders in raster order and then report that every candidate had been refused; round 19: it used ` +
+    `to look at one pocket's holders only; round 20: it used to propose only holders at all). ` +
+    `Every seat, grouped by the instrument or the shortfall that refused it: ` +
+    refusalGroups(r, tried) +
     `. This room ships the plan it would have shipped without this pass, and its ${sealedDeepNow} ` +
     `deep tile(s) stay sealed — priced, named and refused rather than unexamined.` +
     tourRefused
   );
+}
+/**
+ * THE CANDIDATE CENSUS, IN THE SHAPE OM1 (round 20) GAVE IT.
+ *
+ * Two numbers, and the relationship between them is the whole point: the pass
+ * composed every movable seat the room ships, and the per-structure
+ * counterfactual — the thing that used to BE the candidate list — points at some
+ * subset of them. Printing only the second is how "every candidate was refused"
+ * came to mean "every candidate the counterfactual proposed".
+ */
+function seatCensus(r) {
+  const seats = r.seats || {};
+  const parts = Object.keys(seats).map((t) => `${seats[t]} ${t}`);
+  return (
+    ` The candidates are EVERY MOVABLE SEAT this room ships — ${r.candidates} of them` +
+    (parts.length ? ` (${parts.join(" + ")})` : ``) +
+    `, of which ${r.movableHolders ?? 0} stand D8 of one of its ` +
+    `${r.pockets.length} ${plural(r.pockets.length, "pocket", "pockets")} and the rest hold nothing ` +
+    `shut at all. Both are composed: a withdrawal re-seats the whole extension mass, so a seat that ` +
+    `touches no pocket can still be the tile whose removal lets the mass flow into one.` +
+    ((r.fixedHolders || []).length
+      ? ` ${r.fixedHolders.length} further ${plural(r.fixedHolders.length, "holder", "holders")} ` +
+        `${plural(r.fixedHolders.length, "is", "are")} fixed geometry and out of this pass's reach ` +
+        `(${r.fixedHolders.map((h) => `${h.type} ${xy(h)}`).join(", ")}).`
+      : ``)
+  );
+}
+/**
+ * EVERY SEAT NAMED, GROUPED BY WHY IT LOST (OM1, round 20).
+ *
+ * The refusal list used to be one clause per candidate, which was readable at
+ * eight or ten candidates and is not at sixty-one. It is grouped instead of
+ * truncated, deliberately: a list that drops entries to stay short is the
+ * silently-truncated-search defect wearing a different hat. Every seat still
+ * appears exactly once, under the reason its own finished board earned.
+ */
+function refusalGroups(r, tried) {
+  const reasonOf = (o) => {
+    const v = String(o.verdict || "");
+    if (/did not produce a complete room/.test(v)) return "the re-composition did not produce a complete room";
+    const m = /only recovers (-?\d+) deep/.exec(v);
+    if (m) return `every instrument holds, ${m[1]} deep tile(s) back against a threshold of ${r.threshold}`;
+    if (/filler's TOTAL extension tour/.test(v)) {
+      return `every instrument holds and enough floor comes back, but the filler's total extension tour breaks its ${r.tourSlack}-step ceiling`;
+    }
+    return v.replace(/^refused: /, "");
+  };
+  const groups = new Map();
+  for (const o of tried) {
+    const k = reasonOf(o);
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(o);
+  }
+  return [...groups.entries()]
+    .map(
+      ([reason, list]) =>
+        `${reason} — ${list.length} ${plural(list.length, "seat", "seats")}: ` +
+        list
+          .map((o) => `${o.kind} ${xy(o.withdrawn)}${o.holder ? ` (holder, counterfactual ${o.recoversDeep} deep)` : ``}`)
+          .join(" · "),
+    )
+    .join("; ");
 }
 
 // ---------------------------------------------------------------------------

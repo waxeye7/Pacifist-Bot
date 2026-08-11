@@ -48,6 +48,14 @@ function iconSprite(parts, p, cell, file, scale = 0.92) {
  * happen). Both renderers read these.
  */
 export const ROAD_PAINT = { base: "#4a4a4a", top: "#6e6e6e", inset: 0.12, size: 0.76 };
+/**
+ * The floor every translucent layer is painted ON. Both renderers used to carry
+ * this ternary as three inline literals; a legend swatch that has to show what
+ * an alpha fill LOOKS like has to composite over the real floor, and it can
+ * only do that honestly if the floor is a value and not a repeated literal.
+ */
+export const TERRAIN_PAINT = { wall: "#0e0e0e", swamp: "#16301a", plain: "#2c2c24" };
+const terrainFill = (t) => (t & WALL ? TERRAIN_PAINT.wall : t & SWAMP ? TERRAIN_PAINT.swamp : TERRAIN_PAINT.plain);
 export const RAMPART_PAINT = {
   fill: "#3f6",
   stroke: "#5f8",
@@ -71,34 +79,99 @@ function iconRoad(parts, p, cell) {
   );
 }
 
+/**
+ * The hub ring's green was three literals — here, in renderThumbSvg's circle and
+ * in the room-page legend swatch. One value, read by all three.
+ */
+export const HUB_PAINT = { stroke: "#00E676" };
 function iconHub(parts, p, cell) {
   const cx = p.x * cell + cell / 2,
     cy = p.y * cell + cell / 2;
   parts.push(
-    `<circle cx="${cx}" cy="${cy}" r="${cell * 0.48}" fill="none" stroke="#00E676" stroke-width="${Math.max(2, cell * 0.1)}"/>`,
+    `<circle cx="${cx}" cy="${cy}" r="${cell * 0.48}" fill="none" stroke="${HUB_PAINT.stroke}" stroke-width="${Math.max(2, cell * 0.1)}"/>`,
   );
 }
 
-/** Faint fill for grown core pocket (debug the grow-from-room step). */
+/**
+ * The stroke that closes the enclosure over load-bearing TERRAIN wall (the tiles
+ * the min-cut takes for free). Hoisted for the same reason as the rest: the
+ * room-page legend has to swatch it, and the only honest swatch is this stroke
+ * at this opacity. `strokeWidth` is a factor of the cell, as the painter uses it.
+ */
+export const SHELL_SEAL_PAINT = { stroke: "#5f8", strokeOpacity: 0.34, strokeWidth: 0.045 };
+
+/**
+ * Faint fill for grown core pocket (debug the grow-from-room step).
+ *
+ * The colour and the opacity are a named constant rather than two literals in
+ * this one template string, because the room-page legend has to swatch this
+ * exact wash and has to read it from here to do it (see legendHtml, OL2).
+ */
+export const CORE_PAINT = { fill: "#00E676", opacity: 0.07 };
 function iconCore(parts, core, cell, x0, y0) {
   if (!core?.length) return;
   for (const p of core) {
     const x = (p.x - x0) * cell;
     const y = (p.y - y0) * cell;
     parts.push(
-      `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="#00E676" opacity="0.07"/>`,
+      `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" fill="${CORE_PAINT.fill}" opacity="${CORE_PAINT.opacity}"/>`,
     );
   }
 }
 
+/**
+ * Swatch arithmetic, so a key can show a translucent layer without anybody
+ * typing out the answer.
+ *
+ * `alphaHex` turns a paint opacity into the CSS 8-digit suffix; `overHex`
+ * flattens a fill at that opacity onto an opaque background, which is what the
+ * renderer's compositor does to the same two numbers. Both take #rgb or
+ * #rrggbb. A swatch built through these is wrong only if the paint is wrong.
+ */
+function hexRgb(h) {
+  const s = h.replace("#", "");
+  const w =
+    s.length === 3
+      ? s
+          .split("")
+          .map((c) => c + c)
+          .join("")
+      : s;
+  return [0, 2, 4].map((i) => parseInt(w.slice(i, i + 2), 16));
+}
+const hex2 = (v) => Math.round(v).toString(16).padStart(2, "0");
+/** #rgb → #rrggbb, so an alpha suffix can be appended without emitting 5-digit CSS */
+function hex6(h) {
+  return "#" + hexRgb(h).map(hex2).join("");
+}
+function alphaHex(opacity) {
+  return hex2(Math.max(0, Math.min(1, opacity)) * 255);
+}
+function overHex(fill, opacity, bg) {
+  const f = hexRgb(fill);
+  const b = hexRgb(bg);
+  const a = Math.max(0, Math.min(1, opacity));
+  return "#" + f.map((v, i) => hex2(v * a + b[i] * (1 - a))).join("");
+}
+
+/** the dashed ring on the confluence seed — swatched by legendHtml, so: a value */
+export const SEED_PAINT = { stroke: "#FFD54F" };
 function iconSeed(parts, seed, cell, x0, y0) {
   if (!seed) return;
   const cx = (seed.x - x0) * cell + cell / 2;
   const cy = (seed.y - y0) * cell + cell / 2;
   parts.push(
-    `<circle cx="${cx}" cy="${cy}" r="${cell * 0.22}" fill="none" stroke="#FFD54F" stroke-width="${Math.max(1.5, cell * 0.08)}" stroke-dasharray="${cell * 0.12} ${cell * 0.08}"/>`,
+    `<circle cx="${cx}" cy="${cy}" r="${cell * 0.22}" fill="none" stroke="${SEED_PAINT.stroke}" stroke-width="${Math.max(1.5, cell * 0.08)}" stroke-dasharray="${cell * 0.12} ${cell * 0.08}"/>`,
   );
 }
+
+/**
+ * The three dots a thumbnail draws for the room's fixed features. The thumbnail
+ * key swatches source and controller, so these are read, not typed, on both
+ * sides — same rule as everything else in this file. (The room pages draw these
+ * three as real sprites, not dots; that legend keys the sprite.)
+ */
+export const MARKER_PAINT = { source: "#ffe14d", controller: "#66ccff", mineral: "#e0a6ff" };
 
 const STRUCT_ICON = {
   extension: ["extension-border200.svg", "extension.svg"],
@@ -165,7 +238,7 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
     for (let x = x0; x <= x1; x++) {
       // BITMASK, not enum: code 3 is wall|swamp and draws as WALL (see shared.mjs)
       const t = tileAt(plan.terrain, x, y);
-      const fill = t & WALL ? "#0e0e0e" : t & SWAMP ? "#16301a" : "#2c2c24";
+      const fill = terrainFill(t);
       const p = ox(x, y);
       parts.push(
         `<rect x="${p.x * cell}" y="${p.y * cell}" width="${cell}" height="${cell}" fill="${fill}"/>`,
@@ -199,8 +272,9 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
     for (const p of plan.shell.boundary) {
       if (p.x < x0 || p.x > x1 || p.y < y0 || p.y > y1) continue;
       const o = ox(p.x, p.y);
+      const S = SHELL_SEAL_PAINT;
       parts.push(
-        `<rect x="${o.x * cell + 1.5}" y="${o.y * cell + 1.5}" width="${cell - 3}" height="${cell - 3}" rx="${cell * 0.15}" fill="none" stroke="#5f8" stroke-opacity="0.34" stroke-width="${Math.max(0.5, cell * 0.045)}"/>`,
+        `<rect x="${o.x * cell + 1.5}" y="${o.y * cell + 1.5}" width="${cell - 3}" height="${cell - 3}" rx="${cell * 0.15}" fill="none" stroke="${S.stroke}" stroke-opacity="${S.strokeOpacity}" stroke-width="${Math.max(0.5, cell * S.strokeWidth)}"/>`,
       );
     }
   }
@@ -288,8 +362,11 @@ export function renderRoomSvg(plan, cell = 18, crop = null) {
  * emits one `<image href="data:image/svg+xml;base64,...">` PER STRUCTURE
  * INSTANCE, so a room with 60 extensions carried the 2.4KB extension sprite
  * sixty times over, on top of 2500 terrain rects and 2500 grid strokes. One
- * room came to ~1MB and the 159-room index came to 159,056,753 bytes: 13.8s of
- * transfer on localhost and 135 of 159 cards present at the 10-second mark. An
+ * room came to ~1MB and the 159-room index of the round this was measured in
+ * came to 159,056,753 bytes: 13.8s of transfer on localhost and 135 of those
+ * 159 cards present at the 10-second mark. That is a browser-load reading from
+ * one run on one machine — it is quoted as the reason the thumbnail exists, not
+ * as a fleet statistic, and nothing re-measures it. An
  * index nobody can load is not an index.
  *
  * THINGS TRIED AND REJECTED, in order:
@@ -338,8 +415,12 @@ export const THUMB_PAINT = [
   // that the reader will find that colour on a thumbnail; this one could not be
   // found anywhere, and a key that names structures the plan refuses to build
   // is the same defect as a paragraph naming a search nobody ran. Nothing else
-  // changes: `plan.structures.factory` is undefined in 172/172 rooms, so the
-  // draw order this table also feeds paints exactly what it painted before.
+  // changes: the RCL8 program this planner builds contains no factory at all, so
+  // `plan.structures.factory` is undefined in every room it can ever emit, and
+  // the draw order this table also feeds paints exactly what it painted before.
+  // (Round 20: this counted rooms — "undefined in 172/172" — which is the wrong
+  // instrument for a claim about the PROGRAM, and it is a count that would have
+  // to be re-typed every time the fleet grew. Criticism 80.)
 ];
 const THUMB_COLOR = Object.fromEntries(THUMB_PAINT.map(([t, c]) => [t, c]));
 
@@ -362,11 +443,10 @@ export function renderThumbSvg(plan, cell = 8) {
     let x = 0;
     while (x < 50) {
       const t = tileAt(plan.terrain, x, y);
-      const fill = t & WALL ? "#0e0e0e" : t & SWAMP ? "#16301a" : "#2c2c24";
+      const fill = terrainFill(t);
       let n = 1;
       while (x + n < 50) {
-        const u = tileAt(plan.terrain, x + n, y);
-        const f2 = u & WALL ? "#0e0e0e" : u & SWAMP ? "#16301a" : "#2c2c24";
+        const f2 = terrainFill(tileAt(plan.terrain, x + n, y));
         if (f2 !== fill) break;
         n++;
       }
@@ -406,18 +486,28 @@ export function renderThumbSvg(plan, cell = 8) {
       `<circle cx="${p.x * cell + cell / 2}" cy="${p.y * cell + cell / 2}" r="${cell * 0.45}" fill="${fill}"/>`,
     );
   };
-  for (const s of plan.sources || []) dot(s, "#ffe14d");
-  dot(plan.controller, "#66ccff");
-  dot(plan.mineral, "#e0a6ff");
+  for (const s of plan.sources || []) dot(s, MARKER_PAINT.source);
+  dot(plan.controller, MARKER_PAINT.controller);
+  dot(plan.mineral, MARKER_PAINT.mineral);
   if (plan.hub) {
     parts.push(
-      `<circle cx="${plan.hub.x * cell + cell / 2}" cy="${plan.hub.y * cell + cell / 2}" r="${cell * 0.7}" fill="none" stroke="#00E676" stroke-width="1.2"/>`,
+      `<circle cx="${plan.hub.x * cell + cell / 2}" cy="${plan.hub.y * cell + cell / 2}" r="${cell * 0.7}" fill="none" stroke="${HUB_PAINT.stroke}" stroke-width="1.2"/>`,
     );
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${W}" viewBox="0 0 ${W} ${W}"><rect width="${W}" height="${W}" fill="#0a0a0a"/>${parts.join("")}</svg>`;
 }
 
-/** the key that makes a sprite-free thumbnail readable — built from THUMB_PAINT */
+/**
+ * the key that makes a sprite-free thumbnail readable — built from THUMB_PAINT
+ *
+ * STANDING RULE (round 20, and it holds for legendHtml below too): EVERY swatch
+ * in these keys is read from the paint table its painter draws from. Alpha is
+ * arithmetic done here (alphaHex / overHex), never a typed-out result. A
+ * hand-typed hex beside a painted one is a copy of a published value — correct
+ * only until the paint moves, and unfalsifiable while it sits there — which is
+ * the defect class round 20 closed in this file. If a swatch needs a colour the
+ * paint does not have, the paint is missing a constant; do not invent one.
+ */
 export function thumbLegendHtml() {
   let html =
     '<div class="legend" style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:10px 0;font-size:12px;color:#8b949e">' +
@@ -426,9 +516,20 @@ export function thumbLegendHtml() {
     `<span style="display:inline-flex;align-items:center;gap:5px"><span style="width:12px;height:12px;background:${c};border-radius:3px;display:inline-block;${extra}"></span>${label}</span>`;
   for (const [, color, label] of THUMB_PAINT) html += swatch(color, label);
   html += swatch(ROAD_PAINT.top, "Road");
-  html += swatch("#3f6633", "Rampart");
-  html += swatch("#ffe14d", "Source", "border-radius:50%");
-  html += swatch("#66ccff", "Controller", "border-radius:50%");
+  // OL1 (round 20): this was the hand-typed "#3f6633" — the only swatch in a key
+  // whose whole point is that it is read from the paint table. The thumb paints
+  // RAMPART_PAINT.fill at RAMPART_PAINT.fillOpacity over the floor, so the
+  // swatch composites those same two values over the same plain-floor colour
+  // the terrain pass uses (#2E6736 today; over wall it reads darker). A
+  // hand-typed swatch beside a painted one is a copy of a published value —
+  // right until the paint moves — and that is the class this project keeps
+  // closing.
+  html += swatch(overHex(RAMPART_PAINT.fill, RAMPART_PAINT.fillOpacity, TERRAIN_PAINT.plain), "Rampart");
+  // OL7 (round 20): these two were typed here and typed again in the dot() calls
+  // above — the same value in two places is the same defect as two different
+  // ones, just not caught yet. MARKER_PAINT is the dot's own colour.
+  html += swatch(MARKER_PAINT.source, "Source", "border-radius:50%");
+  html += swatch(MARKER_PAINT.controller, "Controller", "border-radius:50%");
   html += "</div>";
   return html;
 }
@@ -461,6 +562,10 @@ export function hubCrop(plan, radius = 6) {
  * this board has none of, and the counts beside the icons are read off the
  * boards rather than typed here. Called with nothing, the legend degrades to
  * the terrain/paint swatches alone rather than to a guess.
+ *
+ * The standing rule stated over thumbLegendHtml applies to every swatch below:
+ * read the paint table the painter draws from, do the alpha in code, and never
+ * type a hex next to a painted one.
  */
 export function legendHtml(inv = null) {
   const has = (t) => inv && inv[t] !== undefined && inv[t] !== null && inv[t] !== "0";
@@ -491,20 +596,50 @@ export function legendHtml(inv = null) {
       <img src="${uri}" width="28" height="28" alt="" style="image-rendering:auto;background:#222;border-radius:4px;padding:2px"/>
       ${label}</span>`;
   }
+  // OL4 (round 20): was `background:#6e6e6e;border:1px solid #888` — the fill
+  // happened to equal ROAD_PAINT.top but was typed rather than read (the
+  // thumbnail key one function above already reads it), and the #888 edge had no
+  // counterpart in the paint at all. iconRoad really does frame the top square
+  // with ROAD_PAINT.base, so the swatch is that frame around that fill: both
+  // ends of it now come off the table the road is drawn from.
   html +=
-    '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:#6e6e6e;border:1px solid #888;border-radius:2px;display:inline-block"></span> Road</span>';
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${ROAD_PAINT.top};border:1px solid ${ROAD_PAINT.base};border-radius:2px;display:inline-block"></span> Road</span>`;
   // the rampart is the single largest painted class on these boards (the shell
   // cut plus the eco bubbles plus personal cover) and the key did not have it
   html +=
     `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${RAMPART_PAINT.fill};opacity:${RAMPART_PAINT.fillOpacity};border:1px solid ${RAMPART_PAINT.stroke};border-radius:3px;display:inline-block"></span> Rampart${cnt("rampart")}</span>`;
+  // OL6 (round 20): the ring green was typed here and painted from two other
+  // literals; HUB_PAINT is now the one value iconHub, the thumbnail circle and
+  // this swatch all read.
   html +=
-    '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:2px solid #00E676;border-radius:50%;display:inline-block"></span> Storage / hub</span>';
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:2px solid ${HUB_PAINT.stroke};border-radius:50%;display:inline-block"></span> Storage / hub</span>`;
+  // OL3 (round 20): the three keys that follow are painted by renderRoomSvg and
+  // by nothing else — they are on the room renderings, not on the index's
+  // thumbnails. The prose beside this legend already sends sprites to the room
+  // pages, but a key printed above a wall of thumbnails and read left to right
+  // reads as a key TO those thumbnails; say which board they describe here,
+  // where the reader is looking, rather than a paragraph away.
+  html += '<span style="color:#667;margin-left:2px">on the room renderings —</span>';
+  // OL7 (round 20): dashed ring, read from iconSeed's own stroke colour.
   html +=
-    '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:2px dashed #FFD54F;border-radius:50%;display:inline-block"></span> Confluence seed</span>';
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:2px dashed ${SEED_PAINT.stroke};border-radius:50%;display:inline-block"></span> Confluence seed</span>`;
+  // OL2 (round 20): this swatch was the hand-typed "#00E67622" — alpha 0x22, or
+  // .13 — against a wash the painter lays down at CORE_PAINT.opacity (.07):
+  // roughly twice the paint. Both halves now come off the one constant
+  // iconCore draws with, so the key cannot drift from the rect again. Same
+  // class as OL1: a hand-typed swatch beside a painted one is a copy of a
+  // published value. (The 1px outline is swatch chrome — a 7% wash in a 22px
+  // box is otherwise unfindable — so it is the paint's own colour at full
+  // strength, not an invented alpha; the painted core carries no stroke.)
   html +=
-    '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:#00E67622;border:1px solid #00E67655;display:inline-block"></span> Grown core</span>';
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${CORE_PAINT.fill}${alphaHex(CORE_PAINT.opacity)};border:1px solid ${CORE_PAINT.fill};display:inline-block"></span> Grown core</span>`;
+  // OL5 (round 20): the border read "#5f8a" — alpha 0xaa, .67 — for a stroke the
+  // painter lays at SHELL_SEAL_PAINT.strokeOpacity (.34): the swatch was twice
+  // the paint, a numeric claim about the board that the board did not support.
+  // Colour and opacity both come off the painter's constant now, expanded to
+  // 6 digits first so the alpha suffix is legal CSS rather than a 5-digit hex.
   html +=
-    '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:1px solid #5f8a;border-radius:3px;display:inline-block"></span> Sealing terrain wall (free enclosure)</span>';
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:1px solid ${hex6(SHELL_SEAL_PAINT.stroke)}${alphaHex(SHELL_SEAL_PAINT.strokeOpacity)};border-radius:3px;display:inline-block"></span> Sealing terrain wall (free enclosure)</span>`;
   html += "</div>";
   return html;
 }

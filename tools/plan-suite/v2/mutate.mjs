@@ -2289,7 +2289,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
 //   · `meta.towers.adjacency` — the whole tower-adjacency prior, whose
 //     `forgone` sum the goal document quotes as a fleet figure — had no reader
 //     at all. Nine mutations escaped in one sweep.
-//   · 165 of the fleet's 177 planner NOTES were unchecked prose, and
+//   · all but one class of the planner's NOTES were unchecked prose, and
 //     `meta.notes = []` passed every room in the fleet.
 //
 // Every case below is one of those escapes, planted the way its reviewer
@@ -4721,7 +4721,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
 // ROUND 19 — the two reviewers' landed exploits, one case each.
 // ===========================================================================
 // MF1+O6 the tie-break (the winner was checked on one of four keys, and the
-// key that decides nine of the ten takes was not it); MF2 `lane.dropped` as an
+// key that decides most of the takes was not it); MF2 `lane.dropped` as an
 // unanchored producer boolean licensing six nulls; MF3 the recovery record
 // deletable in exactly the two rooms where the pass fully succeeded; MF4 the
 // crossing's own content (nine escapes); MF5 four lane leaves published thrice
@@ -4953,14 +4953,18 @@ run("r13/F8-untriggered-gate", R, (p) => {
     taken19(),
     (p) => { delete p.meta.composeOpts; },
     "SCHEMA|composeOpts");
+  // ROUND 20 / OL5 — both of these are re-pointed onto the LIST shape the
+  // fixpoint made of `forbidExtSeat`/`forbidObserverSeat`, and the second one
+  // is now the claim it was always making: a withdrawal on the board's build
+  // arguments that no run of the pass took.
   run("r19/MF3-a-withdrawal-option-on-a-room-that-records-no-take",
     withRecov19((R) => R.outcome === "belowThreshold"),
-    (p) => { p.meta.composeOpts = { ...(p.meta.composeOpts || {}), forbidExtSeat: { x: 20, y: 20 } }; },
-    "composeOpts|withdrawal|taking");
+    (p) => { p.meta.composeOpts = { ...(p.meta.composeOpts || {}), forbidExtSeat: [{ x: 20, y: 20 }] }; },
+    "composeOpts|withdrawal|taking|roster");
   run("r19/MF3-both-withdrawal-options-set-at-once",
-    taken19((R, p) => !!p.meta?.composeOpts?.forbidExtSeat),
-    (p) => { p.meta.composeOpts.forbidObserverSeat = { x: 21, y: 21 }; },
-    "withdrawal option|Exactly one seat");
+    taken19((R, p) => Array.isArray(p.meta?.composeOpts?.forbidExtSeat)),
+    (p) => { p.meta.composeOpts.forbidObserverSeat = [{ x: 21, y: 21 }]; },
+    "roster|composeOpts|withdrawal");
 
   // ---- MF2: lane.dropped, anchored ----------------------------------------
   run("r19/MF2-lane-dropped-flipped-false-and-the-six-nulls-taken-in-all-three-copies",
@@ -5186,6 +5190,299 @@ run("r13/F8-untriggered-gate", R, (p) => {
     anyRoom19((p) => Array.isArray(p.meta?.walls?.reflow?.shallow)),
     (p) => { p.meta.walls.reflow.shallow = [...p.meta.walls.reflow.shallow, { x: 25, y: 25 }]; },
     "reflow.shallow|depth-4 floor|shallow");
+}
+
+// ===========================================================================
+// ROUND 20 — the two reviewers' rosters, one case each (and the harder
+// variants the fixes invited).
+// ===========================================================================
+// MECHANICAL: MF2 the lane round cap, which was held to "is a number" in every
+// room with no mobility declaration and described by a hand census that was
+// false in seven rooms; MF3 `crossings[].window` on a 0..25 range with its own
+// board-derived twin beside it; MF4 the two presence gaps — `meta.shellEscalation`
+// (the ladder's only anchor, deletable in all 155 rooms that carry it) and the
+// lane census itself (deleting `meta.walls.mobility.lanes` falsified the
+// condition twenty lane fields were required under).
+// OWNER: OM1 the candidate set — "a candidate is a structure standing D8 of a
+// pocket" was the holders-only implementation asserted as a necessity, and the
+// candidates are every movable seat the room ships now, so the invariant is a
+// census of the board; OL5 the pass runs to a FIXPOINT, so the record is a
+// chain and the withdrawals are a list.
+{
+  const any20 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const regen20 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+  const recov20 = (edit) => (p) => {
+    const R = p.meta.sealedRecovery;
+    if (!R) throw new Error("no sealedRecovery");
+    edit(R, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+    if (i >= 0) p.meta.noteRecords[i].rec = R;
+    regen20(p);
+  };
+  const recovRoom20 = (pred) => any20((p) => (p.meta?.sealedRecovery ? pred(p.meta.sealedRecovery, p) : false));
+  const takenRoom20 = (pred) => recovRoom20((R, p) => R.outcome === "taken" && (!pred || pred(R, p)));
+  /** a room whose recovery record took NOTHING — its census is the shipped board's */
+  const refusedRoom20 = (pred) => recovRoom20((R, p) => R.outcome === "allRefused" && (!pred || pred(R, p)));
+  const lane20 = (p) => p.meta?.walls?.mobility?.lanes;
+  const laneRoom20 = (pred) => any20((p) => { const L = lane20(p); return !!(L && pred(L, p)); });
+  /** both copies at once — the exploit that survives a single-place edit */
+  const bothLanes20 = (edit) => (p) => {
+    edit(p.meta.walls.mobility.lanes, p);
+    edit(p.meta.extensions.laneMeta, p);
+    regen20(p);
+  };
+  const crossRoom20 = (pred) => any20((p) => (p.meta?.towers?.adjacency?.crossings || []).some(pred));
+  const cross20 = (pick, edit) => (p) => {
+    const c = (p.meta?.towers?.adjacency?.crossings || []).find(pick);
+    if (!c) throw new Error("no matching crossing");
+    edit(c, p);
+  };
+  const ladderRoom20 = (pred) =>
+    any20((p) => {
+      const d = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs) && s.ladder.rungs.length);
+      return !!(d && p.meta?.shellEscalation && (!pred || pred(d.ladder, p)));
+    });
+
+  // ---- MF2: the round cap, which is a three-branch function of its own record
+  run("r20/MF2-roundCap-x3+1-in-a-room-with-no-mobility-declaration",
+    laneRoom20((L, p) => L.roundCap > 0 && !(p.meta?.shortfalls || []).some((s) => s.gate === "mobility" && !s.kind)),
+    bothLanes20((L) => { L.roundCap = L.roundCap * 3 + 1; }),
+    "roundCap|lane-anchor");
+  run("r20/MF2-roundCap-zeroed-without-the-drop-it-would-be-recording",
+    laneRoom20((L) => L.roundCap > 0 && L.dropped !== true),
+    bothLanes20((L) => { L.roundCap = 0; }),
+    "roundCap|DROPPED|lane-anchor");
+  run("r20/MF2-a-shrunk-reservation-whose-cap-is-not-the-shrink-it-published",
+    laneRoom20((L) => L.shrunk && typeof L.shrunk.to === "number"),
+    bothLanes20((L) => { L.roundCap = L.shrunk.to + 1; }),
+    "roundCap|shrunk");
+  run("r20/MF2-the-shrink-ladder-started-somewhere-layer-6-does-not",
+    laneRoom20((L) => L.shrunk && typeof L.shrunk.from === "number"),
+    bothLanes20((L) => { L.shrunk.from = 99; }),
+    "shrunk.from|LANE_ROUNDS");
+  run("r20/MF2-an-unshrunk-reservation-capped-under-LANE_ROUNDS",
+    laneRoom20((L) => !L.shrunk && L.roundCap > 1 && L.dropped !== true),
+    bothLanes20((L) => { L.roundCap -= 1; }),
+    "roundCap|LANE_ROUNDS");
+  run("r20/MF2-more-rounds-run-than-the-cap-allows",
+    laneRoom20((L) => typeof L.rounds === "number" && L.roundCap > 0),
+    bothLanes20((L) => { L.rounds = L.roundCap + 3; }),
+    "round\\(s\\) under a cap|roundCap");
+
+  // ---- MF4: the lane census itself, and the escalation trail ---------------
+  run("r20/MF4-the-whole-lane-census-deleted-in-a-non-declaring-room",
+    laneRoom20((L, p) => !(p.meta?.shortfalls || []).some((s) => s.gate === "mobility" && !s.kind)),
+    (p) => { delete p.meta.walls.mobility.lanes; },
+    "meta.walls.mobility.lanes");
+  run("r20/MF4-the-second-lane-copy-deleted",
+    laneRoom20(() => true),
+    (p) => { delete p.meta.extensions.laneMeta; },
+    "laneMeta");
+  run("r20/MF4-the-lane-census-published-without-its-cap",
+    laneRoom20(() => true),
+    (p) => { delete p.meta.walls.mobility.lanes.roundCap; delete p.meta.extensions.laneMeta.roundCap; },
+    "roundCap|meta.walls.mobility.lanes");
+  run("r20/MF4-shellEscalation-deleted-in-a-ladder-room",
+    ladderRoom20(),
+    (p) => { delete p.meta.shellEscalation; },
+    "shellEscalation");
+  run("r20/MF4-shellEscalation-published-as-a-string-in-a-ladder-room",
+    ladderRoom20(),
+    (p) => { p.meta.shellEscalation = "walked"; },
+    "shellEscalation");
+  run("r20/MF4-shellEscalation-stripped-of-the-two-rungs-it-pins",
+    ladderRoom20(),
+    (p) => { delete p.meta.shellEscalation.mobilityFirst; delete p.meta.shellEscalation.pickedNeedDeepBonus; },
+    "shellEscalation");
+
+  // ---- MF3: the crossing's window -----------------------------------------
+  run("r20/MF3-crossing-window-inflated-to-the-top-of-the-old-range",
+    crossRoom20((c) => typeof c.window === "number"),
+    cross20((c) => typeof c.window === "number", (c) => { c.window = 25; }),
+    "window");
+  run("r20/MF3-crossing-window-deflated-by-one",
+    crossRoom20((c) => typeof c.window === "number"),
+    cross20((c) => typeof c.window === "number", (c) => { c.window -= 1; }),
+    "window");
+  run("r20/MF3-crossing-window-inflated-by-one",
+    crossRoom20((c) => typeof c.window === "number"),
+    cross20((c) => typeof c.window === "number", (c) => { c.window += 1; }),
+    "window");
+  run("r20/MF3-crossing-window-and-the-dispersion-twin-moved-together",
+    crossRoom20((c) => typeof c.window === "number"),
+    (p) => {
+      const c = (p.meta.towers.adjacency.crossings || []).find((z) => typeof z.window === "number");
+      if (!c) throw new Error("no windowed crossing");
+      c.window += 4;
+      p.meta.towers.towerDispersion.after += 4;
+    },
+    "window|DISPERSION");
+
+  // ---- OM1: the candidate set is a census of the board ---------------------
+  run("r20/OM1-the-candidate-count-cut-back-to-the-holders-only-shortlist",
+    recovRoom20((R) => R.outcome !== "belowThreshold" && typeof R.movableHolders === "number" && R.candidates > R.movableHolders),
+    recov20((R) => {
+      R.candidates = R.movableHolders;
+      R.tried = R.movableHolders;
+      R.offered = R.offered.filter((o) => !o.withdrawn || o.holder === true);
+    }),
+    "seat census|candidate|EVERY movable seat");
+  run("r20/OM1-the-seat-census-inflated-past-the-RCL8-program",
+    recovRoom20((R) => R.seats && typeof R.seats.extension === "number"),
+    recov20((R) => { R.seats.extension += 3; R.candidates += 3; R.tried += 3; }),
+    "seats|RCL8 program|priced entr");
+  run("r20/OM1-the-seat-census-deleted",
+    recovRoom20((R) => !!R.seats),
+    recov20((R) => { delete R.seats; }),
+    "seats");
+  run("r20/OM1-a-seat-census-published-by-the-branch-that-composes-nothing",
+    recovRoom20((R) => R.outcome === "belowThreshold"),
+    recov20((R) => { R.seats = { extension: 60, observer: 1 }; R.movableHolders = 0; }),
+    "belowThreshold");
+  run("r20/OM1-one-priced-entry-dropped-off-the-roster",
+    refusedRoom20((R) => (R.offered || []).filter((o) => o && o.withdrawn).length > 2),
+    recov20((R) => {
+      const i = R.offered.findIndex((o) => o && o.withdrawn && o.holder !== true);
+      R.offered.splice(i, 1);
+      R.candidates -= 1;
+      R.tried -= 1;
+      R.seats.extension -= 1;
+    }),
+    "prices no withdrawal|seats|RCL8 program");
+  run("r20/OM1-a-priced-entry-moved-onto-a-tile-this-room-seats-nothing-on",
+    refusedRoom20((R) => (R.offered || []).some((o) => o && o.withdrawn)),
+    recov20((R) => { const o = R.offered.find((z) => z && z.withdrawn && z.holder !== true) || R.offered.find((z) => z && z.withdrawn); o.withdrawn = { x: 3, y: 3 }; }),
+    "ships no seat of that class|prices no withdrawal|does not ship");
+  run("r20/OM1-a-non-holder-seat-relabelled-as-a-holder",
+    refusedRoom20((R) => (R.offered || []).some((o) => o && o.withdrawn && o.holder === false)),
+    recov20((R) => { R.offered.find((o) => o && o.holder === false).holder = true; }),
+    "holder|re-derives");
+  run("r20/OM1-a-holder-seat-relabelled-as-a-non-holder",
+    refusedRoom20((R) => (R.offered || []).some((o) => o && o.withdrawn && o.holder === true)),
+    recov20((R) => { const o = R.offered.find((z) => z && z.holder === true); o.holder = false; }),
+    "holder|recoversDeep|re-derives");
+  run("r20/OM1-a-seat-that-holds-nothing-claiming-a-counterfactual",
+    refusedRoom20((R) => (R.offered || []).some((o) => o && o.withdrawn && o.holder === false)),
+    recov20((R) => { R.offered.find((o) => o && o.holder === false).recoversDeep = 7; }),
+    "holder|opens nothing|recoversDeep");
+  run("r20/OM1-the-holder-annotation-deleted-off-every-priced-entry",
+    recovRoom20((R) => (R.offered || []).some((o) => o && o.withdrawn && typeof o.holder === "boolean")),
+    recov20((R) => { for (const o of R.offered) delete o.holder; }),
+    "holder");
+  run("r20/OM1-the-observer-seat-counted-twice-in-the-census",
+    recovRoom20((R) => R.seats && typeof R.seats.observer === "number"),
+    recov20((R) => { R.seats.observer += 1; R.candidates += 1; R.tried += 1; }),
+    "seats|RCL8 program|priced entr");
+  run("r20/OM1-movableHolders-inflated-to-the-whole-candidate-list",
+    refusedRoom20((R) => typeof R.movableHolders === "number" && R.movableHolders < R.candidates),
+    recov20((R) => { R.movableHolders = R.candidates; }),
+    "movableHolders");
+  run("r20/OM1-movableHolders-deleted",
+    recovRoom20((R) => typeof R.movableHolders === "number"),
+    recov20((R) => { delete R.movableHolders; }),
+    "movableHolders");
+  run("r20/OM1-movableHolders-raised-past-the-pocket-census-in-a-taken-room",
+    takenRoom20((R) => typeof R.movableHolders === "number" && Array.isArray(R.pockets)),
+    recov20((R) => { R.movableHolders = R.pockets.reduce((a, pk) => a + (pk.movable || 0), 0) + 1; }),
+    "movableHolders");
+
+  // ---- OM1: the leaves the widened record left unheld ----------------------
+  // Found by this cluster's own x3+1/delete sweep over the whole recovery
+  // surface (4062 mutants, notes re-rendered): 380 escapes on the first pass,
+  // 55 on the last, and everything below is one of the classes that closed.
+  run("r20/OM1-the-tour-anchor-every-delta-is-a-difference-from",
+    recovRoom20((R) => typeof R.extTourBefore === "number"),
+    recov20((R) => { delete R.extTourBefore; }),
+    "extTourBefore");
+  run("r20/OM1-the-tour-ceiling-deleted-off-a-record-that-refuses-on-the-board",
+    recovRoom20((R) => typeof R.tourSlack === "number"),
+    recov20((R) => { delete R.tourSlack; }),
+    "tourSlack");
+  run("r20/OM1-the-accepted-count-deleted",
+    recovRoom20((R) => R.outcome !== "belowThreshold" && typeof R.accepted === "number"),
+    recov20((R) => { delete R.accepted; }),
+    "accepted");
+  run("r20/OM1-a-priced-entry-stripped-of-its-tour-reading",
+    recovRoom20((R) => (R.offered || []).some((o) => o && o.before && o.after && typeof o.extTourAfter === "number")),
+    recov20((R) => { const o = R.offered.find((z) => z && z.before && z.after); delete o.extTourAfter; }),
+    "extTourAfter");
+  run("r20/OM1-a-priced-entry-stripped-of-its-counterfactual",
+    recovRoom20((R) => (R.offered || []).some((o) => o && o.before && o.after && typeof o.recoversDeep === "number")),
+    recov20((R) => { const o = R.offered.find((z) => z && z.before && z.after); delete o.recoversDeep; }),
+    "recoversDeep");
+  run("r20/OM1-a-panel-stripped-of-the-walk-vector-the-instrument-list-does-not-name",
+    recovRoom20((R) => (R.offered || []).some((o) => o && o.after && Array.isArray(o.after.refillWalks))),
+    recov20((R) => { const o = R.offered.find((z) => z && z.after && Array.isArray(z.after.refillWalks)); delete o.after.refillWalks; delete o.after.refillTotal; }),
+    "refillWalks|refillTotal");
+  run("r20/OM1-the-pocket-census-s-movable-count-inflated-in-a-room-that-took-nothing",
+    refusedRoom20((R) => (R.pockets || []).some((pk) => typeof pk.movable === "number")),
+    recov20((R) => { R.pockets[0].movable = R.pockets[0].movable * 3 + 1; }),
+    "pockets|movable|sealedFloor");
+  run("r20/OM1-a-fixed-geometry-holder-that-holds-nothing-this-room-seals",
+    refusedRoom20((R) => (R.fixedHolders || []).length),
+    recov20((R) => { R.fixedHolders[0] = { ...R.fixedHolders[0], x: 3, y: 3 }; }),
+    "fixedHolders");
+  run("r20/OM1-a-fixed-holder-s-counterfactual-inflated",
+    refusedRoom20((R) => (R.fixedHolders || []).some((f) => typeof f.recovers === "number")),
+    recov20((R) => { const f = R.fixedHolders.find((z) => typeof z.recovers === "number"); f.recovers = f.recovers * 3 + 1; }),
+    "fixedHolders");
+  run("r20/OM1-a-fixed-holder-dropped-off-the-list",
+    refusedRoom20((R) => (R.fixedHolders || []).length),
+    recov20((R) => { R.fixedHolders.shift(); }),
+    "fixedHolders");
+  run("r20/OM1-every-candidate-priced-against-a-board-that-is-not-this-one",
+    refusedRoom20((R) => (R.offered || []).some((o) => o && o.before && typeof o.before.sealedDeep === "number")),
+    recov20((R) => { for (const o of R.offered) if (o && o.before) o.before = { ...o.before, sealedDeep: o.before.sealedDeep + 3, sealedTiles: o.before.sealedTiles + 3 }; }),
+    "sealed floor|before");
+
+  // ---- OL5: the fixpoint chain --------------------------------------------
+  run("r20/OL5-the-second-run-of-the-pass-deleted-off-the-tail",
+    recovRoom20((R) => !!R.next),
+    recov20((R) => { delete R.next; R.residual.reran = false; }),
+    "residual|still seals|fixpoint|roster");
+  run("r20/OL5-a-take-that-stops-on-a-seal-the-pass-would-have-admitted",
+    recovRoom20((R) => !!R.next),
+    recov20((R) => { delete R.next; }),
+    "reran|residual|still seals");
+  run("r20/OL5-the-residual-deleted-off-a-take",
+    recovRoom20((R) => !!R.residual),
+    recov20((R) => { delete R.residual; }),
+    "residual");
+  run("r20/OL5-the-residual-sentence-rewritten-off-the-board-s-own-figures",
+    recovRoom20((R) => R.residual && R.residual.reran === false),
+    recov20((R) => { R.residual.why = "this take left nothing behind worth another run of the pass, so the pass is at its fixpoint here"; }),
+    "residual.why|quote");
+  run("r20/OL5-a-refusal-that-hands-the-pass-on-to-another-run",
+    recovRoom20((R) => R.outcome === "allRefused"),
+    recov20((R) => { R.next = JSON.parse(JSON.stringify(R)); }),
+    "did not take|chain ends|residual");
+  run("r20/OL5-a-fabricated-run-with-no-build-argument-behind-its-take",
+    recovRoom20((R) => R.outcome === "taken" && !R.next),
+    recov20((R) => {
+      const copy = JSON.parse(JSON.stringify(R));
+      copy.next = undefined;
+      delete copy.next;
+      copy.residual = { reran: false, why: copy.residual ? copy.residual.why : "at the fixpoint" };
+      R.next = copy;
+      if (R.residual) R.residual.reran = true;
+    }),
+    "roster|composeOpts|build argument");
+  run("r20/OL5-the-withdrawal-list-reverted-to-round-19-s-single-tile",
+    any20((p) => Array.isArray(p.meta?.composeOpts?.forbidExtSeat)),
+    (p) => { p.meta.composeOpts.forbidExtSeat = p.meta.composeOpts.forbidExtSeat[0]; },
+    "composeOpts");
+  run("r20/OL5-a-withdrawal-on-the-board-s-arguments-that-no-run-took",
+    any20((p) => Array.isArray(p.meta?.composeOpts?.forbidExtSeat)),
+    (p) => { p.meta.composeOpts.forbidExtSeat = [...p.meta.composeOpts.forbidExtSeat, { x: 4, y: 4 }]; },
+    "roster|composeOpts");
+  run("r20/OL5-the-take-moved-off-the-tile-the-board-was-composed-without",
+    takenRoom20((R, p) => Array.isArray(p.meta?.composeOpts?.forbidExtSeat) || Array.isArray(p.meta?.composeOpts?.forbidObserverSeat)),
+    recov20((R) => { R.taken.withdrawn = { x: R.taken.withdrawn.x + 1, y: R.taken.withdrawn.y }; }),
+    "composed WITHOUT|roster|withdrawn");
 }
 
 // ===========================================================================

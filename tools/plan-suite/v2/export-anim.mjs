@@ -20,10 +20,14 @@
  */
 import fs from "fs";
 import path from "path";
-import { OUT_V2, fetchRoomsFromMongo, planStructureHash, walkable } from "./shared.mjs";
+import { D4, OUT_V2, fetchRoomsFromMongo, planStructureHash, walkable } from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
 import { distField, growBasin } from "./layer-hub.mjs";
 import { planRoom } from "./pipeline.mjs";
+// DEPTH_SAFE is imported rather than re-typed: the caption's shallow/deep label
+// has to be the same threshold layer 6 and layer 7b place against, and a second
+// copy of a constant is the class this suite keeps closing (OM2, round 20).
+import { DEPTH_SAFE } from "./layer-ext.mjs";
 import { LATE_KINDS, lateRoadDecomp } from "./layer-walls.mjs";
 
 const MAX_FIELD_RING = 25;
@@ -446,11 +450,15 @@ const ROAD_STAGE = {
  * access and nothing else. Layer 7 is seven passes (spurs, the extension-face
  * net, network stitches, the swamp pre-pave, the along-the-wall swap, the 7b
  * reflow faces, the deferred mineral-container bridge) and this row read
- * "rampart spurs and the ext-face net" for all of them. 20 rooms / 39 tiles ship
- * that beat with `spurTiles` at 0 — E1S6's four tiles are swamp pre-pave,
- * E12S6's three are 7b reflow, E14S5's are along-cut swaps — so in those rooms
+ * "rampart spurs and the ext-face net" for all of them. A whole cohort of rooms
+ * ships that beat with `spurTiles` at 0 — some of their tiles are swamp pre-pave,
+ * some are 7b reflow, some are along-cut swaps — so in those rooms
  * the frame banner named two passes that laid nothing while the STAGE_TEXT panel
  * beside it, composed from the same tally this now reads, named the right ones.
+ * (The room and tile counts were typed here through round 19 and were wrong by
+ * round 20 — the fleet had grown under them. plan.mjs prints the live figures in
+ * the rampart-spur line of the fleet summary at the end of a run, which is the
+ * one place they are counted rather than remembered. Criticism 80.)
  * A film that disagrees with its own caption panel is worse than one with no
  * caption: the reader has to work out which half to believe.
  *
@@ -638,12 +646,41 @@ export function buildAnim(room, terrain, plan) {
       .filter((r) => r && r.from && r.to)
       .map((r) => ({ ...r, pass: 7 })),
   ];
+  // ------------------------------------------------------------------
+  // WHICH PASS, AND HOW DEEP — DERIVED, NOT ASSUMED (OM2, round 20).
+  //
+  // `reflow.moved` is THREE passes' worth of moves, tagged by the producer with
+  // `reason`: the post-prune reflow proper (untagged), the second-target rescue
+  // for a slot the lap ceiling refused (`second-target`), and the MOBILITY
+  // REPAIR the lift test licenses (`mobility`, `reflow.mobilityRepair`). The
+  // film called all of them "the post-prune reflow", and it called every origin
+  // a "shallow slot". Both are false of E17S8, whose two moves are mobility
+  // repairs out of DEEP origins (depth 5 and 4) — the film narrated the wrong
+  // pass and the wrong reason on the only room in the fleet where the mobility
+  // repair actually moved anything.
+  //
+  // The pass name comes off `reason`; the depth comes off `fromDepth`/`toDepth`,
+  // which layer 7b publishes per move and the validator re-derives. Layer 6's
+  // own relocation pass publishes no depth because it is defined by it — its
+  // whole loop is "shallow slot -> deep, road-faced tile" — so its ghosts keep
+  // the structural word and pass-7 ghosts get the measured one.
+  // ------------------------------------------------------------------
+  const passName = (r) =>
+    r.pass !== 7
+      ? "relocation pass"
+      : r.reason === "mobility"
+        ? "mobility repair (layer 7b, licensed by the lift test)"
+        : r.reason === "second-target"
+          ? "post-prune reflow, second target"
+          : "post-prune reflow";
+  const slotWord = (r) => {
+    if (r.pass !== 7 || typeof r.fromDepth !== "number") return "shallow slot";
+    return r.fromDepth < DEPTH_SAFE ? `shallow slot (depth ${r.fromDepth})` : `deep slot (depth ${r.fromDepth})`;
+  };
   for (const r of relocated) {
     sb.push(
       "extGhost",
-      `shallow slot (${r.from.x},${r.from.y}) — the fill took this tile before the ` +
-        (r.pass === 7 ? "post-prune reflow" : "relocation pass") +
-        ` ran`,
+      `${slotWord(r)} (${r.from.x},${r.from.y}) — the fill took this tile before the ${passName(r)} ran`,
       sb.flat([r.from], "#ff8899"),
     );
   }
@@ -655,10 +692,13 @@ export function buildAnim(room, terrain, plan) {
   // an erase ... so the last frame still equals the shipped plan exactly". It did
   // not: the `roadsPrune` erase is a clearRect in #ff4444 and it ran AFTER the
   // `extensions` stage painted, so every pruned stub road that layer 7b then
-  // stood an extension on ended the film rendered as ERASED — 38 tiles across 17
-  // rooms (E11S7 6, E13S2 3, E11S1 2, E12S5 2, E1S8 2, E11S2/E12S6/E17S8 1). The
-  // caption on those very moves says "lifting the stub road that was there",
-  // which is the film narrating the thing it then drew backwards.
+  // stood an extension on ended the film rendered as ERASED, in rooms right
+  // across the fleet. The caption on those very moves says "lifting the stub road
+  // that was there", which is the film narrating the thing it then drew
+  // backwards. (The tile and room counts, and the per-room roster, were typed
+  // here when the bug was found and went stale with the fleet; the set is
+  // `pruneUnderStructure` below and it is recomputed per room every run.
+  // Round 20, criticism 80.)
   //
   // Splitting the prune is the honest fix rather than moving the whole stage:
   // the tiles a shipped structure ends up on are erased HERE, immediately before
@@ -715,42 +755,102 @@ export function buildAnim(room, terrain, plan) {
   //
   // Every pass-7 move used to get "[layer 7b, on floor the dead-end prune
   // handed back]" appended unconditionally, and for most of them it is false.
-  // E12S6 moves three slots and exactly ONE of the three (28,13) stands on a
-  // tile the prune deleted — meta.roadLayer tags 28,13 as a layer-4 road and
-  // the shipped plan has no road there, which is what "the prune handed it
-  // back" means. The other two reached their tiles by PAVING their own road
-  // face (26,11 paved 27,11 · 27,20 paved 26,20) onto floor that was simply
-  // free; the move record's own `paved` field says so, and the room's own note
-  // agrees with it — `reflow.freeDeepRoadFaced: 1`.
+  // The three ways a 7b slot reaches its tile are genuinely different: the prune
+  // deleted a road and handed the floor back (meta.roadLayer tags the tile and
+  // the shipped plan has no road there, which is what "the prune handed it back"
+  // means); or the move PAVED its own road face onto floor that was simply free,
+  // which the move record's own `paved` field says; or the tile was already free
+  // AND already road-faced and neither prune nor paving was involved.
   //
   // rp.pruned is the same set the roadsPrune stage erases on screen, so this
-  // tag is checkable against the film frame by frame rather than asserted.
-  // Fleet-wide over the 48 pass-7 moves: 39 land on prune-freed floor, 6 paved
-  // their own face, and 3 (E13S2 16,38 · 14,36 · 15,36) did neither — deep
-  // floor that was already free AND already road-faced. No move is in two of
-  // those buckets: the three tests are applied in that order and are disjoint
-  // on the shipped fleet (0 moves are both prune-freed and paving). The `paved`
-  // clause below still prints the paved tile in every case, so precedence here
-  // loses no fact.
+  // tag is checkable against the film frame by frame rather than asserted. The
+  // three tests are applied in that order and each move lands in exactly one
+  // bucket; the `paved` clause below still prints the paved tile in every case,
+  // so precedence here loses no fact. (The fleet-wide split across those three
+  // buckets, and the worked per-room example that stood here, were hand-typed
+  // and both had gone stale by round 20 — the fleet grew and layer 7b's move
+  // count grew with it. plan.mjs prints the live split in the ext-relocations
+  // line of the fleet summary at the end of a run. Criticism 80.)
   //
   // NOT USED, deliberately: `reflow.spentOnMoves`. It is the reflow's own
-  // budget counter, not a count of prune-freed destinations — E13S2 spends 6
-  // against 3 prune-freed tiles — so tagging a tile from it would be exactly
-  // the unchecked assertion this block replaces.
+  // budget counter and not a count of prune-freed destinations — rooms spend
+  // more of it than they have prune-freed tiles — so tagging a tile from it
+  // would be exactly the unchecked assertion this block replaces.
   // ------------------------------------------------------------------
   const prunedKeys = new Set(rp.pruned.map((t) => `${t.x},${t.y}`));
+  // OM3 (round 20) — the three sets a claim about a road has to be checked
+  // against. `shippedRoadKeys` is the last frame; `prunedKeys` is what the film
+  // erases; `everPrunedKeys` adds the tiles laid and deleted inside layer 7,
+  // which the room publishes but no frame ever draws.
+  const shippedRoadKeys = new Set((plan.structures?.road || []).map((t) => `${t.x},${t.y}`));
+  const everPrunedKeys = new Set([
+    ...prunedKeys,
+    ...(plan.meta?.walls?.prunedTiles || []).map((t) => `${t.x},${t.y}`),
+  ]);
+  const shippedFacesOf = (p) =>
+    D4.map(([dx, dy]) => ({ x: p.x + dx, y: p.y + dy }))
+      .filter((q) => shippedRoadKeys.has(`${q.x},${q.y}`))
+      .map((q) => `${q.x},${q.y}`);
 
   // ...and now the origins are vacated, one labelled move at a time. A room
   // with relocatedCount 0 emits nothing here and never gets the stage (push
   // ignores an empty cell list, and meta.stageOrder is built from the steps).
+  // ------------------------------------------------------------------
+  // THE RETIREMENT IS A MEMBERSHIP TEST, NOT A CONSEQUENCE (OM2, round 20).
+  //
+  // `depth d1 → d2, retiring the personal rampart` was appended to every pass-7
+  // move unconditionally, and layer 7b keeps the actual answer: `rampartsRetired`
+  // is the list of ORIGIN tiles whose rampart it took off the board, and it
+  // retires one only when the shipped board proves it is doing nothing else —
+  // nothing that needs depth stands on it, it is not on the published cut, not a
+  // bubble seat, not part of the stand-denial ring, and removing it does not move
+  // one tile of the exterior. Three of the fleet's pass-7 captions were false:
+  // E17S8's two moves come out of DEEP origins that never rented a rampart at
+  // all, and E2S5's 22,42 is a MIN-CUT WALL rampart — painted by this same film's
+  // ramparts stage, standing in its own last frame, and precisely the one move
+  // layer 7b left OUT of `rampartsRetired`. The producer knew; the caption did
+  // not ask.
+  // ------------------------------------------------------------------
+  const retiredKeys = new Set(
+    (plan.meta?.extensions?.reflow?.rampartsRetired || []).map((t) => `${t.x},${t.y}`),
+  );
+  // ...and WHICH job the surviving rampart is doing, named off the shipped board
+  // rather than listed as possibilities. E2S5's 22,42 is the case that made this
+  // finding: it is a MIN-CUT WALL tile, painted by this same film's ramparts
+  // stage and standing in its own last frame, under a caption that said the move
+  // had retired it.
+  const keysOf = (l) => new Set((l || []).map((t) => `${t.x},${t.y}`));
+  const cutKeys = keysOf(plan.meta?.shell?.cut);
+  const bubbleKeys = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
+  const denialKeys = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
+  const rampartKeys = keysOf(plan.structures?.rampart);
+  const rampartJob = (k) =>
+    cutKeys.has(k)
+      ? "it is a tile of the published min-cut wall, which this film's own ramparts stage paints and " +
+        "its last frame still carries"
+      : bubbleKeys.has(k)
+        ? "it is a bubble seat over a container outside the shell"
+        : denialKeys.has(k)
+          ? "it is part of the controller stand-denial ring"
+          : rampartKeys.has(k)
+            ? "the shipped board still carries a rampart there, so something else is renting it — " +
+              "another shallow structure, or the exterior flood itself"
+            : "the shipped board carries no rampart there at all, so there was none to retire";
   for (const r of relocated) {
     const d = r.closer;
     // layer 7b publishes the two depths instead of a hub-walk delta, because the
-    // whole point of its move is the depth: a slot at depth < 4 rents a personal
-    // rampart forever and a slot at depth >= 4 does not.
+    // whole point of its move is the depth: a slot at depth < DEPTH_SAFE rents a
+    // personal rampart forever and a slot at depth >= DEPTH_SAFE does not. What
+    // the move then does about that rampart is read off `rampartsRetired`.
+    const rampartClause = retiredKeys.has(`${r.from.x},${r.from.y}`)
+      ? ", retiring the personal rampart the origin was renting"
+      : typeof r.fromDepth === "number" && r.fromDepth >= DEPTH_SAFE
+        ? ", both slots deep — this move buys no rampart back, and layer 7b did not move it for one"
+        : `, and the rampart on the origin STAYS: layer 7b retires one only when the shipped board ` +
+          `proves it is doing nothing else, and here ${rampartJob(`${r.from.x},${r.from.y}`)}`;
     const trade =
       r.pass === 7
-        ? `depth ${r.fromDepth} → ${r.toDepth}, retiring the personal rampart`
+        ? `depth ${r.fromDepth} → ${r.toDepth}${rampartClause}`
         : d > 0
           ? `${d} step${d === 1 ? "" : "s"} nearer the hub`
           : d < 0
@@ -767,13 +867,16 @@ export function buildAnim(room, terrain, plan) {
     // 6's pass, before pipeline.mjs takes the layer's road set, so the stub
     // never reaches `meta.roadLayer` and never reaches `structures.road`.
     //
-    // Measured over the shipped fleet, not guessed: 98 of the 99 layer-6
-    // relocations carry tookStub, and for ALL 98 the destination has no
+    // Measured over the shipped fleet rather than guessed, when the defect was
+    // found and again every round since: very nearly every layer-6 relocation
+    // carries tookStub, and for every one of those the destination has no
     // meta.roadLayer entry, is not a shipped road, and is not painted by any
-    // roads* step of any film (E12S6's 29,7 · 29,6 · 30,5 are three of them).
-    // So the old caption narrated a road being lifted off a tile on which no
-    // frame of any film has ever drawn a road, and it did it on the one
-    // artifact whose entire selling point is "this is what actually happened".
+    // roads* step of any film. So the old caption narrated a road being lifted
+    // off a tile on which no frame of any film has ever drawn a road, and it did
+    // it on the one artifact whose entire selling point is "this is what
+    // actually happened". (The two counts were typed here and had gone stale by
+    // round 20; plan.mjs prints them live in the ext-relocations line of the
+    // fleet summary. Criticism 80.)
     //
     // The lift is real; it is just not visible, and it is not free. The tile
     // was reserved corridor the worst-case lane model counted as WALKABLE, so
@@ -782,14 +885,53 @@ export function buildAnim(room, terrain, plan) {
     // goes 12 -> 14). That is what the viewer can check, so that is what the
     // caption says.
     // ----------------------------------------------------------------
+    // ...AND THE PAVE IS CHECKED AGAINST THE SHIPPED BOARD (OM3, round 20).
+    //
+    // "paving X,Y to give it a road face" was printed from the move record's own
+    // `paved` field and never asked whether that tile SURVIVED. At round 20 three
+    // of the fleet's paved captions named a tile in no shipped plan and on no
+    // frame of any film: E2S5 paved 30,23 · 32,23 · 34,23 for three 7b moves and
+    // the dead-end prune took all three straight back — they are in the room's
+    // own `meta.walls.prunedTiles` — while the extensions ship their faces on
+    // entirely different roads. The same caption then asserted "the prune freed
+    // nothing here" in the room whose pruned list contains the tile it had just
+    // named. `tookStub` above got exactly this fix in round 19 (a road narrated
+    // as lifted off a tile no frame ever drew a road on); `paved` did not, and
+    // it is the same defect with the sign flipped — a road narrated as laid on a
+    // tile no frame ever kept.
+    //
+    // So the pave is a claim about the shipped board and is read off it: the
+    // shipped roads, and the tiles the prune took back (rp.pruned is the set the
+    // roadsPrune stage erases on screen; `meta.walls.prunedTiles` also holds the
+    // ones laid and deleted INSIDE layer 7, which never reach a frame at all).
+    // When the pave did not survive, the caption names the face the slot
+    // actually ships instead — which is the fact a viewer of the last frame can
+    // check, and the only honest thing to say about a road that is not there.
+    // ----------------------------------------------------------------
+    const paveKey = r.paved ? `${r.paved.x},${r.paved.y}` : null;
+    const paveShipped = paveKey !== null && shippedRoadKeys.has(paveKey);
+    const paveClause = !r.paved
+      ? ""
+      : paveShipped
+        ? `, paving ${r.paved.x},${r.paved.y} to give it a road face`
+        : `, paving ${r.paved.x},${r.paved.y} for a road face that is NOT on the shipped board — ` +
+          (prunedKeys.has(paveKey)
+            ? `the dead-end prune took it back on screen`
+            : everPrunedKeys.has(paveKey)
+              ? `it was laid and deleted inside layer 7, so no frame of this film ever carries it`
+              : `no later pass kept it`) +
+          `, and the slot ships its road face on ` +
+          (shippedFacesOf(r.to).join(" / ") || "no D4 road at all");
     const where =
       r.pass !== 7
         ? ""
         : prunedKeys.has(`${r.to.x},${r.to.y}`)
           ? " [layer 7b, on floor the dead-end prune handed back — this tile was road until the prune deleted it]"
-          : r.paved
+          : r.paved && paveShipped
             ? " [layer 7b, on deep floor that was already free; the move had to pave its own road face, so the prune freed nothing here]"
-            : " [layer 7b, on deep floor that was already free and already road-faced — neither prune nor paving involved]";
+            : r.paved
+              ? " [layer 7b, on deep floor that was already free; the face this move paved for itself did not survive, so what the slot ships is a face it did not have to buy]"
+              : " [layer 7b, on deep floor that was already free and already road-faced — neither prune nor paving involved]";
     sb.push(
       "extMove",
       `relocate (${r.from.x},${r.from.y}) → (${r.to.x},${r.to.y}) — onto deep floor, ${trade}` +
@@ -797,7 +939,7 @@ export function buildAnim(room, terrain, plan) {
           ? ", taking back a corridor stub layer 6 paved earlier in this same pass — it is in no shipped plan " +
             "and no frame of this film, and what it costs is the lane bound, re-measured with it blocked"
           : "") +
-        (r.paved ? `, paving ${r.paved.x},${r.paved.y} to give it a road face` : "") +
+        paveClause +
         where,
       sb.flat([r.from], "#ff4444"),
     );
@@ -865,7 +1007,7 @@ export function buildAnim(room, terrain, plan) {
    * Plausible-but-wrong is the worst failure mode a film about honesty can have.
    *
    * So the defaults stop being a quiet fallback and become an assertion. This
-   * THROWS rather than warning: a fleet run is 172 rooms and a warning on room 1
+   * THROWS rather than warning: a fleet run is the whole claimable world and a warning on room 1
    * scrolls off long before the run ends, whereas the fix is always one line in a
    * table twenty lines up. The three tables the player owns cannot be reached
    * from here (they live in a template string in plan.mjs and are checked in the
@@ -921,7 +1063,7 @@ function roomsFromGallery() {
  * as evidence about a plan this suite no longer produces.
  *
  * ONLY ON A FULL-FLEET RUN. Re-rendering one room with
- * `export-anim.mjs E11S7` would otherwise delete the other 171 rooms' films,
+ * `export-anim.mjs E11S7` would otherwise delete every other room's film,
  * which is a far worse bug than the one being fixed; the caller has to have
  * asked for the whole list (--all / --all-claimable) before anything is
  * unlinked. The keep-set is the room list the run was ASKED for, not the rooms
@@ -1007,7 +1149,7 @@ async function main() {
     //
     // This file re-plans the room itself, and plan.mjs writes plans-hub.json
     // from its own run; nothing ever compared the two. A planner change between
-    // the two commands leaves 172 films describing a base that no longer exists,
+    // the two commands leaves a whole directory of films describing a base that no longer exists,
     // under a HUD line asserting the last frame IS the shipped plan tile for
     // tile — and round 10 shipped exactly that state for 20 rooms before an
     // independent check caught it.

@@ -83,9 +83,14 @@ const LAB_HAUL_FLEET_P90 = 4;
  * meant a diamond with four labs in the ranged band beat one with none by a
  * single tile of walk — four personal ramparts, repaired forever, to save the
  * lab hauler one step. (The room that shipped that board, E20S3, is not in the
- * claimable fleet any more and the figure should not be quoted as if it were:
- * on today's 172 rooms exactly ONE room ships a shallow lab, E2S3, and it ships
- * one, at depth 3. That is the exchange rate below doing its job.)
+ * claimable fleet any more and the figure should not be quoted as if it were —
+ * and nor is its replacement a standing fact. Re-derived from the shipped
+ * artifact at round 20: exactly ONE room of 172 shipped a shallow lab, and it
+ * shipped one. That is the exchange rate below doing its job, at that moment.
+ * Every room publishes its own count as `meta.labs.shallow`, which is where a
+ * reader should go rather than to this sentence, because a count typed into a
+ * comment beside the code that produces it is a count that goes stale.
+ * Criticism 80.)
  *
  * A personal rampart is upkeep in perpetuity; a tile of hauler distance is one
  * tick per trip on a route the link network mostly retires anyway. Three tiles
@@ -164,7 +169,9 @@ export function planLabs(terrain, plan) {
   // useless: the ring was not full when the room started, WE filled it. The
   // room shipped 3 containers against a required 4 and failed the validator.
   //
-  // 33 of the 172 rooms in this world have a 1-tile mineral ring, so this is a
+  // Measured at round 20, 33 of the 172 rooms in this world had a 1-tile mineral
+  // ring — a share of a fleet that grows, not a constant, and it is quoted as a
+  // moment rather than as a standing fact (criticism 80). So this is a
   // race the fleet runs often and E12S9 is simply the one that lost it. The
   // guard is a no-op unless a stamp would empty the ring outright, so it cannot
   // reshuffle a room that has room to spare — and only the ten LAB tiles are
@@ -272,7 +279,12 @@ export function planLabs(terrain, plan) {
   //
   // The eating passes run ONLY after both clean passes come back empty, so no
   // room that places labs today can be re-shuffled by this. That ordering is
-  // deliberate: it makes the change provably a no-op on 171 of 172 rooms.
+  // deliberate: it makes the change provably a no-op on every room whose clean
+  // passes find an anchor, which is very nearly the whole fleet. The rooms that
+  // ate anything are exactly the rooms with a non-zero `meta.labs.roadsEaten`,
+  // counted per room in the artifact rather than remembered here. (The room
+  // count was typed here and is a fleet statistic that moves with the fleet;
+  // round 20 deleted it. Criticism 80.)
   // ------------------------------------------------------------------
   /** what a re-routed eco road costs, in tiles of hauler walk, per tile eaten */
   const ROAD_EAT_COST = 2;

@@ -18,8 +18,11 @@
  *        mean(min(tileDamage, CAP)) minus refill walk and road spur
  * A scalar blend of (2) and (3) was tried first and is a trap: at equal
  * weight the average term buys back a 90-damage hole in the wall with 90
- * damage of surplus where the room was already winning, and 57 of 159 rooms
- * duly traded their weakest face away for a prettier average.
+ * damage of surplus where the room was already winning, and a third of the
+ * fleet the blend was tried on duly traded its weakest face away for a prettier
+ * average. (That was a count over the 159-room world this planner used to plan;
+ * round 20 deleted the numerals rather than re-run a rejected objective over
+ * the current fleet to refresh them. Criticism 80.)
  *
  * Hard constraints:
  *   - depth >= 4 (out of a ranged attacker's reach). Towers get NO personal
@@ -98,9 +101,24 @@ const CAP = 2400;
 export const TARGET_MIN = 1200;
 /**
  * The line between "legal" and "what the fleet actually gets" — see the
- * weak-battery declaration at the bottom of this file. Both numbers are read
- * off the fleet, not invented: 152/159 rooms clear 1800 on their weakest wall
- * face, and the median furthest-tower refill walk is 1.
+ * weak-battery declaration at the bottom of this file. Neither number is read
+ * off the fleet in the sense of being DERIVED from it; both are round numbers
+ * chosen to sit where the fleet already is, so that a room under one of them is
+ * genuinely unusual rather than merely below average. Measured at round 20 over
+ * the boards this build ships, 167 of the 172 rooms clear 1800 on their weakest
+ * wall face, and the AS-BUILT furthest-tower refill walk runs median 4 with 16
+ * rooms over 8 — readings taken at a moment, not the definition of the
+ * constants, and the fleet can drift under them without 1800 or 8 having to
+ * move. Both are printed live by the fleet summary at the end of a run (the
+ * "twr[min=...]" per-room line and the "furthest-tower refill AS BUILT" total),
+ * which is where a reader should go for today's numbers.
+ *
+ * (The first figure stood here as a count over the 159-room world this planner
+ * used to plan. The second said "the median furthest-tower refill walk is 1",
+ * which is the median for TOWER[0] on the RCL3-era board — a different walk, on
+ * a different board, printed on its own line of the same summary — and REFILL_NOTE
+ * is a bound on the furthest tower on the RCL8 board. Round 20 re-derived both
+ * and named which walk each one is. Criticism 80.)
  */
 export const WEAK_SHELL_DMG = 1800;
 export const REFILL_NOTE = 8;
@@ -137,13 +155,20 @@ const NUKE_TIEBREAK_BUDGET = 30;
 /**
  * At what clump size a room owes the reader the search it ran.
  *
- * FIVE, not four. 93 of 172 rooms hold 3 of 6 towers inside chebyshev 2 and
- * 34 hold 4 — at those densities the shape is the interior, not a choice, and
- * a channel that fires 34 times about "some towers are near the hub" is noise
- * competing with the eco and mobility declarations for the same reader. The
- * finding is about the six rooms that put FIVE of six in one 5x5-sized huddle
- * and reported `before == after` while doing it; that is the number this
- * declares, and it declares all six.
+ * FIVE, not four. Most of the fleet holds 3 of 6 towers inside chebyshev 2 of
+ * the sitter and a large minority holds 4 — at those densities the shape is the
+ * interior, not a choice, and a channel that fires once per room across a
+ * population that size about "some towers are near the hub" is noise competing
+ * with the eco and mobility declarations for the same reader. The counts are
+ * re-derived per room into `meta.towers.towerClump` and totalled by the fleet
+ * summary plan.mjs prints at the end of a run, so no comment here has to hold a
+ * copy of them. The finding is about the rooms that put FIVE of six in one
+ * 5x5-sized huddle and reported `before == after` while doing it; that is the
+ * number this declares, and it declares every one of them.
+ *
+ * (Round 16 corrected the figures in this comment; round 20 deleted them — they
+ * had gone stale again, which is what a hand-typed copy of a published
+ * measurement does. Criticism 80.)
  *
  * EXPORTED, and at module scope, because layer 7 re-derives the huddle over the
  * board the room actually ships and the generated paragraph re-derives "is this
@@ -365,8 +390,11 @@ export function planTowers(terrain, plan, opts = {}) {
    * the whole point. A scalar blend of "worst face" and "average face" reads
    * like the careful choice and is not: mixed at equal weight, the average
    * term buys back a 90-damage hole in the wall with 90 damage of surplus
-   * somewhere it was already winning, and 57 of 159 rooms duly traded their
-   * weakest face away. The attacker picks the face; averages do not defend.
+   * somewhere it was already winning, and a third of the fleet the blend was
+   * tried on duly traded its weakest face away. (Same count, same disposal as
+   * the file header's copy of it: a measurement over the old 159-room world,
+   * deleted in round 20 rather than refreshed off a rejected objective.
+   * Criticism 80.) The attacker picks the face; averages do not defend.
    *
    * So: clear the 1200 floor first, then maximise the weakest face, and only
    * once the weakest face is SATURATED (MIN_SAT) does the search spend its
@@ -775,11 +803,17 @@ export function planTowers(terrain, plan, opts = {}) {
   // TWO LAYERS LATER, so `plan.structures.nuker` is empty every single time this
   // runs and the published number counted spawn/storage/terminal/tower only.
   // Measured: the shipped window exceeds the published `after` by exactly 1 in
-  // 145 of 172 rooms (E6S1 and E6S9 ship 11 and published 10), and the nuker
-  // sits inside its own room's worst 5x5 in 154 of 172 — so the freedom layer 5
-  // was told to spend on dispersion was being spent blind, and the goal doc's
-  // fleet headline (worst 11, mean 7.97, which is the TRUE number) was
-  // inconsistent with the per-room meta it summarised (max 10, mean 7.13).
+  // most rooms (E6S1 and E6S9 ship 11 and published 10), and in most rooms the
+  // nuker sits inside its own room's worst 5x5 — so the freedom layer 5 was
+  // told to spend on dispersion was being spent blind, and the goal doc's fleet
+  // headline (the TRUE number) was inconsistent with the per-room meta it
+  // summarised.
+  // (Both room counts and both headline means were typed here and had gone
+  // stale by round 20 — the fleet had moved under them. `meta.towers.nukeWindow`
+  // publishes the shipped window and its `nukerInWindow` flag per room,
+  // `meta.towers.towerDispersion.after` publishes what layer 3 counted, and the
+  // fleet summary totals both; validate.mjs re-derives the first from the
+  // shipped structure lists. Criticism 80.)
   //
   // The nuker is dropped from this list because it is not a lie waiting to
   // happen — it is an empty array — and the number this pass produces is
@@ -813,9 +847,14 @@ export function planTowers(terrain, plan, opts = {}) {
   /**
    * ...and the same sweep over the TOWERS ALONE.
    *
-   * `windowMax` is a MAX over the whole high-value mass, and in 170 of 172 rooms
-   * that max sits on the hub trio and the spawn fan — mass this layer cannot
-   * move. So it is insensitive to what the battery does underneath it: six towers
+   * `windowMax` is a MAX over the whole high-value mass, and in the great
+   * majority of rooms that max sits on the hub trio and the spawn fan — mass
+   * this layer cannot move. (A room count was typed here and had gone stale by
+   * round 20; the two readings ship per room as `meta.towers.towerDispersion`'s
+   * before/after and its `search.towerWindowBefore/After`, which is where the
+   * whole-mass and tower-only windows can be compared room by room, and the
+   * fleet summary totals them. Criticism 80.)
+   * So it is insensitive to what the battery does underneath it: six towers
    * could collapse into one 5x5 without `windowMax` changing by a point, which
    * would let an adjacency crossing sail through a gate aimed at exactly the harm
    * it was creating. The prior's first consequence is "one nuke, TWO TOWERS", so
@@ -846,9 +885,14 @@ export function planTowers(terrain, plan, opts = {}) {
   // because when it is computed there are no towers yet. That is the right field
   // to GATHER candidates on (a tile's reachability is a property of the tile) and
   // the wrong one to PUBLISH, because a tower is an OBSTACLE_OBJECT_TYPE and the
-  // other five stand between the filler and this one. 91 of 172 rooms hold three
-  // or more towers inside chebyshev 2 of the sitter, so this is not an edge case:
-  // the battery routinely walls itself in.
+  // other five stand between the filler and this one. Most of the fleet holds
+  // three or more towers inside chebyshev 2 of the sitter — the clump record
+  // (`meta.towers.towerClump`) carries it per room and the fleet summary totals
+  // it — so this is not an edge case: the battery routinely walls itself in.
+  // (The count that stood here read 91 while two other comments in this same
+  // file read 93 off the same quantity. Round 20 deleted it rather than pick a
+  // winner: a hand-typed copy of a published measurement goes stale, and three
+  // copies go stale at three different rates. Criticism 80.)
   //
   // Two rooms shipped a silent shortfall because of it. E12S4 published
   // refillDists [1,7,2,2,3,4] and walks [1,9,2,2,3,4]; E18S3 published
@@ -943,10 +987,15 @@ export function planTowers(terrain, plan, opts = {}) {
     // Until round 15 `held` was `scoreOf(best).sat` — the weakest face of the
     // wall LAYER 2 handed this layer — published under a field doc that says
     // "`held` is what the room ships". It was equal to `meta.towers.minShellDmg`
-    // in 172/172 rooms and never to `meta.towers.shippedMinShellDmg`, which sits
-    // in the same object; the two disagree in five rooms (E15S5 E21S8 E2S6 E3S6
-    // E6S4) because layer 7's inert prune and its single-removal seal
-    // reconciliation both change which tiles carry the line. That is exactly the
+    // in EVERY room by construction — same call, same board — and never to
+    // `meta.towers.shippedMinShellDmg`, which sits in the same object; the two
+    // disagree in a handful of rooms because layer 7's inert prune and its
+    // single-removal seal reconciliation both change which tiles carry the
+    // line. (A room count and a hand-typed roster of the disagreeing rooms
+    // stood here; both are fleet readings that move with the fleet, so round 20
+    // deleted them — the two fields ship side by side in `meta.towers` for
+    // every room and the fleet summary totals the disagreement. Criticism 80.)
+    // That is exactly the
     // defect the comment three lines below claims to be avoiding, one level up:
     // a record describing a wall the room does not build.
     //
@@ -1037,13 +1086,19 @@ export function planTowers(terrain, plan, opts = {}) {
   // So the three instruments are defined here and the search below OFFERS on all
   // three, ranked lexicographically: whole-mass 5x5 first, then the tower-only
   // 5x5 (added in round 14 precisely because the whole-mass max sits on the hub
-  // trio in 170 of 172 rooms and is blind to a battery collapsing underneath
-  // it), then the clump.
+  // trio in the great majority of rooms and is blind to a battery collapsing
+  // underneath it — the count was typed here and had gone stale by round 20;
+  // `meta.towers.towerDispersion` publishes both windows per room and the fleet
+  // summary totals them, criticism 80), then the clump.
   //
   // WHY THIS LAYER OFFERS AND DOES NOT TAKE. Ranking the dispersion pass itself
-  // on the tuple was built and measured on the whole fleet: 56 of 172 rooms move
-  // a tower, and among them E11S1's as-built refill walk goes 4 -> 7, E8S7's 4
-  // -> 8 and E18S4's shipped nuke window 9 -> 10. Those are the same two
+  // on the tuple was built and measured on the fleet as it stood when that
+  // experiment ran: 56 rooms moved a tower, and among them E11S1's as-built
+  // refill walk went 4 -> 7, E8S7's 4 -> 8 and E18S4's shipped nuke window
+  // 9 -> 10. (Round 20 put this in the past tense and named the world it was
+  // taken in: it is a reading off a REJECTED ranking, not off the boards this
+  // build ships, and re-running it to refresh the numerals would be re-running
+  // something this file declined to adopt. Criticism 80.) Those are the same two
   // instruments -- the walk that only exists once sixty extensions, ten labs,
   // the nuker and the observer are standing, and the window that only exists
   // once the nuker is placed -- that this file already refuses to spend blind in
@@ -1138,11 +1193,14 @@ export function planTowers(terrain, plan, opts = {}) {
     //
     // This was a FIRST-IMPROVEMENT single-slot hill climb: it took the first
     // swap that helped and restarted, and it stopped the moment no single slot
-    // could move alone. 93 of 172 rooms still put >= 3 of 6 towers within
-    // chebyshev 2 of the sitter and SIX put 5 of 6 — E11S6, E14S1, E1S7, E2S5,
-    // E3S5, E6S1 — and in all six this pass reported `before == after`, i.e. it
-    // looked and found nothing. Those same six hold the fleet's worst nuke
-    // windows (E6S1 11, E11S6 10, E1S7 10). "I tried and there was nothing" is
+    // could move alone. Most of the fleet still puts >= 3 of 6 towers within
+    // chebyshev 2 of the sitter and a handful put 5 of 6 — E11S6, E1S7 and
+    // E6S1 — and in every one of them this pass reported `before == after`,
+    // i.e. it looked and found nothing. Those same rooms hold the fleet's worst
+    // nuke windows (E6S1 11, E11S6 10, E1S7 10). (The roster used to name six
+    // rooms and count them; three of the six no longer put five of six anywhere.
+    // Round 20 re-derived it off the shipped boards and deleted the count.
+    // Criticism 80.) "I tried and there was nothing" is
     // a claim about a search, so the search has to be worth the claim:
     //
     //   BEST-IMPROVEMENT, not first. A first-improvement step can take a swap
@@ -1447,31 +1505,37 @@ export function planTowers(terrain, plan, opts = {}) {
   // deliberately NOT spent. This is a finding, not a repair.
   //
   // This layer exists to maximise the damage on the WEAKEST cut tile, and the
-  // prior is holding eighteen rooms one falloff step under what their own
-  // candidate list can reach — E11S7 E11S9 E15S5 E17S2 E17S3 E18S4 E19S8 E19S9
-  // E1S1 E21S8 E2S8 E3S1 E4S3 E5S2 E7S8 E8S6 E9S3 E9S9, each +30 except E11S9
-  // and E15S5 at +60, so +600 of fleet weakest-face. (Round 14 published the
-  // same eighteen rooms with a +660 total and named E3S1 and E8S6 at +60; both
-  // of those rooms move by one falloff step, +30, and the per-room list is what
-  // the fleet sum has to add up to. 600 it is.) In every one of them the swap
+  // prior is holding a small cohort of rooms one falloff step — sometimes two —
+  // under what their own candidate list can reach. (A hand-typed roster of the
+  // rooms and a hand-typed fleet total stood here; round 14 had already had to
+  // correct the total once, and by round 20 both had gone stale again. The
+  // per-room figure is `meta.towers.adjacency.satAcrossPrior.atLayer3.forgone`,
+  // which is non-zero in exactly the rooms this paragraph used to name, and the
+  // fleet summary totals it — the sum is derived from the per-room list rather
+  // than remembered beside it. Criticism 80.) In every one of them the swap
   // that closes the gap clears the price this layer can price — the floor is
   // never lowered, the 5x5 window over the mass layer 3 can see does not grow,
   // the tower-only 5x5 does not grow, the self-blocked filler walk does not
   // grow, the interior is still whole — and is refused by D8-adjacency and by
   // nothing else.
   //
-  // (This eighteen is the layer-3 board's count. What the RECORD below publishes
+  // (That cohort is the layer-3 board's count. What the RECORD below publishes
   // is narrower and is stated on the SHIPPED wall: the swap has to survive
   // `crossingProven` as well, and layer 7's prune and seal reconciliation get to
   // move the wall afterwards. See `satAcrossPrior.basis`.)
   //
   // AND IT IS STILL NOT TAKEN, because "the price this layer can price" is not
-  // the price. Taking all eighteen was built and measured on the whole fleet:
-  // the weakest-face sum rises 418770 -> 419370, and the SHIPPED nuke window
-  // (meta.towers.nukeWindow, recomputed after layer 5 over spawn / storage /
-  // terminal / NUKER / tower) rises in seven rooms — E8S6 8 -> 10, E18S4 9 -> 10,
-  // E17S2 / E19S9 / E5S2 / E7S8 / E9S3 each 8 -> 9 — and E12S4's as-built refill
-  // walk goes 7 -> 10. Neither of those is visible from here: the nuker does not
+  // the price. Taking the whole cohort was built and measured on the fleet as it
+  // stood when that experiment ran: the weakest-face sum rose 418770 -> 419370,
+  // and the SHIPPED nuke window (meta.towers.nukeWindow, recomputed after layer
+  // 5 over spawn / storage / terminal / NUKER / tower) rose in seven rooms —
+  // E8S6 8 -> 10, E18S4 9 -> 10, E17S2 / E19S9 / E5S2 / E7S8 / E9S3 each 8 -> 9
+  // — and E12S4's as-built refill walk went 7 -> 10. (Round 20 put this in the
+  // past tense and named the world it was taken in: these are readings off a
+  // REFUSED swap set on the boards of the day, not off the boards this build
+  // ships, and re-running a refused experiment to refresh its numerals is not
+  // what the numerals are for. Criticism 80.)
+  // Neither of those is visible from here: the nuker does not
   // exist until layer 5 and the as-built walk is not measurable until the labs,
   // extensions and the observer are standing. A pass that cannot read the number
   // it is moving is not a non-worsening pass, it is a gamble that happened to
@@ -1691,8 +1755,12 @@ export function planTowers(terrain, plan, opts = {}) {
   // ------------------------------------------------------------------
   // THE CLUMP, MEASURED AND DECLARED.
   //
-  // 93 of 172 rooms put >= 3 of 6 towers within chebyshev 2 of the sitter and
-  // six put FIVE of six (E11S6, E14S1, E1S7, E2S5, E3S5, E6S1). Some of that is
+  // Most of the fleet puts >= 3 of 6 towers within chebyshev 2 of the sitter and
+  // a handful put FIVE of six (E11S6, E1S7, E6S1) — the per-room counts are
+  // right below, in the record this block builds, and the fleet summary totals
+  // them. (The room list here named six rooms and counted them; round 20
+  // re-derived it off the shipped boards and deleted the count. Criticism 80.)
+  // Some of that is
   // mandated — the towers cover the wall from inside and the interior is small —
   // and some of it is the max-min objective having no opinion about where a
   // tie goes. The dispersion pass above is the opinion; this is the record of
@@ -1979,9 +2047,12 @@ export function planTowers(terrain, plan, opts = {}) {
   // they are a room that loses its wall to a boosted dismantler while a hauler
   // is still walking, and nothing in the plan said so.
   //
-  // WEAK_SHELL_DMG is the fleet's own 10th-percentile-ish line rather than an
-  // invention: 152 of 159 rooms clear 1800 on their weakest face, so a room
-  // under it is genuinely unusual and worth a sentence. REFILL_NOTE is likewise
+  // WEAK_SHELL_DMG is a round number placed where the fleet already sits rather
+  // than an invention, and it is not DERIVED from the fleet: measured at round
+  // 20, 167 of the 172 rooms clear 1800 on their weakest face, so a room under
+  // it is genuinely unusual and worth a sentence. (That figure stood here as a
+  // count from the 159-room world; round 20 re-derived it and tagged it as a
+  // reading taken at a moment. Criticism 80.) REFILL_NOTE is likewise
   // the point past which a single refill trip costs more than the tower's own
   // reload — MAX_REFILL is the hard stop, this is where it starts to hurt.
   //
@@ -2106,7 +2177,10 @@ export function planTowers(terrain, plan, opts = {}) {
       // non-worsening dispersion post-pass. The lab diamond is excluded because
       // it is a mandated 4x4 stamp; the NUKER is excluded because layer 5 has not
       // placed it yet, which is precisely the bug that made the old `nukeWindow`
-      // field here wrong in 145 of 172 rooms.
+      // field here wrong in most rooms. (The count was typed here and had gone
+      // stale by round 20; the shipped window ships per room as
+      // `meta.towers.nukeWindow` — written after layer 5 — beside this field,
+      // and the fleet summary totals the gap. Criticism 80.)
       //
       // `meta.towers.nukeWindow` — the real metric, over spawn / storage /
       // terminal / NUKER / tower — is written after layer 5 by

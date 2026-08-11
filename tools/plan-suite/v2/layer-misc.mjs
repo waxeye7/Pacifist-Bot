@@ -84,10 +84,18 @@ function idx(x, y) {
  * buildable band. Every constraint this layer already enforces still holds,
  * which is why the recovery does not need a special legality argument for the
  * seat it lands on: there is only one placement rule and it ran.
+ *
+ * IT IS A LIST (OL5, round 20), for the same reason `forbidExtSeat` is: the
+ * recovery pass runs to a fixpoint, and a second run has to compose with every
+ * seat the earlier runs withdrew still off the board.
  */
-export function forbiddenObserverSeat(plan) {
+export function forbiddenObserverSeats(plan) {
   const f = plan?.meta?.composeOpts?.forbidObserverSeat;
-  return f && Number.isInteger(f.x) && Number.isInteger(f.y) ? key(f.x, f.y) : null;
+  const out = new Set();
+  for (const s of Array.isArray(f) ? f : []) {
+    if (s && Number.isInteger(s.x) && Number.isInteger(s.y)) out.add(key(s.x, s.y));
+  }
+  return out;
 }
 
 export function planMisc(terrain, plan) {
@@ -153,8 +161,10 @@ export function planMisc(terrain, plan) {
   // ------------------------------------------------------------------
   // ...AND THE UPGRADER'S PARKING IS THE SAME ARGUMENT ONE RING OUT.
   //
-  // 18 of the 159 upgrader seats this fleet lost went to the OBSERVER — more
-  // than the towers and the labs put together — for a structure whose position
+  // When this was measured — on the 159-room fleet of that round, and it is that
+  // measurement rather than a live count — 18 of the upgrader seats the fleet
+  // had lost went to the OBSERVER, more
+  // than the towers and the labs put together, for a structure whose position
   // is irrelevant by its own placement rule. Six of those seats are protected
   // outright now (reservedTiles), and the ones above the floor are still worth
   // more empty than built on, so the same preference covers both rings.
@@ -166,7 +176,12 @@ export function planMisc(terrain, plan) {
       if (walkable(terrain, x, y)) ctrlRing.add(key(x, y));
     }
   }
-  for (const p of plan.meta?.ctrlParkTiles || []) ctrlRing.add(key(p.x, p.y));
+  // layer 1's seat SEARCH, not the built parks (the built parks are a subset of
+  // it) — which is what the preference above wants: a tile the seat search
+  // offered is a tile the upgrader could stand on, whether or not the pipeline
+  // ended up reserving it. Renamed from `ctrlParkTiles`, mirroring the count
+  // beside it, `ctrlParksAtSeatSearch`.
+  for (const p of plan.meta?.ctrlParkSeatSearchTiles || []) ctrlRing.add(key(p.x, p.y));
   const offRing = (p) => !ctrlRing.has(key(p.x, p.y));
 
   // M4: the observer takes the FURTHEST leftover tile, which in a room with
@@ -386,12 +401,12 @@ export function planMisc(terrain, plan) {
   // OF4: the one seat the recovery pass withdrew, if it withdrew one. See
   // forbiddenObserverSeat above — the tile stops being offered and this layer's
   // own ranking picks the next one, under every constraint it already applies.
-  const forbidObs = forbiddenObserverSeat(plan);
+  const forbidObs = forbiddenObserverSeats(plan);
   const byFar = cands
-    .filter((c) => c !== nuker && key(c.x, c.y) !== forbidObs)
+    .filter((c) => c !== nuker && !forbidObs.has(key(c.x, c.y)))
     .sort((a, b) => b.d - a.d || a.x - b.x || a.y - b.y);
   if (!byFar.length) {
-    return { error: `no leftover deep tile for the observer with ${forbidObs} withdrawn` };
+    return { error: `no leftover deep tile for the observer with ${[...forbidObs].join(" ")} withdrawn` };
   }
   const nukerKey = key(nuker.x, nuker.y);
   const obsBase = mobBase ? boardMobility(terrain, plan, [nukerKey]) : null;
@@ -547,8 +562,11 @@ export function planMisc(terrain, plan) {
       // a walled-off mineral still gets a seat rather than none at all
       let d = hub[idx(x, y)] < 9999 ? hub[idx(x, y)] : 9000 + Math.max(Math.abs(x - plan.sitter.x), Math.abs(y - plan.sitter.y));
       // container+road on one tile is legal in Screeps, but a clean tile is
-      // preferred — three rooms have a mineral whose entire walkable ring is
-      // already paved, and they would otherwise get no miner seat at all
+      // preferred — a room whose mineral's entire walkable ring is already
+      // paved would otherwise get no miner seat at all, so this is a price and
+      // not a veto. (A room count was typed here and is a fleet measurement
+      // that moves with the fleet; the seat and its ring are published per room
+      // as meta.mineralSeat / meta.mineralRingFree. Criticism 80.)
       if (roadSet.has(k)) d += 0.5;
       // engine border rule: a seat at x/y 1 or 48 whose edge triple is not all
       // wall can never carry the miner's rampart bubble (shared.mjs borderLegal)
@@ -665,8 +683,11 @@ export function planMisc(terrain, plan) {
       //
       // TWO THINGS THAT WERE WRONG ABOUT IT. The flag was set from
       // `mineralContainer.length > 0` — i.e. it asserted "off network" without
-      // measuring anything, and it was therefore FALSE in 34 of 172 rooms,
-      // where the seat happens to land D8 of real road: E17S6's seat at 34,18
+      // measuring anything, and it was therefore FALSE in 34 of the 172 rooms of
+      // the fleet it was caught in — a count of the defect at the moment it was
+      // found, not of anything the shipped flag does now, since the flag below
+      // is measured per room and publishes its own answer —
+      // where the seat happened to land D8 of real road: E17S6's seat at 34,18
       // touches 33,18 · 35,17 · 33,19 · 33,17, and E8S6's at 18,21 touches
       // four. This layer PREFERS a clean tile (the +0.5 at the seat search) but
       // has never refused a paved one, so "there is a container" and "it is off

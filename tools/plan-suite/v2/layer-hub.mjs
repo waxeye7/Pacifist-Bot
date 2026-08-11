@@ -1651,11 +1651,15 @@ export function planHub(terrain, objects, opts = {}) {
   //
   // So the mineral is given the same pair, chosen the same way and on the same
   // evidence: the stand with the widest approach (hardest to seal) and nearest
-  // the hub on foot, plus one walkable step into it. 138 of the 172 rooms in
-  // this world put their mineral container off the road network by design, so
+  // the hub on foot, plus one walkable step into it. The great majority of the
+  // rooms in this world put their mineral container off the road network by
+  // design — pipeline.mjs and the validator each re-derive that count against
+  // the shipped board, which is where a reader should read it — so
   // the stand is very often a tile nothing else has any reason to touch — the
   // reservation costs those rooms literally nothing and it is the only thing
-  // standing between a 1-tile mineral ring and a dead extractor.
+  // standing between a 1-tile mineral ring and a dead extractor. (A hand-typed
+  // count stood here and had drifted away from the two places that derive it;
+  // round 20 deleted it and pointed at them instead. Criticism 80.)
   //
   // The seat is chosen HERE, at layer 1, and not in layer 5 where the container
   // is placed, because layers 3 and 4 run in between and they are the ones that
@@ -1715,7 +1719,7 @@ export function planHub(terrain, objects, opts = {}) {
   // WHICH seats is decided in the pipeline, not here: see reserveParkSeats. The
   // ordering that costs the extension mass least is depth-aware, and depth does
   // not exist until layer 2 has drawn the wall. Layer 1 publishes the candidate
-  // list (`ctrlParkTiles`) and the floor; the pipeline picks.
+  // list (`ctrlParkSeatSearchTiles`) and the floor; the pipeline picks.
   const parkReserve = [];
 
   if (!claimSeat) {
@@ -1801,7 +1805,16 @@ export function planHub(terrain, objects, opts = {}) {
       // ring as ordinary floor and 80 rooms ate 159 seats. The tiles are the
       // thing a placement guard needs — see parkGuard in shared.mjs — and they
       // are also the evidence for the as-built recount in the pipeline.
-      ctrlParkTiles: (ctrlLink.parkTiles || []).map((p) => ({ x: p.x, y: p.y })),
+      //
+      // NAMED FOR WHAT IT IS, WHICH IS NOT THE BUILT PARKS. This was
+      // `ctrlParkTiles`, and that name says "the parks" while the value is
+      // LAYER 1'S SEAT SEARCH — every tile this layer offered, before layers 2
+      // through 7 have taken any of them. The built parks are a SUBSET of it.
+      // The count beside it was renamed `ctrlParksAtSeatSearch` for exactly
+      // that reason and the list is now named to match, so the two fields read
+      // as one measurement of one moment instead of two facts about different
+      // ones.
+      ctrlParkSeatSearchTiles: (ctrlLink.parkTiles || []).map((p) => ({ x: p.x, y: p.y })),
       // the seat search behind that integer: what was on offer and what lost
       ctrlParksCensus: ctrlLink.census ?? null,
       ctrlContainer: ctrlContainer ? { ...ctrlContainer, range: chebyshev(ctrlContainer, controller) } : null,

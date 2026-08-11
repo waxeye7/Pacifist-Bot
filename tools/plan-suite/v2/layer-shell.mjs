@@ -61,7 +61,8 @@ export const PROGRAM_TILES =
 
 // ...plus the corridor the program is fed through. Extensions flank ROADS, and
 // every road tile the later layers dig comes out of the same deep pool. Measured
-// over the fleet (159 rooms, roads placed after the shell that land on deep
+// over the fleet as it stood when the constant was swept (the 159-room world,
+// roads placed after the shell that land on deep
 // interior): min 14 · p10 26 · median 36 · mean 37 · p90 51 · max 60. A flat
 // constant beat every per-room estimator tried — a swamp-fraction model
 // (a + b·swampFrac) fits WORSE (MAE 9.5 vs 8.0 for a constant), because the
@@ -71,7 +72,8 @@ export const PROGRAM_TILES =
 // costs a wider bubble in a handful of rooms while a floor that is short costs
 // twenty personal ramparts in the extension layer.
 // 45, and that is a swept number rather than a rounded mean. Fleet sweep of the
-// constant (159 rooms, ramparts / shallow-extensions / rooms still walking the
+// constant, run on the 159-room world the constant was chosen in (ramparts /
+// shallow-extensions / rooms still walking the
 // upkeep ladder / road median):
 //   30 -> 7162 / 203 / 42 / 86      40 -> 7187 / 124 / 22 / 88
 //   35 -> 7171 / 156 / 30 / 88      45 -> 7200 /  97 / 16 / 86
@@ -147,8 +149,10 @@ const RANGED_RANGE = 3;
 // Endpoint budget. The metric is EXACT all-pairs over every reachable cut tile
 // up to this many endpoints — which covers the entire fleet. The figure that
 // used to stand here was "largest cut 75", and it was stale: re-derived on the
-// shipped artifact the largest REACHABLE cut is 80, so the margin is 10
-// endpoints and not 15. The conclusion is unchanged (0 rooms sample) and the
+// shipped artifact, and again at round 20 (E13S8), the largest REACHABLE cut
+// measured 80, so the margin is 10 endpoints and not 15 — a fleet maximum,
+// so it moves with the fleet and the 90 is the constant, not the reading.
+// The conclusion is unchanged (0 rooms sample) and the
 // number is corrected rather than left to rot, because a justification quoting a
 // figure nobody re-measures is the same defect as a metric nobody re-derives.
 // The farthest-point sampler survives only as a fallback for a hypothetical
@@ -1891,29 +1895,48 @@ export function planShell(terrain, plan, opts = {}) {
   // A DISTANT CONTROLLER DOES NOT GET THE WALL DRAGGED OUT TO IT.
   //
   // ENCLOSE_CTRL_BUDGET caps how many extra CUT TILES the expansion may cost,
-  // and that turned out to be the wrong currency. E19S10's controller is a
-  // 29-tile walk from the hub; the expansion bought its enclosure for under 4
-  // extra cut tiles by stretching the shell 28 tiles west into a long finger —
-  // same wall bill, completely different SHAPE, and the shape is what the
-  // towers have to cover. It shipped the fleet's only sub-1500 wall face (900
-  // damage, next worst 1440) and the fleet's only towerCoverage declaration.
+  // and that turned out to be the wrong currency. The room that proved it was
+  // E19S10, on the earlier claimable list this planner used to plan — it is not
+  // in the current fleet, so everything in this paragraph is the case the gate
+  // was DESIGNED against and not a room a reader can go and open. Its
+  // controller was a 29-tile walk from the hub; the expansion bought its
+  // enclosure for under 4 extra cut tiles by stretching the shell 28 tiles west
+  // into a long finger — same wall bill, completely different SHAPE, and the
+  // shape is what the towers have to cover. It shipped that world's only
+  // sub-1500 wall face (900 damage, next worst 1440) and its only towerCoverage
+  // declaration.
   // The goal document already says what a far controller gets instead:
   // "rampart ONLY its adjacent ring (denies claim-attack stands) + link +
   // container. Nothing wider."
   //
   // So the currency is REACH, and the gate has both limbs the failure had:
-  //   walk   how far the controller is. 88 of the 90 rooms that enclose their
-  //          controller do it at pathController <= 15 (p50 6, p90 13); only
-  //          E21S0 (19) and E19S10 (29) are past it. Under the line nothing is
+  //   walk   how far the controller is. The 15 is a round number sitting where
+  //          the fleet already sits; it is not DERIVED from the fleet, and the
+  //          reading below is a measurement taken at a moment rather than the
+  //          definition of the gate. Measured at round 20, 88 of the 92 rooms
+  //          that enclose their controller do it at pathController <= 15 (p50 7,
+  //          p90 11), and the four past the line are E11S5 (16), E9S7 (17),
+  //          E11S9 (22) and E13S2 (27). Under the line nothing is
   //          checked at all — a near controller cannot stretch anything.
+  //          (What stood here was the same reading over the earlier claimable
+  //          list, naming E21S0 and E19S10 as the two rooms past the line —
+  //          neither of which is a room in this fleet at all, so the sentence
+  //          sent a reader to look up plans that do not exist. Round 20
+  //          re-derived it and tagged it as a round-20 measurement rather than
+  //          leaving a bare present-tense fleet numeral. Criticism 80.)
   //   reach  chebyshev from the sitter to the furthest tile of the RESULTING
   //          cut, which is what tower falloff actually cares about (a tower
-  //          does 150 damage past chebyshev 20). Across the fleet this runs
-  //          p50 12 / p90 15, and the largest shell no expansion stretched is
-  //          25 — so 25 is "no further out than this room shape reaches on its
-  //          own". E19S10's controller lobe takes it to 31 and is refused;
-  //          E21S0's takes it to 21, keeps its enclosure, and keeps a healthy
-  //          1890-damage weakest face.
+  //          does 150 damage past chebyshev 20). Measured at round 20 this runs
+  //          p50 12 / p90 15 across the fleet, and 25 was set as the largest
+  //          shell no expansion had stretched when the gate was written — so 25
+  //          means "no further out than this room shape reaches on its own". It
+  //          is a constant, not a reading: the fleet's widest shell can move
+  //          under it without 25 having to follow. In the world the gate was
+  //          designed against, E19S10's controller lobe took the reach to 31 and
+  //          was refused, while E21S0's took it to 21, kept its enclosure and
+  //          kept a healthy 1890-damage weakest face — neither of those rooms is
+  //          in the current fleet, which is why they are named in the past tense
+  //          here. (Round 20; criticism 80.)
   const ctrlWalk = plan.meta?.pathController ?? 0;
   const reachOf = (tiles) => tiles.reduce((m, c) => Math.max(m, chebyshev(c, plan.sitter)), 0);
   const ctrlVeto =
@@ -2311,11 +2334,14 @@ export function planShell(terrain, plan, opts = {}) {
     // THIS IS NO LONGER A SHORTFALL OF ITS OWN. IT IS EVIDENCE FOR ONE.
     //
     // Layer 2 used to push a `gate:"mobility", source:"shell"` entry here and
-    // layer 7 pushed a second, `source:"built"`, from the finished room. 72 of
-    // the fleet's 172 rooms therefore shipped TWO mobility declarations, the
-    // layer-2 one first — so the number a reader saw first, the number the
-    // gallery printed first, and the number quoted in every review was the lap
-    // of a base that has not been built yet. E12S6 published "max 1.71 …
+    // layer 7 pushed a second, `source:"built"`, from the finished room. In the
+    // 172-room fleet the double was caught in, 72 rooms therefore shipped TWO
+    // mobility declarations, the layer-2 one first — so the number a reader saw
+    // first, the number the gallery printed first, and the number quoted in
+    // every review was the lap of a base that has not been built yet. (That 72
+    // is a count of the defect at the moment it was found, not of anything the
+    // planner ships now: a room gets one declaration and meta.shortfalls
+    // carries it per room. Criticism 80.) E12S6 published "max 1.71 …
     // between 16,4 and 24,2 the defender walks 12 … Cause: terrain" over a room
     // whose as-built lap is 4.57, whose defender walks 32, and whose own metric
     // records the cause as `structures`. 33 numbers, 17 causes and 9 tile pairs

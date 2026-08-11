@@ -40,8 +40,12 @@
  * Depth ladder unchanged: deep tiles are free, depth-3 and depth-2 tiles are
  * usable but buy a personal rampart. TARGET 60 is still non-negotiable — if
  * corridors genuinely cannot reach 60, the tail is placed one tile at a time
- * with its access road paved in the same step (meta.corridorFallback counts
- * them: 4 rooms fleet-wide, 19 extensions). Handing that job to layer 7 does
+ * with its access road paved in the same step. It is a rare path — a handful of
+ * rooms and a handful of extensions between them — and nobody has to take this
+ * comment's word for it: meta.corridorFallback carries the count per room, and
+ * the fleet summary totals it. (A hand-typed room/extension pair stood here and
+ * had gone stale; round 20 deleted it and named the field that publishes it
+ * instead. Criticism 80.) Handing that job to layer 7 does
  * NOT work — the next fallback extension takes the tile layer 7 meant to pave.
  */
 import {
@@ -67,7 +71,15 @@ import {
 } from "./layer-shell.mjs";
 
 const TARGET = 60;
-const DEPTH_SAFE = 4;
+/**
+ * The depth at which a slot stops renting a personal rampart. Exported since
+ * round 20 (OM2) because the film's relocation caption has to call a slot
+ * shallow or deep by the SAME threshold this layer places against — it was
+ * calling every pass-7 origin "shallow" and two of them are at depth 5 and 4 —
+ * and a second copy of the number in export-anim.mjs would be the drift this
+ * suite keeps closing rather than a fix for it.
+ */
+export const DEPTH_SAFE = 4;
 /** how long a corridor stub may reach before it has to justify itself */
 const MAX_STUB = 3;
 /**
@@ -168,14 +180,18 @@ const P1_STALL = 2;
  *
  * What the ceiling costs is real and is paid on purpose: rooms whose deep
  * floor lies past it take shallow tiles instead, at a personal rampart each.
- * Fleet-wide that is +25 shallow extensions against the uncapped layer, and it
- * buys every room a filler lap that stays inside one neighbourhood.
+ * When the ceiling was swept it cost +25 shallow extensions across that fleet
+ * against the uncapped layer — a sweep result, not a live reading, and it is
+ * left in the past tense rather than re-typed each round (meta.extensions.shallow
+ * carries each room's own count and the fleet summary totals it; criticism 80)
+ * — and it buys every room a filler lap that stays inside one neighbourhood.
  */
 const HUB_COMFORT = 12;
 const COHESION_W = 0.06;
 /**
  * The rungs are not a smooth ramp on purpose. 14 was measured and rejected:
- * 158 of 159 rooms "fit" inside it, so it looked free, and it cost 120 extra
+ * in the 159-room world the rung was swept in, 158 of those rooms "fit" inside
+ * it, so it looked free, and it cost 120 extra
  * SHALLOW extensions — 120 personal ramparts, forever — because a room that
  * cannot reach the deep pocket at 16 does not go without, it takes a near
  * tile in the shallow band instead and bolts a rampart to it. A ceiling that
@@ -486,35 +502,45 @@ function shortestLane(mask, a, b, penalty) {
 
 /**
  * ---------------------------------------------------------------------------
- * O3 (round 17) — ONE SEAT THIS LAYER MAY NOT TAKE.
+ * O3 (round 17) — THE SEATS THIS LAYER MAY NOT TAKE.
  * ---------------------------------------------------------------------------
  * `opts.forbidExtSeat` is set by `maybeTakeSealedRecovery` in pipeline.mjs.
- * That pass reads the shipped board's sealed-floor record — which names, per
- * sealed pocket, exactly which single structure of ours is holding it shut —
- * and RE-COMPOSES the room with the named extension seat withdrawn, then keeps
- * the result only if the whole as-built instrument panel holds and the deep
- * sealed floor actually comes back.
+ * That pass composes every movable seat the room ships and RE-COMPOSES the room
+ * with one of them withdrawn, keeping the result only if the whole as-built
+ * instrument panel holds and the deep sealed floor actually comes back.
  *
- * It is one tile, and it is withdrawn rather than moved: this layer knows where
- * sixty extensions go and the recovery pass does not. Withdrawing the seat lets
- * the corridor stay open, and the mass then flows into the pocket it was
- * sealing — which is the whole content of the claim "one move recovers it".
+ * It is one tile per run, and it is withdrawn rather than moved: this layer
+ * knows where sixty extensions go and the recovery pass does not. Withdrawing
+ * the seat lets the corridor stay open, and the mass then flows into the pocket
+ * it was sealing — which is the whole content of the claim "one move recovers
+ * it".
+ *
+ * IT IS A LIST (OL5, round 20). The pass runs to a fixpoint: a take that leaves
+ * a residual seal over the threshold gets judged again on the board it produced,
+ * and that second run has to compose with BOTH seats off the board. A scalar
+ * that the second run overwrote would be composing a room nobody ever shipped,
+ * so the option accumulates and this reader returns a set. A room that withdrew
+ * nothing has an empty one.
  *
  * Read off `plan.meta.composeOpts` rather than a new parameter because that is
  * where composePlan already records the exact options a composition was built
  * with, and it is what `maybeReleaseParks` and `maybeTakeTowerSwap` re-compose
  * from — a second channel for the same fact is a second channel that drifts.
  */
-export function forbiddenExtSeat(plan) {
+export function forbiddenExtSeats(plan) {
   const f = plan?.meta?.composeOpts?.forbidExtSeat;
-  return f && Number.isInteger(f.x) && Number.isInteger(f.y) ? key(f.x, f.y) : null;
+  const out = new Set();
+  for (const s of Array.isArray(f) ? f : []) {
+    if (s && Number.isInteger(s.x) && Number.isInteger(s.y)) out.add(key(s.x, s.y));
+  }
+  return out;
 }
 
 export function planExtensions(terrain, plan) {
   if (!plan.shell) return { error: "extensions need a shell (layer 2 missing)" };
   const depth = plan.depth;
   const ext = plan.exterior;
-  const forbidSeat = forbiddenExtSeat(plan);
+  const forbidSeats = forbiddenExtSeats(plan);
 
   // structures whose faces must stay reachable
   const faced = [];
@@ -728,7 +754,7 @@ export function planExtensions(terrain, plan) {
     const k = key(x, y);
     // O3: the one seat the sealed-floor recovery pass withdrew — see
     // forbiddenExtSeat above
-    if (forbidSeat === k) return false;
+    if (forbidSeats.has(k)) return false;
     // a reserved defender lane is a cut tile as far as the mass is concerned
     if (laneSet.has(k)) return false;
     // ...and so is the controller claim seat and its approach
@@ -1632,12 +1658,13 @@ export function planExtensions(terrain, plan) {
   // THE CORRIDOR BUDGET IS THE REASON, AND IT DOES NOT SAY SO.
   //
   // `deepExhausted` reads like "this room has no deep floor left", and in the
-  // seven rooms that ship the fleet's avoidable shallow extensions it is FALSE
+  // seven rooms that shipped the fleet's avoidable shallow extensions in the
+  // world this was diagnosed in it was FALSE
   // — which reads like the placement simply chose badly. It did not. Phase 1
   // has three exits and only ONE of them sets that flag: `digDeep()` coming
   // back empty. The other two are `capacityDeep() >= NEED_DEEP_SLOTS` and
-  // `stubUsed() >= stubCap`, and in all seven rooms it is the third — every one
-  // of them ends on stubUsed() == 51 == MAX_STUB_ROADS_RICH, with
+  // `stubUsed() >= stubCap`, and in all seven it was the third — every one
+  // of them ended on stubUsed() == 51 == MAX_STUB_ROADS_RICH, with
   // NEED_DEEP_SLOTS = 66 arithmetically out of reach. The mass then starts with
   // the paving budget already spent, so the loop below breaks after its FIRST
   // pass (`if (stubUsed() >= stubCap) break`) and the whole program, deep tiles
@@ -1798,7 +1825,8 @@ export function planExtensions(terrain, plan) {
   // ------------------------------------------------------------------
   // A shallow extension is a personal rampart forever: 0.03 e/tick, a repair
   // target inside a ranged attacker's envelope, and a tile the defenders have
-  // to care about. The fleet shipped 82 of them, and the rooms that shipped
+  // to care about. In the fleet this pass was written against, 82 of them
+  // shipped, and the rooms that shipped
   // them said — in a note this planner generates — that "what survives is deep
   // floor with no road face and no budget left to give it one."
   //
@@ -2514,7 +2542,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // sealed-floor recovery pass withdrew is withdrawn from THIS pass's candidate
   // scans as well — a seat forbidden in layer 6 and handed back in layer 7b is
   // not a withdrawn seat. See forbiddenExtSeat.
-  const forbidSeat = forbiddenExtSeat(plan);
+  const forbidSeats = forbiddenExtSeats(plan);
   // the claim seat, the mineral stand, their approaches and the protected
   // upgrader parking — 7b places extensions like any other layer and is held
   // to the same bans. See reservedTiles in shared.mjs.
@@ -2834,7 +2862,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
         swept++;
         if (!isWall(terrain, x, y) && !exterior[idxOf(x, y)]) inWall++;
         if (skipKeys && skipKeys.has(k)) continue;
-        if (forbidSeat === k) continue; // O3 — the withdrawn seat
+        if (forbidSeats.has(k)) continue; // O3 — the withdrawn seat(s)
         if (occupiedTile.has(k)) continue;
         if (objectTiles.has(k)) continue;
         const i = idxOf(x, y);
@@ -3105,7 +3133,7 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
         if (skipKeys && skipKeys.has(k)) continue;
-        if (forbidSeat === k) continue; // O3 — the withdrawn seat
+        if (forbidSeats.has(k)) continue; // O3 — the withdrawn seat(s)
         if (occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
         if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
         const i = idxOf(x, y);
