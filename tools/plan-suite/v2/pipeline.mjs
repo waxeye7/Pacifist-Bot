@@ -307,11 +307,29 @@ export function composePlan(d, shellOpts = {}) {
                   ? null
                   : plan.meta.extensions.laneMeta.bounded,
               slackSpent: !!rf.moved?.length,
-              rollback: (rf.boundRollback || []).map((m) => ({
-                from: { x: m.from.x, y: m.from.y },
-                to: { x: m.to.x, y: m.to.y },
-                wouldLap: m.wouldLap,
-              })),
+              // ONLY A SLOT THIS ROOM STILL SHIPS SHALLOW MAY BE PRICED AS
+              // REFUSED (O7, round 19). `boundRollback` is layer 7b's log of
+              // moves the lap ceiling threw away — and pass (2b2) then offers
+              // every rolled-back slot the REST of the target order, so a slot
+              // refused here is very often moved a few lines later. The record
+              // carried the whole log, so the note priced trades the room had
+              // already taken: E15S2 published "3 further shallow slot(s) could
+              // have moved onto free deep floor — 20,17->16,22 8,22->18,26
+              // 11,26->17,25 — retiring 3 personal rampart(s)" in the same
+              // paragraph as "every shallow slot this room laid was relocated
+              // onto deep floor; it ships none", with no extension and no
+              // rampart on any of the three named tiles. Same in E13S6 and
+              // E1S8. `rf.shallow` is the post-7b census — the slots the room
+              // actually ships shallow — so the refusal is filtered against the
+              // SHIPPED board and a trade that was reopened and taken stops
+              // being reported as refused.
+              rollback: (rf.boundRollback || [])
+                .filter((m) => (rf.shallow || []).some((s) => s.x === m.from.x && s.y === m.from.y))
+                .map((m) => ({
+                  from: { x: m.from.x, y: m.from.y },
+                  to: { x: m.to.x, y: m.to.y },
+                  wouldLap: m.wouldLap,
+                })),
             }
           : null,
       };
@@ -2673,8 +2691,32 @@ function restateSatBasis(plan) {
  *     SEALED_RECOVERY_MIN tiles of DEEP floor — buildable ground the program
  *     could have used — because a one-tile pocket is not worth a re-composition
  *     and a pass that fires on everything is a pass with no rule.
- *   · EVERY MOVABLE HOLDER OF THE TARGET POCKET, NOT A PREFIX OF THEM (OF1,
- *     round 18). Round 17 tried `holders.slice(0, 3)` in RASTER order and
+ *   · THE THRESHOLD IS READ ON THE BOARD, NOT ON A POCKET (O1, round 19). Until
+ *     this round the pass ADMITTED candidates with
+ *     `pockets.filter(p => p.best.recoversDeep >= MIN)` and then worked on
+ *     `ranked[0]` alone — a PREDICTION, per pocket, made by the counterfactual
+ *     "delete this one structure and re-flood". The gain the pass then measures
+ *     is `before.sealedDeep - after.sealedDeep`, which is BOARD-WIDE, and the
+ *     two are not the same question: withdrawing a seat re-seats sixty
+ *     extensions, so a withdrawal can open a pocket the withdrawn structure
+ *     never touched. E7S2 and E7S5 each shipped a fully recoverable 4-deep seal
+ *     under a refusal reading "the largest single-structure recovery here is 3
+ *     deep tile(s)" — true of the counterfactual, false of the board: E7S2's
+ *     ext@25,45 holds a 3-tile pocket and its withdrawal returns all 4 deep
+ *     tiles of the room, the second pocket falling open with the re-seated mass.
+ *     Fleet-wide the holder sets of two pockets are disjoint in 59 of the 60
+ *     rooms that seal anything, so no arithmetic over the counterfactual can
+ *     stand in for the measurement.
+ *     So admission is now a bound that is TRUE OF THE BOARD and exact:
+ *     gainedDeep can never exceed the deep floor the room seals in the first
+ *     place, so a room whose whole sealed floor is under the threshold is
+ *     refused without composing anything and SAYS SO IN THOSE TERMS; every other
+ *     room composes every movable holder of EVERY pocket and admits on the
+ *     measured board-wide gain. It costs ~150 compositions across the fleet
+ *     (16 rooms seal 4 or more deep tiles), and the winner rule is unchanged.
+ *   · EVERY MOVABLE HOLDER OF EVERY POCKET, NOT A PREFIX OF THEM (OF1,
+ *     round 18; widened from one pocket to all of them by O1, round 19).
+ *     Round 17 tried `holders.slice(0, 3)` in RASTER order and
  *     published "every candidate above was re-composed and the panel refused
  *     it", which was false in the one room it mattered: E11S7's pocket is held
  *     by EIGHT extensions each returning 5/5, the first three fail, and
@@ -2737,9 +2779,6 @@ function maybeTakeSealedRecovery(d, plan) {
   if (Object.values(SEALED_RECOVERY_KINDS).some((o) => opts[o])) return plan;
   const sf = plan.meta.sealedFloor;
   if (!sf || !sf.pockets?.length) return plan;
-  const ranked = sf.pockets
-    .filter((p) => p.best && p.best.recoversDeep >= SEALED_RECOVERY_MIN)
-    .sort((a, b) => b.best.recoversDeep - a.best.recoversDeep || b.best.recovers - a.best.recovers);
   const record = {
     threshold: SEALED_RECOVERY_MIN,
     kindsAttempted: Object.keys(SEALED_RECOVERY_KINDS),
@@ -2755,29 +2794,66 @@ function maybeTakeSealedRecovery(d, plan) {
     tourRule: SEALED_RECOVERY_TOUR_RULE,
     basis: SEALED_RECOVERY_BASIS,
   };
-  if (!ranked.length) {
+  // THE WHOLE BOARD'S SEAL, POCKET BY POCKET. Every branch below reports the
+  // same inventory, because the question this pass answers is a question about
+  // the room and not about whichever pocket sorted first.
+  const movableOf = (p) => (p.holders || []).filter((h) => SEALED_RECOVERY_KINDS[h.type]);
+  record.pockets = sf.pockets.map((p) => ({
+    at: p.at,
+    tiles: p.tiles,
+    deep: p.deep,
+    holders: (p.holders || []).length,
+    movable: movableOf(p).length,
+  }));
+  // THE ONLY REFUSAL THIS PASS MAY MAKE WITHOUT COMPOSING ANYTHING, AND IT IS
+  // A BOUND RATHER THAN A PREDICTION. gainedDeep is measured as
+  // before.sealedDeep - after.sealedDeep and after.sealedDeep >= 0, so no
+  // withdrawal in this room can return more deep floor than the room seals.
+  // (The two board figures are published on this branch only: a room that
+  // refuses here ships the board they were read off, so they re-derive from
+  // meta.sealedFloor. The branches below re-read the same two numbers as
+  // `before.sealedTiles`/`before.sealedDeep` on the instrument panel and do not
+  // publish a second copy of them.)
+  if (sf.deep < SEALED_RECOVERY_MIN) {
     record.outcome = "belowThreshold";
+    record.sealedTiles = sf.tiles;
+    record.sealedDeep = sf.deep;
+    // kept, and demoted: this WAS the admission rule (O1, round 19). It is the
+    // best per-pocket counterfactual anywhere in the room, it is still worth
+    // printing beside the bound that replaced it, and it decides nothing.
     record.bestDeepAnywhere = Math.max(0, ...sf.pockets.map((p) => (p.best ? p.best.recoversDeep : 0)));
     record.offered.push({
       verdict:
-        `no pocket in this room is held shut by a single structure returning ` +
-        `${SEALED_RECOVERY_MIN} or more DEEP tiles — the largest single-structure recovery here is ` +
-        `${record.bestDeepAnywhere} deep tile(s)`,
+        `this room's ENTIRE sealed floor is ${record.sealedDeep} deep tile(s) across ` +
+        `${record.pockets.length} pocket(s), so no withdrawal of any structure can return the ` +
+        `${SEALED_RECOVERY_MIN} deep tiles this pass requires — the recovery is measured board-wide as ` +
+        `sealed deep BEFORE minus sealed deep AFTER, and that difference cannot exceed the sealed deep ` +
+        `floor the room has. It is a ceiling on the board rather than a claim about any one pocket ` +
+        `(round 19: the admission test used to be the largest SINGLE-POCKET counterfactual, which is ` +
+        `false of a withdrawal that opens two pockets at once — the largest one here is ` +
+        `${record.bestDeepAnywhere} deep tile(s) and that number no longer decides anything)`,
     });
     plan.meta.sealedRecovery = record;
     return plan;
   }
-  const target = ranked[0];
-  record.pocket = {
-    at: target.at,
-    tiles: target.tiles,
-    deep: target.deep,
-    holders: target.holders.length,
-  };
-  // EVERY movable holder, ordered by the gain the counterfactual already
-  // measured. `slice(0, 3)` in raster order is what shipped E11S7's false
-  // refusal — see the header.
-  const movable = target.holders
+  // EVERY movable holder of EVERY pocket, deduped by tile — one structure can
+  // hold two pockets (E16S8) and it is one candidate, priced once, with the
+  // counterfactual gains of both pockets summed. Ordered by that counterfactual
+  // purely so the trial order is deterministic: the winner is chosen by a
+  // comparison over all of them, so this order cannot change the outcome.
+  const byTile = new Map();
+  for (const p of sf.pockets) {
+    for (const h of p.holders || []) {
+      const k = `${h.x},${h.y}`;
+      let e = byTile.get(k);
+      if (!e) byTile.set(k, (e = { type: h.type, x: h.x, y: h.y, recovers: 0, recoversDeep: 0, pockets: [] }));
+      e.recovers += h.recovers;
+      e.recoversDeep += h.recoversDeep;
+      e.pockets.push({ x: p.at.x, y: p.at.y });
+    }
+  }
+  const holders = [...byTile.values()];
+  const movable = holders
     .filter((h) => SEALED_RECOVERY_KINDS[h.type])
     .sort(
       (a, b) =>
@@ -2791,16 +2867,15 @@ function maybeTakeSealedRecovery(d, plan) {
         a.x - b.x,
     );
   record.candidates = movable.length;
-  record.fixedHolders = target.holders
+  record.fixedHolders = holders
     .filter((h) => !SEALED_RECOVERY_KINDS[h.type])
     .map((h) => ({ type: h.type, x: h.x, y: h.y, recovers: h.recovers, recoversDeep: h.recoversDeep }));
   if (!movable.length) {
     record.outcome = "fixedGeometry";
     record.offered.push({
-      pocket: { at: target.at, tiles: target.tiles, deep: target.deep },
       verdict:
-        `this pocket's ${target.holders.length} holder(s) are all fixed geometry ` +
-        `(${[...new Set(target.holders.map((h) => h.type))].join(", ")}) — this pass re-seats ` +
+        `every one of the ${holders.length} holder(s) of this room's ${record.pockets.length} pocket(s) ` +
+        `is fixed geometry (${[...new Set(holders.map((h) => h.type))].join(", ")}) — this pass re-seats ` +
         `${record.kindsAttempted.join(" and ")} seats and nothing else, because those are the two ` +
         `whose tile is chosen by preference rather than by a constraint, and a hub structure, a lab ` +
         `of the diamond, a tower or the hauled nuker is placed against its own layer's real rule`,
@@ -2886,9 +2961,11 @@ function maybeTakeSealedRecovery(d, plan) {
     record.outcome = "allRefused";
     record.offered.push({
       verdict:
-        `all ${record.tried} candidate(s) — every movable holder this pocket has, not a prefix of them ` +
-        `— were re-composed and finalized and the panel refused each one; this room ships the plan it ` +
-        `would have shipped without this pass`,
+        `all ${record.tried} candidate(s) — every movable holder of every one of this room's ` +
+        `${record.pockets.length} pocket(s), not a prefix of them and not the holders of one pocket ` +
+        `— were re-composed and finalized and the panel refused each one, each on the BOARD-WIDE deep ` +
+        `recovery its finished room actually delivers; this room ships the plan it would have shipped ` +
+        `without this pass`,
     });
     plan.meta.sealedRecovery = record;
     return plan;
@@ -2909,11 +2986,37 @@ function maybeTakeSealedRecovery(d, plan) {
   const win = accepted[0];
   record.outcome = "taken";
   record.accepted = accepted.length;
+  // WHICH POCKETS ACTUALLY OPENED, MEASURED ON THE TWO BOARDS (O1, round 19).
+  // The record used to name ONE pocket — the one the admission filter had
+  // ranked first — and the note then read "gives back 4 sealed tiles ... out of
+  // the pocket at 22,46 (3 tile(s), 3 deep)", which is four tiles out of a
+  // three-tile pocket. A withdrawal re-seats sixty extensions and opens
+  // whatever it opens, so the answer is read off the after board: every pocket
+  // of the BEFORE seal whose own named tiles are no longer sealed after.
+  // `sealedNew` is the other half of the same arithmetic — floor the
+  // re-composition sealed that was not sealed before — printed whether or not
+  // it is zero, because a residue bucket you only hear about when it is empty
+  // is not a check. The identity the note quotes:
+  //   recoveredTiles(board) = sum(pockets[].recoveredTiles) - sealedNew
+  const afterSealedKeys = new Set();
+  for (const p of win.alt.meta?.sealedFloor?.pockets || []) {
+    for (const t of p.named || []) afterSealedKeys.add(`${t.x},${t.y}`);
+  }
+  const beforeSealedKeys = new Set();
+  for (const p of sf.pockets) for (const t of p.named || []) beforeSealedKeys.add(`${t.x},${t.y}`);
   record.taken = {
     withdrawn: win.withdrawn,
     kind: win.kind,
-    pocket: { at: target.at, tiles: target.tiles, deep: target.deep },
+    pockets: sf.pockets
+      .map((p) => ({
+        at: p.at,
+        tiles: p.tiles,
+        deep: p.deep,
+        recoveredTiles: (p.named || []).filter((t) => !afterSealedKeys.has(`${t.x},${t.y}`)).length,
+      }))
+      .filter((p) => p.recoveredTiles > 0),
   };
+  record.sealedNew = [...afterSealedKeys].filter((k) => !beforeSealedKeys.has(k)).length;
   record.recoveredTiles = win.gainedTiles;
   record.recoveredDeep = win.gainedDeep;
   record.extTourAfter = win.extTourAfter;
@@ -2926,7 +3029,8 @@ function maybeTakeSealedRecovery(d, plan) {
       o.withdrawn.x === win.withdrawn.x && o.withdrawn.y === win.withdrawn.y
         ? "TAKEN"
         : `accepted, not taken: ${accepted.length} candidate(s) cleared the panel and the pick is the ` +
-          `largest deep recovery, then the largest total recovery, then the cheapest panel`;
+          `largest deep recovery, then the largest total recovery, then the cheapest panel (least ` +
+          `extension tour, then most interior, then strongest face), then raster order`;
   }
   win.alt.meta.sealedRecovery = record;
   return win.alt;
@@ -2937,15 +3041,25 @@ const SEALED_RECOVERY_BASIS =
   `SEAT WITHDRAWN, not a structure teleported: the room is RE-COMPOSED from layer 1 with ` +
   `opts.forbidExtSeat (an extension seat) or opts.forbidObserverSeat (the observer's) set, so layer 6 ` +
   `places its sixty extensions, or layer 5 its observer, again with that one tile off the board and ` +
-  `every later layer runs on the result. EVERY movable holder of the target pocket is composed — ` +
-  `"candidates" of them, "tried" re-compositions, never a prefix (OF1, round 18: a cap of 3 in raster ` +
-  `order made E11S7 publish "every candidate was refused" while five untried holders sat behind it, ` +
-  `two of which recover the whole pocket). before/after are the same as-built instrument panel the ` +
-  `across-prior take uses, read off two FINISHED rooms. A withdrawal is ACCEPTED only when no ` +
-  `instrument moves the wrong way, the finished room actually gives back at least ` +
-  `${SEALED_RECOVERY_MIN} deep sealed tiles, and the extension tour stays inside its stated ceiling — ` +
-  `the counterfactual is a claim about deleting a structure, and this is the claim about re-composing ` +
-  `without its seat, which is a strictly harder test and the only one that ships. Among the accepted, ` +
+  `every later layer runs on the result. EVERY movable holder of EVERY pocket is composed — ` +
+  `"candidates" of them, "tried" re-compositions, never a prefix and never one pocket's holders (OF1, ` +
+  `round 18: a cap of 3 in raster order made E11S7 publish "every candidate was refused" while five ` +
+  `untried holders sat behind it, two of which recover the whole pocket; O1, round 19: admission by ` +
+  `the best SINGLE-POCKET counterfactual made E7S2 and E7S5 publish "the largest single-structure ` +
+  `recovery here is 3 deep tile(s)" over a seal that comes back WHOLE, because the withdrawal ` +
+  `re-seats sixty extensions and opens a second pocket the withdrawn structure never touched). ` +
+  `ADMISSION IS MEASURED ON THE BOARD, NOT PREDICTED ON A POCKET: a room is refused without composing ` +
+  `anything only when its ENTIRE sealed floor holds fewer than ${SEALED_RECOVERY_MIN} deep tiles, ` +
+  `which is a true ceiling on the gain (gained = sealed deep before - sealed deep after, and after is ` +
+  `never negative) rather than a claim about any one pocket. before/after are the same as-built ` +
+  `instrument panel the across-prior take uses, read off two FINISHED rooms. A withdrawal is ACCEPTED ` +
+  `only when no instrument moves the wrong way, the finished room actually gives back at least ` +
+  `${SEALED_RECOVERY_MIN} deep sealed tiles BOARD-WIDE, and the extension tour stays inside its stated ` +
+  `ceiling — the counterfactual is a claim about deleting a structure, and this is the claim about ` +
+  `re-composing without its seat, which is a strictly harder test and the only one that ships. ` +
+  `taken.pockets is read off the two boards afterwards: every pocket of the before seal whose own ` +
+  `named tiles are no longer sealed, with sealedNew counting any floor the re-composition sealed that ` +
+  `was not sealed before, so the recovery adds up tile by tile. Among the accepted, ` +
   `the one TAKEN is the largest deep recovery, then the largest total recovery, then the cheapest ` +
   `panel (least extension tour, most interior, strongest face), then raster order — a comparison over ` +
   `every priced candidate rather than whichever one iteration reached first.`;

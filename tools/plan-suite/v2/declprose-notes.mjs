@@ -38,6 +38,17 @@
 import { renderCutReason } from "./declprose.mjs";
 
 const round2 = (v) => Math.round(v * 100) / 100;
+/**
+ * AN UPKEEP FIGURE ROUNDED TO NOTHING IS A FIGURE THAT SAYS THE COST IS FREE
+ * (O10, round 19). Road decay is 0.001 e/tick per tile, so `round2` printed the
+ * container-road note's whole cost as "0 e/tick" — a paragraph whose entire
+ * point is that the tiles are cheap, saying instead that they are free. Three
+ * decimals is the resolution of the quantity being described (a road tile), so
+ * that is the resolution the sentence is written at; trailing zeros go, because
+ * "0.09" and "0.090" are the same number and only one of them reads like a
+ * measurement.
+ */
+const eTick = (v) => String(Math.round(v * 1000) / 1000);
 const xy = (t) => `${t.x},${t.y}`;
 const plural = (v, one, many) => (Number(v) === 1 ? one : many);
 
@@ -100,8 +111,9 @@ function renderSealedFloor(r) {
  * OF3 (round 18): the recovery pass had NO reader channel at all.
  *
  * `maybeTakeSealedRecovery` re-composes the room with a seat withdrawn, and in
- * eight rooms of the fleet it REPLACED the shipped plan — a structure moved, a
- * pocket of deep floor handed back — with the only trace a `meta.sealedRecovery`
+ * every room whose record below reads `outcome: "taken"` it REPLACED the shipped
+ * plan — a structure moved, a pocket of deep floor handed back — with the only
+ * trace a `meta.sealedRecovery`
  * object nothing rendered. No declaration, no note, no gallery line, no film
  * caption. A pass that silently edits the board it ships is the same defect as a
  * cap that silently truncates its own search (OF1 above): the room stops being
@@ -112,8 +124,15 @@ function renderSealedFloor(r) {
  * of eight holders were tried. A refusal a reader cannot see is a refusal nobody
  * can check, so this note publishes BOTH branches and, on the refusal branch,
  * the candidate census the honesty of the sentence depends on: how many movable
- * holders the pocket has, how many were composed (all of them), and the
- * instrument that refused each one.
+ * holders the room's pockets have between them, how many were composed (all of
+ * them), and the instrument that refused each one.
+ *
+ * O1 (round 19) widened both branches from a pocket to the BOARD. The admission
+ * test was the best per-pocket counterfactual and the gain is measured board-wide,
+ * so a refusal could be true of the pocket it named and false of the room it was
+ * printed in. Every sentence here now names the room's whole seal, the pockets a
+ * take actually opened are read off the after board, and the only refusal made
+ * without composing anything quotes a ceiling that cannot be wrong.
  *
  * Rendered from `meta.sealedRecovery` and nothing else, like every renderer in
  * this file. `outcome` is the record's own branch tag, so the paragraph shape is
@@ -145,11 +164,33 @@ function renderSealedRecovery(r) {
     const rivals = (r.offered || []).filter(
       (o) => o.withdrawn && o.verdict !== "TAKEN" && o.verdict.startsWith("accepted"),
     );
+    // THE POCKETS THE WITHDRAWAL ACTUALLY OPENED, ALL OF THEM (O1, round 19).
+    // This sentence used to name the one pocket the admission filter had ranked
+    // first, so E7S2's four recovered tiles would have been reported as coming
+    // "out of the pocket at 22,46 (3 tile(s), 3 deep)". A withdrawal re-seats
+    // sixty extensions; which pockets fell open is a measurement on the after
+    // board and the record carries it per pocket.
+    const opened = t.pockets || [];
+    const openedSum = opened.reduce((s, p) => s + p.recoveredTiles, 0);
     return (
       `SEALED FLOOR RECOVERED: this room withdrew the ${t.kind} seat at ${xy(t.withdrawn)} and was ` +
       `RE-COMPOSED from layer 1 without it, and the finished board gives back ${r.recoveredTiles} ` +
-      `sealed tile(s), ${r.recoveredDeep} of them deep buildable floor, out of the pocket at ` +
-      `${xy(t.pocket.at)} (${t.pocket.tiles} tile(s), ${t.pocket.deep} deep). ` +
+      `sealed tile(s), ${r.recoveredDeep} of them deep buildable floor, out of ` +
+      `${opened.length} ${plural(opened.length, "pocket", "pockets")}: ` +
+      opened
+        .map(
+          (p) =>
+            `${xy(p.at)} (${p.tiles} tile(s), ${p.deep} deep) gave back ${p.recoveredTiles}` +
+            (p.recoveredTiles === p.tiles ? ` — all of it` : ``),
+        )
+        .join(", ") +
+      `. ` +
+      (r.sealedNew
+        ? `The re-composed board seals ${r.sealedNew} tile(s) that were not sealed before, so the net ` +
+          `${r.recoveredTiles} is those ${openedSum} recovered less ${r.sealedNew} newly sealed — the ` +
+          `pass is priced on the NET, never on the gross. `
+        : `The re-composed board seals nothing that was not sealed before, so the net ` +
+          `${r.recoveredTiles} is the whole of what those pockets gave back. `) +
       `The seat is WITHDRAWN, never teleported: the tile stopped being offered and the layer that ` +
       `owns it placed its mass again with the corridor open. ` +
       `Every instrument of the shipped-board panel holds — the weakest cut face ${r.before.face} -> ` +
@@ -157,14 +198,18 @@ function renderSealedRecovery(r) {
       `gated lap ${r.before.lap} -> ${r.after.lap}, the sealed floor ${r.before.sealedTiles} -> ` +
       `${r.after.sealedTiles} (${r.before.sealedDeep} -> ${r.after.sealedDeep} deep) — measured on two ` +
       `FINISHED rooms rather than on a promise. ` +
-      `That pocket has ${r.candidates} movable ${plural(r.candidates, "holder", "holders")}, and EVERY ` +
+      `Across this room's ${r.pockets.length} ${plural(r.pockets.length, "pocket", "pockets")} there ` +
+      `are ${r.candidates} distinct movable ${plural(r.candidates, "holder", "holders")}, and EVERY ` +
       `one of them was re-composed from layer 1 and finalized — ${r.tried} ` +
-      `${plural(r.tried, "composition", "compositions")}, never a prefix, which is the round-18 ` +
-      `correction (this pass used to try three in raster order and then report that every candidate ` +
-      `had been examined). ` +
+      `${plural(r.tried, "composition", "compositions")}, never a prefix and never one pocket's ` +
+      `holders, and each was admitted or refused on the deep floor its own finished board hands back ` +
+      `BOARD-WIDE (round 18: this pass used to try three in raster order and then report that every ` +
+      `candidate had been examined; round 19: it used to admit on the best single-pocket ` +
+      `counterfactual, which cannot see a withdrawal that opens two pockets at once). ` +
       (rivals.length
         ? `${r.accepted} of them cleared the whole panel and this seat won the published tie-break — ` +
-          `largest deep recovery, then largest total recovery, then cheapest panel, then raster — ` +
+          `largest deep recovery, then largest total recovery, then the cheapest panel (least ` +
+          `extension tour, then most interior, then strongest face), then raster order — ` +
           `ahead of ${rivals.map((o) => xy(o.withdrawn)).join(" ")}.`
         : `It is the only one that cleared the whole panel.`) +
       tourTaken
@@ -172,18 +217,30 @@ function renderSealedRecovery(r) {
   }
   if (r.outcome === "belowThreshold") {
     return (
-      `SEALED FLOOR NOT RECOVERED: no pocket in this room is held shut by a single structure of ours ` +
-      `returning ${r.threshold} or more DEEP tiles — the best one-structure recovery anywhere in this ` +
-      `room is ${r.bestDeepAnywhere} deep tile(s) — so no re-composition was attempted at all. The ` +
-      `threshold is stated rather than tuned: a pocket of one or two tiles is not worth re-composing ` +
-      `the room for, and a pass that fires on everything is a pass with no rule.`
+      `SEALED FLOOR NOT RECOVERED: this room's ENTIRE sealed floor is ${r.sealedTiles} tile(s), ` +
+      `${r.sealedDeep} of them deep, across ${r.pockets.length} ` +
+      `${plural(r.pockets.length, "pocket", "pockets")} ` +
+      `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) — fewer deep tiles ` +
+      `than the ${r.threshold} this pass requires, so no withdrawal of any structure in this room can ` +
+      `clear the threshold and none was composed. That is a CEILING ON THE BOARD, not a prediction ` +
+      `about a pocket: the recovery is measured as the sealed deep floor before the withdrawal minus ` +
+      `the sealed deep floor after it, and no room can give back more deep floor than it seals. ` +
+      `(Round 19: this refusal used to read "no pocket in this room is held shut by a single structure ` +
+      `returning ${r.threshold} or more DEEP tiles — the largest single-structure recovery here is ` +
+      `${r.bestDeepAnywhere}", which is a statement about the per-structure counterfactual and was ` +
+      `FALSE OF THE BOARD in the two rooms where withdrawing one seat re-seated the mass and opened a ` +
+      `second pocket as well. That counterfactual is still measured and still published on ` +
+      `meta.sealedFloor; it no longer decides anything.) The threshold is stated rather than tuned: a ` +
+      `pocket of one or two tiles is not worth re-composing the room for, and a pass that fires on ` +
+      `everything is a pass with no rule.`
     );
   }
   if (r.outcome === "fixedGeometry") {
     return (
-      `SEALED FLOOR NOT RECOVERED: the largest pocket this room can reach — ${xy(r.pocket.at)}, ` +
-      `${r.pocket.tiles} tile(s), ${r.pocket.deep} deep — is held by ${r.pocket.holders} structure(s) ` +
-      `and NONE of them is one this pass may move ` +
+      `SEALED FLOOR NOT RECOVERED: this room seals ${r.pockets.length} ` +
+      `${plural(r.pockets.length, "pocket", "pockets")} ` +
+      `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) and NOT ONE of ` +
+      `their holders is a structure this pass may move ` +
       `(${r.fixedHolders.map((h) => `${h.type} ${xy(h)}=${h.recovers}/${h.recoversDeep}`).join(", ")}). ` +
       `The two classes it does move are ${r.kindsAttempted.join(" and ")}: an extension because the ` +
       `mass is the flexible layer and the seal is its ordering, and the observer because its own ` +
@@ -194,13 +251,21 @@ function renderSealedRecovery(r) {
     );
   }
   const tried = (r.offered || []).filter((o) => o.withdrawn);
+  // the seal this room ships, summed off its own pocket inventory — the
+  // refusal branch changes no board, so the pockets it was judged over are the
+  // pockets it ships
+  const sealedDeepNow = r.pockets.reduce((s, p) => s + p.deep, 0);
   return (
-    `SEALED FLOOR NOT RECOVERED: the pocket at ${xy(r.pocket.at)} (${r.pocket.tiles} tile(s), ` +
-    `${r.pocket.deep} deep) has ${r.candidates} movable ${plural(r.candidates, "holder", "holders")}, ` +
+    `SEALED FLOOR NOT RECOVERED: this room seals ${r.pockets.length} ` +
+    `${plural(r.pockets.length, "pocket", "pockets")} ` +
+    `(${r.pockets.map((p) => `${xy(p.at)} ${p.tiles}/${p.deep} deep`).join(", ")}) with ` +
+    `${r.candidates} distinct movable ${plural(r.candidates, "holder", "holders")} between them, ` +
     `and EVERY one of them was re-composed from layer 1 with the seat withdrawn and finalized — ` +
-    `${r.tried} ${plural(r.tried, "composition", "compositions")}, never a prefix, which is the ` +
-    `round-18 correction: this pass used to try three in raster order and then report that every ` +
-    `candidate had been refused. Each one, and the instrument that refused it: ` +
+    `${r.tried} ${plural(r.tried, "composition", "compositions")}, never a prefix and never one ` +
+    `pocket's holders, each judged on the deep floor its own finished board hands back BOARD-WIDE ` +
+    `(round 18: this pass used to try three in raster order and then report that every candidate had ` +
+    `been refused; round 19: it used to look at one pocket's holders only). Each one, and the ` +
+    `instrument that refused it: ` +
     tried
       .map(
         (o) =>
@@ -211,8 +276,8 @@ function renderSealedRecovery(r) {
             : `; extension tour ${deltaWord(o.extTourDelta)}`),
       )
       .join(" · ") +
-    `. This room ships the plan it would have shipped without this pass, and the ${r.pocket.deep} deep ` +
-    `tile(s) stay sealed — priced, named and refused rather than unexamined.` +
+    `. This room ships the plan it would have shipped without this pass, and its ${sealedDeepNow} ` +
+    `deep tile(s) stay sealed — priced, named and refused rather than unexamined.` +
     tourRefused
   );
 }
@@ -255,7 +320,7 @@ function renderContainerRoad(r) {
     `RCL 6 (no extractor exists before then, so the box has nothing to fill it). Containers are ` +
     `network nodes — true at RCL 8, false at RCL 3 — and without these tiles the controller ` +
     `container and the roads that serve it are orphaned for three whole RCLs. The tiles are ` +
-    `floor the base already walks, so the only cost is ${round2(r.added.length * 0.001)} ` +
+    `floor the base already walks, so the only cost is ${eTick(r.added.length * 0.001)} ` +
     `e/tick of road decay, against a staged network that does not connect.` +
     (r.sharing.length
       ? ` ${r.sharing.length} of them (${r.sharing.map(xy).join(" ")}) ` +
@@ -423,15 +488,18 @@ function renderShallowExtNote(r) {
           `applies: near the gate the difference between making it and not is worth more than the ` +
           `rampart, and an upkeep pass may not spend the garrison's legs to buy upkeep`;
   const tradeNote = lap && lap.rollback.length
-    ? ` TRADE REFUSED, PRICED: ${lap.rollback.length} further shallow slot(s) could have moved onto free deep ` +
-      `floor — ${lap.rollback.map((m) => `${xy(m.from)}->${xy(m.to)}`).join(" ")} — retiring ` +
-      `${lap.rollback.length} personal rampart(s) at ` +
-      `${Math.round(lap.rollback.length * 3) / 100} e/tick of forever-upkeep. Taking them would have moved the ` +
+    ? ` TRADE REFUSED, PRICED: ${lap.rollback.length} of the shallow slot(s) this room STILL SHIPS ` +
+      `could have moved onto free deep floor — ${lap.rollback.map((m) => `${xy(m.from)}->${xy(m.to)}`).join(" ")} ` +
+      `— retiring ${lap.rollback.length} personal rampart(s) at ` +
+      `${eTick(lap.rollback.length * 0.03)} e/tick of forever-upkeep. Taking them would have moved the ` +
       `as-built gated defender lap from ${lap.before} to ${lap.rollback[0].wouldLap}, past this room's ` +
       `ceiling of ${lap.ceiling}` +
       whichCeiling +
       `. The room keeps the ramparts and keeps the lap. The trade is written down so it can be ` +
-      `argued with.`
+      `argued with. (Round 19: this clause priced every move the lap ceiling ever threw away, ` +
+      `including slots a later pass then moved anyway — three rooms published a refusal over tiles ` +
+      `carrying no extension and no rampart, in the same paragraph as "it ships none". A slot is ` +
+      `priced as refused here only if the shipped board still has it, shallow.)`
     : lap && lap.ceilingSlack !== null && lap.ceilingSlack !== undefined && lap.slackSpent
       ? ` LAP SLACK SPENT, PRICED: this room laps ${lap.before} against a ` +
         `${r.mobilityTarget} target — past ${lap.ceilingStrictBand}x it, i.e. failed rather ` +

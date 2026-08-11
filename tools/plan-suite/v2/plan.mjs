@@ -230,19 +230,26 @@ function animNotes(plan) {
   // THE WALL CAPTION HAS TO STATE THE NUMBER THE WALL IS JUDGED ON.
   //
   // The escalation clause above can say "defenders could not out-walk an
-  // attacker around the wall" and then stop, which is what it did. In E16S1
-  // (as-built gated lap 4.4) and E9S2 — the two rooms an audit walked end to
-  // end — mobility is the only gate either room misses, and the film put no
-  // number on it anywhere: nothing in either film distinguished a 4.4 from a
-  // 1.21. The number is published, so the caption states it.
+  // attacker around the wall" and then stop, which is what it did. In E16S1 and
+  // E9S2 — the two rooms an audit walked end to end — mobility is the only gate
+  // either room misses, and the film put no number on it anywhere: nothing in
+  // either film distinguished a badly failing lap from a marginal one. The
+  // number is published, so the caption states it. (Round 19: this comment
+  // quoted a lap for E16S1 that belongs to a different room. A figure typed
+  // into a comment beside the code that prints the real one has no owner and no
+  // re-derivation — same disposal as the index badge's count below, and see
+  // criticism 69/80.)
   //
   // WHICH READING, AND WHY NOT THE OTHER ONE. meta.walls.mobility.builtGated
   // is the AS-BUILT GATED lap: measured with the extension mass standing in
   // the room, over the pairs whose absolute detour clears the floor. It is the
   // reading the target is applied to and the one the room page headlines.
   // meta.shell.mobility is layer 2's negotiation reading, taken on the bare cut
-  // before any mass exists — a different quantity that disagrees (E11S7: 11
-  // there, 9.33 as built), and putting it on a caption about the wall this room
+  // before any mass exists — a different quantity that disagrees, by a lot, in
+  // the rooms that miss (both readings are on every room page, side by side and
+  // each named; neither is copied into a comment here, because a copy of a
+  // measurement is a measurement that goes stale — round 19, criticism 80) — and
+  // putting it on a caption about the wall this room
   // ships is how two numbers about one room end up looking like one number
   // arguing with itself. Only the target and the detour floor are read out of
   // meta.shell.mobility, because that is where the layer publishes them.
@@ -388,10 +395,12 @@ function animNotes(plan) {
           // WHAT `tookStub` IS, SAID STRAIGHT. It means the DESTINATION tile
           // carried a corridor stub in layer 6's own working road set, which
           // the same pass then deleted before the layer published anything.
-          // Measured over the shipped fleet: 98 of the 99 layer-6 relocations
-          // took a stub, and NOT ONE of the 98 destinations has a
+          // Measured over the shipped fleet: very nearly every layer-6
+          // relocation takes a stub, and NOT ONE of those destinations has a
           // meta.roadLayer entry or is drawn as a road in any frame of any
-          // film (E12S6 29,7 · 29,6 · 30,5 among them). The old caption said
+          // film. (The two counts are printed by the fleet summary at the end
+          // of a run; round 19 deleted the copies that were typed here, which
+          // had gone stale.) The old caption said
           // "N lifted a stub road" over a road no viewer has ever seen. The
           // lift is real, it is just not a thing the film can show — what it
           // costs is the lane bound, re-derived below with those tiles
@@ -418,13 +427,16 @@ function animNotes(plan) {
       `${moves} move${moves === 1 ? "" : "s"} onto deep floor · ` +
       parts.join(" · ") +
       // The lap the relocation is blamed for, when layer 6 published both ends
-      // of it: E11S7 lifts five stubs and re-derives its bound over the
-      // corridor the room ships, 12 -> 14 (`boundBeforeStubs` -> `bounded`;
-      // that room's floor is 11.5 and its as-built lap 13.5, which are two
-      // other numbers and are not these). Four rooms print this clause —
-      // E11S7 12->14, E13S2 0->2.43, E9S4 2.6->2.8, E9S9 2.06->2.31. Printed
-      // only when the two numbers exist and differ; a room that paid nothing
-      // says nothing.
+      // of it: a room that lifts stubs re-derives its lane bound over the
+      // corridor it ships, and both ends of that re-derivation are on the
+      // record (`boundBeforeStubs` -> `bounded`). They are NOT the room's
+      // detour floor and NOT its as-built lap, which are two other numbers.
+      // Printed only when the two exist and differ; a room that paid nothing
+      // says nothing. (Round 19: nine figures were typed into this comment and
+      // eight of them were wrong — a stale roster of which rooms print the
+      // clause, and stale values for all of them. The clause itself prints the
+      // room's own two numbers every run, so the roster is gone rather than
+      // corrected; see criticism 69/80.)
       (typeof m.extensions.laneMeta?.boundBeforeStubs === "number" &&
       typeof m.extensions.laneMeta?.bounded === "number" &&
       m.extensions.laneMeta.bounded !== m.extensions.laneMeta.boundBeforeStubs
@@ -438,9 +450,9 @@ function animNotes(plan) {
  * Clip one ticker line — a shortfall `detail` or a planner note — down to a
  * banner line, without paraphrasing it.
  *
- * The layers write long — the longest detail in the fleet is 4,402 characters,
- * and the notes are no shorter: E7S9's kept-ring-rampart note is over 900 — and
- * a ticker that carries them whole is a wall of text nobody reads at the end
+ * The layers write long — the longest shortfall detail in the fleet runs to
+ * thousands of characters and the notes are no shorter — and a ticker that
+ * carries them whole is a wall of text nobody reads at the end
  * of a 40-second film. So: whitespace collapsed, then the FIRST SENTENCE if it
  * fits inside the budget, otherwise a hard clip at the budget on a word
  * boundary with an ellipsis. Nothing is rewritten and nothing is summarised —
@@ -481,11 +493,12 @@ function clipTickerLine(detail) {
  * PLANNER NOTE — AT THE END OF THE FILM, and only there: the ticker is hidden
  * until the last placement has landed, so it reads as the coda to the
  * completion card rather than as a warning that hangs over the whole replay.
- * FIVE shortfall rows is the fleet high-water mark, in six rooms (E12S5, E19S8,
- * E1S8, E2S3, E2S6, E9S2); notes run to four, which is still a coda and not a
- * document. (Round 16: this said "four ... (E12S5)", which was true of the
- * round-13 fleet and has been false of the artifact since — the same class of
- * stale figure the artifact keeps catching in the doc, in the source instead.)
+ * The worst-case room runs to a handful of rows of each, which is still a coda
+ * and not a document; the counts themselves are printed per room by the fleet
+ * summary at the end of a run and are not typed here. (Round 16 corrected the
+ * figure in this sentence and round 19 deleted it: it went stale twice, and a
+ * fleet high-water mark hard-typed into a comment beside the loop that could
+ * count it is a number with no owner. Criticism 69/80.)
  *
  * IT IS A POINTER, NOT A REPLACEMENT. Each row is gate tag + a clipped first
  * sentence (see clipTickerLine) and the header says where the full text is. The
@@ -1685,6 +1698,53 @@ function mobilityOver(plan) {
   const v = builtGated(plan);
   return v !== null && v > MOBILITY_TARGET;
 }
+/**
+ * O5 (round 19) — A LAP OF 0 IS NOT A PASS, AND BOTH HUMAN CHANNELS PAINTED IT
+ * AS ONE.
+ *
+ * `builtGated` is the MAXIMUM over the pairs the gate judged, so 0 means the set
+ * was EMPTY: either no pair of wall tiles has an absolute detour over the
+ * 4-tile floor, or the ones that do are excused by coverage. The index chip
+ * rendered that in the pass colour ("as-built gated lap 0") and the room page
+ * added the words "within target" to it. Most of the fleet is in that state and
+ * the minimum POSITIVE lap in the fleet is well over the target, so on today's
+ * artifact "within target" was printed exactly as often as the measurement was
+ * not taken, and never once about a room that took it and passed.
+ *
+ * The console line one screen down has said "A ZERO IS NOT A GOOD ROOM, IT IS AN
+ * UNJUDGED ONE" for three rounds and separates the two populations before
+ * averaging. These two do it now as well: a neutral colour, the word UNJUDGED,
+ * and which of the two reasons it was — derived from `maxDetour`, the record's
+ * own worst absolute detour, so the sentence cannot drift from the board.
+ * The measured-and-within-target branch stays exactly where it was; it is
+ * simply no longer the branch an unmeasured room falls into.
+ */
+function mobilityUnjudged(plan) {
+  return builtGated(plan) === 0;
+}
+/**
+ * ...and the short form the chip itself wears. TWO ROOMS make the obvious label
+ * false: E6S3 and E7S5 have pairs whose absolute detour clears the floor (5 and
+ * 33 tiles) and the gate judged neither, because coverage excuses them. A chip
+ * reading "no pair over the detour floor" on the room holding the worst detour
+ * in the fleet would be the same false-of-the-board sentence this round is
+ * spent removing, so the branch is taken from `maxDetour` too.
+ */
+function mobilityUnjudgedShort(plan) {
+  const md = plan?.meta?.walls?.mobility?.maxDetour;
+  return typeof md === "number" && md > MOBILITY_DETOUR_FLOOR
+    ? `every pair over the detour floor is covered`
+    : `no pair over the detour floor`;
+}
+function mobilityUnjudgedWhy(plan) {
+  const md = plan?.meta?.walls?.mobility?.maxDetour;
+  return typeof md === "number" && md > MOBILITY_DETOUR_FLOOR
+    ? `the gate judged no pair: this room's worst absolute detour is ${md} tiles, over the ` +
+        `${MOBILITY_DETOUR_FLOOR}-tile floor, and every pair that clears the floor is excused by coverage ` +
+        `(a defender on one wall tile already covers everything an attacker can stand on to grind the other)`
+    : `the gate judged no pair: no two wall tiles of this room are more than ${MOBILITY_DETOUR_FLOOR} ` +
+        `tiles apart in detour, which is the floor below which a detour is not a detour`;
+}
 
 /**
  * DECLARED SHORTFALLS, rendered in full. A room that met every gate says so
@@ -1821,9 +1881,54 @@ function mobilityCell(plan) {
     ? `shell ungated record ${plan.shell.mobility.max} max · ${plan.shell.mobility.mean} mean`
     : "shell ungated record —";
   const floorGated = typeof mob.floorGated === "number" ? mob.floorGated : "—";
-  return `<span class="mob-main${over ? " mob-over" : ""}">${bg}</span> <span class="mob-lab">as-built gated lap</span>` +
-    (over ? ` <span class="mob-badge">over target ${MOBILITY_TARGET}</span>` : ` <span class="mob-ok">within target</span>`) +
+  const unjudged = mobilityUnjudged(plan);
+  return `<span class="mob-main${over ? " mob-over" : unjudged ? " mob-unj" : ""}">${bg}</span> ` +
+    `<span class="mob-lab">as-built gated lap</span>` +
+    (unjudged
+      ? ` <span class="mob-none">UNJUDGED — ${esc(mobilityUnjudgedShort(plan))}</span>`
+      : over
+        ? ` <span class="mob-badge">over target ${MOBILITY_TARGET}</span>`
+        : ` <span class="mob-ok">measured, within target</span>`) +
+    (unjudged ? `<div class="mob-sub">${esc(mobilityUnjudgedWhy(plan))}</div>` : ``) +
     `<div class="mob-sub">mass-free: ${floorGated} bare-terrain gated · ${shell}</div>`;
+}
+
+/**
+ * O4 (round 19) — the room page's own header said "Layer 1 Hub" and "1 storage ·
+ * 1 terminal · 1 hub link · 3 spawns" over a board carrying the whole program.
+ * Both are read off the plan below rather than typed: a page that names the
+ * structures on the picture beside it has no excuse for naming them from memory.
+ */
+const ROOM_PROGRAM = [
+  ["extension", "extension", "extensions"],
+  ["tower", "tower", "towers"],
+  ["lab", "lab", "labs"],
+  ["link", "link", "links"],
+  ["spawn", "spawn", "spawns"],
+  ["storage", "storage", "storages"],
+  ["terminal", "terminal", "terminals"],
+  ["nuker", "nuker", "nukers"],
+  ["observer", "observer", "observers"],
+  ["extractor", "extractor", "extractors"],
+  ["container", "container", "containers"],
+  ["rampart", "rampart", "ramparts"],
+  ["road", "road", "roads"],
+];
+function roomInv(plan) {
+  const inv = {};
+  for (const [type] of ROOM_PROGRAM) {
+    const n = (plan.structures?.[type] || []).length;
+    if (n) inv[type] = n;
+  }
+  return inv;
+}
+function roomProgramLine(plan) {
+  const bits = [];
+  for (const [type, one, many] of ROOM_PROGRAM) {
+    const n = (plan.structures?.[type] || []).length;
+    if (n) bits.push(`${n} ${n === 1 ? one : many}`);
+  }
+  return bits.length ? bits.join(" · ") : "this room composed nothing";
 }
 
 function roomPage(plan) {
@@ -1930,18 +2035,25 @@ td,th{border:1px solid #333;padding:6px 10px}
 .nt-detail{color:#dcdcdc;font-size:13px;line-height:1.55}
 .mob-main{font-size:16px;font-weight:700;color:#6f6;font-variant-numeric:tabular-nums}
 .mob-main.mob-over{color:#ff6b6b}
+/* O5: an unjudged lap is neither pass nor fail — it is the measurement not
+   taken, and it gets the colour of neither */
+.mob-main.mob-unj{color:#98a2ad}
+.mob-none{color:#98a2ad;font-size:11px;border:1px solid #3a4048;border-radius:999px;padding:1px 7px;margin-left:4px;
+  letter-spacing:.4px}
 .mob-lab{color:#9ab;font-size:12px}
 .mob-ok{color:#6f6;font-size:11px;border:1px solid #2f5c33;border-radius:999px;padding:1px 7px;margin-left:4px}
 .mob-badge{background:#3a1414;color:#ff8b8b;border:1px solid #7d2626;border-radius:999px;
   padding:1px 8px;font-size:11px;letter-spacing:.5px;margin-left:4px;white-space:nowrap}
 .mob-sub{color:#889;font-size:11.5px;margin-top:3px}
 </style></head><body>
-<h1>${plan.room} · Layer 1 Hub</h1>
+<h1>${plan.room} · the whole RCL8 program</h1>
 <p class="sub">
-<b>Grow from room</b> — anchors (sources/controller) → distance fields → confluence seed → flood core → claim tiles.<br/>
-<b class="ok">1 storage · 1 terminal · 1 hub link · 3 spawns</b> · no stamp / no kit order.
+<b>Grown from the room</b> — anchors (sources/controller) → distance fields → confluence seed → flood core → claim
+tiles → min-cut shell → towers → lab diamond → the sixty extensions → the late road and reflow passes. No stamp, no
+kit order.<br/>
+<b class="ok">${roomProgramLine(plan)}</b>
 </p>
-${legendHtml()}
+${legendHtml(roomInv(plan))}
 <div class="row">
   ${animPlayerHtml(plan)}
   <div class="card"><h3>Full room — shell, towers, labs, roads</h3>${full}</div>
@@ -2192,14 +2304,18 @@ function main() {
   // pipeline.mjs's eco block promised "the medians below are measured, not
   // assumed; the suite re-prints them every run, and if they drift the gates
   // drift with them", and then hard-coded two literals that no line of this
-  // suite ever computed or printed. One of them had drifted: the true median of
-  // pathSourcesSum over the shipped 172 rooms is 26, not the 27 every one of
-  // the 37 eco declarations quoted, which set the gate two tiles too high and
-  // left E21S5 (53) and E7S5 (54) silently above the rule as written.
+  // suite ever computed or printed. One of them had drifted: the median of
+  // pathSourcesSum measured over the shipped fleet was a tile below the literal
+  // every eco declaration quoted, which set the gate two tiles too high and left
+  // rooms silently above the rule as written. Both medians are measured here
+  // now and printed by the eco line at the end of the run.
   //
   // This is why the room pages are written BELOW rather than inside the
   // planning loop: a room's eco declaration quotes the fleet, so no room page
-  // may be rendered until the whole fleet has been planned. The declaration is
+  // may be rendered until the whole fleet has been planned. (The count of eco
+  // declarations that quoted the drifted median is not typed here: it is
+  // whatever `redeclareEcoTax` rewrites this run, and the eco medians line
+  // below prints the measurement itself.) The declaration is
   // then re-derived per plan (redeclareEcoTax strips only the `gate:"eco"`
   // entry) and printed, so a reviewer can argue with the multiple instead of
   // reverse-engineering a cliff.
@@ -2210,7 +2326,58 @@ function main() {
   }
 
   for (const p of ok) fs.writeFileSync(path.join(OUT_V2, `${p.room}.html`), roomPage(p));
-  let index = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Pacifist Plan v2 — Hub</title>
+  // ------------------------------------------------------------------
+  // THE FRONT PAGE DESCRIBES THE ARTIFACT IT LINKS TO (O4, round 19).
+  //
+  // The index shipped `<h1>Plan v2 · Layer 1 — Hub</h1>` and, under it, "Only
+  // hub layer: storage + terminal + 1 link + 3 spawns + need-based roads",
+  // with a legend whose only structure rows were the hub trio and a "Hub link
+  // (×1)". That was true of the planner several rounds ago. The artifact
+  // behind those cards ships the whole RCL8 program — four links a room, sixty
+  // extensions, six towers, the lab diamond, nuker, observer, extractor, the
+  // min-cut shell and both road passes — so the first sentence a reader met
+  // named one structure class in ten and undercounted the one it did name by
+  // four. A gallery whose front page describes a different plan than the one
+  // on its cards is the drift this suite fails rooms for.
+  //
+  // So the header, the sentence and the legend are all rendered from `ok` —
+  // the fleet just planned. `span` prints one number when the fleet is uniform
+  // in a class and a range when it is not, because "60 extensions" and
+  // "1-4 containers" are both facts about the same census and neither may be
+  // rounded into the other.
+  // ------------------------------------------------------------------
+  const fleetSpan = (type) => {
+    const v = ok.map((p) => (p.structures?.[type] || []).length).filter((n) => n > 0);
+    if (!v.length) return null;
+    const mn = Math.min(...v);
+    const mx = Math.max(...v);
+    return { mn, mx, all: v.length === ok.length, txt: mn === mx ? `${mn}` : `${mn}-${mx}` };
+  };
+  const PROGRAM = [
+    ["extension", "extensions"],
+    ["tower", "towers"],
+    ["lab", "labs"],
+    ["link", "links"],
+    ["spawn", "spawns"],
+    ["storage", "storage"],
+    ["terminal", "terminal"],
+    ["nuker", "nuker"],
+    ["observer", "observer"],
+    ["extractor", "extractor"],
+    ["container", "containers"],
+    ["rampart", "ramparts"],
+    ["road", "roads"],
+  ];
+  const fleetInv = {};
+  const programBits = [];
+  for (const [type, label] of PROGRAM) {
+    const s = fleetSpan(type);
+    if (!s) continue;
+    fleetInv[type] = s.txt;
+    programBits.push(`${s.txt} ${label}` + (s.all ? "" : ` (in ${ok.map((p) => (p.structures?.[type] || []).length).filter((n) => n > 0).length} of them)`));
+  }
+  const takenRooms = ok.filter((p) => p.meta?.sealedRecovery?.outcome === "taken").length;
+  let index = `<!DOCTYPE html><html><head><meta charset="utf-8"/><title>Pacifist Plan v2 — ${ok.length} rooms, full RCL8 program</title>
 <style>
 body{font-family:system-ui,sans-serif;background:#080808;color:#eee;margin:20px}
 h1{margin-bottom:4px} .sub{color:#889;max-width:1100px;line-height:1.55}
@@ -2222,6 +2389,11 @@ a{color:#6af} .tag{color:#6f6;font-size:12px;margin-left:8px}
 .mob{font-size:11px;margin-left:8px;border-radius:999px;padding:2px 8px;white-space:nowrap;
   background:#12220f;color:#8fd48f;border:1px solid #2f5c33}
 .mob.over{background:#3a1414;color:#ff8b8b;border-color:#7d2626}
+/* O5 (round 19): the gate judged nothing in this room. Neither the pass colour
+   nor the fail colour — a chip that says so, in the colour of neither, because
+   an unmeasured room painted green is a green chip that means nothing was
+   measured. */
+.mob.unjudged{background:#15181b;color:#98a2ad;border-color:#3a4048}
 .mob i{font-style:normal;opacity:.72;font-weight:400}
 .mob b{font-variant-numeric:tabular-nums}
 /* the shell's ungated record is a DIFFERENT measure, so it is a different chip
@@ -2233,14 +2405,22 @@ a{color:#6af} .tag{color:#6f6;font-size:12px;margin-left:8px}
 .watch{margin-left:8px;font-size:11px;color:#8cf;text-decoration:none;background:#12303f;border:1px solid #2b6a86;border-radius:999px;padding:2px 8px}
 .watch:hover{background:#17415a;color:#bfe6ff}
 </style></head><body>
-<h1>Plan v2 · Layer 1 — Hub</h1>
+<h1>Plan v2 · the whole RCL8 program · ${ok.length} rooms</h1>
 <p class="sub">
-<b>Grow from the room</b>: eco anchors flood distance fields → confluence seed → grow core → claim hub tiles.<br/>
-Only hub layer: storage + terminal + 1 link + 3 spawns + need-based roads.<br/>
+<b>Grown from the room, layer by layer</b>: eco anchors flood distance fields → confluence seed → grown core → hub
+claim → weighted min-cut shell → towers → the lab diamond → the sixty extensions and their corridor → the late road,
+rampart and reflow passes.<br/>
+<b>Per room, off these boards</b>: ${programBits.join(" · ")}.<br/>
+Every room page carries its own film of the plan being built layer by layer, every gate this room knowingly missed
+(declared, in full) and every planner note; ${ok.filter((p) => (p.meta.shortfalls || []).length).length} of the
+${ok.length} rooms declare at least one shortfall and ${ok.filter((p) => (p.meta.notes || []).length).length} carry at
+least one note. ${takenRooms} room${takenRooms === 1 ? "" : "s"} had ${takenRooms === 1 ? "its" : "their"} plan
+REPLACED by the sealed-floor recovery pass — a seat withdrawn and the room re-composed from layer 1 to hand back deep
+floor — and say so on their own page.<br/>
 Cards below are lazy-loaded flat-colour thumbnails (key underneath); the real Screeps sprites, the animation and the
 declared shortfalls and notes are on each room's own page — click the thumbnail or the room name.
 </p>
-${legendHtml()}
+${legendHtml(fleetInv)}
 ${thumbLegendHtml()}
 <div class="grid">`;
   // THUMBNAILS ON DISK, LAZY-LOADED. The index used to inline
@@ -2264,14 +2444,15 @@ ${thumbLegendHtml()}
     // ------------------------------------------------------------------
     // TWO NUMBERS, TWO CHIPS, EACH SAYING WHICH ONE IT IS.
     //
-    // The badge read "mob 0" for E12S7 while that room's own page printed 1.5.
-    // Both are true and they are not the same quantity: 0 is the AS-BUILT
-    // GATED lap (extension mass in the room, and only pairs whose absolute
-    // detour clears the 4-tile floor are judged — E12S7 has one candidate pair
-    // and it is below the floor, so nothing is judged and the lap is 0), while
-    // 1.5 is the shell's UNGATED record, measured on the bare cut with no mass
-    // and no floor. Printed as a bare "mob" they looked like one number
-    // disagreeing with itself. No two published numbers about the same room
+    // The badge read a bare "mob 0" for E12S7 while that room's own page
+    // printed the shell's ungated record beside it. Both are true and they are
+    // not the same quantity: 0 is the AS-BUILT GATED lap (extension mass in the
+    // room, and only pairs whose absolute detour clears the 4-tile floor are
+    // judged — E12S7's candidate pair is below the floor, so nothing is judged
+    // and the lap is 0), while the other is measured on the bare cut with no
+    // mass and no floor. Printed as one word they looked like one number
+    // disagreeing with itself. (Round 19: the two values this comment quoted
+    // for E12S7 were both stale — the room's own chips print them.) No two published numbers about the same room
     // may look like the same quantity while disagreeing — so both are here,
     // both are named, and the verdict chip is the one the target applies to.
     // ------------------------------------------------------------------
@@ -2279,7 +2460,9 @@ ${thumbLegendHtml()}
     const mob =
       bg === null
         ? ""
-        : `<span class="mob${mobilityOver(p) ? " over" : ""}" title="as-built gated defender lap — interior walk ÷ exterior walk with the extension mass in place, judged only over pairs whose absolute detour exceeds ${MOBILITY_DETOUR_FLOOR} tiles (target ${MOBILITY_TARGET}). This is the reading the gate is applied to.">as-built gated lap <b>${bg}</b>${mobilityOver(p) ? ` <i>over ${MOBILITY_TARGET}</i>` : ""}</span>`;
+        : mobilityUnjudged(p)
+          ? `<span class="mob unjudged" title="${esc(mobilityUnjudgedWhy(p))} — so this room has no as-built gated lap. A zero here is the measurement not taken, not a room that passed.">as-built gated lap <b>UNJUDGED</b> <i>${esc(mobilityUnjudgedShort(p))}</i></span>`
+          : `<span class="mob${mobilityOver(p) ? " over" : ""}" title="as-built gated defender lap — interior walk ÷ exterior walk with the extension mass in place, judged only over pairs whose absolute detour exceeds ${MOBILITY_DETOUR_FLOOR} tiles (target ${MOBILITY_TARGET}). This is the reading the gate is applied to.">as-built gated lap <b>${bg}</b>${mobilityOver(p) ? ` <i>over ${MOBILITY_TARGET}</i>` : ` <i>within ${MOBILITY_TARGET}</i>`}</span>`;
     const shellMob = p.shell
       ? `<span class="mobs" title="the shell's own ungated record: same ratio measured on the bare cut, no extension mass and no detour floor. Not gated, not compared to the target — it is the raw worst pair.">shell ungated <b>${p.shell.mobility.max}</b></span>`
       : "";
@@ -2368,16 +2551,46 @@ ${thumbLegendHtml()}
             .join(" ")})`
         : " · no road-blind fallback anywhere"),
   );
+  // ------------------------------------------------------------------
+  // THE TWO RELOCATION PASSES, COUNTED (O3, round 19).
+  //
+  // Layer 6's end-of-pass rescue and layer 7b's post-prune reflow both move
+  // shallow extension slots onto deep floor, both are drawn in the film, and
+  // neither had a fleet line. So the totals lived in comments — in
+  // export-anim.mjs ("78 moves across 25 rooms", "48 in 16 against layer 6's 80
+  // in 25") and in animNotes ("98 of the 99 layer-6 relocations took a stub") —
+  // every one of them typed, and every one of them wrong by round 19. They are
+  // counted here instead, off the same two records the film reads.
+  // ------------------------------------------------------------------
+  {
+    const l6 = ok.map((p) => (p.meta.extensions?.relocated || []).filter((r) => r && r.from && r.to));
+    const l7 = ok.map((p) => (p.meta.extensions?.reflow?.moved || []).filter((r) => r && r.from && r.to));
+    const n6 = l6.reduce((s, a) => s + a.length, 0);
+    const n7 = l7.reduce((s, a) => s + a.length, 0);
+    const stubs = l6.reduce((s, a) => s + a.filter((r) => r.tookStub).length, 0);
+    const paved = l7.reduce((s, a) => s + a.filter((r) => r.paved).length, 0);
+    const second = l7.reduce((s, a) => s + a.filter((r) => r.reason === "second-target").length, 0);
+    console.log(
+      `ext relocations onto deep floor: layer 6 moved ${n6} slot(s) in ${l6.filter((a) => a.length).length} room(s) ` +
+        `(${stubs} onto a tile its own corridor stub had held) · layer 7b's post-prune reflow moved ${n7} in ` +
+        `${l7.filter((a) => a.length).length} room(s) (${paved} bought a road face with one plain pave, ` +
+        `${second} are second targets for a slot the lap ceiling had refused) · ` +
+        `${ok.reduce((s, p) => s + (p.meta.extensions?.shallow ?? 0), 0)} slot(s) still ship shallow`,
+    );
+  }
   const wm = ok.filter((p) => p.meta.walls);
   console.log(
     `rampart spurs: ${wm.reduce((s, p) => s + p.meta.walls.spurred, 0)} spurs / ` +
       `${wm.reduce((s, p) => s + p.meta.walls.clusters, 0)} clusters · ` +
       // LAID AND SHIPPED, BOTH. This line quoted the laid counter alone, and the
-      // dead-end prune deletes spur tiles after the spur pass has counted them:
-      // 375 laid, 370 shipped, the gap in three rooms (E11S2 13/12, E13S3 14/12,
-      // E9S8 8/6). One number for two quantities is how an inflated count goes
-      // unnoticed for thirteen rounds — see the laid-vs-shipped block in
-      // layer-walls.mjs, which is where both figures come from.
+      // dead-end prune deletes spur tiles after the spur pass has counted them,
+      // so the two differ and the gap rooms are named — by the closure below,
+      // from the artifact, every run. One number for two quantities is how an
+      // inflated count goes unnoticed for thirteen rounds — see the
+      // laid-vs-shipped block in layer-walls.mjs, which is where both figures
+      // come from. (Round 19: the pair of totals and the three-room roster this
+      // comment used to quote had both drifted. They are printed on the next
+      // line; a comment does not get to hold a second copy of them.)
       `${wm.reduce((s, p) => s + p.meta.walls.spurTiles, 0)} tiles laid / ` +
       `${wm.reduce((s, p) => s + (p.meta.walls.spurTilesShipped || 0), 0)} shipped` +
       (() => {
@@ -2390,10 +2603,13 @@ ${thumbLegendHtml()}
       // ...AND THE PRUNE COUNTER GETS THE SAME DISCIPLINE (OF7, round 16). This
       // line used to print the sum of `meta.walls.pruned`, which was the prune
       // pass's EVENT count taken before layer 7b's reflow and the conduct bridge
-      // had finished paving: 2007 under a tile label, against 2006 tiles that
-      // ship no road and 1994 that the film's roadsPrune stage erases. All four
-      // figures are published per room now and all four are printed here, ten
-      // tokens after the comment above that says why.
+      // had finished paving — one label over four different quantities: prune
+      // events, tiles that ship no road, tiles the film's roadsPrune stage
+      // erases, and tiles laid and deleted inside layer 7 and never tagged. All
+      // four are published per room and all four are printed here, ten tokens
+      // after the comment above that says why. (Round 19: the four values this
+      // comment quoted were the round-16 fleet's. Deleted rather than
+      // corrected — they are on the next line, from the artifact.)
       (() => {
         const ev = wm.reduce((s, p) => s + (p.meta.walls.prunedAtPass || 0), 0);
         const ti = wm.reduce((s, p) => s + p.meta.walls.pruned, 0);
@@ -2448,25 +2664,28 @@ ${thumbLegendHtml()}
   // ------------------------------------------------------------------
   // THE FLEET LINE HAS TO QUOTE THE READING THE GATE APPLIES TO.
   //
-  // This printed `mobility ratio: ... worst room max 11` off
-  // `p.shell.mobility.max` — layer 2's MASS-FREE negotiation reading, taken on
-  // the bare cut before a single extension exists. The comment over the
-  // per-room caption in animNotes (search "WHICH READING, AND WHY NOT THE
-  // OTHER ONE") forbids exactly this substitution by name, and cites exactly
-  // this room: E11S7 reads 11 on layer 2's number and 9.33 AS BUILT. The
-  // caption obeyed the rule and the fleet summary broke it one screen later, so
-  // the suite's own headline quoted a lap the gate does not apply to. (Round 16:
-  // both of these comments said 13.5, which was the round-11 reading; the
-  // artifact says 9.33, and the artifact is the thing being described.)
+  // This printed a "mobility ratio" headline off `p.shell.mobility.max` —
+  // layer 2's MASS-FREE negotiation reading, taken on the bare cut before a
+  // single extension exists. The comment over the per-room caption in animNotes
+  // (search "WHICH READING, AND WHY NOT THE OTHER ONE") forbids exactly this
+  // substitution by name: the two readings disagree, and the gate applies to
+  // one of them. The caption obeyed the rule and the fleet summary broke it one
+  // screen later, so the suite's own headline quoted a lap the gate does not
+  // apply to. Both readings are printed below, on their own lines, each named.
+  // (Round 16 corrected the figures in this comment; round 19 deleted them —
+  // they had gone stale again, which is what a hand-typed copy of a published
+  // measurement does. Criticism 80.)
   //
   // Same precedence animNotes uses: meta.walls.mobility.builtGated, falling
   // back to meta.shell.mobilityBuilt.maxGated. (On the current fleet all 172
   // rooms carry the first, so the fallback is insurance against an older plan,
   // not a live path.)
   //
-  // A ZERO IS NOT A GOOD ROOM, IT IS AN UNJUDGED ONE — 96 of the 172 rooms
-  // have no pair of wall tiles whose absolute detour clears the 4-tile floor,
-  // so the gate judged nothing and the lap is 0. Averaging those in would
+  // A ZERO IS NOT A GOOD ROOM, IT IS AN UNJUDGED ONE — most of the fleet has no
+  // pair of wall tiles the gate will judge (either no pair's absolute detour
+  // clears the 4-tile floor, or the ones that do are covered), so the gate
+  // judged nothing and the lap is 0. The count is printed at the end of the
+  // line below, from the artifact, and is not typed here. Averaging those in would
   // divide a real number by a fleet that mostly did not take the measurement,
   // so the mean is over the rooms that were judged and the count of the rest
   // is printed beside it. Layer 2's number is kept on its own line, labelled
@@ -2499,6 +2718,43 @@ ${thumbLegendHtml()}
     `  layer 2's pre-mass negotiation reading, for contrast only — bare cut, no extension mass, ungated: ` +
       `mean-of-means ${avg(mobMean)} · worst room max ${Math.max(0, ...mobMax)}`,
   );
+  // ------------------------------------------------------------------
+  // THE LIFT TEST, FLEET-WIDE — PRINTED BECAUSE IT WAS BEING TYPED (O3, round 19)
+  //
+  // declprose-mobility's lift paragraph publishes, per room, how much of the
+  // room's own gated lap comes off when every structure this planner CHOSE the
+  // position of is lifted out (`lift.ownPct`, recomputed in the paragraph from
+  // the two laps it is made of). Nothing aggregated it, so the only fleet-level
+  // statement about the share lived in a comment above that paragraph — a
+  // six-room roster and an "18% to 35%" band, three pairs of which had gone
+  // stale, one of whose rooms had no lift record at all, and whose band was
+  // false at both ends. The measurement is one pass over the artifact; it is
+  // cheaper to print it than to keep re-typing it.
+  // ------------------------------------------------------------------
+  {
+    const lifts = [];
+    for (const p of ok) {
+      for (const s of p.meta?.shortfalls || []) {
+        if (s && s.gate === "mobility" && s.lift && typeof s.lift.ownPct === "number") {
+          lifts.push({ room: p.room, pct: s.lift.ownPct, from: s.metric?.maxGated, to: s.lift.liftedLap, clears: !!s.lift.clears });
+        }
+      }
+    }
+    if (lifts.length) {
+      const miss = lifts.filter((l) => !l.clears).sort((a, b) => b.pct - a.pct || (a.room < b.room ? -1 : 1));
+      const clears = lifts.filter((l) => l.clears);
+      console.log(
+        `  the LIFT TEST (every structure whose tile this planner chose lifted out, same metric re-run): ` +
+          `${lifts.length} room(s) publish one · ${clears.length} CLEAR the ${MOBILITY_TARGET} target once ` +
+          `our own mass is out (the miss is ours, not the terrain's)` +
+          (clears.length ? ` — ${clears.map((l) => l.room).join(" ")}` : "") +
+          (miss.length
+            ? ` · the other ${miss.length} still miss, and our own mass owns ${miss[miss.length - 1].pct}% to ` +
+              `${miss[0].pct}% of their laps (worst-owned ${miss[0].room} ${miss[0].from} -> ${miss[0].to})`
+            : ""),
+      );
+    }
+  }
   // ------------------------------------------------------------------
   // ...AND THE COMPLETE RECORD, WHICH IS NOT THE VERDICT.
   //

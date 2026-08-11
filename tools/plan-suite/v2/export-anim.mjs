@@ -410,22 +410,23 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  *
  * THE GHOSTS ARE THE POINT, NOT AN ACCIDENT. `roadLayer` also holds tiles that
  * are no longer in `structures.road` — layer 7's dead-end prune is the one
- * pass allowed to delete an earlier layer's road, and it deletes 1994 tagged
- * tiles across the fleet (13 in E11S3, matching that room's
- * `meta.walls.prunedGhosts`). Those tiles DID exist mid-pipeline, so the film
+ * pass allowed to delete an earlier layer's road, and every tile it deletes that
+ * a layer had tagged is one of these (per room, `meta.walls.prunedGhosts`).
+ * Those tiles DID exist mid-pipeline, so the film
  * draws them in the layer that laid them and then a layer-7 prune stage erases
  * them. THE GHOST SET IS `prunedGhosts` AND NOT `pruned`, and round 16 is where
- * the difference got a name: `meta.walls.pruned` is 2006 tiles fleet-wide and 12
- * of those were laid AND deleted inside layer 7, so no layer ever tagged them
- * and this film has nothing to erase for them. See prunedBasis in
- * layer-walls.mjs — the two counts answer different questions and each is now
- * published under its own name. That is what makes the
+ * the difference got a name: `meta.walls.pruned` counts tiles that ship no road,
+ * and some of those were laid AND deleted inside layer 7, so no layer ever
+ * tagged them and this film has nothing to erase for them. See prunedBasis in
+ * layer-walls.mjs — the two counts answer different questions, each is published
+ * under its own name, and the fleet sums of all four are printed by
+ * plan.mjs at the end of a run rather than typed here (round 19: the two typed
+ * into this paragraph had drifted). That is what makes the
  * mid-pipeline road set recoverable from the film at every layer, which is the
- * whole complaint; dropping the ghosts would have left layer 4's road set 12
- * tiles short of what layer 4 actually saw. It is also the only reason a room
- * like E11S3 — spurTiles 0, fillerTiles 0, 13 pruned tiles — gets a LAYER 7
- * banner at all: the prune is the only layer-7 work it does, and it is real
- * work. 85 rooms of the 172 are in that position.
+ * whole complaint; dropping the ghosts would have left the earlier layers' road
+ * sets short of what those layers actually saw. It is also the only reason a
+ * room whose only layer-7 work is the prune — no spur tiles, no filler tiles —
+ * gets a LAYER 7 banner at all: the prune is real work.
  */
 const ROAD_STAGE = {
   1: ["roads", "the eco kit — hub, spawns, sources, controller"],
@@ -590,13 +591,16 @@ export function buildAnim(room, terrain, plan) {
    * A MOVE THAT IS ONLY EVER SHOWN AT ITS DESTINATION IS NOT A MOVE.
    *
    * `meta.extensions.relocated` records every shallow slot layer 6's fill took
-   * and then vacated for a deep, road-faced tile: 78 moves across 25 rooms.
+   * and then vacated for a deep, road-faced tile — the fleet totals for both
+   * relocation passes are printed by plan.mjs at the end of a run and are not
+   * typed here (round 19: the pair that was, and the five origin->destination
+   * pairs quoted for E11S7, were stale; that room declares seven and four of the
+   * five quoted coordinates were wrong).
    * The film painted every one of those extensions at its FINAL tile, first
-   * time, as if the pass had never run — E11S7 declares five moves (23,4->20,8
-   * · 17,21->19,21 · 11,5->17,9 · 11,10->16,9 · 12,14->13,12) and its own
-   * shortfall names that pass as the reason its lap went 11.5 -> 13.5, while
-   * the film showed no extension at any of the five origins at any frame. The
-   * one pass the room blames for its worst number was invisible in the record
+   * time, as if the pass had never run — while the room's own mobility shortfall
+   * names that pass as the reason its lane bound moved, and the film showed no
+   * extension at any of the origins at any frame. The
+   * one pass a room blames for its worst number was invisible in the record
    * of what the room did.
    *
    * Same shape as the layer-7 road prune: the tile is PAINTED where the pass
@@ -606,8 +610,8 @@ export function buildAnim(room, terrain, plan) {
    *
    * WHY THE GHOSTS GET THEIR OWN CANVAS (plan.mjs `animGhost`). The erase is a
    * clearRect, and a clearRect takes whatever else is on that canvas with it —
-   * the same trap that gave the roads their own layer. Three origins are ROADS
-   * in the shipped plan (E12S6 24,3 · E18S5 5,35 · E2S3 36,21), and putting
+   * the same trap that gave the roads their own layer. Some origins are ROADS in
+   * the shipped plan, and putting
    * the ghosts on the structures canvas would also have let the erase reach an
    * extension that later lands on the same tile.
    *
@@ -620,8 +624,9 @@ export function buildAnim(room, terrain, plan) {
    * TWO PASSES RELOCATE, AND BOTH ARE DRAWN. Layer 6 moves what it can see; the
    * post-prune reflow (layer 7b, `meta.extensions.reflow.moved`) moves what only
    * exists once the dead-end prune has handed the corridor back as floor, and it
-   * is now the bigger of the two — 48 moves in 16 rooms against layer 6's 80 in
-   * 25. Drawing one and not the other would put the same lie back, one layer
+   * is no smaller than layer 6's own pass — the two fleet totals are printed
+   * side by side at the end of a run. Drawing one and not the other would put
+   * the same lie back, one layer
    * later. Layer 7b's moves are tagged so the caption can say which pass moved
    * the slot and, when the move bought a road face, that it paved one tile.
    */

@@ -389,14 +389,19 @@ export function renderMobility(sf) {
   //
   // ...AND "STILL MISSES" IS NOT "100% THE TERRAIN'S". The sentence that used to
   // stand in the second branch read "the enclosure and the terrain OWN this lap",
-  // which is a binary read of a test that produces a number. Six rooms shipped it
-  // over their own arithmetic: E13S3 3.33 -> 2.17, E11S7 9.33 -> 7.33, E14S6 6.67
-  // -> 5.00, E2S5 3.25 -> 2.63, E15S2 2.13 -> 1.75, E9S9 1.94 -> 1.41 — 18% to
-  // 35% of each of those laps comes off when our own mass is lifted, and saying so
-  // costs nothing and is simply true. "Still misses" is a claim about WHERE THE
-  // NEXT FIX GOES; the share is a claim about who built the lap, and they are
-  // different questions. `ownPct` is on the record and is recomputed here from the
-  // two laps it is made of.
+  // which is a binary read of a test that produces a number: every room that
+  // ships it measures a real share of its own lap coming off when our own mass is
+  // lifted, and saying so costs nothing and is simply true. "Still misses" is a
+  // claim about WHERE THE NEXT FIX GOES; the share is a claim about who built the
+  // lap, and they are different questions. `ownPct` is on the record and is
+  // recomputed here from the two laps it is made of — the paragraph prints the
+  // room's own pair of laps and its own percentage, per room, every run.
+  // (Round 19: this comment carried a six-room roster of before/after laps and a
+  // fleet-wide "18% to 35%" band. Three of the six pairs were stale, one of the
+  // six rooms has no lift record at all, and the band was false at both ends —
+  // the shipped ownPct spans 3% to 100%. A roster of measurements typed beside
+  // the code that measures them is criticism 69's defect and it is gone rather
+  // than corrected.)
   // ------------------------------------------------------------------
   const ownPct = lift && lap > 0 ? Math.max(0, Math.round(((lap - num(lift.liftedLap)) / lap) * 100)) : 0;
   const solo = (lift && lift.solo) || [];
@@ -524,8 +529,10 @@ export function renderMobility(sf) {
   // worst-case model reads a corridor stub as permanently walkable floor; layer
   // 6's relocation pass ends by standing extensions on some of them, so the bound
   // is re-derived over the corridor that actually SHIPS. Saying so here is the
-  // difference between a bound and a bound-shaped number: E11S7 measured 11.5
-  // before its five lifted stubs and 13.5 after, and shipped 13.5.
+  // difference between a bound and a bound-shaped number, and the clause below
+  // prints both ends of the re-derivation and the number of stubs from the
+  // room's own record. (Round 19: the three figures this comment quoted for
+  // E11S7 were all stale — criticism 80's class.)
   const stubNote =
     lane && lane.stubsLifted && lane.boundBeforeStubs !== undefined && lane.boundBeforeStubs !== null
       ? ` This bound is measured over the corridor this room SHIPS: layer 6's relocation pass stood ` +

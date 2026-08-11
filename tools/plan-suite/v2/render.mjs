@@ -444,15 +444,44 @@ export function hubCrop(plan, radius = 6) {
   };
 }
 
-export function legendHtml() {
+/**
+ * O4 (round 19) — THE LEGEND IS AN INVENTORY OF THE BOARD, NOT A MEMORY OF ONE.
+ *
+ * This list was six hard-typed rows ending in "Hub link (×1)", written when the
+ * planner placed a hub and nothing else. The artifact it labels has shipped the
+ * whole RCL8 program for many rounds — four links a room, sixty extensions, six
+ * towers, the lab diamond, nuker, observer, extractor — and the gallery's key
+ * still told a reader there was one link and no towers. A legend that names
+ * fewer structure classes than the picture contains is a key that mislabels the
+ * picture.
+ *
+ * `inv` is the census the caller measured (a room's own counts on a room page,
+ * the fleet's per-room range on the index). A class is drawn when the census
+ * carries it and omitted when it does not, so the key cannot name a structure
+ * this board has none of, and the counts beside the icons are read off the
+ * boards rather than typed here. Called with nothing, the legend degrades to
+ * the terrain/paint swatches alone rather than to a guess.
+ */
+export function legendHtml(inv = null) {
+  const has = (t) => inv && inv[t] !== undefined && inv[t] !== null && inv[t] !== "0";
+  const cnt = (t) => (has(t) ? ` (×${inv[t]})` : "");
   const items = [
-    ["storage.svg", "Storage"],
-    ["terminal.svg", "Terminal"],
-    ["link.svg", "Hub link (×1)"],
-    ["rectangle.svg", "Spawn"],
-    ["harvest-energy.svg", "Source"],
-    ["controller.svg", "Controller"],
-  ];
+    ["storage.svg", "Storage", "storage"],
+    ["terminal.svg", "Terminal", "terminal"],
+    ["link.svg", "Link", "link"],
+    ["rectangle.svg", "Spawn", "spawn"],
+    ["tower-base.svg", "Tower", "tower"],
+    ["lab.svg", "Lab", "lab"],
+    ["extension.svg", "Extension", "extension"],
+    ["nuker.svg", "Nuker", "nuker"],
+    ["cover.svg", "Observer", "observer"],
+    ["extractor.svg", "Extractor", "extractor"],
+    ["tombstone.svg", "Container", "container"],
+    ["harvest-energy.svg", "Source", null],
+    ["controller.svg", "Controller", null],
+  ]
+    .filter(([, , t]) => t === null || has(t))
+    .map(([file, label, t]) => [file, t === null ? label : label + cnt(t)]);
   let html =
     '<div class="legend" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:12px 0;font-size:13px;color:#bcc">';
   for (const [file, label] of items) {
@@ -464,6 +493,10 @@ export function legendHtml() {
   }
   html +=
     '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:#6e6e6e;border:1px solid #888;border-radius:2px;display:inline-block"></span> Road</span>';
+  // the rampart is the single largest painted class on these boards (the shell
+  // cut plus the eco bubbles plus personal cover) and the key did not have it
+  html +=
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${RAMPART_PAINT.fill};opacity:${RAMPART_PAINT.fillOpacity};border:1px solid ${RAMPART_PAINT.stroke};border-radius:3px;display:inline-block"></span> Rampart${cnt("rampart")}</span>`;
   html +=
     '<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;border:2px solid #00E676;border-radius:50%;display:inline-block"></span> Storage / hub</span>';
   html +=
