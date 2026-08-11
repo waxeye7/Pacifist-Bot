@@ -94,6 +94,130 @@ function renderSealedFloor(r) {
 }
 
 // ---------------------------------------------------------------------------
+// THE SEALED-FLOOR RECOVERY — TAKEN, OR REFUSED WITH THE CANDIDATES NAMED
+// ---------------------------------------------------------------------------
+/**
+ * OF3 (round 18): the recovery pass had NO reader channel at all.
+ *
+ * `maybeTakeSealedRecovery` re-composes the room with a seat withdrawn, and in
+ * eight rooms of the fleet it REPLACED the shipped plan — a structure moved, a
+ * pocket of deep floor handed back — with the only trace a `meta.sealedRecovery`
+ * object nothing rendered. No declaration, no note, no gallery line, no film
+ * caption. A pass that silently edits the board it ships is the same defect as a
+ * cap that silently truncates its own search (OF1 above): the room stops being
+ * able to say what it did.
+ *
+ * Worse for the refusals. "Every candidate above was re-composed and the panel
+ * refused it" was a sentence in a JSON field, and in E11S7 it was false — three
+ * of eight holders were tried. A refusal a reader cannot see is a refusal nobody
+ * can check, so this note publishes BOTH branches and, on the refusal branch,
+ * the candidate census the honesty of the sentence depends on: how many movable
+ * holders the pocket has, how many were composed (all of them), and the
+ * instrument that refused each one.
+ *
+ * Rendered from `meta.sealedRecovery` and nothing else, like every renderer in
+ * this file. `outcome` is the record's own branch tag, so the paragraph shape is
+ * a field of the record rather than a guess made from which keys happen to be
+ * present.
+ */
+function renderSealedRecovery(r) {
+  const deltaWord = (v) =>
+    v === null || v === undefined ? "not measured" : v === 0 ? "unchanged" : v > 0 ? `+${v}` : `${v}`;
+  const tourTaken =
+    r.extTourBefore === null || r.extTourBefore === undefined
+      ? ""
+      : ` THE FILLER'S OTHER WALK, PRICED (OF6): the total extension tour — for each extension, the ` +
+        `walk from the sitter across the finished interior to the tile the filler stands on to fill ` +
+        `it, summed — reads ${r.extTourBefore} steps before and ${r.extTourAfter} after, ` +
+        `${deltaWord(r.extTourDelta)} against a stated ceiling of ${r.tourSlack} extra steps. It is a ` +
+        `price, not a veto: deep buildable floor handed back forever is worth a step of tour, and the ` +
+        `number is published either way so the trade can be argued with rather than assumed free.`;
+  const tourRefused =
+    r.extTourBefore === null || r.extTourBefore === undefined
+      ? ""
+      : ` The extension tour this room ships is ${r.extTourBefore} steps and every candidate above was ` +
+        `priced against it, with a ceiling of ${r.tourSlack} extra steps (OF6) — the walk the ` +
+        `instrument panel could not see, now read on both boards.`;
+  if (r.outcome === "taken") {
+    const t = r.taken;
+    // the ones that ALSO cleared the whole panel and lost on the tie-break —
+    // not the refused ones, which are a different fact and are counted above
+    const rivals = (r.offered || []).filter(
+      (o) => o.withdrawn && o.verdict !== "TAKEN" && o.verdict.startsWith("accepted"),
+    );
+    return (
+      `SEALED FLOOR RECOVERED: this room withdrew the ${t.kind} seat at ${xy(t.withdrawn)} and was ` +
+      `RE-COMPOSED from layer 1 without it, and the finished board gives back ${r.recoveredTiles} ` +
+      `sealed tile(s), ${r.recoveredDeep} of them deep buildable floor, out of the pocket at ` +
+      `${xy(t.pocket.at)} (${t.pocket.tiles} tile(s), ${t.pocket.deep} deep). ` +
+      `The seat is WITHDRAWN, never teleported: the tile stopped being offered and the layer that ` +
+      `owns it placed its mass again with the corridor open. ` +
+      `Every instrument of the shipped-board panel holds — the weakest cut face ${r.before.face} -> ` +
+      `${r.after.face}, the interior walk ${r.before.interior} -> ${r.after.interior}, the as-built ` +
+      `gated lap ${r.before.lap} -> ${r.after.lap}, the sealed floor ${r.before.sealedTiles} -> ` +
+      `${r.after.sealedTiles} (${r.before.sealedDeep} -> ${r.after.sealedDeep} deep) — measured on two ` +
+      `FINISHED rooms rather than on a promise. ` +
+      `That pocket has ${r.candidates} movable ${plural(r.candidates, "holder", "holders")}, and EVERY ` +
+      `one of them was re-composed from layer 1 and finalized — ${r.tried} ` +
+      `${plural(r.tried, "composition", "compositions")}, never a prefix, which is the round-18 ` +
+      `correction (this pass used to try three in raster order and then report that every candidate ` +
+      `had been examined). ` +
+      (rivals.length
+        ? `${r.accepted} of them cleared the whole panel and this seat won the published tie-break — ` +
+          `largest deep recovery, then largest total recovery, then cheapest panel, then raster — ` +
+          `ahead of ${rivals.map((o) => xy(o.withdrawn)).join(" ")}.`
+        : `It is the only one that cleared the whole panel.`) +
+      tourTaken
+    );
+  }
+  if (r.outcome === "belowThreshold") {
+    return (
+      `SEALED FLOOR NOT RECOVERED: no pocket in this room is held shut by a single structure of ours ` +
+      `returning ${r.threshold} or more DEEP tiles — the best one-structure recovery anywhere in this ` +
+      `room is ${r.bestDeepAnywhere} deep tile(s) — so no re-composition was attempted at all. The ` +
+      `threshold is stated rather than tuned: a pocket of one or two tiles is not worth re-composing ` +
+      `the room for, and a pass that fires on everything is a pass with no rule.`
+    );
+  }
+  if (r.outcome === "fixedGeometry") {
+    return (
+      `SEALED FLOOR NOT RECOVERED: the largest pocket this room can reach — ${xy(r.pocket.at)}, ` +
+      `${r.pocket.tiles} tile(s), ${r.pocket.deep} deep — is held by ${r.pocket.holders} structure(s) ` +
+      `and NONE of them is one this pass may move ` +
+      `(${r.fixedHolders.map((h) => `${h.type} ${xy(h)}=${h.recovers}/${h.recoversDeep}`).join(", ")}). ` +
+      `The two classes it does move are ${r.kindsAttempted.join(" and ")}: an extension because the ` +
+      `mass is the flexible layer and the seal is its ordering, and the observer because its own ` +
+      `placement rule is "the furthest leftover tile" and its position is irrelevant to what it does. ` +
+      `A hub structure, a lab of the diamond, a tower or the nuker that is hauled 300k energy by hand ` +
+      `is placed against a real constraint by its own layer, and "move it one tile" is not a bounded ` +
+      `change to it.`
+    );
+  }
+  const tried = (r.offered || []).filter((o) => o.withdrawn);
+  return (
+    `SEALED FLOOR NOT RECOVERED: the pocket at ${xy(r.pocket.at)} (${r.pocket.tiles} tile(s), ` +
+    `${r.pocket.deep} deep) has ${r.candidates} movable ${plural(r.candidates, "holder", "holders")}, ` +
+    `and EVERY one of them was re-composed from layer 1 with the seat withdrawn and finalized — ` +
+    `${r.tried} ${plural(r.tried, "composition", "compositions")}, never a prefix, which is the ` +
+    `round-18 correction: this pass used to try three in raster order and then report that every ` +
+    `candidate had been refused. Each one, and the instrument that refused it: ` +
+    tried
+      .map(
+        (o) =>
+          `${o.kind} ${xy(o.withdrawn)} (counterfactual ${o.recoversDeep} deep) — ` +
+          `${o.verdict.replace(/^refused: /, "")}` +
+          (o.extTourDelta === null || o.extTourDelta === undefined
+            ? ``
+            : `; extension tour ${deltaWord(o.extTourDelta)}`),
+      )
+      .join(" · ") +
+    `. This room ships the plan it would have shipped without this pass, and the ${r.pocket.deep} deep ` +
+    `tile(s) stay sealed — priced, named and refused rather than unexamined.` +
+    tourRefused
+  );
+}
+
+// ---------------------------------------------------------------------------
 // CUT TILES THAT ARE NOT SINGLY LOAD-BEARING / NO CUT TILE IS REDUNDANT
 // ---------------------------------------------------------------------------
 function renderRedundantCut(r) {
@@ -343,6 +467,13 @@ export const NOTE_CLASSES = {
   sealedFloor: {
     headings: ["SEALED INTERIOR FLOOR"],
     render: renderSealedFloor,
+  },
+  // OF3 (round 18) — the recovery pass's reader channel. Two headings for the
+  // two branches, like redundantCut: the room either moved a seat and got floor
+  // back, or it did not and owes the candidate census.
+  sealedRecovery: {
+    headings: ["SEALED FLOOR RECOVERED", "SEALED FLOOR NOT RECOVERED"],
+    render: renderSealedRecovery,
   },
   redundantCut: {
     headings: ["NO CUT TILE IS REDUNDANT", "CUT TILES THAT ARE NOT SINGLY LOAD-BEARING"],

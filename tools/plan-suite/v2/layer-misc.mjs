@@ -59,6 +59,37 @@ function idx(x, y) {
   return x + y * 50;
 }
 
+/**
+ * ---------------------------------------------------------------------------
+ * OF4 (round 18) — ONE SEAT THIS LAYER MAY NOT GIVE THE OBSERVER.
+ * ---------------------------------------------------------------------------
+ * The exact twin of `forbiddenExtSeat` in layer-ext, and it exists for the same
+ * pass: `maybeTakeSealedRecovery` reads the sealed-floor record — which names,
+ * per sealed pocket, exactly which single structure of ours is holding it shut —
+ * and RE-COMPOSES the room with that seat withdrawn.
+ *
+ * Round 17 admitted only extension seats, on the argument that everything else
+ * is "fixed geometry: placed by their own layers against their own constraints".
+ * That argument is true of the hub kit, the lab diamond, a tower and the nuker,
+ * and it is FALSE of the observer, in this file's own words: "the one structure
+ * in the game whose position is completely irrelevant — its own placement rule
+ * is literally 'takes the furthest leftover tile'". E9S9 shipped a
+ * fixed-geometry refusal over a 7-tile, 7-deep pocket held by the observer at
+ * 33,16 while six free deep road-faced seats stood empty in the same room.
+ *
+ * The withdrawal is a CANDIDATE removed, not a structure teleported: the tile
+ * simply stops being offered, and the observer then takes the next tile its own
+ * rule ranks — furthest by hub walk, off the controller ring, road-faced, not
+ * sealing anything, not breaching the defender's gate, at depth >= 4 inside the
+ * buildable band. Every constraint this layer already enforces still holds,
+ * which is why the recovery does not need a special legality argument for the
+ * seat it lands on: there is only one placement rule and it ran.
+ */
+export function forbiddenObserverSeat(plan) {
+  const f = plan?.meta?.composeOpts?.forbidObserverSeat;
+  return f && Number.isInteger(f.x) && Number.isInteger(f.y) ? key(f.x, f.y) : null;
+}
+
 export function planMisc(terrain, plan) {
   if (!plan.shell) return { error: "misc needs a shell (layer 2 missing)" };
   const depth = plan.depth;
@@ -352,9 +383,16 @@ export function planMisc(terrain, plan) {
   // tier — ahead of the road preference and ahead of the controller-ring
   // preference — because those two are worth a tile of walk and this is worth a
   // judged, failing pair on the wall.
+  // OF4: the one seat the recovery pass withdrew, if it withdrew one. See
+  // forbiddenObserverSeat above — the tile stops being offered and this layer's
+  // own ranking picks the next one, under every constraint it already applies.
+  const forbidObs = forbiddenObserverSeat(plan);
   const byFar = cands
-    .filter((c) => c !== nuker)
+    .filter((c) => c !== nuker && key(c.x, c.y) !== forbidObs)
     .sort((a, b) => b.d - a.d || a.x - b.x || a.y - b.y);
+  if (!byFar.length) {
+    return { error: `no leftover deep tile for the observer with ${forbidObs} withdrawn` };
+  }
   const nukerKey = key(nuker.x, nuker.y);
   const obsBase = mobBase ? boardMobility(terrain, plan, [nukerKey]) : null;
   const obsLegal = (c) => !seals(c, occupied);

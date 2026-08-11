@@ -2286,10 +2286,16 @@ ${thumbLegendHtml()}
     const nsf = (p.meta.shortfalls || []).length;
     const sfc = nsf ? `<span class="sfc" title="declared shortfalls — gates this plan knowingly failed">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
     // A NOTE IS DISCOVERABLE FROM THE INDEX OR IT MIGHT AS WELL NOT EXIST.
-    // 118 rooms carry one and nothing on this page said so, so a reviewer
+    // Most rooms carry one and nothing on this page said so, so a reviewer
     // scanning the index had no way to find the room that had something to
     // say. Deliberately a different colour and a different word from the
     // shortfall count: they are different channels (see notesHtml).
+    //
+    // The count that used to be written here ("118 rooms carry one") was wrong
+    // by one for two rounds and is gone rather than corrected: a fleet-wide
+    // figure hard-typed into a per-room renderer is a number with no owner and
+    // no re-derivation, and this badge already prints the true count from the
+    // room's own record every run. See criticism 69.
     const nnt = (p.meta.notes || []).length;
     const ntc = nnt ? `<span class="ntc" title="planner notes — observations, not declarations; they excuse nothing">${nnt} note${nnt > 1 ? "s" : ""}</span>` : "";
     index += `<div class="card"><h3><a href="${p.room}.html">${p.room}</a>

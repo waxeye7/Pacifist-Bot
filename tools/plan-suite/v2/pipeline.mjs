@@ -16,7 +16,7 @@
  *   7 late roads  rampart spurs + extension-face net + dead-end prune, last
  *                so they never steal a tile from the 60 extensions
  */
-import { D4, D8, PARK_PROTECT, isWall } from "./shared.mjs";
+import { D4, D8, PARK_PROTECT, isWall, key, walkable } from "./shared.mjs";
 import { planHub, distField } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { CLUMP_NOTE, MAX_REFILL, MIN_SAT, REFILL_NOTE, planTowers } from "./layer-towers.mjs";
@@ -1491,18 +1491,27 @@ function attachRungProof(plan, trail) {
     // carries a negotiation record — a room whose enclosure never missed the
     // target composed no rungs and has nothing to staple. See declareMobility in
     // layer-walls for why the two entries became one.
-    if (s.gate !== "mobility" || !s.negotiated || s.rungs) continue;
-    s.rungs = trail.map((r) => ({
-      rung: r.rung,
-      needDeepBonus: r.needDeepBonus,
-      seedSkip: r.seedSkip,
-      mobility: r.mobility,
-      ramparts: r.ramparts,
-      complete: r.complete,
-    }));
-    // the prose spells out the rungs of the seed we SHIPPED (the ones that were
-    // a real alternative); `s.rungs` above carries every composition including
-    // the rejected seeds, so nothing is lost by keeping the sentence readable
+    if (s.gate !== "mobility" || !s.negotiated || s.ladder) continue;
+    // ------------------------------------------------------------------
+    // MF4 (round 18) — THE SECOND RUNGS ARRAY IS GONE.
+    //
+    // This wrote `s.rungs` — every composition of every seed, 228 numbers across
+    // 57 rooms — beside `s.ladder.rungs`, which is the table the paragraph is
+    // actually rendered from. `rungs` is in the declaration ENVELOPE
+    // (validate.mjs RECORD_ENVELOPE), so the leaf inventory walked straight past
+    // it: a wholly unaudited numeric array, published as evidence
+    // (`admitDeclaration` accepts a well-formed `rungs` AS the evidence a
+    // declaration needs), sitting next to an audited one that says almost the
+    // same thing. Two copies of a fact is one copy that can drift, and the
+    // unaudited copy is the one a reviewer would be misled by.
+    //
+    // Nothing rendered from it — `renderMobility` reads `ladder.rungs` and
+    // `ladder.trailLength`, and trailLength is the whole-trail count this array
+    // was the only other record of. So it is deleted rather than bound: the
+    // cheapest audit is the one with no second object in it. The idempotency
+    // guard above moved to `s.ladder`, which is the field this function now
+    // writes.
+    // ------------------------------------------------------------------
     const skip = plan.meta.seedSkip ?? 0;
     const mine = trail.filter((r) => r.seedSkip === skip);
     const shipped = mobOf(plan);
@@ -1538,7 +1547,9 @@ function attachRungProof(plan, trail) {
     // ------------------------------------------------------------------
     s.ladder = {
       // the rungs of the SHIPPED seed — the ones that were a real alternative.
-      // `s.rungs` above carries every composition including the rejected seeds.
+      // `trailLength` below is how many compositions the whole search paid for
+      // across every seed, which is the only other thing the deleted `s.rungs`
+      // array said (MF4).
       rungs: mine.map((r) => ({
         rung: r.rung,
         needDeepBonus: r.needDeepBonus,
@@ -2182,6 +2193,83 @@ function asBuiltInstruments(terrain, plan) {
     orphanRoads: countOrphanRoads(plan),
   };
 }
+/**
+ * ===========================================================================
+ * OF6 (round 18) — THE OTHER WALK. The one nobody was pricing.
+ * ===========================================================================
+ * `INSTRUMENT_DIRECTION` carries four readings of the TOWER battery's walk and
+ * not one of the sixty extensions, which is the walk the filler actually spends
+ * its life on and the owner's most-repeated preference ("dense but walkable",
+ * "extensions closest-first", "a filler tour is short and obvious"). Round 17's
+ * owner review measured the eight takes by hand: E15S6 paid +9 total steps and
+ * +1 on its longest extension walk, E2S1 +7, E9S1 +3, four rooms improved, net
+ * -7 over the eight. Nothing shipped an owner would object to — and nothing
+ * looked, which is the finding.
+ *
+ * So the recovery pass reads it. The model is layer 6's own build-order model
+ * (`builtField`/`buildCost` in layer-ext): the filler walks the FINISHED
+ * interior with every obstacle of ours standing, and an extension's cost is one
+ * step off the nearest walkable D4 face — the tile the filler stands on to fill
+ * it. Summed over the mass, that is the room's whole extension tour.
+ *
+ * WHY IT IS NOT IN `INSTRUMENT_DIRECTION`. A non-worsening gate on this number
+ * would refuse a recovery for one step of tour, and one step of tour is not
+ * worth five tiles of deep floor the program can build on forever. It is priced
+ * instead, with the bound stated on the record and quoted in the note:
+ * SEALED_RECOVERY_TOUR_SLACK steps of extra TOTAL tour, which is the same order
+ * as the per-tower slack the battery gets (`TAKE_WALK_SLACK_STEPS`) scaled by
+ * the sixty structures this walk runs over. Past it the candidate is refused
+ * with the number printed; inside it the delta is reported either way, so a
+ * reader sees what the room paid rather than being told it paid nothing.
+ */
+function extTourSteps(terrain, plan) {
+  const exts = plan.structures?.extension || [];
+  if (!exts.length || !plan.sitter) return null;
+  const ext = plan.shippedExterior || plan.exterior;
+  if (!ext) return null;
+  const rset = new Set((plan.structures?.rampart || []).map((r) => key(r.x, r.y)));
+  const blocked = new Set(plan.objectTiles || []);
+  for (const t of BUILT_OBSTACLES) {
+    for (const p of plan.structures?.[t] || []) blocked.add(key(p.x, p.y));
+  }
+  // the same flood `interiorWalk` runs, carrying the step count with it: the
+  // filler is a creep of ours inside our own wall, so the cut is walkable, the
+  // exterior is not, and everything that blocks a creep blocks it.
+  const dist = new Int32Array(2500).fill(-1);
+  dist[plan.sitter.x + plan.sitter.y * 50] = 0;
+  const q = [plan.sitter];
+  for (let qi = 0; qi < q.length; qi++) {
+    const cur = q[qi];
+    const d = dist[cur.x + cur.y * 50];
+    for (const [dx, dy] of D8) {
+      const x = cur.x + dx,
+        y = cur.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const i = x + y * 50;
+      if (dist[i] >= 0 || !walkable(terrain, x, y)) continue;
+      const k = key(x, y);
+      if (!rset.has(k) && ext[i]) continue;
+      if (blocked.has(k)) continue;
+      dist[i] = d + 1;
+      q.push({ x, y });
+    }
+  }
+  let total = 0;
+  let unreached = 0;
+  for (const e of exts) {
+    let best = -1;
+    for (const [dx, dy] of D4) {
+      const x = e.x + dx,
+        y = e.y + dy;
+      if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+      const d = dist[x + y * 50];
+      if (d >= 0 && (best < 0 || d + 1 < best)) best = d + 1;
+    }
+    if (best < 0) unreached++;
+    else total += best;
+  }
+  return { total, unreached, extensions: exts.length };
+}
 /** tiles carrying a road AND a solid that is not a container — a hard validator fail */
 function countStacks(plan) {
   const byTile = new Map();
@@ -2567,40 +2655,86 @@ function restateSatBasis(plan) {
  * STRUCTURE, exhaustively, by deleting each boundary structure and re-flooding.
  * This pass acts on it, and it is bounded in every direction:
  *
- *   · EXTENSIONS ONLY. The extension mass is the flexible layer and the seal is
- *     its ordering — the note's own sentence is "a row of extensions across a
- *     one-wide corridor seals the pocket behind it". A pocket whose only
- *     holders are the hub kit, the lab diamond, a tower, the nuker or the
- *     observer is fixed geometry: those are placed by their own layers against
- *     their own constraints and "move it one tile" is not a bounded change to
- *     them. Such a pocket publishes a refusal naming its holders.
+ *   · THE MOVABLE HOLDER CLASSES, AND WHY THEY ARE MOVABLE. The extension mass
+ *     is the flexible layer and the seal is its ordering — the note's own
+ *     sentence is "a row of extensions across a one-wide corridor seals the
+ *     pocket behind it". The OBSERVER joins it in round 18 (OF4): layer 5's own
+ *     header calls the observer "the one structure in the game whose position is
+ *     completely irrelevant — its own placement rule is literally 'takes the
+ *     furthest leftover tile'", and E9S9 was publishing a fixed-geometry refusal
+ *     over 7 deep tiles held by exactly that tile, with six free deep road-faced
+ *     seats standing empty. A pocket whose only holders are the hub kit, the lab
+ *     diamond, a tower or the nuker IS fixed geometry — those are placed by
+ *     their own layers against real constraints (a hauled 300k-energy nuker, a
+ *     lab diamond that must be a diamond) and "move it one tile" is not a
+ *     bounded change to them. Such a pocket publishes a refusal naming its
+ *     holders.
  *   · A THRESHOLD, STATED. The move has to bring back at least
  *     SEALED_RECOVERY_MIN tiles of DEEP floor — buildable ground the program
  *     could have used — because a one-tile pocket is not worth a re-composition
  *     and a pass that fires on everything is a pass with no rule.
- *   · AT MOST SEALED_RECOVERY_TRIES COMPOSITIONS, over the holders of the
- *     single largest-deep pocket, in the record's own published order.
+ *   · EVERY MOVABLE HOLDER OF THE TARGET POCKET, NOT A PREFIX OF THEM (OF1,
+ *     round 18). Round 17 tried `holders.slice(0, 3)` in RASTER order and
+ *     published "every candidate above was re-composed and the panel refused
+ *     it", which was false in the one room it mattered: E11S7's pocket is held
+ *     by EIGHT extensions each returning 5/5, the first three fail, and
+ *     withdrawing 14,8 or 15,8 recovers the whole pocket with every instrument
+ *     holding and the room's LAP — the worst in the fleet — falling 9.33 -> 8.67.
+ *     A cap that silently truncates the search and then reports the search as
+ *     exhaustive is the auto-fail shape this planner exists to avoid, so the cap
+ *     is gone: every holder is composed, the count is published, and the refusal
+ *     says how many were tried. It costs at most one composition per holder in
+ *     the two rooms of the fleet with more than one, which is nothing.
+ *   · ALL OF THEM, THEN THE BEST — not the first that passes. With every
+ *     candidate priced anyway, taking the first acceptable one is taking a raster
+ *     accident. The winner is the largest deep recovery, then the largest total
+ *     recovery, then the CHEAPEST PANEL (least extension-tour cost, then most
+ *     interior, then strongest face), then raster order. The order candidates are
+ *     TRIED in cannot change the outcome, which is the point.
  *   · THE WHOLE PANEL. Same `asBuiltInstruments` the across-prior take uses,
- *     which since this round also carries sealedTiles/sealedDeep, the per-tower
+ *     which since round 17 also carries sealedTiles/sealedDeep, the per-tower
  *     refill walks, the extension D4-face count and the off-network count. The
  *     move must not move ANY of them the wrong way, and it must actually
- *     deliver the deep floor it was taken for.
+ *     deliver the deep floor it was taken for. Round 18 adds the EXTENSION TOUR
+ *     (OF6) as a priced-not-gated reading — see `extTourSteps`.
  *   · REFUSAL WITH EVIDENCE. Every candidate that was tried publishes its two
  *     panels and the instrument that refused it; every pocket that was not
  *     tried publishes why.
  *
  * The move itself is a seat WITHDRAWN, not a structure teleported: the room is
- * re-composed with `opts.forbidExtSeat` set, and layer 6 places its sixty
- * extensions again with that one tile off the board. That is why the answer is
- * a real plan and not a hand edit — the corridor stays open, the mass flows
- * into the pocket, and every downstream layer runs on the result.
+ * re-composed with `opts.forbidExtSeat` (or `opts.forbidObserverSeat`) set, and
+ * layer 6 places its sixty extensions — or layer 5 its observer — again with
+ * that one tile off the board. That is why the answer is a real plan and not a
+ * hand edit: the corridor stays open, the mass flows into the pocket, and every
+ * downstream layer runs on the result.
  */
 const SEALED_RECOVERY_MIN = 4;
-const SEALED_RECOVERY_TRIES = 3;
+/**
+ * OF6 — how many extra steps of TOTAL extension tour a recovery may cost.
+ *
+ * The tower battery's slack is ONE step on ONE tower (TAKE_WALK_SLACK_STEPS)
+ * over six towers. This walk runs over sixty structures and is re-derived from a
+ * re-seated mass rather than from a moved tile, so a bound of the same shape is
+ * a bound of a different size: 12 steps is one fifth of a step per extension,
+ * and it is a CEILING on a number that is reported either way rather than a
+ * budget anybody is entitled to spend. Measured against round 17's eight takes
+ * (owner's harness, F6): worst +9, best -8, net -7 over the eight — every one of
+ * them inside this bound, which is where the number comes from.
+ */
+const SEALED_RECOVERY_TOUR_SLACK = 12;
+/** the holder classes this pass may withdraw a seat from, and the opt each one sets */
+const SEALED_RECOVERY_KINDS = {
+  extension: "forbidExtSeat",
+  // OF4 (round 18) — see the header. shared.mjs/layer-misc call the observer's
+  // position irrelevant in their own prose; it has no walk to lengthen, no face
+  // to lose and no haul to pay, so its seat is the cheapest one in the room to
+  // withdraw.
+  observer: "forbidObserverSeat",
+};
 function maybeTakeSealedRecovery(d, plan) {
-  if (!plan || plan.error || !plan.meta?.composeOpts || plan.meta.composeOpts.forbidExtSeat) {
-    return plan;
-  }
+  if (!plan || plan.error || !plan.meta?.composeOpts) return plan;
+  const opts = plan.meta.composeOpts;
+  if (Object.values(SEALED_RECOVERY_KINDS).some((o) => opts[o])) return plan;
   const sf = plan.meta.sealedFloor;
   if (!sf || !sf.pockets?.length) return plan;
   const ranked = sf.pockets
@@ -2608,47 +2742,85 @@ function maybeTakeSealedRecovery(d, plan) {
     .sort((a, b) => b.best.recoversDeep - a.best.recoversDeep || b.best.recovers - a.best.recovers);
   const record = {
     threshold: SEALED_RECOVERY_MIN,
-    tryCap: SEALED_RECOVERY_TRIES,
-    kindsAttempted: ["extension"],
+    kindsAttempted: Object.keys(SEALED_RECOVERY_KINDS),
+    tourSlack: SEALED_RECOVERY_TOUR_SLACK,
+    outcome: null,
+    candidates: 0,
+    tried: 0,
     taken: null,
     offered: [],
     instruments: Object.keys(INSTRUMENT_DIRECTION),
     directions: { ...INSTRUMENT_DIRECTION },
     walkRule: TAKE_WALK_RULE,
+    tourRule: SEALED_RECOVERY_TOUR_RULE,
     basis: SEALED_RECOVERY_BASIS,
   };
   if (!ranked.length) {
+    record.outcome = "belowThreshold";
+    record.bestDeepAnywhere = Math.max(0, ...sf.pockets.map((p) => (p.best ? p.best.recoversDeep : 0)));
     record.offered.push({
       verdict:
         `no pocket in this room is held shut by a single structure returning ` +
         `${SEALED_RECOVERY_MIN} or more DEEP tiles — the largest single-structure recovery here is ` +
-        `${Math.max(0, ...sf.pockets.map((p) => (p.best ? p.best.recoversDeep : 0)))} deep tile(s)`,
+        `${record.bestDeepAnywhere} deep tile(s)`,
     });
     plan.meta.sealedRecovery = record;
     return plan;
   }
   const target = ranked[0];
-  const extHolders = target.holders.filter((h) => h.type === "extension");
-  if (!extHolders.length) {
+  record.pocket = {
+    at: target.at,
+    tiles: target.tiles,
+    deep: target.deep,
+    holders: target.holders.length,
+  };
+  // EVERY movable holder, ordered by the gain the counterfactual already
+  // measured. `slice(0, 3)` in raster order is what shipped E11S7's false
+  // refusal — see the header.
+  const movable = target.holders
+    .filter((h) => SEALED_RECOVERY_KINDS[h.type])
+    .sort(
+      (a, b) =>
+        b.recoversDeep - a.recoversDeep ||
+        b.recovers - a.recovers ||
+        // the observer's seat before an extension's at equal gain: it is the one
+        // this planner's own prose calls irrelevant, so it is the cheaper thing
+        // to move. Ties past that are raster, so the order is total.
+        (a.type === b.type ? 0 : a.type === "observer" ? -1 : 1) ||
+        a.y - b.y ||
+        a.x - b.x,
+    );
+  record.candidates = movable.length;
+  record.fixedHolders = target.holders
+    .filter((h) => !SEALED_RECOVERY_KINDS[h.type])
+    .map((h) => ({ type: h.type, x: h.x, y: h.y, recovers: h.recovers, recoversDeep: h.recoversDeep }));
+  if (!movable.length) {
+    record.outcome = "fixedGeometry";
     record.offered.push({
       pocket: { at: target.at, tiles: target.tiles, deep: target.deep },
       verdict:
         `this pocket's ${target.holders.length} holder(s) are all fixed geometry ` +
         `(${[...new Set(target.holders.map((h) => h.type))].join(", ")}) — this pass re-seats ` +
-        `extensions and nothing else, because the extension mass is the layer whose ordering the ` +
-        `seal is, and a hub structure, a lab of the diamond or a tower is placed against its own ` +
-        `constraints by its own layer`,
+        `${record.kindsAttempted.join(" and ")} seats and nothing else, because those are the two ` +
+        `whose tile is chosen by preference rather than by a constraint, and a hub structure, a lab ` +
+        `of the diamond, a tower or the hauled nuker is placed against its own layer's real rule`,
     });
     plan.meta.sealedRecovery = record;
     return plan;
   }
   const before = asBuiltInstruments(d.terrain, plan);
-  for (const h of extHolders.slice(0, SEALED_RECOVERY_TRIES)) {
+  const tourBefore = extTourSteps(d.terrain, plan);
+  record.extTourBefore = tourBefore ? tourBefore.total : null;
+  const accepted = [];
+  for (const h of movable) {
     const withdrawn = { x: h.x, y: h.y };
-    const alt = composePlan(d, { ...plan.meta.composeOpts, forbidExtSeat: withdrawn });
+    const kind = h.type;
+    record.tried++;
+    const alt = composePlan(d, { ...opts, [SEALED_RECOVERY_KINDS[kind]]: withdrawn });
     if (alt.error || !alt.shell || !grade(alt).complete) {
       record.offered.push({
         withdrawn,
+        kind,
         recoversDeep: h.recoversDeep,
         verdict: "the re-composition did not produce a complete room",
       });
@@ -2656,18 +2828,21 @@ function maybeTakeSealedRecovery(d, plan) {
     }
     finalizeRoom(d.terrain, alt);
     const after = asBuiltInstruments(d.terrain, alt);
+    const tourAfter = extTourSteps(d.terrain, alt);
+    const extTourAfter = tourAfter ? tourAfter.total : null;
+    const extTourDelta =
+      record.extTourBefore === null || extTourAfter === null ? null : extTourAfter - record.extTourBefore;
+    const panel = { withdrawn, kind, recoversDeep: h.recoversDeep, before, after, extTourAfter, extTourDelta };
     const worse = instrumentsHold(before, after);
     if (worse.length) {
-      record.offered.push({ withdrawn, recoversDeep: h.recoversDeep, before, after, verdict: `refused: ${worse.join(", ")}` });
+      record.offered.push({ ...panel, verdict: `refused: ${worse.join(", ")}` });
       continue;
     }
     const gainedDeep = before.sealedDeep - after.sealedDeep;
     if (gainedDeep < SEALED_RECOVERY_MIN) {
       record.offered.push({
-        withdrawn,
-        recoversDeep: h.recoversDeep,
-        before,
-        after,
+        ...panel,
+        gainedDeep,
         verdict:
           `refused: every instrument holds but the re-composed room only recovers ${gainedDeep} deep ` +
           `sealed tile(s) against a threshold of ${SEALED_RECOVERY_MIN} — the counterfactual said ` +
@@ -2676,34 +2851,114 @@ function maybeTakeSealedRecovery(d, plan) {
       });
       continue;
     }
-    record.offered.push({ withdrawn, recoversDeep: h.recoversDeep, before, after, verdict: "TAKEN" });
-    record.taken = { withdrawn, pocket: { at: target.at, tiles: target.tiles, deep: target.deep } };
-    record.recoveredTiles = before.sealedTiles - after.sealedTiles;
-    record.recoveredDeep = gainedDeep;
-    record.before = before;
-    record.after = after;
-    alt.meta.sealedRecovery = record;
-    return alt;
+    // OF6 — the walk the panel could not see, priced with a stated bound.
+    if (extTourDelta !== null && extTourDelta > SEALED_RECOVERY_TOUR_SLACK) {
+      record.offered.push({
+        ...panel,
+        gainedDeep,
+        verdict:
+          `refused: every instrument holds and the room gives back ${gainedDeep} deep tile(s), but the ` +
+          `filler's TOTAL extension tour goes ${record.extTourBefore} -> ${extTourAfter} steps, ` +
+          `+${extTourDelta} against a stated ceiling of ${SEALED_RECOVERY_TOUR_SLACK} — deep floor is ` +
+          `worth paying for and is not worth paying that`,
+      });
+      continue;
+    }
+    record.offered.push({
+      ...panel,
+      gainedDeep,
+      gainedTiles: before.sealedTiles - after.sealedTiles,
+      verdict: "ACCEPTED",
+    });
+    accepted.push({
+      h,
+      kind,
+      withdrawn,
+      alt,
+      after,
+      gainedDeep,
+      gainedTiles: before.sealedTiles - after.sealedTiles,
+      extTourAfter,
+      extTourDelta,
+    });
   }
-  record.offered.push({
-    verdict:
-      `every candidate above was re-composed and finalized and the panel refused it; this room ships ` +
-      `the plan it would have shipped without this pass`,
-  });
-  plan.meta.sealedRecovery = record;
-  return plan;
+  if (!accepted.length) {
+    record.outcome = "allRefused";
+    record.offered.push({
+      verdict:
+        `all ${record.tried} candidate(s) — every movable holder this pocket has, not a prefix of them ` +
+        `— were re-composed and finalized and the panel refused each one; this room ships the plan it ` +
+        `would have shipped without this pass`,
+    });
+    plan.meta.sealedRecovery = record;
+    return plan;
+  }
+  // the winner: most deep floor back, then most floor, then the cheapest panel,
+  // then raster. See the header — every candidate was priced, so the pick is a
+  // comparison and not an accident of iteration order.
+  accepted.sort(
+    (a, b) =>
+      b.gainedDeep - a.gainedDeep ||
+      b.gainedTiles - a.gainedTiles ||
+      (a.extTourDelta ?? 0) - (b.extTourDelta ?? 0) ||
+      (b.after.interior ?? 0) - (a.after.interior ?? 0) ||
+      (b.after.face ?? 0) - (a.after.face ?? 0) ||
+      a.withdrawn.y - b.withdrawn.y ||
+      a.withdrawn.x - b.withdrawn.x,
+  );
+  const win = accepted[0];
+  record.outcome = "taken";
+  record.accepted = accepted.length;
+  record.taken = {
+    withdrawn: win.withdrawn,
+    kind: win.kind,
+    pocket: { at: target.at, tiles: target.tiles, deep: target.deep },
+  };
+  record.recoveredTiles = win.gainedTiles;
+  record.recoveredDeep = win.gainedDeep;
+  record.extTourAfter = win.extTourAfter;
+  record.extTourDelta = win.extTourDelta;
+  record.before = before;
+  record.after = win.after;
+  for (const o of record.offered) {
+    if (o.verdict !== "ACCEPTED") continue;
+    o.verdict =
+      o.withdrawn.x === win.withdrawn.x && o.withdrawn.y === win.withdrawn.y
+        ? "TAKEN"
+        : `accepted, not taken: ${accepted.length} candidate(s) cleared the panel and the pick is the ` +
+          `largest deep recovery, then the largest total recovery, then the cheapest panel`;
+  }
+  win.alt.meta.sealedRecovery = record;
+  return win.alt;
 }
 const SEALED_RECOVERY_BASIS =
-  `the candidate is read off meta.sealedFloor.pockets[].holders — the per-structure counterfactual, ` +
+  `the candidates are read off meta.sealedFloor.pockets[].holders — the per-structure counterfactual, ` +
   `priced by deleting each boundary structure and re-running the own-creep flood — and the move is a ` +
   `SEAT WITHDRAWN, not a structure teleported: the room is RE-COMPOSED from layer 1 with ` +
-  `opts.forbidExtSeat set, so layer 6 places its sixty extensions again with that one tile off the ` +
-  `board and every later layer runs on the result. before/after are the same as-built instrument ` +
-  `panel the across-prior take uses, read off two FINISHED rooms. A withdrawal is kept only when no ` +
-  `instrument moves the wrong way AND the finished room actually gives back at least ` +
-  `${SEALED_RECOVERY_MIN} deep sealed tiles — the counterfactual is a claim about deleting a ` +
-  `structure, and this is the claim about re-composing without its seat, which is a strictly harder ` +
-  `test and the only one that ships.`;
+  `opts.forbidExtSeat (an extension seat) or opts.forbidObserverSeat (the observer's) set, so layer 6 ` +
+  `places its sixty extensions, or layer 5 its observer, again with that one tile off the board and ` +
+  `every later layer runs on the result. EVERY movable holder of the target pocket is composed — ` +
+  `"candidates" of them, "tried" re-compositions, never a prefix (OF1, round 18: a cap of 3 in raster ` +
+  `order made E11S7 publish "every candidate was refused" while five untried holders sat behind it, ` +
+  `two of which recover the whole pocket). before/after are the same as-built instrument panel the ` +
+  `across-prior take uses, read off two FINISHED rooms. A withdrawal is ACCEPTED only when no ` +
+  `instrument moves the wrong way, the finished room actually gives back at least ` +
+  `${SEALED_RECOVERY_MIN} deep sealed tiles, and the extension tour stays inside its stated ceiling — ` +
+  `the counterfactual is a claim about deleting a structure, and this is the claim about re-composing ` +
+  `without its seat, which is a strictly harder test and the only one that ships. Among the accepted, ` +
+  `the one TAKEN is the largest deep recovery, then the largest total recovery, then the cheapest ` +
+  `panel (least extension tour, most interior, strongest face), then raster order — a comparison over ` +
+  `every priced candidate rather than whichever one iteration reached first.`;
+const SEALED_RECOVERY_TOUR_RULE =
+  `THE FILLER'S OTHER WALK, PRICED AND NOT GATED (OF6, round 18): extTourBefore/extTourAfter are the ` +
+  `TOTAL extension tour — for each of the sixty extensions, the walk from the sitter across the ` +
+  `finished interior to the tile the filler stands on to fill it (one step off its nearest walkable D4 ` +
+  `face), summed. It is layer 6's own build-order model, read on two finished boards. It is NOT a ` +
+  `non-worsening instrument: a recovery that hands the program back deep buildable floor forever is ` +
+  `worth a step of tour, and refusing it for one step would be pricing the wrong thing. It is bounded ` +
+  `instead — at most ${SEALED_RECOVERY_TOUR_SLACK} extra steps of TOTAL tour across sixty structures, ` +
+  `stated here and quoted in the note — and the delta is published whether it is positive or negative, ` +
+  `so a reader sees what the room paid rather than being told it paid nothing.`;
 
 export function planRoom(d) {
   const t0 = performance.now();
@@ -2736,15 +2991,45 @@ export function planRoom(d) {
       // finished board to price their trade. Each finalizes whatever it returns.
       //
       // ORDER MATTERS AND IT IS NOT ARBITRARY. The sealed-floor recovery
-      // withdraws an extension SEAT and re-composes from layer 1; the
-      // across-prior take moves a TOWER and re-composes from layer 1. Running
-      // the recovery first means the take's two instrument panels are read on
-      // top of whatever the recovery decided, and the take's re-composition
-      // inherits `forbidExtSeat` through composeOpts — so the room the take
-      // prices is the room the recovery left. The other order would leave the
-      // take's panels describing a board the recovery then replaced.
+      // withdraws an extension or OBSERVER seat and re-composes from layer 1;
+      // the across-prior take moves a TOWER and re-composes from layer 1.
+      // Running the recovery first means the take's two instrument panels are
+      // read on top of whatever the recovery decided, and the take's
+      // re-composition inherits `forbidExtSeat`/`forbidObserverSeat` through
+      // composeOpts — so the room the take prices is the room the recovery
+      // left. The other order would leave the take's panels describing a board
+      // the recovery then replaced.
       p = maybeTakeSealedRecovery(d, p);
       p = maybeTakeTowerSwap(d, p);
+      // OF3 (round 18) — and NOW the recovery gets to speak, on the plan the
+      // room actually ships. It has to be here rather than inside the pass: the
+      // pass may hand back a fresh composition, and the tower take after it may
+      // hand back another one, each with its own freshly-built notes array. A
+      // note pushed inside either of them would be dropped by the next
+      // re-composition while its record survived (`sealedRecovery` is copied
+      // across explicitly), which is exactly the record/prose drift the note
+      // inventory exists to make impossible.
+      if (p.meta.sealedRecovery) {
+        // ...and the OBLIGATION that makes the note undeletable, in the same
+        // call. Every other class derives its entry in `finalizeRoom`
+        // (layer-walls, "WHO OWES A NOTE"), and this one cannot: the record it
+        // is derived from does not exist until this pass has run, and this pass
+        // runs AFTER the truth pass by design, because its whole argument is
+        // that it needs a finished board to price its trade. So the entry is
+        // appended here — still derived from the RECORD and never from
+        // `meta.notes`, which is the only property the obligation has to have.
+        // Both triggers resolve on the shipped plan by their own path, which is
+        // how the validator re-derives them.
+        p.meta.noteObligations = p.meta.noteObligations || [];
+        p.meta.noteObligations.push({
+          cls: "sealedRecovery",
+          why: [
+            { field: "meta.sealedRecovery.outcome", value: p.meta.sealedRecovery.outcome },
+            { field: "meta.sealedRecovery.offered", value: p.meta.sealedRecovery.offered.length },
+          ],
+        });
+        pushNote(p, "sealedRecovery", p.meta.sealedRecovery);
+      }
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
       declareRuntime(p, trail);

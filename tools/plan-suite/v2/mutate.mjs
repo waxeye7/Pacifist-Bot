@@ -4116,6 +4116,606 @@ run("r13/F8-untriggered-gate", R, (p) => {
 }
 
 // ===========================================================================
+// ROUND 18 — the two reviewers' escape rosters, one case each.
+//
+// MF1 (CRITICAL): `null` switched a leaf's whole audit off — 1784 of 17963
+//   record leaves escaped when nulled with the prose regenerated, 590 of them
+//   leaves a WRONG value bites and 402 regenerating byte-identical prose.
+// MF2/MF3/MF5/MF7: an unbound copy of a class-D board fact, a census that
+//   still crossed a room boundary, a list bound as a set, and the residue
+//   criticism 63 left unnamed.
+// OF2 (BLOCKING): `meta.sealedRecovery` and the non-final halves of
+//   `acrossPriorTake` were bound to nothing — 15 of 27 semantic mutations and
+//   35 of 40 x5 inflations escaped, including a take that never happened.
+// OF5/OF7: crossings completeness satisfied by the take's destination alone,
+//   and an x5 on `satAcrossPrior.tried`.
+// ===========================================================================
+{
+  const decl18 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+    d.detail = renderDecl({ ...d, detail: undefined });
+  };
+  const raw18 = (gate, kind, edit) => (p) => {
+    const d = declOf(p, gate, kind);
+    if (!d) throw new Error(`no ${gate}/${kind || ""} declaration`);
+    edit(d, p);
+  };
+  const withDecl18 = (gate, kind, pred) =>
+    anyRoom((p) => {
+      const d = declOf(p, gate, kind);
+      return d ? !pred || pred(d, p) : false;
+    });
+  const regen18 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try {
+        p.meta.notes[i] = renderNote(p.meta.noteRecords[i]);
+      } catch {
+        /* a record the template throws on is its own failure */
+      }
+    }
+  };
+  /** edit a note record of class `cls` and regenerate every note */
+  const note18 = (cls, edit) => (p) => {
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === cls);
+    if (i < 0) throw new Error(`no ${cls} note record`);
+    edit(p.meta.noteRecords[i].rec, p, i);
+    regen18(p);
+  };
+  const withNote18 = (cls, pred) =>
+    anyRoom((p) => {
+      const e = (p.meta.noteRecords || []).find((z) => z && z.cls === cls);
+      return e ? !pred || pred(e.rec, p) : false;
+    });
+  /** edit `meta.sealedRecovery` AND its note-record copy, then regenerate */
+  const recov18 = (edit) => (p) => {
+    const R = p.meta.sealedRecovery;
+    if (!R) throw new Error("no sealedRecovery");
+    edit(R, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+    if (i >= 0) p.meta.noteRecords[i].rec = R;
+    regen18(p);
+  };
+  const withRecov18 = (pred) => anyRoom((p) => (p.meta?.sealedRecovery ? !pred || pred(p.meta.sealedRecovery, p) : false));
+  const takenRoom = (pred) => withRecov18((R, p) => R.outcome === "taken" && (!pred || pred(R, p)));
+
+  // ---- MF1: THE NULL POLICY ------------------------------------------------
+  run("r18/MF1-ladder-shippedRamparts-nulled-and-the-rung-trail-fabricated",
+    withDecl18("mobility", null, (d) => typeof d.ladder?.shippedRamparts === "number" && (d.ladder.rungs || []).length),
+    decl18("mobility", null, (d) => {
+      d.ladder.shippedRamparts = null;
+      d.ladder.rungs = d.ladder.rungs.map((r, i) => ({ ...r, mobility: 9.9 - i * 0.1, ramparts: i + 1 }));
+    }),
+    "published as `null`|null|shippedRamparts");
+  run("r18/MF1-lane-bounded-nulled",
+    withDecl18("mobility", null, (d) => typeof d.lane?.bounded === "number"),
+    decl18("mobility", null, (d) => { d.lane.bounded = null; }),
+    "published as `null`|carries nothing either|null");
+  run("r18/MF1-lane-wanted-nulled-in-a-room-that-dropped-one",
+    withDecl18("mobility", null, (d) => d.lane?.dropped === true && typeof d.lane.wanted === "number"),
+    decl18("mobility", null, (d) => { d.lane.wanted = null; }),
+    "null|dropped");
+  run("r18/MF1-lane-wanted-published-in-a-room-that-dropped-nothing",
+    withDecl18("mobility", null, (d) => d.lane && d.lane.dropped !== true && d.lane.wanted === null),
+    decl18("mobility", null, (d) => { d.lane.wanted = 12; }),
+    "TRUE|dropped|null");
+  run("r18/MF1-lane-stubsLifted-nulled",
+    withDecl18("mobility", null, (d) => typeof d.lane?.stubsLifted === "number"),
+    decl18("mobility", null, (d) => { d.lane.stubsLifted = null; }),
+    "null|carries nothing either");
+  run("r18/MF1-linkOnCut-negotiatedCutTiles-nulled",
+    withDecl18("shell", null, (d) => typeof d.linkOnCut?.negotiatedCutTiles === "number"),
+    decl18("shell", null, (d) => { d.linkOnCut.negotiatedCutTiles = null; }),
+    "published as `null`");
+  run("r18/MF1-dispersion-clumpBefore-nulled",
+    withDecl18("towers", "clump", (d) => typeof d.dispersion?.search?.clumpBefore === "number"),
+    decl18("towers", "clump", (d) => { d.dispersion.search.clumpBefore = null; }),
+    "published as `null`");
+  run("r18/MF1-dispersion-towerWindowBefore-nulled",
+    withDecl18("towers", "clump", (d) => typeof d.dispersion?.search?.towerWindowBefore === "number"),
+    decl18("towers", "clump", (d) => { d.dispersion.search.towerWindowBefore = null; }),
+    "published as `null`");
+  run("r18/MF1-negotiated-shippedWallLap-nulled",
+    withDecl18("mobility", null, (d) => typeof d.negotiated?.shippedWallLap === "number"),
+    decl18("mobility", null, (d) => { d.negotiated.shippedWallLap = null; }),
+    "published as `null`");
+  run("r18/MF1-causeWalks-noWalls-ratio-nulled",
+    withDecl18("mobility", null, (d) => typeof d.negotiated?.causeWalks?.noWalls?.ratio === "number"),
+    decl18("mobility", null, (d) => { d.negotiated.causeWalks.noWalls.ratio = null; }),
+    "published as `null`");
+  run("r18/MF1-fallbackBest-published-on-a-record-with-no-fallback-trail",
+    withDecl18("mobility", null, (d) => d.ladder && d.ladder.fallbackBest === null && (d.ladder.rungs || []).length),
+    decl18("mobility", null, (d) => { d.ladder.fallbackBest = d.ladder.rungs[0].mobility; }),
+    "TRUE|null|fallback");
+  run("r18/MF1-negotiated-eco-invented-on-a-lap-that-never-left-its-floor",
+    withDecl18("mobility", null, (d) => d.negotiated && d.negotiated.eco === null),
+    decl18("mobility", null, (d) => { d.negotiated.eco = { ecoCost: 0, bareDeep: 130, needDeep: 123, deepTiles: 130 }; }),
+    "TRUE|eco|floor");
+  run("r18/MF1-fannedAvailable-nulled-while-triples-reached-the-target",
+    withDecl18("spawnFan", "sector", (d) => (d.spawnFan?.census?.fannedTriples || 0) > 0 && d.spawnFan.census.fannedAvailable),
+    decl18("spawnFan", "sector", (d) => { d.spawnFan.census.fannedAvailable = null; }),
+    "null|fannedTriples");
+  run("r18/MF1-shallow-slot-bestLegal-nulled-on-a-row-that-examined-a-target",
+    withDecl18("extensions", "shallow", (d) => (d.shallowExt?.slots || []).some((s2) => s2.examined > 0 && s2.bestLegal)),
+    decl18("extensions", "shallow", (d) => {
+      const s2 = d.shallowExt.slots.find((z) => z.examined > 0 && z.bestLegal);
+      s2.bestLegal = null;
+    }),
+    "null|examined");
+  run("r18/MF1-shallow-slot-ceiling-nulled",
+    withDecl18("extensions", "shallow", (d, p) => (d.shallowExt?.slots || []).some((s2) => s2.ceiling !== null && s2.ceiling !== undefined) && p.meta?.walls?.reflow?.lapCeiling !== null),
+    decl18("extensions", "shallow", (d) => {
+      const s2 = d.shallowExt.slots.find((z) => z.ceiling !== null && z.ceiling !== undefined);
+      s2.ceiling = null;
+    }),
+    "null|lapCeiling|carries nothing");
+  run("r18/MF1-note-extTarget-nulled",
+    withNote18("shallowExt", (r) => typeof r.extTarget === "number"),
+    note18("shallowExt", (r) => { r.extTarget = null; }),
+    "null|extTarget|carries nothing");
+  run("r18/MF1-note-lap-ceiling-nulled",
+    withNote18("shallowExt", (r, p) => typeof r.lap?.ceiling === "number" && p.meta?.walls?.reflow?.lapCeiling !== null),
+    note18("shallowExt", (r) => { r.lap.ceiling = null; }),
+    "null|lapCeiling|carries nothing");
+  run("r18/MF1-note-lap-slackSpent-nulled",
+    withNote18("shallowExt", (r) => typeof r.lap?.slackSpent === "boolean"),
+    note18("shallowExt", (r) => { r.lap.slackSpent = null; }),
+    "slackSpent|boolean");
+  run("r18/MF1-note-l7-nulled-while-the-reflow-moved-extensions",
+    withNote18("shallowExt", (r, p) => r.l7 && (p.meta?.walls?.reflow?.moved || []).length),
+    note18("shallowExt", (r) => { r.l7 = null; }),
+    "l7|null|relocation");
+  run("r18/MF1-a-mirrored-leaf-nulled-while-its-mirror-carries-a-number",
+    withDecl18("towers", "weak-battery", (d, p) => typeof d.towers?.maxRefill === "number" && p.meta?.towers?.maxRefill !== undefined),
+    decl18("towers", "weak-battery", (d) => { d.towers.maxRefill = null; }),
+    "is null and|published as `null`");
+
+  // ---- MF7: the residue criticism 63 did not name --------------------------
+  run("r18/MF7-note-mobilityTarget-inflated",
+    withNote18("shallowExt", (r) => typeof r.mobilityTarget === "number"),
+    note18("shallowExt", (r) => { r.mobilityTarget = r.mobilityTarget * 3 + 1; }),
+    "mobility target|MOB_TARGET");
+  run("r18/MF7-ladder-rung-ramparts-inflated",
+    withDecl18("mobility", null, (d) => (d.ladder?.rungs || []).length),
+    decl18("mobility", null, (d) => { d.ladder.rungs[0].ramparts = d.ladder.rungs[0].ramparts * 3 + 1; }),
+    "rampart|rung");
+  run("r18/MF7-ctrlParks-rampartsHolding-inflated",
+    withDecl18("ctrlParks", "released", (d) => typeof d.ctrlParks?.rampartsHolding === "number"),
+    decl18("ctrlParks", "released", (d) => { d.ctrlParks.rampartsHolding = d.ctrlParks.rampartsHolding * 3 + 1; }),
+    "rampart|twice");
+
+  // ---- MF4: the duplicate rungs array, re-introduced ------------------------
+  run("r18/MF4-the-deleted-second-rungs-array-comes-back",
+    withDecl18("mobility", null, (d) => (d.ladder?.rungs || []).length),
+    raw18("mobility", null, (d) => {
+      d.rungs = d.ladder.rungs.map((r) => ({ ...r, seedSkip: 77 }));
+    }),
+    "does not name it|rungs");
+
+  // ---- MF2: the placement walk vector, permuted ----------------------------
+  run("r18/MF2-refillDists-permuted",
+    withDecl18("towers", "weak-battery", (d, p) => Array.isArray(d.towers?.refillDists) && Array.isArray(p.meta?.towers?.refillDistsAtPlacement)),
+    decl18("towers", "weak-battery", (d) => { d.towers.refillDists = d.towers.refillDists.slice().reverse(); }),
+    "different order|entry for entry|placement-board walk vector");
+  run("r18/MF2-refillDists-one-entry-changed",
+    withDecl18("towers", "weak-battery", (d) => Array.isArray(d.towers?.refillDists)),
+    decl18("towers", "weak-battery", (d) => { d.towers.refillDists[0] = d.towers.refillDists[0] + 3; }),
+    "placement-board walk vector|refillDists");
+  run("r18/MF2-refillDists-referent-deleted-and-the-copy-falsified",
+    withDecl18("towers", "weak-battery", (d, p) => Array.isArray(d.towers?.refillDists) && p.meta?.towers?.refillDistsAtPlacement),
+    decl18("towers", "weak-battery", (d, p) => {
+      d.towers.refillDists = [9, 9, 9, 9, 9, 9];
+      delete p.meta.towers.refillDistsAtPlacement;
+    }),
+    "refillDistsAtPlacement|ABSENT|absent");
+
+  // ---- MF3: the census that still crossed a room boundary ------------------
+  run("r18/MF3-a-whole-lane-census-carried-in-from-another-room",
+    withDecl18("mobility", null, (d, p) => p.meta?.walls?.mobility?.lanes && p.meta?.extensions?.laneMeta),
+    decl18("mobility", null, (d, p) => {
+      const donor = plans.find((z) => z.room !== p.room && z.meta?.walls?.mobility?.lanes && (z.meta.walls.mobility.lanes.tiles || 0) > 30);
+      if (!donor) throw new Error("no donor room with a big lane census");
+      const L = JSON.parse(JSON.stringify(donor.meta.walls.mobility.lanes));
+      p.meta.walls.mobility.lanes = L;
+      const dl = declOf(donor, "mobility", null);
+      if (dl && dl.lane) d.lane = JSON.parse(JSON.stringify(dl.lane));
+    }),
+    "lane-anchor|laneMeta|lane");
+  run("r18/MF3-laneMeta-deleted-so-the-third-copy-cannot-disagree",
+    anyRoom((p) => p.meta?.extensions?.laneMeta && p.meta?.walls?.mobility?.lanes),
+    (p) => { delete p.meta.extensions.laneMeta; },
+    "lane-anchor|laneMeta");
+  run("r18/MF3-one-lane-field-edited-in-only-two-of-its-three-copies",
+    withDecl18("mobility", null, (d, p) => typeof p.meta?.walls?.mobility?.lanes?.tiles === "number" && p.meta?.extensions?.laneMeta),
+    decl18("mobility", null, (d, p) => {
+      const v = (p.meta.walls.mobility.lanes.tiles || 0) + 17;
+      p.meta.walls.mobility.lanes.tiles = v;
+      d.lane.tiles = v;
+    }),
+    "lane-anchor|laneMeta|lane");
+
+  // ---- MF5: a list bound as a set ------------------------------------------
+  run("r18/MF5-redundantCut-named-lists-a-tile-twice",
+    withNote18("redundantCut", (r) => (r.named || []).length),
+    note18("redundantCut", (r) => { r.named = [...r.named, r.named[0]]; }),
+    "more than once|lists \\d+ named");
+  run("r18/MF5-redundantCut-named-read-out-in-the-wrong-order",
+    withNote18("redundantCut", (r) => (r.named || []).length > 1),
+    note18("redundantCut", (r) => { r.named = r.named.slice().reverse(); }),
+    "in the order the refusals were made|reads its named cut tiles");
+  run("r18/MF5-redundantCut-named-drops-an-entry",
+    withNote18("redundantCut", (r) => (r.named || []).length > 1),
+    note18("redundantCut", (r) => { r.named = r.named.slice(1); }),
+    "lists \\d+ named|prices");
+
+  // ---- MF-BONUS: the basin's terrain ceiling -------------------------------
+  run("r18/MFB-eco-basin-inflated-x5",
+    withDecl18("eco", null, (d) => typeof d.eco?.basin === "number"),
+    decl18("eco", null, (d) => { d.eco.basin = d.eco.basin * 5; }),
+    "basin-ceiling|growBasin|basin");
+  run("r18/MFB-eco-basin-inflated-x3-plus-1",
+    withDecl18("eco", null, (d) => typeof d.eco?.basin === "number"),
+    decl18("eco", null, (d) => { d.eco.basin = d.eco.basin * 3 + 1; }),
+    "basin-ceiling|growBasin|basin");
+
+  // ---- OF7: an identity, not a counter -------------------------------------
+  run("r18/OF7-satAcrossPrior-tried-inflated-x5",
+    anyRoom((p) => typeof p.meta?.towers?.adjacency?.satAcrossPrior?.tried === "number"),
+    (p) => { p.meta.towers.adjacency.satAcrossPrior.tried *= 5; },
+    "satAcrossPrior.tried|exhaustive loop");
+  run("r18/OF7-satAcrossPrior-tried-deflated",
+    anyRoom((p) => typeof p.meta?.towers?.adjacency?.satAcrossPrior?.tried === "number"),
+    (p) => { p.meta.towers.adjacency.satAcrossPrior.tried = 3; },
+    "satAcrossPrior.tried|exhaustive loop");
+
+  // ---- OF5: crossings completeness ----------------------------------------
+  run("r18/OF5-crossings-emptied-in-a-room-whose-pairs-all-touch-the-take",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).length && p.meta?.towers?.acrossPriorTake?.taken),
+    (p) => { p.meta.towers.adjacency.crossings = []; },
+    "no recorded crossing|crossings");
+  run("r18/OF5-crossing-neighbours-truncated-to-one",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => (c.neighbours || []).length > 1)),
+    (p) => {
+      const c = p.meta.towers.adjacency.crossings.find((z) => (z.neighbours || []).length > 1);
+      c.neighbours = c.neighbours.slice(0, 1);
+    },
+    "neighbours|no recorded crossing");
+  run("r18/OF5-crossing-neighbour-moved-off-the-board",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => (c.neighbours || []).length)),
+    (p) => {
+      const c = p.meta.towers.adjacency.crossings.find((z) => (z.neighbours || []).length);
+      c.neighbours[0] = { x: 49, y: 49 };
+    },
+    "neighbours|no recorded crossing");
+  run("r18/OF5-crossing-refillWalksTo-rewritten-non-worsening",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => Array.isArray(c.refillWalksTo))),
+    (p) => {
+      const c = p.meta.towers.adjacency.crossings.find((z) => Array.isArray(z.refillWalksTo));
+      c.refillWalksTo = c.refillWalksFrom.map((v) => Math.max(1, v - 1));
+    },
+    "refillWalksTo|one set of numbers");
+  run("r18/OF5-crossing-refillTotalTo-rewritten",
+    anyRoom((p) => (p.meta?.towers?.adjacency?.crossings || []).some((c) => typeof c.refillTotalTo === "number")),
+    (p) => {
+      const c = p.meta.towers.adjacency.crossings.find((z) => typeof z.refillTotalTo === "number");
+      c.refillTotalTo = c.refillTotalFrom - 5;
+    },
+    "refillTotalTo|one set of numbers");
+
+  // ---- OF2: the sealed-recovery record ------------------------------------
+  run("r18/OF2-the-whole-recovery-record-deleted",
+    withRecov18(),
+    (p) => { delete p.meta.sealedRecovery; },
+    "sealedRecovery|SCHEMA");
+  run("r18/OF2-taken-nulled-so-the-room-refused-everything",
+    takenRoom(),
+    recov18((R) => { R.taken = null; }),
+    "outcome|taken|TAKEN");
+  run("r18/OF2-outcome-flipped-to-belowThreshold-with-the-take-still-on-it",
+    takenRoom(),
+    recov18((R) => { R.outcome = "belowThreshold"; }),
+    "outcome|taken|belowThreshold");
+  run("r18/OF2-withdrawn-seat-forged-onto-a-tile-with-no-structure",
+    takenRoom(),
+    recov18((R) => { R.taken.withdrawn = { x: 49, y: 49 }; }),
+    "withdrawn|TAKEN|offered entry");
+  run("r18/OF2-offered-list-truncated-to-one-entry",
+    takenRoom((R) => (R.offered || []).length > 1),
+    recov18((R) => { R.offered = R.offered.slice(-1); }),
+    "priced entr|tried|TAKEN");
+  run("r18/OF2-a-candidates-recoversDeep-inflated",
+    takenRoom((R) => (R.offered || []).some((o) => typeof o.recoversDeep === "number")),
+    recov18((R) => {
+      const o = R.offered.find((z) => typeof z.recoversDeep === "number");
+      o.recoversDeep = 99;
+    }),
+    "counterfactual|recoversDeep");
+  run("r18/OF2-recoveredDeep-inflated-x10",
+    takenRoom((R) => typeof R.recoveredDeep === "number"),
+    recov18((R) => { R.recoveredDeep *= 10; }),
+    "recoveredDeep|panels");
+  run("r18/OF2-recoveredDeep-deflated",
+    takenRoom((R) => typeof R.recoveredDeep === "number" && R.recoveredDeep > 4),
+    recov18((R) => { R.recoveredDeep = 4; }),
+    "recoveredDeep|panels");
+  run("r18/OF2-recoveredTiles-inflated",
+    takenRoom((R) => typeof R.recoveredTiles === "number"),
+    recov18((R) => { R.recoveredTiles *= 10; }),
+    "recoveredTiles|panels|interior");
+  run("r18/OF2-after-interior-erases-the-gain-the-take-was-justified-by",
+    takenRoom((R) => R.after && R.before && typeof R.after.interior === "number"),
+    recov18((R) => { R.after.interior = R.before.interior; }),
+    "interior|recovers");
+  run("r18/OF2-before-sealedDeep-shrinks-the-problem-the-pass-solved",
+    takenRoom((R) => R.before && typeof R.before.sealedDeep === "number"),
+    recov18((R) => { R.before.sealedDeep = R.after.sealedDeep + 1; }),
+    "sealedDeep|panels");
+  run("r18/OF2-after-panel-sealedDeep-rewritten-off-the-board",
+    takenRoom((R) => R.after && typeof R.after.sealedDeep === "number"),
+    recov18((R) => { R.after.sealedDeep += 7; R.before.sealedDeep += 7; }),
+    "sealedDeep|re-flooded seal|final panel");
+  run("r18/OF2-tried-is-a-prefix-of-candidates-again",
+    takenRoom((R) => R.candidates > 1),
+    recov18((R) => { R.tried = 1; }),
+    "candidates|re-composition|prefix");
+  run("r18/OF2-candidates-deflated-to-hide-untried-holders",
+    takenRoom((R) => R.candidates > 1),
+    recov18((R) => { R.candidates = 1; R.tried = 1; }),
+    "candidates|priced entr");
+  run("r18/OF2-accepted-count-does-not-match-the-accepting-verdicts",
+    takenRoom((R) => typeof R.accepted === "number"),
+    recov18((R) => { R.accepted += 3; }),
+    "accepted");
+  run("r18/OF2-a-refused-candidate-whose-own-panel-clears-every-rule",
+    takenRoom((R) => (R.offered || []).some((o) => o.verdict && o.verdict !== "TAKEN" && !/^accepted/.test(o.verdict) && o.after)),
+    recov18((R) => {
+      const win = R.offered.find((z) => z.verdict === "TAKEN");
+      const o = R.offered.find((z) => z.verdict && z.verdict !== "TAKEN" && !/^accepted/.test(z.verdict) && z.after);
+      o.after = JSON.parse(JSON.stringify(win.after));
+      o.gainedDeep = win.gainedDeep;
+      o.gainedTiles = win.gainedTiles;
+      o.extTourAfter = win.extTourAfter;
+      o.extTourDelta = win.extTourDelta;
+    }),
+    "REFUSED|clear every rule|accepted");
+  run("r18/OF2-an-accepted-candidate-that-gives-back-less-than-the-threshold",
+    takenRoom((R) => (R.offered || []).some((o) => /^accepted, not taken/.test(String(o.verdict)))),
+    recov18((R) => {
+      const o = R.offered.find((z) => /^accepted, not taken/.test(String(z.verdict)));
+      o.after.sealedDeep = o.before.sealedDeep;
+      o.gainedDeep = 0;
+    }),
+    "ACCEPTED|threshold|gained");
+  run("r18/OF2-a-non-taken-accepted-candidate-recovers-more-than-the-one-taken",
+    takenRoom((R) => (R.offered || []).some((o) => /^accepted, not taken/.test(String(o.verdict)))),
+    recov18((R) => {
+      const o = R.offered.find((z) => /^accepted, not taken/.test(String(z.verdict)));
+      o.before.sealedDeep += 9;
+      o.gainedDeep = (o.gainedDeep || 0) + 9;
+    }),
+    "tie-break|largest deep recovery|before\\` panel");
+  run("r18/OF2-bestDeepAnywhere-inflated-past-the-rooms-own-pockets",
+    withRecov18((R) => typeof R.bestDeepAnywhere === "number"),
+    recov18((R) => { R.bestDeepAnywhere += 9; }),
+    "bestDeepAnywhere|single-structure");
+  run("r18/OF2-nothing-qualified-in-a-room-whose-pockets-qualify",
+    withRecov18((R, p) => R.outcome === "belowThreshold" && (p.meta?.sealedFloor?.pockets || []).length),
+    recov18((R, p) => {
+      const pk = p.meta.sealedFloor.pockets[0];
+      if (!pk.best) throw new Error("no best holder");
+      pk.best.recoversDeep = 9;
+      for (const h of pk.holders || []) if (h.x === pk.best.x && h.y === pk.best.y) h.recoversDeep = 9;
+      R.bestDeepAnywhere = 9;
+    }),
+    "belowThreshold|recovers|returns");
+  run("r18/OF2-threshold-lowered-so-a-worse-move-would-have-qualified",
+    withRecov18(),
+    recov18((R) => { R.threshold = 1; }),
+    "threshold|SEALED_RECOVERY_THRESHOLD");
+  run("r18/OF2-a-take-kept-over-its-own-stated-tour-ceiling",
+    takenRoom((R) => typeof R.extTourDelta === "number" && typeof R.tourSlack === "number"),
+    recov18((R) => {
+      R.extTourAfter = R.extTourBefore + R.tourSlack + 40;
+      R.extTourDelta = R.tourSlack + 40;
+      const win = R.offered.find((z) => z.verdict === "TAKEN");
+      if (win) { win.extTourAfter = R.extTourAfter; win.extTourDelta = R.extTourDelta; }
+    }),
+    "tour|ceiling|slack");
+  run("r18/OF2-extTourDelta-that-is-not-after-minus-before",
+    takenRoom((R) => typeof R.extTourDelta === "number"),
+    recov18((R) => { R.extTourDelta = R.extTourDelta - 50; }),
+    "extTourDelta|tour");
+  run("r18/OF2-a-movable-kind-relabelled-fixed-geometry",
+    takenRoom((R) => (R.fixedHolders || []).length),
+    recov18((R) => { R.fixedHolders[0].type = R.kindsAttempted[0]; }),
+    "fixed geometry|kindsAttempted");
+  run("r18/OF2-a-holder-in-neither-the-candidate-nor-the-fixed-list",
+    takenRoom((R) => R.pocket && typeof R.pocket.holders === "number"),
+    recov18((R) => { R.pocket.holders += 4; }),
+    "holders|movable candidate");
+  run("r18/OF2-a-recovery-larger-than-the-pocket-it-came-out-of",
+    takenRoom((R) => R.pocket && typeof R.pocket.tiles === "number"),
+    recov18((R) => {
+      R.pocket.tiles = 1;
+      R.pocket.deep = 1;
+      R.taken.pocket = { at: R.pocket.at, tiles: 1, deep: 1 };
+    }),
+    "pocket|recover");
+  run("r18/OF2-a-candidate-priced-against-a-board-nobody-else-was-offered",
+    takenRoom((R) => (R.offered || []).length > 1 && R.before),
+    recov18((R) => { R.offered[0].before = { ...R.offered[0].before, interior: R.offered[0].before.interior + 25 }; }),
+    "before\\` panel|composed from the same room|gains");
+  run("r18/OF2-a-panel-missing-one-of-the-instruments-it-names",
+    takenRoom((R) => R.after && Array.isArray(R.instruments)),
+    recov18((R) => { delete R.after.clump; }),
+    "does not carry|instrument");
+  run("r18/OF2-a-panel-carrying-a-reading-the-instrument-list-does-not-name",
+    takenRoom((R) => !!R.after),
+    recov18((R) => { R.after.secretScore = 99; }),
+    "instruments\\` does not name|unnamed reading");
+  run("r18/OF2-the-final-panels-walk-vector-permuted",
+    takenRoom((R) => Array.isArray(R.after?.refillWalks) && R.after.refillWalks.length > 2),
+    recov18((R) => { R.after.refillWalks = R.after.refillWalks.slice().reverse(); }),
+    "ascending|walks");
+  run("r18/OF2-a-verdict-of-TAKEN-on-a-record-that-took-nothing",
+    withRecov18((R) => R.outcome !== "taken" && (R.offered || []).length),
+    recov18((R) => { R.offered[0].verdict = "TAKEN"; }),
+    "TAKEN|outcome");
+  run("r18/OF2-the-refusal-verdict-replaced-with-there-were-no-candidates",
+    takenRoom((R) => (R.offered || []).some((o) => o.verdict && o.verdict !== "TAKEN" && !/^accepted/.test(o.verdict))),
+    recov18((R) => {
+      const o = R.offered.find((z) => z.verdict && z.verdict !== "TAKEN" && !/^accepted/.test(z.verdict));
+      o.verdict = "refused: there were no other candidates at all, so nothing else was examined by this pass";
+    }),
+    "verdict|refusal|recovers");
+  run("r18/OF2-a-refusals-quoted-recovery-does-not-match-its-own-panels",
+    takenRoom((R) => (R.offered || []).some((o) => /recovers \d+ deep sealed tile/.test(String(o.verdict)))),
+    recov18((R) => {
+      const o = R.offered.find((z) => /recovers \d+ deep sealed tile/.test(String(z.verdict)));
+      o.verdict = o.verdict.replace(/recovers \d+ deep sealed tile/, "recovers 4 deep sealed tile");
+    }),
+    "refusal says|recovers");
+  run("r18/OF2-a-withdrawn-kind-the-pass-does-not-move",
+    takenRoom((R) => (R.offered || []).length),
+    recov18((R) => { R.offered[0].kind = "terminal"; }),
+    "kindsAttempted|withdraws");
+
+  // ---- OF2: the across-prior take's non-final halves ------------------------
+  run("r18/OF2-acrossPriorTake-offered-emptied",
+    anyRoom((p) => (p.meta?.towers?.acrossPriorTake?.offered || []).length),
+    (p) => { p.meta.towers.acrossPriorTake.offered = []; },
+    "offered|EMPTY|priced refusal");
+  run("r18/OF2-a-priced-refusal-rewritten-into-a-take",
+    anyRoom((p) => {
+      const t = p.meta?.towers?.acrossPriorTake;
+      return t && !t.taken && (t.offered || []).length;
+    }),
+    (p) => {
+      const t = p.meta.towers.acrossPriorTake;
+      t.offered[0].after = JSON.parse(JSON.stringify(t.before));
+      t.offered[0].verdict = "TAKEN";
+    },
+    "TAKEN|criticism 59|identical");
+  run("r18/OF2-acrossPriorTake-before-walk-vector-permuted",
+    anyRoom((p) => Array.isArray(p.meta?.towers?.acrossPriorTake?.before?.refillWalks) && p.meta.towers.acrossPriorTake.before.refillWalks.length > 2 && !p.meta.towers.acrossPriorTake.taken),
+    (p) => { p.meta.towers.acrossPriorTake.before.refillWalks = p.meta.towers.acrossPriorTake.before.refillWalks.slice().reverse(); },
+    "ascending|walks");
+  run("r18/OF2-a-refused-lift-whose-own-panel-breaks-nothing",
+    anyRoom((p) => {
+      const t = p.meta?.towers?.acrossPriorTake;
+      return t && !t.taken && (t.offered || []).length && t.offered[0].after && t.offered[0].before;
+    }),
+    (p) => {
+      const t = p.meta.towers.acrossPriorTake;
+      const o = t.offered[0];
+      for (const [f, d] of Object.entries(t.directions || {})) {
+        if (typeof o.before[f] !== "number") continue;
+        o.after[f] = d === "up" ? o.before[f] + 1 : Math.max(0, o.before[f] - 1);
+      }
+      if (Array.isArray(o.before.refillWalks)) o.after.refillWalks = o.before.refillWalks.slice();
+    },
+    "refusal|wrong way|nothing on its own panel");
+  run("r18/OF2-a-taken-lift-whose-own-panel-moves-an-instrument-the-wrong-way",
+    anyRoom((p) => {
+      const t = p.meta?.towers?.acrossPriorTake;
+      return t && t.taken && (t.offered || []).some((o) => /^TAKEN/.test(String(o.verdict)) && o.after && o.before);
+    }),
+    (p) => {
+      const t = p.meta.towers.acrossPriorTake;
+      const o = t.offered.find((z) => /^TAKEN/.test(String(z.verdict)));
+      o.after.nukeWindow = (o.before.nukeWindow || 0) + 5;
+    },
+    "wrong way|directions");
+  run("r18/OF2-the-take-crossing-and-the-take-disagree-about-the-destination",
+    anyRoom((p) => {
+      const t = p.meta?.towers?.acrossPriorTake;
+      return t && t.taken && (t.offered || []).some((o) => /^TAKEN/.test(String(o.verdict)) && o.to);
+    }),
+    (p) => {
+      const o = p.meta.towers.acrossPriorTake.offered.find((z) => /^TAKEN/.test(String(z.verdict)));
+      o.to = { x: 1, y: 1 };
+    },
+    "TAKEN lift|moves a tower to|crossing");
+
+  // ---- OF3: the new reader channel ----------------------------------------
+  run("r18/OF3-the-recovery-note-record-deleted",
+    withNote18("sealedRecovery"),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "sealedRecovery");
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.notes.splice(i, 1);
+    },
+    "OWES|sealedRecovery|noteObligations");
+  run("r18/OF3-the-recovery-note-record-falsified-and-the-note-regenerated",
+    withNote18("sealedRecovery", (r) => typeof r.candidates === "number"),
+    note18("sealedRecovery", (r) => { r.candidates = 99; r.tried = 99; }),
+    "sealedRecovery|candidates");
+  run("r18/OF2-a-panels-walk-total-does-not-sum-its-own-vector",
+    takenRoom((R) => (R.offered || []).some((o) => Array.isArray(o.after?.refillWalks))),
+    recov18((R) => {
+      const o = R.offered.find((z) => Array.isArray(z.after?.refillWalks));
+      o.after.refillTotal += 11;
+    }),
+    "sums to|walks total");
+  run("r18/OF2-a-panels-furthest-walk-is-not-the-longest-entry-of-its-own-vector",
+    takenRoom((R) => (R.offered || []).some((o) => Array.isArray(o.after?.refillWalks))),
+    recov18((R) => {
+      const o = R.offered.find((z) => Array.isArray(z.after?.refillWalks));
+      o.after.refill = 1;
+    }),
+    "furthest filler walk|longest entry");
+  run("r18/OF2-a-counterfactual-panel-with-more-interior-than-the-room-has-floor",
+    takenRoom((R) => (R.offered || []).some((o) => typeof o.after?.interior === "number")),
+    recov18((R) => {
+      const o = R.offered.find((z) => typeof z.after?.interior === "number");
+      o.after.interior = 9000;
+    }),
+    "interior|50x50 room|walkable interior");
+  run("r18/OF2-an-accepted-composition-that-stacks-a-structure-on-a-road",
+    takenRoom((R) => (R.offered || []).some((o) => o.verdict === "TAKEN" && o.after)),
+    recov18((R) => {
+      const o = R.offered.find((z) => z.verdict === "TAKEN");
+      o.after.stackedOnRoad = 1;
+    }),
+    "ACCEPTED|hard failure|stackedOnRoad");
+  run("r18/OF2-tourSlack-raised-so-the-room-sets-its-own-price",
+    withRecov18((R) => typeof R.tourSlack === "number"),
+    recov18((R) => { R.tourSlack = 400; }),
+    "tourSlack|SEALED_RECOVERY_TOUR_SLACK");
+  run("r18/OF2-acrossPriorTake-clumpNote-rewritten",
+    anyRoom((p) => typeof p.meta?.towers?.acrossPriorTake?.clumpNote === "number"),
+    (p) => { p.meta.towers.acrossPriorTake.clumpNote = 25; },
+    "clumpNote|CLUMP_NOTE");
+  run("r18/OF2-acrossPriorTake-taken-destination-off-the-buildable-band",
+    anyRoom((p) => p.meta?.towers?.acrossPriorTake?.taken?.from),
+    (p) => { p.meta.towers.acrossPriorTake.taken.from = { x: 49, y: 49 }; },
+    "buildable band|from");
+  run("r18/OF2-a-final-panels-nuke-window-rewritten",
+    anyRoom((p) => p.meta?.towers?.acrossPriorTake?.taken && typeof p.meta.towers.acrossPriorTake.after?.nukeWindow === "number"),
+    (p) => { p.meta.towers.acrossPriorTake.after.nukeWindow = 2; },
+    "nukeWindow|final panel");
+  run("r18/OF2-a-final-panels-clump-rewritten",
+    anyRoom((p) => p.meta?.towers?.acrossPriorTake?.taken && typeof p.meta.towers.acrossPriorTake.after?.clump === "number"),
+    (p) => { p.meta.towers.acrossPriorTake.after.clump = 9; },
+    "clump|final panel");
+  run("r18/OF2-a-fixed-holder-that-is-not-on-the-board",
+    takenRoom((R) => (R.fixedHolders || []).length),
+    recov18((R) => { R.fixedHolders[0].x = 49; R.fixedHolders[0].y = 49; }),
+    "fixedHolders|ships none there|buildable");
+  run("r18/OF3-note-record-and-obligation-and-record-all-deleted-together",
+    withNote18("sealedRecovery"),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "sealedRecovery");
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.notes.splice(i, 1);
+      p.meta.noteObligations = (p.meta.noteObligations || []).filter((o) => o && o.cls !== "sealedRecovery");
+      delete p.meta.sealedRecovery;
+    },
+    "SCHEMA|sealedRecovery");
+}
+
+// ===========================================================================
 // 3. REPORT
 // ===========================================================================
 const runMs = Date.now() - tBase - baseMs;
