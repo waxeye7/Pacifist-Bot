@@ -422,7 +422,9 @@ function verifyMobility(terrain, plan) {
     // A claim that the very next clause of the same paragraph refutes is worse
     // than no claim. The claim now has to hold to be printed, and when it does
     // not the declaration says so in those words. (After the layer-6 rewrite it
-    // held in 159/159 — that was a sweep over the 159-room world this planner
+    // held in 159/159 [r22-waived: the sweep's own world is named in the next
+    // clause — a dated reading of a retired 159-room fleet, deliberately not
+    // restated] — that was a sweep over the 159-room world this planner
     // planned at the time, and it is not restated for today's fleet here: the
     // branch stays because a bound nobody checks is how the last one rotted,
     // and plan.mjs asserts the same thing fleet-wide on every run, which is the
@@ -943,6 +945,8 @@ function verifyMobility(terrain, plan) {
  * claim/attack creep the only tiles it can stand on. Delete one and no depth
  * moves, no structure changes flag, the walk region is identical — the test
  * passes cleanly, and it passed 161 times across 66 rooms, deleting 161 of this
+ * [r22-waived: the DEFECT the ring declaration fixed, measured on the build it
+ * was found on — the pass cannot reach a declared ring tile now.]
  * pass's 173 deletions and reopening every ring the goal document mandates
  * ("controller outside the wall: rampart ONLY its adjacent ring — denies
  * claim-attack stands").
@@ -1620,6 +1624,9 @@ function pruneInertRamparts(terrain, plan) {
     // exactly one tile — its own — and reaches nothing new, because there is
     // nothing behind it that was not already outside or already walled.
     //
+    // [r22-waived: the DEFECT this block fixed and its roster, measured on the
+    // build it was found on. The tiles are named so the fix is checkable against
+    // that board; they are not a claim about this one.]
     // 23 such tiles shipped across 11 rooms (E21S8 32,11 32,12 33,12 34,12
     // 34,13 · E8S5 31,4 32,2 32,3 32,4 · E16S4 47,24 47,25 47,26 · E20S5
     // 13,3 14,3 15,3 · E20S0 17,6 18,7 · E16S0 38,31 · E18S8 12,20 · E13S10
@@ -2307,6 +2314,8 @@ function rebindSatAcrossPrior(plan) {
  * "No double shell" is a hard gate, and a cut tile whose single removal does
  * NOT let the exterior reach the sitter looks, to anyone reading the plan,
  * exactly like double shell. 65 such tiles shipped across 23 rooms and the
+ * [r22-waived: the DEFECT `uselessCut` was added to publish, measured on the
+ * build it was found on. The live roster is meta.shell.uselessCut, per room.]
  * plan said nothing about any of them: `meta.shell.uselessCut` was `[]` in
  * every single room — honest under its own narrow definition and useless to a
  * reader, who had to re-derive the entire removal test to learn whether a
@@ -2517,6 +2526,9 @@ function noteSealedFloor(terrain, plan, shallowNow) {
   // is criticism 2's defect (E16S5's 2.25 was ONE observer tile) in the note
   // channel: on the fleet as it stood when that review ran, the reviewer
   // measured it by hand and found 220 of the fleet's 257 sealed tiles came back
+  // [r22-waived: stated by its own sentence as the reviewer's hand measurement on
+  // the fleet as it stood when that review ran — a dated reading, kept because it
+  // is the evidence for the ruling it produced.]
   // on a SINGLE structure move, with 42 of the 62 rooms then carrying a seal at
   // >= 90% single-structure. E15S6's 72-tile seal was 69 tiles behind any ONE of
   // three extensions and its 16-tile cut paid for none of it. (Round 20 put the
@@ -3442,10 +3454,15 @@ export function planWallRoads(terrain, plan) {
   // deleted it. Criticism 80.)
   //
   // So a run of two or more is offered the interior parallel, one tile at a
-  // time, and the swap is accepted only if the network is measurably no worse:
-  // the same road count, one component from the sitter, every container and
-  // structure still on it, every extension still holding a D4 road face. Any
-  // failure reverts the tile. A single crossing tile is never touched.
+  // time, and the swap is accepted only if the network is measurably no worse
+  // — MEASURABLY, i.e. as a DELTA against the board the room is standing on, on
+  // four axes: the live road count, roads that fall out of the sitter's one D8
+  // component over roads and containers, containers left with no road on any of
+  // their eight neighbours, and extensions left with no D4 road face. A refusal
+  // has to name an axis the swap makes NUMERICALLY worse; a fact that is already
+  // true of the un-swapped board (a mineral seat that sits off the network
+  // whatever this pass does, say) prices nothing. Any such failure reverts the
+  // tile. A single crossing tile is never touched.
   // ------------------------------------------------------------------
   let alongCutMoved = 0;
   // ...and, exactly as with the swamp holes above, a swap whose interior
@@ -3457,14 +3474,18 @@ export function planWallRoads(terrain, plan) {
   let alongCutLaid = 0;
   // ------------------------------------------------------------------
   // ...AND WHEN THE SWAP IS REFUSED, THE ROOM SAYS WHY. The pass published
-  // exactly one number, `alongCutMoved`, and five rooms ship a run of two paved
-  // cut tiles with that number at 0 (E15S1 15,17+15,18 · E18S9 43,6+44,6 ·
-  // E19S9 13,33+13,34 · E7S9 26,26+26,27 · E9S8 19,24+19,25). A counter at zero
-  // is indistinguishable from a pass that never ran, and the named anti-pattern
-  // — a prepared surface laid along the line an attacker would want to walk —
-  // was therefore shipping with no record that it had been offered a fix and
-  // refused one. The tower-clump pass declares all six of its unfixable
-  // instances; this one now keeps the same books.
+  // exactly one number, `alongCutMoved`, and rooms shipped a run of two paved
+  // cut tiles with that number at 0. A counter at zero is indistinguishable
+  // from a pass that never ran, and the named anti-pattern — a prepared surface
+  // laid along the line an attacker would want to walk — was therefore shipping
+  // with no record that it had been offered a fix and refused one. The
+  // tower-clump pass declares all six of its unfixable instances; this one now
+  // keeps the same books. (The per-room roster that stood here was a reading
+  // taken at a moment: `meta.walls.alongCutRuns` re-derives it on the shipped
+  // board, per room, and `alongCutRefused` carries the reason per tile. Round 22
+  // also turned the acceptance test into the delta its own sentence states,
+  // which moved five of the rooms this list named — the list would have been
+  // wrong the moment it was fixed, so it is derived and not restated.)
   const alongCutRefused = [];
   kindNow = "alongCutMoved";
   {
@@ -3477,15 +3498,36 @@ export function planWallRoads(terrain, plan) {
       return s;
     };
     /**
-     * null when the swapped network is no worse, otherwise the ONE fact that
-     * makes it worse, named. It used to return a bare boolean and the refusal
-     * text then listed all three failure modes joined by "or" — a sentence
-     * nobody can check and, in a room with a real answer, a sentence that hides
-     * which of the three it was. A refusal is worth filing only if the thing it
-     * asserts is re-derivable from the artifact, so it says which tile broke
-     * and how.
+     * THE PREDICATE IS A DELTA, BECAUSE THE PUBLISHED SENTENCE IS A DELTA.
+     *
+     * The rule this pass prints — in the block above, in every refusal it files
+     * and in the room's note — is "the swap is offered at equal road count and
+     * taken only when the network is MEASURABLY NO WORSE". That is a comparison
+     * between two boards. What stood here was an ABSOLUTE test on the swapped
+     * board alone: any road off the network, any container without a road
+     * neighbour, any extension without a D4 face and the swap was refused —
+     * whether or not the same fact was already true of the board the room was
+     * shipping anyway.
+     *
+     * Six refusals in five rooms were priced on exactly that gap, and all six
+     * name the room's MINERAL SEAT: a container that stands on the mineral,
+     * outside the road network, before AND after the swap, and that the same
+     * room already declares under `misc/off-network`. The swap moved nothing
+     * about it — the "worse" fact was a pre-existing property of the un-moved
+     * board — and five rooms therefore shipped the paved run along their wall
+     * that this pass exists to remove. (E15S1 15,18~16,18 · E18S9 43,6~43,5 ·
+     * E19S9 13,33~14,33 · E7S9 26,27~27,27 · E9S8 19,24~18,24 and 19,25~20,25.)
+     *
+     * So the board is MEASURED — the same three axes, plus the road count the
+     * offer is made at — before and after, and a refusal has to name an axis the
+     * swap makes NUMERICALLY worse. A fact that is true of both boards prices
+     * nothing, which is what "measurably" means and what the sentence has always
+     * said. The refusal still names the ONE axis and the tiles that moved on it
+     * (it used to return a bare boolean and list all three failure modes joined
+     * by "or" — a sentence nobody can check), because a refusal is worth filing
+     * only if it is re-derivable from the artifact.
      */
-    const netWhy = (live) => {
+    const netMeasure = (live) => {
       // one component from the sitter, over roads + containers
       const comp = new Set([key(plan.sitter.x, plan.sitter.y)]);
       const q = [plan.sitter];
@@ -3500,25 +3542,68 @@ export function planWallRoads(terrain, plan) {
           q.push({ x, y });
         }
       }
-      const lost = [...live].filter((k) => !comp.has(k)).sort();
-      if (lost.length) {
-        return (
-          `${lost.length} road tile(s) fall off the network (${lost.slice(0, 6).join(" ")}` +
-          `${lost.length > 6 ? " …" : ""}) — they are no longer D8-connected to the sitter over roads ` +
-          `and containers`
-        );
-      }
+      const offNetwork = [...live].filter((k) => !comp.has(k)).sort();
+      const containersWithoutFace = [];
       for (const c of plan.structures.container || []) {
         const k = key(c.x, c.y);
         if (comp.has(k)) continue;
         if (!D8.some(([dx, dy]) => comp.has(key(c.x + dx, c.y + dy)))) {
-          return `the container at ${c.x},${c.y} is left with no road on any of its 8 neighbours`;
+          containersWithoutFace.push(`${c.x},${c.y}`);
         }
       }
+      const extensionsWithoutFace = [];
       for (const e of plan.structures.extension || []) {
         if (!D4.some(([dx, dy]) => live.has(key(e.x + dx, e.y + dy)))) {
-          return `the extension at ${e.x},${e.y} loses its last D4 road face`;
+          extensionsWithoutFace.push(`${e.x},${e.y}`);
         }
+      }
+      return { roads: live.size, offNetwork, containersWithoutFace, extensionsWithoutFace };
+    };
+    /** the reading, as the refusal record publishes it — counts, not tile lists */
+    const netCounts = (m) => ({
+      roads: m.roads,
+      offNetwork: m.offNetwork.length,
+      containersWithoutFace: m.containersWithoutFace.length,
+      extensionsWithoutFace: m.extensionsWithoutFace.length,
+    });
+    /**
+     * null when the swapped network is measurably no worse than the board the
+     * room is standing on, otherwise the ONE axis it makes worse, with both
+     * readings and the tiles that newly appeared on it.
+     */
+    const netWhy = (before, after) => {
+      const newly = (a, b) => b.filter((k) => !a.includes(k));
+      if (after.roads > before.roads) {
+        return (
+          `the swapped board carries MORE road than the one it replaces ` +
+          `(${before.roads} -> ${after.roads} live road tiles) and the offer is made at equal road count`
+        );
+      }
+      if (after.offNetwork.length > before.offNetwork.length) {
+        const n = newly(before.offNetwork, after.offNetwork);
+        return (
+          `${after.offNetwork.length - before.offNetwork.length} more road tile(s) fall off the network ` +
+          `(${before.offNetwork.length} -> ${after.offNetwork.length}; newly off: ` +
+          `${n.slice(0, 6).join(" ")}${n.length > 6 ? " …" : ""}) — they are no longer D8-connected to ` +
+          `the sitter over roads and containers`
+        );
+      }
+      if (after.containersWithoutFace.length > before.containersWithoutFace.length) {
+        const n = newly(before.containersWithoutFace, after.containersWithoutFace);
+        return (
+          `${after.containersWithoutFace.length - before.containersWithoutFace.length} more container(s) ` +
+          `are left with no road on any of their 8 neighbours ` +
+          `(${before.containersWithoutFace.length} -> ${after.containersWithoutFace.length}; newly ` +
+          `stranded: ${n.join(" ")})`
+        );
+      }
+      if (after.extensionsWithoutFace.length > before.extensionsWithoutFace.length) {
+        const n = newly(before.extensionsWithoutFace, after.extensionsWithoutFace);
+        return (
+          `${after.extensionsWithoutFace.length - before.extensionsWithoutFace.length} more extension(s) ` +
+          `lose their last D4 road face (${before.extensionsWithoutFace.length} -> ` +
+          `${after.extensionsWithoutFace.length}; newly faceless: ${n.join(" ")})`
+        );
       }
       return null;
     };
@@ -3658,11 +3743,14 @@ export function planWallRoads(terrain, plan) {
       let target = null;
       let trial = null;
       const broke = [];
+      // the board as it stands RIGHT NOW — after any swap this pass has already
+      // taken, because that is the board this offer is measured against
+      const baseline = netMeasure(live);
       for (const t of targets) {
         const attempt = new Set(live);
         attempt.delete(k);
         attempt.add(t.k);
-        const why = netWhy(attempt);
+        const why = netWhy(baseline, netMeasure(attempt));
         if (!why) {
           target = t;
           trial = attempt;
@@ -3678,10 +3766,19 @@ export function planWallRoads(terrain, plan) {
           // the parallels that WERE offered, named, so a gate can check the claim
           // against the shipped board without parsing the sentence
           offered: targets.map((t) => ({ x: t.x, y: t.y })),
+          // ...and the reading the delta is taken AGAINST, so "measurably worse"
+          // is two numbers a gate can subtract rather than an adjective. The
+          // baseline is the un-swapped board at the moment of the offer.
+          baseline: netCounts(baseline),
           why:
-            `every interior parallel breaks the network. ${broke.join(" · ")}. The swap is offered ` +
-            `at equal road count and taken only when the network is measurably no worse; ` +
-            `${broke.length === 1 ? "this one is" : "all of these are"} worse, so the tile stays` +
+            `every interior parallel makes the network measurably worse. ${broke.join(" · ")}. The swap ` +
+            `is offered at equal road count and taken only when the network is measurably no worse — ` +
+            `a fact that is already true of the un-swapped board prices nothing, so the comparison is ` +
+            `against this room as it stands (${baseline.roads} live road tiles · ` +
+            `${baseline.offNetwork.length} off the network · ${baseline.containersWithoutFace.length} ` +
+            `container(s) with no road neighbour · ${baseline.extensionsWithoutFace.length} extension(s) ` +
+            `with no D4 road face); ${broke.length === 1 ? "this one is" : "all of these are"} worse on ` +
+            `a named axis, so the tile stays` +
             (rejected.length ? `. The other neighbours: ${rejected.join(" · ")}` : ``),
         });
         continue;
@@ -3863,7 +3960,10 @@ export function planWallRoads(terrain, plan) {
   // stood when the bug was found — these are the symptom counts of the day and
   // are NOT restated for today's boards (round 20; criticism 80):
   //
-  //   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
+  //   · `redundantCut.reasons` — 12 tiles across 6 rooms [r22-waived: this
+  //     whole list is introduced as figures that are NOT restated for today's
+  //     boards; the numerals are the round-20 finding's own evidence] each
+  //     claiming "the
   //     structure at X,Y would drop from depth 4 to 3". Re-measured on the
   //     shipped plan every one of them dropped 4 -> 0: the named structure left
   //     the wall entirely, because 7b retired the personal rampart that was
@@ -4023,7 +4123,9 @@ export function planWallRoads(terrain, plan) {
  * stood when the round-8 finding landed; it is NOT restated for today's boards
  * (round 20; criticism 80):
  *
- *   · `redundantCut.reasons` — 12 tiles across 6 rooms each claiming "the
+ *   · `redundantCut.reasons` — 12 tiles across 6 rooms [r22-waived: this whole
+ *     list is introduced as figures that are NOT restated for today's boards;
+ *     the numerals are the round-8 finding's own evidence] each claiming "the
  *     structure at X,Y would drop from depth 4 to 3". Re-measured on the shipped
  *     plan every one of them dropped 4 -> 0: the named structure left the wall
  *     entirely, because 7b had retired the personal rampart holding it. E11S7's
@@ -4306,7 +4408,9 @@ function bridgeDeferredConduct(terrain, plan) {
   // the pass then refused to pave any of them "because the engine allows one
   // structure per tile". That premise is false and this repo says so in three
   // other places: a road and a container legally share a tile, the fleet shipped
-  // 60 such tiles across 53 rooms BEFORE this fix, and the two rooms that were publishing an
+  // 60 such tiles across 53 rooms BEFORE this fix [r22-waived: a pre-fix reading,
+  // said so by the sentence itself; the live count is the "road+container
+  // coincidences" line of push-plan --census], and the two rooms that were publishing an
   // "unpaveable PAVING GAP" were naming THEIR OWN DEFERRED MINERAL CONTAINER as
   // the obstruction — E2S5 27,23 (11 conductors behind it) and E5S3 32,11 (5).
   // One plain road on each of those tiles closes both gaps at RCL 3 instead of
@@ -4408,8 +4512,11 @@ function bridgeDeferredConduct(terrain, plan) {
       // and E2S5's across 27,23; both tiles are the room's own deferred mineral
       // container, and the pass refused to pave them "because the engine allows
       // one structure per tile". It does not: a road and a container share a
-      // tile happily, this fleet ships 60 such tiles, and both joins are now
-      // simply PAVED above. What is left down here is the honest residue — a
+      // tile happily — the fleet's road+container coincidences are COUNTED, on
+      // the "road+container coincidences" line of `push-plan.mjs --census`,
+      // rather than typed here, because the count moves with every re-plan and
+      // the figure that stood on this line had rotted twice (Mm5, round 22) —
+      // and both joins are now simply PAVED above. What is left down here is the honest residue — a
       // join whose every tile is an OBSTACLE (an extension, a spawn, a lab, a
       // source) or terrain wall, where no arrangement of roads closes the gap
       // because no road may be built there at all.
@@ -4904,9 +5011,10 @@ export function finalizeRoom(terrain, plan) {
   //
   // Stage 5b offers every run of two-or-more consecutive paved cut tiles its
   // interior parallel and takes the swap when the network is measurably no
-  // worse. It published one counter, `alongCutMoved`, and five rooms ship a run
-  // with that counter at 0 — indistinguishable, from the outside, from a pass
-  // that never ran on them. The run is a named anti-pattern (a prepared surface
+  // worse — a DELTA against the un-swapped board, see the predicate over there.
+  // It published one counter, `alongCutMoved`, and rooms shipped a run with that
+  // counter at 0 — indistinguishable, from the outside, from a pass that never
+  // ran on them. The run is a named anti-pattern (a prepared surface
   // laid along the exact line an attacker would want to walk), so the room now
   // says which tiles it is, that the swap was offered, and what the offer cost.
   // The runs are re-derived HERE, on the board the room actually ships, and
@@ -5114,6 +5222,16 @@ export function finalizeRoom(terrain, plan) {
   // triggering fields, so a room can say WHICH of them fired — which is exactly
   // the distinction the layer-6 case turned on.
   // ------------------------------------------------------------------
+  // OM6 (round 21) — on the rampart set and the cut the room actually ships: is
+  // the declared cut a sealing curve by itself, and if not, which ramparts
+  // outside it close the curve? See deriveShellClosures. It runs HERE, ahead of
+  // the obligation block, because OL2 (round 22) gave it a note and an
+  // obligation cannot be derived from a record that does not exist yet.
+  deriveShellClosures(terrain, plan);
+  // OL2 — and the two rooms where the answer is NO say so in prose. The record
+  // was correct, complete and read by nobody: those rooms print the
+  // single-removal redundancy note whose blind spot IS this finding.
+  if (plan.shell?.closures?.needed) pushNote(plan, "shellClosure", plan.shell.closures);
   if (plan.meta) {
     const owed = [];
     const owe = (cls, why) => {
@@ -5149,6 +5267,14 @@ export function finalizeRoom(terrain, plan) {
       "pavedRun",
       runs && runs.length ? [{ field: "meta.walls.alongCutRuns", value: runs.length }] : [],
     );
+    // OL2 (round 22) — the sealing-curve amendment. `closures` is derived a few
+    // lines below this block, so the obligation reads the same measurement one
+    // call later; it is keyed on `leaked` rather than on `needed` because the
+    // owner has to be a NUMBER a reader can re-derive off the shipped board (the
+    // core structures the cut-only flood reaches), not the boolean the record
+    // states about itself.
+    const cl = plan.shell?.closures;
+    owe("shellClosure", cl && cl.needed ? [{ field: "meta.shell.closures.leaked", value: cl.leaked }] : []);
     const rr = plan.meta.walls?.roadRampart;
     owe(
       "roadRampart",
@@ -5180,10 +5306,6 @@ export function finalizeRoom(terrain, plan) {
       `about. A class listed here MUST appear in meta.noteRecords; a class in meta.noteRecords that ` +
       `is not listed here is a note nothing demanded. why names every triggering field and its value.`;
   }
-  // OM6 (round 21) — last, on the rampart set and the cut the room actually
-  // ships: is the declared cut a sealing curve by itself, and if not, which
-  // ramparts outside it close the curve? See deriveShellClosures.
-  deriveShellClosures(terrain, plan);
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;
   // layer 6's worst-case blocked set, handed to layer 7b so it could re-derive

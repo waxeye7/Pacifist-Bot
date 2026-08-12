@@ -212,7 +212,10 @@ function declaredDecided(r) {
   const price = db.margin.priced;
   const step = (v) => (v === null || v === undefined ? "not measured" : v > 0 ? `+${v}` : `${v}`);
   return (
-    ` A DECLARED QUANTITY DECIDED THIS TIE-BREAK (round 21, the RULING on criticism 95). This room ` +
+    ` A DECLARED QUANTITY DECIDED THIS TIE-BREAK (round 21, the RULING on criticism 95) — which is a ` +
+    `DIFFERENT question from the one just answered, and the two can both be true: the sentence above ` +
+    `names what separated the winner from the candidate that came SECOND under the rule, and this one ` +
+    `says the rule changed WHICH CANDIDATE WON AT ALL. This room ` +
     `DECLARES ${what} — \`${db.source}\` = ${db.declared}, filed in meta.shortfalls on the board this ` +
     `pass judged — and a quantity a room has to publish is a KEY in that room's tie-breaks: ranked ` +
     `immediately after the pass's admission quantities, ahead of every priced preference, and never a ` +
@@ -231,6 +234,184 @@ function declaredDecided(r) {
         `interior, then face, then raster. `) +
     `Both margins are on \`decidedBy\` — the declared axis and the priced one — because a decision ` +
     `published only on the axis it won is a decision the reader cannot argue with.`
+  );
+}
+/**
+ * OM5 (round 22) — THE SENTENCE THAT NAMES WHAT ACTUALLY DECIDED.
+ *
+ * The winning paragraph recited the room's declared quantities inside the
+ * clause that explains the win — "this seat won the published tie-break: largest
+ * deep recovery, then ..., then THIS ROOM'S DECLARED QUANTITIES (lap, declared
+ * at 9.33 by `mobility.metric.maxGated`), then the cheapest panel ... — ahead of
+ * 15,8 24,20" — which is a true description of the ORDER and reads, to anybody
+ * who is not holding the record, as the REASON. In eleven of this fleet's twelve
+ * takes the key that actually discriminated was named nowhere; in three of them
+ * no tie-break ran at all, because exactly one candidate cleared the panel, and
+ * the room still recited the keys.
+ *
+ * So the note names the decider, from `record.decider` — derived by the pass by
+ * walking its own published `ranking` against the candidate it placed second and
+ * naming the first key the two differ on. It is allowed to say the unflattering
+ * answers, and it says them in the same words the record does: "raster order"
+ * means every ranked key tied, and "no tie-break ran" means there was nothing to
+ * rank. The "ahead of" list stays — it is a different fact (who else cleared the
+ * panel) and worth having.
+ */
+function decidedSentence(r) {
+  const dd = r.decider;
+  if (!dd) return "";
+  if (dd.key === "single-candidate") {
+    return (
+      ` WHAT DECIDED IT (OM5): nothing did — no tie-break ran here. Exactly one candidate cleared the ` +
+      `panel, so not one of the ranked keys above was ever read, and this room's declared quantities ` +
+      `did not pick this one: there was nothing to pick it against. The ranking is published anyway ` +
+      `because it is a property of the board this pass judged and not of the answer it reached.`
+    );
+  }
+  const who = dd.runnerUp
+    ? dd.runnerUp.withdrawn
+      ? `the ${dd.runnerUp.kind} seat at ${xy(dd.runnerUp.withdrawn)}`
+      : `${xy(dd.runnerUp.from)} -> ${xy(dd.runnerUp.to)} (${dd.runnerUp.why})`
+    : `the runner-up`;
+  const tail =
+    ` It is key ${dd.rank + 1} of this record's published \`ranking\` and it is the FIRST key the two ` +
+    `differ on, so every key ranked above it — including this room's declared quantities, where it has ` +
+    `any — is TIED between them and decided nothing here.`;
+  if (dd.key === "raster") {
+    return (
+      ` WHAT DECIDED IT (OM5): ${dd.label}. ${dd.candidates} candidates cleared the panel and this one ` +
+      `and ${who} are level on every ranked key there is, so the pick came down to reading order: ` +
+      `${dd.values.taken} comes before ${dd.values.runnerUp}. That is not a reason, it is a ` +
+      `tie-break of last resort, and the room says so rather than letting the recital of its declared ` +
+      `quantities stand in for one.`
+    );
+  }
+  return (
+    ` WHAT DECIDED IT (OM5): ${dd.label} — this one reads ${dd.values.taken}, ${who} reads ` +
+    `${dd.values.runnerUp}.` +
+    tail
+  );
+}
+/**
+ * OM2 (round 22) — THE TOWER-SWAP PASS GETS A READER CHANNEL.
+ *
+ * `maybeTakeTowerSwap` MOVES A TOWER on the shipped board — three rooms in this
+ * fleet — and it was invisible in every channel a reader has. The film's towers
+ * stage captions the tile the swap moved the tower TO as layer 3's own set-cover
+ * pick and never paints the tile it came from; no declaration mentions the pass;
+ * two of the four rooms it runs in ship ZERO notes and an empty
+ * `meta.noteObligations`. The obligation machinery had a class for
+ * `sealedRecovery` and no class for this pass at all, so the record was not only
+ * unspoken, it was deletable: withdrawing `meta.towers.acrossPriorTake` from a
+ * room whose `towerSwapTaken` still says a tower moved passed 172/172.
+ *
+ * Both branches ship, for the same reason the recovery's do: a priced REFUSAL is
+ * as much a decision as a take, and E3S1's — a lift of one falloff step on one
+ * cut tile, refused because it would have pushed a third tower over the 8-step
+ * line the room DECLARES at — is the better paragraph of the two.
+ *
+ * Rendered from `meta.towers.acrossPriorTake` and nothing else.
+ */
+function renderTowerSwap(r) {
+  const panel = (b, a) =>
+    `the weakest cut face ${b.face} -> ${a.face}, the towers within chebyshev 2 of the sitter ` +
+    `${b.clump} -> ${a.clump}, the filler's per-tower walks ${(b.refillWalks || []).join("/")} -> ` +
+    `${(a.refillWalks || []).join("/")} (total ${b.refillTotal} -> ${a.refillTotal}), the interior walk ` +
+    `${b.interior} -> ${a.interior}, the as-built gated lap ${b.lap} -> ${a.lap}`;
+  const keys = (r.declaredKeys || []).length
+    ? `This room DECLARES ${r.declaredKeys
+        .map((k) => `${k.instrument} (${k.gate}${k.kind ? `/${k.kind}` : ``}, \`${k.source}\` = ${k.declared})`)
+        .join(" and ")}, and every one of those is a KEY in this tie-break ahead of the offer order — ` +
+      `round 21's RULING on criticism 95, stated in full under \`declaredKeyRule\`. `
+    : `This room declares no quantity this pass's panel measures, so no declared key applies here. `;
+  if (r.taken) {
+    const t = r.taken;
+    const bought = r.retiresClumpDeclaration
+      ? `it RETIRES the room's clump declaration: ${r.before.clump} towers stood within chebyshev 2 of ` +
+        `the sitter, which is at the ${r.clumpNote} line the declaration fires at, and ${r.after.clump} ` +
+        `stand there now`
+      : `it LIFTS the weakest cut face, ${r.before.face} -> ${r.after.face} damage on the thinnest tile ` +
+        `of the wall`;
+    return (
+      `TOWER MOVED ACROSS THE PRIOR: this room moved a tower from ${xy(t.from)} to ${xy(t.to)} AFTER ` +
+      `layer 3 had finished — the tile at ${xy(t.to)} is this pass's pick and not the set-cover's — and ` +
+      `${bought}. The room was RE-COMPOSED from layer 1 with the swap held (opts.takeTowerSwap, applied ` +
+      `inside layer 3 after every one of its own searches has run) and finalized, so both panels are ` +
+      `read off FINISHED boards: ${panel(r.before, r.after)}. Every instrument holds — a swap that ` +
+      `moved one the wrong way would have been refused whatever it bought. ` +
+      `${r.offered.length} ${plural(r.offered.length, "offer was", "offers were")} composed and priced, ` +
+      `${r.accepted} cleared the panel` +
+      ((r.offered || []).filter((o) => o.verdict !== "TAKEN").length
+        ? `, and the ${plural(r.offered.length - 1, "other", "others")} ${(r.offered || [])
+            .filter((o) => o.verdict !== "TAKEN")
+            .map((o) => `${xy(o.from)} -> ${xy(o.to)} (${o.verdict})`)
+            .join("; ")}`
+        : ` — round 21: this pass used to take the first offer that cleared, so its offer order was ` +
+          `deciding a tie-break with nothing published about it`) +
+      `. ${keys.trimEnd()}` +
+      decidedSentence(r) +
+      declaredDecided(r)
+    );
+  }
+  const refused = (r.offered || []).filter((o) => o.from);
+  return (
+    `A TOWER SWAP OFFERED AND REFUSED: this room composed ${refused.length} ` +
+    `${plural(refused.length, "candidate swap", "candidate swaps")} that would have moved a tower after ` +
+    `layer 3 had finished, and the finished board refused ` +
+    `${plural(refused.length, "it", "every one of them")}: ` +
+    refused.map((o) => `${xy(o.from)} -> ${xy(o.to)} (offered to ${o.why}) — ${o.verdict}`).join("; ") +
+    `. The panel this room ships reads ${(r.before.refillWalks || []).join("/")} on the filler's ` +
+    `per-tower walks (total ${r.before.refillTotal}, ${r.before.refillAtCap} at the hard cap, ` +
+    `${r.before.refillOverNote} over the line a weak-battery declaration fires at), a weakest cut face ` +
+    `of ${r.before.face} and ${r.before.clump} towers within chebyshev 2 of the sitter. ` +
+    `${keys}Nothing reached the tie-break, so \`ranking\` and \`declaredKeys\` on this record describe ` +
+    `the order this pass WOULD have used rather than one it ran — published anyway, because the ` +
+    `derivation is a property of the board and not of the branch. This room ships the towers layer 3 ` +
+    `chose, and the offer it turned down is on the record rather than absent from it.`
+  );
+}
+/**
+ * OL2 (round 22) — THE SEALING-CURVE AMENDMENT REACHES A READER.
+ *
+ * `meta.shell.closures` (OM6, round 21) measures, in every room, whether the
+ * DECLARED CUT is a sealing curve on its own — and in two of them it is not.
+ * The finding was published, correct and complete in the record, and it reached
+ * no reader: the two rooms print the single-removal redundancy note whose blind
+ * spot IS the finding ("no cut tile is redundant" is a one-at-a-time test, and a
+ * hole plugged twice is invisible to a one-at-a-time test), and nothing anywhere
+ * said the cut alone lets the flood in.
+ *
+ * Fires only where `needed` is true, because "the cut seals on its own" is the
+ * uninteresting case and a note printed in 172 rooms to say nothing happened is
+ * how a channel stops being read. Rendered from `meta.shell.closures`.
+ */
+function renderShellClosure(r) {
+  const tiles = (r.tiles || []).map(xy).join(" ");
+  const kinds = Object.entries(r.kinds || {})
+    .map(([k, n]) => `${n} ${k}`)
+    .join(", ");
+  const solo = (r.soloClosers || []).map(xy);
+  return (
+    `THE CUT IS NOT A SEALING CURVE ON ITS OWN HERE: blocked at meta.shell.cut and nothing else, the ` +
+    `exterior flood walks into this room's garrison and reaches ${r.leaked} of the core structures ` +
+    `standing in it. What closes the curve is the cut PLUS ${(r.tiles || []).length} rampart(s) outside ` +
+    `it — ${tiles}${kinds ? ` (${kinds})` : ``} — and that set is MINIMAL, re-measured rather than ` +
+    `asserted: drop any one of them and the flood walks back in. It is NOT the room's only closure. ` +
+    `${(r.candidates || []).length} rampart(s) stand in the region the open cut lets the flood into, and ` +
+    `${solo.length} of them close the curve SINGLE-HANDED (${solo.join(" ")}), so \`tiles\` is A ` +
+    `minimal closure and not THE one — \`candidates\` and \`soloClosers\` are published beside it so the ` +
+    `substitution is visible instead of implied. ` +
+    `THIS IS WHY THE REDUNDANCY NOTE COULD NOT SEE IT. \`sealCritical\` asks whether a tile is ` +
+    `NECESSARY — take it alone off the shipped wall and does the room open — and these tiles are ` +
+    `individually SUFFICIENT and mutually redundant: removing any ONE opens nothing, removing ALL of ` +
+    `them (which is what "the cut alone" means) opens the room. A one-at-a-time test cannot see a hole ` +
+    `that is plugged twice, which is exactly how the published \`sealCritical ⊆ cut\` invariant holds ` +
+    `over a curve with a hole in it. ` +
+    `IT IS NOT A SAFETY DEFECT, and the difference matters: the flood over this room's WHOLE rampart ` +
+    `set — the wall it actually ships, and the one the validator runs — leaks nothing at all. What is ` +
+    `wrong is a DESCRIPTION. Every cut-shaped figure in this plan is computed as though the cut sealed ` +
+    `by itself, and in this room it does not; the amendment is published per room so a reader of those ` +
+    `figures knows which of the two curves they are reading.`
   );
 }
 function renderSealedRecoveryRun(r) {
@@ -312,6 +493,7 @@ function renderSealedRecoveryRun(r) {
           `the cheapest panel (least extension tour, then most interior, then strongest face), then ` +
           `raster order — ahead of ${rivals.map((o) => xy(o.withdrawn)).join(" ")}.`
         : `It is the only one that cleared the whole panel.`) +
+      decidedSentence(r) +
       declaredDecided(r) +
       tourTaken
     );
@@ -698,6 +880,19 @@ export const NOTE_CLASSES = {
   sealedRecovery: {
     headings: ["SEALED FLOOR RECOVERED", "SEALED FLOOR NOT RECOVERED"],
     render: renderSealedRecovery,
+  },
+  // OM2 (round 22) — the across-prior tower swap's reader channel. Two
+  // headings for the two branches, like the recovery's: the room either moved a
+  // tower after layer 3 had finished, or it priced the offer and turned it down.
+  towerSwap: {
+    headings: ["TOWER MOVED ACROSS THE PRIOR", "A TOWER SWAP OFFERED AND REFUSED"],
+    render: renderTowerSwap,
+  },
+  // OL2 (round 22) — the sealing-curve amendment, in the two rooms it applies
+  // to. One heading: the class only exists for the case where the answer is no.
+  shellClosure: {
+    headings: ["THE CUT IS NOT A SEALING CURVE ON ITS OWN HERE"],
+    render: renderShellClosure,
   },
   redundantCut: {
     headings: ["NO CUT TILE IS REDUNDANT", "CUT TILES THAT ARE NOT SINGLY LOAD-BEARING"],

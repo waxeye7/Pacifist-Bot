@@ -1913,6 +1913,8 @@ export function planTowers(terrain, plan, opts = {}) {
   // C2: ALL six towers block before ANY road is stitched. Adding them one at
   // a time inside the loop meant a later tower's descent path could pave over
   // a tower that was not yet in `impassable` — 40 roads across 37 rooms sat
+  // [r22-waived: the DEFECT this ordering fixed, measured on the build it was
+  // found on. Roads on towers are 0 today and the validator gates it.]
   // under a tower. Roads ON towers were a real bug; do not reintroduce them.
   // ------------------------------------------------------------------
   const newRoads = [];

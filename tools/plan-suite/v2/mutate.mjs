@@ -73,6 +73,14 @@ import { renderNote } from "./declprose-notes.mjs";
 // ...and the basis sentence the across-prior take generates, so a round-17
 // occupancy mutation can regenerate it exactly as the producer would (F4)
 import { renderSatBasis } from "./declprose-towers.mjs";
+// ...and the round-22 numeral-rot gate (Mm5). Prose was the one channel with no
+// derive-or-die rule and it has produced a finding in six consecutive rounds, so
+// the gate that re-derives fleet numerals out of comments and strings is run
+// from here as well as from `plan.mjs`: a mutation suite that proves every
+// STRUCTURED claim bites while the PROSE claims rot is a suite testing the
+// easier half. Two cases below prove the gate itself bites — the artifact moves
+// under a sentence nobody re-typed, which is the exact shape the class takes.
+import { audit as numeralAudit, report as numeralReport, PENDING_FILES as NUMERAL_PENDING } from "./numeral-audit.mjs";
 import { D4, D8, OUT_V2, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const argv = process.argv.slice(2);
@@ -202,6 +210,32 @@ const baseMs = Date.now() - tBase;
 console.log(`BASELINE (unmutated): ${basePass}/${plans.length} pass · ${(baseMs / 1000).toFixed(1)}s`);
 for (const b of baseFail) console.log("   FAIL", b);
 if (baseFail.length) console.log("   ^^ the mutation results below mean nothing until this is 0");
+
+// ---------------------------------------------------------------------------
+// 1b. THE NUMERAL-ROT GATE — the prose channel, held the same way (Mm5).
+// ---------------------------------------------------------------------------
+// The artifact under test is the one the audit is run against, so pointing this
+// suite at a candidate build with PLANS_FILE checks that build's prose too.
+const numeralRes = numeralAudit(plans);
+const numeralBad = [];
+if (numeralRes.bad.length || numeralRes.open.length) {
+  numeralBad.push(
+    `numeral audit: ${numeralRes.bad.length} WRONG · ${numeralRes.open.length} unowned fleet numeral(s)`,
+  );
+}
+if (numeralRes.pending.length) {
+  numeralBad.push(
+    `numeral audit: ${numeralRes.pending.length} hit(s) in files listed as not-yet-swept ` +
+      `(${NUMERAL_PENDING.join(", ")}) — the list is a contract, not an exemption`,
+  );
+}
+console.log(
+  `NUMERAL AUDIT: ${numeralRes.hits.length} claim(s) · ${numeralRes.resolved.length} re-derived · ` +
+    `${numeralRes.waived.length} waived · ${numeralRes.open.length} unowned · ${numeralRes.bad.length} WRONG · ` +
+    `${numeralRes.pending.length} pending`,
+);
+for (const b of numeralBad) console.log("   FAIL", b);
+if (numeralBad.length) console.log(numeralReport(numeralRes));
 
 // ---------------------------------------------------------------------------
 // 2. THE CASES.
@@ -5200,6 +5234,8 @@ run("r13/F8-untriggered-gate", R, (p) => {
 // room with no mobility declaration and described by a hand census that was
 // false in seven rooms; MF3 `crossings[].window` on a 0..25 range with its own
 // board-derived twin beside it; MF4 the two presence gaps — `meta.shellEscalation`
+// [r22-waived: a round-18 finding's own measurement, on the build it was found
+// on — the anchor is in REQUIRED_META now and the deletion fails.]
 // (the ladder's only anchor, deletable in all 155 rooms that carry it) and the
 // lane census itself (deleting `meta.walls.mobility.lanes` falsified the
 // condition twenty lane fields were required under).
@@ -5882,6 +5918,408 @@ run("r13/F8-untriggered-gate", R, (p) => {
 }
 
 // ===========================================================================
+// ROUND 22 — the two reviewers' rosters, and the four exploits that landed.
+// ===========================================================================
+// MECHANICAL. MF1: the ruling's TOTALITY gate was self-referential — it checked
+// the `at` indices of `declaredKeys ∪ declaredSkipped` against the union's OWN
+// length, so a fabricated key and a deleted one both left a contiguous list
+// behind, on exactly the 15 moved rooms where totality is the only thing left.
+// MF2: `decidedBy`'s ABSENCE was derived from candidate panels nothing could
+// re-derive, so a COHERENT two-leaf edit (`extTourDelta` and `extTourAfter`
+// moved together, the identity preserved) erased the fleet's one `decidedBy`.
+// MF3: the third witness to the park-seat search was anchored to a RING, not to
+// the search — any 6..8 walkable tiles near the controller passed — and its
+// board anchor `meta.ctrlParksBuiltTiles` had no presence rule at all. Mm4: 30
+// of 46 always-present top-level `meta` keys were deletable, 10 of them read
+// behind guards. Mm6: the audited exclusion of the seat-release pass audited a
+// FILE CONSTANT rather than the room.
+//
+// OWNER. OM1: six swap refusals were priced on an ABSOLUTE predicate where the
+// published rule is a DELTA — all six free, five rooms shipping a paved run
+// because of it. OM2: the tower-swap pass moved a tower on the shipped board in
+// three rooms and was invisible in every reader channel, with no note class at
+// all. OM3: ...and the record was withdrawable, its `taken.from` forgeable from
+// its own twin, its `taken.why` free text. OM4: the `offNetwork` declared key
+// read a different quantity than the declaration published, in 14 of 14. OM5:
+// the note recited every declared quantity and named the DECIDING key in none
+// of the 11 non-E11S7 takes.
+{
+  const any22 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const regen22 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+  /** edit `meta.sealedRecovery` and keep the note-record copy byte-identical */
+  const recov22 = (edit) => (p) => {
+    const R = p.meta.sealedRecovery;
+    if (!R) throw new Error("no sealedRecovery");
+    edit(R, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+    if (i >= 0) p.meta.noteRecords[i].rec = R;
+    regen22(p);
+  };
+  const recovRoom22 = (pred) => any22((p) => (p.meta?.sealedRecovery ? pred(p.meta.sealedRecovery, p) : false));
+  const keyRoom22 = recovRoom22((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.length > 0);
+  const movedRoom22 = recovRoom22((R) => (R.offered || []).some((o) => o && o.moved && typeof o.extTourAfter === "number"));
+  const firstMoved = (R) => (R.offered || []).find((o) => o && o.moved && typeof o.extTourAfter === "number");
+
+  // ---- MF1: TOTALITY, against the pre-take channel and against the board ----
+  run("r22/MF1-the-pre-take-shortfall-count-withdrawn",
+    keyRoom22, recov22((R) => { delete R.preTakeShortfallCount; }), "preTakeShortfallCount");
+  run("r22/MF1-the-pre-take-count-inflated-so-a-key-can-be-added",
+    keyRoom22, recov22((R) => { R.preTakeShortfallCount += 1; }), "preTakeShortfallCount|preTakeShortfalls");
+  run("r22/MF1-the-pre-take-count-deflated-so-a-key-can-be-dropped",
+    keyRoom22, recov22((R) => { R.preTakeShortfallCount -= 1; }), "preTakeShortfallCount|preTakeShortfalls");
+  run("r22/MF1-the-pre-take-key-list-withdrawn",
+    recovRoom22((R) => Array.isArray(R.preTakeShortfalls)),
+    recov22((R) => { delete R.preTakeShortfalls; }), "preTakeShortfalls");
+  run("r22/MF1-the-pre-take-key-list-truncated-under-its-own-count",
+    recovRoom22((R) => Array.isArray(R.preTakeShortfalls) && R.preTakeShortfalls.length > 1),
+    recov22((R) => { R.preTakeShortfalls = R.preTakeShortfalls.slice(0, -1); }), "preTakeShortfalls");
+  run("r22/MF1-a-pre-take-pair-substituted-under-the-same-index",
+    recovRoom22((R) => Array.isArray(R.preTakeShortfalls) && R.preTakeShortfalls.length > 0),
+    recov22((R) => { R.preTakeShortfalls[0] = { at: 0, gate: "eco", kind: null }; }),
+    "the channel this pass read carries|declaration index");
+  run("r22/MF1-the-pre-take-list-published-out-of-declaration-order",
+    recovRoom22((R) => Array.isArray(R.preTakeShortfalls) && R.preTakeShortfalls.length > 1),
+    recov22((R) => { R.preTakeShortfalls = R.preTakeShortfalls.slice().reverse(); }),
+    "preTakeShortfalls|declaration order|channel this pass read");
+  // X1c, the exploit: a fabricated declared key at the next free index
+  run("r22/MF1-X1c-a-declared-quantity-INVENTED-at-the-next-free-index",
+    keyRoom22,
+    recov22((R) => {
+      const at = Math.max(-1, ...[...R.declaredKeys, ...(R.declaredSkipped || [])].map((k) => (Number.isInteger(k?.at) ? k.at : -1))) + 1;
+      R.declaredKeys.push({ at, gate: "extensions", kind: "shallow", instrument: "shallowExts", declared: 7, direction: "down", source: "extensions/shallow.count" });
+      if (Array.isArray(R.ranking)) {
+        const i = R.ranking.findIndex((l) => /^priced:/.test(String(l)));
+        R.ranking.splice(i < 0 ? R.ranking.length : i, 0, "declared: shallowExts, less is better (extensions/shallow declares extensions/shallow.count = 7)");
+      }
+    }),
+    "preTakeShortfallCount|never filed|preTakeShortfalls");
+  // ...and the same with the pre-take channel forged to match, which is what
+  // the BOARD anchor is for
+  run("r22/MF1-X1c-hard-the-invented-key-with-the-pre-take-channel-forged-to-match",
+    recovRoom22((R) => Array.isArray(R.preTakeShortfalls) && Array.isArray(R.declaredKeys)),
+    recov22((R) => {
+      const at = R.preTakeShortfallCount;
+      R.declaredKeys.push({ at, gate: "extensions", kind: "shallow", instrument: "shallowExts", declared: 7, direction: "down", source: "extensions/shallow.count" });
+      R.preTakeShortfalls.push({ at, gate: "extensions", kind: "shallow" });
+      R.preTakeShortfallCount = at + 1;
+      if (Array.isArray(R.ranking)) {
+        const i = R.ranking.findIndex((l) => /^priced:/.test(String(l)));
+        R.ranking.splice(i < 0 ? R.ranking.length : i, 0, "declared: shallowExts, less is better (extensions/shallow declares extensions/shallow.count = 7)");
+      }
+    }),
+    "never filed|RETIRED");
+  // X2, the exploit: a real declared key DELETED out of the channel
+  run("r22/MF1-X2-a-real-declared-key-DROPPED-from-the-published-channel",
+    recovRoom22((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.length > 1),
+    recov22((R) => {
+      const gone = R.declaredKeys.pop();
+      if (Array.isArray(R.ranking)) R.ranking = R.ranking.filter((l) => !String(l).includes(`${gone.gate}${gone.kind ? `/${gone.kind}` : ``}`));
+    }),
+    "SHIPS the declaration|preTakeShortfallCount|preTakeShortfalls");
+  run("r22/MF1-a-declared-key-moved-out-of-both-lists-altogether",
+    recovRoom22((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.length >= 1 && Array.isArray(R.declaredSkipped)),
+    recov22((R) => { R.declaredKeys = R.declaredKeys.slice(1); }),
+    "SHIPS the declaration|preTakeShortfallCount|preTakeShortfalls");
+
+  // ---- MF2: the counterfactual tour, re-derived from the board witness ----
+  run("r22/MF2-a-candidate-s-board-witness-withdrawn",
+    movedRoom22, recov22((R) => { delete firstMoved(R).moved; }), "no .moved. witness");
+  run("r22/MF2-X3-the-coherent-two-leaf-edit-that-erased-the-fleet-s-one-decidedBy",
+    movedRoom22,
+    recov22((R) => {
+      const o = firstMoved(R);
+      o.extTourAfter += 23;
+      o.extTourDelta += 23;
+    }),
+    "extension tour over the board");
+  run("r22/MF2-a-relocation-moved-onto-the-sitter-under-an-unchanged-tour",
+    recovRoom22((R) => (R.offered || []).some((o) => o && o.moved && (o.moved.extIn || []).length && typeof o.extTourAfter === "number")),
+    recov22((R, p) => {
+      const o = (R.offered || []).find((q) => q && q.moved && (q.moved.extIn || []).length && typeof q.extTourAfter === "number");
+      const sit = p.sitter || p.hub;
+      o.moved.extIn[0] = { x: sit.x, y: sit.y };
+    }),
+    "does not describe a board of this room|extension tour over the board|cannot be walked|filler can reach");
+  run("r22/MF2-the-witness-emptied-so-the-candidate-board-is-the-shipped-one",
+    recovRoom22((R) => (R.offered || []).some((o) => o && o.moved && (o.moved.extOut || []).length && typeof o.extTourAfter === "number")),
+    recov22((R) => {
+      const o = (R.offered || []).find((q) => q && q.moved && (q.moved.extOut || []).length && typeof q.extTourAfter === "number");
+      o.moved.extOut = [];
+      o.moved.extIn = [];
+    }),
+    "does not describe a board of this room|extension tour over the board");
+  run("r22/MF2-tourBoardIdentical-asserted-over-a-board-that-moved-something-else",
+    recovRoom22((R) => (R.offered || []).some((o) => o && o.moved && (o.moved.otherMoved || []).length)),
+    recov22((R) => {
+      const o = (R.offered || []).find((q) => q && q.moved && (q.moved.otherMoved || []).length);
+      o.moved.tourBoardIdentical = true;
+    }),
+    "tourBoardIdentical");
+  run("r22/MF2-the-exterior-difference-falsified",
+    movedRoom22, recov22((R) => { firstMoved(R).moved.exteriorDiff = 7; }), "exterior");
+  run("r22/MF2-a-candidate-withdrawing-a-seat-its-own-run-never-carried",
+    movedRoom22, recov22((R) => { firstMoved(R).withdrawn = { x: 1, y: 1 }; }),
+    "carries no|does not describe a board of this room|buildable");
+
+  // ---- MF3: the third witness, derived rather than anchored to a ring ----
+  const parkRoom22 = any22((p) => Array.isArray(p.meta?.ctrlParksBuiltTiles) && p.meta.ctrlParksBuiltTiles.length > 0);
+  run("r22/MF3-X5-the-built-park-roster-deleted-so-the-search-list-is-any-ring",
+    parkRoom22, (p) => { delete p.meta.ctrlParksBuiltTiles; }, "ctrlParksBuiltTiles");
+  run("r22/MF3-a-built-park-seat-swapped-for-another-ring-tile",
+    parkRoom22,
+    (p) => { p.meta.ctrlParksBuiltTiles[0] = { x: p.meta.ctrlParksBuiltTiles[0].x, y: p.meta.ctrlParksBuiltTiles[0].y + 2 }; },
+    "ctrlParksBuiltTiles|built-tiles");
+  run("r22/MF3-X4-a-seat-search-tile-swapped-for-a-tile-of-the-controller-ring",
+    any22((p) => Array.isArray(p.meta?.ctrlParkSeatSearchTiles) && p.meta.ctrlParkSeatSearchTiles.length > 1),
+    (p) => {
+      const L = p.meta.ctrlParkSeatSearchTiles;
+      const built = new Set((p.meta.ctrlParksBuiltTiles || []).map((t) => `${t.x},${t.y}`));
+      const i = L.findIndex((t) => !built.has(`${t.x},${t.y}`));
+      const j = i < 0 ? 0 : i;
+      L[j] = { x: L[j].x, y: L[j].y + 2 };
+    },
+    "seat search over the controller link|seat-search-tiles");
+  run("r22/MF3-the-seat-search-list-padded-with-a-ring-tile-nobody-counted",
+    any22((p) => Array.isArray(p.meta?.ctrlParkSeatSearchTiles) && typeof p.meta?.ctrlParksAtSeatSearch === "number"),
+    (p) => {
+      const L = p.meta.ctrlParkSeatSearchTiles;
+      L.push({ x: L[0].x, y: L[0].y + 3 });
+      p.meta.ctrlParksAtSeatSearch = L.length;
+    },
+    "seat search over the controller link|seat-search-tiles");
+
+  // ---- Mm4: the presence gap, one key per case ----
+  for (const k of ["budget", "claimApproach", "claimSeat", "ctrlContainer", "ctrlLink", "ctrlParkFloorCap",
+    "ctrlParkFloorWhy", "ctrlParkReserve", "ctrlParksCensus", "ctrlParksEaten", "dtHub", "ecoDir",
+    "finalized", "labs", "method", "mineralApproach", "mineralRingFree", "mineralSeat", "misc",
+    "noteObligationBasis", "pathController", "pathSourcesSum", "roadConnected", "roadOrder",
+    "roadOrphans", "seedScore", "seedSkip", "spawnFan", "storageAccessD4"]) {
+    run(`r22/Mm4-presence-meta.${k}-deleted`, R, (p) => { delete p.meta[k]; }, `meta\\.${k}`);
+  }
+  run("r22/Mm4-meta.finalized-downgraded-to-false",
+    R, (p) => { p.meta.finalized = false; }, "meta\\.finalized");
+  run("r22/Mm4-meta.roadOrphans-published-as-a-scalar",
+    R, (p) => { p.meta.roadOrphans = 0; }, "meta\\.roadOrphans");
+
+  // ---- Mm6: the exclusion's reason 1, room-derived ----
+  const relRoom22 = any22((p) => (p.meta?.shortfalls || []).some((s2) => s2 && s2.gate === "ctrlParks" && s2.kind === "released" && s2.ctrlParks));
+  run("r22/Mm6-the-room-ranked-on-shallow-extensions-and-declares-none",
+    any22((p) => (p.meta?.shortfalls || []).some((s2) => s2 && s2.gate === "ctrlParks" && s2.kind === "released") &&
+      (p.meta?.shortfalls || []).some((s2) => s2 && s2.gate === "extensions" && s2.kind === "shallow")),
+    (p) => { p.meta.shortfalls = p.meta.shortfalls.filter((s2) => !(s2 && s2.gate === "extensions" && s2.kind === "shallow")); regen22(p); },
+    "release-rule");
+  run("r22/Mm6-the-exclusion-s-first-key-and-the-room-s-declaration-disagree",
+    any22((p) => (p.meta?.shortfalls || []).some((s2) => s2 && s2.gate === "ctrlParks" && s2.kind === "released") &&
+      (p.meta?.shortfalls || []).some((s2) => s2 && s2.gate === "extensions" && s2.kind === "shallow" && typeof s2.count === "number")),
+    (p) => { const d = p.meta.shortfalls.find((s2) => s2 && s2.gate === "extensions" && s2.kind === "shallow"); d.count += 4; regen22(p); },
+    "release-rule|shallow");
+
+  // ---- OM1: the delta refusal ----
+  const refRoom22 = any22((p) => (p.meta?.walls?.alongCutRefused || []).some((r2) => r2 && r2.baseline && / more road tile\(s\) fall off the network \(/.test(String(r2.why))));
+  const firstRef = (p) => (p.meta.walls.alongCutRefused || []).find((r2) => r2 && r2.baseline && / more road tile\(s\) fall off the network \(/.test(String(r2.why)));
+  run("r22/OM1-the-refusal-s-baseline-withdrawn",
+    refRoom22, (p) => { delete firstRef(p).baseline; }, "alongCutRefused");
+  run("r22/OM1-the-baseline-and-the-sentence-disagree",
+    refRoom22, (p) => { firstRef(p).baseline.roads += 5; }, "alongCutRefused");
+  run("r22/OM1-a-refused-swap-that-is-not-measurably-worse",
+    refRoom22,
+    (p) => { const r2 = firstRef(p); r2.why = r2.why.replace(/(\d+) more road tile\(s\) fall off the network \((\d+) -> (\d+);/, "0 more road tile(s) fall off the network ($2 -> $2;"); },
+    "alongCutRefused");
+  run("r22/OM1-the-newly-off-roster-shortened-under-its-own-difference",
+    refRoom22,
+    (p) => { const r2 = firstRef(p); r2.why = r2.why.replace(/newly off: ([^)]*)\)/, (m0, l) => `newly off: ${String(l).trim().split(/\s+/)[0]})`); },
+    "alongCutRefused");
+  run("r22/OM1-the-refusal-reverted-to-the-round-21-ABSOLUTE-predicate",
+    refRoom22,
+    (p) => {
+      const r2 = firstRef(p);
+      r2.why = r2.why.replace(/\d+ more road tile\(s\) fall off the network \([^)]*\) — they are no longer D8-connected to the sitter over roads and containers/,
+        "the container at 45,36 is left with no road on any of its 8 neighbours");
+    },
+    "ABSOLUTE predicate|alongCutRefused");
+  run("r22/OM1-the-two-terms-of-the-subtraction-taken-on-different-boards",
+    refRoom22,
+    (p) => { const r2 = firstRef(p); r2.why = r2.why.replace(/\((\d+) -> (\d+);/, (m0, a, b) => `(${Number(a) + 1} -> ${Number(b) + 1};`); },
+    "alongCutRefused");
+
+  // ---- OM2 / OM3: the tower swap, its record and its note ----
+  const swapRoom22 = any22((p) => p.meta?.towers?.towerSwapTaken && p.meta?.towers?.acrossPriorTake?.taken);
+  const apEdit22 = (edit) => (p) => {
+    edit(p.meta.towers.acrossPriorTake, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "towerSwap");
+    if (i >= 0) p.meta.noteRecords[i].rec = p.meta.towers.acrossPriorTake;
+    regen22(p);
+  };
+  run("r22/OM3-the-tower-swap-record-deleted-in-a-room-whose-flag-says-a-tower-moved",
+    swapRoom22, (p) => { delete p.meta.towers.acrossPriorTake; }, "acrossPriorTake");
+  run("r22/OM3-taken.from-forged-away-from-its-own-twin",
+    swapRoom22, apEdit22((t) => { t.taken.from = { x: t.taken.from.x - 1, y: t.taken.from.y }; }), "towerSwapTaken|taken\\.from");
+  run("r22/OM3-taken.to-forged-away-from-its-own-twin",
+    swapRoom22, apEdit22((t) => { t.taken.to = { x: t.taken.to.x + 1, y: t.taken.to.y }; }), "towerSwapTaken|taken\\.to");
+  run("r22/OM3-the-flag-nulled-so-the-swap-is-invisible-in-the-channel-the-film-reads",
+    swapRoom22, (p) => { p.meta.towers.towerSwapTaken = null; }, "towerSwapTaken|towerSwap");
+  run("r22/OM3-taken.why-claims-the-branch-it-did-not-buy",
+    any22((p) => p.meta?.towers?.acrossPriorTake?.taken?.why === "clump"),
+    apEdit22((t) => { t.taken.why = "lift"; }), "taken\\.why");
+  run("r22/OM3-taken.why-claims-the-clump-branch-on-a-lift",
+    any22((p) => p.meta?.towers?.acrossPriorTake?.taken?.why === "lift"),
+    apEdit22((t) => { t.taken.why = "clump"; }), "taken\\.why");
+  run("r22/OM3-taken.why-as-free-text",
+    swapRoom22, apEdit22((t) => { t.taken.why = "it was better"; }), "taken\\.why");
+  run("r22/OM2-the-tower-swap-note-and-its-record-deleted-together",
+    any22((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "towerSwap")),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "towerSwap");
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.notes.splice(i, 1);
+      p.meta.noteObligations = (p.meta.noteObligations || []).filter((o) => o && o.cls !== "towerSwap");
+    },
+    "towerSwap");
+  run("r22/OM2-the-tower-swap-note-s-record-copy-forged-away-from-the-plan-s",
+    any22((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "towerSwap" && e.rec && e.rec.taken)),
+    (p) => {
+      const e = p.meta.noteRecords.find((q) => q && q.cls === "towerSwap");
+      e.rec = JSON.parse(JSON.stringify(e.rec));
+      e.rec.taken.from = { x: e.rec.taken.from.x - 1, y: e.rec.taken.from.y };
+      regen22(p);
+    },
+    "towerSwap|acrossPriorTake");
+  run("r22/OM2-the-tower-swap-obligation-dropped-while-the-note-stays",
+    any22((p) => (p.meta?.noteObligations || []).some((o) => o && o.cls === "towerSwap")),
+    (p) => { p.meta.noteObligations = p.meta.noteObligations.filter((o) => o && o.cls !== "towerSwap"); },
+    "towerSwap");
+  run("r22/OL2-the-sealing-curve-note-and-its-record-deleted-together",
+    any22((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "shellClosure")),
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "shellClosure");
+      p.meta.noteRecords.splice(i, 1);
+      p.meta.notes.splice(i, 1);
+      p.meta.noteObligations = (p.meta.noteObligations || []).filter((o) => o && o.cls !== "shellClosure");
+    },
+    "shellClosure");
+  run("r22/OL2-the-sealing-curve-note-s-record-copy-forged-away-from-the-plan-s",
+    any22((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "shellClosure" && e.rec && typeof e.rec.leaked === "number")),
+    (p) => {
+      const e = p.meta.noteRecords.find((q) => q && q.cls === "shellClosure");
+      e.rec = JSON.parse(JSON.stringify(e.rec));
+      e.rec.leaked += 1;
+      regen22(p);
+    },
+    "shellClosure|closures");
+
+  // ---- OM4: the instrument and the declaration are one measurement ----
+  const offRoom22 = recovRoom22((R, p) =>
+    [...(R.declaredKeys || []), ...(R.declaredSkipped || [])].some((k) => k && k.instrument === "offNetwork" && typeof k.declared === "number") &&
+    R.before && typeof R.before.offNetwork === "number");
+  run("r22/OM4-the-declared-off-network-value-and-the-panel-reading-pulled-apart",
+    offRoom22,
+    recov22((R) => { const k = [...(R.declaredKeys || []), ...(R.declaredSkipped || [])].find((q) => q && q.instrument === "offNetwork"); k.declared += 1; }),
+    "off-network count of");
+  run("r22/OM4-the-panel-reading-moved-under-an-unchanged-declaration",
+    offRoom22, recov22((R) => { R.before.offNetwork += 1; }), "off-network count of|offNetwork");
+
+  // ---- MF1, the swap branch, and the basis sentence ----
+  run("r22/MF1-the-pre-take-basis-sentence-withdrawn",
+    recovRoom22((R) => typeof R.preTakeShortfallBasis === "string"),
+    recov22((R) => { delete R.preTakeShortfallBasis; }), "preTakeShortfallBasis");
+  run("r22/MF1-the-tower-swap-s-pre-take-channel-withdrawn",
+    any22((p) => Array.isArray(p.meta?.towers?.acrossPriorTake?.preTakeShortfalls)),
+    (p) => { delete p.meta.towers.acrossPriorTake.preTakeShortfalls; regen22(p); }, "preTakeShortfalls");
+  run("r22/MF1-the-tower-swap-s-pre-take-count-inflated",
+    any22((p) => Number.isInteger(p.meta?.towers?.acrossPriorTake?.preTakeShortfallCount)),
+    (p) => { p.meta.towers.acrossPriorTake.preTakeShortfallCount += 1; regen22(p); }, "preTakeShortfall");
+
+  // ---- OM5: the structured decider, derived from the ranking ----
+  const deciderRoom22 = recovRoom22((R) => R.decider && typeof R.decider === "object");
+  run("r22/OM5-the-decider-record-withdrawn",
+    deciderRoom22, recov22((R) => { delete R.decider; }), "decider");
+  run("r22/OM5-the-decider-rule-withdrawn",
+    deciderRoom22, recov22((R) => { delete R.deciderRule; }), "deciderRule");
+  run("r22/OM5-the-decider-names-a-key-that-did-not-decide",
+    deciderRoom22, recov22((R) => { R.decider.key = R.decider.key === "gainedDeep" ? "gainedTiles" : "gainedDeep"; }), "decider\\.key");
+  run("r22/OM5-the-decider-s-candidate-count-inflated",
+    deciderRoom22, recov22((R) => { R.decider.candidates = (R.decider.candidates || 0) + 3; }), "decider\\.candidates");
+  run("r22/OM5-a-tie-break-claimed-where-one-candidate-cleared-the-panel",
+    recovRoom22((R) => R.decider && R.decider.key === "single-candidate"),
+    recov22((R) => { R.decider.rank = 2; R.decider.runnerUp = { withdrawn: { x: 10, y: 10 }, kind: "extension" }; }),
+    "decider\\.rank|decider\\.runnerUp|decider\\.key");
+  run("r22/OM5-the-decider-s-runner-up-is-not-the-seat-the-order-places-second",
+    recovRoom22((R) => R.decider && R.decider.runnerUp && R.decider.runnerUp.withdrawn),
+    recov22((R) => { R.decider.runnerUp.withdrawn = { x: R.decider.runnerUp.withdrawn.x + 1, y: R.decider.runnerUp.withdrawn.y }; }),
+    "decider\\.runnerUp");
+  run("r22/OM5-the-decider-s-two-readings-pulled-apart",
+    recovRoom22((R) => R.decider && R.decider.values && typeof R.decider.values.taken === "number"),
+    recov22((R) => { R.decider.values.taken += 5; }), "decider\\.values");
+
+  // ---- OM5: the note names what decided ----
+  const decidedRoom22 = recovRoom22((R, p) =>
+    R.outcome === "taken" && (p.meta?.noteRecords || []).some((e) => e && e.cls === "sealedRecovery"));
+  run("r22/OM5-the-what-decided-clause-struck-out-of-the-note",
+    decidedRoom22,
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "sealedRecovery");
+      const t = String(p.meta.notes[i]);
+      const h = t.indexOf("WHAT DECIDED IT");
+      if (h < 0) throw new Error("no WHAT DECIDED IT clause to strike");
+      const end = t.indexOf(". ", h + 200);
+      p.meta.notes[i] = t.slice(0, h) + (end > 0 ? t.slice(end + 2) : "");
+    },
+    "WHAT DECIDED IT|not the note its own record generates");
+  run("r22/OM5-the-what-decided-clause-names-a-line-that-did-not-decide",
+    decidedRoom22,
+    (p) => {
+      const i = p.meta.noteRecords.findIndex((e) => e && e.cls === "sealedRecovery");
+      const t = String(p.meta.notes[i]);
+      const h = t.indexOf("WHAT DECIDED IT");
+      if (h < 0) throw new Error("no WHAT DECIDED IT clause to falsify");
+      const end = Math.min(t.length, h + 320);
+      p.meta.notes[i] =
+        t.slice(0, h) + "WHAT DECIDED IT (OM5): the strongest wall the swap could leave standing. " + t.slice(end);
+    },
+    "owes the name of that line|not the note its own record generates");
+}
+
+// ===========================================================================
+// 2b. THE NUMERAL GATE'S OWN MUTATIONS.
+// ===========================================================================
+// The rot class is always the same event: the ARTIFACT moves and the sentence
+// does not. So the mutation is the artifact moving. A fleet one room smaller
+// and a fleet one room larger both invalidate every completeness denominator
+// the suite's prose states, and the gate has to say so — if it does not, it is
+// a gate that would have passed all six rounds of this finding.
+{
+  const numeralCase = (name, mutatePlans) => {
+    if (ONLY && !new RegExp(ONLY, "i").test(name)) {
+      skipped++;
+      return;
+    }
+    let res;
+    try {
+      res = numeralAudit(mutatePlans(plans.slice()));
+    } catch (e) {
+      results.push({ name, room: "fleet", caught: false, matched: false, fails: ["numeralAudit THREW: " + e.message] });
+      return;
+    }
+    const caught = res.bad.length > 0;
+    results.push({
+      name,
+      room: "fleet",
+      caught,
+      matched: caught,
+      expect: "numeral audit reports WRONG",
+      fails: caught ? [] : ["the audit reported no WRONG numeral against a fleet the prose does not describe"],
+      note: caught ? `${res.bad.length} numeral(s) flagged, e.g. ${res.bad[0].file}:${res.bad[0].line} "${res.bad[0].quote}"` : "",
+    });
+  };
+  numeralCase("r22/NUMERAL-the-fleet-shrinks-under-the-prose", (P) => P.slice(0, P.length - 1));
+  numeralCase("r22/NUMERAL-the-fleet-grows-under-the-prose", (P) => P.concat([JSON.parse(JSON.stringify(P[0]))]));
+}
+
+// ===========================================================================
 // 3. REPORT
 // ===========================================================================
 const runMs = Date.now() - tBase - baseMs;
@@ -5918,4 +6356,4 @@ if (escapes.length) {
 }
 if (JSON_OUT) fs.writeFileSync(JSON_OUT, JSON.stringify(results, null, 1));
 
-process.exit(baseFail.length || escapes.length ? 1 : 0);
+process.exit(baseFail.length || escapes.length || numeralBad.length ? 1 : 0);

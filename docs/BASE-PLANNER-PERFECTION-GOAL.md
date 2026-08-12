@@ -57,11 +57,19 @@ per room. Rise to the bar; do not lower it.
   rather than carried; the "257 / 229 / max 4" figures below this line were a 159-room
   world, and the round-9 "286 / 241 / median 2 / max 6 / 36 bubbles" numbers that
   stood here were wrong on four of five counts — measured on the file whose own
-  md5 the same section quoted): **278 road+rampart tiles, 235 of them exactly on
+  md5 the same section quoted): **273 road+rampart tiles, 230 of them exactly on
   the shell cut line, median 2 and max 5 per room**. The full taxonomy, five
   classes and every one of them decided by its own positive test:
-  **235 wall crossings on the cut + 30 bubble seats (a container) + 13 controller
-  stand-denial RING tiles + 0 personal cover + 0 unclassified = 278.**
+  **230 wall crossings on the cut + 30 bubble seats (a container) + 13 controller
+  stand-denial RING tiles + 0 personal cover + 0 unclassified = 273.**
+  **Round 22 is the first round in which this total FELL because the swap pass
+  took something**, and the arithmetic is one line: stage 5b moved five paved
+  cut tiles to their interior parallels (E15S1, E18S9, E19S9, E7S9, E9S8, one
+  each), so the crossing class loses exactly five — `278 = 235 + 30 + 13` →
+  `273 = 230 + 30 + 13`, re-derived per room and not subtracted by hand, with
+  the median and the max unmoved and the 153 rooms carrying at least one such
+  tile unmoved with them. See criticism 102 for why those five moves were
+  refused for four rounds and what the refusal was measuring instead.
 
   **AND THIS DOCUMENT SHIPPED THE PREVIOUS SUM FOR A ROUND, IN TWO PLACES, WHILE
   THE SUITE PRINTED THE RIGHT ONE.** The line above and its copy in the status
@@ -97,8 +105,9 @@ per room. Rise to the bar; do not lower it.
   `road+rampart: ...` and stored per room in `meta.walls.roadRampart`. The total
   also fell 281 → 277 in that round because layer 7's inert prune now deletes 8
   ring ramparts that carried road and defended nothing — see the ring-rampart
-  paragraph under the controller bullet below — and it is 278 today, for the one
-  seat the paragraph above explains.
+  paragraph under the controller bullet below — it stood at 278 for eight rounds,
+  for the one seat the paragraph above explains, and it is **273** today for the
+  five crossings round 22's swaps stopped needing.
   (A stand-denial rampart that is ALSO a cut tile is still counted once, in the
   crossing class — the round-9 review's "20 stand-denial tiles the taxonomy has
   no class for" is that double count, and it is a different question from the 17,
@@ -120,9 +129,11 @@ per room. Rise to the bar; do not lower it.
   was refused," which is silent capping with a number in front of it. Stage 5b
   now records a **REFUSAL PER TILE**, with the reason that applies to that tile —
   no interior parallel exists, and which neighbour failed and why; or the swap
-  breaks the road network — and every room that ships a run states it. **27
-  refusals** stand today against **7 moves taken** (`alongCutRefused: 27`,
-  `alongCutMoved: 7` summed over the fleet), and the 7 are pinned tile by tile as
+  breaks the road network — and every room that ships a run states it. **22
+  refusals** stand today against **12 moves taken** (`alongCutRefused: 22`,
+  `alongCutMoved: 12` summed over the fleet — 27 against 7 for the four rounds
+  before round 22 repaired the refusal predicate, criticism 102), and the 12 are
+  pinned tile by tile as
   the `alongCutMoved` entries of the provenance enum in the film bullet below —
   a witness LIST rather than the bare integer this paragraph exists to complain
   about. E2S1 is the case that makes "per candidate" load-bearing: free
@@ -148,12 +159,16 @@ per room. Rise to the bar; do not lower it.
   for a run, never offered a parallel and never owed a refusal. The anti-pattern
   is "a RUN of paved ramparts", and nothing in that sentence says cut. The scope
   is now every tile carrying a road and a rampart (`meta.walls.alongCutScope`),
-  and the roster is **TWELVE rooms, 26 tiles — E12S7, E14S3, E15S1, E18S9,
+  and the roster on the round the rescope shipped was **TWELVE rooms, 26 tiles —
+  E12S7, E14S3, E15S1, E18S9,
   E19S9, E21S3 (a four-tile run of stand-denial ring), E2S1, E4S1, E5S5, E5S9,
-  E7S9, E9S8**. The five rooms the cut-only reading could not see are why planner
-  notes went **172 → 177**. Nothing moved — `alongCutMoved` is still 7 — and every
-  one of the 26 tiles now carries a named refusal or was moved. The **27 refusals
-  fleet-wide** break down 16 `breaks-network` · 7 `no-parallel` · 4 `seat`, that
+  E7S9, E9S8** (today it is **SEVEN rooms, 16 tiles** — five of those twelve
+  ship no run at all now, and the paragraph after next is where they went). The
+  five rooms the cut-only reading could not see are why planner
+  notes went **172 → 177**. Nothing moved on the rescope round — `alongCutMoved`
+  was still 7 — and every
+  one of the 26 tiles carried a named refusal or was moved. Those **27 refusals
+  fleet-wide** broke down 16 `breaks-network` · 7 `no-parallel` · 4 `seat`, that
   last one being the class the old scope had no word for (a bubble seat's road IS
   the seat, so moving it inboard leaves the container with a road beside it
   instead of under it — refused by name rather than by
@@ -175,6 +190,44 @@ per room. Rise to the bar; do not lower it.
   which is the worse half — a correct fix explained by a mechanism that does not
   exist leaves a reader with no way to predict the next instance of the class,
   and the next instance is exactly what a scope finding is for.
+
+  **AND THEN THE PREDICATE THAT PRICED THE REFUSALS WAS NOT THE PREDICATE THIS
+  SENTENCE PROMISES.** "Takes the swap when the network is measurably no worse"
+  is a DELTA rule. `netWhy` was an ABSOLUTE one: it asked whether the swapped-to
+  board had a container off the road network, not whether the swap PUT one there
+  — and in six candidates across five rooms the container it named was the
+  MINERAL SEAT, off the network before the swap and after it, declared as such by
+  the same room under `misc/off-network`. A fact that is already true of the
+  un-swapped board prices nothing, and those six refusals were therefore free
+  swaps refused by a sentence that could not tell the two apart. The round-22
+  owner-voice reviewer re-derived every one of them by hand and the fix is the
+  predicate: `netWhy(before, after)` over four axes — live road count, roads
+  outside the sitter's D8 road+container component, containers with no road on
+  any D8 neighbour, extensions with no D4 road face — with a refusal required to
+  name an axis the swap makes NUMERICALLY worse, and
+  `alongCutRefused[].baseline` publishing the four readings the subtraction is
+  taken against, so "measurably worse" is arithmetic on the record rather than an
+  adjective in prose. **FIVE of the six are taken** — E15S1 `15,18→16,18` ·
+  E18S9 `43,6→43,5` · E19S9 `13,33→14,33` · E7S9 `26,27→27,27` · E9S8
+  `19,24→18,24` — and **the sixth is refused again, correctly, which is the part
+  worth the space**: the reviewer priced E9S8's two moves independently against
+  the shipped board, and in the pass's row-major sweep order they INTERACT — once
+  `19,24` has gone to `18,24`, `18,24` is the only thing holding that stub on, so
+  moving `19,25` to `20,25` strands it, and the refusal says so in the delta's own
+  words (*"1 more road tile(s) fall off the network (0 → 1; newly off: 18,24)"*).
+  A reviewer's roster re-derived one move at a time is a roster measured against a
+  board the pass never sees. **The fleet after it: the run roster 12 rooms / 26
+  tiles → 7 / 16** (E15S1, E18S9, E19S9, E7S9 and E9S8 ship no run at all now and
+  file no `pavedRun` note), **refusals 27 → 22 — 10 `breaks-network` · 8
+  `no-parallel` · 4 `seat`** — `alongCutMoved` 7 → 12, roads **14,100 unchanged**
+  because a swap is one tile for one tile (layer 1 6812 → 6807, layer 7 487 →
+  492, and the five vacated tiles join the prune census, 1997 → 2002 ghosts), and
+  road+rampart 278 → 273. E15S1's note also asserted that *"every interior
+  parallel breaks the network"* for `15,18` when that tile's only interior
+  parallel breaks nothing — the room's sibling claim for `15,17` is true and the
+  false one sat next to it for four rounds, which is criticism 17's class inside
+  a channel this document had already gated twice. It is gone because the tile is
+  a take. Filed as **criticism 102**.
 
   **AND "RE-DERIVED BY THE VALIDATOR ON THE BOARD THE ROOM ACTUALLY SHIPS" WAS
   ASPIRATION.** That clause closed the refusal paragraph above through round 12,
@@ -369,7 +422,7 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **996/996 caught** (904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
+  The mutation suite is at **1085/1085 caught** (996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
   round 17, 603/603 at
   round 16, 465/465 at
   round 15, 338/338 at
@@ -510,6 +563,24 @@ per room. Rise to the bar; do not lower it.
   holders. The smaller half of the round is the same sentence in the reader
   channel: three of the six groups above are presence or derivation gaps in
   quantities the producer had been publishing correctly all along.
+  Round 21 adds **92** (904 → 996) for the ruling's declared-key machinery, the
+  ten-scalar `builtGated` binding and the recovery chain's obligations.
+  Round 22 adds **89 cases tagged `r22`** for a net add of 89 with nothing
+  retired and nothing re-pointed (996 → **1085**, `--only r22/` 89/89). The
+  grouping: **Mm4 the presence sweep 31/31** · **MF1 the pre-take key set
+  14/14** · OM5 the decider sentence 9/9 · MF2 the counterfactual tour 7/7 ·
+  OM3 the tower-swap record 7/7 · OM1 the delta refusal 6/6 · MF3 the third
+  witness derived 4/4 · OM2 the tower-swap note class 3/3 · OM4 the offNetwork
+  instrument 2/2 · OL2 the closure note 2/2 · Mm6 the audited exclusion 2/2 ·
+  **NUMERAL 2/2**. **The theme is that the round's own gates were attacked one
+  level up**: not "is this leaf bound" but "is the thing the binding is checked
+  AGAINST a thing the shipped board still has" — a totality rule counting its own
+  output, an absence derived over boards nobody built, a witness anchored to a
+  list nothing required. And the last two cases are the first in this harness
+  that mutate no plan and no meta: they flip the FLEET under the prose and assert
+  that `numeral-audit.mjs` bites (92 numerals flagged each way), which is the
+  systemic half of criticism 94's class finally sitting inside the suite that
+  fails the build.
   **The harness is now committed at `tools/plan-suite/v2/mutate.mjs`** — run it
   with `fnm exec --using 22 node tools/plan-suite/v2/mutate.mjs` (~4s; honours
   `PLANS_FILE`, never writes the artifact, exits 1 on any escape or on a dirty
@@ -784,7 +855,7 @@ per room. Rise to the bar; do not lower it.
   to `49,49` because the tile LISTS were never checked, only the counts. This is
   criticism 17 in the last channel that had escaped it, and it is closed the same
   way: **`declprose-notes.mjs` — a CLOSED class inventory (7 classes when it was
-  written, 8 today), `renderNote({cls,
+  written, 10 today), `renderNote({cls,
   rec})`, and `pushNote()` as the ONLY writer of `plan.meta.notes`**, which
   writes `meta.noteRecords` in the same call so the two arrays are parallel by
   construction rather than by discipline (`grep -c "meta.notes.push"` across every
@@ -792,7 +863,7 @@ per room. Rise to the bar; do not lower it.
   the inventory and on a heading its class does not declare. The gate is three
   lines — class in `NOTE_CLASSES`, arrays the same length,
   `renderNote(noteRecords[i]) === notes[i]` — and it holds in **172/172 rooms,
-  235 of 235 notes byte-exact** (177 through round 16, 176 through round 17 —
+  236 of 236 notes byte-exact** (177 through round 16, 176 through round 17 —
   E18S3's `sealedFloor` note retired when the room's seal went to 0 — 237
   from round 18, when the eighth class arrived, and **235 from round 19**, when
   E7S2 and E7S5 recovered their whole seals and stopped owing a sealed-floor
@@ -803,14 +874,18 @@ per room. Rise to the bar; do not lower it.
   and the renderer recurses into the chain instead of pushing a second paragraph.
   One note per room the pass ran in is the invariant; one note per record never
   was. See the recovery pass under the sealed-floor bullet and
-  criticisms 75, 81 and 92). The obligation
+  criticisms 75, 81 and 92; **236 from round 22**, and that total hides a
+  three-way move rather than an addition: the swap pass retired five `pavedRun`
+  notes by taking the runs they described, and two NEW classes arrived — see the
+  two paragraphs at the end of this bullet). The obligation
   half is derived from the RECORDS
   and never from the notes (`meta.noteObligations`, in `REQUIRED_META`), checked
-  in both directions: **235 obligations === 235 records === 235 notes.** The
+  in both directions: **236 obligations === 236 records === 236 notes.** The
   census by class is `sealedRecovery 62 · sealedFloor 58 · redundantCut 53 (19
   "CUT TILES THAT ARE NOT
   SINGLY LOAD-BEARING" + 34 "NO CUT TILE IS REDUNDANT") · shallowExt 36 ·
-  pavedRun 12 · roadRampart 11 · containerRoad 3`, plus `pavingGap`, which has 0
+  roadRampart 11 · pavedRun 7 · towerSwap 4 · containerRoad 3 · shellClosure 2`,
+  plus `pavingGap`, which has 0
   instances today and is in the inventory anyway — for the reason criticism 30
   gives about gates with nothing in them. `sealedRecovery` stays at 62 while the
   sealed-floor class falls, which is the shape the two classes are supposed to
@@ -887,7 +962,8 @@ per room. Rise to the bar; do not lower it.
   E11S7's refusal of 3 candidates out of 8 was discoverable only by reading raw
   JSON. That is **silent capping, this document's own named auto-fail**, sitting
   under a pass this document had spent a criticism entry praising. `sealedRecovery`
-  is the EIGHTH note class now (`SEALED FLOOR RECOVERED` /
+  was the EIGHTH note class when round 18 added it, and the inventory is at ten
+  (`SEALED FLOOR RECOVERED` /
   `SEALED FLOOR NOT RECOVERED`, four outcome branches tagged on the record by
   `outcome`, every count the paragraph quotes a field rather than a phrase), it is
   rendered from `meta.sealedRecovery` and nothing else, and it is gated in both
@@ -902,6 +978,47 @@ per room. Rise to the bar; do not lower it.
   re-composition while the record survived through the explicit copy — which is
   exactly the record-versus-prose drift the inventory exists to prevent, found by
   building the thing rather than by reasoning about it. See criticism 75.
+
+  **AND FOUR ROUNDS AFTER THAT, A PASS THAT MOVES A TOWER ON THE SHIPPED BOARD
+  WAS IN NONE OF THE CHANNELS EITHER — INCLUDING THE ONE THIS PARAGRAPH IS
+  ABOUT.** The across-prior tower swap moves a tower in **three** rooms (E14S1
+  `34,25→34,24`, E3S5 `26,26→27,26`, E4S3 `25,26→24,25`) and prices a refusal in
+  a fourth (E3S1), and until round 22 the only place any of that existed was
+  `meta.towers.acrossPriorTake`. The film was worse than silent: the `towers`
+  stage painted the POST-swap tile captioned as layer 3's own set-cover pick and
+  never painted the pre-swap tile at all, so the reader was shown a false
+  provenance rather than none. **E14S1 and E3S1 shipped zero notes and
+  `noteObligations: []`** — the obligation machinery had a class for
+  `sealedRecovery` and no class for `acrossPriorTake` at all, which is criticism
+  54(a)'s "a room can decline by silence" reached through a pass instead of
+  through a field. NINTH class: **`towerSwap`** (`TOWER MOVED ACROSS THE PRIOR` /
+  `A TOWER SWAP OFFERED AND REFUSED`), rendered from
+  `meta.towers.acrossPriorTake` and nothing else, obligation pushed in
+  `planRoom.done()` beside the recovery one and keyed on the offer count and the
+  take flag; `acrossPriorTake` into `REQUIRED_META` with `taken.from`/`taken.to`
+  bound to their twins in `towerSwapTaken` and `taken.why` a derived closed enum
+  rather than free text; and two new film stages, `towerGhost` and `towerMove`,
+  which PAINT the pre-swap tile and then erase it, so the last frame still equals
+  the shipped plan and the shipped tower's caption says it was moved here rather
+  than chosen here. **4 notes** — three takes and E3S1's priced refusal, which
+  quotes the whole panel and the verdict verbatim.
+
+  **AND THE TENTH CLASS IS AN AMENDMENT THIS DOCUMENT PUBLISHED AND NO READER
+  COULD REACH.** Criticism 97 established that `meta.shell.cut` is not a sealing
+  curve on its own in two rooms; the record has said so since, and the two rooms
+  it applies to — E15S1 (**leaked 85**) and E5S6 (**leaked 89**) — printed only
+  the single-removal redundancy note, whose blind spot IS the finding. A room
+  whose prose says "no cut tile is redundant" while its cut leaks 85 tiles is
+  telling a reader the opposite of the amendment. **`shellClosure`** (`THE CUT IS
+  NOT A SEALING CURVE ON ITS OWN HERE`) fires exactly where
+  `meta.shell.closures.needed`, is keyed on the NUMBER rather than the boolean,
+  and states the leak, the minimal closure, the candidate/soloCloser
+  substitution, why `sealCritical ⊆ cut` still holds over a curve with a hole in
+  it, and that this is a description defect and not a safety one. Deriving the
+  closures had to be MOVED to run before the obligation block, because an
+  obligation cannot be derived from a record that does not exist yet — a
+  one-line ordering bug that is worth recording because it is the same shape as
+  the note-inside-the-pass bug two paragraphs up, found the same way.
 - **AND `meta.towers.maxRefill` WAS READ ONLY INSIDE A MESSAGE STRING.** It was
   interpolated into the text of a warning and never compared with anything, so
   setting E7S5's to 99 against a real 5 passed. It is re-derived and compared now,
@@ -997,22 +1114,34 @@ per room. Rise to the bar; do not lower it.
   to be required twice. The two `@structures.*.length` referents that used to
   be in it were re-pointed at the board facts `#shippedTowers` and
   `#shippedRamparts`, because a plan read is not a second witness for a plan.
+  **AND THE HAND-WRITTEN HALF OF IT WAS STILL A LIST, WHICH IS STILL THE BUG.**
+  The collected half cannot rot; the RECORD half is typed by whoever adds a
+  record, and round 22's mechanical reviewer measured what that costs by deleting
+  one always-present top-level `meta` key per room across 46 rooms in one
+  validator run: **156/172 pass**, i.e. 30 of the 46 keys were deletable and 10
+  of those 30 are READ by this file behind `if (…)`/`?.` guards. The literal list
+  went from **40 paths to 72** in one round as a result, with shape predicates
+  rather than bare presence and with the ten guarded readers unguarded, because a
+  guard on a required key is a reader that does not believe the schema. The
+  general fix is the collected one and it is written down at criticism 14; what
+  round 22 adds is the measurement of how far behind the hand half had fallen —
+  five rounds, thirty keys.
 - Interior connectivity invariant: interior walk region stays one component reaching
   the sitter and a face of every structure, at every placement step.
 - Deterministic output — identical plans across runs. Verified by hashing
   `plans-hub.json` over consecutive `--all-claimable` runs of the shipped tree
-  on the 172-room world: the round-21 artifact was rebuilt **three times — twice
+  on the 172-room world: the round-22 artifact was rebuilt **three times — twice
   by the producer cluster and once by the doc pass** — and all three print md5
-  **`754e002e19baa02efb4363d90c35229f`**, which is the number
+  **`87ecaf3a0abfe1a29102d8520c30bf2a`**, which is the number
   `md5sum tools/plan-suite/out-v2/plans-hub.json` prints today. The producer pair
   took the diff over the md5 manifest of the ENTIRE tree, films included, at
   **0 lines**, with `export-anim.mjs --all` at 172/172 and the build's own
   staleness check reporting **0 stale / 0 missing films**; the third build is the
   doc pass's own, run against the shipped tree after both clusters had finished,
   for the reason this bullet exists at all — a determinism figure copied from the
-  cluster that produced the artifact is one reading of it, not two. (Round 20 ran
-  four builds, round 19 seven with the last two identical, round 12 a triple,
-  round 18 a pair.) `plan.mjs` reports `animations: 172/172 carry this plan's
+  cluster that produced the artifact is one reading of it, not two. (Round 21 ran
+  a triple as well, round 20 four builds, round 19 seven with the last two
+  identical, round 12 a triple, round 18 a pair.) `plan.mjs` reports `animations: 172/172 carry this plan's
   structure digest`, which is the check that the film export does not touch the
   plan and that a board change did reach the gallery.
   One negative result from round 20's pair is worth keeping, because it is the
@@ -1021,6 +1150,25 @@ per room. Rise to the bar; do not lower it.
   re-closure produced the same `plans-hub.json` md5. A sweep that deletes
   seventeen numerals from seventeen comments and moves no artifact byte is a
   claim; a build that says so is a measurement.
+  **Round 22 moved FIVE rooms' structures and every one of the five is a single
+  ROAD TILE, which is the smallest unit of board this campaign has ever moved**:
+  E15S1 `15,18 → 16,18`, E18S9 `43,6 → 43,5`, E19S9 `13,33 → 14,33`, E7S9
+  `26,27 → 27,27`, E9S8 `19,24 → 18,24` — five paved cut tiles stepping to their
+  interior parallels, one per room, because the refusal that had held them there
+  for four rounds was measuring an absolute condition under a sentence that
+  promises a delta (criticism 102). The five are 1-for-1, so **roads stay at
+  14,100** and the movement is entirely between stages (layer 1 6812 → 6807,
+  layer 7 487 → 492) and between taxonomies (road+rampart 278 → 273, all five
+  out of the crossing class). The other 167 rooms change in `meta` only — three
+  new pre-take fields on every record that publishes a key set, the
+  counterfactual tour witness on 976 offered panels, the decider on every take,
+  and two new note classes — which makes this the second consecutive round whose
+  meta diff dwarfs its board diff, and the first round in which five rooms moved
+  without a single structure other than a road changing tile. Single-link round:
+  `754e002e19baa02efb4363d90c35229f` (round 21, the artifact both round-22
+  reviewers attacked, and both of them re-derived that md5 before they started) →
+  **`87ecaf3a0abfe1a29102d8520c30bf2a`**, and round 21's is retired into the
+  chain below.
   **Round 21 moved ONE room's structures, and it moved that room BACKWARDS on
   purpose**: `E11S7` `20,8 → 14,8`, which is round 20's own take being taken
   back — not because the pass got better at choosing but because a REVIEWER RULED
@@ -1123,7 +1271,11 @@ per room. Rise to the bar; do not lower it.
   identity rather than a claim. A digest is only worth quoting if the thing it
   digests is described exactly, and a round with an intra-round rebuild is
   precisely where that stops being pedantry.
-  (`e25a079a917fa334c253a322759fad92` is retired into that chain as the round-19
+  (`754e002e19baa02efb4363d90c35229f` is retired into that chain as the round-21
+  artifact — kept on disk, because round 22 measures its own strengthening
+  against it and a retired artifact nobody keeps is a comparison nobody can run —
+  as `456eee3b8e8f47d14927545030a1ea4e` was round 20 and is retired with it, as
+  `e25a079a917fa334c253a322759fad92` is retired into that chain as the round-19
   artifact, exactly as
   `2c3aac93cce1941e907725b1e75beff1` was round 18 and is retired with it, as
   `a7b3b5e41df036a4e80a33b669ec3806` was round 17 and is retired with it, as
@@ -1818,12 +1970,12 @@ per room. Rise to the bar; do not lower it.
   above, arrived at from the prose side instead of the table side. The caption is
   **COMPOSED from per-tile provenance** now: the planner records why each layer-7
   road tile exists as it lays it, in `meta.walls.roadKind`, a **CLOSED 7-kind
-  enum** — **spur 370 · swampPave 82 · reflow 21 · alongCutMoved 7 · stitch 4 ·
-  conductBridge 3 of the 487 layer-7 road tiles the fleet ships, 0 unclassified**
+  enum** — **spur 370 · swampPave 82 · reflow 21 · alongCutMoved 12 · stitch 4 ·
+  conductBridge 3 of the 492 layer-7 road tiles the fleet ships, 0 unclassified**
   (printed whether or not it is zero, for the reason the road+rampart taxonomy
   gives above: a residue class that can absorb anything is not a taxonomy). The
   enum is validator-gated and re-derived from the shipped board — every one of
-  the 487 keys is a road tile the room really ships, and the 3 `conductBridge`
+  the 492 keys is a road tile the room really ships, and the 3 `conductBridge`
   tiles are exactly the three joins criticism 6 paved — so a room's caption can
   only name kinds that room actually laid, and a tile the enum has no word for
   fails the room rather than joining the largest class.
@@ -1907,9 +2059,11 @@ per room. Rise to the bar; do not lower it.
   sub-kind. The bridge writes `roadLayer = 7` unconditionally now and records the
   supersession (`meta.walls.conductBridge.relaid`), and the validator requires
   **exact equality** between the two sets rather than containment: `roadKind` keys
-  `==` `{roadLayer == 7}` — 486 `==` 486 on the artifact that fixed it, **487
-  `==` 487 today**, and the identity is what carries the figure forward rather
-  than a number anyone re-typed. Both sets moving to 486 was two changes,
+  `==` `{roadLayer == 7}` — 486 `==` 486 on the artifact that fixed it, **492
+  `==` 492 today**, and the identity is what carries the figure forward rather
+  than a number anyone re-typed. That figure has now read 486, 492, 487 and 492
+  again across four rounds while the sentence containing it stayed true, which is
+  the entire argument for gating an identity instead of a value. Both sets moving to 486 was two changes,
   not one — E5S1's tile joins layer 7 (+1) and E2S8 loses a stitch tile that
   served the tower the paragraph above moved (−1) — which is the sort of
   coincidence a containment check would have swallowed whole.
@@ -1940,12 +2094,29 @@ per room. Rise to the bar; do not lower it.
   it had been three rounds since it was one** — the round-20 sweep of criticism
   80 caught it in this document as well as in the source, and the three
   board-moving rounds since had moved four of the seven laid counts. Re-derived
-  off the shipped artifact: laid **spur 380 · swampPave 82 · reflow 26 ·
+  off the shipped artifact **on the round-20 board**: laid **spur 380 ·
+  swampPave 82 · reflow 26 ·
   alongCutMoved 7 · stitch 6 · conductBridge 3 · extFace 0**, shipped
   **375 · 82 · 21 · 7 · 4 · 3 · 0**, lost **5 · 0 · 5 · 0 · 2 · 0 · 0** —
   byte-still, which is the interesting half, since the lost column is the one
   the identity below actually closes — and `restoredByKind` swampPave 2 ·
-  reflow 6. The lesson is the one criticism 27
+  reflow 6.
+  **AND THEN THIS PARAGRAPH DID THE THING IT WAS WRITTEN TO COMPLAIN ABOUT, IN
+  THE VERY NEXT ROUND.** Round 21's revert took five `spur` tiles off E11S7 —
+  the block above says so itself, *"the layer-7 road enum 492 → 487, all of it
+  `spur` (375 → 370)"* — and this table, sixteen hundred lines away in the same
+  file, went on printing laid 380 / shipped 375 for a round. A document that
+  dates a figure and then leaves it un-re-run has bought itself one round of
+  correctness, not a fix; the fix is that something re-derives it. Today's
+  reading, off the round-22 artifact: laid **spur 375 · swampPave 82 · reflow
+  26 · alongCutMoved 12 · stitch 6 · conductBridge 3 · extFace 0**, shipped
+  **370 · 82 · 21 · 12 · 4 · 3 · 0**, lost **5 · 0 · 5 · 0 · 2 · 0 · 0** — the
+  lost column still byte-still through two board-moving rounds, which is what
+  the identity below is for — and `restoredByKind` swampPave 2 · reflow 6. The
+  numeral harness this round shipped reads source comments and not this
+  document, so this site was found by a human re-running the extractor, and that
+  is the next gap and it is named at criticism 105. The lesson is the one
+  criticism 27
   already wrote down and this round had to learn twice: a counter written at the
   moment of intent does not describe an outcome, and `swampPaved` was the same
   defect wearing a different unit.
@@ -2068,7 +2239,7 @@ Frozen fleet metrics: `docs/PLANNER-BASELINE-2026-08-01.json`
 enclosed ctrl 88 / sources 170 · mobility>1 in 18 rooms · parks min 5).
 Every cycle must move at least one number the right way without regressing others.
 
-Where the fleet stands after round 21 (172 rooms, the world this doc is now
+Where the fleet stands after round 22 (172 rooms, the world this doc is now
 measured against — the 159-room numbers above are kept as the frozen baseline
 they are, not as a description of today). Round 15 moved no board and this block
 did not move with it. Round 16 moved four towers, and exactly the figures a
@@ -2105,9 +2276,56 @@ sitting between the admission quantities and the priced tour, and `14,8` comes
 first. Round 19 fixed the question the pass asked about a candidate; round 20
 fixed which candidates it asked about; **round 21 fixed which of the room's own
 published numbers the pass is allowed to spend.** The other 171 rooms move in
-`meta` only. A from-layer-1
+`meta` only.
+**Round 22 moves FIVE, and the whole board diff is five road tiles — one per
+room, each stepping off a ramparted cut tile onto the interior parallel beside
+it.** E15S1 `15,18 → 16,18` · E18S9 `43,6 → 43,5` · E19S9 `13,33 → 14,33` ·
+E7S9 `26,27 → 27,27` · E9S8 `19,24 → 18,24`. No other structure type differs in
+any room, which is a first for this block. The cause is the second reviewer
+ruling in two rounds to change a RULE rather than a number: stage 5b's refusal
+predicate was ABSOLUTE where the sentence it prints promises a DELTA, so six
+swaps that cost the network nothing had been refused for naming a condition the
+un-swapped board already satisfied (criticism 102). Round 20 fixed which
+candidates the pass asks about, round 21 fixed which of the room's own numbers
+it may spend, and **round 22 fixed what the word "worse" meant in the sentence
+that spends them** — after which five of the six take, the sixth is refused
+again on a re-derived delta, and five rooms stop shipping a paved run along
+their own wall. The other 167 rooms move in `meta` only. **Unchanged in round
+22: ramparts 8208 · roads 14,100 and every room's own road COUNT · extensions
+60/60 in 172/172 · declarations 300 in 157 rooms · `declared-shortfall 122` ·
+shallow extensions 25 in the same three rooms · `sealCritical` 7191 · sealed
+interior floor 111 tiles / 58 rooms · recoveries TAKEN 12, every one of them on
+the seat it already had, `sealedRecovery` records 63 in 62 rooms · layer 6's
+relocations 104 and layer 7b's reflow 81 · road+rampart median 2 / max 5 across
+the same 153 rooms · arterial 7,926 of 14,100 · the RCL2-container-face pass 30
+across 28 · roads median 81 · upgrader parks min 4 / median 8 · `validate.mjs`
+at `pass 172/172 · fail 0 · declared-shortfall 122` with every physical total
+0.** **Moved in round 22: the five road tiles above, which move BETWEEN stages
+rather than in or out (layer 1 6812 → 6807, layer 7 487 → **492**) and between
+taxonomies (road+rampart `278 = 235 + 30 + 13` → **`273 = 230 + 30 + 13`**, all
+five out of the crossing class) · the layer-7 road enum 487 → 492, all of it
+`alongCutMoved` (7 → **12**), with `spur` still 370 and `spurred` still 152 ·
+the prune census 2010/2009/1997 → **2015/2014/2002**, the five vacated tiles
+becoming ghosts · the along-cut roster 12 rooms / 26 tiles → **7 / 16** and its
+refusals 27 → **22** (16/7/4 `breaks-network`/`no-parallel`/`seat` → **10/8/4**)
+· planner notes 235 → **236** in 118 → **119** rooms, the class inventory 8 →
+**10**, `pavedRun` 12 → **7** with `towerSwap` **4** and `shellClosure` **2**
+arriving · the counterfactual panels' `offNetwork` reading, which disagreed with
+the declaration it is ranked under in **674 of 674** panels and now disagrees in
+**0** · the staging census promoted 930 → **935**, bridge repair 447 → **451**,
+eco-terminal reach chains 6 across 3 → **7 across 4**, the two container passes
+together 36/31 → **37/32**, RCL2 containers with no planned D4 road face 218 →
+**219 across 143** and the all-four reading 363 → **364 across 168** · and the
+mutation suite 996 → **1085**.** **And the 167 boards that did not move
+published more:** `preTakeShortfallCount` / `preTakeShortfalls` /
+`preTakeShortfallBasis` on all **67** records that publish a key set,
+`offered[].moved` on **976** priced candidates, `decider` + `deciderRule` on
+every take, `alongCutRefused[].baseline` on every network refusal, and the two
+new note classes.
+A from-layer-1
 re-composition can move anything, so this block states what it moved and what it
-did not, one figure at a time rather than as a reassurance. **Unchanged:
+did not, one figure at a time rather than as a reassurance. **Round 21's own
+accounting is kept below for the trend line. Unchanged in round 21:
 ramparts 8208 · extensions 60/60 in 172/172 · declarations 300 in 157
 rooms · `declared-shortfall 122` · road+rampart 278 = 235 + 30 + 13 + 0 + 0 ·
 shallow extensions 25 in the
@@ -2124,7 +2342,7 @@ rooms · planner notes 235 · rooms
 with a note 118 · sealed interior floor 111 tiles / 99 deep / 58 rooms /
 76 pockets · recoveries TAKEN 12 · `belowThreshold` 47 · `allRefused` 4 ·
 `fixedGeometry` 0 · `sealedRecovery` records 63 ·
-rooms carrying a recovery record 62.** **Moved: roads 14,102 → 14,100, the
+rooms carrying a recovery record 62.** **Moved in round 21: roads 14,102 → 14,100, the
 second movement of that total in two rounds and five of the ten tiles round 20
 redistributed going back where they came from (layer 1 6813 → 6812, layer 6
 6068 → 6072, layer 7 492 → 487) ·
@@ -2186,9 +2404,23 @@ staging bullet's copy still read 927 at the start of round 20, one sentence of
 this document asserting a fix that the other half of the document refuted, and
 it is exactly the class criticism 80 owns: a hand figure sitting beside a
 printed one, this time with the document's own closing claim as the second
-hand figure. Both copies read **930** now, which is what the census prints, and
+hand figure. Both copies read **935** now, which is what the census prints, and
 the correction is recorded here rather than quietly applied because the last
 correction was applied quietly and that is how it half-happened.
+**AND ROUND 22 MOVED SIX OF THAT HEADER'S NUMERALS WITH FIVE ROAD TILES, WHICH
+IS THE SMALLEST BOARD CHANGE THIS CAMPAIGN CAN MAKE.** Re-run against this
+round's artifact the census prints **7,926 of 14,100, 935 promoted and 0
+demoted, 30 across 28, 37 across 32, 219 across 143, 7 across 4**, with bridge
+repair 447 → **451**; against the round-21 artifact — kept, so this is a
+measurement and not a memory — the same command prints 930, 36/31, 218/143 and
+6/3. Five tiles, six numerals. That ratio is the whole argument for the harness
+this round finally built: a class of defect that survives six rounds of sweeps
+does not survive because anyone is careless, it survives because the cost of
+re-deriving a sentence by hand is higher than the cost of believing it, and the
+only fix that changes that arithmetic is a program. `numeral-audit.mjs` caught
+four of the source comments this move rotted, live, in the round that rotted
+them — see the stale-figure entry at criticism 94 and the harness paragraph
+under the mutation bullet.
 
 **Every number in it is printed
 by one of exactly three commands — `plan.mjs --all-claimable`, `validate.mjs` or
@@ -2200,7 +2432,7 @@ re-transcribed by hand out of `plans-hub.json` every round, which is the exact
 condition m1 and m2 caught rotting. The suite now prints all three, plus the
 notes and the road total, on one line:
 
-  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 300 · planner notes 235 · roads 14100`
+  `FLEET TOTALS: ramparts 8208 · shallow extensions 25 (E12S6:6 E2S3:4 E9S2:15) · declared shortfalls 300 · planner notes 236 · roads 14100`
 
 **And the reason that line names `declared shortfalls` explicitly is that a
 number which looked like it was already printed was a different quantity.**
@@ -2268,10 +2500,12 @@ than layer 1 counted — E12S5 and E9S2, both named on the suite's own
 a priced, declared release that is strictly better on shallow slots AND on total
 ramparts** (see criticism 4 below
 for why `ctrlParkFloor` and `ctrlParks` are different questions) · road+rampart
-**278 = 235 crossings + 30 bubble seats + 13 stand-denial ring + 0 personal cover
+**273 = 230 crossings + 30 bubble seats + 13 stand-denial ring + 0 personal cover
 + 0 unclassified** (median 2, max 5; `unclassified` printed whether or not it is
 zero, which is the fix — see the road bullet, and the 30th seat is round 13's own
-paved join, which this document went a round without re-reading) · one mobility declaration per room,
+paved join, which this document went a round without re-reading; the crossing
+class is five smaller than it was for eight rounds because round 22's swap pass
+finally took the five free moves its refusal predicate had been mispricing) · one mobility declaration per room,
 **55 rooms over the 1.2 gated target** and 57 declarations (two rooms declare a
 negotiation their mass then fixed), and the `cause` field is now derived from the
 same lift test as the prose beside it rather than overwritten after it, with a
@@ -2346,17 +2580,30 @@ total are at values no earlier round printed, which is worth stating in the leas
 flattering way available: this census has printed the
 same figure for two different fleets, so a reader who quoted it instead of
 running it would have been correct, then wrong, then correct again, with nothing
-in the number to say which of the three they were doing) · **300 declared
+in the number to say which of the three they were doing.
+**Round 22 moved FIVE ROAD TILES and six of these numerals went with them**, which
+is the largest census-per-tile ratio this paragraph has recorded: the arterial
+pair holds at **7,926 of 14,100** and the RCL2-container faces hold at **30/28**,
+while promoted 930 → **935**, bridge repair 447 → **451**, the two passes
+together 36/31 → **37/32**, the containers with no D4 face 218 → **219/143**, the
+all-four-containers reading 363 → **364/168**, and the eco-reach chains — still
+6 across 3 through five board-moving rounds, the one figure this paragraph kept
+calling still — **7 across 4**. The five tiles are wall swaps rather than
+extension seats, so this is a third mechanism on top of the two above: not which
+seat left the board but which tile the wall stage paved, and the staging is a
+function of the eco skeleton in the sense that a road on a rampart is part of it.
+A reader who has been quoting the "byte-still" clause since round 18 has now been
+wrong about `6 across 3` for exactly one round) · **300 declared
 shortfalls** (suite, FLEET TOTALS — and NOT the `declared-shortfall 122` the
 validator ends on, which counts rooms, per the note above), of which 133 are the
 per-room mineral-seat-AND-EXTRACTOR off-network exception the road gate used to
 grant silently in the checker's own source — both structures named in the
 declaration now, the extractor on the stronger argument (criticism 11) — and
-**235 planner notes** beside them (suite, same
+**236 planner notes** beside them (suite, same
 line), every one of them rendered from a record, obligated by a record and — from
 round 17 — with every LIST inside that record bound to the class-D twin the plan
 publishes elsewhere
-(**235 notes === 235 note records === 235 note obligations**, checked both ways,
+(**236 notes === 236 note records === 236 note obligations**, checked both ways,
 and the obligations themselves re-derived from the records that trigger them
 rather than compared with the producer's own array) ·
 **sealed interior floor 111 tiles across 58 rooms**, down from 257 across 62 —
@@ -2732,10 +2979,13 @@ Known open criticisms, in priority order:
    30/28 and 37/32 → 36/31, the same numerals this paragraph carried before round
    20 — while the arterial pair went to 7,926 of 14,100, which is a value neither
    fleet ever printed. The census was re-run against both artifacts to say that;
-   nothing here was carried.) **The promoted count in this sentence read
+   nothing here was carried. Round 22's five swapped road tiles moved it again —
+   37/32 for the two passes, 219/143 for the containers with no D4 face — which
+   is the third time these two numerals have changed in three rounds and the
+   second time they have changed back.) **The promoted count in this sentence read
    `927` until round 20, one round after this document announced it had corrected
    both copies to 926 and corrected one** — see the moved/unchanged split in the
-   status block, where the same figure is now `930`. The `0 demoted` in this
+   status block, where the same figure is now `935`. The `0 demoted` in this
    paragraph was quoted as a printed figure
    for a round while nothing printed it, which is m1/m2 committed by the fix for
    m1/m2; it is printed now, and the neighbouring numeral has just demonstrated
@@ -3229,7 +3479,8 @@ now makes it impossible rather than what was patched:
    **A THIRD HAS BEEN THERE SINCE THE REFUSAL RECORD WAS BUILT AND THIS PARAGRAPH
    DID NOT NOTICE IT:** the
    along-cut roster and refusal totals in the road bullet — 7 rooms / 14 tiles /
-   16 refusals a round ago, **12 rooms / 26 tiles / 27 refusals** now — are quoted by this
+   16 refusals when this was written, 12 rooms / 26 tiles / 27 refusals for the
+   four rounds after that, **7 rooms / 16 tiles / 22 refusals** now — are quoted by this
    document and printed by nothing. They are not in the same class as the two
    above, because they ARE re-derivable from the shipped artifact
    (`meta.walls.alongCutRuns` and `alongCutRefused`, and the validator re-derives
@@ -3274,6 +3525,20 @@ now makes it impossible rather than what was patched:
    it again with the one-line print still unwritten. Five data points, and the
    fifth one removes the last available explanation that is not simply "nothing in
    this process ranks a work item by what it costs".
+   **NINTH ROUND. `grep -c alongCut tools/plan-suite/v2/plan.mjs` is 0, AND ROUND
+   22 ADDED TWO NEW `--census` LINES.** Rounds 19, 20 and 21 skipped it in
+   silence, which this entry did not bother to record, and round 22 skipped it
+   while writing two fleet prints it needed for something else — the road+
+   container coincidence line and the roadStage payload line, both added so that
+   two rotting comment numerals would have a printed figure to point at — and
+   while shipping a whole program whose subject is fleet numerals that no command
+   prints (`numeral-audit.mjs`, criticism 94). The along-cut totals moved in the
+   same round, twice, and were re-derived by hand from the artifact for this
+   document exactly as they have been for nine rounds. Nine data points is no
+   longer evidence about the item; it is evidence about the process, and the
+   thing it says is that a work item enters a round's spec by being FILED by a
+   reviewer and by no other route. Nothing here ranks by cost, and nothing here
+   carries an item forward that nobody re-files.
 
 Round-13 findings. **Two fresh reviewers, 11 confirmed findings between them** —
 the owner-voice reviewer filed 3 BLOCKING, 1 MEDIUM and 4 LOW, the mechanical
@@ -3339,7 +3604,8 @@ one of those four, either already right or one road tile away from right.
    free interior parallels all drop road tiles off the network, and its refusals
    now say so per candidate — so the correction buys no swap and only truth, which
    is the point of publishing the roster at all. 6 mutations on `alongCutRuns`.
-   **The roster is 12 rooms / 26 tiles today**: fixing the adjacency left the SET
+   **The roster went to 12 rooms / 26 tiles the round after, and is 7 rooms /
+   16 tiles today** (criticism 102 took five of the twelve): fixing the adjacency left the SET
    the detector walks — the cut — untouched, and round 14 rescoped it to every
    road-and-rampart tile. See criticism 32; that is two consecutive rounds in which
    this roster was wrong in a different dimension, which is the argument for
@@ -3499,7 +3765,12 @@ the layer-7 frame banner (the film bullet).
    them were candidates, offered parallels or owed refusals. Rescoped to every
    road-and-rampart tile: **12 rooms / 26 tiles** (from 7 / 14), **27 refusals**
    against the same 7 moves, every refusal carrying `kind` and what it was
-   `offered`. The reviewer's exhibit was **E5S9 `22,19`, whose free interior
+   `offered`. (Round 22 re-priced those refusals on a delta and the roster is
+   **7 rooms / 16 tiles / 22 refusals** now, against 12 moves — criticism 102.
+   All five rooms that moved were inside the D4→D8 roster of criticism 26 rather
+   than inside this entry's rescope, which is worth one clause: the five rooms
+   this entry ADDED still ship their runs, and the tiles it made visible are
+   refused today on numbers rather than on a scope gap.) The reviewer's exhibit was **E5S9 `22,19`, whose free interior
    parallel `22,20` had never been offered** — it is offered and refused now, with
    the count that refuses it (9 road tiles fall off the network). **The reason
    this document gave for that tile being invisible was itself wrong for a round
@@ -5105,7 +5376,7 @@ here only, per the convention rounds 15, 16 and 17 used:
    `bestDeepAnywhere`, and the per-candidate `offered[]` entries with their
    refusing instrument and their tour delta. Rendered from `meta.sealedRecovery`
    and nothing else, and gated in both directions like the other seven — **62
-   rooms with a record ↔ 62 notes ↔ 62 obligations, 0 orphans, 235/235 notes
+   rooms with a record ↔ 62 notes ↔ 62 obligations, 0 orphans, 236/236 notes
    byte-exact**, against **63 records**, because round 20's fixpoint chains one
    room (criticism 92) and the renderer recurses rather than pushing a second
    paragraph.
@@ -5521,6 +5792,26 @@ here only, per the convention rounds 15, 16 and 17 used:
    and its 477-spawn calibration on the retired 159-room one — are still carrying
    their world with them, because a dated figure is the one form of hand statistic
    this entry has ever allowed and the whole of its licence is the date.
+
+   **ROUND 22 GRADED IT AND THE ANSWER IS SPLIT: THE DATED FIGURES HELD AND THE
+   CLASS RE-OPENED A FOURTH TIME ANYWAY.** The test this entry set itself passed —
+   round 22's mechanical reviewer re-derived `layer-hub.mjs`'s dated spawn census
+   and it reproduces exactly (331 of 516 on full-8-exit tiles, and the 3/1 4/1 5/5
+   6/44 7/134 tail with it), so dating rather than deleting is a disposal that
+   survives a hostile round. And five NEW sites turned up in five files, three of
+   them in directories a previous round had called swept, including a numeral one
+   token off a sentence that had already been half-corrected: `push-plan.mjs:278`
+   had its byte figure updated to fit 124 roads and left "123 roads" in the same
+   clause. Six rounds, six rosters, every one disposed by deriving or deleting,
+   and the class still returning — which is the evidence that finally bought the
+   systemic fix this entry has been circling since round 8. It is a build gate
+   now, not a sweep: see criticism 94. **What this round adds to the entry is the
+   grading rule for the next one.** The question is no longer "did the sweep find
+   them all" — no sweep does — it is *"is this file in `numeral-audit.mjs`'s
+   `PENDING_FILES`, and if it is not, does the harness have a pattern for the
+   shape this numeral is written in"*. That question has an answer a command
+   prints, which is the only kind of closure condition this entry has ever
+   accepted anywhere else.
 
 Round-19 findings. **Two fresh reviewers, 19 confirmed findings between them** —
 the mechanical reviewer 0 CRITICAL, 4 MAJOR, 1 MEDIUM and 3 MINOR; the
@@ -6274,6 +6565,49 @@ which is the first time this campaign has separated those two jobs on purpose.
    was fixed this round by the producer cluster reaching outside its own
    partition, which is a person noticing rather than a rule, and it is the rule
    this entry is about.
+   **CLOSED IN ROUND 22, AND THE FIX IS A PROGRAM RATHER THAN A WIDER SWEEP.**
+   Round 22's mechanical reviewer produced the sixth roster of this class in six
+   rounds — five sites, in five different files, three of them in directories a
+   previous round had declared swept. At that point the diagnosis is not
+   carelessness and the remedy is not a better sweep: the cost of re-deriving a
+   sentence by hand is higher than the cost of believing it, every round, for
+   everyone, and the only thing that changes that arithmetic is a machine.
+   **`tools/plan-suite/v2/numeral-audit.mjs`** reads every `.mjs` under
+   `tools/plan-suite/v2/` plus `tools/server/push-plan.mjs`, finds numerals inside
+   COMMENTS AND STRING LITERALS with a single left-to-right scanner rather than a
+   regex (`"//"` inside a string and an apostrophe inside a comment are both
+   everywhere in this suite), matches a five-shape PATTERN LIBRARY — *"this fleet
+   ships N X"*, *"the fleet's N X"*, *"N X across M rooms"*, three completeness
+   idioms, and the room-road-count shape — and resolves every hit against
+   `plans-hub.json` through a REGISTRY of extractors covering every structure
+   type, the note and declaration counts, the per-gate/kind declaration census and
+   every fleet-level total the artifact has. **145 claims matched · 100 re-derived
+   and correct · 45 waived · 0 unowned · 0 WRONG**, exit 0; it runs as the last
+   step of a `--all-claimable` build (printing, because the artifact is already on
+   disk and killing a five-minute build over a comment teaches people to skip the
+   build) and as a hard gate standalone and inside `mutate.mjs`, where two
+   mutation cases shrink and grow the fleet under the prose and assert that it
+   bites. Three design decisions are the interesting part and all three are
+   refusals. **No tense heuristic**: attribution is something an author knows and
+   a regex guesses at, so a dated figure is marked `[r22-waived: reason]`, scoped
+   to the contiguous comment paragraph, nearest tag wins, and **every waiver and
+   its reason is printed on every run** — a waiver a reader cannot see is a
+   suppression. **A completeness denominator is checked as "is this the size of
+   ANY set this fleet has?"**, which is what makes a stale `159` wrong while
+   leaving `344/344` and *"the 133 rooms"* alone, and what keeps `174/318` from
+   matching at all. And **the `across` shape resolves only for quantities that are
+   fleet-wide by definition**, because *"40 roads across 37 rooms"* is a
+   tower-spur count and a checker that read it as the fleet's roads would be
+   confidently wrong — a false positive in a gate like this one costs more than
+   the rot it catches, because it teaches the next person to add a waiver instead
+   of a fix. **It earned itself inside its own round**: the five-tile board move
+   rotted four more numerals in the header the fix had just corrected — the
+   container chain 6/3 → 7/4, the two container passes 36/31 → 37/32, the no-D4-
+   face reading 218/143 → 219/143, and the eco-terminal chains, which came out
+   de-numeralised — and the gate caught all four, live, in the round that created
+   them. The scope finding at the head of this entry is what stays open, one
+   directory narrower: `PENDING_FILES` is empty, so every file the harness names
+   is swept, and the files it does not name are `docs/` — see criticism 105.
 95. **CLOSED IN ROUND 21 BY RULING (a), GENERALISED BEYOND THE LAP AND BEYOND
    THIS ROOM: A QUANTITY A ROOM DECLARES IS A KEY IN EVERY TIE-BREAK THAT ROOM'S
    PASSES RUN.** Filed as an adjudication request, ruled on by round 21's
@@ -6429,7 +6763,15 @@ which is the first time this campaign has separated those two jobs on purpose.
    the first-wins rule, the ordering and the totality are all still enforced and
    the set comparison is not, and that is written into the code at the site rather
    than glossed. It is the same missing artifact as criticism 93's pre-take board,
-   reached from a third direction, and it is filed as **criticism 99**.
+   reached from a third direction, and it is filed as **criticism 99**. (It
+   CLOSED in round 22, and the way it closed says the "missing artifact" framing
+   was wrong: the comparison never needed the pre-take BOARD, only the pre-take
+   key-set INPUTS, which are a bounded list the producer holds while it ranks and
+   can simply publish. A residue filed as physically unrecoverable was recoverable
+   the whole time, one abstraction lower — which is worth remembering the next
+   time this document writes off a check as impossible. And the totality gate
+   this sentence names as "still enforced" was, in the same rooms, the one that
+   turned out to be vacuous.)
    **And the entry grades itself on the thing it was afraid of.** It said the
    outcome it must not have is to stay open by silence. It closed in the next
    round, with a ruling that is wider than the question, a board change that the
@@ -6621,6 +6963,31 @@ The five bullets are the reader-channel and binding fixes:
    which is the second time this campaign has amended a contract rather than
    patching the rooms that break it, and both times the amendment was cheaper and
    more honest than the patch. 10 mutations.
+   **SETTLED IN ROUND 22, TWICE, AND ONE OF THE TWO SETTLEMENTS IS AGAINST A
+   PREVIOUS REVIEWER.** The round-21 mechanical report put E15S1's leak at **83**
+   against this entry's 85, which is a two-way disagreement about a number that
+   nobody could resolve by re-reading either document. Round 22's owner-voice
+   reviewer re-implemented the flood from scratch — its own engine semantics,
+   terrain dumped fresh from mongo, no suite imports — and got **85 and 89
+   exactly**, with the candidate and soloCloser sets and the minimality claim
+   identical, under both passability semantics; the mechanical reviewer's
+   independent re-derivation agreed. **The 83 is explained rather than
+   dismissed**, which is the part worth keeping: it is the same flood counted over
+   a core set WITHOUT `observer` and `container` — 85 − 1 observer (19,23) − 1
+   container (31,25) = 83, and under that same narrower set E5S6 reads 85 and not
+   89. Two right answers to two different questions, and the published one is the
+   one whose 12-type `CLOSURE_CORE` is spelled out in the validator's source. The
+   record is right; the lesson is that a leak count is meaningless without the
+   structure class it counts over, and this entry now says which.
+   **AND THE AMENDMENT REACHED NO READER FOR A ROUND.** The two rooms it applies
+   to printed only their single-removal redundancy note — whose blind spot is
+   precisely this finding — so a reader of E15S1's page was told no cut tile is
+   redundant and never told the cut leaks 85. There is a `shellClosure` note class
+   now, firing exactly where `closures.needed`, stating the leak, the minimal
+   closure, the substitution, why `sealCritical ⊆ cut` holds over a curve with a
+   hole in it, and that this is a description defect and not a safety one. An
+   amendment a reader cannot reach is an amendment to the code and not to the
+   contract.
 98. **STILL OPEN, AND IT IS THE INVENT DIRECTION AGAIN: A PRICED LANE-SHRINK
    THAT NEVER HAPPENED IS STILL PUBLISHABLE.** Round 20 closed the erase
    direction of the round-cap branch and round 21 closed the rest of what the
@@ -6647,8 +7014,26 @@ The five bullets are the reader-channel and binding fixes:
    that deletes a refusal and the half that is open is the half that manufactures
    one, and a reader who is told only the first would draw the wrong conclusion
    about which way this record can lie.
-99. **STILL OPEN, AND IT IS THE RULING'S OWN RESIDUE, STATED IN THE CODE AT THE
-   SITE: OBLIGATION (i) IS EXACT ONLY ON A BOARD NOTHING MOVED.** The declared-key
+99. **CLOSED IN ROUND 22 BY PUBLISHING THE INPUT INSTEAD OF MOURNING THE
+   ARTIFACT.** The entry below is kept verbatim because the way it closed is the
+   point: it had been filed as a missing-artifact residue — the same family as
+   criticism 93's pre-take board and criticism 88's rung trail — and the fix was
+   to notice that the set comparison does not need the pre-take BOARD, it needs
+   the pre-take KEY-SET INPUTS, which are a bounded list of `(at, gate, kind)`
+   triples the producer holds at the moment it ranks. Every record that publishes
+   a key set now also publishes `preTakeShortfallCount`, `preTakeShortfalls` in
+   declaration order and `preTakeShortfallBasis` — **67 records across both
+   passes and both branches** — and the validator runs the exact comparison
+   everywhere: `declaredKeys ∪ declaredSkipped` must account for every published
+   pre-take entry, once each, at its own index, pair for pair. The 15 moved
+   rooms are no longer the rooms where the gate is weaker; they are the rooms
+   where it reads a channel the shipped board cannot supply, which is what a
+   witness is for. The size of what was skipped is worth recording now that it is
+   not skipped: the reviewer measured the exact comparison as being declined on
+   **18 of 67 records across 15 rooms**, i.e. the gap was a quarter of the
+   channel and not the one room the entry names. Three residues are named at
+   criticism 104 rather than folded into this closure. **The finding as it stood:** OBLIGATION (i) IS EXACT ONLY
+   ON A BOARD NOTHING MOVED. The declared-key
    set is derived from `meta.shortfalls` on the PRE-TAKE board. Where the pass
    took something, the shipped plan is a re-composition and its declaration
    channel is not the one the pass ranked against — **E14S1's tower swap RETIRES
@@ -6663,8 +7048,15 @@ The five bullets are the reader-channel and binding fixes:
    the site it applies to, which is the minimum this document accepts for a check
    that is weaker in some rooms than in others — see criticism 70 for what
    happens when it is not.
-100. **STILL OPEN, AND BOUND ON ONE SIDE ON PURPOSE: `lanes.builtLap` HAS NO
-   UPPER BOUND, IN 8 NAMED ROOMS.** It is layer 6's reading of layer 6's OWN
+100. **STILL OPEN, AND CONFIRMED EXACT BY THE NEXT ROUND'S REVIEWERS RATHER THAN
+   RE-ARGUED: `lanes.builtLap` HAS NO UPPER BOUND, IN 8 NAMED ROOMS.** Round 22's
+   mechanical reviewer re-derived the roster independently — the same eight rooms,
+   all HIGHER, **0 lower, 164 equal**, and none of them a room whose board moved —
+   and the owner-voice reviewer wrote `+3` into BOTH copies in all eight and got
+   172/172 clean, which is the residue behaving exactly as this entry describes
+   it. An entry that survives a hostile re-measurement unchanged is worth one
+   sentence saying so, because the alternative reading of a residue nobody
+   re-tests is that it was over-stated when it was filed. It is layer 6's reading of layer 6's OWN
    board, not a copy of the shipped lap, and it differs from the shipped reading
    in **E11S2, E11S6, E13S4, E17S3, E17S8, E21S7, E2S5 and E7S9** — always
    HIGHER, never lower. The rooms that differ are not the rooms that publish a
@@ -6692,6 +7084,279 @@ The five bullets are the reader-channel and binding fixes:
    four edits, one of them a tile of the board, against the two it used to need.
    An exploit that gets more expensive is not an exploit that is closed, and the
    number this entry can be graded on is 4.
+   **CLOSED IN ROUND 22, AND THE EDIT COUNT WAS THE WRONG THING TO GRADE IT ON.**
+   Two things happened to this entry in one round and only the second one
+   matters. The first: round 22's owner-voice reviewer re-ran the hide and found
+   it now costs **six** edits, not four — the ruling's totality gate and the
+   `noteRecords` copy had become locks on it that nobody designed as locks, which
+   is a number going the right way for a reason this document could not have
+   predicted and therefore cannot take credit for. The second: the mechanical
+   reviewer landed the hide anyway at **two** edits, from a direction the count
+   never covered. `ctrlParkSeatSearchTiles` was checked for being walkable,
+   unique and chebyshev 1..3 of the controller — a membership predicate three
+   times too wide, since the real search output is the controller LINK's D8 seats
+   (6–8 tiles per room against 10–39 tiles in the ring) — and its anchor,
+   `ctrlParksBuiltTiles`, had no presence rule at all, so **deleting the anchor
+   and swapping every listed tile for another ring tile passed 172/172**. The
+   tiles that got swapped out were precisely the seats the extension mass ate:
+   the release's own evidence, replaced with tiles that satisfy the predicate and
+   witness nothing. The fix is not a bigger number, it is a different kind of
+   check: `ctrlParksBuiltTiles` is now DERIVED tile for tile from the shipped
+   board (`parksOf(ctrlLink)`, exact in 172/172) and in `REQUIRED_META`, and the
+   seat-search list is bound to the link's own D8 output (⊆ D8(`ctrlLink`) in
+   172/172) rather than to any tile in a ring. **The hide is impossible now at
+   any edit count that leaves the board intact**, because the fields it forges
+   are re-derived rather than compared, and this entry stops being gradable on an
+   integer — which is the honest ending, since an integer was what let a two-edit
+   exploit sit under a four-edit headline for a round.
+
+Round-22 findings. **Two fresh reviewers, 15 confirmed findings between them** —
+the mechanical reviewer 0 CRITICAL, 3 MAJOR, 3 MINOR and 1 LOW with **four
+exploits landed**; the owner-voice reviewer 0 BLOCKING, 5 MEDIUM and 3 LOW.
+**Third consecutive round with zero BLOCKING and zero CRITICAL**, and the second
+consecutive round whose board change was ordered by a reviewer rather than
+discovered by a pass — this time by a reviewer who re-derived six refusals by
+hand and found the predicate under them was not the one their own sentence
+prints. Both reviewers' whole-fleet re-derivations were clean before either
+found anything, and the list is worth its space because it is what makes the
+findings small: the shell closure record re-implemented from scratch off terrain
+dumped fresh from mongo, with no suite imports, reproducing **E15S1 leaked 85
+and E5S6 leaked 89** exactly along with the candidate and soloCloser sets and the
+minimality claim, under BOTH passability semantics; `sealCritical` 7191 with 0
+per-room mismatches; ramparts **8208 = 7234 cut + 807 bubble + 167 personal
+cover** with all 167 standing on a structure; roads 14,100, declarations 300 in
+157 rooms, shallow 25 in three rooms, every extension D4 on a road, 0 structures
+on natural wall, 0 illegal stacks, 0 leaks over the whole-rampart flood; the
+retired layer-3 refill mirror at 158/172 with exactly the 14 named rooms; the
+prune identities `2015 = 2014 + 1` and `2014 = 2002 + 12`; all 172 gallery cards
+and all 172 films re-derived with 0 mismatches; and the criticism-100 roster
+confirmed exact. **The mutation harness went 996 → 1085, all biting, +89 cases
+for this round's fixes**; `validate.mjs` ends on `pass 172/172 · fail 0 ·
+declared-shortfall 122` with every physical total 0. **And the strengthening is
+measured rather than asserted: the ROUND-21 artifact, unmodified, now passes only
+103 of 172 under this round's gates** — 69 rooms fail, and the delta-refusal gate
+bites it in exactly the five rooms the owner-voice reviewer named. **The five
+exploit scripts the mechanical reviewer wrote were kept and re-run VERBATIM
+against the finished artifact through the real validator, and all five bite** —
+X1c on E11S7, X2 on E18S3, X3 on E11S7, X4 on E12S5 and E9S2, X5 on E9S2 —
+which is the only form of "we closed it" this document accepts, because a fix
+graded by its author against a description of the attack is a fix graded against
+prose. And one number that had been in dispute between two rounds' reviewers is
+settled rather than averaged: the round-21 report's **83** and this record's
+**85** are the same flood over two different structure classes, and the record's
+is the published one — see criticism 97, where the mechanism is written down
+instead of the verdict.
+**Three themes, and the first one is the round.**
+First: **every gate this campaign added in the last two rounds was checked
+against something the producer still owned, and all three of the round's MAJORs
+are that sentence in three channels.** The ruling's TOTALITY gate counted the
+`at` indices of the key set against the key set's OWN length, so on the fifteen
+rooms where the ruling actually bites — the ones whose board moved, where
+criticism 99 had already conceded the set comparison — a fabricated key and a
+deleted key both passed at three meta edits and no board tile. `decidedBy`'s
+ABSENCE was derived by re-ranking counterfactual panels describing boards nobody
+built, so a two-leaf edit that preserved the record's own `before + delta ===
+after` identity erased the one `decidedBy` in the fleet. And round 21's "third
+witness" for the park release was anchored to a RING rather than to the seat
+search, with the anchor itself deletable. Three fixes, one shape: publish the
+input the gate needs (criticism 99), reconstruct the counterfactual and re-walk
+it (criticism 103), or derive the witness instead of trusting it (criticism 101).
+Second: **a predicate can be exactly right in every room and still be the wrong
+predicate**, which is criticism 102 and the only board change of the round.
+Third: **the stale-figure class stopped being a sweep and became a build gate.**
+Six rounds, five directories, four rounds of "swept every file" — and this round
+it is a program, `numeral-audit.mjs`, wired into the build and into the mutation
+harness, which caught four of its own round's rot live. See criticism 94.
+**Two of the fifteen get a new entry (102, 103), two CLOSE round-21 entries in
+place (99, 101), and the remaining eleven are listed here in seven bullets**,
+because the tower-swap silence and its withdrawable record are one finding from
+two sides and the two legend findings are one swatch. The two closures are
+written up where they stand rather than re-numbered, for the reason this list
+keeps re-learning: a closure recorded somewhere other than the entry it closes is
+a closure nobody can check. **Two further entries below are not findings at
+all** — 104 and 105 are residues this round names rather than closes, and both
+were filed by the clusters against their own work.
+- **MINOR: 30 of the 46 always-present top-level `meta` keys had no presence
+  rule, and 10 of them are READ behind `if (…)`/`?.` guards.** One key deleted
+  per room across 46 distinct rooms, one validator run: **pass 156/172**. This is
+  criticism 14's finding at the fifth round of the same list — a re-derivation
+  that runs only when the key is present is switched off by deleting the key —
+  and it is the enabler that turned the third-witness finding from a forge into a
+  deletion. All 30 are in `REQUIRED_META` now with shape predicates rather than
+  bare presence, and the ten guarded readers are unguarded, because a guard on a
+  required key is a reader saying it does not believe the schema.
+- **MINOR: the audited exclusion of `maybeReleaseParks` audited a FILE CONSTANT.**
+  The stated ground for exempting the parks pass from the declared-key rule is
+  that its first key already IS a declared quantity — checked as
+  `extensions/shallow ∈ DECLARED_QUANTITIES`, which is room-independent and
+  therefore true in every room including the ones where it is false. **E12S5
+  files no `extensions/shallow` declaration at all** and ships 0 shallow
+  extensions, so reason 1 is materially false exactly there; the exclusion rests
+  on reason 2, which is sound. The check is room-derived now and each room states
+  which of the two reasons it stands on.
+- **MEDIUM: a declared KEY whose declared value and whose ranked value were
+  different quantities, in 674 of 674 panels.** `misc/off-network` publishes TWO
+  tiles — the mineral seat and the extractor, both named since criticism 11 — and
+  the instrument the tie-break ranked on read **1**, because `countOffNetwork`
+  was an adjacency test wearing the word "reach" and `NETWORK_KINDS` omitted the
+  extractor. Inert, since a constant cancels in every before/after comparison, and
+  dishonest by the declared-key map's own header, which says the instrument reads
+  the declaration. It is the sitter's own D8 road+container component now, with
+  the extractor counted: **674 mismatched panel readings → 0**, and no ranking
+  moved anywhere in the fleet.
+- **MEDIUM: the notes recited the declared quantities in the winning sentence and
+  named the key that actually decided in none of the takes.** The tie-break was
+  reported as *"ahead of …"* with the panel figures beside it, which is the
+  evidence and not the reason. Every take now carries a `WHAT DECIDED IT` clause
+  derived from the record's own published order against the candidate the pass
+  placed SECOND — **`extTourDelta` 7 · single-candidate 3 · raster 1 ·
+  `gainedDeep` 1** over the twelve recovery takes and **single-candidate 3** over
+  the three tower swaps — with honest branches for *"no tie-break ran — exactly
+  one candidate cleared the panel"* and for raster order, which the sentence
+  calls what it is: not a reason, a tie-break of last resort. `decidedBy` is
+  untouched and the note now SAYS the two answer different questions, because
+  "the declared quantities are tied between these two" next to "a declared
+  quantity decided this tie-break" reads as a contradiction otherwise.
+- **LOW ×2, one swatch: the room-page sprite legend keyed a sprite the page draws
+  UNDER another one.** `THUMB_PAINT.extractor` was byte-identical to
+  `MARKER_PAINT.mineral`, and `renderRoomSvg` paints the mineral straight over
+  the extractor on the same tile in all 172 rooms — so the key carried two rows
+  in one colour and the row labelled "Extractor" pointed at an occluded sprite.
+  The extractor is a hue nothing else uses now, the legend gained the Mineral row
+  it never had, and the Extractor row says it is drawn under the mineral. Round
+  21 reported this residue and left it; the round-21 comment saying it was "left
+  alone" is replaced by what was done.
+- **MEDIUM ×2 + LOW: A PASS THAT MOVES A TOWER ON THE SHIPPED BOARD IN THREE
+  ROOMS WAS IN NO READER CHANNEL AT ALL, ITS RECORD WAS WITHDRAWABLE, AND THE
+  SEALING-CURVE AMENDMENT REACHED NOBODY EITHER.** Three findings, one silence:
+  the across-prior tower swap had no note class, no declaration, no gallery
+  badge, and a film that captioned the tile it moved the tower TO as layer 3's
+  own set-cover pick; `meta.towers.acrossPriorTake` was not in `REQUIRED_META`,
+  so deleting it outright in a room whose `towerSwapTaken` still said a tower
+  moved passed 172/172, taking the whole evidence for obligation (iii) with it,
+  while `taken.from` could be forged two keys away from its own twin and
+  `taken.why` was free text; and the two rooms carrying criticism 97's
+  sealing-curve amendment printed only the single-removal redundancy note whose
+  blind spot IS the amendment. Fixed as two new note classes with obligations and
+  bindings, `REQUIRED_META` plus twin-binding plus a derived enum on the record,
+  and two new film stages that paint the pre-swap tile and erase it. The full
+  write-up is under the planner-note bullet in the gates section, because that is
+  where the class inventory lives.
+- **MINOR + LOW: the stale-figure class, round six.** Five sites re-derived wrong
+  by the mechanical reviewer (`push-plan.mjs:948` 60/53 → 62/55, `:278` E12S6 123
+  → 124 roads with the paired byte figure already corrected, `layer-walls:4411`
+  60 → 62, `validate:13741` 1994 → 1997, `validate:12605` one crossing room →
+  two) plus two present-tense E11S7 lap claims in `layer-ext.mjs`, a file no
+  previous sweep had reached. The sites are derive-or-deleted and the class
+  finally has the systemic fix it has been earning since round 8 — see criticism
+  94, and the harness paragraph under the mutation bullet for what it is.
+102. **MEDIUM (BOARD), AND IT IS THE ONLY BOARD CHANGE OF THE ROUND: THE SWAP
+   PASS REFUSED SIX FREE MOVES ON AN ABSOLUTE PREDICATE UNDER A SENTENCE THAT
+   PROMISES A DELTA.** Layer 7 stage 5b publishes *"taken only when the network
+   is measurably no worse"*. `netWhy` asked whether the swapped-to board HAS a
+   container off the road network — not whether the swap PUTS one there — and in
+   six candidates across five rooms the container it named was the mineral seat,
+   off the network before and after and declared as such by the same room under
+   `misc/off-network`. The owner-voice reviewer re-derived all six by hand: roads
+   falling off the network 0 → 0, structures newly without a face 0, extensions
+   without a D4 road 0 → 0, road count unchanged. Six free swaps refused, and
+   **five rooms therefore shipped a paved run along their own wall that this
+   exact pass exists to remove** — the anti-pattern surviving inside the
+   machinery built to delete it, which is the worst place for it to survive.
+   `netWhy(before, after)` is a four-axis delta now and a refusal must name an
+   axis the swap makes numerically worse, with `alongCutRefused[].baseline`
+   publishing the readings the subtraction is taken against. **Five of the six
+   take** (E15S1 `15,18→16,18` · E18S9 `43,6→43,5` · E19S9 `13,33→14,33` · E7S9
+   `26,27→27,27` · E9S8 `19,24→18,24`) **and the sixth is refused again, on a
+   number**: E9S8's two moves INTERACT in the pass's row-major sweep order, so
+   once `19,24` has gone to `18,24` the second move strands the stub that `18,24`
+   is now holding on, and the refusal publishes the subtraction — *"1 more road
+   tile(s) fall off the network (0 → 1; newly off: 18,24)"*. **That disagreement
+   between the reviewer's roster and the fix's output is the most useful line in
+   this entry**: a hostile re-derivation that prices each move against the
+   shipped board is measuring a board the pass never sees, and the honest
+   response to "the owner said six" was to publish the fifth-and-sixth
+   interaction rather than to take six moves and call the roster confirmed. The
+   fleet after it is in the status block above; the one prose casualty is
+   E15S1's note, which asserted that *"every interior parallel breaks the
+   network"* for `15,18` when that tile's parallel breaks nothing — a false
+   sentence sitting next to a true one about `15,17`, for four rounds, inside a
+   channel this document has gated twice.
+103. **MAJOR: `decidedBy`'s ABSENCE WAS DERIVED OVER PANELS DESCRIBING BOARDS
+   NOBODY BUILT, AND THE FILE SAID SO IN ITS OWN COMMENT.** Obligation (ii) of the
+   round-21 ruling requires a take to publish `decidedBy` when a declared key
+   changed the pick, and its absence to be DERIVABLE — the validator re-ranks the
+   record's own accepted candidates without the declared keys and requires the
+   winner not to move. Those candidates' panels are counterfactuals, and the
+   validator's own source says three hundred lines away that *"no board here can
+   be compared with them"*; only a terrain floor bounded `extTourDelta`. A
+   coherent two-leaf edit — E11S7's `offered[20,8]` moved `extTourDelta -46 →
+   -23` and `extTourAfter 488 → 511`, preserving the record's own
+   `before + delta === after` — deleted the ONE `decidedBy` in the fleet and its
+   note sentence, at three meta edits and no board tile. **The fix is that the
+   counterfactual is now reconstructible.** `extTourSteps` reads exactly five
+   things, so the producer publishes what MOVED for each priced candidate
+   (`offered[].moved`: the extension seats vacated, where the mass re-seated, any
+   other input that moved with its type named, the exterior-flood diff, and
+   whether the tour board is identical) on **976 panels**; the validator rebuilds
+   each run's own pre-board by undoing the taken candidate's moved chain, applies
+   the witness, re-floods, re-walks the tour and requires `extTourAfter` to match
+   **exactly, 976/976**. `otherMoved` is non-empty in 13 of the 976 and every one
+   is small and named — an observer that follows a withdrawal, a rampart set that
+   shifts by one. **The best evidence that this is a witness and not a
+   restatement is that it produced a disagreement**: the validator's first
+   reconstruction made E2S1's `offered[38]` and `[43]` walk 826 against a
+   published 827, the cluster filed it as a producer finding, and the producer's
+   answer was that the reconstruction had seeded the observer from the shipped
+   board while E2S1's take is the one run that MOVES an observer. The validator
+   was wrong, it said so in writing, and neither half could have found that
+   without the other one publishing its work.
+104. **STILL OPEN, AND EVERY ONE OF THESE WAS FILED BY THE CLUSTER THAT WROTE THE
+   FIX AGAINST ITS OWN FIX.** Four residues, none of them large, all of them the
+   kind that a round which declared victory would not have written down.
+   (a) The along-cut refusal MAGNITUDES are producer-witnessed: a refusal that
+   says five roads fall off the network is priced on the mid-layer-7 board, and
+   no flood over the SHIPPED board reproduces that number, because the board the
+   refusal describes is one the fleet does not ship. The gate checks the
+   subtraction against the published baseline and the baseline against the four
+   axes; what it cannot do is re-run the pass. Same family as criticism 93's
+   pre-take board.
+   (b) The counterfactual tour is pinned to the WITNESS and not to the COMPOSER —
+   `offered[].moved` is re-walked exactly, but nothing re-derives that the witness
+   is what the composition pass would have produced for that candidate. Closing it
+   means re-running the composer per candidate, 976 times, and the honest reason
+   it is not closed is cost, which is worth stating as a reason rather than
+   leaving as an implication.
+   (c) MF1's board-side cross-check — every shipped declaration must appear in
+   `declaredKeys ∪ declaredSkipped`, 67/67 — has a reverse direction that is
+   non-empty in exactly **3** records, the ones whose room retired its
+   `towers/clump` declaration through the tower swap. Those three are recognised
+   by name, so a fourth would fail; a producer that forged a clump retirement in
+   one of the three could still hide a key there, at four coordinated edits.
+   (d) `offered[].moved` does not require the withdrawn seat to be ABSENT from
+   the candidate board — measured against the producer's witness the tour
+   re-derives with the withdrawal implicit in 60 of E11S7's 61 panels, so that is
+   not the semantics the field carries today. It is named here rather than gated,
+   because a gate written on a guess about what a field means is how criticism 70
+   started.
+105. **STILL OPEN, AND IT IS THE NEW HARNESS'S OWN BLIND SPOT: `numeral-audit.mjs`
+   READS THE SUITE'S COMMENTS AND NOT THIS DOCUMENT.** The round's systemic fix
+   scans every `.mjs` in `tools/plan-suite/v2/` plus `tools/server/push-plan.mjs`
+   and resolves every fleet-numeral claim it matches against `plans-hub.json` —
+   145 claims, 100 re-derived, 45 waived, 0 unowned, 0 wrong, and the standalone
+   run exits 1 on rot. It does not read `docs/BASE-PLANNER-PERFECTION-GOAL.md`,
+   which is the single largest collection of hand-carried fleet numerals in this
+   repository and the one criticism 80 and criticism 94 have both had to sweep by
+   hand. **This round found one instance while writing this entry**: the
+   laid-versus-shipped road-kind table under the film bullet still read
+   `spur 380 / 375` a full round after the block sixteen hundred lines above it
+   recorded round 21 taking five spur tiles off E11S7 — a stale figure inside the
+   paragraph whose entire subject is dating figures. Extending the harness to
+   markdown is not free: this document quotes retired numerals ON PURPOSE, in
+   quantity, as the evidence for the entries that retired them, so a naive scan
+   would report hundreds of correct sentences as rot and the waiver tagging that
+   makes the source scan work would have to be invented again for prose a human
+   reads. That is the actual open question and it is stated rather than promised.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 
@@ -6768,6 +7433,17 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
+- Mutations: `.../mutate.mjs` (**1085/1085 bite** against a clean 172/172
+  baseline; `--only r22/` for one round's block; honours `PLANS_FILE` and never
+  writes the artifact)
+- Numeral rot: `.../numeral-audit.mjs` — the stale-figure gate (criticism 94).
+  Run it standalone and it exits 1 on any current-tense fleet numeral in the
+  suite's comments or strings that `plans-hub.json` refutes; a `--all-claimable`
+  build runs it as its last step and prints. A figure that is dated rather than
+  live gets `[r22-waived: why]` in its own comment paragraph, and every waiver is
+  printed on every run. **Widening it is adding a row to one of two tables**
+  (`PATTERNS`, `QUANTITIES`/`fleetTotals`) — do that rather than hand-sweeping the
+  next roster.
 - Anims: `.../export-anim.mjs --all` — **run it after every suite run.** The suite
   does not write the films and now says so when they no longer match the plan
   (`planHash`); a gallery whose player claims "this last frame IS the shipped

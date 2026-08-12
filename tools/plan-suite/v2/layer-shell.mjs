@@ -2137,6 +2137,9 @@ export function planShell(terrain, plan, opts = {}) {
   // OBJECT: it denies the only tiles a hostile claim/attack creep can stand on
   // to reach the controller. Deleting one changes no depth anywhere and the
   // prune duly deleted 161 of them across 66 rooms, quietly reopening every
+  // [r22-waived: the DEFECT this declaration fixed, measured on the build it was
+  // found on — the pass cannot delete a declared ring tile any more, so the
+  // number is history and re-deriving it would mean re-running the old code.]
   // ring the goal document mandates. So the ring is DECLARED, by tile, and
   // layer 7 reads the declaration instead of re-deriving intent from geometry.
   const standDenial = [];

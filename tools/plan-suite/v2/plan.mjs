@@ -304,6 +304,26 @@ function animNotes(plan) {
   if (m.towers) {
     n.towers = `the weakest wall tile still takes ${m.towers.minShellDmg} damage a tick (${m.towers.avgShellDmg} average) · every tower refills within ${m.towers.maxRefill} steps`;
   }
+  // OM2 (round 22) — the swap's two beats get the room's own numbers under them,
+  // like every other stage. Read off `acrossPriorTake`, which is also what the
+  // room's `towerSwap` note is rendered from, so the film and the prose cannot
+  // disagree about what the pass bought.
+  {
+    const apt = m.towers?.acrossPriorTake;
+    const tk = apt?.taken;
+    if (tk && tk.from && tk.to) {
+      n.towerGhost =
+        `layer 3's set-cover chose (${tk.from.x},${tk.from.y}) and a later pass moved it — the tile is a ` +
+        `ghost here and this film erases it a beat from now, so the last frame is still the shipped plan`;
+      n.towerMove =
+        `(${tk.from.x},${tk.from.y}) → (${tk.to.x},${tk.to.y}) — ` +
+        (tk.why === "clump"
+          ? `towers within chebyshev 2 of the sitter ${apt.before.clump} → ${apt.after.clump}, retiring this room's clump declaration`
+          : `the weakest cut face ${apt.before.face} → ${apt.after.face} damage a tick`) +
+        ` · the filler's per-tower walks ${(apt.before.refillWalks || []).join("/")} → ${(apt.after.refillWalks || []).join("/")}` +
+        ` · ${apt.offered.length} offer(s) composed, ${apt.accepted} cleared the panel`;
+    }
+  }
   if (c.lab) n.labs = `${c.lab} labs — both inputs within range 2 of every output`;
   if (c.nuker) n.nuker = "300k energy and 5k ghodium have to be hauled here, so it hugs the hub";
   // THE ONE PLACEMENT STAGE THAT HAD NO NUMBER UNDER IT. Every other stage
@@ -898,7 +918,14 @@ ${animShortfallTicker(plan)}
     claims:     [1, 'the hub', 'storage, terminal, link, spawns and miner seats — one deliberate tile at a time', 'tiles', '1 · hub'],
     roads:      [1, 'the eco roads', 'one connected web: hub to spawns to sources to controller — this is the ONLY road set that exists before the wall', 'tiles', '1 · roads'],
     ramparts:   [2, 'the wall', 'the cheapest rampart line that seals the base (distance-weighted min-cut)', 'ramparts', '2 · wall'],
+    // OM2 (round 22) — the across-prior tower swap, in the three channels it was
+    // missing from. towerGhost is layer 3's OWN pick for the tower a later pass
+    // moved, painted on the ghost canvas so it can be erased; towerMove is that
+    // erase. Without them this film drew the swap's output under layer 3's
+    // caption and the tile layer 3 actually chose was in no frame at all.
+    towerGhost: [3, 'layer 3\\'s own pick', 'where the set-cover put this tower, before the across-prior swap moved it after layer 3 had finished', 'towers', '3 · pre-swap'],
     towers:     [3, 'towers', 'set-cover the wall so no rampart tile is out of tower range', 'towers', '3 · towers'],
+    towerMove:  [3, 'the across-prior swap', 'a tower moved after layer 3 was done — the room re-composed from layer 1 with the swap held, kept only because every instrument held and it lifted the weakest face or retired the clump declaration', 'moves', '3 · swap'],
     roadsTwr:   [3, 'tower spurs', 'the refill road to each tower, laid by the same pass that placed it', 'tiles', '3 · spurs'],
     labs:       [4, 'labs', 'the one stamp worth keeping — a diamond where every reagent pair is in reach', 'labs', '4 · labs'],
     roadsLab:   [4, 'lab access', 'paved AFTER the diamond: the anchor scan rejects a lab site that touches an existing road, so this road cannot be on screen while the labs are chosen', 'tiles', '4 · lab road'],
@@ -959,7 +986,12 @@ ${animShortfallTicker(plan)}
     ramparts: '#rampart', towers: 'tower', labs: 'lab',
     nuker: 'nuker', observer: 'observer', extractor: 'extractor',
     extensions: 'extension', extAdd: 'extension',
-    extGhost: '#extghost', extMove: '#unghost'
+    extGhost: '#extghost', extMove: '#unghost',
+    // OM2 (round 22) — the tower swap's pre-tile and its erase. They are the
+    // same paint-then-erase pair as layer 6's relocation and they route onto the
+    // ghost canvas by exactly the same test (isGhostStage reads THIS table), so
+    // the erase cannot reach a structure that later stands on the vacated tile.
+    towerGhost: '#extghost', towerMove: '#unghost'
   };
   // stages whose steps are expanded back into ONE PLACEMENT PER TILE.
   // extAdd is listed for the same reason it is in STAGE_KIND: it is the same
@@ -1001,7 +1033,8 @@ ${animShortfallTicker(plan)}
     seed: 1,
     ramparts: 1, towers: 1, labs: 1,
     nuker: 1, observer: 1, extractor: 1, extensions: 1, extAdd: 1,
-    extGhost: 1, extMove: 1
+    extGhost: 1, extMove: 1,
+    towerGhost: 1, towerMove: 1
   };
   // scaffold stages that live on the LATE scaffold canvas (dimmed at the wall)
   var SCAFF_LATE = { basin: 1, core: 1 };
@@ -2252,7 +2285,9 @@ function warnStaleAnimations(plans) {
   }
 }
 
-function main() {
+// async only for the numeral-rot gate at the bottom, which is imported lazily so
+// a --rooms run never pays for it and a broken audit tool cannot stop a build
+async function main() {
   // TRUE PROCESS WALL CLOCK. The line at the bottom of this report used to say
   // "total Ns" and that number was sum(meta.planMs) — in-planner time only. It
   // excluded the mongo fetch, the validation pass, the SVG render and 159 file
@@ -2589,6 +2624,9 @@ ${thumbLegendHtml()}
   // Layer 6's end-of-pass rescue and layer 7b's post-prune reflow both move
   // shallow extension slots onto deep floor, both are drawn in the film, and
   // neither had a fleet line. So the totals lived in comments — in
+  // [r22-waived: this paragraph QUOTES the stale comments this fleet line
+  // replaced — the numerals are the evidence that they were wrong, and
+  // correcting them would delete the finding.]
   // export-anim.mjs ("78 moves across 25 rooms", "48 in 16 against layer 6's 80
   // in 25") and in animNotes ("98 of the 99 layer-6 relocations took a stub") —
   // every one of them typed, and every one of them wrong by round 19. They are
@@ -3040,6 +3078,50 @@ ${thumbLegendHtml()}
       `${(suiteS - inPlanner).toFixed(1)}s of mongo fetch, SVG render and ${ok.length} file writes). ` +
       `Quote this one when you mean "the suite".`,
   );
+  // ------------------------------------------------------------------
+  // Mm5 (round 22) — THE NUMERAL-ROT GATE, RUN ON THE ARTIFACT THIS BUILD JUST
+  // WROTE.
+  //
+  // Six review rounds running, the same defect: a current-tense fleet numeral
+  // typed into a comment, true on the build it was typed against and false on
+  // the one that ships. Every previous fix was a re-typed number and every one
+  // of them rotted again. Prose was the last channel in this project with no
+  // re-derivation behind it; `numeral-audit.mjs` is that re-derivation, and it
+  // belongs HERE because a gate that only runs when somebody remembers to run
+  // it is the honour system with a filename.
+  //
+  // FLEET RUNS ONLY. A `--rooms E9S2` build overwrites plans-hub.json with one
+  // room, and auditing prose about the fleet against a one-room artifact would
+  // fail on every correct sentence in the repository. The gate reads the fleet
+  // and it runs when the fleet was planned.
+  //
+  // It PRINTS rather than throws: the artifact is already on disk and correct,
+  // and refusing to finish a 20-minute build over a comment would teach the
+  // next person to skip the build. The exit code carries it instead —
+  // `node numeral-audit.mjs` is the standalone gate and it exits 1, which is
+  // what CI and the round's final check read.
+  // ------------------------------------------------------------------
+  if (fullFleet) {
+    try {
+      const { runAudit } = await import("./numeral-audit.mjs");
+      const code = runAudit({ log: (s) => console.log(s) });
+      if (code) {
+        console.log(
+          `NUMERAL AUDIT FAILED — the prose above disagrees with the artifact this run just wrote. ` +
+            `Fix the figure, give the quantity an extractor in numeral-audit.mjs, or tag the line ` +
+            `[r22-waived: why]. Standalone: node tools/plan-suite/v2/numeral-audit.mjs --list`,
+        );
+      }
+    } catch (e) {
+      console.log(`numeral audit: could not run (${e && e.message})`);
+    }
+  }
 }
 
-main();
+// main() became async for the numeral gate; an async main whose rejection is
+// unhandled exits 0 with a warning, which is exactly the kind of silent pass
+// this suite spends its rounds closing.
+main().catch((e) => {
+  console.error(e);
+  process.exit(1);
+});

@@ -406,7 +406,17 @@ export const THUMB_PAINT = [
   ["container", "#ffd27f", "Container"],
   ["nuker", "#ff5566", "Nuker"],
   ["observer", "#66ddff", "Observer"],
-  ["extractor", "#e0a6ff", "Extractor"],
+  // ML7 / OL1 (round 22): THIS WAS `#e0a6ff` — byte-identical to
+  // MARKER_PAINT.mineral, which the thumbnail paints as a DOT on the very same
+  // tile a beat later. So the extractor square was drawn and then covered by a
+  // dot of its own colour, and the key carried two rows in one colour: a reader
+  // met #e0a6ff labelled "Extractor" and #e0a6ff labelled "Mineral" and could
+  // not tell which of them the pixel under the cursor was. (Round 21 added the
+  // Mineral row and left the collision standing, with a comment saying so.) The
+  // extractor gets its own hue — a colour nothing else in this table or in
+  // MARKER_PAINT uses — so the dot now sits inside a ring of extractor colour
+  // and both rows key something a reader can find.
+  ["extractor", "#2fa3a0", "Extractor"],
   // O7 (round 17): NO FACTORY ROW. The RCL8 program this planner ships forbids
   // the factory and the power spawn outright (pipeline.mjs's layer-5 header
   // says so, and plan.mjs's own structure table prints "no factory, no power
@@ -536,11 +546,12 @@ export function thumbLegendHtml() {
   // Two markers were being keyed by hand, one at a time, which is why the third
   // could go missing at all; the rows are now generated FROM MARKER_PAINT, so
   // every dot the painter can draw has a labelled swatch and a fourth marker
-  // added to the paint cannot arrive on the boards unkeyed. (The collision with
-  // the extractor swatch is real and left alone: both are published colours and
-  // this fix changes none of them. The extractor keeps its row; the mineral now
-  // has one too, and the round shape distinguishes the dots from the structure
-  // squares in the key exactly as it does on the thumbnail.)
+  // added to the paint cannot arrive on the boards unkeyed. (Round 21 left the
+  // extractor/mineral COLLISION standing and said so in this comment: two rows,
+  // one colour, on the one tile in the room where both are painted. ML7/OL1,
+  // round 22: the extractor now has its own hue in THUMB_PAINT, so the dot sits
+  // inside a ring of it and each row keys something a reader can actually find.
+  // The round shape still distinguishes the markers from the structure squares.)
   const MARKER_LABEL = { source: "Source", controller: "Controller", mineral: "Mineral" };
   for (const [key, color] of Object.entries(MARKER_PAINT))
     html += swatch(color, MARKER_LABEL[key] || key, "border-radius:50%");
@@ -594,13 +605,26 @@ export function legendHtml(inv = null) {
     ["extension.svg", "Extension", "extension"],
     ["nuker.svg", "Nuker", "nuker"],
     ["cover.svg", "Observer", "observer"],
-    ["extractor.svg", "Extractor", "extractor"],
+    // OL1 (round 22) — THE EXTRACTOR ROW KEYED A SPRITE NOBODY CAN SEE, AND THE
+    // SPRITE ON TOP OF IT HAD NO ROW AT ALL.
+    //
+    // renderRoomSvg draws the structure `order` (extractor last of it), then the
+    // sources, then the controller, then the MINERAL — and the extractor stands
+    // ON the mineral by construction, one tile, always. So `extractor.svg` is
+    // painted and `harvest-mineral.svg` is painted straight over it in every one
+    // of the 172 rooms, and this key labelled the buried one and never named the
+    // visible one. Source and Controller were already keyed as objects; the
+    // mineral is the third and was simply missed. Both rows ship now, and the
+    // extractor's says where its sprite went, so a reader looking at that tile
+    // can match what is on screen to a row instead of to the one underneath it.
+    ["extractor.svg", "Extractor", "extractor", " — drawn under the mineral, same tile, always"],
     ["tombstone.svg", "Container", "container"],
     ["harvest-energy.svg", "Source", null],
     ["controller.svg", "Controller", null],
+    ["harvest-mineral.svg", "Mineral", null],
   ]
     .filter(([, , t]) => t === null || has(t))
-    .map(([file, label, t]) => [file, t === null ? label : label + cnt(t)]);
+    .map(([file, label, t, tail]) => [file, (t === null ? label : label + cnt(t)) + (tail || "")]);
   let html =
     '<div class="legend" style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:12px 0;font-size:13px;color:#bcc">';
   for (const [file, label] of items) {

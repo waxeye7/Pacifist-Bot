@@ -53,7 +53,12 @@ const STAGE_RATES = {
   claims: 0.5,
   roads: 1.5,
   ramparts: 0.7,
+  // OM2 (round 22) — the across-prior swap's ghost and its erase. Slow, like
+  // every other beat where the plan takes something back: it is one tile and it
+  // is the moment a later pass overrules layer 3's own search.
+  towerGhost: 0.4,
   towers: 0.4,
+  towerMove: 0.4,
   roadsTwr: 1,
   labs: 0.7,
   roadsLab: 1,
@@ -93,7 +98,9 @@ const STAGE_SCAFFOLD = {
   claims: false,
   roads: false,
   ramparts: false,
+  towerGhost: false,
   towers: false,
+  towerMove: false,
   roadsTwr: false,
   labs: false,
   roadsLab: false,
@@ -669,9 +676,62 @@ export function buildAnim(room, terrain, plan) {
     }
     flush();
   }
-  for (let i = 0; i < (plan.structures.tower || []).length; i++) {
-    const t = plan.structures.tower[i];
-    sb.push("towers", `tower ${i + 1}/${plan.structures.tower.length} — shell set-cover`, sb.flat([t], "#ff8844"));
+  // ------------------------------------------------------------------
+  // OM2 (round 22) — THE ACROSS-PRIOR SWAP IS DRAWN, AND THE TILE IT CAME FROM
+  // IS ON SCREEN.
+  //
+  // `maybeTakeTowerSwap` moves a tower AFTER layer 3 has finished — three rooms
+  // in this fleet — and this stage painted the tile it moved the tower TO under
+  // "tower n/6 — shell set-cover", which is a caption naming a pass that did not
+  // choose that tile. Layer 3's own pick was never on screen in any frame, so
+  // the one channel a reader watches to see what the planner did showed the
+  // swap's OUTPUT attributed to the search it overrode, and the swap itself not
+  // at all. (E3S1's priced REFUSAL is silent here too, and always will be: a
+  // refusal moves no tile and there is nothing to draw. It has a note now.)
+  //
+  // Same shape as layer 6's relocation, and for the same reason: the pre-swap
+  // tile is PAINTED as a ghost on the ghost canvas and a later beat ERASES it,
+  // so the last frame still equals the shipped plan tile for tile while the move
+  // is legible. The swapped tower's own caption in the `towers` stage says what
+  // moved it and what it bought.
+  // ------------------------------------------------------------------
+  const towerList = plan.structures.tower || [];
+  const swapTake = plan.meta?.towers?.acrossPriorTake?.taken || null;
+  const swapIdx =
+    swapTake && swapTake.from && swapTake.to
+      ? towerList.findIndex((t) => t.x === swapTake.to.x && t.y === swapTake.to.y)
+      : -1;
+  const swapBought =
+    swapTake && swapTake.why === "clump"
+      ? "retire this room's tower-clump declaration"
+      : "lift the weakest tile of the wall";
+  if (swapIdx >= 0) {
+    sb.push(
+      "towerGhost",
+      `tower ${swapIdx + 1}/${towerList.length} — layer 3's own set-cover pick at ` +
+        `${swapTake.from.x},${swapTake.from.y}, before the across-prior swap moved it`,
+      sb.flat([swapTake.from], "#ff8899"),
+    );
+  }
+  for (let i = 0; i < towerList.length; i++) {
+    const t = towerList[i];
+    sb.push(
+      "towers",
+      i === swapIdx
+        ? `tower ${i + 1}/${towerList.length} — MOVED HERE after layer 3 finished: the across-prior swap ` +
+          `took ${swapTake.from.x},${swapTake.from.y} -> ${swapTake.to.x},${swapTake.to.y} to ${swapBought}`
+        : `tower ${i + 1}/${towerList.length} — shell set-cover`,
+      sb.flat([t], "#ff8844"),
+    );
+  }
+  if (swapIdx >= 0) {
+    sb.push(
+      "towerMove",
+      `the across-prior swap: ${swapTake.from.x},${swapTake.from.y} -> ${swapTake.to.x},${swapTake.to.y}, ` +
+        `taken to ${swapBought} — layer 3's tile is vacated, and the room was re-composed from layer 1 ` +
+        `with the swap held before it was kept`,
+      sb.flat([swapTake.from], "#ff4444"),
+    );
   }
   // AFTER the towers: planTowers returns the tower tiles and their refill
   // spurs from one call, and a spur to a tower that is not there yet is not a

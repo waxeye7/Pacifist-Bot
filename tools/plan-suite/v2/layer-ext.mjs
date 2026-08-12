@@ -2341,7 +2341,10 @@ export function planExtensions(terrain, plan) {
     // the same siege — and it is not worth the SAME ramparts as clearing the gate
     // outright, because clearing it changes what the room is. Full published rate
     // where the mass is the whole cause; half rate where the terrain already beat
-    // the room. (Measured: the difference is 5 personal ramparts across 3 rooms.)
+    // the room. (Measured: the difference is 5 personal ramparts across 3 rooms.
+    // [r22-waived: a reading of the RATE CHOICE, taken on the build the half-rate
+    // was ruled on — it is the evidence for the constant below, not a count of
+    // anything the fleet ships today.])
     const rate = lm.floor <= MOBILITY_TARGET ? LANE_RAMPARTS_PER_RATIO : LANE_RAMPARTS_PER_RATIO / 2;
     const gainOf = (run) => bare.extMeta.laneMeta.builtLap - run.extMeta.laneMeta.builtLap;
     const costOf = (run) => run.extMeta.shallow - bare.extMeta.shallow;
@@ -3427,14 +3430,24 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // failing by a factor of eleven it is the opposite: THE WORSE A ROOM'S LAP
   // ALREADY IS, THE MORE POWER IT HAS TO BLOCK REAL UPKEEP SAVINGS.
   //
-  // E11S7 is the case. Target 1.2, as-built lap 13.5. Five shallow extensions
-  // (12,3 · 13,3 · 14,3 · 15,3 · 16,3 — pressed in a row under the north wall at
-  // depth 2) could each move onto free deep floor, retiring FIVE personal
-  // ramparts at 0.15 e/tick of forever-upkeep. The pass refused all five,
-  // because taking them reads 14 instead of 13.5: a 3.7% change in a number the
-  // room misses by 1025%, bought with five ramparts repaired for the life of the
-  // base. That is optimising a metric while the layout gets worse, which is the
-  // named anti-pattern.
+  // E11S7 WAS the case this was ruled on, and the numbers below are that
+  // measurement rather than a live reading of the room. Target 1.2; the room's
+  // as-built lap READ 13.5 on the build the rule was written against. Five
+  // shallow extensions (12,3 · 13,3 · 14,3 · 15,3 · 16,3 — pressed in a row
+  // under the north wall at depth 2) could each move onto free deep floor,
+  // retiring FIVE personal ramparts at 0.15 e/tick of forever-upkeep. The pass
+  // refused all five, because taking them read 14 instead of 13.5: a 3.7% change
+  // in a number the room missed by 1025%, bought with five ramparts repaired for
+  // the life of the base. That is optimising a metric while the layout gets
+  // worse, which is the named anti-pattern.
+  //
+  // (E11S7's BOARD HAS MOVED SINCE. Round 21's declared-quantity ruling changed
+  // which seat the sealed-floor recovery withdraws there, and the room's lap
+  // moved with it. Its live figures are in `meta.walls.mobility` and
+  // `meta.extensions` per run; the worked example is kept in the past tense
+  // because it is the argument's evidence, and re-typing it every time the room
+  // re-plans is the rot this file keeps closing. OL3, round 22 — criticism 80's
+  // class, in a file the round-21 sweep did not reach.)
   //
   // THE CAP, AS RULED. A room already MORE THAN TWICE the target may not refuse
   // a rampart-retiring trade that worsens its lap by 10% or less. Inside 2x the
@@ -3445,10 +3458,13 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // WHAT IS NOT RELAXED: layer 6's published BOUND. That is a proof about the
   // worst mass this enclosure can grow and this pass is inside it, full stop —
   // so the slack is granted against the room's own incumbent lap and then
-  // clipped back to the bound. In E11S7 the bound is 14 and the relaxed ceiling
-  // is 14.85, so the room takes the five ramparts, ships at 14, and the bound
-  // still holds. A slack that broke the bound would be buying upkeep with a
-  // claim, which is worse than buying it with a lap.
+  // clipped back to the bound. On the same build: E11S7's bound was 14 and the
+  // relaxed ceiling 14.85, so the room took the five ramparts, shipped at 14,
+  // and the bound still held. A slack that broke the bound would be buying
+  // upkeep with a claim, which is worse than buying it with a lap. (Past tense
+  // for the same reason as the paragraph above — the room's live ceiling,
+  // bound and shipped lap are published per run, and this is the worked example
+  // that produced the rule.)
   // ------------------------------------------------------------------
   // ------------------------------------------------------------------
   // ...AND A TARGET IS A LICENCE UP TO ITSELF.
@@ -3931,6 +3947,9 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
 
   // ---- (4) THE SHALLOW SLOTS THAT STAYED, AND WHAT WAS ON THE TABLE -------
   //
+  // [r22-waived: the state of the fleet BEFORE this block existed — the defect
+  // the declaration channel was added to close. The live figures are
+  // meta.extensions.shallow per room, totalled by the fleet summary every run.]
   // 28 shallow extensions shipped across 5 rooms with ZERO declarations of any
   // kind — the fleet's whole shortfall channel contained no shallow-extension
   // entry at all — while the goal document's own criticism claims each one

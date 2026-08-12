@@ -274,9 +274,16 @@ async function api(cfg, method, endpoint, body) {
  * Not a `{"x,y": layer}` object — the consumer stores this in
  * room.memory.planV2, which is JSON-parsed and re-serialised EVERY TICK, so the
  * unpacked form (`"12,34":6,` — 10 bytes) would cost five times as much as
- * `3,` for the same schedule, forever. Measured over
- * the fleet: +174 bytes on the median room, +260 on the largest (E12S6, 123
- * roads), against a 100 KB segment cap and a largest whole payload of ~6 KB.
+ * `3,` for the same schedule, forever. The cost is 2N+12 bytes on a room of N
+ * roads against a 100 KB segment cap and a largest whole payload of ~6 KB, and
+ * the median and largest rooms it lands on are printed by `--census` on the
+ * "roadStage payload" line rather than transcribed here.
+ * [r22-waived: the sentence below QUOTES the rotted figure — "(E12S6, 123
+ * roads)" — as the finding's own evidence; correcting it would delete the
+ * finding.] (Half of that sentence
+ * was updated when the fleet moved and half was not — "+260 on the largest" fits
+ * 124 roads and the same clause named 123 (E12S6, 123 roads) — which is
+ * precisely the failure this header's own rule exists to prevent. Mm5, round 22.)
  *
  * WHY AN RCL AND NOT THE RAW LAYER. Two reasons, and the second is the load
  * bearing one:
@@ -313,7 +320,7 @@ async function api(cfg, method, endpoint, body) {
  *   3. one D4 face road for each container the room builds at RCL2 — the two
  *      source containers and the controller container (30 tiles, 28 rooms);
  *   4. a connected chain from the hub to every one of those same containers,
- *      because a face road is not the same as a route to it (6 tiles, 3 rooms);
+ *      because a face road is not the same as a route to it (7 tiles, 4 rooms);
  *
  * and then, over all of the above, the bridge repair that makes the result a
  * network the hub can walk rather than a set of disconnected intentions.
@@ -321,8 +328,8 @@ async function api(cfg, method, endpoint, body) {
  * (3) and (4) are the same three tiles per room approached from two directions,
  * and both were missing: the set covered `extension[0..9]` and stopped, so the
  * containers — built at RCL2, a whole level EARLIER than those extensions —
- * had no guarantee at all. Fleet-wide the two add 36 road tiles to RCL3 across
- * 31 of the 172 rooms, max 3 in one room (E14S5), against an arterial set of
+ * had no guarantee at all. Fleet-wide the two add 37 road tiles to RCL3 across
+ * 32 of the 172 rooms, max 3 in one room (E14S5), against an arterial set of
  * 7,926 of 14,100 tiles.
  *
  * EVERY NUMBER IN THIS HEADER IS PRINTED BY `--census`, and that is the only
@@ -342,6 +349,16 @@ async function api(cfg, method, endpoint, body) {
  * split to 7,926 of 14,100. Every numeral above is the current --census output
  * of the shipped artifact; none of them is a constant, and a re-plan is a reason
  * to re-run it.
+ *
+ * ROUND 22 IS THE SECOND WORKED EXAMPLE, and it is why the rule now has a GATE
+ * behind it rather than a paragraph. Layer 7b's along-the-wall swap became the
+ * delta predicate its own published sentence states, five rooms moved a road
+ * one tile, and two of these numerals moved with them (the container chain 6/3
+ * -> 7/4, the two passes together 36/31 -> 37/32) — a change nobody would have
+ * thought to re-run the census for. `tools/plan-suite/v2/numeral-audit.mjs`
+ * re-derives the fleet numerals in this repository's prose against the shipped
+ * artifact and exits 1 on rot; `plan.mjs --all-claimable` runs it as its last
+ * step. This header's own rule finally has something enforcing it.
  * ---------------------------------------------------------------------------
  */
 const ARTERIAL_LAYER = 3; // eco kit + tower spurs
@@ -663,6 +680,8 @@ function roadStageFor(plan) {
   // below and the CHECK (`stagedOrphans`) shared the wrong graph — so the check
   // could never catch the pass. Re-derived over walkable conductors only, at
   // stage <= 3 over all 172 rooms, 57 arterial road tiles across 18 rooms sit
+  // [r22-waived: the DEFECT this pass fixed, measured on the build it was found
+  // on. The live figure is the per-RCL audit table printed by --census.]
   // behind a 1-2 tile unpaved gap, and one of them is an ECO TERMINAL: E7S4's
   // source container 37,12, where the spawn at 31,17 sits between the stage-3
   // roads at 30,17 and 32,17. The claim this staging is sold on — "0 unreachable
@@ -795,7 +814,8 @@ function roadStageFor(plan) {
   // not-yet-arterial road tile and 0 for arterials and conductors, the chain it
   // returns is a CHEAPEST one — the fewest new RCL3 tiles that join this
   // terminal to what the room is already building. Not a blanket promotion:
-  // `--census` currently reports 6 tiles across 3 rooms, because most rooms
+  // `--census` prints the count on its "eco-terminal reach chains" line, and it
+  // is small, because most rooms
   // already reach all three terminals and pay nothing, and several of the ones
   // that do not have already been paid for by the container-face pass above and
   // its bridging.
@@ -855,6 +875,8 @@ function roadStageFor(plan) {
   // all three of its eco containers — 32,16, 31,26 and 45,8 — and E14S1 one
   // under 23,17. Seeding the walk on the container tile made `index.get` find
   // those roads and promote them, 24 tiles across 20 rooms whose terminals were
+  // [r22-waived: the DEFECT this seeding fixed, measured on the build it was
+  // found on — the promotion no longer happens, so nothing re-derives it.]
   // never stranded in the first place. A creep stands on a container whether or
   // not there is a road under it; what this guarantee is about is the tiles it
   // walks to GET there. The road under the terminal stays at RCL4 with the rest
@@ -945,9 +967,15 @@ const AUDIT_RCLS = [3, 4, 5, 6, 7, 8];
  * road the producer declined to lay). In Screeps those two sets do not
  * intersect: the engine refuses a road only on natural wall, which is not
  * walkable; every obstacle that forbids the road also forbids the creep; and
- * road, container and rampart are not obstacles at all (road and container share
- * a tile in 60 tiles across 53 shipped rooms). "Walkable but unpaveable" is the
- * empty set. So this function GRANTS NOTHING, ever, and says why on every tile
+ * road, container and rampart are not obstacles at all — road and container
+ * share a tile in the fleet, and how many tiles in how many rooms is on the
+ * "road+container coincidences" line of `--census` rather than typed here.
+ * [r22-waived: the sentence below QUOTES the rotted figure as the finding's own
+ * evidence — correcting it would delete the finding.] (It
+ * said "60 tiles across 53 shipped rooms" for two rounds against a true 62/55,
+ * on a line eight hundred lines below this file's own rule that every number in
+ * prose has to be printed by something. Mm5, round 22.) "Walkable but
+ * unpaveable" is the empty set. So this function GRANTS NOTHING, ever, and says why on every tile
  * it is asked about.
  *
  * The room's honest options are unchanged: pave the join, or let the audit
@@ -1205,9 +1233,11 @@ function census() {
   }
   // ...and the one figure in this file's header that NOTHING re-derived. It was
   // published as "220 RCL2 containers across 145 rooms" for two rounds, in this
-  // file and in the goal document, and it is 218 across 143. A number in prose
-  // that no tool prints rots exactly like a metric no gate re-derives, so it is
-  // printed here, off the same rcl2Containers() the staging itself uses.
+  // file and in the goal document, and it was 218 across 143 when this line was
+  // written — and 219 across 143 one planner change later, which is the point.
+  // A number in prose that no tool prints rots exactly like a metric no gate
+  // re-derives, so it is printed here, off the same rcl2Containers() the
+  // staging itself uses, and this sentence keeps no live copy of it.
   let noFaceTiles = 0;
   let noFaceRooms = 0;
   // ...and the SAME question asked of all four containers the room plans, which
@@ -1227,8 +1257,32 @@ function census() {
   // property of the code that somebody once read.
   let promoted = 0;
   let demoted = 0;
+  // Mm5 (round 22) — THE TWO FIGURES THIS HEADER KEPT RE-TYPING, PRINTED.
+  // [r22-waived: this paragraph QUOTES both rotted figures verbatim, which is
+  // the whole evidence for the two lines below existing; correcting them would
+  // delete the finding.]
+  //
+  // "road and container share a tile in 60 tiles across 53 shipped rooms" (the
+  // verifiedGapTiles header) and "+260 bytes on the largest (E12S6, 123 roads)"
+  // (the roadStage header) were both hand-transcribed, both moved with the
+  // fleet, and both were wrong by the time anybody read them — the second had
+  // had one of its two halves updated and not the other. This file's own rule
+  // is "if it is a number, something prints it"; these two were the numbers
+  // nothing printed. Now something does, and the headers point here.
+  let coincidenceTiles = 0;
+  let coincidenceRooms = 0;
+  const roadsPerRoom = [];
   for (const plan of plans) {
     if (!plan || !plan.structures) continue;
+    {
+      const roadKeys = new Set((plan.structures.road || []).map((r) => r.x + r.y * 50));
+      const both = (plan.structures.container || []).filter((c) => roadKeys.has(c.x + c.y * 50)).length;
+      if (both) {
+        coincidenceTiles += both;
+        coincidenceRooms++;
+      }
+      roadsPerRoom.push({ room: plan.room, n: roadKeys.size });
+    }
     const stage = roadStageFor(plan);
     roads += stage.length;
     {
@@ -1319,6 +1373,25 @@ function census() {
     console.log(
       `  ARTERIAL SIZE per room: min ${sorted[0].n} (${sorted[0].room}) · median ${q(0.5).n} · ` +
         `p90 ${q(0.9).n} · max ${worst.n} of ${worst.roads} (${worst.room})`,
+    );
+  }
+  // Mm5 (round 22) — see the block that accumulates these. Both lines exist so
+  // the two file headers above can point at a printed number instead of holding
+  // a copy of one.
+  console.log(
+    `  road+container coincidences: ${coincidenceTiles} tiles across ${coincidenceRooms} rooms ` +
+      `(a road and a container legally share a tile — this is the set the "walkable but unpaveable" ` +
+      `argument in the verifiedGapTiles header rests on)`,
+  );
+  {
+    const sorted = roadsPerRoom.slice().sort((x, y) => x.n - y.n);
+    const q = (frac) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * frac))];
+    const worst = sorted[sorted.length - 1];
+    const bytes = (n) => 2 * n + 12;
+    console.log(
+      `  roadStage payload (2N+12 bytes on N roads): min ${bytes(sorted[0].n)}B (${sorted[0].room}, ` +
+        `${sorted[0].n} roads) · median ${bytes(q(0.5).n)}B (${q(0.5).n} roads) · max ` +
+        `${bytes(worst.n)}B (${worst.room}, ${worst.n} roads)`,
     );
   }
   console.log(`  extension[0..${RCL3_EXTENSIONS - 1}] faces promoted: ${extFaced}`);

@@ -337,6 +337,8 @@ export function composePlan(d, shellOpts = {}) {
       // ------------------------------------------------------------------
       // ...AND A SHALLOW EXTENSION IS A DECLARATION, NOT A NOTE.
       //
+      // [r22-waived: the state of the fleet BEFORE this declaration existed —
+      // the defect it was added to close, not a reading of the shipped board.]
       // 28 shallow extensions shipped across 5 rooms with ZERO entries in the
       // shortfall channel — no `extensions|shallow` kind existed fleet-wide —
       // while the goal document claimed each one "carries a declaration that
@@ -2341,6 +2343,71 @@ function extTourSteps(terrain, plan) {
   }
   return { total, unreached, extensions: exts.length };
 }
+/**
+ * ---------------------------------------------------------------------------
+ * MF2 (round 22) — THE COUNTERFACTUAL TOUR, WITNESSED RATHER THAN ASSERTED.
+ * ---------------------------------------------------------------------------
+ * `extTourAfter` and `extTourDelta` are read off a board this room did not
+ * ship. Every other panel figure on an offered candidate has the same property,
+ * and the file says so — but the tour is the PRICED key the tie-break turns on,
+ * so "nothing outside the record can compare it with anything" is the difference
+ * between a decision and a number. A coherent two-leaf edit (move the delta and
+ * the after together, keeping before + delta === after) rewrites which candidate
+ * the pass "would have" taken and erases the one `decidedBy` this fleet files.
+ *
+ * `extTourSteps` is DETERMINISTIC given a board, and it reads exactly five
+ * things: the terrain, the sitter, the exterior flood, the rampart set, and the
+ * tiles that block a creep (BUILT_OBSTACLES plus the room's own objects). So the
+ * witness is the DIFF of those five between the pre-take board — which the room
+ * ships, and which anybody holding the artifact has — and the candidate. The
+ * extension mass is the part that actually moves (a withdrawn seat re-seats
+ * sixty extensions), and it is published as an out/in tile list, bounded by the
+ * number of seats layer 6 relocated. Everything else is published as a diff too,
+ * and is empty on this fleet — which is the interesting claim, and it is made
+ * checkably rather than assumed: `tourBoardIdentical` is false the moment a
+ * candidate moved a rampart or a lab, and then `otherMoved` names it.
+ *
+ * With that, the counterfactual tour is RE-DERIVABLE: take the shipped board,
+ * apply the diff, re-run extTourSteps. `extTourAfter` is then pinned exactly and
+ * the two-leaf edit contradicts it.
+ */
+const TOUR_BOARD_KINDS = ["rampart", ...BUILT_OBSTACLES];
+function tourWitness(base, alt) {
+  const setOf = (p, t) => new Set((p.structures?.[t] || []).map((s) => `${s.x},${s.y}`));
+  const only = (a, b) =>
+    [...a]
+      .filter((k) => !b.has(k))
+      .sort()
+      .map((k) => {
+        const [x, y] = k.split(",").map(Number);
+        return { x, y };
+      });
+  const be = setOf(base, "extension");
+  const ae = setOf(alt, "extension");
+  const w = { extOut: only(be, ae), extIn: only(ae, be), otherMoved: [] };
+  for (const t of TOUR_BOARD_KINDS) {
+    if (t === "extension") continue;
+    const b = setOf(base, t);
+    const a = setOf(alt, t);
+    const out = only(b, a);
+    const inn = only(a, b);
+    if (out.length || inn.length) w.otherMoved.push({ type: t, out, in: inn });
+  }
+  // the objects are the room's own (sources, controller, mineral) and cannot
+  // move; the exterior flood can, and it is the one input that is not a tile
+  // list, so it is compared as a whole and reported as a tile count.
+  const bx = base.shippedExterior || base.exterior;
+  const ax = alt.shippedExterior || alt.exterior;
+  let exteriorDiff = null;
+  if (bx && ax && bx.length === ax.length) {
+    let n = 0;
+    for (let i = 0; i < bx.length; i++) if (!!bx[i] !== !!ax[i]) n++;
+    exteriorDiff = n;
+  }
+  w.exteriorDiff = exteriorDiff;
+  w.tourBoardIdentical = !w.otherMoved.length && exteriorDiff === 0;
+  return w;
+}
 /** tiles carrying a road AND a solid that is not a container — a hard validator fail */
 function countStacks(plan) {
   const byTile = new Map();
@@ -2401,22 +2468,73 @@ function countExtNoD4Face(plan) {
   return n;
 }
 /**
- * Owned structures with no road/container on any of their eight neighbours.
- * The mineral seat and its extractor are the fleet's declared exemption (see
- * renderOffNetwork), so they are counted like everything else and the panel
- * compares BEFORE with AFTER: a constant exemption cancels, a newly stranded
- * structure does not.
+ * Owned structures THE ROOM'S ROAD NETWORK DOES NOT REACH.
+ *
+ * ...AND "THE NETWORK" IS THE COMPONENT, NOT THE NEIGHBOURHOOD (round 22, OM4).
+ *
+ * This counted a structure as on-network if ANY of its eight neighbours carried
+ * a road or a container, which is an adjacency test wearing a connectivity
+ * word — the header has always said "reach". It read a different quantity from
+ * the one the room DECLARES: `misc/off-network` publishes `tiles`, and it lists
+ * TWO tiles (the mineral seat and the extractor standing on the mineral beside
+ * it, both excused by name), while this function returned 1 in every one of the
+ * 133 rooms that file it. The extractor was on-network by this test purely
+ * because the seat is a container — a container that is itself off the network.
+ * The declared value and the ranked value were therefore two different numbers
+ * wearing one label, on every take and every swap that read the key.
+ *
+ * So the network is the sitter's one D8 component over roads and containers —
+ * the same definition layer 7b's swap predicate and the validator's road gate
+ * use — and a structure is off it when neither it nor any of its eight
+ * neighbours is in that component. `extractor` joins the counted kinds because
+ * the declaration excuses it by name. Re-derived over the shipped fleet: this
+ * reads 2 in all 133 declaring rooms (exactly `tiles.length`) and is unchanged
+ * from the old reading in the other 39 — a mismatch in 133 of 133 becomes 0 of
+ * 133, and no ranking anywhere moves, because the exemption is a constant that
+ * cancels in every BEFORE/AFTER comparison. A newly stranded structure does not
+ * cancel, which is what the instrument is for.
  */
-const NETWORK_KINDS = ["spawn", "extension", "tower", "lab", "link", "storage", "terminal", "nuker", "observer", "container"];
+const NETWORK_KINDS = [
+  "spawn",
+  "extension",
+  "tower",
+  "lab",
+  "link",
+  "storage",
+  "terminal",
+  "nuker",
+  "observer",
+  "container",
+  "extractor",
+];
 function countOffNetwork(plan) {
-  const conduct = new Set([
-    ...(plan.structures?.road || []).map((r) => `${r.x},${r.y}`),
-    ...(plan.structures?.container || []).map((c) => `${c.x},${c.y}`),
-  ]);
+  const live = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
+  const conduct = new Set(live);
+  for (const c of plan.structures?.container || []) conduct.add(`${c.x},${c.y}`);
+  const sitter = plan.sitter;
+  const net = new Set();
+  if (sitter) {
+    net.add(`${sitter.x},${sitter.y}`);
+    const q = [sitter];
+    for (let qi = 0; qi < q.length; qi++) {
+      const c = q[qi];
+      for (const [dx, dy] of D8) {
+        const x = c.x + dx,
+          y = c.y + dy;
+        const k = `${x},${y}`;
+        if (net.has(k) || !conduct.has(k)) continue;
+        net.add(k);
+        q.push({ x, y });
+      }
+    }
+  }
   let n = 0;
   for (const t of NETWORK_KINDS) {
     for (const p of plan.structures?.[t] || []) {
-      if (!D8.some(([dx, dy]) => conduct.has(`${p.x + dx},${p.y + dy}`))) n++;
+      const k = `${p.x},${p.y}`;
+      if (net.has(k)) continue;
+      if (D8.some(([dx, dy]) => net.has(`${p.x + dx},${p.y + dy}`))) continue;
+      n++;
     }
   }
   return n;
@@ -2607,8 +2725,47 @@ function declaredKeySet(plan) {
       source: d.source,
     });
   });
-  return { keys, skipped };
+  // ------------------------------------------------------------------
+  // MF1 (round 22) — THE INPUT TO THE DERIVATION, PUBLISHED BESIDE ITS OUTPUT.
+  //
+  // `keys ++ skipped` is derived from `meta.shortfalls` on the PRE-TAKE board.
+  // On the 15 rooms where a take MOVED the board, that board is gone: the
+  // shipped `meta.shortfalls` is the AFTER declaration channel, so the exact set
+  // comparison a validator wants to run — "is this key list really the whole of
+  // that room's declarations, in that order?" — has nothing to compare against
+  // and gets skipped (criticism 99). What was left checking the derivation there
+  // was a totality test against the union's own length, which is a statement
+  // about itself.
+  //
+  // The whole pre-take declaration channel is a big thing to copy onto every
+  // record. The KEY SET's inputs are not: they are a gate/kind pair per
+  // declaration, in order, plus the count. That is published here, so on a moved
+  // board the set comparison runs against a witnessed list instead of being
+  // skipped — an invented key at an index the room never declared, and a real
+  // key dropped out of the union, both die against it.
+  // ------------------------------------------------------------------
+  const shortfalls = sfs.map((sf, at) => ({ at, gate: sf?.gate ?? null, kind: sf?.kind ?? null }));
+  return { keys, skipped, shortfalls, count: shortfalls.length };
 }
+/** MF1 — the same three fields on every record that publishes a key set */
+function preTakeKeySetInputs(declared) {
+  return {
+    preTakeShortfallCount: declared.count,
+    preTakeShortfalls: declared.shortfalls,
+    preTakeShortfallBasis: PRE_TAKE_SHORTFALL_BASIS,
+  };
+}
+const PRE_TAKE_SHORTFALL_BASIS =
+  `MF1 (round 22) — \`preTakeShortfalls\` is the gate/kind of every entry of \`meta.shortfalls\` on the ` +
+  `PRE-TAKE board this pass judged, in declaration order with its index, and \`preTakeShortfallCount\` ` +
+  `is its length. \`declaredKeys\` and \`declaredSkipped\` are derived from exactly that list, so the ` +
+  `two of them together must account for every entry of it, once each, at its own index — which is a ` +
+  `set comparison against a WITNESSED list rather than against the union's own length. It is published ` +
+  `because a take that moves the board destroys the channel the derivation was read from: the shipped ` +
+  `\`meta.shortfalls\` is the AFTER declaration, and on the rooms where the two differ nothing else ` +
+  `carries the BEFORE one. Where the board did not move the two are the same list and the shipped ` +
+  `declarations check it directly; where a kind survives the move, a shipped shortfall kind absent from ` +
+  `\`declaredKeys ∪ declaredSkipped\` is a hole in the derivation whatever this list says.`;
 /** one line of a published `ranking`, in the same words for every pass */
 function declaredKeyLabel(k) {
   return (
@@ -2633,6 +2790,16 @@ function declaredKeysCompare(keys, a, b) {
 }
 /** laps are 2dp; a margin printed as -0.33000000000000007 is not a margin */
 const margin2 = (v) => Math.round(v * 100) / 100;
+const DECIDER_RULE =
+  `OM5 (round 22) — \`decider\` names the key that SEPARATED THE WINNER FROM THE RUNNER-UP, derived by ` +
+  `walking this record's own published \`ranking\` in order against the candidate the pass placed ` +
+  `second and naming the first key on which the two differ. It is not \`decidedBy\`: that field answers ` +
+  `"would the pick have been different WITHOUT the declared-quantity rule?" and is published only in ` +
+  `the rooms where the answer is yes. This one answers "what actually discriminated here?", is ` +
+  `published on every take, and is allowed to say the unflattering answers — "raster order", which ` +
+  `means every ranked key tied, and "no tie-break ran", which means one candidate cleared the panel and ` +
+  `nothing was ranked against anything. The note reciting a room's declared quantities beside a win ` +
+  `they did not decide is the thing this closes.`;
 const DECLARED_KEY_RULE =
   `THE DECLARED QUANTITY IS A KEY (round 21, the RULING on criticism 95). Where this room's plan ` +
   `DECLARES a quantity — an entry of \`meta.shortfalls\` on the board this pass is judging, publishing ` +
@@ -2794,6 +2961,7 @@ function maybeTakeTowerSwap(d, plan) {
       directions: { ...INSTRUMENT_DIRECTION },
       declaredKeys: declared.keys,
       declaredSkipped: declared.skipped,
+      ...preTakeKeySetInputs(declared),
       ranking: [
         `admission: every instrument holds AND (the weakest cut face rises OR the clump falls under ` +
           `${CLUMP_NOTE}) — a predicate, so this pass has no admission QUANTITY to rank on`,
@@ -2838,6 +3006,47 @@ function maybeTakeTowerSwap(d, plan) {
         },
       };
     }
+    // OM5 (round 22) — what separated first from second here. See DECIDER_RULE.
+    // This pass has no admission QUANTITY (admission is a predicate), so the
+    // ranked keys are the declared ones and then the offer order.
+    {
+      const second = accepted[1] || null;
+      if (!second) {
+        rec.decider = {
+          key: "single-candidate",
+          label:
+            `no tie-break ran — exactly one offer cleared the panel, so nothing was ranked against ` +
+            `anything`,
+          candidates: 1,
+          rank: null,
+        };
+      } else {
+        const ranks = [
+          ...declared.keys.map((k) => ({
+            key: `declared:${k.instrument}`,
+            label: `this room's DECLARED ${k.instrument} (${k.gate}${k.kind ? `/${k.kind}` : ``})`,
+            cmp: (a, b) => declaredKeyCompare(k, a.after, b.after),
+            read: (c) => c.after[k.instrument],
+          })),
+          {
+            key: "offer-order",
+            label: `the offer order — the lift across the prior before the clump retirement`,
+            cmp: (a, b) => a.order - b.order,
+            read: (c) => c.order,
+          },
+        ];
+        const step = ranks.find((r) => r.cmp(win, second) !== 0) || ranks[ranks.length - 1];
+        rec.decider = {
+          key: step.key,
+          label: step.label,
+          candidates: accepted.length,
+          rank: ranks.indexOf(step),
+          runnerUp: { from: second.c.from, to: second.c.to, why: second.c.why },
+          values: { taken: step.read(win), runnerUp: step.read(second) },
+        };
+      }
+      rec.deciderRule = DECIDER_RULE;
+    }
     for (const a of accepted) {
       a.panel.verdict =
         a === win
@@ -2867,6 +3076,7 @@ function maybeTakeTowerSwap(d, plan) {
     directions: { ...INSTRUMENT_DIRECTION },
     declaredKeys: declared.keys,
     declaredSkipped: declared.skipped,
+    ...preTakeKeySetInputs(declared),
     // ...published on the REFUSAL branch too, and in the same shape. The key
     // set is a property of the board this pass judged, not of the answer it
     // reached: a room that publishes it only when it ranked something is a room
@@ -3237,6 +3447,7 @@ function runSealedRecovery(d, plan, pass) {
     tourSlack: SEALED_RECOVERY_TOUR_SLACK,
     declaredKeys: declared.keys,
     declaredSkipped: declared.skipped,
+    ...preTakeKeySetInputs(declared),
     ranking: [
       `admission: gainedDeep, more is better`,
       `admission: gainedTiles, more is better`,
@@ -3441,6 +3652,10 @@ function runSealedRecovery(d, plan, pass) {
       after,
       extTourAfter,
       extTourDelta,
+      // MF2 (round 22) — the witness that makes the two lines above
+      // re-derivable: what this candidate's board differs from the shipped one
+      // by, on every input extTourSteps reads. See tourWitness.
+      moved: tourWitness(plan, alt),
     };
     const worse = instrumentsHold(before, after);
     if (worse.length) {
@@ -3609,6 +3824,69 @@ function runSealedRecovery(d, plan, pass) {
       tiedOn: { gainedDeep: win.gainedDeep, gainedTiles: win.gainedTiles },
     };
   }
+  // ------------------------------------------------------------------
+  // OM5 (round 22) — WHAT DECIDED, NAMED, ON EVERY TAKE.
+  //
+  // `decidedBy` fires only when a DECLARED quantity changed the pick, which on
+  // this fleet is one room out of twelve. In the other eleven the note recited
+  // the room's declared quantities inside the sentence that explains the win —
+  // true, and read by a reader as the reason — while the key that actually
+  // discriminated was named nowhere. Three of those takes had no tie-break at
+  // all: one candidate cleared the panel and nothing was ranked against
+  // anything, which is a different fact from "it won on the declared keys" and a
+  // strictly more honest one.
+  //
+  // So the deciding key is DERIVED, from the published `ranking` itself: walk
+  // the sort order against the runner-up in the FINAL order (the candidate this
+  // pass actually placed second) and name the first key on which the two differ.
+  // A single-candidate take says so. `decidedBy` is unaffected — it answers a
+  // different question ("would the pick have been different without the rule?")
+  // and this one answers "what separated first from second?".
+  // ------------------------------------------------------------------
+  const deciderRanks = [
+    { key: "gainedDeep", label: `the deep floor recovered`, cmp: (a, b) => b.gainedDeep - a.gainedDeep, read: (c) => c.gainedDeep },
+    { key: "gainedTiles", label: `the total floor recovered`, cmp: (a, b) => b.gainedTiles - a.gainedTiles, read: (c) => c.gainedTiles },
+    ...declared.keys.map((k) => ({
+      key: `declared:${k.instrument}`,
+      label: `this room's DECLARED ${k.instrument} (${k.gate}${k.kind ? `/${k.kind}` : ``})`,
+      cmp: (a, b) => declaredKeyCompare(k, a.after, b.after),
+      read: (c) => c.after[k.instrument],
+    })),
+    {
+      key: "extTourDelta",
+      label: `the filler's total extension tour`,
+      cmp: (a, b) => (a.extTourDelta ?? 0) - (b.extTourDelta ?? 0),
+      read: (c) => c.extTourDelta,
+    },
+    { key: "interior", label: `the interior tile count`, cmp: (a, b) => (b.after.interior ?? 0) - (a.after.interior ?? 0), read: (c) => c.after.interior },
+    { key: "face", label: `the weakest cut face`, cmp: (a, b) => (b.after.face ?? 0) - (a.after.face ?? 0), read: (c) => c.after.face },
+    {
+      key: "raster",
+      label: `raster order of the withdrawn seat — every ranked key above is tied`,
+      cmp: (a, b) => a.withdrawn.y - b.withdrawn.y || a.withdrawn.x - b.withdrawn.x,
+      read: (c) => `${c.withdrawn.x},${c.withdrawn.y}`,
+    },
+  ];
+  const second = accepted[1] || null;
+  if (!second) {
+    record.decider = {
+      key: "single-candidate",
+      label: `no tie-break ran — exactly one candidate cleared the panel, so nothing was ranked against anything`,
+      candidates: 1,
+      rank: null,
+    };
+  } else {
+    const step = deciderRanks.find((r) => r.cmp(win, second) !== 0) || deciderRanks[deciderRanks.length - 1];
+    record.decider = {
+      key: step.key,
+      label: step.label,
+      candidates: accepted.length,
+      rank: deciderRanks.indexOf(step),
+      runnerUp: { withdrawn: second.withdrawn, kind: second.kind },
+      values: { taken: step.read(win), runnerUp: step.read(second) },
+    };
+  }
+  record.deciderRule = DECIDER_RULE;
   for (const o of record.offered) {
     if (o.verdict !== "ACCEPTED") continue;
     o.verdict =
@@ -3751,6 +4029,36 @@ export function planRoom(d) {
           ],
         });
         pushNote(p, "sealedRecovery", p.meta.sealedRecovery);
+      }
+      // OM2 (round 22) — ...AND SO DOES THE TOWER SWAP, on the same terms and
+      // for a stronger reason: this pass MOVES A TOWER on the shipped board, and
+      // it did so in three rooms with no note, no declaration, no gallery badge
+      // and a film that captions the tile it moved the tower TO as layer 3's own
+      // set-cover pick. Two of its four rooms shipped `meta.noteObligations: []`
+      // — the machinery had a class for `sealedRecovery` and none for this — so
+      // the record was not merely unspoken, it was deletable: withdrawing
+      // `meta.towers.acrossPriorTake` from a room whose `towerSwapTaken` still
+      // says a tower moved passed the whole suite.
+      //
+      // Same placement as the recovery's, for the same reason: this pass may
+      // hand back a fresh composition with a fresh notes array, so the note is
+      // pushed out here on the plan the room actually ships, and the obligation
+      // beside it is derived from the RECORD.
+      if (p.meta.towers?.acrossPriorTake) {
+        const swap = p.meta.towers.acrossPriorTake;
+        p.meta.noteObligations = p.meta.noteObligations || [];
+        p.meta.noteObligations.push({
+          cls: "towerSwap",
+          why: [
+            // the offers this pass composed — a count that exists whichever
+            // branch it took, so the refusal owes the note as loudly as the take
+            { field: "meta.towers.acrossPriorTake.offered", value: swap.offered.length },
+            // ...and the board fact, in the rooms that have one: the twin the
+            // record can be checked against without reading the record
+            ...(swap.taken ? [{ field: "meta.towers.towerSwapTaken", value: 1 }] : []),
+          ],
+        });
+        pushNote(p, "towerSwap", swap);
       }
       attachRungProof(p, trail);
       p.meta.planMs = Math.round((performance.now() - t0) * 10) / 10;
