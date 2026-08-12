@@ -273,6 +273,13 @@ const SHRED_STALLED_HEAD_AFTER = 60;
  */
 const MAX_SPAWN_QUEUE = 24;
 
+/**
+ * Minimum ticks between two head-of-line interleaves in one room. Interleaving
+ * spends the energy the stalled head is waiting for, so it has to be rare
+ * enough that the head still gets there.
+ */
+const INTERLEAVE_EVERY = 40;
+
 function isRoutineSpawn(name:string):boolean {
     if(!name) return false;
     return _.some(ROUTINE_SPAWN_PREFIXES, (prefix:any) => name.startsWith(prefix));
@@ -2920,22 +2927,24 @@ function spawnFirstInLine(room, spawn) {
                 console.log("spawning", headName, "creep error", spawnAttempt, room.name);
             }
             let segment:string[] = room.memory.spawn_list[0]
-            // How long the spawn has sat IDLE. room.memory.lastTimeSpawnUsed is
-            // a Game.time STAMP (see the top of spawning()), so the shrink rungs
-            // below used to compare ~2.09 MILLION against 305 and were therefore
-            // permanently true: every carrier/miner/reserver that answered -6
-            // once got shrunk on the spot, whatever the room's real situation.
-            let spawnIdleFor = Game.time - (room.memory.lastTimeSpawnUsed || Game.time);
-
-            // ...but that stamp is COARSE: it only advances when the spawn
-            // finishes a creep with an EMPTY queue, so any room whose queue
-            // stays busy reads "idle" forever and every unaffordable
-            // carrier/miner head would collapse to its floor in six consecutive
-            // ticks. Two more conditions make the rung mean what it says. The
-            // head must actually be the thing that is stuck - 40 consecutive
-            // -6 answers, the same bar the interleave rung uses, though this
-            // deliberately does NOT touch spawnStall itself - and a body walks
-            // DOWN one step per 40 ticks, so the room gets a fair chance to
+            // The shrink rungs below used to also require
+            // `Game.time - room.memory.lastTimeSpawnUsed > 305`, read as "the
+            // spawn has sat idle this long". It never measured that.
+            // `lastTimeSpawnUsed` is a Game.time STAMP, and one of the places
+            // it is stamped is the "primary spawn is busy, use another one"
+            // branch at the top of spawning() — so in a MULTI-SPAWN room it is
+            // refreshed constantly and the difference never grows, while in a
+            // single-spawn room with a busy queue it only ever grows. The rung
+            // therefore fired or not according to how many spawns a room owns,
+            // which has nothing to do with whether its head is stuck. Live
+            // pacifist2 E18S3: spawnStall 220 on an unaffordable head, and the
+            // shrink rung blocked because its "idle" reading was 159.
+            //
+            // What the rung actually wants is below, and it says it exactly:
+            // the head must be the thing that is stuck (40 consecutive -6
+            // answers, the same bar the interleave rung uses — and this
+            // deliberately does NOT touch spawnStall itself), and a body walks
+            // DOWN one step per 40 ticks so the room gets a fair chance to
             // afford each smaller version before the next step is taken.
             let mayShrinkHead = room.memory.spawnStall > 40
                 && Game.time - (room.memory.lastShrink || 0) > 40;
@@ -3039,9 +3048,9 @@ function spawnFirstInLine(room, spawn) {
 
                 }
                 else if(mayShrinkHead && (
-                spawnIdleFor > 305 && room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
-                spawnIdleFor > 305 && room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
-                spawnIdleFor > 205 && room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2)) {
+                room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
+                room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
+                room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2)) {
                     // NOT .shift(): that stripped parts off the FRONT of the
                     // body and produced miners with no WORK and reservers with
                     // no CLAIM (see shrinkQueuedBody).
@@ -3065,18 +3074,32 @@ function spawnFirstInLine(room, spawn) {
                 // entire time and never once got a spawnCreep() call.
                 //
                 // So after the head has answered -6 for 40 ticks straight, walk
-                // a few entries down and spawn the first one the room can
+                // down the queue and spawn the first entry the room can
                 // actually pay for. Memory is NOT reordered - the head keeps
                 // its first claim on the spawn every following tick, it just
-                // stops holding the whole room hostage while it waits. The scan
-                // is capped at 5 entries so a long war queue cannot make this
-                // expensive.
+                // stops holding the whole room hostage while it waits.
+                //
+                // The scan used to stop after 5 entries, to keep a long war
+                // queue from making this expensive. That bound is what made it
+                // miss: live pacifist2 E18S3 had a 4300-energy SpecialRepair
+                // head against 1092 available, positions 2-6 were four 3500
+                // Maintainers and a 3150 Builder — all equally unaffordable —
+                // and the first thing the room COULD buy was a 300-energy
+                // Sweeper at position 7, one slot past the window. The queue is
+                // capped at MAX_SPAWN_QUEUE now, so the whole list is a bounded
+                // scan and the window is redundant.
+                //
+                // What the window was doing by accident, a cooldown now does on
+                // purpose. Interleaving drains the very energy the head is
+                // waiting for, and this rung had no rate limit at all — an
+                // affordable second entry was spawned every single tick. One
+                // per 40 ticks (the cadence the shrink rung already uses) keeps
+                // the spawn busy while still letting the head accumulate.
                 if(room.memory.spawnStall > 40
                 && room.memory.spawn_list.length >= 6
-                && room.memory.spawn_list[1] === headName) {
-                    let scanned = 0;
-                    for(let i = 3; i + 2 < room.memory.spawn_list.length && scanned < 5; i += 3) {
-                        scanned++;
+                && room.memory.spawn_list[1] === headName
+                && Game.time - (room.memory.lastInterleave || 0) > INTERLEAVE_EVERY) {
+                    for(let i = 3; i + 2 < room.memory.spawn_list.length; i += 3) {
                         let candidate:string[] = room.memory.spawn_list[i];
                         if(!candidate || !candidate.length) continue;
                         let cost = _.sum(candidate, (part:any) => BODYPART_COST[part]);
@@ -3085,6 +3108,7 @@ function spawnFirstInLine(room, spawn) {
                             console.log("spawn head", headName, "unaffordable for", room.memory.spawnStall, "ticks - interleaving", room.memory.spawn_list[i+1], room.name);
                             room.memory.spawn_list.splice(i, 3);
                             room.memory.data.c_spawned++;
+                            room.memory.lastInterleave = Game.time;
                             return "spawning";
                         }
                     }
