@@ -108,6 +108,7 @@ import {
   OUT_V2,
   D4,
   D8,
+  EXTERIOR_CONTRACT_BASIS,
   chebyshev,
   engineBuildable,
   fetchRoomsFromMongo,
@@ -133,6 +134,15 @@ import { AUDITED_KINDS, declKey, normText, renderDecl } from "./declprose.mjs";
 // not a regex over prose somebody typed.
 import { NOTE_CLASSES, renderNote } from "./declprose-notes.mjs";
 import { renderSatBasis } from "./declprose-towers.mjs";
+// ROUND 25 / MM1 — the ONE sentence that says why an as-built gated lap of 0 is
+// not a pass. Three reader channels print it and none of them lands in the
+// artifact, so the check is: read all three back out of the pages this suite
+// writes, require them to be the same sentence, and require that sentence to
+// carry the reason this helper derives from the room's own `maxDetour`. It is
+// the producer's own helper — the same one `mobilityUnjudgedWhy` wraps and the
+// declaration headline runs — because "the caption comes from the shared
+// answer" is exactly the claim being tested.
+import { unjudgedReason } from "./declprose-mobility.mjs";
 
 const idx = (x, y) => x + y * 50;
 
@@ -194,6 +204,144 @@ function animCaptionSource() {
     ANIM_SRC_CACHE = { err: `plan.mjs cannot be read (${err && err.message ? err.message : String(err)})` };
   }
   return ANIM_SRC_CACHE;
+}
+
+// ==========================================================================
+// ROUND 25 / OB1 — THE FILM'S RAMPART TAXONOMY, READ OFF THE FILM.
+// ==========================================================================
+// The film shipped its OWN copy of the rampart classification, in a different
+// test order from the one the note channel publishes, and the copy had a dead
+// class and a false caption:
+//
+//   `denial` took 0 of this fleet's 8208 ramparts, because 223 of the 237
+//   stand-denial tiles are also bubbles and `bubble` was tested first — a class
+//   unreachable by construction, declared nowhere;
+//   `bubble`'s caption said "a container outside the shell" over 807 tiles that
+//   are 295 containers, 299 links and 213 tiles carrying nothing at all.
+//
+// E11S3 is the smoking gun and it is a two-channel contradiction about ONE
+// tile: the film captions 21,12 "bubble seat — a container outside the shell"
+// and the room's own note calls it a controller stand-denial ring tile that
+// "carries no structure". Two channels, two answers, same tile, same gallery.
+//
+// The fix is that both channels read one classifier. That is a claim about the
+// OUTPUT and it is checked on the output: the film for every room is read here,
+// its rampart-stage runs are mapped back to the note channel's five classes,
+// and every tile it paints is compared against the class this file derives from
+// the shipped board. A caption this table does not know is a failure too — a
+// film that invents a sixth class is exactly what the gate is for, and silently
+// ignoring it would be the "residue class that can absorb anything" the road
+// taxonomy already ruled out.
+//
+// THE WORDING IS THE FILM'S AND THE CLASS IS THE BOARD'S. The captions below
+// are the film's own vocabulary, mapped to the classifier's classes: the film
+// splits `seat` by whether the container stands outside the shell (a bubble
+// seat) or inside it on shallow floor (container cover) and names the occupant
+// on `cover`, which is a per-member fact and not a second taxonomy.
+const FILM_CAPTION_CLASS = [
+  [/^min-cut wall\b/, "crossing"],
+  [/^bubble seat\b/, "seat"],
+  [/^container cover\b/, "seat"],
+  [/^controller stand-denial ring\b/, "ring"],
+  [/^personal cover\b/, "cover"],
+  [/^rampart this room's own taxonomy has no word for\b/, "unclassified"],
+];
+// ==========================================================================
+// ROUND 25 / MM1 + OL5 — THE THREE CHANNELS THAT PRINT THE UNJUDGED REASON,
+// READ BACK OUT OF THE FILES THEY ARE PRINTED INTO.
+// ==========================================================================
+// `mobilityUnjudgedWhy` answers one question — why is this room's as-built
+// gated lap 0 — and three channels print the answer: the FILM caption (into the
+// room page's `NOTES` map, where the player reads it under the ramparts stage),
+// the ROOM PAGE (its `mob-sub` line) and the INDEX CHIP (its `title`). None of
+// the three lands in plans-hub.json, which is why the round-24 gate read the
+// SOURCE and why three separate rewrites got past it. They are read back here
+// instead, as the strings a reader actually meets.
+//
+// The extraction is deliberately narrow: each channel is located by the markup
+// its own writer emits, and a channel that cannot be found is reported as
+// missing rather than skipped — "the page has no such line" is the shape a
+// deleted channel takes.
+const decodeEnt = (v) =>
+  String(v)
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&amp;/g, "&");
+/** room -> { film, page, chip, err } */
+const CHANNEL_CACHE = new Map();
+let INDEX_HTML = null;
+function unjudgedChannels(room) {
+  if (CHANNEL_CACHE.has(room)) return CHANNEL_CACHE.get(room);
+  let out;
+  try {
+    const html = fs.readFileSync(path.join(OUT_V2, `${room}.html`), "utf8");
+    // (1) the film caption — the ramparts note of the page's own NOTES map
+    let film = null;
+    {
+      const at = html.indexOf("\n  var NOTES = ");
+      const line = at < 0 ? null : html.slice(at + 15, html.indexOf("\n", at + 15));
+      const notes = line ? JSON.parse(line.replace(/;\s*$/, "")) : null;
+      const ramp = notes && typeof notes.ramparts === "string" ? notes.ramparts : "";
+      const m = ramp.match(/as-built gated lap 0 — (.*?)(?: \(target [^)]*\))?(?: — \d+ cut tiles| — |$)/);
+      if (m) film = m[1];
+    }
+    // (2) the room page's own line
+    let page = null;
+    for (const m of html.matchAll(/<div class="mob-sub">([^<]*)<\/div>/g)) {
+      const t = decodeEnt(m[1]);
+      if (/^as-built UNGATED lap/.test(t)) continue;
+      page = t;
+      break;
+    }
+    // (3) the index chip's title, from this room's own card
+    let chip = null;
+    if (INDEX_HTML === null) INDEX_HTML = fs.existsSync(path.join(OUT_V2, "index.html")) ? fs.readFileSync(path.join(OUT_V2, "index.html"), "utf8") : "";
+    const cardAt = INDEX_HTML.indexOf(`<div class="card"><h3><a href="${room}.html">`);
+    if (cardAt >= 0) {
+      const cardEnd = INDEX_HTML.indexOf(`<div class="card">`, cardAt + 10);
+      const card = INDEX_HTML.slice(cardAt, cardEnd < 0 ? INDEX_HTML.length : cardEnd);
+      const m = card.match(/<span class="mob unjudged" title="([^"]*)"/);
+      if (m) chip = decodeEnt(m[1]).replace(/ — so this room has no as-built gated lap\..*$/, "");
+    }
+    out = { film, page, chip };
+  } catch (err) {
+    out = { err: err && err.message ? err.message : String(err) };
+  }
+  CHANNEL_CACHE.set(room, out);
+  return out;
+}
+
+/** room -> { classes: Map<tileKey,string>, err } — parsed once per process */
+const FILM_CACHE = new Map();
+function filmRampartClasses(room) {
+  if (FILM_CACHE.has(room)) return FILM_CACHE.get(room);
+  const f = path.join(OUT_V2, "anim", `${room}.json`);
+  let out;
+  try {
+    const film = JSON.parse(fs.readFileSync(f, "utf8"));
+    const classes = new Map();
+    const unknown = new Set();
+    for (const st of film.steps || []) {
+      if (!st || st.stage !== "ramparts") continue;
+      // the run counter ("min-cut wall 12/32") is the run's position in its own
+      // class, not part of the caption
+      const cap = String(st.label || "").replace(/\s+\d+\/\d+\s*$/, "");
+      const hit = FILM_CAPTION_CLASS.find(([re]) => re.test(cap));
+      if (!hit) {
+        unknown.add(cap);
+        continue;
+      }
+      const cells = st.cells || [];
+      for (let i = 0; i + 1 < cells.length; i += 3) classes.set(key(cells[i], cells[i + 1]), hit[1]);
+    }
+    out = { classes, unknown: [...unknown] };
+  } catch (err) {
+    out = { err: err && err.message ? err.message : String(err) };
+  }
+  FILM_CACHE.set(room, out);
+  return out;
 }
 
 // structures that must never be reachable by an enemy creep, and must be
@@ -5291,9 +5439,23 @@ for (const [k, v] of [
       ),
       "negotiated.causeWalks.noWalls.detour": LAYER_EARLIER_SIGNED(
         `the extra walk that leaves`,
+        // ROUND 25 / MM4 — this sentence used to carry "16 of the fleet's 57
+        // records are negative here, down to -3". [r22-waived: the rotted
+        // figure is QUOTED as this finding's own evidence — correcting the
+        // numerals would delete the finding; the live reading is the
+        // "negotiated noWalls detour" census main() prints from this run]
+        // The count was right and the
+        // FLOOR was a third of the truth on the artifact the sentence shipped
+        // with, and it had been carried unchanged for rounds — the same
+        // numeral-rot this file spends its rounds deleting, in a string a
+        // reader only ever sees when a room fails. Nothing is typed here now:
+        // the census is DERIVED per room below (`noWallsCensus`) and printed by
+        // main() from the run in front of you.
         `it is a DETOUR, i.e. a difference between two walks, and lifting the interior's natural walls as ` +
-          `well as our structures can make the defender's route SHORTER than the attacker's — 16 of the ` +
-          `fleet's 57 records are negative here, down to -3, and that is the counterfactual's whole point`,
+          `well as our structures can make the defender's route SHORTER than the attacker's — how many ` +
+          `records of this fleet are negative here, and how far down they go, is measured by this run and ` +
+          `printed on its own census line rather than typed into this sentence, and that sign is the ` +
+          `counterfactual's whole point`,
         -MOB_EXACT_MAX,
         MOB_EXACT_MAX,
         DIFFEQ("negotiated.causeWalks.noWalls.d", "negotiated.causeWalks.noWalls.dout"),
@@ -8319,6 +8481,70 @@ export function buildArbitration(declared) {
   return { decls, inadmissible, excused };
 }
 
+/**
+ * ROUND 25 / MM3 — WHERE `eco` STANDS IN A PRE-TAKE CHANNEL, DERIVED OFF THE
+ * FLEET INSTEAD OF TAKEN ON TRUST.
+ *
+ * The spine anchor filters the re-filed `eco` declaration out of BOTH sides
+ * before comparing the pre-take channel with the shipped one, so `eco`'s own
+ * index in that channel was anchored by nothing at all. Swapping a declared key
+ * with the `eco` skip — moving both `at` fields and re-ordering
+ * `preTakeShortfalls` to match — passed 172/172 on a record with TWO real keys
+ * (the residue as filed claimed the escape needed a one-key record), and the
+ * same swap applied to all 36 records of this fleet that carry an eco skip, in
+ * 17 rooms, also passed. The record then publishes the pre-take channel as
+ * "…eco, misc/off-network" for a room that declared `eco` last.
+ *
+ * There is nothing on ONE record that pins it: `eco` is re-measured and
+ * re-appended after the whole fleet is planned (`redeclareEcoTax`), so the
+ * shipped channel carries it last in every room that files it, and a record
+ * whose channel carries it earlier is describing the moment before that
+ * happened — which is true of the moment, not of the record.
+ *
+ * What DOES pin it is the fleet. Whether a given declaration was filed before
+ * `eco` or after it is a property of the pipeline, not of a room: `eco` is
+ * filed at the close of composition, so every declaration filed inside the
+ * composition stands before it in every room and every declaration layer 7
+ * files stands after it in every room. That partition is DERIVED here, from
+ * every pre-take channel this artifact publishes, and a fleet that contradicts
+ * itself about a declaration is reported as the contradiction it is rather than
+ * resolved by a majority.
+ *
+ * @param {object[]} plans every plan of the run
+ * @returns {{before: Set<string>, after: Set<string>, contradictions: string[], records: number}}
+ */
+export function ecoSidePartition(plans) {
+  const pairOf = (o) => `${o?.gate ?? null}${o?.kind ? `/${o.kind}` : ``}`;
+  const before = new Map();
+  const after = new Map();
+  let records = 0;
+  const walk = (o, depth) => {
+    if (!o || typeof o !== "object" || depth > 6) return;
+    if (Array.isArray(o.preTakeShortfalls)) {
+      const seq = o.preTakeShortfalls.map(pairOf);
+      const i = seq.indexOf("eco");
+      if (i >= 0) {
+        records++;
+        seq.forEach((p, j) => {
+          if (p === "eco") return;
+          const m = j < i ? before : after;
+          m.set(p, (m.get(p) || 0) + 1);
+        });
+      }
+    }
+    if (Array.isArray(o)) {
+      for (const v of o) walk(v, depth + 1);
+      return;
+    }
+    for (const v of Object.values(o)) if (v && typeof v === "object") walk(v, depth + 1);
+  };
+  for (const p of plans || []) if (p && p.meta) walk(p.meta, 0);
+  const contradictions = [...before.keys()]
+    .filter((p) => after.has(p))
+    .map((p) => `\`${p}\` stands before \`eco\` in ${before.get(p)} record(s) and after it in ${after.get(p)}`);
+  return { before: new Set(before.keys()), after: new Set(after.keys()), contradictions, records };
+}
+
 export function checkRoom(plan, terrain, objects, fleet = null) {
   const s = plan.structures || {};
   /** @type {{gate:string,kind:string,msg:string,tiles:string[]}[]} */
@@ -8919,6 +9145,18 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
   // both are now published, separately, and neither is typed anywhere.
   // ------------------------------------------------------------------
   const netOfferCensus = { offers: 0, roadAxis: 0, witness: 0, reproduced: 0 };
+  /**
+   * ROUND 25 / MM4 + MM5 — TWO FLEET FIGURES THAT WERE TYPED INTO LIVE STRINGS
+   * AND WRONG, COUNTED HERE INSTEAD.
+   *
+   * `refusalCensus` is this room's `alongCutRefused` roster by class, derived
+   * by the same rule the kind check applies; `noWallsCensus` is this room's
+   * `negotiated.causeWalks.noWalls.detour` readings — how many exist, how many
+   * are negative, and the floor one of them reaches. Both are summed by main()
+   * and printed, so the two sentences that used to quote them quote nothing.
+   */
+  const refusalCensus = { total: 0, "breaks-network": 0, "no-parallel": 0, seat: 0 };
+  const noWallsCensus = { records: 0, negative: 0, floor: null, floorRoom: null };
   /**
    * ROUND 24 / OB2 — how many layer-7 roads this room ships OUTSIDE its own
    * wall. "Exactly 3 across the fleet" was an OBSERVATION in the goal document
@@ -11287,6 +11525,96 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     }
 
     // ==================================================================
+    // ROUND 25 / OB1 — THE FILM AND THE NOTE AGREE ABOUT EVERY RAMPART,
+    // TILE BY TILE, OR THE ROOM FAILS.
+    // ==================================================================
+    // See FILM_CAPTION_CLASS above for the defect. The comparison is between
+    // two CHANNELS a reader actually meets: the class the film paints a tile
+    // in, and the class this file derives for that tile off the shipped board —
+    // which is the same derivation the `meta.walls.roadRampart` census is held
+    // to three lines up, i.e. the note channel's classifier. It runs over every
+    // rampart the film paints and every rampart the room ships, so a film that
+    // paints a class the board does not carry, one that omits a rampart, and
+    // one that paints a tile carrying no rampart all fail here.
+    //
+    // (The film is an artifact on disk, not a field of the plan: this is the
+    // only gate in this file that reads out-v2/anim, and it reads it because
+    // the caption is generated at export time and lands nowhere else. A run
+    // pointed at a plan file whose film has not been written is a run that
+    // cannot check this channel, and it says so rather than passing.)
+    {
+      const denialK = new Set(
+        (plan.meta?.shell?.standDenial || plan.shell?.standDenial || [])
+          .filter((c) => c && Number.isInteger(c.x))
+          .map((c) => key(c.x, c.y)),
+      );
+      const cutK25 = new Set(cutPts.map((c) => key(c.x, c.y)));
+      const own25 = new Map();
+      for (const t of Object.keys(s)) {
+        if (t === "rampart" || t === "road") continue;
+        for (const p25 of s[t] || []) own25.set(key(p25.x, p25.y), t);
+      }
+      const rampK25 = new Set((s.rampart || []).map((r) => key(r.x, r.y)));
+      /** the note channel's classifier, in its own test order */
+      const noteClassOf = (k25) =>
+        !rampK25.has(k25)
+          ? "none"
+          : cutK25.has(k25)
+            ? "crossing"
+            : own25.get(k25) === "container"
+              ? "seat"
+              : denialK.has(k25)
+                ? "ring"
+                : own25.has(k25)
+                  ? "cover"
+                  : "unclassified";
+      const film25 = filmRampartClasses(plan.room);
+      if (film25.err) {
+        bad.push(
+          `the film for this room cannot be read (out-v2/anim/${plan.room}.json: ${film25.err}). The film's ` +
+            `rampart stage captions every rampart with a CLASS, that caption is generated at export time and ` +
+            `lands in no plan field, and it disagreed with this room's own note about the job of a tile — so ` +
+            `it is compared against the board here, and a film that is not there is a channel nobody checked`,
+        );
+      } else {
+        if (film25.unknown.length) {
+          bad.push(
+            `the film's rampart stage paints ${film25.unknown.length} caption(s) this file cannot map to the ` +
+              `note channel's taxonomy ("${film25.unknown.slice(0, 3).join('", "')}"). The two channels answer ` +
+              `one question about one tile; a caption outside the five classes is a sixth class the board has ` +
+              `no word for, and a residue class that can absorb anything is not a taxonomy`,
+          );
+        }
+        const disagree25 = [];
+        const painted25 = new Set();
+        for (const [k25, fc25] of film25.classes) {
+          painted25.add(k25);
+          const nc25 = noteClassOf(k25);
+          if (nc25 !== fc25) disagree25.push(`${k25} film=${fc25} note=${nc25}`);
+        }
+        const unpainted25 = [...rampK25].filter((k25) => !painted25.has(k25));
+        if (disagree25.length) {
+          bad.push(
+            `the film captions ${disagree25.length} of this room's ramparts with a class the note channel's ` +
+              `classifier does not give them (${disagree25.slice(0, 6).join(" · ")}). One tile, one job: the ` +
+              `classification is a membership test in the shipped board — the cut, the containers, the ` +
+              `stand-denial ring — and two channels that run their own copy of it in their own order are two ` +
+              `sentences that can disagree, which is what E11S3's 21,12 was (film "a container outside the ` +
+              `shell", the room's own note "carries no structure")`,
+          );
+        }
+        if (unpainted25.length) {
+          bad.push(
+            `this room ships ${unpainted25.length} rampart(s) the film's rampart stage never paints ` +
+              `(${unpainted25.slice(0, 6).join(" ")}). The stage ` +
+              `sweeps the rampart list, so a tile it does not carry is a tile the film's own census cannot ` +
+              `count and a reader cannot see the job of`,
+          );
+        }
+      }
+    }
+
+    // ==================================================================
     // THE PAVED RUN ALONG THE WALL — RE-DERIVED FROM THE BOARD, NOT READ.
     //
     // Stage 5b (layer-walls.mjs) offers every run of consecutive paved cut tiles
@@ -12612,6 +12940,147 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             );
           }
         }
+        // ==============================================================
+        // ROUND 25 / OM3 + MM2 — `withheld` STOPS BEING A NUMBER A PRODUCER
+        // MAY WRITE FREELY.
+        // ==============================================================
+        // The column was PRESENCE-AND-TYPE gated and nothing else. Zeroing all
+        // 688 of this fleet's records passed 172/172; so did setting every one
+        // of them to 999999; so did a strictly DECREASING sequence across the
+        // four consumers, which is the one shape the record's OWN
+        // justification rules out ("nothing removes a rampart before layer 7",
+        // so a later consumer can only withhold more). And none of it was
+        // re-derivable: there was no tile list, and `plan.exterior` is stripped
+        // out of the artifact.
+        //
+        // The producer now ships the WITNESS (`withheldTiles` per entry, and
+        // `meta.shell.cutAtFreeze` — the cut the frozen flood was taken
+        // against, which is NOT the shipped cut in the seven rooms layer 7
+        // moves), so all four halves of the claim are checked here:
+        //
+        //   (i)   the count is the length of its own roster, and the roster is
+        //         a set of on-board tiles — an absent list reads exactly like
+        //         an empty one, the ruling this file already applies to
+        //         `prunedTiles` and `orphanRoads`;
+        //   (ii)  the sets GROW in run order (containment, not just counts):
+        //         a tile withheld from layer 3 is still withheld from layer 6,
+        //         because the wall only ever gained ramparts between them;
+        //   (iii) the FIRST consumer's roster is re-derived from terrain —
+        //         frozen flood over `cutAtFreeze`, live wall over that cut plus
+        //         this room's bubbles — tile for tile;
+        //   (iv)  the basis sentence that tells a reader NOT to add the four
+        //         counts up (they are one tile set read four times) is the
+        //         producer's own, compared verbatim.
+        {
+          const okTile9 = (t9) => /^\d{1,2},\d{1,2}$/.test(String(t9)) && String(t9).split(",").every((v9) => Number(v9) >= 0 && Number(v9) <= 49);
+          const sets9 = [];
+          for (const e9 of ec9) {
+            const list9 = e9.withheldTiles;
+            if (!Array.isArray(list9)) {
+              bad.push(
+                `meta.exteriorContract ${e9.at}: \`withheld\` is ${JSON.stringify(e9.withheld)} and there is no ` +
+                  `\`withheldTiles\` roster beside it. The count is the length of a list or it is a number a ` +
+                  `producer may write freely — zeroing every one of this fleet's records and inflating one of ` +
+                  `them by 500 both validated clean while it was an integer on its own`,
+              );
+              sets9.push(null);
+              continue;
+            }
+            const set9 = new Set(list9.map(String));
+            sets9.push(set9);
+            const badTiles9 = list9.filter((t9) => !okTile9(t9)).slice(0, 6);
+            if (badTiles9.length) {
+              bad.push(
+                `meta.exteriorContract ${e9.at}: \`withheldTiles\` carries ${badTiles9.join(" ")} — the roster is ` +
+                  `"x,y" tiles of this room's own 50x50 board`,
+              );
+            }
+            if (set9.size !== list9.length) {
+              bad.push(
+                `meta.exteriorContract ${e9.at}: \`withheldTiles\` has ${list9.length} entr(ies) over ${set9.size} ` +
+                  `distinct tile(s). It is a single sweep of the 2500-tile board, so a repeat is an appended ` +
+                  `tile and not a measurement`,
+              );
+            }
+            if (e9.withheld !== list9.length) {
+              bad.push(
+                `meta.exteriorContract ${e9.at}: \`withheld\` says ${e9.withheld} and \`withheldTiles\` names ` +
+                  `${list9.length} tile(s). The count is the roster's length — that is the whole of what makes ` +
+                  `it checkable`,
+              );
+            }
+          }
+          // (ii) containment in run order
+          for (let i9 = 1; i9 < sets9.length; i9++) {
+            const prev9 = sets9[i9 - 1];
+            const cur9 = sets9[i9];
+            if (!prev9 || !cur9) continue;
+            const dropped9 = [...prev9].filter((t9) => !cur9.has(t9));
+            if (dropped9.length) {
+              bad.push(
+                `meta.exteriorContract: ${dropped9.length} tile(s) withheld from ${ec9[i9 - 1].at} ` +
+                  `(${dropped9.slice(0, 6).join(" ")}) are NOT withheld from ${ec9[i9].at}, which runs after it. ` +
+                  `The four readings are one frozen flood against a wall that only GAINS ramparts until layer 7 ` +
+                  `— that is the entire argument for letting these layers read a stale enclosure — so the ` +
+                  `withheld set grows and a tile that leaves it is the permission without the thing that earns it`,
+              );
+            }
+          }
+          // (iii) the first consumer's roster, re-derived from terrain
+          const freeze9 = plan.meta?.shell?.cutAtFreeze;
+          if (!Array.isArray(freeze9) || !freeze9.length || freeze9.some((t9) => !t9 || !Number.isInteger(t9.x) || !Number.isInteger(t9.y))) {
+            bad.push(
+              `meta.shell.cutAtFreeze is ${String(JSON.stringify(freeze9)).slice(0, 60)} — it is the cut ` +
+                `\`plan.exterior\` was frozen against, and without it the enclosure contract's readings cannot be ` +
+                `re-derived at all: the SHIPPED cut is a different list in the rooms layer 7's prune and seal ` +
+                `reconciliation move, which is exactly where a wrong reading would hide`,
+            );
+          } else if (sets9[0]) {
+            const freezeK9 = new Set(freeze9.map((t9) => key(t9.x, t9.y)));
+            const bubbleK9 = new Set(
+              (plan.shell?.bubble || plan.meta?.shell?.bubble || [])
+                .filter((t9) => t9 && Number.isInteger(t9.x))
+                .map((t9) => key(t9.x, t9.y)),
+            );
+            // the producer's flood is terrain-only (a road does NOT tunnel for
+            // the enclosure question), so this one is taken with an empty road
+            // set rather than with the room's roads
+            const bare9 = passableFn(terrain, new Set());
+            const frozen9 = exteriorFlood(bare9, freezeK9);
+            const liveL39 = exteriorFlood(bare9, new Set([...freezeK9, ...bubbleK9]));
+            const derived9 = [];
+            for (let i9 = 0; i9 < 2500; i9++) {
+              if (!!frozen9[i9] === !!liveL39[i9]) continue;
+              if (frozen9[i9] && !liveL39[i9]) derived9.push(`${i9 % 50},${(i9 / 50) | 0}`);
+            }
+            const derSet9 = new Set(derived9);
+            const missing9 = derived9.filter((t9) => !sets9[0].has(t9));
+            const extra9 = [...sets9[0]].filter((t9) => !derSet9.has(t9));
+            if (missing9.length || extra9.length) {
+              bad.push(
+                `meta.exteriorContract ${ec9[0].at}: its \`withheldTiles\` roster is ${sets9[0].size} tile(s) and ` +
+                  `this file re-derives ${derSet9.size} from terrain — the frozen flood over ` +
+                  `\`meta.shell.cutAtFreeze\` against the wall layer 2 leaves standing (that cut plus this room's ` +
+                  `bubbles), which is the board the FIRST consumer read` +
+                  (missing9.length ? ` · ${missing9.length} derived tile(s) the record does not name (${missing9.slice(0, 6).join(" ")})` : ``) +
+                  (extra9.length ? ` · ${extra9.length} named tile(s) the derivation does not reach (${extra9.slice(0, 6).join(" ")})` : ``) +
+                  `. The first reading is the one that is reconstructible without knowing what any later layer ` +
+                  `did, so it is the one held to the board`,
+              );
+            }
+          }
+          // (iv) the basis a reader needs in order not to add the four up
+          if (plan.meta?.exteriorContractBasis !== EXTERIOR_CONTRACT_BASIS) {
+            bad.push(
+              `meta.exteriorContractBasis is ${plan.meta?.exteriorContractBasis === undefined ? "ABSENT" : `not the producer's own sentence ("…${String(plan.meta.exteriorContractBasis).slice(0, 60)}…")`}. ` +
+                `The four entries are ONE tile set read at four moments — this room's four counts sum to ` +
+                `${ec9.reduce((n9, e9) => n9 + (Number.isInteger(e9.withheld) ? e9.withheld : 0), 0)} over ` +
+                `${new Set(ec9.flatMap((e9) => (Array.isArray(e9.withheldTiles) ? e9.withheldTiles.map(String) : []))).size} ` +
+                `distinct tile(s) — and the sentence that says so travels with the record or the natural reading ` +
+                `of the column is wrong by a factor of four`,
+            );
+          }
+        }
         for (const e9 of ec9) {
           if (!Number.isInteger(e9.exposed) || e9.exposed < 0 || !Number.isInteger(e9.withheld) || e9.withheld < 0) {
             bad.push(
@@ -12622,17 +13091,85 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             );
             continue;
           }
+          // ==============================================================
+          // ROUND 25 / ML7 — THE `exterior` DECLARATION CLASS GETS A PASSING
+          // STATE, SO THAT DECLARING IS WORTH SOMETHING.
+          // ==============================================================
+          // This branch used to push a failure the moment `exposed` went over
+          // zero, whether or not the room declared it — and three lines further
+          // down the same block fails a room that files the declaration with
+          // nothing exposed. Between them the class had NO state in which a
+          // room came out ahead: an obligation with no reward, and a
+          // declaration kind that cannot be satisfied is a declaration kind
+          // nobody has a reason to file. (It is also untestable: a mutant that
+          // exposes a tile and a mutant that exposes a tile AND declares it
+          // produced the same verdict, so nothing distinguished the two.)
+          //
+          // The obligation is now the real one. A consumer that exposed tiles
+          // owes: the ROSTER (`exposedTiles`, as long as the count — an absent
+          // list reads exactly like an empty one, which is the ruling this file
+          // already applies to `prunedTiles` and `orphanRoads`), and a room
+          // that carries an `exterior` declaration NAMING those tiles. Satisfy
+          // all of it and the room passes with a loud note; miss any of it and
+          // it fails, with the message saying WHICH part is missing.
           if (e9.exposed > 0) {
-            const declared9 = (plan.meta?.shortfalls || []).some((sf9) => sf9 && normGate(sf9.gate) === "exterior");
-            bad.push(
-              `meta.exteriorContract ${e9.at}: this consumer read the frozen layer-2 enclosure as INSIDE for ` +
-                `${e9.exposed} tile(s) the wall this room SHIPS puts OUTSIDE` +
-                (Array.isArray(e9.exposedTiles) && e9.exposedTiles.length ? ` (${e9.exposedTiles.slice(0, 8).join(" ")})` : ``) +
-                `, and ${declared9 ? `declares it` : `files no \`exterior\` declaration about it`}. A placement ` +
-                `layer may read the enclosure layer 2 bought — that is the question it is asking — only while ` +
-                `the drift runs one way: tiles withheld from it are a room built more conservatively than it ` +
-                `had to be, and tiles exposed to it are structures standing where an attacker walks`,
-            );
+            const decls9 = (plan.meta?.shortfalls || []).filter((sf9) => sf9 && normGate(sf9.gate) === "exterior");
+            const tilesOf9 = (l) =>
+              new Set(
+                (l || [])
+                  .map((t9) =>
+                    typeof t9 === "string"
+                      ? t9
+                      : t9 && Number.isInteger(t9.x) && Number.isInteger(t9.y)
+                        ? `${t9.x},${t9.y}`
+                        : null,
+                  )
+                  .filter(Boolean),
+              );
+            const exposedT9 = tilesOf9(e9.exposedTiles);
+            const declaredT9 = new Set();
+            for (const sf9 of decls9) for (const t9 of tilesOf9(sf9.tiles)) declaredT9.add(t9);
+            const rosterOk9 = Array.isArray(e9.exposedTiles) && exposedT9.size === e9.exposed;
+            const uncovered9 = [...exposedT9].filter((t9) => !declaredT9.has(t9));
+            const owed9 = [];
+            if (!rosterOk9) {
+              owed9.push(
+                `it publishes ${Array.isArray(e9.exposedTiles) ? `${exposedT9.size} tile(s) in \`exposedTiles\`` : "no \`exposedTiles\` roster at all"} ` +
+                  `against an \`exposed\` count of ${e9.exposed} — the tiles have to be NAMED, because an ` +
+                  `absent roster reads exactly like an empty one`,
+              );
+            }
+            if (!decls9.length) {
+              owed9.push(
+                `this room files no \`exterior\` declaration about it, and a structure standing where an ` +
+                  `attacker walks is a sentence a reader is owed rather than a field`,
+              );
+            } else if (rosterOk9 && uncovered9.length) {
+              owed9.push(
+                `this room's ${decls9.length} \`exterior\` declaration(s) name [${[...declaredT9].slice(0, 8).join(" ") || "no tiles"}] ` +
+                  `and do not cover ${uncovered9.slice(0, 8).join(" ")} — a declaration that does not name the ` +
+                  `tile it excuses excuses nothing`,
+              );
+            }
+            if (owed9.length) {
+              bad.push(
+                `meta.exteriorContract ${e9.at}: this consumer read the frozen layer-2 enclosure as INSIDE for ` +
+                  `${e9.exposed} tile(s) the wall this room SHIPS puts OUTSIDE` +
+                  (Array.isArray(e9.exposedTiles) && e9.exposedTiles.length ? ` (${e9.exposedTiles.slice(0, 8).join(" ")})` : ``) +
+                  `, and ${owed9.join("; and ")}. A placement layer may read the enclosure layer 2 bought — ` +
+                  `that is the question it is asking — only while the drift runs one way: tiles withheld from ` +
+                  `it are a room built more conservatively than it had to be, and tiles exposed to it are ` +
+                  `structures standing where an attacker walks`,
+              );
+            } else {
+              notes.push(
+                `EXTERIOR DRIFT DECLARED — \`meta.exteriorContract\` ${e9.at} read the frozen layer-2 ` +
+                  `enclosure as INSIDE for ${e9.exposed} tile(s) the shipped wall puts OUTSIDE ` +
+                  `(${[...exposedT9].slice(0, 8).join(" ")}), the roster is complete, and this room's ` +
+                  `\`exterior\` declaration names every one of them. The drift ran the wrong way here and the ` +
+                  `room says so on its own page — which is the state this declaration kind exists for.`,
+              );
+            }
           }
         }
       }
@@ -12936,6 +13473,65 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             }
             for (const p2 of noteRecordBindingProblems(e, plan, s, objects)) {
               bad2.push(`\`meta.noteRecords[${i}]\` (class ${e.cls}) ${p2}`);
+            }
+            // ==========================================================
+            // ROUND 25 / OM2 — A ROSTER TAKEN OFF A BOARD THIS ROOM DOES
+            // NOT SHIP HAS TO SAY WHICH BOARD IT IS.
+            // ==========================================================
+            // `sealedRecovery` described the PRE-TAKE board in the shipped
+            // board's present tense: "The candidates are EVERY MOVABLE SEAT
+            // THIS ROOM SHIPS — 61 of them (60 extension + 1 observer), of
+            // which 8 stand D8 of one of its 1 pocket". The take RE-COMPOSES
+            // the room from layer 1, so the mass sits elsewhere afterwards
+            // and 114 of the seats that sentence claims the room ships are
+            // not on its board — in four rooms the pocket count it asserts
+            // is contradicted two sentences later by that room's own
+            // "sealed floor 4 -> 0".
+            //
+            // AND THE TRIGGER IS DERIVED, not the phrasing. The tile this
+            // record says the take WITHDREW is, by the definition of a
+            // withdrawal, not a movable seat on the shipped board — that is
+            // re-derived here from `plan.structures` — so a record whose
+            // outcome is `taken` is a record whose candidate roster is
+            // provably about another board. The three `allRefused` runs took
+            // nothing, so their roster IS the shipped board, and they are not
+            // asked for the clause.
+            //
+            // `towerSwap` gets this exactly right in the same build ("
+            // `declaredKeys` on this record is therefore the PRE-TAKE set and
+            // not what the room ships"), which is the wording this asks for:
+            // the clause has to sit with the roster, not in a different
+            // paragraph, because a reader who has read the sentence has
+            // already been misled by the time a later one corrects it.
+            if (e.cls === "sealedRecovery" && e.rec && e.rec.outcome === "taken") {
+              const wSeat = e.rec.taken?.withdrawn;
+              const seatK = new Set();
+              for (const kind of ["extension", "observer"]) {
+                for (const q of s[kind] || []) seatK.add(`${q.x},${q.y}`);
+              }
+              const withdrawnGone =
+                wSeat && Number.isInteger(wSeat.x) && Number.isInteger(wSeat.y) && !seatK.has(`${wSeat.x},${wSeat.y}`);
+              const noteTxt = String(notesArr[i] ?? "");
+              const at25 = noteTxt.search(/The candidates are/i);
+              const scope25 = at25 < 0 ? null : noteTxt.slice(at25, at25 + 700);
+              const PRE_TAKE_RE =
+                /PRE-TAKE|pre-take|BOARD THIS PASS JUDGED|board this pass judged|before the take|the board it judged/;
+              if (withdrawnGone && (scope25 === null || !PRE_TAKE_RE.test(scope25))) {
+                bad2.push(
+                  `\`meta.notes[${i}]\` (class sealedRecovery) states its candidate roster in the shipped ` +
+                    `board's present tense and the roster is not about the shipped board. This run TOOK the ` +
+                    `seat at ${wSeat ? `${wSeat.x},${wSeat.y}` : "?"} and the room was re-composed from layer 1 ` +
+                    `without it — that tile carries no movable seat on the board this room ships, which is ` +
+                    `what a withdrawal means — so the seat inventory and the pocket list the roster quotes ` +
+                    `are the PRE-TAKE board's` +
+                    (scope25 === null
+                      ? `, and the note names no candidate roster at all for the clause to attach to`
+                      : `: "…${scope25.slice(0, 120)}…"`) +
+                    `. Say which board it is, in the sentence that says it — \`towerSwap\` does, on the same ` +
+                    `artifact, and the three \`allRefused\` runs need no clause because taking nothing leaves ` +
+                    `the judged board and the shipped one the same room`,
+                );
+              }
             }
             if (normText(String(notesArr[i])) !== normText(want)) {
               const a = normText(String(notesArr[i]));
@@ -13797,6 +14393,34 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       const cutK2 = new Set((plan.meta?.shell?.cut || []).filter((c) => c && Number.isInteger(c.x)).map((c) => key(c.x, c.y)));
       if (Array.isArray(refusals)) {
         const containerK = new Set((s.container || []).map((c) => key(c.x, c.y)));
+        // ROUND 25 / MM5 — THE CENSUS IN THIS MESSAGE IS DERIVED, TWICE OVER.
+        //
+        // The sentence below used to read `the fleet census counts ("27
+        // refusals = 16 breaks-network + 7 no-parallel + 4 seat")`. That was
+        // the round-21 reading, carried through three rounds inside a PRINTED
+        // failure message, and every one of its three numerals was wrong on the
+        // artifact it shipped with (23 = 9 + 10 + 4). It also sat in the one
+        // blind spot numeral-audit had — a claim split across a `+` between two
+        // string segments — so nothing caught it.
+        //
+        // Nothing is typed now. THIS ROOM's own census is re-derived from its
+        // own board right here, by the same rule the check below applies, and
+        // the FLEET's is summed by main() and printed from this run.
+        const kindOfRefusal = (r) => {
+          const tk2 = key(r.x, r.y);
+          const why2 = String(r.why || "");
+          return containerK.has(tk2) ? "seat" : NET_REFUSAL_RE.test(why2) ? "breaks-network" : "no-parallel";
+        };
+        const roomRefusalCensus = { total: 0, "breaks-network": 0, "no-parallel": 0, seat: 0 };
+        for (const r of refusals) {
+          if (!r || !Number.isInteger(r.x) || !Number.isInteger(r.y)) continue;
+          roomRefusalCensus.total++;
+          roomRefusalCensus[kindOfRefusal(r)]++;
+        }
+        refusalCensus.total += roomRefusalCensus.total;
+        refusalCensus["breaks-network"] += roomRefusalCensus["breaks-network"];
+        refusalCensus["no-parallel"] += roomRefusalCensus["no-parallel"];
+        refusalCensus.seat += roomRefusalCensus.seat;
         for (const r of refusals) {
           if (!r || !Number.isInteger(r.x) || !Number.isInteger(r.y)) continue;
           const tk = key(r.x, r.y);
@@ -13814,8 +14438,11 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                     ? ` — the run tile carries a container, and that is what makes the refusal a seat ` +
                       `refusal rather than a search result`
                     : ` — that is the answer its own sentence gives`
-                }. The class is the field the fleet census counts ("27 refusals = 16 breaks-network + 7 ` +
-                `no-parallel + 4 seat"), so a mislabelled one moves a headline figure without touching a tile`,
+                }. The class is the field the refusal census counts — this room's own board re-derives ` +
+                `${roomRefusalCensus.total} refusal(s) here, ${roomRefusalCensus["breaks-network"]} ` +
+                `breaks-network + ${roomRefusalCensus["no-parallel"]} no-parallel + ${roomRefusalCensus.seat} ` +
+                `seat, and main() prints the same census summed over the fleet — so a mislabelled one moves a ` +
+                `published figure without touching a tile`,
             );
           }
           // ---- `offered`: present on the branch that offers, and the tiles the
@@ -16642,8 +17269,8 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       }
     }
     // ==================================================================
-    // ROUND 24 / OM4 — AND THE THIRD CHANNEL SAYS THE SAME THING AS THE
-    // OTHER TWO, OR THE ROOMS IT MISCAPTIONS FAIL.
+    // ROUND 24 / OM4 + ROUND 25 / MM1 + OL5 — THREE CHANNELS, ONE SENTENCE,
+    // COMPARED AS OUTPUT.
     // ==================================================================
     // The film's caption for an as-built gated lap of 0 states a REASON, and
     // the reason was typed into `animNotes` instead of read from
@@ -16652,14 +17279,40 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     // false about the room it captions (E7S5: a 33-tile detour at ratio 17.5
     // with `over: 3`).
     //
-    // AND IT FIRES WHERE THE SENTENCE IS FALSE, not wherever it is printed.
-    // The typed clause claims this room has no pair detouring more than the
-    // floor; that claim is re-derived here from the room's own all-pairs walk
-    // (`maxDetour` against `MOB_DETOUR_FLOOR`), so the gate fails exactly the
-    // rooms whose film ships a false reason for a true zero — and it asks the
-    // whole channel question there, because the fix for one is the fix for all
-    // of them: the caption comes from the shared helper. See
-    // `animCaptionSource`.
+    // ROUND 24 CHECKED THIS IN THE SOURCE AND THE SOURCE GUARD HAD THREE DOORS
+    // IN IT. It read `plan.mjs`, required `animNotes` to mention the helper,
+    // required one literal sentence to be absent from that function's body, and
+    // counted the helper's call sites file-wide. All three re-shipped the false
+    // caption to the same two rooms:
+    //
+    //   REWORD — keep a dead `const _why = mobilityUnjudgedWhy(plan);` and
+    //     print a differently-worded false reason. The only content test was
+    //     one literal regex.
+    //   WINDOW — the body was read up to the first closing brace in column 0, and a
+    //     column-0 `}` inside a template literal ends that window early. Put
+    //     the call before it and the verbatim removed sentence after it.
+    //   CALL-SITE LAUNDERING — the count was a file-wide regex over raw source,
+    //     COMMENTS INCLUDED, so deleting the room page's real call and adding
+    //     `// see mobilityUnjudgedWhy(plan) for the shared wording` above the
+    //     typed replacement satisfied it. (That count was also the whole of the
+    //     per-channel attribution: three calls from one channel passed it.)
+    //
+    // So the claim is checked where the claim lives — in the OUTPUT. All three
+    // channels EMIT this sentence into files this suite writes: the film
+    // caption into the room page's `NOTES` map, the page into its `mob-sub`
+    // line, the chip into its `title`. All three are read back here, required
+    // to be the SAME sentence, and required to contain the reason DERIVED for
+    // this room by the shared helper `unjudgedReason` — which this file
+    // imports and runs on the room's own `maxDetour`. A channel that types its
+    // own version now differs from the other two and from the derivation, in
+    // any wording, from anywhere in the file, comments or not.
+    //
+    // AND IT RUNS ON EVERY UNJUDGED ROOM, not on the two the old guard fired
+    // on: 117 of this fleet's rooms print this sentence and the source guard
+    // asked about 2 of them.
+    //
+    // The only source test left is that the helper EXISTS, which is the one
+    // property no output can show.
     {
       const lapFilm =
         typeof plan.meta?.walls?.mobility?.builtGated === "number"
@@ -16667,40 +17320,74 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           : typeof plan.meta?.shell?.mobilityBuilt?.maxGated === "number"
             ? plan.meta.shell.mobilityBuilt.maxGated
             : null;
-      const captionFalse = mBuilt && typeof mBuilt.maxDetour === "number" && mBuilt.maxDetour > MOB_DETOUR_FLOOR;
-      if (lapFilm === 0 && captionFalse) {
+      if (lapFilm === 0) {
         const A4 = animCaptionSource();
-        if (A4.err) {
-          fails.push(`walls/mobility-caption — ${A4.err}. This room's film captions an as-built gated lap of 0, and the sentence that says WHY is the one three channels have to agree on`);
+        if (A4.err || !A4.helper) {
+          fails.push(
+            `walls/mobility-caption — ${A4.err || "plan.mjs defines no `mobilityUnjudgedWhy` at all, and it is the shared answer the room page, the index chip and the film caption all print"}. ` +
+              `This room ships an as-built gated lap of 0, and the sentence that says WHY is the one three ` +
+              `channels have to agree on`,
+          );
+        }
+        const ch4 = unjudgedChannels(plan.room);
+        if (ch4.err) {
+          fails.push(
+            `walls/mobility-caption — this room's own pages cannot be read (${ch4.err}). The reason for an ` +
+              `unjudged lap is generated at export time and lands in no plan field, so the three channels ` +
+              `that print it are compared as OUTPUT — and a run that cannot read them is a run that has not ` +
+              `checked the channel a reader meets`,
+          );
         } else {
-          const owed4 = [];
-          if (!A4.helper) owed4.push("plan.mjs defines no `mobilityUnjudgedWhy` at all, and it is the shared answer the room page and the index chip both print");
-          if (!/mobilityUnjudgedWhy\s*\(/.test(A4.body)) {
-            owed4.push("`animNotes` does not call `mobilityUnjudgedWhy` — it composes its own answer, which is how one room came to ship three reader channels and two reasons");
-          }
-          if (/no pair of wall tiles detours more than/.test(A4.body)) {
-            owed4.push(
-              "`animNotes` still carries the hardcoded reason \"no pair of wall tiles detours more than " +
-                "<floor> tiles\", which is FALSE in every room whose zero comes from coverage rather than " +
-                "from a short detour",
-            );
-          }
-          if (A4.callSites < 3) {
-            owed4.push(
-              `\`mobilityUnjudgedWhy\` is called ${A4.callSites} time(s) in plan.mjs and the room page, the ` +
-                `index chip and the film caption are three channels — a helper one of them stopped using is ` +
-                `a helper that has stopped being the single answer`,
-            );
-          }
-          if (owed4.length) {
+          // THE REASON IS DERIVED OFF THE PUBLISHED READING, ON PURPOSE. The
+          // three channels are generated from `meta.walls.mobility.maxDetour`,
+          // so that is what they have to agree with; the reading ITSELF is held
+          // to the exact all-pairs walk over the shipped cut by the
+          // `walls/mobility-built` gate above. Two checks, one each side of the
+          // record — a channel that disagrees with the room's own record fails
+          // here, a record that disagrees with the board fails there, and
+          // pointing this one at the board too would leave the first of those
+          // two unowned.
+          const pubDetour4 =
+            typeof plan.meta?.walls?.mobility?.maxDetour === "number"
+              ? plan.meta.walls.mobility.maxDetour
+              : plan.meta?.shell?.mobilityBuilt?.maxDetour;
+          const want4 = unjudgedReason(pubDetour4, MOB_DETOUR_FLOOR);
+          const named4 = [
+            ["the film caption", ch4.film],
+            ["the room page", ch4.page],
+            ["the index chip", ch4.chip],
+          ];
+          const missing4 = named4.filter(([, v]) => !v).map(([n]) => n);
+          if (missing4.length) {
             fails.push(
-              `walls/mobility-caption — this room ships an as-built gated lap of 0 and a worst detour of ` +
-                `${mBuilt.maxDetour} tiles, over the ${MOB_DETOUR_FLOOR}-tile floor — so the film's typed ` +
-                `caption ("no pair of wall tiles detours more than ${MOB_DETOUR_FLOOR} tiles, so no pair was ` +
-                `judged") is FALSE about this room, and ${owed4.join("; ")}. Three channels, one answer: the ` +
-                `reason is a derivation over this room's own \`maxDetour\` and coverage, and a channel that ` +
-                `types its own version states a false reason for a true zero`,
+              `walls/mobility-caption — this room's as-built gated lap is 0 and ${missing4.join(" and ")} ` +
+                `${missing4.length === 1 ? "prints" : "print"} no reason for it. Three channels tell a reader ` +
+                `why the lap is not a pass — the film caption, the room page and the index chip — and a ` +
+                `channel that stops printing it is a channel that has stopped answering`,
             );
+          } else {
+            const disagree4 = named4.filter(([, v]) => v !== ch4.film);
+            if (disagree4.length) {
+              fails.push(
+                `walls/mobility-caption — this room's three channels print two different reasons for one ` +
+                  `unjudged lap. The film caption says "${ch4.film}"; ` +
+                  disagree4.map(([n, v]) => `${n} says "${v}"`).join("; ") +
+                  `. One room, one question, one answer: the reason is a derivation over this room's own ` +
+                  `\`maxDetour\` and coverage, published in one place, not sentences that can disagree`,
+              );
+            }
+            const off4 = named4.filter(([, v]) => !String(v).includes(want4));
+            if (off4.length) {
+              fails.push(
+                `walls/mobility-caption — ${off4.map(([n]) => n).join(", ")} ${off4.length === 1 ? "does" : "do"} ` +
+                  `not print the reason this room's own record gives. Derived here from \`maxDetour\` ` +
+                  `${pubDetour4} against the ${MOB_DETOUR_FLOOR}-tile floor, by the shared ` +
+                  `\`unjudgedReason\` the declaration channel also runs: "${want4}". Shipped: ` +
+                  off4.map(([n, v]) => `${n} "${v}"`).join("; ") +
+                  `. There are TWO ways a room reaches an unjudged zero and a channel that types one of them ` +
+                  `states a false reason for a true zero in every room that reached it the other way`,
+              );
+            }
           }
         }
       }
@@ -17780,6 +18467,16 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         const boardMovedAfterPass = chainTook || !!plan.meta?.towers?.acrossPriorTake?.taken;
         const derivedKeys = declaredKeySetV(plan);
         /**
+         * ROUND 25 / MM3 — the eco skip's own index, held across this room's
+         * records. Every pass that publishes a pre-take channel ran before
+         * `redeclareEcoTax` re-appended the declaration, so they all read the
+         * same channel where `eco` is concerned: a room whose records disagree
+         * about where it stood has had one of them edited. (Measured: 0 rooms
+         * of this fleet disagree.) The first record to carry it sets the
+         * reading and the rest are held to it, whatever order they run in.
+         */
+        const ecoSpineSeen = { pos: null, at: null, seq: null };
+        /**
          * @param rec      the pass's record
          * @param at       how to name it in a failure
          * @param admission the ranking lines ABOVE the declared keys
@@ -18170,6 +18867,78 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                     `nothing anchors is a permutation an editor writes at will, taking the key set's order, the ` +
                     `\`ranking\` and the note with it`,
                 );
+              }
+            }
+            // ==========================================================
+            // ROUND 25 / MM3 — ...AND THE SKIP THE SPINE FILTERS OUT IS
+            // ANCHORED TOO, WHICH IS THE HALF THAT WAS MISSING.
+            // ==========================================================
+            // The comparison above removes `eco` from BOTH sides, so `eco`'s
+            // own index in the pre-take channel was checked by nothing: swap
+            // it with a declared key, move both `at` fields and re-order
+            // `preTakeShortfalls` to match, and the spine is unchanged. That
+            // passes on ANY record where the swap does not carry a key past
+            // another key — including multi-key records, which is broader than
+            // the residue as filed — and it passed on all 36 of this fleet's
+            // eco-carrying records at once.
+            //
+            // `eco`'s index is anchored two ways here, neither of which needs
+            // anything new published:
+            //   ACROSS THIS ROOM'S RECORDS — every pass that publishes a
+            //     pre-take channel ran before the re-file, so they agree;
+            //   ACROSS THE FLEET — whether a declaration is filed before or
+            //     after `eco` is a property of the pipeline and not of a room
+            //     (see `ecoSidePartition`), so a record that puts one on the
+            //     other side is a record the rest of the artifact contradicts.
+            if (preList) {
+              const seqE = preList.map(pairOf2);
+              const iE = seqE.indexOf(REFILED_LAST);
+              if (iE >= 0) {
+                const posE = seqE.slice(0, iE).filter((p9) => p9 !== REFILED_LAST).length;
+                if (ecoSpineSeen.pos === null) {
+                  ecoSpineSeen.pos = posE;
+                  ecoSpineSeen.at = at;
+                  ecoSpineSeen.seq = seqE.join(" ");
+                } else if (ecoSpineSeen.pos !== posE) {
+                  bad6.push(
+                    `${at} publishes the pre-take channel [${seqE.join(" ")}], which stands \`${REFILED_LAST}\` ` +
+                      `after ${posE} declaration(s), and ${ecoSpineSeen.at} publishes [${ecoSpineSeen.seq}], which ` +
+                      `stands it after ${ecoSpineSeen.pos}. Both passes read this room's channel before the ` +
+                      `end-of-run re-file moved that declaration to the back, so they are reading one list at one ` +
+                      `moment — two answers is one of them edited`,
+                  );
+                }
+                const sidesE = fleet && fleet.ecoSides;
+                if (sidesE && sidesE.contradictions.length) {
+                  bad6.push(
+                    `${at} publishes a pre-take channel carrying the \`${REFILED_LAST}\` skip, and across this ` +
+                      `artifact the declaration channels disagree about which declarations were filed before it: ` +
+                      `${sidesE.contradictions.slice(0, 3).join("; ")}. That is a property of the pipeline and not ` +
+                      `of a room — \`${REFILED_LAST}\` is filed at the close of composition in every room — so a ` +
+                      `fleet with two answers has had the skip's index moved in some of them`,
+                  );
+                } else if (sidesE) {
+                  for (let j9 = 0; j9 < seqE.length; j9++) {
+                    const p9 = seqE[j9];
+                    if (p9 === REFILED_LAST) continue;
+                    const want9 = sidesE.before.has(p9) ? "before" : sidesE.after.has(p9) ? "after" : null;
+                    if (!want9) continue;
+                    const got9 = j9 < iE ? "before" : "after";
+                    if (want9 !== got9) {
+                      bad6.push(
+                        `${at} publishes the pre-take channel [${seqE.join(" ")}], which stands \`${p9}\` ${got9} ` +
+                          `the \`${REFILED_LAST}\` skip, and every other pre-take channel in this artifact stands ` +
+                          `it ${want9} it. When a declaration is filed is a property of the pipeline: ` +
+                          `\`${REFILED_LAST}\` is filed at the close of composition, so the declarations ` +
+                          `composition files stand before it in every room and the ones layer 7 files stand after ` +
+                          `it in every room. An index swapped with the skip is invisible to the spine comparison ` +
+                          `above — the spine drops \`${REFILED_LAST}\` from both sides — and it re-writes what ` +
+                          `this room declared, in what order, on the record its tie-break was ranked from`,
+                      );
+                      break;
+                    }
+                  }
+                }
               }
             }
             let lastShip = -1;
@@ -21196,28 +21965,56 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // The renderer that produced the sentence is imported and re-run above,
       // so this is a claim about the room's shipped paragraph either way.
       //
-      // SCOPE, STATED: the HEADLINE — the sentence before the worst-pair line,
-      // which is the one that states the verdict. The attribution clause below
-      // it still says "the room's gated lap is 0, inside the target" on an
-      // unjudged room, and that is the same defect one sentence down; it is
-      // recorded rather than gated here because the round-24 finding is about
-      // the headline and a gate wider than its finding fails an honest fix.
-      if (g === "mobility" && !k) {
-        const m3 = sf.metric || {};
+      // SCOPE, STATED: for the KIND-LESS declaration it is the HEADLINE — the
+      // sentence before the worst-pair line, which is the one that states the
+      // verdict. (The attribution clause below it used to say "the room's gated
+      // lap is 0, inside the target" on an unjudged room; that was fixed in the
+      // same round and both readings are covered here.)
+      //
+      // ROUND 25 / OM1 — AND THE SCOPE NO LONGER STOPS AT THE KIND-LESS ONES.
+      //
+      // This gate read `if (g === "mobility" && !k)`, which skipped every
+      // KINDED mobility declaration — and `mobility/covered-detour` is a
+      // mobility declaration whose whole subject is the gated lap. Two rooms
+      // (E6S3, E7S5) shipped, as the ONLY mobility declaration on their pages,
+      // "THE VERDICT, for contrast: over the 0 pair(s) this room's gate does
+      // judge … the lap is 0, INSIDE THE TARGET" — a pass verdict on a lap
+      // nothing measured, on the two rooms whose film caption the previous
+      // round had just fixed for saying the same thing. The renderer's ternary
+      // had two arms where the measurement has three outcomes, and the gate
+      // that exists for exactly this defect was scoped away from it.
+      //
+      // So the scope is the GATE now, not the gate-and-no-kind: every mobility
+      // declaration whose own record says its gate judged nothing has to say
+      // so. The record field lives in `metric` on the kind-less declaration and
+      // in `record` on `covered-detour`; both are the pass's own count of what
+      // it judged, and the text scope for a kinded declaration is the whole
+      // paragraph, because the verdict sentence is not in a fixed position in
+      // it.
+      if (g === "mobility") {
+        const m3 = sf.metric || sf.record || {};
         if (m3.gatedPairs === 0) {
-          const txt3 = String(sf.detail || "").split(/: (?:between wall tiles|no pair of wall tiles)/)[0];
-          const verdict3 = new RegExp(`inside the ${String(m3.target ?? "").replace(".", "\\.")} target`, "i").test(txt3);
-          const nonVerdict3 = /NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/i.test(txt3);
+          const txt3 = k
+            ? String(sf.detail || "")
+            : String(sf.detail || "").split(/: (?:between wall tiles|no pair of wall tiles)/)[0];
+          const tgt3 = m3.target;
+          const verdict3 =
+            new RegExp(`inside the ${String(tgt3 ?? "").replace(".", "\\.")} target`, "i").test(txt3) ||
+            /\binside the target\b/i.test(txt3);
+          const nonVerdict3 = /NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict|nothing was judged|no pair (?:was |is )?judged/i.test(txt3);
           if (verdict3 || !nonVerdict3) {
+            const lap3 = m3.maxGated ?? m3.gatedLap;
+            const ung3 = m3.max ?? m3.ratio;
             bad.push(
-              `mobility: this room's gate judged \`metric.gatedPairs\` ${m3.gatedPairs} pair(s) — no pair of ` +
-                `wall tiles detours far enough to be judged at all — and its headline ` +
-                `${verdict3 ? `states the VERDICT "inside the ${m3.target} target"` : `never says the lap was NOT JUDGED`}` +
+              `${g}${k ? `/${k}` : ""}: this room's gate judged \`${k ? "record" : "metric"}.gatedPairs\` ` +
+                `${m3.gatedPairs} pair(s) — no pair of wall tiles detours far enough to be judged at all — and ` +
+                `its ${k ? "paragraph" : "headline"} ` +
+                `${verdict3 ? `states the VERDICT "inside the${tgt3 === undefined ? "" : ` ${tgt3}`} target"` : `never says the lap was NOT JUDGED`}` +
                 `${verdict3 && !nonVerdict3 ? ` and never says the lap was NOT JUDGED` : ``}. The as-built lap ` +
-                `is ${m3.maxGated} because nothing was measured, not because the room walks well; the ungated ` +
-                `reading over every pair is ${m3.max}, which is ` +
-                `${typeof m3.max === "number" && typeof m3.target === "number" && m3.max > m3.target ? "OVER" : "under"} ` +
-                `the ${m3.target} target. A zero the gate never took is a non-verdict, and quoting an ` +
+                `is ${lap3} because nothing was measured, not because the room walks well; the reading over ` +
+                `every pair is ${ung3}, which is ` +
+                `${typeof ung3 === "number" && typeof tgt3 === "number" && ung3 > tgt3 ? "OVER" : "under"} ` +
+                `the ${tgt3} target. A zero the gate never took is a non-verdict, and quoting an ` +
                 `above-target number as the supporting parenthetical of a pass is the reverse of what this ` +
                 `channel owes — the index chip and the room page both branch three ways here`,
             );
@@ -22118,6 +22915,68 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (g === "mobility" && !k) {
           const lad = sf.ladder || {};
           bespokeRegion = "mobility.ladder.rungs";
+          // ==============================================================
+          // ROUND 25 / OM4 — THE LADDER'S VERDICT STATES THE REASON THAT
+          // REFUSED THE RUNG, AND THE ARITHMETIC IN ITS OWN SENTENCE HAS TO
+          // AGREE WITH IT.
+          // ==============================================================
+          // E4S2's ladder printed "A WIDER CUT DOES SHORTEN IT … That is over
+          // the 4 rampart(s) the 3-per-1.0 mobility price allows for the 1.5 of
+          // lap it reclaims" over a rung that costs ONE more rampart than the
+          // one this room ships. One is not over four: the main clause was
+          // refuted by the numbers in the same sentence. The real reason was in
+          // the parenthetical — the shipped lap of 1.5 is not over the 2 floor
+          // below which wall may not be spent on lap at all, so the budget is
+          // zero whatever the rung costs — and the VALIDATOR had that guard
+          // (`shipLap > buyFloor`, on the rung rule below) while the prose did
+          // not.
+          //
+          // The price clause is a claim about two derivable numbers, so it is
+          // derived: the rung the renderer picks is the cheapest materially
+          // shorter COMPLETE rung in the record's own table, `extra` is what it
+          // costs over the shipped wall, and `allowance` is the record's own
+          // per-1.0 price applied to what it reclaims, capped. A paragraph that
+          // says the price refused a rung the price ALLOWS is the sentence this
+          // whole channel exists to make impossible.
+          {
+            const rungs4 = Array.isArray(lad.rungs) ? lad.rungs : [];
+            const ship4 = num(lad.shippedLap);
+            const mat4 = num(lad.materialLap);
+            const sr4 = num(lad.shippedRamparts);
+            const per4 = num(lad.perRatio);
+            const cap4 = num(lad.cap);
+            const floor4 = num(lad.buyFloor);
+            const better4 =
+              ship4 === null || mat4 === null
+                ? null
+                : rungs4
+                    .filter((r) => r && r.complete && num(r.mobility) !== null && num(r.mobility) < ship4 - mat4)
+                    .sort((a, b) => num(a.mobility) - num(b.mobility) || num(a.ramparts) - num(b.ramparts))[0];
+            if (better4 && sr4 !== null && per4 !== null && cap4 !== null) {
+              const reclaimed4 = ship4 - num(better4.mobility);
+              const allow4 = reclaimed4 <= 0 ? 0 : Math.min(cap4, Math.floor(per4 * reclaimed4));
+              const extra4 = num(better4.ramparts) - sr4;
+              const txt4 = String(sf.detail || "");
+              const claimsPrice4 = /over the \d+(?:\.\d+)? rampart\(s\) the [\d.]+-per-1\.0 mobility price allows/i.test(txt4);
+              if (extra4 !== null && extra4 <= allow4 && claimsPrice4) {
+                bad.push(
+                  `mobility: the ladder's verdict says the ${extra4} extra rampart(s) rung ${better4.rung} ` +
+                    `(needDeep+${better4.needDeepBonus}) costs are OVER what the mobility price allows, and this ` +
+                    `record's own numbers put them INSIDE it: the rung reclaims ${Math.round(reclaimed4 * 100) / 100} of lap, ` +
+                    `which buys ${allow4} rampart(s) at ${per4}-per-1.0 (cap ${cap4}), and the rung costs ` +
+                    `${extra4}. ${floor4 !== null && ship4 !== null && ship4 <= floor4 ? `What refused it is the FLOOR — this room's shipped lap of ${ship4} is not over the ${floor4} floor below which wall may not be spent on lap at all, so the budget is zero whatever the rung costs — and that is the sentence the paragraph owes` : `A refusal stated on a price the record says was payable is a reason that is not this room's`}`,
+                );
+              }
+              if (floor4 !== null && ship4 !== null && ship4 <= floor4 && !/floor below which wall may not be spent on lap at all/i.test(txt4)) {
+                bad.push(
+                  `mobility: this room's shipped lap of ${ship4} is not over the ladder's ${floor4} buy floor, so ` +
+                    `no wall may be spent on lap here at all — and the paragraph that refuses a materially ` +
+                    `shorter rung never says so. The floor is the whole reason on this room and a verdict that ` +
+                    `leaves it out is a verdict a reader has to guess at`,
+                );
+              }
+            }
+          }
           if (Array.isArray(lad.rungs) && num(lad.trailLength) !== null) {
             B(
               lad.rungs.length === lad.trailLength,
@@ -23184,6 +24043,23 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     );
   }
 
+  // ROUND 25 / MM4 — the negative-detour census, taken off this room's own
+  // mobility record(s). `noWalls` is the same pair re-walked with the
+  // interior's natural walls lifted as well, so its detour is allowed to go
+  // negative; how often it does, and how far, is a fleet reading and is
+  // therefore measured rather than remembered.
+  for (const sfNW of plan.meta?.shortfalls || []) {
+    if (!sfNW || normGate(sfNW.gate) !== "mobility") continue;
+    const dNW = sfNW.negotiated?.causeWalks?.noWalls?.detour;
+    if (typeof dNW !== "number" || !Number.isFinite(dNW)) continue;
+    noWallsCensus.records++;
+    if (dNW < 0) noWallsCensus.negative++;
+    if (noWallsCensus.floor === null || dNW < noWallsCensus.floor) {
+      noWallsCensus.floor = dNW;
+      noWallsCensus.floorRoom = plan.room;
+    }
+  }
+
   return {
     fails,
     notes,
@@ -23212,6 +24088,9 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     netRoadAxisOffers: netOfferCensus.roadAxis,
     netWitnessOffers: netOfferCensus.witness,
     netOffersReproduced: netOfferCensus.reproduced,
+    // ROUND 25 / MM4 + MM5 — the two censuses that replaced typed figures
+    refusalCensus,
+    noWallsCensus,
   };
 }
 
@@ -23273,6 +24152,11 @@ function main() {
         rooms: list.length,
         ctrlGate: Math.min(ECO_CTRL_ABS, ECO_REL_MULT * ctrlMedian),
         srcGate: Math.min(ECO_SRC_ABS, ECO_REL_MULT * srcMedian),
+        // ROUND 25 / MM3 — which declarations were filed before the `eco`
+        // declaration and which after it, derived over every pre-take channel
+        // this run reads. It is a fleet fact by construction and a room that
+        // disagrees with it has had the skip's index moved.
+        ecoSides: ecoSidePartition(list),
       };
     }
   }
@@ -23304,6 +24188,10 @@ function main() {
     netOffersReproduced: 0,
   };
   const roadCounts = [];
+  // ROUND 25 / MM4 + MM5 — the two censuses main() prints instead of letting
+  // any string quote them.
+  const refusals25 = { total: 0, "breaks-network": 0, "no-parallel": 0, seat: 0 };
+  const noWalls25 = { records: 0, negative: 0, floor: null, floorRoom: null };
   for (const p of list) {
     const d = byRoom.get(p.room);
     if (!d) {
@@ -23312,6 +24200,15 @@ function main() {
     }
     const r = checkRoom(p, d.terrain, d.objects, fleet);
     for (const k of Object.keys(agg)) agg[k] += r[k];
+    if (r.refusalCensus) for (const k of Object.keys(refusals25)) refusals25[k] += r.refusalCensus[k] || 0;
+    if (r.noWallsCensus) {
+      noWalls25.records += r.noWallsCensus.records;
+      noWalls25.negative += r.noWallsCensus.negative;
+      if (r.noWallsCensus.floor !== null && (noWalls25.floor === null || r.noWallsCensus.floor < noWalls25.floor)) {
+        noWalls25.floor = r.noWallsCensus.floor;
+        noWalls25.floorRoom = r.noWallsCensus.floorRoom;
+      }
+    }
     roadCounts.push(r.roads);
     if (r.notes.length) {
       noteRows.push([p.room, r.notes.join(" · "), (p.meta?.shortfalls || []).map((s) => s.detail)]);
@@ -23375,6 +24272,34 @@ function main() {
         `road axis (\`offNetwork\`), ${agg.netOffers - agg.netRoadAxisOffers} on the container/extension ` +
         `axes · ${agg.netWitnessOffers} offered a parallel this room's own swap later took (re-derived on ` +
         `the reconstructed offer-time board) · ${agg.netOffersReproduced}/${agg.netOffers} reproduce exactly`,
+    );
+  }
+  // ------------------------------------------------------------------
+  // ROUND 25 / MM4 + MM5 — THE TWO CENSUSES, PRINTED FROM THIS RUN.
+  //
+  // Both replaced a figure typed into a live string: "27 refusals = 16
+  // breaks-network + 7 no-parallel + 4 seat" (in a PRINTED failure message,
+  // three numerals, all three wrong, carried three rounds) and "16 of the
+  // fleet's 57 records are negative here, down to -3" (the floor was three
+  // times deeper). [r22-waived: both rotted figures are QUOTED as this
+  // finding's own evidence — correcting them would delete the finding, and
+  // both live readings are the census lines printed immediately below]
+  // Neither number exists in this file's prose any more.
+  // ------------------------------------------------------------------
+  if (refusals25.total) {
+    console.log(
+      `along-cut refusals: ${refusals25.total} across the fleet · ${refusals25["breaks-network"]} ` +
+        `breaks-network + ${refusals25["no-parallel"]} no-parallel + ${refusals25.seat} seat — re-derived ` +
+        `from each room's own board (a container on the run tile makes it a seat refusal; the sentence's own ` +
+        `network clause makes it breaks-network), never read off the \`kind\` field being checked`,
+    );
+  }
+  if (noWalls25.records) {
+    console.log(
+      `negotiated noWalls detour: ${noWalls25.negative} of ${noWalls25.records} record(s) negative · floor ` +
+        `${noWalls25.floor}${noWalls25.floorRoom ? ` (${noWalls25.floorRoom})` : ``} — lifting the interior's ` +
+        `natural walls as well as our own mass can make the defender's route shorter than the attacker's, ` +
+        `and this is how often and how far it does on the artifact in front of you`,
     );
   }
   if (roadCounts.length) {

@@ -161,20 +161,56 @@ function renderLadder(sf) {
   const best = rungs.length
     ? rungs.reduce((b, r) => (num(r.mobility) < num(b.mobility) ? r : b))
     : L.fallbackBest || null;
+  // ------------------------------------------------------------------
+  // OM4 (round 25) — THE SENTENCE STATED A REASON THAT WAS NOT THE REASON.
+  //
+  // The refusal reads "That is over the N rampart(s) the 3-per-1.0 mobility
+  // price allows for the R of lap it reclaims", and in E4S2 the cost is 1 and
+  // the allowance is 4: the price does not refuse that rung at all, it AFFORDS
+  // it. What refuses it is the other clause, which shipped as a parenthetical
+  // aside — the room's lap is 1.5 and the buy floor is 2, so this room may not
+  // spend wall on lap at any price. The validator has always had that guard
+  // (`shipLap > buyFloor` before it holds the arithmetic to the price); the
+  // prose did not, so the one room where the two disagree published the wrong
+  // reason for its own headline refusal. One room in the 13 that reach this
+  // branch, which is exactly the shape of finding a guard is for.
+  //
+  // Both quantities are still printed — the floor and the price — because a
+  // reader arguing with the trade needs both. What changed is which one the
+  // sentence CLAIMS as the reason, and the claim is now a function of the same
+  // comparison the policy makes, in the policy's own order: the floor first
+  // (may this room spend at all?), then the price (can it afford this rung?).
+  // ------------------------------------------------------------------
+  const betterCost = better ? num(better.ramparts) - shippedRamparts : null;
+  const betterReclaimed = better ? shipped - num(better.mobility) : null;
+  const betterAllowance = better ? allowance(betterReclaimed) : null;
+  const belowBuyFloor = shipped <= buyFloor;
+  const priceRefuses = better ? betterCost > betterAllowance : false;
+  const priceClause = better
+    ? `the ${round2(betterReclaimed)} of lap it reclaims buys ${betterAllowance} rampart(s) at the ` +
+      `${n(L.perRatio)}-per-1.0 mobility price (cap ${n(L.cap)}), and the ${betterCost} it costs is ` +
+      `${priceRefuses ? `OVER that` : `INSIDE that`}`
+    : ``;
   const verdict = better
     ? `A WIDER CUT DOES SHORTEN IT, and it is in the table above: rung ${n(better.rung)} ` +
       `(needDeep+${n(better.needDeepBonus)}) composed the whole RCL8 program at a lap of ` +
       `${n(better.mobility)} for ${n(better.ramparts)} ramparts, ` +
-      `${num(better.ramparts) - shippedRamparts} more than the ${n(L.shippedRamparts)} this room ships. ` +
-      `That is over the ${allowance(shipped - num(better.mobility))} rampart(s) the ` +
-      `${n(L.perRatio)}-per-1.0 mobility price allows for the ${round2(shipped - num(better.mobility))} ` +
-      `of lap it reclaims (cap ${n(L.cap)}` +
-      (shipped <= buyFloor
-        ? `, and this room's shipped lap of ${n(L.shippedLap)} is not over the ${n(L.buyFloor)} floor ` +
-          `below which wall may not be spent on lap at all`
-        : ``) +
-      `), so it was refused on upkeep-first policy — not on impossibility. The trade is written down ` +
-      `here so it can be argued with.`
+      `${betterCost} more than the ${n(L.shippedRamparts)} this room ships. ` +
+      (belowBuyFloor
+        ? `IT WAS REFUSED ON THE FLOOR AND NOT ON THE PRICE: this room's shipped lap of ` +
+          `${n(L.shippedLap)} is not over the ${n(L.buyFloor)} floor below which wall may not be spent ` +
+          `on lap at all, so the mobility budget here is zero whatever the rung costs. The price is ` +
+          `stated anyway rather than left to be inferred — ${priceClause} — but it is not what refused ` +
+          `this rung${priceRefuses ? ` and would have refused it too` : ``}. `
+        : priceRefuses
+          ? `IT WAS REFUSED ON THE PRICE: ${priceClause}, and this room's lap of ${n(L.shippedLap)} is ` +
+            `over the ${n(L.buyFloor)} floor, so it was entitled to spend and could not afford this. `
+          : `NEITHER THE FLOOR NOR THE PRICE REFUSES IT, and this record cannot say what did: the ` +
+            `room's lap of ${n(L.shippedLap)} is over the ${n(L.buyFloor)} floor and ${priceClause}. ` +
+            `That is printed rather than smoothed over — a rung the published policy affords and the ` +
+            `room did not take is a hole in this ladder's account of itself. `) +
+      `Either way it was refused on upkeep-first policy — not on impossibility. The trade is written ` +
+      `down here so it can be argued with.`
     : // A LADDER RECORD WITH NO RUNG IN IT CANNOT BE READ, and the honest output is
       // to say so rather than to interpolate `undefined` into a verdict. The old
       // code reduced over an empty array and threw; a throw here fails the room in
@@ -843,6 +879,11 @@ export function renderCoveredDetour(sf) {
   // THE VERDICT'S OWN SIDE OF THE LINE, RE-DERIVED. Not a flag: the gated lap and
   // the target are both on the record and the comparison is one operator.
   const gatedOver = num(r.gatedLap) > target;
+  // ...and the third outcome the verdict clause did not have — see OM1 below.
+  // `gatedPairs` is the hurdle, exactly as in `renderMobility`: 0 means the gate
+  // measured nothing, and a lap of 0 out of a measurement nobody took is not a
+  // pass.
+  const judgedNothing = r.gatedPairs !== null && r.gatedPairs !== undefined && num(r.gatedPairs) === 0;
   // OUR MASS ADDS NOTHING TO IT — earned, not asserted. The pair walks at least as
   // far with every structure of ours lifted out as it does on the shipped board,
   // so no arrangement of what we place shortens it.
@@ -861,9 +902,37 @@ export function renderCoveredDetour(sf) {
     `attacker can stand on to grind either of these two is inside that reach from the other, so nobody ` +
     `has to make this walk to ANSWER a grind — he shoots from where he stands. The walk is real ` +
     `anyway: it is what consolidating the garrison onto one of these two tiles costs. ` +
-    `THE VERDICT, for contrast: over the ${n(r.gatedPairs)} pair(s) this room's gate does judge ` +
-    `(absolute detour over the ${n(r.detourFloor)}-tile floor, not mutually covered) the lap is ` +
-    `${n(r.gatedLap)}${gatedOver ? ", which is over target and declared above" : ", inside the target"}. ` +
+    (judgedNothing
+      ? // ----------------------------------------------------------------
+        // OM1 (round 25) — A PASS VERDICT ON A LAP NOTHING MEASURED, AGAIN,
+        // IN THE ONE KINDED COPY OF THE SENTENCE.
+        //
+        // Round 24 gave `renderMobility` three branches for the three outcomes
+        // its measurement has, and the write-up said the file was swept. It was
+        // not: THIS paragraph — the kinded declaration, `mobility|covered-detour`
+        // — still printed "over the 0 pair(s) this room's gate does judge … the
+        // lap is 0, inside the target". E6S3 and E7S5 ship exactly that, the
+        // word UNJUDGED appears nowhere in either declaration, and neither room
+        // files any other mobility declaration, so the channel of record told a
+        // reader those two walls passed a test that was never taken. (They are
+        // also the two rooms round 24 fixed the FILM for, off the same fact.)
+        //
+        // The branch is the same one and it is read off THIS record: `gatedPairs`
+        // is 0, so no pair survived the floor-and-coverage filter, and this
+        // paragraph is itself the proof of why — the pair it is about clears the
+        // floor and is excused by coverage, which is what leaves the gate with
+        // nothing. Nothing is inferred about the room's worst detour overall:
+        // that number is not on this record and a sentence may not assert it.
+        // ----------------------------------------------------------------
+        `THE VERDICT, for contrast: there is NONE. This room's gate judged NO PAIR at all — ` +
+        `${n(r.gatedPairs)} pairs clear the ${n(r.detourFloor)}-tile floor without being mutually ` +
+        `covered — so there is no as-built gated lap and no verdict against the ${n(r.target)} target ` +
+        `either way: UNJUDGED. The ${n(r.gatedLap)} on the record is the measurement not taken, not a ` +
+        `wall that passed, and this paragraph is part of the reason it was not taken: the pair above ` +
+        `clears the floor at ${n(r.detour)} tiles of detour and coverage excuses it. `
+      : `THE VERDICT, for contrast: over the ${n(r.gatedPairs)} pair(s) this room's gate does judge ` +
+        `(absolute detour over the ${n(r.detourFloor)}-tile floor, not mutually covered) the lap is ` +
+        `${n(r.gatedLap)}${gatedOver ? ", which is over target and declared above" : ", inside the target"}. `) +
     `${n(r.coveredPairs)} of this wall's ${n(r.pairs)} pairs are excused by coverage; this is the ` +
     `worst of them. ` +
     `WHOSE FAULT: lift every structure whose position this planner chose ` +

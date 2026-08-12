@@ -236,9 +236,38 @@ export function renderShallowExt(sf) {
       .join(" · ") +
     `. ${
       sh.priced > 1 && sh.sharedTarget
-        ? `NOTE ON THE PRICES ABOVE: ${sh.priced} slots quote the same target ${sh.sharedTarget}, so at most ` +
-          `one of them could ever take it. The binding constraint on the other ${sh.priced - 1} is SUPPLY, ` +
-          `not the lap, and this paragraph does not present them as ${sh.priced} independent trades. `
+        ? (() => {
+            // ----------------------------------------------------------
+            // CRITICISM 12, CARRIED OVER — THE SENTENCE NEVER SAID THE TARGETS
+            // WERE ONE TILE.
+            //
+            // "6 slots quote the same target 22,7" is a statement about the
+            // slots' CHEAPEST legal target and reads, to anybody not holding the
+            // record, as six slots choosing the same option out of several. The
+            // fact underneath it is stronger and is what makes the supply
+            // argument bind: each of those slots was offered ONE deep target in
+            // total, and it is that tile. There is exactly one free deep target
+            // in this room. Whether that is so is not asserted here — it is read
+            // off the per-slot offer counts printed above, which is why the
+            // clause only appears in the rooms where it is true.
+            // ----------------------------------------------------------
+            const onShared = slots.filter(
+              (s) => s.bestLegal && `${s.bestLegal.x},${s.bestLegal.y}` === sh.sharedTarget,
+            );
+            const soleOffer = onShared.length > 1 && onShared.every((s) => Number(s.targets) === 1);
+            return (
+              `NOTE ON THE PRICES ABOVE: ${onShared.length} slots quote the same target ` +
+              `${sh.sharedTarget}, so at most one of them could ever take it. ` +
+              (soleOffer
+                ? `AND THAT TILE IS THE WHOLE OFFER, NOT THE PICK OF ONE: every one of those ${onShared.length} ` +
+                  `slots was shown exactly ONE deep target and ${sh.sharedTarget} is it, so this room has a ` +
+                  `single free deep target and the ${onShared.length} prices above are ${onShared.length} ` +
+                  `quotes for one tile. `
+                : ``) +
+              `The binding constraint on the other ${onShared.length - 1} is SUPPLY, not the lap, and this ` +
+              `paragraph does not present them as ${onShared.length} independent trades. `
+            );
+          })()
         : ``
     }WHAT IS NOT CLAIMED: that no arrangement of sixty extensions could ever do better — this is a ` +
     `statement about the completed post-prune search on this enclosure, priced, and it is here so the ` +

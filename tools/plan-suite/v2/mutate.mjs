@@ -60,7 +60,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { checkRoom, ecoWalks, witnessPromiseUnbacked, witnessSilentlyTypeOnly, RECORD_LEAF_STATS } from "./validate.mjs";
+import { checkRoom, ecoSidePartition, ecoWalks, witnessPromiseUnbacked, witnessSilentlyTypeOnly, RECORD_LEAF_STATS } from "./validate.mjs";
 // the producer's own renderer — the round-14 record cases plant a lie in a
 // declaration's structured record and then regenerate `detail` from it, which is
 // exactly the attack the reviewers used: the prose-identity gate is satisfied by
@@ -81,7 +81,7 @@ import { renderSatBasis } from "./declprose-towers.mjs";
 // easier half. Two cases below prove the gate itself bites — the artifact moves
 // under a sentence nobody re-typed, which is the exact shape the class takes.
 import { audit as numeralAudit, report as numeralReport, PENDING_FILES as NUMERAL_PENDING } from "./numeral-audit.mjs";
-import { D4, D8, OUT_V2, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
+import { D4, D8, OUT_V2, exteriorFlood, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);
@@ -187,6 +187,12 @@ const FLEET = (() => {
     rooms: plans.length,
     ctrlGate: Math.min(25, 2 * ctrlMedian),
     srcGate: Math.min(60, 2 * srcMedian),
+    // ROUND 25 / MM3 — the eco-skip side partition, derived over the UNMUTATED
+    // fleet. That is the point of building it here: a mutation that moves one
+    // record's `eco` index past a declared key is then held to the artifact the
+    // rest of the fleet still publishes, exactly as a reviewer's one-record
+    // forgery would be.
+    ecoSides: ecoSidePartition(plans),
   };
 })();
 
@@ -7257,6 +7263,411 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       sf.detail = String(sf.detail).replace(/NOT JUDGED AT ALL|NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/gi, "judged");
     },
     "gate judged `metric.gatedPairs`");
+}
+
+// ===========================================================================
+// 2a-r25. ROUND 25 — THE CHANNELS THE REVIEWERS GOT THROUGH.
+// ===========================================================================
+// Seven rosters, each written against a specific escape this round found:
+//   MM1  the film caption's reason, checked as OUTPUT (the source guard had
+//        three doors: a reword, a template-literal window truncation and a
+//        comment that satisfied the call-site count);
+//   OB1  the film's rampart taxonomy vs the note channel's, tile by tile;
+//   OM1  a pass verdict on a lap nothing judged, on the KINDED declaration the
+//        round-24 gate was scoped away from;
+//   OM2  a sealedRecovery roster stated in the shipped board's present tense;
+//   MM2  `withheld` — zeroed, inflated, DECREASING, and its witness;
+//   MM3  the `eco` skip's index, which the spine comparison filters out;
+//   ML7  the `exterior` declaration class, which now has a passing state.
+{
+  const any25 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const regen25 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+
+  // ---- MM1: the unjudged reason, three channels, compared as output -------
+  //
+  // The three channels are printed into out-v2 by the build; the RECORD is what
+  // this suite can move. Moving `maxDetour` across the detour floor moves the
+  // reason the shared helper derives — and the pages still print the other one,
+  // which is exactly the state each of the round-24 rewrites shipped.
+  const unjudged25 = any25(
+    (p) => p.meta?.walls?.mobility?.builtGated === 0 && typeof p.meta.walls.mobility.maxDetour === "number" && p.meta.walls.mobility.maxDetour <= 4,
+  );
+  const unjudgedCovered25 = any25(
+    (p) => p.meta?.walls?.mobility?.builtGated === 0 && typeof p.meta.walls.mobility.maxDetour === "number" && p.meta.walls.mobility.maxDetour > 4,
+  );
+  const judged25 = any25((p) => typeof p.meta?.walls?.mobility?.builtGated === "number" && p.meta.walls.mobility.builtGated > 0);
+  const CAPTION_MSG = "walls/mobility-caption";
+  run("r25/MM1-X-the-unjudged-reason-flipped-to-the-COVERAGE-branch-under-pages-printing-the-other",
+    unjudged25,
+    (p) => { p.meta.walls.mobility.maxDetour = 33; if (p.meta.shell?.mobilityBuilt) p.meta.shell.mobilityBuilt.maxDetour = 33; },
+    CAPTION_MSG);
+  run("r25/MM1-X-the-unjudged-reason-flipped-to-the-SHORT-DETOUR-branch-the-same-way",
+    unjudgedCovered25,
+    (p) => { p.meta.walls.mobility.maxDetour = 2; if (p.meta.shell?.mobilityBuilt) p.meta.shell.mobilityBuilt.maxDetour = 2; },
+    CAPTION_MSG);
+  run("r25/MM1-a-judged-room-re-published-as-unjudged-so-no-channel-prints-a-reason",
+    judged25,
+    (p) => {
+      p.meta.walls.mobility.builtGated = 0;
+      p.meta.walls.mobility.maxDetour = 9;
+      if (p.meta.shell?.mobilityBuilt) { p.meta.shell.mobilityBuilt.maxGated = 0; p.meta.shell.mobilityBuilt.maxDetour = 9; }
+    },
+    CAPTION_MSG);
+
+  // ---- OB1: the film's rampart class vs the note channel's ----------------
+  const filmRoom25 = any25((p) => (p.structures?.rampart || []).length > 0 && (p.meta?.shell?.cut || []).length > 0);
+  const FILM_MSG = "the film captions|the film for this room|never paints";
+  const rampNotCut25 = (p) => {
+    const cut = new Set((p.meta?.shell?.cut || []).map((c) => key(c.x, c.y)));
+    return (p.structures.rampart || []).find((r) => !cut.has(key(r.x, r.y))) || null;
+  };
+  run("r25/OB1-X-a-cut-tile-dropped-so-a-CROSSING-rampart-re-classes-under-the-film-s-caption",
+    filmRoom25,
+    (p) => {
+      const cutT = (p.meta.shell.cut || []).find((c) => (p.structures.rampart || []).some((r) => r.x === c.x && r.y === c.y));
+      if (!cutT) throw new Error("no ramparted cut tile");
+      p.meta.shell.cut = p.meta.shell.cut.filter((c) => !(c.x === cutT.x && c.y === cutT.y));
+    },
+    FILM_MSG);
+  run("r25/OB1-X-a-stand-denial-tile-dropped-so-a-RING-rampart-re-classes",
+    any25((p) => {
+      const ramp = new Set((p.structures?.rampart || []).map((r) => key(r.x, r.y)));
+      const cut = new Set((p.meta?.shell?.cut || []).map((c) => key(c.x, c.y)));
+      const own = new Set();
+      for (const t of Object.keys(p.structures || {})) if (t !== "rampart" && t !== "road") for (const q of p.structures[t] || []) own.add(key(q.x, q.y));
+      return (p.meta?.shell?.standDenial || []).some((c) => ramp.has(key(c.x, c.y)) && !cut.has(key(c.x, c.y)) && !own.has(key(c.x, c.y)));
+    }),
+    (p) => {
+      const ramp = new Set((p.structures.rampart || []).map((r) => key(r.x, r.y)));
+      const cut = new Set((p.meta.shell.cut || []).map((c) => key(c.x, c.y)));
+      const own = new Set();
+      for (const t of Object.keys(p.structures)) if (t !== "rampart" && t !== "road") for (const q of p.structures[t] || []) own.add(key(q.x, q.y));
+      const ring = (p.meta.shell.standDenial || []).find((c) => ramp.has(key(c.x, c.y)) && !cut.has(key(c.x, c.y)) && !own.has(key(c.x, c.y)));
+      p.meta.shell.standDenial = p.meta.shell.standDenial.filter((c) => c !== ring);
+    },
+    FILM_MSG);
+  /** a stand-denial rampart carrying nothing — the film captions it `ring` */
+  const bareRing25 = (p) => {
+    const ramp = new Set((p.structures?.rampart || []).map((r) => key(r.x, r.y)));
+    const cut = new Set((p.meta?.shell?.cut || []).map((c) => key(c.x, c.y)));
+    const own = new Set();
+    for (const t of Object.keys(p.structures || {})) {
+      if (t === "rampart" || t === "road") continue;
+      for (const q of p.structures[t] || []) own.add(key(q.x, q.y));
+    }
+    return (p.meta?.shell?.standDenial || []).find((c) => ramp.has(key(c.x, c.y)) && !cut.has(key(c.x, c.y)) && !own.has(key(c.x, c.y))) || null;
+  };
+  run("r25/OB1-X-a-container-planted-under-a-rampart-the-film-captions-as-the-stand-denial-ring",
+    any25((p) => !!bareRing25(p)),
+    (p) => {
+      const r = bareRing25(p);
+      if (!r) throw new Error("no bare ring rampart");
+      p.structures.container = [...(p.structures.container || []), { x: r.x, y: r.y }];
+    },
+    FILM_MSG);
+  run("r25/OB1-a-rampart-the-film-never-paints",
+    filmRoom25,
+    (p, d) => {
+      const t = deepTile(p, d);
+      if (!t) throw new Error("no free tile");
+      p.structures.rampart = [...(p.structures.rampart || []), t];
+    },
+    "never paints");
+  run("r25/OB1-a-rampart-deleted-under-a-tile-the-film-still-captions",
+    filmRoom25,
+    (p) => {
+      const r = rampNotCut25(p) || (p.structures.rampart || [])[0];
+      p.structures.rampart = (p.structures.rampart || []).filter((z) => !(z.x === r.x && z.y === r.y));
+    },
+    FILM_MSG);
+
+  // ---- OM1: the kinded mobility declaration's verdict ---------------------
+  const coveredUnjudged25 = any25((p) =>
+    (p.meta?.shortfalls || []).some((sf) => sf && sf.gate === "mobility" && sf.kind === "covered-detour" && sf.record && sf.record.gatedPairs === 0),
+  );
+  const coveredJudged25 = any25((p) =>
+    (p.meta?.shortfalls || []).some((sf) => sf && sf.gate === "mobility" && sf.kind === "covered-detour" && sf.record && sf.record.gatedPairs > 0),
+  );
+  const OM1_MSG = "gate judged `record.gatedPairs`";
+  run("r25/OM1-X-the-pass-verdict-restored-to-a-KINDED-declaration-whose-gate-judged-nothing",
+    coveredUnjudged25,
+    (p) => {
+      const sf = p.meta.shortfalls.find((z) => z && z.gate === "mobility" && z.kind === "covered-detour" && z.record && z.record.gatedPairs === 0);
+      sf.detail =
+        String(sf.detail).replace(/NOT JUDGED AT ALL|NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/gi, "judged") +
+        ` THE VERDICT, for contrast: over the ${sf.record.gatedPairs} pair(s) this room's gate does judge the lap ` +
+        `is ${sf.record.gatedLap}, inside the target.`;
+    },
+    OM1_MSG);
+  run("r25/OM1-the-non-verdict-wording-dropped-from-the-KINDED-declaration",
+    coveredUnjudged25,
+    (p) => {
+      const sf = p.meta.shortfalls.find((z) => z && z.gate === "mobility" && z.kind === "covered-detour" && z.record && z.record.gatedPairs === 0);
+      sf.detail = String(sf.detail).replace(/NOT JUDGED AT ALL|NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/gi, "judged");
+    },
+    OM1_MSG);
+  run("r25/OM1-a-JUDGED-kinded-declaration-re-published-as-having-judged-nothing",
+    coveredJudged25,
+    (p) => {
+      const sf = p.meta.shortfalls.find((z) => z && z.gate === "mobility" && z.kind === "covered-detour" && z.record && z.record.gatedPairs > 0);
+      sf.record.gatedPairs = 0;
+    },
+    OM1_MSG + "|the shipped paragraph is not the paragraph this record generates");
+
+  // ---- OM2: the pre-take roster, told in the present tense ----------------
+  const recovTaken25 = any25((p) =>
+    (p.meta?.noteRecords || []).some((e) => e && e.cls === "sealedRecovery" && e.rec && e.rec.outcome === "taken"),
+  );
+  const OM2_MSG = "states its candidate roster in the shipped board's present tense";
+  run("r25/OM2-X-the-PRE-TAKE-clause-stripped-off-the-candidate-roster",
+    recovTaken25,
+    (p) => {
+      const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery" && e.rec && e.rec.outcome === "taken");
+      p.meta.notes[i] = String(p.meta.notes[i])
+        .replace(/ON THE BOARD THIS PASS JUDGED/g, "this room ships")
+        .replace(/THAT IS THE PRE-TAKE BOARD[^.]*\./g, "")
+        .replace(/that board's /g, "its ");
+    },
+    OM2_MSG);
+  run("r25/OM2-the-candidate-roster-sentence-deleted-outright",
+    recovTaken25,
+    (p) => {
+      const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery" && e.rec && e.rec.outcome === "taken");
+      p.meta.notes[i] = String(p.meta.notes[i]).replace(/The candidates are[\s\S]*?hold nothing shut at all\./, "");
+    },
+    OM2_MSG);
+
+  // ---- MM2: the withheld column and its witness ---------------------------
+  const ecRoom25 = any25((p) => Array.isArray(p.meta?.exteriorContract) && p.meta.exteriorContract.length === 4 && Array.isArray(p.meta.exteriorContract[0].withheldTiles));
+  run("r25/MM2-X-every-withheld-count-in-this-room-zeroed",
+    ecRoom25,
+    (p) => { for (const e of p.meta.exteriorContract) e.withheld = 0; },
+    "`withheld` says 0 and `withheldTiles` names");
+  run("r25/MM2-X-a-withheld-count-inflated",
+    ecRoom25,
+    (p) => { p.meta.exteriorContract[0].withheld = 999999; },
+    "`withheld` says 999999 and `withheldTiles` names");
+  run("r25/MM2-X-the-withheld-SETS-made-strictly-DECREASING-in-run-order",
+    any25((p) => Array.isArray(p.meta?.exteriorContract) && p.meta.exteriorContract.length === 4 && (p.meta.exteriorContract[0].withheldTiles || []).length > 3),
+    (p) => {
+      const full = p.meta.exteriorContract[0].withheldTiles.slice();
+      p.meta.exteriorContract.forEach((e, i) => {
+        e.withheldTiles = full.slice(0, Math.max(0, full.length - i));
+        e.withheld = e.withheldTiles.length;
+      });
+    },
+    "are NOT withheld from");
+  run("r25/MM2-X-the-witness-roster-withdrawn-so-the-count-is-a-number-again",
+    ecRoom25,
+    (p) => { for (const e of p.meta.exteriorContract) delete e.withheldTiles; },
+    "there is no `withheldTiles` roster beside it");
+  run("r25/MM2-a-tile-appended-to-the-first-consumer-s-roster",
+    ecRoom25,
+    (p) => {
+      const e = p.meta.exteriorContract[0];
+      e.withheldTiles = [...e.withheldTiles, "49,49"];
+      e.withheld = e.withheldTiles.length;
+    },
+    "named tile\\(s\\) the derivation does not reach|are NOT withheld from");
+  run("r25/MM2-a-tile-dropped-from-the-first-consumer-s-roster",
+    any25((p) => Array.isArray(p.meta?.exteriorContract) && (p.meta.exteriorContract[0].withheldTiles || []).length > 0),
+    (p) => {
+      const e = p.meta.exteriorContract[0];
+      e.withheldTiles = e.withheldTiles.slice(1);
+      e.withheld = e.withheldTiles.length;
+    },
+    "derived tile\\(s\\) the record does not name");
+  run("r25/MM2-X-the-frozen-cut-snapshot-withdrawn",
+    ecRoom25,
+    (p) => { delete p.meta.shell.cutAtFreeze; },
+    "meta.shell.cutAtFreeze");
+  // ...and the snapshot is LOAD-BEARING, which is a claim about a handful of
+  // this fleet's rooms and not about every room whose two cuts merely differ:
+  // the case picks a room where re-deriving the first consumer's roster off the
+  // SHIPPED cut gives a DIFFERENT roster, which is the whole reason
+  // `cutAtFreeze` is published.
+  const freezeRoster25 = (p, d, cut) => {
+    const cutK = new Set((cut || []).map((t) => key(t.x, t.y)));
+    const bub = new Set((p.meta?.shell?.bubble || p.shell?.bubble || []).map((t) => key(t.x, t.y)));
+    const frozen = exteriorFlood(d.terrain, cutK);
+    const live = exteriorFlood(d.terrain, new Set([...cutK, ...bub]));
+    const out = [];
+    for (let i = 0; i < 2500; i++) {
+      if (!!frozen[i] === !!live[i]) continue;
+      if (frozen[i] && !live[i]) out.push(`${i % 50},${(i / 50) | 0}`);
+    }
+    return out.join(" ");
+  };
+  run("r25/MM2-X-the-frozen-cut-snapshot-re-pointed-at-the-SHIPPED-cut",
+    any25((p) => {
+      const d = byRoom.get(p.room);
+      if (!d || !Array.isArray(p.meta?.exteriorContract?.[0]?.withheldTiles)) return false;
+      return freezeRoster25(p, d, p.meta.shell.cutAtFreeze) !== freezeRoster25(p, d, p.meta.shell.cut);
+    }),
+    (p) => { p.meta.shell.cutAtFreeze = (p.meta.shell.cut || []).map((t) => ({ x: t.x, y: t.y })); },
+    "re-derives");
+  run("r25/MM2-the-basis-sentence-that-says-not-to-add-the-four-counts-up-dropped",
+    ecRoom25,
+    (p) => { delete p.meta.exteriorContractBasis; },
+    "exteriorContractBasis");
+  run("r25/MM2-a-repeat-tile-padded-into-a-roster-to-make-the-count",
+    ecRoom25,
+    (p) => {
+      const e = p.meta.exteriorContract[3];
+      e.withheldTiles = [...e.withheldTiles, e.withheldTiles[0]];
+      e.withheld = e.withheldTiles.length;
+    },
+    "distinct tile\\(s\\)");
+
+  // ---- ML7: the `exterior` class, both outcomes --------------------------
+  const EXPOSED_TILES = ["1,1", "1,2"];
+  const exteriorDecl25 = (p, tiles) => {
+    p.meta.shortfalls = [
+      ...(p.meta.shortfalls || []),
+      {
+        gate: "exterior",
+        detail:
+          `towers(L3) reads the frozen enclosure (plan.exterior) but 2 tile(s) it calls interior are OUTSIDE ` +
+          `the wall the room is standing on (${tiles.join(" ")}) — this consumer now runs after a ` +
+          `rampart-removing pass and must read liveExterior() instead`,
+        tiles: tiles.map((t) => ({ x: Number(t.split(",")[0]), y: Number(t.split(",")[1]) })),
+      },
+    ];
+  };
+  run("r25/ML7-X-an-exposing-consumer-with-no-declaration-at-all",
+    ecRoom25,
+    (p) => { p.meta.exteriorContract[0] = { ...p.meta.exteriorContract[0], exposed: 2, exposedTiles: EXPOSED_TILES }; },
+    "files no `exterior` declaration about it");
+  run("r25/ML7-X-an-exposing-consumer-that-publishes-no-tile-roster",
+    ecRoom25,
+    (p) => {
+      p.meta.exteriorContract[0] = { ...p.meta.exteriorContract[0], exposed: 2 };
+      exteriorDecl25(p, EXPOSED_TILES);
+    },
+    "no `exposedTiles` roster at all");
+  run("r25/ML7-X-a-declaration-that-names-tiles-other-than-the-exposed-ones",
+    ecRoom25,
+    (p) => {
+      p.meta.exteriorContract[0] = { ...p.meta.exteriorContract[0], exposed: 2, exposedTiles: EXPOSED_TILES };
+      exteriorDecl25(p, ["48,48", "48,47"]);
+    },
+    "do not cover");
+  run("r25/ML7-an-exposing-consumer-whose-roster-is-shorter-than-its-count",
+    ecRoom25,
+    (p) => {
+      p.meta.exteriorContract[0] = { ...p.meta.exteriorContract[0], exposed: 2, exposedTiles: ["1,1"] };
+      exteriorDecl25(p, ["1,1"]);
+    },
+    "tile\\(s\\) in `exposedTiles`");
+
+  // ---- MM3: the eco skip's index -----------------------------------------
+  const recWith25 = (p) => {
+    const out = [];
+    const walk = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (Array.isArray(node.preTakeShortfalls)) out.push(node);
+      for (const k of Object.keys(node)) walk(node[k]);
+    };
+    walk(p.meta);
+    return out;
+  };
+  const ecoIdx25 = (R) => (R.preTakeShortfalls || []).findIndex((e) => e && e.gate === "eco");
+  const ecoRoom25 = any25((p) => recWith25(p).some((R) => ecoIdx25(R) > 0));
+  const swapEco25 = (R, i) => {
+    const P = R.preTakeShortfalls;
+    const a = P[i - 1];
+    const b = P[i];
+    P[i - 1] = { ...b, at: i - 1 };
+    P[i] = { ...a, at: i };
+    for (const arr of [R.declaredKeys, R.declaredSkipped]) {
+      if (!Array.isArray(arr)) continue;
+      for (const e of arr) {
+        if (e.at === i - 1) e.at = i;
+        else if (e.at === i) e.at = i - 1;
+      }
+      arr.sort((x, y) => x.at - y.at);
+    }
+  };
+  const MM3_MSG = "the `eco` skip|stands `eco` after|disagree about which declarations were filed before it";
+  // BOTH PUBLISHED COPIES, because that is what the reviewer's own exploit
+  // edited: a record reached through `meta.noteRecords[i].rec` and through
+  // `meta.sealedRecovery` is ONE record published twice, and editing one copy
+  // fails the twin comparison instead of this gate.
+  run("r25/MM3-X-the-eco-skip-swapped-with-the-declared-key-in-front-of-it",
+    ecoRoom25,
+    (p) => {
+      for (const R of recWith25(p)) {
+        const i = ecoIdx25(R);
+        if (i > 0) swapEco25(R, i);
+      }
+      regen25(p);
+    },
+    MM3_MSG);
+  run("r25/MM3-X-the-eco-skip-swapped-in-a-record-carrying-TWO-declared-keys",
+    any25((p) => recWith25(p).some((R) => ecoIdx25(R) > 0 && (R.declaredKeys || []).length > 1)),
+    (p) => {
+      for (const R of recWith25(p)) {
+        const i = ecoIdx25(R);
+        if (i > 0) swapEco25(R, i);
+      }
+      regen25(p);
+    },
+    MM3_MSG);
+  run("r25/MM3-the-eco-skip-moved-to-the-FRONT-of-the-pre-take-channel",
+    ecoRoom25,
+    (p) => {
+      for (const R of recWith25(p)) {
+        const i = ecoIdx25(R);
+        if (i <= 0) continue;
+        const P = R.preTakeShortfalls;
+        const eco = P[i];
+        const rest = P.filter((_, j) => j !== i);
+        R.preTakeShortfalls = [{ ...eco, at: 0 }, ...rest.map((e, j) => ({ ...e, at: j + 1 }))];
+        const shift = (arr) => {
+          if (!Array.isArray(arr)) return;
+          for (const e of arr) e.at = e.gate === "eco" ? 0 : e.at < i ? e.at + 1 : e.at;
+          arr.sort((x, y) => x.at - y.at);
+        };
+        shift(R.declaredKeys);
+        shift(R.declaredSkipped);
+      }
+      regen25(p);
+    },
+    MM3_MSG);
+  run("r25/MM3-CONTROL-two-real-keys-permuted-the-same-way-still-bites",
+    any25((p) => recWith25(p).some((R) => (R.declaredKeys || []).length > 1)),
+    (p) => {
+      for (const R of recWith25(p)) {
+        const K = R.declaredKeys;
+        if (!Array.isArray(K) || K.length < 2) continue;
+        const ia = K[0].at;
+        const ib = K[1].at;
+        const P = R.preTakeShortfalls;
+        const pa = P[ia];
+        const pb = P[ib];
+        P[ia] = { ...pb, at: ia };
+        P[ib] = { ...pa, at: ib };
+        K[0].at = ib;
+        K[1].at = ia;
+        R.declaredKeys = K.slice().sort((x, y) => x.at - y.at);
+      }
+      regen25(p);
+    },
+    "pre-take declaration channel|publishes its declared keys in the order|a second opinion about it|the channel this pass read carries");
+
+  // ---- MM5: the refusal census, derived into the message it prints --------
+  run("r25/MM5-a-refusal-kind-mislabelled-so-the-room-s-own-census-moves",
+    any25((p) => (p.meta?.walls?.alongCutRefused || []).some((r) => r && r.kind)),
+    (p) => {
+      const r = p.meta.walls.alongCutRefused.find((z) => z && z.kind);
+      r.kind = r.kind === "seat" ? "no-parallel" : "seat";
+    },
+    "this room's own board re-derives");
 }
 
 // ===========================================================================

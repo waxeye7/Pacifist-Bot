@@ -263,7 +263,19 @@ const FURNITURE_RE = /^[ \t]*(?:\/\/+|\/\*+|\*+(?!\/))[ \t]?/;
 const WALL = "\0";
 export function joinedText(src, range) {
   const raw = src.slice(range.start, range.end);
-  if (range.kind === "string") return raw;
+  if (range.kind === "string") {
+    // MM5 — a run of literals joined by `+` is ONE string, and the seams between
+    // them are blanked in place so the sentence reads through them. Same length,
+    // same offsets; see the header over `scanRanges`.
+    if (!range.seams || !range.seams.length) return raw;
+    const cells = raw.split("");
+    for (const s of range.seams) {
+      for (let k = s.from; k <= s.to && k - range.start < cells.length; k++) {
+        if (k >= range.start) cells[k - range.start] = " ";
+      }
+    }
+    return cells.join("");
+  }
   const lines = raw.split("\n");
   const cells = raw.split("");
   let at = 0;
@@ -300,6 +312,38 @@ function ownsItsLine(src, off) {
  * own-line `//` comments merged into one, each carrying its offset-preserving
  * joined `text`.
  */
+/** the gap between two string literals that are ONE string at runtime: `+` and space */
+const CONCAT_GAP_RE = /^\s*\+\s*$/;
+/**
+ * MM5 (round 25) — THE OTHER HALF OF THE WRAP-JOIN, WHICH WAS ARGUED AWAY.
+ *
+ * The header over `joinedText` says string literals are left exactly as they are
+ * because "a template literal has no comment furniture to strip", which is true,
+ * and then draws the wrong conclusion from it: that there is nothing to join.
+ * There is. Every published sentence in this suite is built by CONCATENATION —
+ * eighty-column source, so a paragraph is twenty backticked segments joined by
+ * `+` — and the pattern library matched each segment on its own. A claim whose
+ * numeral is at the end of one segment and whose noun is at the start of the
+ * next was invisible to this gate for exactly the same reason a claim that
+ * wrapped across two `//` lines was, and the earlier fix closed one and reasoned
+ * itself out of the other.
+ *
+ * That blind spot has exactly one occupant on this build — validate.mjs's
+ * PRINTED failure message quoting a census as `"27 refusals = 16 breaks-network
+ * + 7 ` + `no-parallel + 4 seat"`, a figure carried wrong for three rounds
+ * inside a sentence a reviewer reads when the gate fires. One is enough: a
+ * gate's coverage is not "how many things it has caught", it is "what shape of
+ * thing can hide from it", and this shape could.
+ *
+ * TWO STRING RANGES MERGE WHEN THE ONLY THING BETWEEN THEM IS `+` AND
+ * WHITESPACE, which is the source form of "these are one string". The join is
+ * offset-preserving like the other one: the closing quote, the `+`, the newline
+ * and the indent are blanked to spaces in place, so `r.start + m.index` still
+ * points at the real character and every waiver distance is unchanged. Nothing
+ * merges across an interpolation, a function call or an operator that is not
+ * `+` — `a + b` where either side is not a literal is not a range this scanner
+ * produced in the first place.
+ */
 export function scanRanges(src) {
   const merged = [];
   for (const r of proseRanges(src)) {
@@ -311,6 +355,13 @@ export function scanRanges(src) {
       ownsItsLine(src, r.start) &&
       /^\n[ \t]*$/.test(src.slice(prev.end, r.start))
     ) {
+      prev.end = r.end;
+      continue;
+    }
+    if (prev && prev.kind === "string" && r.kind === "string" && CONCAT_GAP_RE.test(src.slice(prev.end, r.start))) {
+      // the seam: everything from this segment's closing quote through the next
+      // segment's opening quote, blanked so the two bodies read as one sentence
+      (prev.seams ||= []).push({ from: prev.end - 1, to: r.start });
       prev.end = r.end;
       continue;
     }
@@ -482,6 +533,35 @@ export const FLEET_EXTRACTORS = [
   { label: "planner notes", nouns: ["planner notes"], fn: (P) => sum(P, (p) => (p.meta?.notes || []).length) },
 ];
 
+/**
+ * EVERY DECLARATION THE FLEET FILES, PARTITIONED BY ITS CLASS.
+ *
+ * `${gate}/${kind}` -> `{ n, rooms }`. This is the census every completeness
+ * denominator in `fleetTotals` is built out of ("the 133 rooms it applies to"),
+ * and MM6 (round 25) is why it is a function instead of a loop inside that one:
+ * the registry twin for the declaration total CLAIMED to be "the (gate/kind)
+ * partition of fleetTotals, added back up" and was a second `for` loop over
+ * `meta.shortfalls` counting entries with a gate. Two walks of one array under
+ * two names is one derivation, and the `via` string was the part that made it
+ * look like two.
+ */
+export function declarationPartition(P) {
+  const byKind = new Map();
+  for (const p of P) {
+    const seen = new Set();
+    for (const sf of p.meta?.shortfalls || []) {
+      const k = `${sf?.gate}${sf?.kind ? `/${sf.kind}` : ``}`;
+      const e = byKind.get(k) || { n: 0, rooms: 0 };
+      e.n++;
+      if (!seen.has(k)) {
+        e.rooms++;
+        seen.add(k);
+      }
+      byKind.set(k, e);
+    }
+  }
+  return byKind;
+}
 export function fleetTotals(P) {
   const t = new Map();
   const put = (label, v) => {
@@ -499,20 +579,7 @@ export function fleetTotals(P) {
   for (const e of FLEET_EXTRACTORS.slice(1)) put(e.label, e.fn(P));
   // every declaration class the fleet files, by gate/kind: the count and the
   // rooms — "the 133 rooms it applies to" is one of these
-  const byKind = new Map();
-  for (const p of P) {
-    const seen = new Set();
-    for (const sf of p.meta?.shortfalls || []) {
-      const k = `${sf.gate}${sf.kind ? `/${sf.kind}` : ``}`;
-      const e = byKind.get(k) || { n: 0, rooms: 0 };
-      e.n++;
-      if (!seen.has(k)) {
-        e.rooms++;
-        seen.add(k);
-      }
-      byKind.set(k, e);
-    }
-  }
+  const byKind = declarationPartition(P);
   for (const [k, e] of byKind) {
     put(`${k} declarations`, e.n);
     put(`rooms declaring ${k}`, e.rooms);
@@ -1159,6 +1226,12 @@ export const CRLF_FIXTURE = [
   " * a block header that says the fleet ships 8208 ramparts and then wraps a",
   " * second claim of 62 road+container tiles across 55 rooms over the star.",
   " */",
+  // MM5 — and the OTHER seam a claim can hide in: a published sentence built by
+  // concatenation, with the numeral in one segment and the noun in the next.
+  "const s =",
+  "  `a published sentence saying the fleet ships 4242 ` +",
+  "  `roads, split across a concatenation seam` +",
+  "  ` and joined back into one claim`;",
   "",
 ].join("\n");
 /** the scan path's whole visible output for one source string, as a flat list */
@@ -1210,10 +1283,18 @@ export function scannerSelfTest() {
   // and the fixture has to actually exercise the wrap-join, or the comparison
   // above is two identical readings of nothing
   const wrapped = lf.filter((l) => /n-across-m-rooms|fleet-possessive|fleet-ships/.test(l));
-  if (wrapped.length < 4)
-    fails.push(`the CRLF fixture stopped matching wrapped claims (${wrapped.length} of the 4 it carries)`);
+  if (wrapped.length < 5)
+    fails.push(`the CRLF fixture stopped matching wrapped claims (${wrapped.length} of the 5 it carries)`);
   if (!lf.some((l) => /fleet-size @5/.test(l)))
     fails.push(`the CRLF fixture's post-divider claim is no longer read on the line it sits on`);
+  // MM5 — the concatenation seam. The fixture's last claim has its numeral in one
+  // string literal and its noun in the next, which is the shape that was exempt
+  // from this gate by typography until round 25.
+  if (!lf.some((l) => /fleet-ships .* = 4242/.test(l)))
+    fails.push(
+      `the CRLF fixture's concatenated claim is not matched — a claim split across a \`+\` seam is ` +
+        `invisible again, which is the blind spot MM5 closed`,
+    );
   fails.push(...waiverScopeSelfTest());
   return fails;
 }
@@ -1302,7 +1383,11 @@ export function waiverScopeSelfTest() {
  *                        5,823 while this still reads 7,234.
  *   the partition sum    declarations counted by (gate/kind) bucket and the
  *                        buckets added up — the census `fleetTotals` builds for
- *                        its denominators — rather than by array length.
+ *                        its denominators — rather than by array length, with
+ *                        each bucket's own room count held against its entry
+ *                        count. (Round 25: this entry SAID that and did not do
+ *                        it. See MM6 on the twin itself, including what a
+ *                        partition of one array can and cannot catch.)
  *   the record twin      `meta.notes` is prose and `meta.noteRecords` is the
  *                        machine-readable record behind it; every note has one.
  *   distinctness         172 entries is not the same statement as 172 distinct
@@ -1341,11 +1426,41 @@ export const REGISTRY_TWINS = {
         return (p.structures?.rampart || []).filter((r) => cut.has(`${r.x},${r.y}`)).length;
       }),
   },
+  // MM6 (round 25) — THIS ONE USED TO BE A COPY WEARING A SECOND PATH'S NAME.
+  //
+  // The `via` said "the (gate/kind) partition of fleetTotals, added back up" and
+  // the function was `for (room) for (shortfall) if (sf.gate) n++` — the same
+  // walk of the same array as the primary, with a filter on it. Whatever the
+  // primary read wrong, this read wrong beside it; the only mutation it could
+  // ever have caught is one that removes a `gate`.
+  //
+  // It goes through the partition now, and the partition is where the second
+  // reading comes from: the entries are bucketed by CLASS first and the buckets
+  // are added back up, so the sum has to survive two properties the flat count
+  // does not have. A bucket that does not name a class — a `null`/`undefined`
+  // gate — is not a declaration class and poisons the total rather than being
+  // silently dropped the way the old filter dropped it. And each bucket carries
+  // its own room count, which cannot exceed its entry count or fall below one:
+  // an entry laundered into the census through a fabricated class breaks that
+  // lattice as soon as the two counters stop describing the same set.
+  //
+  // STATED HONESTLY, BECAUSE THIS IS THE FILE THAT NAMES ITS OWN COVERAGE: a
+  // fabricated entry carrying a WELL-FORMED class still moves both readings
+  // together, because `meta.shortfalls` is the only channel that carries the
+  // declarations at all and no second path out of one array can be more
+  // independent than the array. What this catches is a fabricated or corrupted
+  // CLASS — which is what a planted declaration looks like — and what the
+  // registry's `single` roster exists to admit is exactly this kind of limit.
   "declaration shipped fleet-wide": {
-    via: "the (gate/kind) partition of fleetTotals, added back up",
+    via: "the gate/kind partition, bucketed by class and added back up, with each bucket's room count held to its entry count",
     fn: (P) => {
+      const part = declarationPartition(P);
       let n = 0;
-      for (const p of P) for (const sf of p.meta?.shortfalls || []) if (sf && sf.gate) n++;
+      for (const [k, e] of part) {
+        if (!k || /^(?:null|undefined)/.test(k)) return NaN;
+        if (!(e.rooms >= 1 && e.rooms <= e.n)) return NaN;
+        n += e.n;
+      }
       return n;
     },
   },

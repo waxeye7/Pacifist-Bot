@@ -93,6 +93,30 @@ export function composePlan(d, shellOpts = {}) {
   plan.depth = shell.depth;
   plan.meta.counts.rampart = shell.rampart.length;
   plan.meta.shell = shell.shell;
+  // ------------------------------------------------------------------
+  // MM2 (round 25) — THE CUT THE FROZEN FLOOD WAS TAKEN AGAINST.
+  //
+  // `plan.exterior` is frozen here, once, and it is exactly
+  // `exteriorFlood(terrain, <this cut>)` — layer 2 keeps `cut` and the flood in
+  // lockstep through the expansion and the useless-cut prune, and nothing
+  // re-freezes it afterwards. Layers 3-6 read that frozen enclosure and publish
+  // what it withheld from them (see checkEnclosureContract in shared.mjs), and
+  // a reader re-deriving those readings needs the flood, which means needing
+  // this cut.
+  //
+  // `meta.shell.cut` is NOT this cut in every room: layer 7's inert prune
+  // deletes tiles from it and `reconcileSeal` adopts new ones into it, so seven
+  // of this fleet's rooms ship a cut the frozen flood never saw. Deriving the
+  // withheld set off the SHIPPED cut therefore reproduces 165 of 172 rooms and
+  // silently misses the seven where the answer matters most. The snapshot is
+  // taken here, before any of that, because "the list as it was at this instant"
+  // is not recoverable from a mutated array however it is reasoned about.
+  //
+  // It is a plain copy of the tiles, not the array: both later mutations REPLACE
+  // `shell.cut` with a new array, so a shared reference would survive by luck
+  // and stop surviving the day one of them splices in place.
+  // ------------------------------------------------------------------
+  plan.meta.shell.cutAtFreeze = (shell.shell.cut || []).map((t) => ({ x: t.x, y: t.y }));
   // a wall segment the interior cannot walk to is the room beating the planner,
   // the same way a far lobe no tower can cover is — same channel, same rules
   plan.meta.shortfalls.push(...(shell.shortfalls || []));
@@ -2768,12 +2792,41 @@ function declaredKeySet(plan) {
   const shortfalls = sfs.map((sf, at) => ({ at, gate: sf?.gate ?? null, kind: sf?.kind ?? null }));
   return { keys, skipped, shortfalls, count: shortfalls.length };
 }
-/** MF1 — the same three fields on every record that publishes a key set */
+/**
+ * MF1 — the same three fields on every record that publishes a key set.
+ *
+ * ML8 (round 25): `preTakeShortfallBasis` shipped BYTE-IDENTICAL on all 134 of
+ * this fleet's records — a constant sentence copied onto a record and called a
+ * witness. The rule half of it is genuinely constant and belongs there (it is
+ * what the field MEANS, and a reader who finds one record should not have to go
+ * looking for the definition), but a field that cannot differ between two rooms
+ * cannot witness anything about either of them. So the room's own census is
+ * derived into it: how many declarations the pre-take board carried, which
+ * classes they were in declaration order, and how the derivation split them
+ * into keys and skips. That is the same three numbers the fields beside it
+ * publish, said in the sentence that claims they account for each other — so a
+ * record whose key set does not cover its own shortfall list now contradicts
+ * itself in prose as well as in arithmetic.
+ */
 function preTakeKeySetInputs(declared) {
+  const classes = declared.shortfalls.map(
+    (s) => `${s.at}:${s.gate ?? "?"}${s.kind ? `/${s.kind}` : ``}`,
+  );
   return {
     preTakeShortfallCount: declared.count,
     preTakeShortfalls: declared.shortfalls,
-    preTakeShortfallBasis: PRE_TAKE_SHORTFALL_BASIS,
+    preTakeShortfallBasis:
+      `ON THIS RECORD: the pre-take board carried ${declared.count} ` +
+      `declaration(s)${classes.length ? ` — ${classes.join(", ")}` : ``}, of which this pass ranks on ` +
+      `${declared.keys.length} as key(s)${
+        declared.keys.length
+          ? ` (${declared.keys.map((k) => `${k.gate}${k.kind ? `/${k.kind}` : ``}`).join(", ")})` : ``
+      } and skips ${declared.skipped.length}${
+        declared.skipped.length
+          ? ` (${declared.skipped.map((s) => `${s.gate}${s.kind ? `/${s.kind}` : ``}`).join(", ")})` : ``
+      }; ${declared.keys.length} + ${declared.skipped.length} = ${declared.keys.length + declared.skipped.length} ` +
+      `against ${declared.count} entries. ` +
+      PRE_TAKE_SHORTFALL_BASIS,
   };
 }
 const PRE_TAKE_SHORTFALL_BASIS =

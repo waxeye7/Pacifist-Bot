@@ -288,23 +288,66 @@ export function invalidateExterior(plan) {
  * that consumer has started running after a rampart-REMOVING pass and has to
  * move to liveExterior() the same way paveable() did.
  */
+/**
+ * OM3 / MM2 (round 25) — THE WITHHELD COUNT WAS A NUMBER NOBODY COULD CHECK.
+ *
+ * `withheld` shipped as an integer and nothing else: no tile list, and
+ * `plan.exterior` is stripped out of the artifact, so no reader and no gate
+ * could re-derive it. Zeroing all 688 of this fleet's records and inflating one
+ * of them by 500 both passed 172/172 — a field that survives being set to
+ * anything is a decoration, whatever it happens to be measuring. (The answer it
+ * happens to be measuring is clean: the withheld tiles are remote-cluster
+ * bubbles, and layer 7's `paveable()` reads the LIVE flood and paved none of
+ * them. That is the point — it is clean and it was not checkable.)
+ *
+ * So the tiles ship. It is a small list — the fleet's four call sites withhold a
+ * couple of thousand tile-readings between them over a few hundred distinct
+ * tiles — and it makes every consumer of this record derivable rather than
+ * asserted:
+ *
+ *   the COUNT is the length of the list beside it;
+ *   the per-room DISTINCT set is the union of the four lists, which is NOT the
+ *   sum of the four counts and never was — the same tile withheld from all four
+ *   consumers is counted four times by the sum and once by the union, and the
+ *   basis sentence below says so rather than leaving a reader to discover it by
+ *   adding the fleet up and getting a number three times too big;
+ *   the MONOTONICITY the record's own justification implies (the frozen flood
+ *   can only ever be more conservative, and nothing removes a rampart before
+ *   layer 7, so a later call site can only withhold MORE) is now a set
+ *   containment a gate can run and not just a pair of integers;
+ *   and the FROZEN FLOOD ITSELF is reconstructible from `meta.shell.cutAtFreeze`
+ *   (see pipeline.mjs) — layer 2's exterior is the flood over layer 2's cut, and
+ *   layer 7 moves that cut in seven of this fleet's rooms, which is exactly why
+ *   the pre-mutation list is published beside it.
+ */
+export const EXTERIOR_CONTRACT_BASIS =
+  `Each entry is one consumer's reading of the FROZEN layer-2 enclosure (plan.exterior) against the ` +
+  `live wall at the moment that consumer ran. \`exposed\` is the dangerous direction and must be 0: ` +
+  `tiles the frozen flood calls interior that the live wall calls exterior. \`withheldTiles\` is the ` +
+  `safe direction — interior the frozen flood refuses to hand this consumer, because layers 3-6 only ` +
+  `ADD ramparts — and \`withheld\` is its length. THE FOUR COUNTS OVERLAP AND MUST NOT BE ADDED: a ` +
+  `tile withheld from every consumer appears in all four lists, so the sum over the entries counts it ` +
+  `four times and the room's distinct withheld set is the UNION of the lists, not the sum of the ` +
+  `counts. The frozen flood is reconstructible: it is exteriorFlood() over meta.shell.cutAtFreeze, ` +
+  `which is layer 2's cut before layer 7's prune and seal reconciliation move it.`;
 export function checkEnclosureContract(terrain, plan, at) {
   const frozen = plan.exterior;
   if (!frozen || !plan.meta) return null;
   const { ext: live } = liveExterior(terrain, plan);
-  let exposed = 0,
-    withheld = 0;
+  let exposed = 0;
   const exposedTiles = [];
+  const withheldTiles = [];
   for (let i = 0; i < 2500; i++) {
     if (!!frozen[i] === !!live[i]) continue;
     if (!frozen[i] && live[i]) {
       exposed++;
       if (exposedTiles.length < 8) exposedTiles.push(`${i % 50},${(i / 50) | 0}`);
-    } else withheld++;
+    } else withheldTiles.push(`${i % 50},${(i / 50) | 0}`);
   }
-  const rec = { at, exposed, withheld };
+  const rec = { at, exposed, withheld: withheldTiles.length, withheldTiles };
   if (exposed) rec.exposedTiles = exposedTiles;
   (plan.meta.exteriorContract ||= []).push(rec);
+  plan.meta.exteriorContractBasis = EXTERIOR_CONTRACT_BASIS;
   if (exposed) {
     (plan.meta.shortfalls ||= []).push({
       gate: "exterior",

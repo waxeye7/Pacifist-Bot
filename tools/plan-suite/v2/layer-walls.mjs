@@ -2451,26 +2451,98 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
  * `meta.walls.roadRampart.unclassified` in any room, or the fleet summary's
  * total, for what it is today. (Round 20; criticism 80.)
  */
-export function classifyRoadRamparts(plan) {
-  const roads = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
-  const cut = new Set((plan.shell?.cut || []).map((c) => key(c.x, c.y)));
-  const denial = new Set((plan.shell?.standDenial || []).map((c) => key(c.x, c.y)));
+/**
+ * ------------------------------------------------------------------------
+ * ONE CLASSIFIER, EVERY CHANNEL THAT SAYS WHAT A RAMPART IS FOR (OB1, round 25).
+ * ------------------------------------------------------------------------
+ * The taxonomy above was published by the NOTE channel over road+rampart tiles
+ * and re-implemented by the FILM (export-anim's ramparts stage) over every
+ * rampart, in a DIFFERENT ORDER — `cut -> bubble -> denial -> cover` there
+ * against `cut -> seat -> ring -> cover` here. Two consequences, both measured
+ * on the shipped fleet:
+ *
+ *   THE FILM'S `denial` CLASS WAS DEAD. 237 stand-denial tiles ship and 223 of
+ *   them are also in `shell.bubble`, which the film tested FIRST, so the class
+ *   took 0 of 8208 ramparts in every room of the fleet and was declared nowhere.
+ *
+ *   AND ITS `bubble` CAPTION WAS FALSE FOR 63% OF THE CLASS. "a container
+ *   outside the shell" was painted over 807 tiles: 295 containers, 299 LINKS
+ *   and 213 carrying NOTHING AT ALL. E11S3's 21,12 was captioned a container
+ *   seat by the film while the same room's own note called it a stand-denial
+ *   ring tile that "carries no structure" — one artifact, two channels, one
+ *   tile, two answers.
+ *
+ * So the order and the membership tests live HERE, once, and both channels read
+ * this function. The classes are the note's, because the note's are the ones a
+ * room already publishes as a five-class census a validator re-derives:
+ *
+ *   crossing      the tile is on the published min-cut wall.
+ *   seat          a CONTAINER stands on it. (Whether that container is outside
+ *                 the shell is a separate published fact — `inBubble` — and the
+ *                 film's caption reads it rather than assuming it: a seat may be
+ *                 a bubble seat outside the shell or a container standing inside
+ *                 the wall on shallow floor, and the two get different words.)
+ *   ring          part of the controller stand-denial ring.
+ *   cover         some other structure of ours stands on it and is renting the
+ *                 rampart for itself — on this fleet mostly links, plus a
+ *                 handful of extensions and a lab. The film's own per-room
+ *                 census is where those are counted; nothing is typed here,
+ *                 because a typed census rots and this one already had.
+ *   unclassified  a rampart the four classes above have no word for. It is
+ *                 counted and published even when it is empty, which is the
+ *                 whole reason the class exists.
+ *   none          not a rampart at all. Only reachable through the film's
+ *                 pass-7 caption, which asks this classifier about ORIGIN tiles
+ *                 that may carry nothing.
+ *
+ * Restricted to road+rampart tiles this reproduces the published
+ * `meta.walls.roadRampart` census in 172/172 rooms, which is what makes the
+ * film-vs-note agreement a test rather than a promise.
+ */
+export function rampartClassifier(plan) {
+  const keysOf = (l) => new Set((l || []).map((t) => key(t.x, t.y)));
+  const cut = keysOf(plan.shell?.cut || plan.meta?.shell?.cut);
+  const denial = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
+  const bubble = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
+  const ramp = keysOf(plan.structures?.rampart);
   const own = new Map();
   for (const t of Object.keys(plan.structures || {})) {
     if (t === "rampart" || t === "road") continue;
     for (const p of plan.structures[t] || []) own.set(key(p.x, p.y), t);
   }
+  const classOf = (k) =>
+    !ramp.has(k)
+      ? "none"
+      : cut.has(k)
+        ? "crossing"
+        : own.get(k) === "container"
+          ? "seat"
+          : denial.has(k)
+            ? "ring"
+            : own.has(k)
+              ? "cover"
+              : "unclassified";
+  return {
+    classOf,
+    occupant: own,
+    inBubble: (k) => bubble.has(k),
+    isRampart: (k) => ramp.has(k),
+  };
+}
+/** the five classes of the published road+rampart census, in the order they are tested */
+export const ROAD_RAMPART_CLASSES = ["crossing", "seat", "ring", "cover", "unclassified"];
+export function classifyRoadRamparts(plan) {
+  const roads = new Set((plan.structures.road || []).map((r) => key(r.x, r.y)));
+  const { classOf, occupant } = rampartClassifier(plan);
   const out = { total: 0, crossing: [], seat: [], ring: [], cover: [], unclassified: [] };
   for (const r of plan.structures.rampart || []) {
     const k = key(r.x, r.y);
     if (!roads.has(k)) continue;
     out.total++;
     const t = { x: r.x, y: r.y };
-    if (cut.has(k)) out.crossing.push(t);
-    else if (own.get(k) === "container") out.seat.push(t);
-    else if (denial.has(k)) out.ring.push(t);
-    else if (own.has(k)) out.cover.push({ ...t, on: own.get(k) });
-    else out.unclassified.push(t);
+    const c = classOf(k);
+    if (c === "cover") out.cover.push({ ...t, on: occupant.get(k) });
+    else out[c].push(t);
   }
   return out;
 }

@@ -608,12 +608,39 @@ function renderSealedRecoveryRun(r) {
 function seatCensus(r) {
   const seats = r.seats || {};
   const parts = Object.keys(seats).map((t) => `${seats[t]} ${t}`);
+  // ------------------------------------------------------------------
+  // OM2 (round 25) — THE PRE-TAKE BOARD, IN THE SHIPPED BOARD'S PRESENT TENSE.
+  //
+  // "The candidates are EVERY MOVABLE SEAT THIS ROOM SHIPS — 61 of them … of
+  // which 3 stand D8 of one of ITS 2 pockets" is a sentence about a board that
+  // no longer exists in every room where this pass took something: a withdrawal
+  // re-composes the room from layer 1, so the seat inventory that was judged and
+  // the pocket list it was judged against are both PRE-TAKE. Fleet-wide the
+  // seat count is false for 114 seats and the pocket clause is false in 11 of
+  // the 12 rooms — four of which assert pockets in the same paragraph that says
+  // "sealed floor 4 -> 0", i.e. they ship no sealed floor at all.
+  //
+  // `towerSwap` had this exact finding one round earlier and states the tense it
+  // means ("ON THE BOARD THIS PASS JUDGED — before the take, which is the board
+  // a tie-break is decided on"). This is the same sentence in the same artifact,
+  // so it is the same words: the census is of the board the decision was made
+  // on, which is the only board a decision CAN be made on, and where that board
+  // is not the shipped one the paragraph says so instead of leaving the reader
+  // to reconcile it against a room that no longer looks like this.
+  // ------------------------------------------------------------------
+  const took = r.outcome === "taken";
   return (
-    ` The candidates are EVERY MOVABLE SEAT this room ships — ${r.candidates} of them` +
+    ` The candidates are EVERY MOVABLE SEAT ON THE BOARD THIS PASS JUDGED — ${r.candidates} of them` +
     (parts.length ? ` (${parts.join(" + ")})` : ``) +
-    `, of which ${r.movableHolders ?? 0} stand D8 of one of its ` +
+    `, of which ${r.movableHolders ?? 0} stand D8 of one of that board's ` +
     `${r.pockets.length} ${plural(r.pockets.length, "pocket", "pockets")} and the rest hold nothing ` +
-    `shut at all. Both are composed: a withdrawal re-seats the whole extension mass, so a seat that ` +
+    `shut at all. ` +
+    (took
+      ? `THAT IS THE PRE-TAKE BOARD AND NOT WHAT THE ROOM SHIPS: the withdrawal this note records ` +
+        `re-composed the room from layer 1, so both the seat inventory and the pocket list above are ` +
+        `the ones the decision was taken against — read the panel deltas for what the room ships. `
+      : `This run took nothing, so that board is also the one the room ships. `) +
+    `Both are composed: a withdrawal re-seats the whole extension mass, so a seat that ` +
     `touches no pocket can still be the tile whose removal lets the mass flow into one.` +
     ((r.fixedHolders || []).length
       ? ` ${r.fixedHolders.length} further ${plural(r.fixedHolders.length, "holder", "holders")} ` +
@@ -862,7 +889,13 @@ function renderShallowExtNote(r) {
         `counted separately, which is the round-12 correction: this note reported only the ` +
         `road-faced one while claiming to have swept for both, and the class it did not report ` +
         `held a tile E12S6 could have taken for free. ${r.search.paveTaken} of the one-pave tiles ` +
-        `were taken and ${r.search.paveLeft} were left. It rejected ` +
+        `were taken and ${r.search.paveLeft} were left — AND THOSE THREE NUMBERS DO NOT SUBTRACT, ` +
+        `WHICH IS THE POINT: "left" is the class RE-SCANNED against the board this room ships, not ` +
+        `${r.search.freeDeepOnePave} minus ${r.search.paveTaken}. A candidate can leave the one-pave ` +
+        `class without anybody taking it, and the commonest way is that a neighbour took it as ITS ` +
+        `pave — the tile is on the network now, so it is no longer one pave from it (E12S6's 35,13 is ` +
+        `the tile that named this). A "left" figure that closed against the other two would be ` +
+        `reporting a subtraction instead of a search. It rejected ` +
         `${r.search.refusedCount} distinct tile(s) for a stated reason each ` +
         `(${r.search.refusedExaminations} examinations — a tile re-offered on a later round is ` +
         `logged again and counted once). ` +

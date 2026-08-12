@@ -28,7 +28,9 @@ import { planRoom } from "./pipeline.mjs";
 // has to be the same threshold layer 6 and layer 7b place against, and a second
 // copy of a constant is the class this suite keeps closing (OM2, round 20).
 import { DEPTH_SAFE } from "./layer-ext.mjs";
-import { LATE_KINDS, lateRoadDecomp } from "./layer-walls.mjs";
+// the rampart taxonomy is IMPORTED and not re-implemented — see rampartFacet
+// below, and the header over `rampartClassifier` in layer-walls.mjs (OB1)
+import { LATE_KINDS, lateRoadDecomp, rampartClassifier } from "./layer-walls.mjs";
 
 const MAX_FIELD_RING = 25;
 const BASIN_RADIUS = 12;
@@ -402,75 +404,139 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  * OM4 (round 21) — THE RAMPARTS STAGE CALLED 974 RAMPARTS SOMETHING THEY ARE NOT.
  *
  * The stage painted every rampart in the room under one caption, `min-cut wall
- * b/n`, in 171 of the 172 rooms. On this fleet 8208 ramparts ship and 7234 of
- * them are tiles of `meta.shell.cut`; the other 974 are not the wall at all —
- * 807 are bubble seats (a container outside the shell, covered where it stands)
- * and 167 are personal cover, a rampart rented by ONE shallow structure standing
- * on that tile (141 containers, 25 extensions, 1 lab). The counter lied twice:
- * it called a bubble seat a wall tile, and it inflated the wall's own count by
- * the ones that are not in it.
+ * b/n`, in 171 of the 172 rooms. Most of a room's ramparts ARE tiles of
+ * `meta.shell.cut`, and the rest are not the wall at all: a container outside
+ * the shell wearing its own cover, a stand-denial ring tile, a shallow structure
+ * renting a rampart for itself. The counter lied twice — it called those tiles
+ * wall tiles, and it inflated the wall's own count by the ones that are not in
+ * it. (Round 25: the per-class fleet figures that used to be typed into this
+ * paragraph are on every film as `rampartCensus`, per room, because the fleet
+ * moves and a typed census does not.)
  *
  * E9S2 contradicted itself inside a single film over the same tile: 33,4 was
  * painted "min-cut wall" by this stage and then narrated by the pass-7 caption
  * as a rampart the origin "rents forever" — which is what it is. The classifier
  * that got that second sentence right was ALREADY IN THIS FILE, one function
  * down, as `rampartJob`; the stage simply never asked it. So the classification
- * is lifted out here and both callers read the same one: a fact that is a
- * membership test in the shipped board, published in one place, not two
- * sentences that can disagree.
+ * is read from ONE place by both callers: a fact that is a membership test in
+ * the shipped board, not two sentences that can disagree. (Round 25 moved that
+ * one place again — out of this file entirely and into the layer that publishes
+ * the room's own census, because two channels in two files is the same defect
+ * one level up. See below.)
  *
  * The sweep is unchanged — the tiles are painted in the same order around the
  * hub, so the wall still reads as a radar hand. The film emits one chunked RUN
- * per stretch of same-class tiles instead of one run over everything, and each
- * run's counter counts ITS OWN class, so "min-cut wall 40/50" now means 40 of
+ * per stretch of same-caption tiles instead of one run over everything, and each
+ * run's counter counts ITS OWN caption, so "min-cut wall 40/50" now means 40 of
  * the room's 50 cut tiles.
  */
-const RAMPART_CLASSES = {
-  cut: {
+/**
+ * OB1 (round 25) — THE FILM'S OWN COPY OF THE TAXONOMY HAD A DEAD CLASS AND A
+ * FALSE CAPTION, AND BOTH WERE ARTEFACTS OF THE COPY.
+ *
+ * The classification above was re-implemented here in a different order from the
+ * one the note channel publishes (`classifyRoadRamparts`, layer-walls.mjs), and
+ * the difference was not cosmetic:
+ *
+ *   `denial` took 0 of this fleet's 8208 ramparts. 237 stand-denial tiles ship
+ *   and 223 of them are also in `shell.bubble`, which this file tested first, so
+ *   the class was unreachable by construction in every room — and unreachable
+ *   silently, since a class that never fires prints no caption to be wrong.
+ *
+ *   `bubble`'s caption said "a container outside the shell" over 807 tiles that
+ *   are 295 containers, 299 LINKS and 213 tiles carrying nothing at all. E11S3's
+ *   21,12 got the container-seat caption in this film while the room's own note
+ *   called it a stand-denial ring tile that "carries no structure".
+ *
+ * So the ORDER and the membership tests are gone from this file: `rampartClassifier`
+ * is imported from layer-walls.mjs, which is where the note's five-class census
+ * is derived, and restricted to road+rampart tiles the two agree in 172/172 rooms
+ * by construction rather than by coincidence.
+ *
+ * WHAT STAYS HERE IS THE WORDING, AND IT IS DERIVED PER MEMBER. A class is not a
+ * caption: `seat` is a container, and whether that container is OUTSIDE the shell
+ * (a bubble seat) or inside it on shallow floor (personal cover for a container)
+ * is a second published fact this film reads off `shell.bubble` instead of
+ * assuming; most seats are bubble seats and a substantial minority are not, and
+ * `rampartCensus` on each film is where the split is read rather than typed.
+ * `cover` names the structure that is renting the rampart rather than calling
+ * every one of them "a shallow structure". The run key is the FACET, so no chunk
+ * can carry two captions and every counter counts its own facet.
+ *
+ * AND THE DEAD CLASSES ARE DECLARED. `rampartCensus` on the film ships one row
+ * per facet including the ones that took no tile, with the reason they are empty
+ * — the same discipline the note inventory keeps for `pavingGap`. A class that is
+ * only visible when it fires is a class nobody can tell apart from a bug.
+ */
+const RAMPART_FACETS = {
+  crossing: {
     caption: "min-cut wall",
     job: "it is a tile of the published min-cut wall, which this film's own ramparts stage paints and its last frame still carries",
+    empty: "this room ships no rampart on its own published cut, which no enclosure in this fleet does",
   },
-  bubble: {
+  "seat.bubble": {
     caption: "bubble seat — a container outside the shell, covered where it stands",
     job: "it is a bubble seat over a container outside the shell",
+    empty: "no container of this room stands outside the shell wearing a rampart of its own",
   },
-  denial: {
+  "seat.inside": {
+    caption: "container cover — a container inside the wall, on shallow floor, renting a rampart of its own",
+    job: "it carries a container standing inside the wall on floor too shallow to go bare",
+    empty: "every ramparted container this room ships stands outside the shell, so none is renting cover inside the wall",
+  },
+  ring: {
     caption: "controller stand-denial ring",
     job: "it is part of the controller stand-denial ring",
+    empty: "this room's controller ring needed no rampart of its own — the cut already denies every stand beside it, or the ring tiles carry structures and are classed by what they carry",
   },
   cover: {
-    caption: "personal cover — one shallow structure renting a rampart of its own",
-    job: "the shipped board still carries a rampart there, so something else is renting it — another shallow structure, or the exterior flood itself",
+    caption: "personal cover — one structure renting a rampart of its own",
+    job: "the shipped board still carries a rampart there and a structure of ours stands on it, renting it",
+    empty: "no structure of this room other than a container rents a rampart of its own",
+  },
+  unclassified: {
+    caption: "rampart this room's own taxonomy has no word for",
+    job: "the shipped board carries a rampart there that is not on the cut, carries nothing, and is not part of the stand-denial ring — a tile the enum has no word for",
+    empty: "every rampart this room ships lands in one of the four named classes, which is what the class exists to demonstrate",
   },
   none: {
     caption: "rampart",
     job: "the shipped board carries no rampart there at all, so there was none to retire",
+    empty: "this facet is never painted: the stage sweeps the rampart list, so every tile it paints carries one",
   },
 };
-function rampartClassifier(plan) {
-  const keysOf = (l) => new Set((l || []).map((t) => `${t.x},${t.y}`));
-  const cutKeys = keysOf(plan.meta?.shell?.cut);
-  const bubbleKeys = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
-  const denialKeys = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
-  const rampartKeys = keysOf(plan.structures?.rampart);
-  // what stands ON the tile, so "personal cover" can name the structure that is
-  // renting it rather than leaving the viewer to guess
-  const occupant = new Map();
-  for (const [type, list] of Object.entries(plan.structures || {})) {
-    if (type === "rampart" || type === "road") continue;
-    for (const p of list || []) occupant.set(`${p.x},${p.y}`, type);
-  }
-  const classOf = (k) =>
-    cutKeys.has(k)
-      ? "cut"
-      : bubbleKeys.has(k)
-        ? "bubble"
-        : denialKeys.has(k)
-          ? "denial"
-          : rampartKeys.has(k)
-            ? "cover"
-            : "none";
-  return { classOf, occupant, job: (k) => RAMPART_CLASSES[classOf(k)].job };
+/** the facet order the census prints in — the classifier's own test order */
+const RAMPART_FACET_ORDER = [
+  "crossing",
+  "seat.bubble",
+  "seat.inside",
+  "ring",
+  "cover",
+  "unclassified",
+  "none",
+];
+function rampartFacets(plan) {
+  const cls = rampartClassifier(plan);
+  const facetOf = (k) => {
+    const c = cls.classOf(k);
+    if (c === "seat") return cls.inBubble(k) ? "seat.bubble" : "seat.inside";
+    return c;
+  };
+  // `cover` names its occupant in the caption, so the caption is a function of
+  // the tile and not of the class alone
+  const captionOf = (k) => {
+    const f = facetOf(k);
+    if (f !== "cover") return RAMPART_FACETS[f].caption;
+    const on = cls.occupant.get(k);
+    return `personal cover — one ${on || "structure"} renting a rampart of its own`;
+  };
+  const jobOf = (k) => {
+    const f = facetOf(k);
+    if (f !== "cover") return RAMPART_FACETS[f].job;
+    const on = cls.occupant.get(k);
+    return `the shipped board still carries a rampart there and this room's ${on || "structure"} stands on it, renting it`;
+  };
+  return { classOf: cls.classOf, facetOf, captionOf, job: jobOf, occupant: cls.occupant };
 }
 
 // --- road provenance ------------------------------------------------------
@@ -638,39 +704,45 @@ export function buildAnim(room, terrain, plan) {
   // rampartClassifier: the counter used to say "min-cut wall b/n" over the
   // WHOLE rampart set, which is false of 974 of this fleet's 8208 ramparts and
   // inflates the wall's own count in 171 rooms.
-  const rampartClass = rampartClassifier(plan);
+  const rampartClass = rampartFacets(plan);
   const ramparts = plan.structures.rampart;
+  // the room's own census, keyed on the CAPTION rather than on the class, so a
+  // counter says "40 of the 50 tiles this caption is true of" — see rampartFacets
+  const rampartTotal = new Map();
+  const rampartFacetTotal = new Map();
+  /** facet -> (caption -> count): what the census below has to account for */
+  const rampartFacetCaptions = new Map();
   if (ramparts && ramparts.length) {
     const sweep = sweepOrder(ramparts, plan.hub || plan.seed);
-    // the room's own census, so each run's counter counts its own class
-    const total = {};
-    const done = {};
+    const done = new Map();
     for (const t of sweep) {
-      const c = rampartClass.classOf(`${t.x},${t.y}`);
-      total[c] = (total[c] || 0) + 1;
+      const k = `${t.x},${t.y}`;
+      const w = rampartClass.captionOf(k);
+      const f = rampartClass.facetOf(k);
+      rampartTotal.set(w, (rampartTotal.get(w) || 0) + 1);
+      rampartFacetTotal.set(f, (rampartFacetTotal.get(f) || 0) + 1);
+      if (!rampartFacetCaptions.has(f)) rampartFacetCaptions.set(f, new Map());
+      const m = rampartFacetCaptions.get(f);
+      m.set(w, (m.get(w) || 0) + 1);
     }
-    // consecutive same-class stretches of the sweep: the paint order is exactly
+    // consecutive same-caption stretches of the sweep: the paint order is exactly
     // the order it was, and no chunk can mix two jobs under one caption
     let run = [];
-    let runClass = null;
+    let runWhat = null;
     const flush = () => {
       if (!run.length) return;
-      const c = runClass;
-      const label = RAMPART_CLASSES[c].caption;
-      // the occupant is what makes "personal cover" checkable on the last frame
-      const occ = c === "cover" ? [...new Set(run.map((t) => rampartClass.occupant.get(`${t.x},${t.y}`)))] : [];
-      const what = occ.length ? `${label} (${occ.filter(Boolean).join(", ")})` : label;
+      const what = runWhat;
       chunked(sb, "ramparts", run, RAMPART_CHUNK, "#4dff9e", (a, b) => {
-        done[c] = (done[c] || 0) + (b - a);
-        return `${what} ${done[c]}/${total[c]}`;
+        done.set(what, (done.get(what) || 0) + (b - a));
+        return `${what} ${done.get(what)}/${rampartTotal.get(what)}`;
       });
       run = [];
     };
     for (const t of sweep) {
-      const c = rampartClass.classOf(`${t.x},${t.y}`);
-      if (c !== runClass) {
+      const what = rampartClass.captionOf(`${t.x},${t.y}`);
+      if (what !== runWhat) {
         flush();
-        runClass = c;
+        runWhat = what;
       }
       run.push(t);
     }
@@ -1238,11 +1310,38 @@ export function buildAnim(room, terrain, plan) {
     stageScaffold[s] = STAGE_SCAFFOLD[s];
   }
 
+  // OB1 (round 25) — THE RAMPART TAXONOMY, DECLARED, INCLUDING THE CLASSES THAT
+  // TOOK NOTHING. The ramparts stage paints one run per caption and a caption
+  // that never fires leaves no trace, which is exactly how this film shipped a
+  // class that could not fire for a whole fleet without anybody reading a wrong
+  // word. Every facet is listed with the count it took in THIS room and, when
+  // that count is zero, the reason it is zero — the discipline the note
+  // inventory keeps for `pavingGap`. `class` is the note channel's own class
+  // name (see rampartClassifier in layer-walls.mjs), so a reader — or a gate —
+  // can line this census up against `meta.walls.roadRampart` tile for tile.
+  const rampartCensus = RAMPART_FACET_ORDER.map((f) => {
+    const n = rampartFacetTotal.get(f) || 0;
+    const row = {
+      facet: f,
+      class: f.split(".")[0],
+      count: n,
+      // every caption this facet was painted under, with its own denominator —
+      // `cover` names the structure renting the rampart, so one facet can carry
+      // more than one caption and the counters are per caption
+      captions: [...(rampartFacetCaptions.get(f) || new Map())].map(([caption, count]) => ({
+        caption,
+        count,
+      })),
+    };
+    if (!n) row.emptyBecause = RAMPART_FACETS[f].empty;
+    return row;
+  });
   return {
     room,
     format: "xyc-flat",
     palette: palette.toObject(),
     meta: { stageOrder: present, stageRates, stageScaffold },
+    rampartCensus,
     steps: sb.steps,
     colors: palette.size,
   };
