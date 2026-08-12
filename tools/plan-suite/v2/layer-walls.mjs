@@ -3489,6 +3489,45 @@ export function planWallRoads(terrain, plan) {
   const alongCutRefused = [];
   kindNow = "alongCutMoved";
   {
+    // ------------------------------------------------------------------
+    // THE FLOOD THIS PASS ASKS IS THE ONE THE ROOM CURRENTLY HAS.
+    //
+    // `ext` (== plan.exterior) is LAYER 2's flood: the exterior reachable
+    // set against the min-cut ring as it stood before layers 3-7 added a
+    // single bubble rampart and before pruneInertRamparts (above, stage 5)
+    // TOOK ramparts away. The comment on the rejection order below already
+    // knew the two floods disagree and handled ONLY the direction where a
+    // tile is exterior to layer 2 and interior to the shipped wall (bubble
+    // seats — E21S3 22,24, E5S9 22,18). The OPPOSITE direction is the one
+    // that bites the BOARD rather than a sentence: a tile that layer 2
+    // called INTERIOR because a rampart stood on its landward side, and
+    // that the inert prune has since opened to the outside. Asking the
+    // stale flood there does not merely mis-word a refusal — it lets the
+    // swap TAKE the tile, and the room ships a paved tile outside its own
+    // wall.
+    //
+    // Two rooms did exactly that: E9S8 moved 19,24 -> 18,24 and E17S5
+    // 43,36 -> 44,36, both onto tiles the early prune had already stripped
+    // of their rampart. E9S8's is not cosmetic: the sitter->source-container
+    // haul path is 13 through 18,24 and 14 staying inside, so the room's
+    // primary economy lane routes through the breach, and an attacker walks
+    // 30 tiles from the room edge to prepared surface without crossing a
+    // rampart. The net effect of the "fix" was to move a paved tile from
+    // UNDER a rampart (usable only by defenders) to OUTSIDE the wall
+    // (usable only by attackers).
+    //
+    // So the pass re-floods against the rampart set as it stands NOW.
+    // `rampartSet` above is built from plan.structures.rampart after the
+    // stage-5 prune, so this is the wall the room is actually standing on
+    // at the moment the swap is offered. It costs one flood per room and it
+    // is the only reading under which "interior parallel" means what the
+    // published sentence says it means. (A second prune runs at the end of
+    // the layer, so this is still not literally the shipped set — but it is
+    // never LARGER than the shipped wall's interior, which is the direction
+    // that matters: this test can now only refuse a tile the shipped board
+    // would also refuse, never accept one it would reject.)
+    // ------------------------------------------------------------------
+    const extNow = exteriorFlood(terrain, rampartSet);
     const liveNow = () => {
       const s = new Set();
       for (const r of plan.structures.road.concat(newRoads)) {
@@ -3680,14 +3719,18 @@ export function planWallRoads(terrain, plan) {
         // ORDER MATTERS, AND IT IS THE RAMPART TEST FIRST.
         //
         // These reasons are RE-DERIVED by the validator on the board the room
-        // SHIPS, and this pass runs mid-pipeline against layer 2's exterior
-        // flood. The two disagree about tiles the later layers ramparted: E21S3's
-        // 22,24 and E5S9's 22,18 are bubble seats, OUTSIDE layer 2's flood and
-        // INSIDE the shipped one, and asking `ext` first made the refusal say
-        // "22,24 is OUTSIDE the wall" — a claim that re-derives FALSE on the
-        // shipped board and therefore says nothing, even though the tile really
-        // is unusable. "It is itself a ramparted tile" is true on BOTH boards and
-        // is the stronger reason anyway, so it is asked first.
+        // SHIPS. The flood asked below is now this room's CURRENT one (see
+        // `extNow` at the head of the pass) rather than layer 2's, which
+        // removes the direction of disagreement that could move a road
+        // outside the wall — but it does not make the order arbitrary. A
+        // ramparted tile is refused for being ramparted, on every flood and
+        // on the shipped board: E21S3's 22,24 and E5S9's 22,18 are bubble
+        // seats, OUTSIDE layer 2's flood and INSIDE the shipped one, and
+        // asking the flood first made the refusal say "22,24 is OUTSIDE the
+        // wall" — a claim that re-derives FALSE on the shipped board and
+        // therefore says nothing, even though the tile really is unusable.
+        // "It is itself a ramparted tile" is true on BOTH boards and is the
+        // stronger reason anyway, so it is asked first.
         if (rampartSet.has(tk)) {
           rejected.push(
             `${x},${y} is itself a ramparted tile${cutSet.has(tk) ? ` on the cut` : ``} — that is the ` +
@@ -3695,7 +3738,7 @@ export function planWallRoads(terrain, plan) {
           );
           continue;
         }
-        if (ext[idx(x, y)]) {
+        if (extNow[idx(x, y)]) {
           rejected.push(`${x},${y} is OUTSIDE the wall — moving the road there is not an interior parallel`);
           continue;
         }
@@ -4719,12 +4762,104 @@ export function finalizeRoom(terrain, plan) {
         const sharing = bridged.added.filter((t) =>
           (plan.structures.container || []).some((c) => c.x === t.x && c.y === t.y),
         );
+        // ------------------------------------------------------------------
+        // WHAT ACTUALLY FALLS OFF IF THESE TILES ARE NOT LAID (OM9, round 23).
+        //
+        // The note this record feeds used to END on a hardcoded sentence —
+        // "without these tiles the controller container and the roads that serve
+        // it are orphaned for three whole RCLs" — with NO field behind it. It is
+        // true in E5S1, the room that motivated the pass, and FALSE in the other
+        // two rooms that ship the note: E5S3's controller container at 40,42 and
+        // E2S5's at 31,32 both stay connected without the added tile. What
+        // actually falls off there is a spur running out PAST the mineral seat
+        // (E5S3: five tiles to 36,7, adjacent to no source, container or
+        // controller; E2S5: eleven, from 28,23 beside the mineral out to 37,22).
+        // The road is still worth its 0.001 e/tick in all three rooms — a real
+        // piece of network does fall off — but a reader auditing the spend was
+        // told it protects the controller lane when it protects a mineral spur.
+        //
+        // The clause was a string constant, so it sat outside RECORD_LEAVES,
+        // outside the declared-key machinery, and no mutation could bite it. It
+        // is a MEASUREMENT now, taken here on the board the room ships, under
+        // this pass's OWN definition of the pre-RCL6 network: the D8 component
+        // from the sitter over roads and containers with the deferred
+        // mineral-seat container(s) absent (the same `conduct` set the join loop
+        // above builds), with the tiles this pass added deleted. Whatever is
+        // left over is what the room loses, named, and whether the controller
+        // container is in it is a flag rather than an adjective.
+        // ------------------------------------------------------------------
+        const orphanedByRemoval = (() => {
+          const containers = plan.structures.container || [];
+          const ex0 = (plan.structures.extractor || [])[0] || null;
+          const deferredK = new Set(
+            ex0 ? containers.filter((c) => chebyshev(c, ex0) <= 1).map((c) => key(c.x, c.y)) : [],
+          );
+          const addedK = new Set(bridged.added.map((t) => key(t.x, t.y)));
+          const conduct = new Set();
+          for (const rd of plan.structures.road || []) {
+            const k = key(rd.x, rd.y);
+            if (!addedK.has(k)) conduct.add(k);
+          }
+          for (const c of containers) {
+            const k = key(c.x, c.y);
+            if (!deferredK.has(k)) conduct.add(k);
+          }
+          const seen = new Set();
+          const seed = key(plan.sitter.x, plan.sitter.y);
+          if (conduct.has(seed)) {
+            seen.add(seed);
+            const q = [plan.sitter];
+            for (let qi = 0; qi < q.length; qi++) {
+              const cur = q[qi];
+              for (const [dx, dy] of D8) {
+                const nx = cur.x + dx,
+                  ny = cur.y + dy;
+                if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+                const k = key(nx, ny);
+                if (seen.has(k) || !conduct.has(k)) continue;
+                seen.add(k);
+                q.push({ x: nx, y: ny });
+              }
+            }
+          }
+          const tiles = [...conduct]
+            .filter((k) => !seen.has(k))
+            .map((k) => {
+              const [x, y] = k.split(",").map(Number);
+              return { x, y };
+            })
+            .sort((a, b) => a.y - b.y || a.x - b.x);
+          const lost = new Set(tiles.map((t) => key(t.x, t.y)));
+          // the controller container is the one within range 3 of the
+          // controller — the same test the upgrader-park rule uses
+          const ctrl = plan.controller || null;
+          const ctrlC =
+            (ctrl && containers.find((c) => chebyshev(c, ctrl) <= 3 && !deferredK.has(key(c.x, c.y)))) || null;
+          return {
+            tiles,
+            // the deferred seat(s) the whole pass exists because of — named so
+            // the note can say what the spur runs past without walking again
+            mineralSeat: containers.filter((c) => deferredK.has(key(c.x, c.y))).map((c) => ({ x: c.x, y: c.y })),
+            ctrlContainer: ctrlC ? { x: ctrlC.x, y: ctrlC.y } : null,
+            ctrlContainerOrphaned: !!(ctrlC && lost.has(key(ctrlC.x, ctrlC.y))),
+            // every container that loses the network with them — empty means the
+            // spur serves no seat at all, which is the honest thing to say
+            containersOrphaned: containers
+              .filter((c) => lost.has(key(c.x, c.y)))
+              .map((c) => ({ x: c.x, y: c.y })),
+            basis:
+              `the D8 component from the sitter over roads and containers with the deferred ` +
+              `mineral-seat container(s) absent — this pass's own pre-RCL6 network — recomputed with ` +
+              `the tiles this pass added deleted`,
+          };
+        })();
         pushNote(plan, "containerRoad", {
           added: bridged.added.map((t) => ({ x: t.x, y: t.y })),
           sharing: sharing.map((t) => ({ x: t.x, y: t.y })),
           containersOnRoads: (plan.structures.container || []).filter((c) =>
             (plan.structures.road || []).some((r) => r.x === c.x && r.y === c.y),
           ).length,
+          orphanedByRemoval,
         });
       }
       if (bridged.stranded?.length) {

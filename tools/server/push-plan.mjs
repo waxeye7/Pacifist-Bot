@@ -1258,12 +1258,15 @@ function census() {
   let promoted = 0;
   let demoted = 0;
   // Mm5 (round 22) — THE TWO FIGURES THIS HEADER KEPT RE-TYPING, PRINTED.
-  // [r22-waived: this paragraph QUOTES both rotted figures verbatim, which is
-  // the whole evidence for the two lines below existing; correcting them would
-  // delete the finding.]
   //
-  // "road and container share a tile in 60 tiles across 53 shipped rooms" (the
+  // "road and container share a tile in 60 tiles across 53 shipped rooms"
+  // [r22-waived: the rotted figure is QUOTED as this finding's own evidence —
+  // correcting it would delete the finding; the live count is the "road+container
+  // coincidences" line of --census] (the
   // verifiedGapTiles header) and "+260 bytes on the largest (E12S6, 123 roads)"
+  // [r22-waived: the rotted figure is QUOTED as this finding's own evidence —
+  // correcting it would delete the finding; the live count is the per-room road
+  // maximum printed by --census]
   // (the roadStage header) were both hand-transcribed, both moved with the
   // fleet, and both were wrong by the time anybody read them — the second had
   // had one of its two halves updated and not the other. This file's own rule

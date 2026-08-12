@@ -1944,6 +1944,24 @@ function mobilityCell(plan) {
     : "shell ungated record —";
   const floorGated = typeof mob.floorGated === "number" ? mob.floorGated : "—";
   const unjudged = mobilityUnjudged(plan);
+  // ------------------------------------------------------------------
+  // OL7 (round 23) — THE ONE READING THAT DESCRIBES THE SHIPPED ROOM.
+  //
+  // Three ratios exist for every room and only two reached a reader. The gated
+  // as-built lap is the one the 1.2 target applies to, and in 117 rooms it is
+  // UNJUDGED — the detour floor excuses every pair — so the only number those
+  // pages painted was the SHELL's, measured on the bare cut with no extension
+  // mass at all. `meta.walls.mobility.built` is the third: the same ungated
+  // ratio with the mass IN PLACE, i.e. the worst pair in the room the plan
+  // actually ships. It is higher than the painted shell figure in ten of the
+  // 117 (E9S2 1 -> 1.43 is the widest), and it was in no reader channel.
+  //
+  // It is not a verdict and it is not labelled as one: it has no gate, no target
+  // and no floor, and the label says so. It is here because a room page that
+  // prints two readings of a quantity and withholds the third — the one taken on
+  // the finished board — is choosing which number the reader gets to see.
+  // ------------------------------------------------------------------
+  const bu = typeof mob.built === "number" ? mob.built : null;
   return `<span class="mob-main${over ? " mob-over" : unjudged ? " mob-unj" : ""}">${bg}</span> ` +
     `<span class="mob-lab">as-built gated lap</span>` +
     (unjudged
@@ -1952,6 +1970,17 @@ function mobilityCell(plan) {
         ? ` <span class="mob-badge">over target ${MOBILITY_TARGET}</span>`
         : ` <span class="mob-ok">measured, within target</span>`) +
     (unjudged ? `<div class="mob-sub">${esc(mobilityUnjudgedWhy(plan))}</div>` : ``) +
+    (bu === null
+      ? ``
+      : `<div class="mob-sub">as-built UNGATED lap ${bu} — the same ratio with the extension mass in ` +
+        `place and no detour floor: every connected pair judged, nothing excused, no target applied. ` +
+        `This is the worst pair in the room as shipped${
+          plan.shell && bu > plan.shell.mobility.max
+            ? `, and it is above the mass-free shell reading below (${plan.shell.mobility.max}) — our own mass owns the difference`
+            : plan.shell && bu < plan.shell.mobility.max
+              ? `, and the mass-free shell reading below (${plan.shell.mobility.max}) is the higher of the two`
+              : ``
+        }.</div>`) +
     `<div class="mob-sub">mass-free: ${floorGated} bare-terrain gated · ${shell}</div>`;
 }
 
@@ -2465,8 +2494,14 @@ a{color:#6af} .tag{color:#6f6;font-size:12px;margin-left:8px}
    in a different colour — see the badge comment below */
 .mobs{font-size:11px;margin-left:6px;border-radius:999px;padding:2px 8px;white-space:nowrap;
   background:#141a22;color:#8fb4d4;border:1px solid #2b4a5c}
+/* the as-built UNGATED lap: a third measure, so a third chip (OL7). Neither a
+   verdict colour nor the shell's — it has no gate and no target. */
+.mobu{font-size:11px;margin-left:6px;border-radius:999px;padding:2px 8px;white-space:nowrap;
+  background:#1c1a26;color:#b9a8e0;border:1px solid #4a3f6b}
 .sfc{font-size:11px;margin-left:6px;color:#ffb454}
 .ntc{font-size:11px;margin-left:6px;color:#79c0ff}
+/* OL8: the note CLASSES, not just how many. See the block at ncls. */
+.ntk{font-size:11px;margin-left:6px;color:#5d8fbf;font-style:italic}
 .watch{margin-left:8px;font-size:11px;color:#8cf;text-decoration:none;background:#12303f;border:1px solid #2b6a86;border-radius:999px;padding:2px 8px}
 .watch:hover{background:#17415a;color:#bfe6ff}
 </style></head><body>
@@ -2533,6 +2568,21 @@ ${thumbLegendHtml()}
     const shellMob = p.shell
       ? `<span class="mobs" title="the shell's own ungated record: same ratio measured on the bare cut, no extension mass and no detour floor. Not gated, not compared to the target — it is the raw worst pair.">shell ungated <b>${p.shell.mobility.max}</b></span>`
       : "";
+    // ...AND THE THIRD READING, WHERE IT IS A THIRD NUMBER (OL7, round 23).
+    // `meta.walls.mobility.built` is the ungated lap with the extension mass in
+    // place — the worst pair in the room as SHIPPED. In 117 rooms the gated chip
+    // reads UNJUDGED, so the only figure the card painted was the shell's
+    // mass-free one, and in ten of those the as-built reading is HIGHER than it
+    // (E9S2 1 -> 1.43). The chip is printed when it is a number the card is not
+    // already showing; where it equals one of the other two, a third chip
+    // repeating it would be noise rather than disclosure. Derived per room, so
+    // no roster of "the ten" can rot.
+    const bu = typeof p.meta?.walls?.mobility?.built === "number" ? p.meta.walls.mobility.built : null;
+    const shown = new Set([p.shell ? p.shell.mobility.max : null, mobilityUnjudged(p) ? null : bg]);
+    const builtMob =
+      bu === null || shown.has(bu)
+        ? ""
+        : `<span class="mobu" title="as-built UNGATED lap — the same ratio as the shell record but with the extension mass in place, every connected pair judged and no detour floor. Not gated and not compared to the target: it is the worst pair in the room this plan ships.">as-built ungated <b>${bu}</b></span>`;
     const nsf = (p.meta.shortfalls || []).length;
     const sfc = nsf ? `<span class="sfc" title="declared shortfalls — gates this plan knowingly failed">${nsf} shortfall${nsf > 1 ? "s" : ""}</span>` : "";
     // A NOTE IS DISCOVERABLE FROM THE INDEX OR IT MIGHT AS WELL NOT EXIST.
@@ -2547,10 +2597,30 @@ ${thumbLegendHtml()}
     // no re-derivation, and this badge already prints the true count from the
     // room's own record every run. See criticism 69.
     const nnt = (p.meta.notes || []).length;
-    const ntc = nnt ? `<span class="ntc" title="planner notes — observations, not declarations; they excuse nothing">${nnt} note${nnt > 1 ? "s" : ""}</span>` : "";
+    // ------------------------------------------------------------------
+    // ...AND WHICH NOTES (OL8, round 23). The count alone made every class
+    // invisible: the three rooms whose TOWER MOVED after layer 3 and the two
+    // whose declared cut is not a sealing curve on its own — the two note
+    // classes round 22 added, and the only two that describe something the
+    // planner DID rather than something it measured — appeared on this page as
+    // "1 note", indistinguishable from a room reporting that it ships no shallow
+    // extensions. A reviewer scanning 172 cards for the rooms with something to
+    // say had nothing to scan for.
+    //
+    // The classes are listed from the room's own `noteRecords`, so this is not a
+    // roster of "the round-22 ones" that goes stale the next time a class is
+    // added — every class the fleet has gets a badge the run it appears in.
+    // ------------------------------------------------------------------
+    const ncls = [...new Set((p.meta.noteRecords || []).map((r) => r && r.cls).filter(Boolean))].sort();
+    const ntc = nnt
+      ? `<span class="ntc" title="planner notes — observations, not declarations; they excuse nothing">${nnt} note${nnt > 1 ? "s" : ""}</span>` +
+        (ncls.length
+          ? `<span class="ntk" title="the note classes this room files, from its own meta.noteRecords — each one is written out in full on the room page">${ncls.map(esc).join(" · ")}</span>`
+          : ``)
+      : "";
     index += `<div class="card"><h3><a href="${p.room}.html">${p.room}</a>
 <a class="watch" href="${p.room}.html#anim" title="watch the planner build ${p.room} step by step">&#9654; watch</a>
-<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span>${mob}${shellMob}${sfc}${ntc}</h3>
+<span class="tag">${sh} · ${p.meta.counts.tower ?? 0} towers · ${lb}</span>${mob}${shellMob}${builtMob}${sfc}${ntc}</h3>
 <a href="${p.room}.html"><img class="thumb" loading="lazy" decoding="async" width="400" height="400" src="thumbs/${p.room}.svg" alt="${p.room} plan thumbnail"/></a></div>`;
   }
   index += `</div></body></html>`;

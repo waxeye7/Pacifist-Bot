@@ -318,12 +318,51 @@ function renderTowerSwap(r) {
     `${b.clump} -> ${a.clump}, the filler's per-tower walks ${(b.refillWalks || []).join("/")} -> ` +
     `${(a.refillWalks || []).join("/")} (total ${b.refillTotal} -> ${a.refillTotal}), the interior walk ` +
     `${b.interior} -> ${a.interior}, the as-built gated lap ${b.lap} -> ${a.lap}`;
+  // ------------------------------------------------------------------
+  // OM3 (round 23) — THE TENSE, BECAUSE THE PARAGRAPH CONTRADICTED ITSELF.
+  //
+  // `declaredKeys` is documented as the PRE-TAKE declaration set: the quantities
+  // the room was publishing on the board this pass judged. This sentence
+  // rendered it in the PRESENT — "This room DECLARES clump (towers/clump,
+  // `towers/clump.clump.within` = 5)" — forty words after the same note said the
+  // take "RETIRES the room's clump declaration ... and 4 stand there now".
+  // E14S1 and E3S5 ship both sentences; their shipped `meta.shortfalls` is
+  // ["misc/off-network"] and carries no clump entry at all, so the present-tense
+  // half is simply false about the room the reader is looking at.
+  //
+  // The fix is not a hedge, it is the tense the record already justifies: these
+  // were the keys ON THE PRE-TAKE BOARD, and where the take retired one, the
+  // note says which one and what the room files now. E4S3 gets the other half of
+  // the same honesty — it declares `eco`, the record's own `declaredSkipped`
+  // says why the panel cannot rank on it, and the renderer used to drop that on
+  // the floor and print a list the reader could not reconcile with the room's
+  // two shipped declarations.
+  // ------------------------------------------------------------------
+  const retired = (r.declaredKeys || []).filter(
+    (k) => r.retiresClumpDeclaration && k.gate === "towers" && k.kind === "clump",
+  );
+  const kept = (r.declaredKeys || []).filter((k) => !retired.includes(k));
+  const keyText = (k) => `${k.instrument} (${k.gate}${k.kind ? `/${k.kind}` : ``}, \`${k.source}\` = ${k.declared})`;
+  const skipped = (r.declaredSkipped || []).length
+    ? `It files ${r.declaredSkipped
+        .map((s) => `\`${s.gate}${s.kind ? `/${s.kind}` : ``}\``)
+        .join(" and ")} as well, and ${plural(r.declaredSkipped.length, "that one is", "those are")} NOT a ` +
+      `key here: ${r.declaredSkipped.map((s) => s.why).join(" · ")}. `
+    : ``;
   const keys = (r.declaredKeys || []).length
-    ? `This room DECLARES ${r.declaredKeys
-        .map((k) => `${k.instrument} (${k.gate}${k.kind ? `/${k.kind}` : ``}, \`${k.source}\` = ${k.declared})`)
-        .join(" and ")}, and every one of those is a KEY in this tie-break ahead of the offer order — ` +
-      `round 21's RULING on criticism 95, stated in full under \`declaredKeyRule\`. `
-    : `This room declares no quantity this pass's panel measures, so no declared key applies here. `;
+    ? `ON THE BOARD THIS PASS JUDGED — before the take, which is the board a tie-break is decided on — ` +
+      `this room DECLARED ${r.declaredKeys.map(keyText).join(" and ")}, and every one of those is a KEY ` +
+      `in this tie-break ahead of the offer order — round 21's RULING on criticism 95, stated in full ` +
+      `under \`declaredKeyRule\`. ` +
+      (retired.length
+        ? `\`declaredKeys\` on this record is therefore the PRE-TAKE set and not what the room ships: the ` +
+          `take RETIRED ${retired.map((k) => `\`${k.gate}/${k.kind}\``).join(" and ")}, so the shipped ` +
+          `\`meta.shortfalls\` files ${
+            kept.length ? kept.map((k) => `\`${k.gate}${k.kind ? `/${k.kind}` : ``}\``).join(" and ") : `none of them`
+          } and no longer files ${plural(retired.length, "it", "them")} at all. `
+        : ``) +
+      skipped
+    : `This room declares no quantity this pass's panel measures, so no declared key applies here. ` + skipped;
   if (r.taken) {
     const t = r.taken;
     const bought = r.retiresClumpDeclaration
@@ -650,14 +689,59 @@ function renderRedundantCut(r) {
 // ---------------------------------------------------------------------------
 // ROAD LAID FOR A CONTAINER THAT IS NOT BUILT YET
 // ---------------------------------------------------------------------------
+/**
+ * OM9 (round 23) — THE SENTENCE THAT NAMED THE WRONG BENEFICIARY.
+ *
+ * This note used to end on a string constant: "without these tiles the
+ * controller container and the roads that serve it are orphaned for three whole
+ * RCLs". True in E5S1 — the room the pass was written for — and FALSE in the
+ * other two rooms that ship the note. E5S3's controller container (40,42) and
+ * E2S5's (31,32) both stay connected without the added tile; what falls off
+ * there is a spur running out past the mineral seat, serving no seat at all.
+ * Same class as criticism 102's prose casualty: a sentence true of one room
+ * shipped as a fact about every room.
+ *
+ * Nothing caught it because the clause had NO RECORD LEAF — outside
+ * RECORD_LEAVES, outside the declared-key machinery, unreachable by any
+ * mutation. `orphanedByRemoval` (layer-walls, at the pushNote) is that leaf: the
+ * pre-RCL6 component recomputed with the added tiles deleted, the tiles that
+ * fall off, the controller container and whether it is one of them. The sentence
+ * below now states whichever of the two is true in the room it is printed in,
+ * and prices the spend honestly in both — the road IS worth its 0.001 e/tick in
+ * all three rooms, because a real piece of network does fall off; it is just not
+ * always the controller's.
+ */
 function renderContainerRoad(r) {
+  const o = r.orphanedByRemoval;
+  const consequence = !o
+    ? `and these tiles are what joins the two halves of it`
+    : o.ctrlContainerOrphaned
+      ? `and without these tiles THE CONTROLLER CONTAINER at ${xy(o.ctrlContainer)} and the rest of ` +
+        `the ${o.tiles.length} tile(s) that fall off with it (${o.tiles.map(xy).join(" ")}) are orphaned ` +
+        `for three whole RCLs`
+      : o.tiles.length
+        ? `and without these tiles ${o.tiles.length} tile(s) of this room's pre-RCL 6 network fall off ` +
+          `(${o.tiles.map(xy).join(" ")}). THAT IS NOT THE CONTROLLER LANE — this room's controller ` +
+          `container${o.ctrlContainer ? ` at ${xy(o.ctrlContainer)}` : ``} stays connected without them, ` +
+          `and saying otherwise would be borrowing a sentence from a different room. What falls off is ` +
+          `the spur that runs out past the mineral seat` +
+          `${o.mineralSeat.length ? ` at ${o.mineralSeat.map(xy).join(" ")}` : ``}, and it serves ` +
+          `${
+            o.containersOrphaned.length
+              ? `${o.containersOrphaned.length} container seat(s) (${o.containersOrphaned.map(xy).join(" ")})`
+              : `no container seat at all`
+          }` +
+          `. The tiles are worth laying anyway — a real piece of network is a real piece of network — ` +
+          `but the beneficiary is named rather than assumed`
+        : `and nothing measurably falls off without these tiles: the removal test leaves the pre-RCL 6 ` +
+          `component whole, so they buy staging tidiness and not a join`;
   return (
     `ROAD LAID FOR A CONTAINER THAT IS NOT BUILT YET: ${r.added.length} plain road tile(s) ` +
     `(${r.added.map(xy).join(" ")}) were added because this room's road ` +
     `network was joined THROUGH its mineral-seat container, and that container is deferred to ` +
     `RCL 6 (no extractor exists before then, so the box has nothing to fill it). Containers are ` +
-    `network nodes — true at RCL 8, false at RCL 3 — and without these tiles the controller ` +
-    `container and the roads that serve it are orphaned for three whole RCLs. The tiles are ` +
+    `network nodes — true at RCL 8, false at RCL 3 — ${consequence}` +
+    `${o ? ` (${o.basis})` : ``}. The tiles are ` +
     `floor the base already walks, so the only cost is ${eTick(r.added.length * 0.001)} ` +
     `e/tick of road decay, against a staged network that does not connect.` +
     (r.sharing.length

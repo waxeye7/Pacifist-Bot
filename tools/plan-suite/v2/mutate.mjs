@@ -229,6 +229,21 @@ if (numeralRes.pending.length) {
       `(${NUMERAL_PENDING.join(", ")}) — the list is a contract, not an exemption`,
   );
 }
+// ROUND 23 / MF4 — AND THE REGISTRY IS ASKED WHETHER IT BELIEVES ITSELF.
+// `cut tiles` read a top-level `shell` key the artifact does not have for a
+// whole round: the extractor measured 0, registered "0" as a fleet total, and
+// no cut-tile denominator could ever be accepted. A registry entry that returns
+// 0 or undefined for a label the audited prose makes positive claims about is a
+// CONFIG error, and it makes the audit's own "0 WRONG" a weaker statement than
+// it reads as. `numeral-audit.mjs`'s own main() exits 1 on it; this suite runs
+// the same gate, so a broken extractor cannot pass here and fail there.
+if ((numeralRes.registry || []).length) {
+  numeralBad.push(
+    `numeral audit: ${numeralRes.registry.length} registry self-test failure(s) — ` +
+      `${numeralRes.registry.map((r) => `"${r.label}"`).join(", ")} measure(s) nothing while the prose ` +
+      `claims something about it`,
+  );
+}
 console.log(
   `NUMERAL AUDIT: ${numeralRes.hits.length} claim(s) · ${numeralRes.resolved.length} re-derived · ` +
     `${numeralRes.waived.length} waived · ${numeralRes.open.length} unowned · ${numeralRes.bad.length} WRONG · ` +
@@ -6281,6 +6296,452 @@ run("r13/F8-untriggered-gate", R, (p) => {
         t.slice(0, h) + "WHAT DECIDED IT (OM5): the strongest wall the swap could leave standing. " + t.slice(end);
     },
     "owes the name of that line|not the note its own record generates");
+}
+
+// ===========================================================================
+// ROUND 23 — the demotion, the arithmetic, the wall and the two dead sentences.
+// ===========================================================================
+// MECHANICAL. MF1 (CRITICAL): the skip-truthfulness check was guarded on
+// `!moved`, so on any of the 15 rooms whose board moved after the pass a real
+// DECLARED KEY could be demoted into `declaredSkipped` as "publishes no
+// quantity this panel measures" — 12 of 12 swept keys passed 172/172 at three
+// meta edits and no board tile, which is obligation (i) of the round-21 RULING
+// switched off. MF5: the along-cut refusal's magnitude was gated on SIGN only,
+// so E5S9's "9 more road tile(s) fall off the network (0 -> 9; newly off:
+// 22,15 …)" rewritten to "1 more … (0 -> 1; newly off: 49,49)" passed — while
+// 10 of the 13 road-axis offers this fleet files re-derive EXACTLY on the shipped board.
+// MF6: the one dead note class stated a false reason for its own silence.
+//
+// OWNER. OB1 (BLOCKING): stage 5b consulted a stale exterior flood and moved
+// two roads OUTSIDE the shipped wall (E9S8 18,24, E17S5 44,36), one of them
+// onto the room's own cheapest haul lane. OM3: the tower-swap note rendered the
+// PRE-TAKE key set in the present tense and contradicted its own retirement
+// sentence. OM9: the container-road note ended on a string constant with no
+// record leaf behind it, false in 2 of the 3 rooms that shipped it.
+{
+  const any23 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const regen23 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+  /** the board moved after the recovery pass ran — where the MF1 guard used to give up */
+  const movedBoard23 = (p) => {
+    let r = p.meta?.sealedRecovery;
+    let g = 0;
+    let took = false;
+    while (r && typeof r === "object" && g++ < 8) {
+      if (r.outcome === "taken") took = true;
+      r = r.next;
+    }
+    return took || !!p.meta?.towers?.acrossPriorTake?.taken;
+  };
+  /** edit `meta.sealedRecovery` and keep the note-record copy byte-identical */
+  const recov23 = (edit) => (p) => {
+    const R = p.meta.sealedRecovery;
+    if (!R) throw new Error("no sealedRecovery");
+    edit(R, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+    if (i >= 0) p.meta.noteRecords[i].rec = R;
+    regen23(p);
+  };
+  /** edit `meta.towers.acrossPriorTake` and keep the note-record copy byte-identical */
+  const swap23 = (edit) => (p) => {
+    const T = p.meta?.towers?.acrossPriorTake;
+    if (!T) throw new Error("no acrossPriorTake");
+    edit(T, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "towerSwap");
+    if (i >= 0) p.meta.noteRecords[i].rec = T;
+    regen23(p);
+  };
+  /**
+   * THE EXPLOIT, AS A FUNCTION. Move a real declared key out of `declaredKeys`
+   * and into `declaredSkipped` wearing the "publishes no quantity" reason, with
+   * the instrument omitted, and strike its line out of the published ranking.
+   * Three edits, no board tile. The (gate, kind) pair stays exactly where the
+   * pre-take channel says it is, which is why the pair is what decides it.
+   */
+  const demote23 = (R, which = 0) => {
+    const K = R.declaredKeys || [];
+    const k = K[which];
+    if (!k) throw new Error("no declared key to demote");
+    R.declaredKeys = K.filter((x) => x !== k);
+    R.declaredSkipped = [
+      ...(R.declaredSkipped || []),
+      {
+        at: k.at,
+        gate: k.gate,
+        kind: k.kind,
+        why:
+          "this declaration publishes no quantity this pass's instrument panel measures on a finished " +
+          "board, so there is nothing here a candidate could be ranked on",
+      },
+    ];
+    if (Array.isArray(R.ranking)) {
+      R.ranking = R.ranking.filter((l) => !String(l).includes(`${k.gate}${k.kind ? `/${k.kind}` : ``}`));
+    }
+    return k;
+  };
+  const MF1_MSG = "rankable quantity is a property of the";
+
+  // ---- MF1: the demotion sweep, on the boards that moved -------------------
+  const movedKeyRoom23 = any23((p) => movedBoard23(p) && (p.meta?.sealedRecovery?.declaredKeys || []).length > 0);
+  run("r23/MF1-X-a-declared-KEY-demoted-to-a-no-quantity-SKIP-on-a-moved-board",
+    movedKeyRoom23, recov23((R) => { demote23(R, 0); }), MF1_MSG);
+  run("r23/MF1-X-the-same-demotion-with-the-ranking-line-left-standing",
+    movedKeyRoom23,
+    recov23((R) => {
+      const K = R.declaredKeys || [];
+      const k = K[0];
+      R.declaredKeys = K.slice(1);
+      R.declaredSkipped = [...(R.declaredSkipped || []), { at: k.at, gate: k.gate, kind: k.kind, why: "this declaration publishes no quantity this pass's instrument panel measures on a finished board" }];
+    }),
+    MF1_MSG);
+  run("r23/MF1-X-EVERY-declared-key-demoted-at-once",
+    any23((p) => movedBoard23(p) && (p.meta?.sealedRecovery?.declaredKeys || []).length > 1),
+    recov23((R) => { while ((R.declaredKeys || []).length) demote23(R, 0); }), MF1_MSG);
+  run("r23/MF1-the-demoted-key-with-its-own-pair-relabelled-out-of-the-map",
+    movedKeyRoom23,
+    recov23((R) => {
+      demote23(R, 0);
+      const sk = R.declaredSkipped[R.declaredSkipped.length - 1];
+      sk.gate = "eco";
+      sk.kind = null;
+    }),
+    `${MF1_MSG}|the channel this pass read carries`);
+  run("r23/MF1-the-demotion-with-the-PRE-TAKE-channel-relabelled-to-match",
+    movedKeyRoom23,
+    recov23((R) => {
+      const k = demote23(R, 0);
+      const sk = R.declaredSkipped[R.declaredSkipped.length - 1];
+      sk.gate = "eco";
+      sk.kind = null;
+      if (Array.isArray(R.preTakeShortfalls) && R.preTakeShortfalls[k.at]) {
+        R.preTakeShortfalls[k.at] = { at: k.at, gate: "eco", kind: null };
+      }
+    }),
+    "SHIPS the declaration"); // the board anchor is what is left, and it holds
+  run("r23/MF1-a-no-quantity-skip-for-a-mapped-pair-on-an-UNMOVED-board",
+    any23((p) => !movedBoard23(p) && (p.meta?.sealedRecovery?.declaredKeys || []).length > 0),
+    recov23((R) => { demote23(R, 0); }), MF1_MSG);
+  run("r23/MF1-X-the-tower-swap-s-declared-key-demoted-on-a-taken-board",
+    any23((p) => p.meta?.towers?.acrossPriorTake?.taken && (p.meta.towers.acrossPriorTake.declaredKeys || []).length > 0),
+    swap23((T) => { demote23(T, 0); }), MF1_MSG);
+  run("r23/MF1-the-tower-swap-s-LAST-declared-key-demoted",
+    any23((p) => p.meta?.towers?.acrossPriorTake?.taken && (p.meta.towers.acrossPriorTake.declaredKeys || []).length > 1),
+    swap23((T) => { demote23(T, T.declaredKeys.length - 1); }), MF1_MSG);
+  run("r23/MF1-a-real-skip-kept-and-a-key-demoted-beside-it",
+    any23((p) => movedBoard23(p) && (p.meta?.sealedRecovery?.declaredKeys || []).length > 0 && (p.meta.sealedRecovery.declaredSkipped || []).length > 0),
+    recov23((R) => { demote23(R, 0); }), MF1_MSG);
+
+  // ---- MF5: the along-cut refusal's arithmetic, re-derived ----------------
+  const NETRE23 = /^every interior parallel (?:breaks the network|makes the network measurably worse)\./;
+  // ...and the refusal has to be one the validator WALKS, which is the roster it
+  // re-derives from the shipped board: a rampart carrying a road with a D8
+  // neighbour that is also a rampart carrying a road. A refusal filed for a tile
+  // whose run the take BROKE is not walked at all (E15S1, E7S9), so a case
+  // pointed at one of those tests nothing about this gate.
+  const inRoster23 = (p, r) => {
+    const roads = new Set((p.structures.road || []).map((z) => key(z.x, z.y)));
+    const paved = new Set((p.structures.rampart || []).filter((z) => roads.has(key(z.x, z.y))).map((z) => key(z.x, z.y)));
+    if (!paved.has(key(r.x, r.y))) return false;
+    return D8.some(([dx, dy]) => paved.has(key(r.x + dx, r.y + dy)));
+  };
+  const isNet23 = (p, r) => NETRE23.test(String(r.why || "")) && /fall off the network/.test(String(r.why)) && inRoster23(p, r);
+  const netRoom23 = (extra = () => true) =>
+    any23((p) => (p.meta?.walls?.alongCutRefused || []).some((r) => isNet23(p, r) && extra(r, p)));
+  /** rewrite one refusal in BOTH string sites the artifact carries it in */
+  const refusal23 = (fn, pick = (r, p) => isNet23(p, r)) => (p) => {
+    const arr = p.meta?.walls?.alongCutRefused || [];
+    const r = arr.find((z) => pick(z, p));
+    if (!r) throw new Error("no breaks-network refusal");
+    const before = String(r.why);
+    r.why = fn(before, r, p);
+    if (r.why === before) throw new Error("the rewrite changed nothing");
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "pavedRun");
+    if (i >= 0) {
+      for (const run of p.meta.noteRecords[i].rec.runs || []) {
+        if (run && run.x === r.x && run.y === r.y) run.refused = r.why;
+      }
+    }
+    regen23(p);
+  };
+  const MF5_MSG = "re-derived on the board this room SHIPS";
+  run("r23/MF5-X-the-49-49-forgery-a-real-magnitude-rewritten-to-one-tile",
+    netRoom23(),
+    refusal23((w) => w.replace(/\d+ more road tile\(s\) fall off the network \(\d+ -> \d+; newly off: [^)]*\)/,
+      "1 more road tile(s) fall off the network (0 -> 1; newly off: 49,49)")),
+    MF5_MSG);
+  run("r23/MF5-the-magnitude-inflated-with-a-roster-to-match",
+    netRoom23(),
+    refusal23((w) => w.replace(/\d+ more road tile\(s\) fall off the network \(\d+ -> \d+; newly off: [^)]*\)/,
+      "5 more road tile(s) fall off the network (0 -> 5; newly off: 1,1 1,2 1,3 1,4 1,5)")),
+    MF5_MSG);
+  run("r23/MF5-one-newly-off-tile-substituted-for-another",
+    netRoom23(),
+    refusal23((w) => w.replace(/newly off: (-?\d+),(-?\d+)/, "newly off: 3,3")),
+    MF5_MSG);
+  run("r23/MF5-the-whole-refusal-re-priced-against-a-board-with-three-tiles-already-off",
+    netRoom23((r) => r.baseline && r.baseline.offNetwork === 0),
+    refusal23((w, r) => {
+      r.baseline.offNetwork = 3;
+      return w
+        .replace(/(\d+) off the network/, "3 off the network")
+        .replace(/\((\d+) -> (\d+); newly off:/g, (m, a, b) => `(${Number(a) + 3} -> ${Number(b) + 3}; newly off:`);
+    }),
+    MF5_MSG);
+  run("r23/MF5-the-roster-marked-elided-so-the-tiles-need-not-be-named",
+    netRoom23(),
+    refusal23((w) => w.replace(/newly off: ([^)]*)\)/, (m, list) => `newly off: ${String(list).trim().split(/\s+/)[0]} …)`)),
+    MF5_MSG + "|marks its roster elided");
+  // ...and the honest exception is a witness class, not a hole: the parallel is
+  // occupied by the swap this room's OWN 5b TOOK, and by nothing else
+  const takenParallelTile23 = (p) => {
+    const rk = p.meta?.walls?.roadKind || {};
+    for (const r of p.meta?.walls?.alongCutRefused || []) {
+      if (!NETRE23.test(String(r.why || "")) || !inRoster23(p, r)) continue;
+      for (const m of String(r.why).matchAll(/moving it to (-?\d+),(-?\d+) —/g)) {
+        if (rk[`${m[1]},${m[2]}`] === "alongCutMoved") return `${m[1]},${m[2]}`;
+      }
+    }
+    return null;
+  };
+  const takenParallel23 = any23((p) => !!takenParallelTile23(p));
+  run("r23/MF5-the-occupied-parallel-exception-claimed-by-a-tile-of-another-pass",
+    takenParallel23,
+    (p) => {
+      const k = takenParallelTile23(p);
+      if (!k) throw new Error("no taken parallel");
+      p.meta.walls.roadKind[k] = "spur";
+      regen23(p);
+    },
+    "the only occupant this file grants that exception to");
+  run("r23/MF5-the-occupied-parallel-with-its-provenance-deleted-altogether",
+    takenParallel23,
+    (p) => {
+      const k = takenParallelTile23(p);
+      if (!k) throw new Error("no taken parallel");
+      delete p.meta.walls.roadKind[k];
+      regen23(p);
+    },
+    "the only occupant this file grants that exception to");
+  // ...and the same arithmetic in a refusal whose RUN THE TAKE BROKE, which the
+  // roster loop does not walk and which is therefore where an editor would go
+  const brokenRunPick23 = (wantOccupied) => (r, p) => {
+    if (!NETRE23.test(String(r.why || "")) || inRoster23(p, r)) return false;
+    const roads = new Set((p.structures.road || []).map((z) => key(z.x, z.y)));
+    const rk = p.meta?.walls?.roadKind || {};
+    for (const m of String(r.why).matchAll(/moving it to (-?\d+),(-?\d+) — ([^·]*)/g)) {
+      if (!/fall off the network/.test(m[3])) continue;
+      const occ = roads.has(`${m[1]},${m[2]}`);
+      if (occ === wantOccupied) return wantOccupied ? rk[`${m[1]},${m[2]}`] === "alongCutMoved" : true;
+    }
+    return false;
+  };
+  const brokenRunRoom23 = (wantOccupied) =>
+    any23((p) => (p.meta?.walls?.alongCutRefused || []).some((r) => brokenRunPick23(wantOccupied)(r, p)));
+  run("r23/MF5-a-forged-magnitude-in-a-refusal-whose-run-the-take-BROKE",
+    brokenRunRoom23(false),
+    refusal23((w) => w.replace(/\d+ more road tile\(s\) fall off the network \(\d+ -> \d+; newly off: [^)]*\)/,
+      "4 more road tile(s) fall off the network (0 -> 4; newly off: 2,2 2,3 2,4 2,5)"), brokenRunPick23(false)),
+    MF5_MSG);
+  run("r23/MF5-the-taken-parallel-exception-claimed-on-a-broken-run-refusal",
+    brokenRunRoom23(true),
+    (p) => {
+      const r = (p.meta.walls.alongCutRefused || []).find((z) => brokenRunPick23(true)(z, p));
+      const roads = new Set((p.structures.road || []).map((z) => key(z.x, z.y)));
+      const t = [...String(r.why).matchAll(/moving it to (-?\d+),(-?\d+) —/g)].map((m) => `${m[1]},${m[2]}`).find((k) => roads.has(k));
+      p.meta.walls.roadKind[t] = "swampPave";
+      regen23(p);
+    },
+    "the only occupant this file grants that exception to");
+  run("r23/MF5-a-refusal-priced-for-a-tile-the-board-does-not-pave",
+    brokenRunRoom23(false),
+    (p, d) => {
+      const r = (p.meta.walls.alongCutRefused || []).find((z) => brokenRunPick23(false)(z, p));
+      const free = deepTile(p, d);
+      r.x = free.x;
+      r.y = free.y;
+      regen23(p);
+    },
+    "ships no road on");
+
+  // ---- OB1: a moved road has to be INSIDE the wall the room ships ----------
+  /** a live road tile in this room's EXTERIOR flood — outside its own wall */
+  const outsideRoad23 = (p, t) => {
+    const ramp = new Set((p.structures.rampart || []).map((r) => key(r.x, r.y)));
+    const roads = new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
+    const seen = new Uint8Array(2500);
+    const q = [];
+    const seed = (x, y) => {
+      if (x < 0 || y < 0 || x > 49 || y > 49) return;
+      if (isWall(t.terrain, x, y) || ramp.has(key(x, y))) return;
+      if (seen[idx(x, y)]) return;
+      seen[idx(x, y)] = 1;
+      q.push([x, y]);
+    };
+    for (let i = 0; i < 50; i++) {
+      seed(i, 0);
+      seed(i, 49);
+      seed(0, i);
+      seed(49, i);
+    }
+    for (let qi = 0; qi < q.length; qi++) {
+      const [x, y] = q[qi];
+      for (const [dx, dy] of D8) seed(x + dx, y + dy);
+    }
+    for (const k of roads) {
+      const [x, y] = k.split(",").map(Number);
+      if (seen[idx(x, y)]) return k;
+    }
+    return null;
+  };
+  const outsideRoadRoom23 = any23((p) => {
+    const d = byRoom.get(p.room);
+    return !!d && !!outsideRoad23(p, d);
+  });
+  const OB1_MSG = "OUTSIDE the wall this room SHIPS";
+  run("r23/OB1-X-a-road-outside-the-wall-classified-as-the-swap-s-interior-parallel",
+    outsideRoadRoom23,
+    (p, d) => {
+      const k = outsideRoad23(p, d);
+      if (!k) throw new Error("no road outside the wall");
+      p.meta.walls.roadKind[k] = "alongCutMoved";
+      p.meta.walls.alongCutMoved = (p.meta.walls.alongCutMoved || 0) + 1;
+    },
+    OB1_MSG);
+  run("r23/OB1-the-swap-s-own-target-moved-onto-a-tile-outside-the-wall",
+    any23((p) => {
+      const d = byRoom.get(p.room);
+      return (p.meta?.walls?.alongCutMoved || 0) > 0 && !!d && !!outsideRoad23(p, d);
+    }),
+    (p, d) => {
+      const k = outsideRoad23(p, d);
+      const was = Object.keys(p.meta.walls.roadKind || {}).find((z) => p.meta.walls.roadKind[z] === "alongCutMoved");
+      if (!k || !was) throw new Error("no swap to move");
+      delete p.meta.walls.roadKind[was];
+      p.meta.walls.roadKind[k] = "alongCutMoved";
+    },
+    OB1_MSG);
+
+  // ---- MF6: the dead class, dead in every direction it could ship in -------
+  const gapRoom23 = any23((p) => (p.structures.extractor || []).length && (p.structures.container || []).length && (p.structures.road || []).length);
+  run("r23/MF6-a-pavingGap-note-rendered-over-two-empty-lists",
+    gapRoom23,
+    (p) => {
+      const rec = { stranded: [], gapTiles: [], footReachable: true };
+      p.meta.noteRecords.push({ cls: "pavingGap", rec });
+      p.meta.notes.push(renderNote({ cls: "pavingGap", rec }));
+    },
+    "over an EMPTY");
+  run("r23/MF6-a-pavingGap-stranded-list-bound-to-nothing",
+    gapRoom23,
+    (p) => {
+      const rec = { stranded: [{ x: 10, y: 10 }], gapTiles: [], footReachable: true };
+      p.meta.noteRecords.push({ cls: "pavingGap", rec });
+      p.meta.notes.push(renderNote({ cls: "pavingGap", rec }));
+    },
+    "conductBridge\\.stranded");
+  run("r23/MF6-a-pavingGap-gapTiles-list-bound-to-nothing",
+    gapRoom23,
+    (p) => {
+      const rec = { stranded: [], gapTiles: [{ x: 10, y: 10, holds: "nothing this pass can name" }], footReachable: true };
+      p.meta.noteRecords.push({ cls: "pavingGap", rec });
+      p.meta.notes.push(renderNote({ cls: "pavingGap", rec }));
+    },
+    "conductBridge\\.gapTiles");
+  run("r23/MF6-the-class-is-dead-BY-CONSTRUCTION-a-published-gap-tile-is-a-hard-fail",
+    gapRoom23,
+    (p) => {
+      const t = (p.structures.container || [])[0];
+      p.meta.walls.conductBridge = { ...(p.meta.walls.conductBridge || { added: [] }), gapTiles: [{ x: t.x, y: t.y, holds: "container" }] };
+    },
+    "PAVING GAP REFUSED");
+
+  // ---- OM3: the tower-swap note's tense and its completeness ---------------
+  const retireRoom23 = any23((p) => p.meta?.towers?.acrossPriorTake?.retiresClumpDeclaration === true);
+  run("r23/OM3-the-retirement-withdrawn-so-a-declaration-the-room-does-not-file-stands-unexplained",
+    retireRoom23, swap23((T) => { T.retiresClumpDeclaration = false; }),
+    "no clause in the paragraph says it was RETIRED|says this room DECLARES");
+  run("r23/OM3-a-declared-key-repointed-at-a-declaration-this-room-does-not-ship",
+    any23((p) => (p.meta?.towers?.acrossPriorTake?.declaredKeys || []).length > 0),
+    swap23((T, p) => {
+      const shipped = new Set((p.meta.shortfalls || []).map((z) => `${z.gate}${z.kind ? `/${z.kind}` : ``}`));
+      const k = (T.declaredKeys || []).find((z) => shipped.has(`${z.gate}${z.kind ? `/${z.kind}` : ``}`));
+      if (!k) throw new Error("no shipped declared key");
+      k.gate = "extensions";
+      k.kind = "shallow";
+      k.instrument = "shallowExts";
+      k.source = "extensions/shallow.count";
+    }),
+    "no clause in the paragraph says it was RETIRED|says this room DECLARES");
+  run("r23/OM3-the-skipped-declaration-dropped-out-of-the-note-s-own-record",
+    any23((p) => (p.meta?.towers?.acrossPriorTake?.declaredSkipped || []).length > 0),
+    (p) => {
+      const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "towerSwap");
+      if (i < 0) throw new Error("no towerSwap note");
+      const rec = JSON.parse(JSON.stringify(p.meta.noteRecords[i].rec));
+      rec.declaredSkipped = [];
+      p.meta.noteRecords[i].rec = rec;
+      regen23(p);
+    },
+    "declaredSkipped|the tower-swap record this file re-derives");
+
+  // ---- OM9: what the container road actually holds up ----------------------
+  const orphRoom23 = any23((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "containerRoad" && e.rec && e.rec.orphanedByRemoval));
+  const orph23 = (edit) => (p) => {
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "containerRoad");
+    if (i < 0) throw new Error("no containerRoad note");
+    edit(p.meta.noteRecords[i].rec, p);
+    regen23(p);
+  };
+  run("r23/OM9-the-orphan-set-withdrawn-so-the-sentence-is-free-text-again",
+    orphRoom23, orph23((rec) => { delete rec.orphanedByRemoval; }),
+    "orphanedByRemoval|cannot be rendered");
+  run("r23/OM9-an-orphan-tile-invented",
+    orphRoom23, orph23((rec) => { rec.orphanedByRemoval.tiles = [...rec.orphanedByRemoval.tiles, { x: 49, y: 49 }]; }),
+    "removing these roads orphans");
+  run("r23/OM9-an-orphan-tile-dropped",
+    any23((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "containerRoad" && (e.rec?.orphanedByRemoval?.tiles || []).length > 1)),
+    orph23((rec) => { rec.orphanedByRemoval.tiles = rec.orphanedByRemoval.tiles.slice(1); }),
+    "removing these roads orphans");
+  run("r23/OM9-the-orphan-set-emptied-so-the-road-buys-nothing-and-says-so",
+    orphRoom23, orph23((rec) => { rec.orphanedByRemoval.tiles = []; }),
+    "removing these roads orphans");
+  run("r23/OM9-the-orphan-set-published-out-of-raster-order",
+    any23((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "containerRoad" && (e.rec?.orphanedByRemoval?.tiles || []).length > 1)),
+    orph23((rec) => { rec.orphanedByRemoval.tiles = rec.orphanedByRemoval.tiles.slice().reverse(); }),
+    "removing these roads orphans");
+  run("r23/OM9-X-the-controller-container-claimed-orphaned-where-it-stays-connected",
+    any23((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "containerRoad" && e.rec?.orphanedByRemoval && e.rec.orphanedByRemoval.ctrlContainerOrphaned === false)),
+    orph23((rec) => { rec.orphanedByRemoval.ctrlContainerOrphaned = true; }),
+    "controller container IS orphaned");
+  run("r23/OM9-the-controller-container-claimed-connected-where-it-falls-off",
+    any23((p) => (p.meta?.noteRecords || []).some((e) => e && e.cls === "containerRoad" && e.rec?.orphanedByRemoval?.ctrlContainerOrphaned === true)),
+    orph23((rec) => { rec.orphanedByRemoval.ctrlContainerOrphaned = false; }),
+    "controller container is NOT orphaned");
+  run("r23/OM9-the-controller-container-repointed-at-another-box",
+    orphRoom23,
+    orph23((rec, p) => {
+      const o = rec.orphanedByRemoval;
+      const other = (p.structures.container || []).find((c) => !o.ctrlContainer || c.x !== o.ctrlContainer.x || c.y !== o.ctrlContainer.y);
+      if (!other) throw new Error("one container only");
+      o.ctrlContainer = { x: other.x, y: other.y };
+    }),
+    "as this room's controller container");
+  run("r23/OM9-the-deferred-mineral-seat-list-falsified",
+    orphRoom23, orph23((rec) => { rec.orphanedByRemoval.mineralSeat = [{ x: 1, y: 1 }]; }),
+    "deferred mineral seat");
+  run("r23/OM9-a-container-seat-claimed-orphaned-that-is-not",
+    orphRoom23,
+    orph23((rec, p) => {
+      const c = (p.structures.container || [])[0];
+      rec.orphanedByRemoval.containersOrphaned = [...(rec.orphanedByRemoval.containersOrphaned || []), { x: c.x, y: c.y }];
+    }),
+    "orphans the container seat");
+  run("r23/OM9-the-orphan-set-s-basis-sentence-withdrawn",
+    orphRoom23, orph23((rec) => { rec.orphanedByRemoval.basis = "the removal test"; }),
+    "basis");
 }
 
 // ===========================================================================

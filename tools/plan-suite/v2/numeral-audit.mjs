@@ -235,7 +235,13 @@ function quantityFor(tail, only = null) {
   const t = tail.toLowerCase().replace(/\s+/g, " ").trimStart();
   for (const [alias, key] of ALIASES) {
     if (only && !only.includes(key)) continue;
-    if (t.startsWith(alias)) return key;
+    // THE ALIAS HAS TO END WHERE THE WORD DOES. A bare `startsWith` made "the
+    // fleet's 16 road-axis offers" a claim about the fleet's 14,100 ROADS and
+    // failed the build on a sentence that is about something else entirely; the
+    // same shape would read "12 container-face pairs" as a container count. The
+    // noun a claim is about is the whole word, so the character after the alias
+    // may not continue it.
+    if (t.startsWith(alias) && !/[a-z-]/.test(t.slice(alias.length, alias.length + 1))) return key;
   }
   return null;
 }
@@ -266,24 +272,53 @@ const ROSTER_KEYS = ["shallowExt", "note", "declaration", "roadContainerTile"];
  * the prose telling us which set it means; where the prose DOES say (the three
  * patterns above), the quantity is named and compared exactly.
  */
+/**
+ * THE FLEET-LEVEL EXTRACTORS, AS A TABLE, BECAUSE A TABLE CAN BE SELF-TESTED.
+ *
+ * These used to be a run of `put(...)` calls inline in `fleetTotals`, and one of
+ * them was DEAD: `put("cut tiles", sum(P, (p) => (p.shell?.cut || []).length))`
+ * read a TOP-LEVEL `shell` that this artifact does not have — the cut lives at
+ * `meta.shell.cut` — so the extractor measured 0 on all 172 rooms, registered
+ * the label "cut tiles" against the string "0", and quietly contributed nothing
+ * to a gate whose entire job is to notice numbers that are not what they claim.
+ * It shipped that way for a whole round because nothing asked the registry
+ * whether its own readings were plausible.
+ *
+ * So the entries carry the NOUNS a claim would use for them, and
+ * `registrySelfTest` below asks the question the dead entry would have failed:
+ * if an extractor reads 0 (or nothing) on the shipped artifact while the audited
+ * prose contains a positive claim about that very noun, the registry is
+ * misconfigured, and that is a build failure and not a silent zero.
+ */
+export const FLEET_EXTRACTORS = [
+  { label: "rooms in the fleet", nouns: ["rooms"], fn: (P) => P.length },
+  { label: "source works", nouns: ["source works", "sources"], fn: (P) => sum(P, (p) => (p.sources || []).length) },
+  { label: "controllers", nouns: ["controllers"], fn: (P) => countRooms(P, (p) => p.controller) },
+  { label: "minerals", nouns: ["minerals"], fn: (P) => countRooms(P, (p) => p.mineral) },
+  { label: "cut tiles", nouns: ["cut tiles"], fn: (P) => sum(P, (p) => (p.meta?.shell?.cut || []).length) },
+  {
+    label: "sealed tiles",
+    nouns: ["sealed tiles"],
+    fn: (P) => sum(P, (p) => p.meta?.sealedFloor?.tiles || 0),
+  },
+  { label: "planner notes", nouns: ["planner notes"], fn: (P) => sum(P, (p) => (p.meta?.notes || []).length) },
+];
+
 export function fleetTotals(P) {
   const t = new Map();
   const put = (label, v) => {
     if (typeof v === "number" && Number.isFinite(v) && !t.has(String(v))) t.set(String(v), label);
     else if (typeof v === "number" && Number.isFinite(v)) t.set(String(v), `${t.get(String(v))} / ${label}`);
   };
-  put("rooms in the fleet", P.length);
+  // "rooms in the fleet" leads, so that the label a completeness denominator is
+  // reported under is the one a reader means by it
+  put(FLEET_EXTRACTORS[0].label, FLEET_EXTRACTORS[0].fn(P));
   for (const [k, q] of Object.entries(QUANTITIES)) {
     if (k === "room") continue;
     put(`${k} shipped fleet-wide`, q.total(P));
     put(`rooms shipping ${k}`, q.rooms(P));
   }
-  put("source works", sum(P, (p) => (p.sources || []).length));
-  put("controllers", countRooms(P, (p) => p.controller));
-  put("minerals", countRooms(P, (p) => p.mineral));
-  put("cut tiles", sum(P, (p) => (p.shell?.cut || []).length));
-  put("sealed tiles", sum(P, (p) => p.meta?.sealedFloor?.tiles || 0));
-  put("planner notes", sum(P, (p) => (p.meta?.notes || []).length));
+  for (const e of FLEET_EXTRACTORS.slice(1)) put(e.label, e.fn(P));
   // every declaration class the fleet files, by gate/kind: the count and the
   // rooms — "the 133 rooms it applies to" is one of these
   const byKind = new Map();
@@ -424,52 +459,124 @@ export const PATTERNS = [
 export const WAIVER_RE = /\[r22-waived:\s*([^\]]+)\]/;
 const COMMENTISH = /^\s*(?:\/\/|\*|\/\*)/;
 /**
- * THE UNIT OF A WAIVER IS THE PARAGRAPH, not the line.
- *
- * These comments run to eighty lines and a reason worth reading does not fit on
- * the line the numeral is on. So the waiver is looked for across the whole
- * contiguous comment block the claim sits in — walk up and down while the lines
- * still look like comment, join, and search that. A block comment is searched
- * whole for the same reason. One tag waives the paragraph it is written in,
- * which is the scope a human reading it would assume.
+ * A LINE WITH NOTHING ON IT ONCE THE COMMENT FURNITURE IS OFF — `//`, ` *`,
+ * `/**`, ` *​/`. That is where one paragraph of these comments ends and the next
+ * begins, and it is the boundary a human reading the file sees.
  */
-function waiverFor(src, lines, lineIdx, range, at, lineStart) {
-  let text;
-  let base;
+export function proseOfLine(l) {
+  return String(l)
+    .replace(/^\s*\/\*+/, "")
+    .replace(/^\s*\/\/+/, "")
+    .replace(/^\s*\*+(?!\/)/, "")
+    .replace(/\*+\/\s*$/, "")
+    .trim();
+}
+const isParagraphBreak = (l) => proseOfLine(l) === "";
+/**
+ * A WAIVER COVERS THE NUMERAL IT IS WRITTEN BESIDE. NOT THE COMMENT IT IS IN.
+ *
+ * The scope used to be the whole contiguous comment — a block comment end to
+ * end, a run of `//` lines end to end. These comments run to a hundred and
+ * twenty lines and carry four or five unrelated arguments, so "one tag waives
+ * the comment it is written in" meant ONE tag written about ONE dated figure
+ * silently absolved every other numeral in a screenful of prose, including
+ * current-tense claims about the SHIPPING fleet that the gate had otherwise
+ * re-derived and would have failed on. Eight such claims were shielded across
+ * the suite, and the damage is not hypothetical: it is exactly the shape this
+ * whole harness exists to stop — a numeral nothing re-derives — reintroduced by
+ * the harness's own escape hatch. Worse, it is invisible: the report prints the
+ * waiver's reason, which is about a different sentence, and a reader skims a
+ * plausible excuse.
+ *
+ * The scope is now two rules, and both are the ones a reader already assumes:
+ *
+ *   (a) THE PARAGRAPH. The search never leaves the nearest blank-line-delimited
+ *       paragraph — walk up and down from the numeral's line while the lines
+ *       still have prose on them and stop at the first empty comment line in
+ *       each direction. A tag cannot reach an argument forty lines up the same
+ *       block. (The containing comment is still found first, so a numeral in a
+ *       STRING LITERAL can be waived by the tail paragraph of the comment that
+ *       introduces it — that is the same paragraph to a reader.)
+ *
+ *   (b) ONE TAG, ONE NUMERAL. Rule (a) alone leaves three sites where a dated
+ *       figure and a live 172-claim sit in the SAME SENTENCE — "at stage <= 3
+ *       over all 172 rooms, 57 arterial road tiles across 18 rooms sit
+ *       [waived: ...] behind a 1-2 tile gap" — and a paragraph-wide tag shields
+ *       the 172 as collateral. So a tag is assigned to the MATCHED CLAIM
+ *       NEAREST TO IT within its own paragraph and to no other. This is how
+ *       every tag in the tree is already written (they are all inserted
+ *       immediately after the numeral they excuse); it just makes the placement
+ *       load-bearing instead of decorative. Two dated numerals in one paragraph
+ *       need two tags, which is also what a reader auditing them would want.
+ *
+ * A tag that ends up next to no matched claim at all is DEAD and is reported as
+ * such — an excuse for a numeral that no longer exists is prose rot of its own.
+ */
+/** the [firstLine,lastLine] of the paragraph containing `lineIdx` */
+function paragraphLines(lines, lineIdx, range, lineOf) {
+  let a = lineIdx;
+  let b = lineIdx;
   if (range && range.kind === "block") {
-    text = src.slice(range.start, range.end);
-    base = range.start;
+    a = lineOf(range.start);
+    b = lineOf(Math.max(range.start, range.end - 1));
   } else {
-    let a = lineIdx;
-    let b = lineIdx;
     while (a > 0 && COMMENTISH.test(lines[a - 1])) a--;
     while (b < lines.length - 1 && COMMENTISH.test(lines[b + 1])) b++;
-    // offset of the first line of the paragraph, derived from the claim's own
-    // line start so the distances below are in real file offsets
-    base = lineStart;
-    for (let i = a; i < lineIdx; i++) base -= lines[i].length + 1;
-    text = lines.slice(a, b + 1).join("\n");
   }
-  // THE NEAREST TAG WINS. A file header can be one comment block eighty lines
-  // long carrying three different waivers; handing every claim in it the FIRST
-  // one prints a reason that is about a different sentence, which is its own
-  // little piece of prose rot.
+  let pa = lineIdx;
+  let pb = lineIdx;
+  while (pa > a && !isParagraphBreak(lines[pa - 1])) pa--;
+  while (pb < b && !isParagraphBreak(lines[pb + 1])) pb++;
+  return [pa, pb];
+}
+/**
+ * every `[r22-waived: ...]` tag in the file, with its offset and its reason.
+ *
+ * `[r22-waived: why]` is the PLACEHOLDER this gate's own failure message tells
+ * an author to type, and plan.mjs quotes that message back at the console when
+ * the audit fails a build. It is an instruction, not a waiver, and counting it
+ * as one gives every numeral near it a free pass whose stated reason is the word
+ * "why" — so the placeholder is the one string that is never a tag.
+ */
+export function waiverTags(src) {
   const re = new RegExp(WAIVER_RE.source, "g");
+  const out = [];
   let m;
-  let best = null;
-  while ((m = re.exec(text))) {
-    const d = Math.abs(base + m.index - at);
-    if (!best || d < best.d) best = { d, why: m[1] };
+  while ((m = re.exec(src))) {
+    const why = m[1].replace(/\s*\n\s*(?:\/\/|\*)?\s*/g, " ").trim();
+    if (/^why$/i.test(why)) continue;
+    // the tag's own SPAN, not just where it starts: a three-line reason is two
+    // hundred characters wide, and measuring "how close is this tag to that
+    // numeral" from its opening bracket makes every numeral AFTER the tag look
+    // two hundred characters further away than it is — which is backwards,
+    // because the tag is written immediately before the numeral it excuses at
+    // least as often as immediately after it.
+    out.push({ at: m.index, end: m.index + m[0].length, why });
   }
-  return best ? best.why.replace(/\s*\n\s*(?:\/\/|\*)?\s*/g, " ").trim() : null;
+  return out;
 }
 
 // ---------------------------------------------------------------------------
 // (5) THE RUN.
 // ---------------------------------------------------------------------------
+/** "<2+ digits> <up to three words>" — the raw shape of a quantity claim */
+const NUMNOUN = /\b(\d[\d,]+)\s+([A-Za-z][A-Za-z+-]*(?:\s+[a-z][A-Za-z+-]*){0,2})/g;
+/** words that make the match a sentence rather than a quantity */
+const STOPWORDS = new Set(
+  ("of and to the in on at by or for from per is are was were with a an it its this that these those " +
+    "e t ms tick ticks more less other others than then so but as if when where which who whose over under " +
+    "into onto out up down after before because while each every all any no not now here there they them")
+    .split(" ")
+    .filter(Boolean),
+);
 export function audit(plans) {
   const hits = [];
+  /** every numeral+noun occurrence in audited prose, parsed or not — see OM4 */
+  const numerals = { all: [], get seen() { return this.all.length; }, get parsed() { return this.all.filter((u) => u.parsed).length; }, get unparsed() { return this.all.filter((u) => !u.parsed); } };
+  /** waiver tags that ended up next to no matched claim */
+  const deadWaivers = [];
   for (const file of auditFiles()) {
+    const rel = path.relative(REPO, file).replace(/\\/g, "/");
     const src = fs.readFileSync(file, "utf8");
     const ranges = proseRanges(src);
     const lines = src.split(/\r?\n/);
@@ -486,6 +593,8 @@ export function audit(plans) {
       }
       return lo;
     };
+    // (a) every match, with the paragraph it lives in, and the hits it produced
+    const matches = [];
     for (const r of ranges) {
       const text = src.slice(r.start, r.end);
       for (const pat of PATTERNS) {
@@ -495,16 +604,71 @@ export function audit(plans) {
           const at = r.start + m.index;
           const li = lineOf(at);
           const ctx = text.slice(Math.max(0, m.index - 120), m.index + m[0].length + 120);
+          const [pa, pb] = paragraphLines(lines, li, r, lineOf);
+          const mine = [];
           for (const c of pat.claims(m, ctx)) {
-            hits.push({
-              file: path.relative(REPO, file).replace(/\\/g, "/"),
+            const h = {
+              file: rel,
               line: li + 1,
               pattern: pat.id,
               quote: m[0].replace(/\s+/g, " ").trim(),
-              waiver: waiverFor(src, lines, li, r, at, lineStarts[li]),
+              waiver: null,
               ...c,
-            });
+            };
+            hits.push(h);
+            mine.push(h);
           }
+          if (mine.length)
+            matches.push({
+              at,
+              end: at + m[0].length,
+              hits: mine,
+              pStart: lineStarts[pa],
+              pEnd: lineStarts[pb] + lines[pb].length,
+            });
+        }
+      }
+      // (a2) THE SCOPE CENSUS. Every "<number> <noun>" in this prose, so the
+      // report can say how much of it the pattern library actually reads. A
+      // single digit is almost always a size, a coordinate or an ordinal, so the
+      // census starts at two digits — the shape a fleet claim takes — and a
+      // numeral followed by a FUNCTION WORD ("14 of", "20 and", "1200 to") is a
+      // number in a sentence, not a claim about a quantity, so it is not one.
+      let n;
+      NUMNOUN.lastIndex = 0;
+      while ((n = NUMNOUN.exec(text))) {
+        const w = n[2].replace(/\s+/g, " ").trim().toLowerCase().split(" ");
+        while (w.length > 1 && STOPWORDS.has(w[w.length - 1])) w.pop();
+        const noun = w.join(" ");
+        if (STOPWORDS.has(w[0])) continue;
+        const at = r.start + n.index;
+        numerals.all.push({
+          file: rel,
+          line: lineOf(at) + 1,
+          quote: n[0].replace(/\s+/g, " ").trim(),
+          value: num(n[1]),
+          noun,
+          parsed: matches.some((mm) => at >= mm.at && at < mm.end),
+        });
+      }
+    }
+    // (b) ONE TAG, ONE NUMERAL — see the block above waiverTags()
+    for (const g of waiverTags(src)) {
+      let best = null;
+      for (const mm of matches) {
+        if (g.end < mm.pStart || g.at > mm.pEnd) continue;
+        // gap between the two spans, zero if they touch or overlap
+        const dist = Math.max(0, mm.at - g.end, g.at - mm.end);
+        if (!best || dist < best.dist) best = { dist, mm };
+      }
+      if (!best) {
+        deadWaivers.push({ file: rel, line: lineOf(g.at) + 1, why: g.why });
+        continue;
+      }
+      for (const h of best.mm.hits) {
+        if (h.waiver === null || best.dist < h.waiverDist) {
+          h.waiver = g.why;
+          h.waiverDist = best.dist;
         }
       }
     }
@@ -533,19 +697,117 @@ export function audit(plans) {
     if (measured === null || measured === undefined) open.push(h);
     else bad.push(h);
   }
-  return { hits, resolved, waived, open, bad, pending };
+  return { hits, resolved, waived, open, bad, pending, numerals, deadWaivers, registry: registrySelfTest(plans, numerals) };
+}
+
+/**
+ * THE REGISTRY IS ASKED WHETHER IT BELIEVES ITSELF (MF4).
+ *
+ * `cut tiles` read `p.shell?.cut` for a whole round. There is no top-level
+ * `shell` on this artifact — the cut is at `meta.shell.cut`, 7,234 tiles — so the
+ * extractor measured 0 on all 172 rooms and registered the fleet's cut against
+ * the string "0". Nothing noticed, because a registry entry that returns a
+ * NUMBER is indistinguishable from a registry entry that returns the right
+ * number, and this gate only ever compared extractors to prose, never to
+ * plausibility.
+ *
+ * So: an extractor that reads 0 (or nothing) off a shipped artifact WHILE the
+ * audited prose contains a positive claim about that very noun is a CONFIGURATION
+ * ERROR, not a fleet that ships none of them, and it exits 1. The prose is the
+ * witness — "7275 cut tiles across 172 rooms" and "the room's 50 cut tiles" are
+ * both in the tree, so a cut-tile extractor reading 0 is refuted by the files it
+ * is auditing. A quantity the fleet genuinely ships none of stays silent because
+ * nobody wrote a sentence claiming otherwise.
+ */
+export function registrySelfTest(plans, numerals) {
+  const entries = [
+    ...Object.entries(QUANTITIES)
+      .filter(([k]) => k !== "room")
+      .map(([k, q]) => ({ label: `${k} shipped fleet-wide`, nouns: q.aliases, fn: q.total })),
+    ...FLEET_EXTRACTORS,
+  ];
+  const out = [];
+  for (const e of entries) {
+    let measured;
+    try {
+      measured = e.fn(plans);
+    } catch (err) {
+      measured = undefined;
+    }
+    if (measured !== 0 && measured !== null && measured !== undefined) continue;
+    // the prose's own positive claims about this noun, from the census above
+    const nouns = e.nouns.map((a) => a.toLowerCase());
+    const witnesses = (numerals?.all || [])
+      .filter((u) => nouns.some((a) => ` ${u.noun} `.includes(` ${a} `)))
+      .filter((u) => u.value > 0);
+    if (!witnesses.length) continue;
+    out.push({
+      label: e.label,
+      measured,
+      witnesses: witnesses.slice(0, 3).map((w) => `${w.file}:${w.line} "${w.quote}"`),
+      count: witnesses.length,
+    });
+  }
+  return out;
 }
 
 export function report(res, { list = false } = {}) {
   const where = (h) => `${h.file}:${h.line}`;
   const out = [];
+  // WAIVERS ARE COUNTED TWICE AND READ ONCE (OL5). "45 waived" was 27 SITES: an
+  // "N X across M rooms" match yields two claims (the count and the room count)
+  // and the waived line printed neither `what` nor `value`, so the two came out
+  // as the same sentence twice and a reader counting sites got 45. The census
+  // states both numbers and the list below prints one line per site with every
+  // claim it carries named.
+  const waivedSites = new Map();
+  for (const h of res.waived) {
+    const k = `${where(h)}|${h.quote}`;
+    if (!waivedSites.has(k)) waivedSites.set(k, { h, claims: [] });
+    waivedSites.get(k).claims.push(h);
+  }
   out.push(
-    `numeral audit — ${res.hits.length} fleet-numeral claim(s) matched · ` +
-      `${res.resolved.length} re-derived and correct · ${res.waived.length} waived · ` +
-      `${res.open.length} unowned · ${res.bad.length} WRONG · ${res.pending.length} in files not yet swept`,
+    `numeral audit — ${res.hits.length} fleet-numeral claim(s) matched over ${PATTERNS.length} recognised ` +
+      `claim shape(s) · ${res.resolved.length} re-derived and correct · ${res.waived.length} waived ` +
+      `at ${waivedSites.size} site(s) · ${res.open.length} unowned · ${res.bad.length} WRONG · ` +
+      `${res.pending.length} in files not yet swept`,
   );
+  // ...AND THE SCOPE OF THAT "0 WRONG" IS STATED, BECAUSE IT IS NOT THE PROSE
+  // (OM4). The gate reads five claim shapes. Every other numeral-and-noun in the
+  // audited comments — "40 extra personal ramparts", "120 personal ramparts,
+  // forever" — is UNSEEN, not clean, and a report that prints "0 WRONG" with no
+  // denominator for what it could not parse invites exactly the reading it does
+  // not support.
+  const un = res.numerals?.unparsed || [];
+  if (res.numerals) {
+    const byNoun = new Map();
+    for (const u of un) byNoun.set(u.noun, (byNoun.get(u.noun) || 0) + 1);
+    const top = [...byNoun.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+    out.push(
+      `  scope — "${res.bad.length} WRONG" is a statement about those ${res.hits.length} claims and nothing ` +
+        `else. ${res.numerals.seen} numeral+noun occurrence(s) sit in the audited prose; ${res.numerals.parsed} ` +
+        `are read by the pattern library and ${un.length} are NOT PARSED by it, so they are unchecked rather ` +
+        `than clean.` +
+        (top.length
+          ? ` Most frequent unparsed nouns: ${top.map(([nn, c]) => `${nn} (${c})`).join(" · ")}` +
+            `${list ? `` : ` — --list prints all ${un.length}`}.`
+          : ``),
+    );
+  }
+  for (const p of res.registry || []) {
+    out.push(
+      `  REGISTRY ${p.label} measures ${p.measured === undefined ? "nothing" : p.measured} on this artifact ` +
+        `while the audited prose makes ${p.count} positive claim(s) about it (${p.witnesses.join(" · ")}) — ` +
+        `the extractor is reading the wrong field. Fix the registry; this is a config error, not a fleet ` +
+        `that ships none of them.`,
+    );
+  }
+  for (const d of res.deadWaivers || []) {
+    out.push(`  DEAD-WAIVER ${d.file}:${d.line} — no matched claim sits beside this tag — "${d.why}"`);
+  }
   if (list) {
     for (const h of res.resolved) out.push(`  ok    ${where(h)} — ${h.what} = ${h.value}   "${h.quote}"`);
+    for (const u of un) out.push(`  unparsed ${u.file}:${u.line} — "${u.quote}"`);
   }
   for (const h of res.pending) {
     out.push(
@@ -554,8 +816,11 @@ export function report(res, { list = false } = {}) {
         ` (file not yet swept; see PENDING_FILES)`,
     );
   }
-  for (const h of res.waived) {
-    out.push(`  waived ${where(h)} — "${h.quote}" — ${h.waiver}`);
+  for (const { h, claims } of waivedSites.values()) {
+    out.push(
+      `  waived ${where(h)} — "${h.quote}" — ` +
+        `${claims.map((c) => `${c.what} = ${c.value}`).join(" + ")} — ${h.waiver}`,
+    );
   }
   for (const h of res.open) {
     out.push(
@@ -583,7 +848,7 @@ export function runAudit({ list = false, log = console.log } = {}) {
   const plans = JSON.parse(fs.readFileSync(PLANS, "utf8")).filter((p) => p && p.structures);
   const res = audit(plans);
   log(report(res, { list }));
-  return res.bad.length || res.open.length ? 1 : 0;
+  return res.bad.length || res.open.length || res.registry.length ? 1 : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {

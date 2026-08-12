@@ -6344,7 +6344,7 @@ export const RECORD_LEAF_TABLE = RECORD_LEAVES;
  * What it may not do is carry a field the twin has and DISAGREE with it, or
  * carry a list entry the twin does not have.
  */
-function noteRecordBindingProblems(entry, plan, s) {
+function noteRecordBindingProblems(entry, plan, s, objects) {
   const out = [];
   const rec = entry && entry.rec;
   if (!rec || typeof rec !== "object") return out;
@@ -6425,9 +6425,124 @@ function noteRecordBindingProblems(entry, plan, s) {
     // panel and (round 22 / OM3) binds `taken.from`/`taken.why` on — so the
     // note's copy is held to it field for field rather than being a second
     // unbound transcript of the one thing a reader is told.
-    case "towerSwap":
+    case "towerSwap": {
       sub("", "meta.towers.acrossPriorTake", "the tower-swap record this file re-derives against the shipped board");
+      // ==============================================================
+      // ROUND 23 / OM3 — THE PARAGRAPH'S TENSE IS PART OF ITS CONTENT.
+      // ==============================================================
+      // The record is honest: `declaredKeys` is documented as the PRE-TAKE
+      // set and `preTakeShortfalls` publishes the channel it came from. The
+      // NOTE rendered that set in the present tense and contradicted itself
+      // inside one paragraph, ~40 words apart, in E14S1 and E3S5:
+      //   "…it RETIRES the room's clump declaration: 5 towers stood within
+      //    chebyshev 2 of the sitter … and 4 stand there now."
+      //   "This room DECLARES clump (towers/clump, `towers/clump.clump.within`
+      //    = 5) and offNetwork…"
+      // Shipped `meta.shortfalls` in both rooms is `["misc/off-network"]`.
+      // And the other direction shipped too: E4S3's record SKIPS an `eco`
+      // declaration the room really files, and the renderer named only the
+      // key — a reader is told the room declares one thing where it declares
+      // two.
+      //
+      // Three properties, and they are properties of the RENDERED TEXT
+      // because that is the channel the gallery and the film ticker read:
+      //  COMPLETENESS  every pre-take declaration, key or skip, is named.
+      //  SOUNDNESS     every declaration the paragraph renders is one the
+      //                record carries, with that source and that value.
+      //  TENSE         a pair the room still SHIPS may be written "DECLARES";
+      //                one it no longer ships may not be, whatever else the
+      //                paragraph says about it.
+      //  RETIREMENT    ...and a pair the room does not ship has to be NAMED as
+      //                the thing a retirement clause retired — this planner
+      //                retires exactly one thing (the swap taking the clump
+      //                declaration off the page), so an unshipped declaration
+      //                with no retirement of its own is one the room dropped.
+      const text8 = (() => {
+        try {
+          return renderNote(entry);
+        } catch {
+          return "";
+        }
+      })();
+      if (text8) {
+        const label8 = (o) => `${o?.gate ?? null}${o?.kind ? `/${o.kind}` : ``}`;
+        const union8 = [...(rec.declaredKeys || []), ...(rec.declaredSkipped || [])].filter(Boolean);
+        const shipped8 = new Set((plan.meta?.shortfalls || []).filter(Boolean).map(label8));
+        const esc8 = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const sent8 = text8.split(/(?<=[.!?])\s+/);
+        const re8of = (L8) => new RegExp(`(?<![\\w/-])${esc8(L8)}(?![\\w-])`);
+        // WHICH declaration a retirement clause retires is the FIRST pair named
+        // after the word, in that clause. "the take RETIRED `towers/clump`, so
+        // the shipped `meta.shortfalls` files `extensions/shallow`" retires ONE
+        // of those two, and a rule that accepted "somewhere in the same
+        // sentence" would let the second pair ride along on the first's excuse.
+        const retired8 = new Set();
+        for (const m8 of text8.matchAll(/RETIRE[SD]?/gi)) {
+          const rest8 = text8.slice(m8.index + m8[0].length);
+          const stop8 = rest8.search(/[.!?]/);
+          const seg8 = stop8 >= 0 ? rest8.slice(0, stop8) : rest8;
+          let first8 = null;
+          for (const o of union8) {
+            const at8 = seg8.search(re8of(label8(o)));
+            if (at8 >= 0 && (first8 === null || at8 < first8.at)) first8 = { at: at8, L: label8(o) };
+          }
+          if (first8) retired8.add(first8.L);
+        }
+        for (const o of union8) {
+          const L8 = label8(o);
+          const re8 = re8of(L8);
+          const hits8 = sent8.filter((z8) => re8.test(z8));
+          if (!hits8.length) {
+            out.push(
+              `accounts for the declaration \`${L8}\` in its ${(rec.declaredKeys || []).includes(o) ? "key set" : "skipped list"} ` +
+                `and the paragraph it generates never names it. The two lists together are the WHOLE ` +
+                `declaration channel this pass read, and the note is where a reader meets them: a skip the ` +
+                `paragraph does not mention is a declaration the room made and the page does not show`,
+            );
+            continue;
+          }
+          if (!shipped8.has(L8) && !retired8.has(L8)) {
+            out.push(
+              `names the declaration \`${L8}\` and this room ships ` +
+                `[${[...shipped8].join(" ") || "nothing"}] — it is not among them, and no clause in the ` +
+                `paragraph says it was RETIRED (the retirement this planner has retires ` +
+                `[${[...retired8].join(" ") || "nothing"}]). A declaration on the page that the room does not ` +
+                `file is either a retirement, stated, or a paragraph describing a different room`,
+            );
+          }
+        }
+        const REND8 = /\(([A-Za-z][\w-]*)(?:\/([\w-]+))?, `([^`]+)` = (-?[\d.]+)\)/g;
+        let m8;
+        while ((m8 = REND8.exec(text8)) !== null) {
+          const L8 = `${m8[1]}${m8[2] ? `/${m8[2]}` : ``}`;
+          const rec8 = union8.find((o) => label8(o) === L8);
+          if (!rec8) {
+            out.push(
+              `renders the declaration \`${L8}\` (\`${m8[3]}\` = ${m8[4]}) and neither \`declaredKeys\` nor ` +
+                `\`declaredSkipped\` carries that pair. The paragraph is generated FROM those two lists`,
+            );
+            continue;
+          }
+          if (rec8.source !== undefined && rec8.source !== m8[3]) {
+            out.push(`renders \`${L8}\` as read off \`${m8[3]}\` and the record says \`${rec8.source}\``);
+          }
+          if (typeof rec8.declared === "number" && Math.abs(rec8.declared - Number(m8[4])) > 1e-9) {
+            out.push(`renders \`${L8}\` with the value ${m8[4]} and the record declares ${rec8.declared}`);
+          }
+          const tense8 = (text8.slice(0, m8.index).match(/DECLARE[SD]\b/gi) || []).pop();
+          if (tense8 && /S$/i.test(tense8) && !shipped8.has(L8)) {
+            out.push(
+              `says this room DECLARES \`${L8}\` and its shipped \`meta.shortfalls\` is ` +
+                `[${[...shipped8].join(" ") || "nothing"}]. \`declaredKeys\` is the PRE-TAKE channel — the ` +
+                `record says so and publishes \`preTakeShortfalls\` beside it — so rendering it in the ` +
+                `present tense is the paragraph contradicting the retirement it announces forty words ` +
+                `earlier. The tense is the difference between "this pass ranked on it" and "the room files it"`,
+            );
+          }
+        }
+      }
       break;
+    }
     // ROUND 22 / OL2 — and the sealing-curve amendment's own note, bound to
     // the closure record the shell block re-derives by re-flooding.
     case "shellClosure":
@@ -6669,13 +6784,207 @@ function noteRecordBindingProblems(entry, plan, s) {
       if (rec.containersOnRoads !== share.length) {
         out.push(`says ${J(rec.containersOnRoads)} container(s) share a road tile and the board carries ${share.length}`);
       }
+      // ==============================================================
+      // ROUND 23 / OM9 — WHAT THESE ROADS ACTUALLY HOLD UP, PER ROOM.
+      // ==============================================================
+      // The note's closing claim used to be a STRING CONSTANT in the
+      // renderer — "without these tiles the controller container and the
+      // roads that serve it are orphaned for three whole RCLs" — with no
+      // record field behind it, which is precisely why nothing here could
+      // bite it: the note channel is gated on the records and this sentence
+      // was not one. It is TRUE in the room that motivated it and FALSE in
+      // the other two that ship it. Re-derived pre-RCL6 (the D8 component
+      // from the sitter over roads and containers with the mineral seat
+      // removed, then this note's own `added` tiles deleted):
+      //   E5S1  28,30 -> 28,31 28,32 28,33 29,34; 28,33 IS the controller
+      //         container. The sentence is exact here.
+      //   E5S3  32,11 -> 32,9 33,10 34,9 35,8 36,7, a five-tile spur running
+      //         OUT PAST the mineral seat and adjacent to no source,
+      //         container or controller. The controller container at 40,42
+      //         stays connected.
+      //   E2S5  27,23 -> eleven tiles from 28,23 (beside the mineral) out to
+      //         37,22. The controller container at 31,32 stays connected.
+      // The road is still worth its 0.001 e/tick in all three — a real spur
+      // does fall off — but a reader auditing the spend was told it protects
+      // the controller lane where it protects a spur past the mineral seat.
+      // Same class as the round-22 prose casualty: a sentence true of one
+      // room shipped as a fact in the others.
+      //
+      // So the orphan set is a RECORD LEAF now and it is class D — re-derived
+      // here from the shipped board, tile for tile, with the controller
+      // container named — and the false sentence is held to the boolean: it
+      // may only be rendered by a room whose controller container really is
+      // in the set.
+      {
+        const O9 = rec.orphanedByRemoval;
+        if (!O9 || typeof O9 !== "object" || Array.isArray(O9)) {
+          out.push(
+            `publishes \`orphanedByRemoval\` ${J(O9)}. This note's whole argument is what falls off the ` +
+              `pre-RCL6 network when these roads are not there, and it used to be a sentence in the ` +
+              `renderer with no field behind it — outside RECORD_LEAVES, outside the declared-key ` +
+              `machinery, unbitable by any mutation, and false in two of the three rooms that shipped it`,
+          );
+          break;
+        }
+        const ctrl9 = (objects || []).find((o9) => o9 && o9.type === "controller") || plan.controller || null;
+        const exTile9 = (s.extractor || [])[0] || null;
+        const cheb9 = (a9, b9) => Math.max(Math.abs(a9.x - b9.x), Math.abs(a9.y - b9.y));
+        const deferred9 = (s.container || []).filter((c9) => exTile9 && cheb9(c9, exTile9) <= 1);
+        const deferredK9 = new Set(deferred9.map((c9) => key(c9.x, c9.y)));
+        // the pre-RCL6 conductor set: every road, plus every container that
+        // is not the mineral seat (no extractor exists before RCL 6, so the
+        // box on the mineral has nothing to fill it and is not built)
+        const conduct9 = new Set(roadK);
+        for (const c9 of s.container || []) if (!deferredK9.has(key(c9.x, c9.y))) conduct9.add(key(c9.x, c9.y));
+        for (const t9 of rec.added || []) conduct9.delete(key(t9.x, t9.y));
+        const seen9 = new Set();
+        const seed9 = key(plan.sitter.x, plan.sitter.y);
+        if (conduct9.has(seed9)) {
+          seen9.add(seed9);
+          const q9 = [seed9];
+          for (let qi = 0; qi < q9.length; qi++) {
+            const [x9, y9] = q9[qi].split(",").map(Number);
+            for (const [dx, dy] of D8) {
+              const nk9 = key(x9 + dx, y9 + dy);
+              if (seen9.has(nk9) || !conduct9.has(nk9)) continue;
+              seen9.add(nk9);
+              q9.push(nk9);
+            }
+          }
+        }
+        // raster order, which is the order the note reads them out in
+        const rast9 = (l9) =>
+          l9
+            .map((k9) => k9.split(",").map(Number))
+            .sort((a9, b9) => a9[1] - b9[1] || a9[0] - b9[0])
+            .map(([x9, y9]) => key(x9, y9));
+        const wantTiles9 = rast9([...conduct9].filter((k9) => !seen9.has(k9)));
+        const lost9 = new Set(wantTiles9);
+        const listOf9 = (v9) =>
+          (Array.isArray(v9) ? v9 : []).map((t9) =>
+            t9 && Number.isInteger(t9.x) && Number.isInteger(t9.y) ? key(t9.x, t9.y) : String(JSON.stringify(t9)),
+          );
+        const gotTiles9 = listOf9(O9.tiles);
+        if (gotTiles9.join(" ") !== wantTiles9.join(" ")) {
+          out.push(
+            `says removing these roads orphans [${gotTiles9.join(" ") || "nothing"}] and the pre-RCL6 ` +
+              `network re-derived on this board — roads plus every container except the deferred mineral ` +
+              `seat, D8 from the sitter, with \`added\` deleted — loses [${wantTiles9.join(" ") || "nothing"}]. ` +
+              `That set is the whole justification for the spend, so it is derived and not asserted (in ` +
+              `raster order, which is the order the note reads them out in)`,
+          );
+        }
+        const wantSeat9 = rast9(deferred9.map((c9) => key(c9.x, c9.y)));
+        if (listOf9(O9.mineralSeat).join(" ") !== wantSeat9.join(" ")) {
+          out.push(
+            `names [${listOf9(O9.mineralSeat).join(" ") || "nothing"}] as the deferred mineral seat(s) this ` +
+              `pass exists because of and the board carries [${wantSeat9.join(" ") || "nothing"}] — the ` +
+              `container(s) within range 1 of the extractor, which is the set the pre-RCL6 network is ` +
+              `computed without`,
+          );
+        }
+        const wantCont9 = rast9([...lost9].filter((k9) => (s.container || []).some((c9) => key(c9.x, c9.y) === k9)));
+        if (listOf9(O9.containersOrphaned).join(" ") !== wantCont9.join(" ")) {
+          out.push(
+            `says the removal orphans the container seat(s) [${listOf9(O9.containersOrphaned).join(" ") || "nothing"}] ` +
+              `and the re-derivation loses [${wantCont9.join(" ") || "nothing"}]. "It serves no container seat ` +
+              `at all" is the honest half of this note and it is a measurement`,
+          );
+        }
+        const ctrlC9 = ctrl9
+          ? (s.container || []).find((c9) => cheb9(c9, ctrl9) <= 3 && !deferredK9.has(key(c9.x, c9.y)))
+          : null;
+        const wantCtrl9 = ctrlC9 ? key(ctrlC9.x, ctrlC9.y) : null;
+        const gotCtrl9 =
+          O9.ctrlContainer && Number.isInteger(O9.ctrlContainer.x) ? key(O9.ctrlContainer.x, O9.ctrlContainer.y) : null;
+        if (gotCtrl9 !== wantCtrl9) {
+          out.push(
+            `names ${J(gotCtrl9)} as this room's controller container and the board carries ${J(wantCtrl9)} ` +
+              `(the container within range 3 of the controller that is not the deferred mineral seat). The ` +
+              `sentence this record exists to hold up is about THAT container`,
+          );
+        }
+        const wantOrph9 = wantCtrl9 !== null && lost9.has(wantCtrl9);
+        if (O9.ctrlContainerOrphaned !== wantOrph9) {
+          out.push(
+            `says the controller container ${O9.ctrlContainerOrphaned ? "IS" : "is NOT"} orphaned when these ` +
+              `roads are removed and the re-derivation says it ${wantOrph9 ? "IS" : "is NOT"}. That boolean is ` +
+              `the whole difference between the sentence E5S1 may print and the sentence E5S3 and E2S5 may not`,
+          );
+        }
+        if (typeof O9.basis !== "string" || O9.basis.length < 80) {
+          out.push(
+            `publishes \`orphanedByRemoval\` with a \`basis\` of ${J(O9.basis)} — the sentence saying what ` +
+              `the set IS (which network, at which RCL, with what removed). A witness a reader cannot read ` +
+              `the rule of is a second copy of the board with no statement of what it witnesses`,
+          );
+        }
+        // ...AND THE SENTENCE THAT HAD NO RECORD IS HELD TO THE BOOLEAN.
+        const text9 = (() => {
+          try {
+            return renderNote(entry);
+          } catch {
+            return "";
+          }
+        })();
+        if (/the controller container and the roads that serve it are orphaned/i.test(text9) && !wantOrph9) {
+          out.push(
+            `renders "the controller container and the roads that serve it are orphaned" and this room's ` +
+              `controller container ${wantCtrl9 === null ? "cannot be found" : `at ${wantCtrl9} stays connected without these tiles`}. ` +
+              `That clause was a string constant true of exactly one of the three rooms that shipped it; it ` +
+              `is rendered from \`orphanedByRemoval.ctrlContainerOrphaned\` or it is not rendered`,
+          );
+        }
+      }
       break;
     }
-    case "pavingGap":
-      // the fleet ships none; the class is registered and its record has no
-      // list-valued field to bind. Left named so the switch is an inventory
-      // rather than a default.
+    // ==============================================================
+    // ROUND 23 / MF6 — THE ONE CLASS IN THIS INVENTORY THAT IS DEAD,
+    // AND THE REASON IT GIVES FOR ITS OWN SILENCE WAS FALSE.
+    // ==============================================================
+    // What stood here said "the class is registered and its record has no
+    // list-valued field to bind". That is not true and its own renderer
+    // refutes it: `renderPavingGap` reads `r.stranded` (a list of tiles) and
+    // `r.gapTiles` (a list of {x, y, holds}) and builds two enumerations out
+    // of them. Both have twins the plan publishes, both are bound below, and
+    // a note class whose lists are unbound is exactly the round-17 defect
+    // this whole function exists to close — "the fleet ships none" is a
+    // property of this artifact, not a reason.
+    //
+    // AND THE CLASS IS DEAD BY CONSTRUCTION, WHICH IS THE HONEST STATEMENT
+    // OF ITS SILENCE. A `pavingGap` record can only be non-trivial in one of
+    // two ways and this file hard-fails the room for both, forty lines apart
+    // and for stated reasons:
+    //   * a non-empty `gapTiles` is PAVING GAP REFUSED — "walkable but
+    //     unpaveable" is the empty set in this engine, so no published gap
+    //     tile can ever legitimately conduct;
+    //   * a non-empty `stranded` is RCL-DEFERRED CONDUCT — conductors that
+    //     the mineral seat's absence cuts off before RCL 6.
+    // So the class survives only over two EMPTY lists, and over two empty
+    // lists its own paragraph reads "0 road tile(s) () join the rest of this
+    // room's network only across the mineral-seat container" — a named
+    // finding rendered about nothing. That is the third failure below, and
+    // together the three make the class dead WITH A REASON rather than
+    // merely unused: it is kept in the inventory (deleting it would let a
+    // producer re-introduce the paragraph as an unbound class) and it cannot
+    // ship in any shape.
+    case "pavingGap": {
+      sub("stranded", "meta.walls.conductBridge.stranded", "the conductors the bridge could not reach");
+      sub("gapTiles", "meta.walls.conductBridge.gapTiles", "the tiles the bridge says the route crosses unpaved");
+      const strandedN = Array.isArray(rec.stranded) ? rec.stranded.length : null;
+      const gapN = Array.isArray(rec.gapTiles) ? rec.gapTiles.length : null;
+      if (strandedN === 0 && gapN === 0) {
+        out.push(
+          `renders A PAVING GAP UNTIL RCL 6 over an EMPTY \`stranded\` list and an EMPTY \`gapTiles\` list ` +
+            `— "0 road tile(s) () join the rest of this room's network only across the mineral-seat ` +
+            `container". The class is unreachable in the other direction too: a non-empty \`gapTiles\` is ` +
+            `PAVING GAP REFUSED and a non-empty \`stranded\` is RCL-DEFERRED CONDUCT, both hard fails in ` +
+            `this file. It is kept in the inventory so the paragraph cannot come back as an unregistered ` +
+            `class, and it has no shape it can legitimately ship in`,
+        );
+      }
       break;
+    }
     default:
       out.push(
         `is class "${entry.cls}", which \`noteRecordBindingProblems\` does not bind. Every note class's ` +
@@ -10918,17 +11227,24 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     //
     // AND WHAT IS HONESTLY NOT. 5b runs in the MIDDLE of layer 7: the extension
     // reflow, the dead-end prune and the swamp paving all move the board after it.
-    // So a refusal of the form "the only interior parallel is X,Y and the swap
-    // breaks the network" is a fact about a board that no longer exists, and two
-    // of the seven the fleet ships name a tile that is in the exterior flood
-    // TODAY (E18S9 45,6, E9S8 18,24) because the inert prune later took a rampart
-    // off the wall beside it. Failing those would be failing an honest room for
-    // the ordering of the pipeline. What IS immutable about the named tile is
-    // checked — it is D8-adjacent to the refused tile, on the buildable board, on
-    // walkable terrain and not itself a cut tile — and the network half is left
-    // as producer-witnessed rather than pretended to be re-derived. `alongCutMoved`
-    // is the same shape of fact and gets the same treatment: bounded against the
-    // board and cross-checked against the note, not believed.
+    // So a rejection of the form "X,Y is OUTSIDE the wall" is a reading of the
+    // wall as it stood mid-pass, and rooms have shipped a refusal naming a tile
+    // that is in the exterior flood TODAY (E18S9 45,6) because the inert prune
+    // later took a rampart off the wall beside it. Failing those would be failing
+    // an honest room for the ordering of the pipeline. What IS immutable about the
+    // named tile is checked — it is D8-adjacent to the refused tile, on the
+    // buildable board, on walkable terrain and not itself a cut tile.
+    //
+    // ROUND 23 / MF5 — AND THE NETWORK HALF IS NO LONGER IN THAT CATEGORY. It
+    // used to be, on the argument that "the board the refusal describes is one
+    // the fleet does not ship". Re-run under the refusal's own definition on the
+    // SHIPPED board, 10 of the 13 road-axis offers this fleet files reproduce
+    // exactly — magnitude, both readings and the newly-off roster — and the
+    // other three are the taken-parallel witness class below, so the
+    // argument was false and the arithmetic is re-derived in the delta block
+    // below. `alongCutMoved` is likewise no longer merely bounded: round 23 / OB1
+    // asks the shipped exterior flood whether the tile the swap moved a road ONTO
+    // is inside the wall, because two rooms shipped one that was not.
     // ==================================================================
     {
       const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
@@ -10988,6 +11304,93 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (rest.startsWith("already carries one of our structures")) return blocked.has(k);
         if (rest.startsWith("is already paved")) return roadSet.has(k);
         return null; // an unknown reason class, reported by the caller
+      };
+      // ==================================================================
+      // ROUND 23 / MF5 — THE PASS'S OWN NETWORK MEASUREMENT, ON THE BOARD
+      // THE ROOM SHIPS.
+      // ==================================================================
+      // Stage 5b measures one D8 component from the sitter over roads and
+      // containers and calls everything else "off the network"; that is the
+      // definition the refusal's own sentence uses ("they are no longer
+      // D8-connected to the sitter over roads and containers"). It is
+      // reproduced here EXACTLY — same seed, same D8, same container set, same
+      // sort — so that a refusal's arithmetic can be re-derived rather than
+      // believed. See the delta block below for what that buys and for the one
+      // case where it honestly cannot be done.
+      const containerK9 = new Set((s.container || []).map((c9) => key(c9.x, c9.y)));
+      const offNetOf9 = (live) => {
+        const comp = new Set([key(sitter.x, sitter.y)]);
+        const q9 = [{ x: sitter.x, y: sitter.y }];
+        for (let qi = 0; qi < q9.length; qi++) {
+          const c9 = q9[qi];
+          for (const [dx, dy] of D8) {
+            const x = c9.x + dx;
+            const y = c9.y + dy;
+            const k9 = key(x, y);
+            if (comp.has(k9) || (!live.has(k9) && !containerK9.has(k9))) continue;
+            comp.add(k9);
+            q9.push({ x, y });
+          }
+        }
+        return [...live].filter((k9) => !comp.has(k9)).sort();
+      };
+      /** the un-swapped shipped board's own off-network roster */
+      const shippedOff9 = offNetOf9(roadSet);
+      /**
+       * ONE OFFER'S PRICE, RE-DERIVED. `from` is the refused run tile, `t` the
+       * parallel it was offered, and `quoted` the refusal's own four terms
+       * [N, A, B, roster]. See the block comment at the delta gate below for the
+       * argument and for the one exception.
+       */
+      const netPriceCheck9 = (from9, t, [n9, a9, b9, rosterTxt9]) => {
+        const tgt9 = key(t.x, t.y);
+        const rk9 = plan.meta?.walls?.roadKind || {};
+        if (roadSet.has(tgt9)) {
+          if (rk9[tgt9] !== "alongCutMoved") {
+            bad.push(
+              `meta.walls.alongCutRefused ${from9}: the refusal prices the swap to ${t.x},${t.y} at ` +
+                `${n9} more road tile(s) off the network, and ${t.x},${t.y} carries a road on the ` +
+                `shipped board whose provenance is ${JSON.stringify(rk9[tgt9] ?? null)}. The price is ` +
+                `re-derived here by MOVING this run tile's road onto the parallel; a parallel that is ` +
+                `already paved by some other pass makes that simulation a board with a road deleted ` +
+                `rather than a road moved, and the only occupant this file grants that exception to is ` +
+                `the swap this room's own stage 5b TOOK (\`roadKind\` "alongCutMoved") — which is a ` +
+                `board the record names, not a re-derivation nobody can do`,
+            );
+          }
+          return;
+        }
+        if (!roadSet.has(from9)) {
+          bad.push(
+            `meta.walls.alongCutRefused ${from9}: the refusal prices moving THIS TILE'S road to ` +
+              `${t.x},${t.y} and this room ships no road on ${from9}. The subtraction is a fact about a ` +
+              `road that exists; a refusal filed for a tile the board no longer paves prices nothing`,
+          );
+          return;
+        }
+        const attempt9 = new Set(roadSet);
+        attempt9.delete(from9);
+        attempt9.add(tgt9);
+        const after9 = offNetOf9(attempt9);
+        const newly9 = after9.filter((k9) => !shippedOff9.includes(k9));
+        const wantRoster9 = `${newly9.slice(0, 6).join(" ")}${newly9.length > 6 ? " …" : ""}`;
+        const gotRoster9 = String(rosterTxt9).trim();
+        const off9 = [];
+        if (a9 !== shippedOff9.length) off9.push(`it prices the un-swapped board at ${a9} road tile(s) off the network and the shipped board reads ${shippedOff9.length}`);
+        if (b9 !== after9.length) off9.push(`it prices the swapped board at ${b9} and moving that road on the shipped board reads ${after9.length}`);
+        if (n9 !== after9.length - shippedOff9.length) off9.push(`it quotes ${n9} more and the swap costs ${after9.length - shippedOff9.length}`);
+        if (gotRoster9 !== wantRoster9) off9.push(`it names "${gotRoster9}" as the tiles that newly fall off and the ones that do are "${wantRoster9 || "none"}"`);
+        if (off9.length) {
+          bad.push(
+            `meta.walls.alongCutRefused ${from9}: the refusal prices the swap to ${t.x},${t.y} and, ` +
+              `re-derived on the board this room SHIPS under the refusal's own definition — delete ` +
+              `this tile's road, pave ${t.x},${t.y}, flood D8 from the sitter over roads and ` +
+              `containers — ${off9.join("; ")}. 10 of the 13 road-axis offers this fleet files reproduce ` +
+              `exactly this way and the other three are the taken-parallel class, so "the board the ` +
+              `refusal describes is not the one that ships" is not a licence for the number: the ` +
+              `anti-pattern this room keeps is kept on this arithmetic`,
+          );
+        }
       };
       for (const c of runs) {
         const tk = key(c.x, c.y);
@@ -11137,14 +11540,20 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // And the round-21 ABSOLUTE sentence is still recognised, and still
         // FAILS: reverting the wording is not a way back out of the delta.
         //
-        // WHAT IS HONESTLY NOT RE-DERIVED, and why: the counts themselves are
-        // arithmetic on the MID-layer-7 board — the reflow, the prune and the
-        // swamp paving all move roads after 5b runs — so re-flooding the
-        // shipped board answers a different question (measured on the round-21
-        // artifact: it finds 0 fallen tiles for all 21 road-axis offers,
-        // including the ones that were true when they were made). What is
-        // checked is that the refusal IS a subtraction and that both of its
-        // terms are readings of the same board.
+        // ROUND 23 / MF5 — WHAT THIS PARAGRAPH USED TO SAY WAS NOT RE-DERIVABLE,
+        // AND IT WAS. The sentence here read "the counts themselves are
+        // arithmetic on the MID-layer-7 board … so re-flooding the shipped board
+        // answers a different question (measured on the round-21 artifact: it
+        // finds 0 fallen tiles for all 21 road-axis offers)". That measurement
+        // was taken with the ABSOLUTE predicate's refusals in the sample, which
+        // is why it came back empty; round 22 replaced the predicate with the
+        // delta and the refusals that survive are re-derivable. Re-flooding the
+        // shipped board under the record's own definition reproduces 10 of the
+        // fleet's 13 offers EXACTLY, and the other three are the ones whose
+        // parallel the room's own taken swap occupies. So the magnitude and the tile list are
+        // checked below, not just the subtraction — a residue that says a number
+        // cannot be re-derived is a residue that has to be re-measured every time
+        // the pass it describes changes.
         {
           const AXES9 = ["roads", "offNetwork", "containersWithoutFace", "extensionsWithoutFace"];
           const rec9 = (Array.isArray(refusedArr) ? refusedArr : []).find((q) => q && q.x === c.x && q.y === c.y);
@@ -11221,11 +11630,49 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               if (problems.length) {
                 bad.push(
                   `meta.walls.alongCutRefused ${tk}: the refusal prices the swap to ${t.x},${t.y} on roads ` +
-                    `falling off the network and ${problems.join("; ")}. The arithmetic is about the ` +
-                    `mid-layer-7 board and is taken as witnessed; that it IS a subtraction, and that both of ` +
-                    `its terms are readings of one board, is not`,
+                    `falling off the network and ${problems.join("; ")}. That it IS a subtraction, and that ` +
+                    `both of its terms are readings of one board, is checked here; the magnitude is ` +
+                    `re-derived on the shipped board immediately below`,
                 );
               }
+              // ==========================================================
+              // ROUND 23 / MF5 — ...AND THE MAGNITUDE AND THE TILE LIST ARE
+              // RE-DERIVED, ON THE BOARD THE ROOM SHIPS.
+              // ==========================================================
+              // What stood here was the sign and the subtraction and nothing
+              // else, under a residue (criticism 104(a)) that said the numbers
+              // could not be re-derived at all "because the board the refusal
+              // describes is one the fleet does not ship". That claim was
+              // FALSE, and measurably so: re-run the refusal's own definition
+              // on the SHIPPED board — delete the run tile's road, add the
+              // candidate parallel's, flood D8 from the sitter over roads and
+              // containers — and 10 of the 13 road-axis offers this fleet files
+              // reproduce EXACTLY, magnitude, both readings and the newly-off
+              // roster string, elision included. The three that do not are the
+              // three whose parallel the room's OWN taken swap now occupies,
+              // which is a different board and not an unre-derivable one.
+              //
+              // With only the sign checked, the arithmetic was free: E5S9's
+              // real refusal ("9 more road tile(s) fall off the network (0 -> 9;
+              // newly off: 22,15 22,16 …)") rewritten in all three of its
+              // string sites to "1 more road tile(s) fall off the network
+              // (0 -> 1; newly off: 49,49)" passed 172/172 — 49,49 carries no
+              // road, is in no component, and is not even a tile a road could
+              // stand on. A named anti-pattern was being held in place by a
+              // number nobody could check, which is the same shape as the
+              // absolute predicate round 22 removed one line up.
+              //
+              // AND THE ONE HONEST EXCEPTION IS A WITNESS CLASS, NOT A GAP.
+              // Where the parallel carries a road on the shipped board the
+              // simulation would be measuring a board with one road MISSING
+              // rather than one road MOVED, so the answer would be a different
+              // question's. That happens in exactly one situation the record
+              // itself names: the swap this pass TOOK on a neighbouring run
+              // tile landed on this candidate. So the exception is granted only
+              // when the occupying tile carries this room's own
+              // `alongCutMoved` provenance — a parallel paved by anything else
+              // is a refusal that must still re-derive.
+              netPriceCheck9(tk, t, [n9, a9, b9, dm[4]]);
               continue;
             }
             const cm = cost.match(/the container at (-?\d+),(-?\d+) is left with no road on any of its 8 neighbours/);
@@ -11312,6 +11759,38 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `could be moved onto right now. The swap was never offered there`
                 : ``),
           );
+        }
+      }
+      // ==================================================================
+      // ROUND 23 / MF5 — ...AND THE REFUSALS WHOSE RUN THE TAKE BROKE.
+      // ==================================================================
+      // The loop above walks the roster the SHIPPED board has, which is the
+      // right scope for everything it checks: a room that no longer has a run
+      // at X,Y owes no census about X,Y's neighbours. But it files a REFUSAL
+      // for X,Y all the same — 3 of the 13 road-axis offers this fleet prices
+      // sit on tiles whose run the taken swap broke (E15S1 15,17, E7S9 26,26,
+      // E9S8 19,24) — and a price is a price wherever the run went. Those
+      // three are exactly the ones an editor would reach for if the roster
+      // were the gate's whole scope, so the arithmetic is re-derived for them
+      // too, on the same board and by the same definition; everything else
+      // about them stays out of scope, deliberately.
+      {
+        const rosterK9 = new Set(runs.map((c) => key(c.x, c.y)));
+        for (const r9 of Array.isArray(refusedArr) ? refusedArr : []) {
+          if (!r9 || !Number.isInteger(r9.x) || !Number.isInteger(r9.y)) continue;
+          const fk9 = key(r9.x, r9.y);
+          if (rosterK9.has(fk9)) continue;
+          const why9 = String(r9.why || "");
+          if (!NET_REFUSAL_RE.test(why9)) continue;
+          const cutAt9 = why9.indexOf("The other neighbours: ");
+          const head9 = cutAt9 >= 0 ? why9.slice(0, cutAt9) : why9;
+          for (const seg9 of head9.split(" · ")) {
+            const mm9 = seg9.match(/moving it to (-?\d+),(-?\d+) — ([\s\S]*)$/);
+            if (!mm9) continue;
+            const dm9 = mm9[3].match(/(-?\d+) more road tile\(s\) fall off the network \((-?\d+) -> (-?\d+); newly off: ([^)]*)\)/);
+            if (!dm9) continue;
+            netPriceCheck9(fk9, { x: Number(mm9[1]), y: Number(mm9[2]) }, [Number(dm9[1]), Number(dm9[2]), Number(dm9[3]), dm9[4]]);
+          }
         }
       }
       // THE NOTE, PRESENT EXACTLY WHEN THE BOARD HAS RUNS.
@@ -11667,6 +12146,48 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `is the pass having done nothing`,
             );
           }
+          // ==========================================================
+          // ROUND 23 / OB1 (BLOCKING) — AND "INTERIOR" IS MEASURED ON THE
+          // WALL THE ROOM SHIPS.
+          // ==========================================================
+          // The whole content of this swap is the phrase the pass, the record,
+          // the note and the goal document all use for it: the road steps to
+          // its INTERIOR PARALLEL. Stage 5b decides that with layer 2's
+          // exterior flood, and layer 2's flood is stale by the time it runs —
+          // the inert prune takes ramparts off the wall BEFORE the swap pass
+          // and again after it. Where a pruned rampart was the thing making a
+          // tile interior, the pass reads "inside" and the room ships
+          // "outside": E9S8 19,24 -> 18,24 and E17S5 43,36 -> 44,36, both
+          // targets in the room's own `meta.shell.inertPruned`, both reachable
+          // from the room edge without crossing a rampart. E9S8's is not
+          // cosmetic — the cheapest path from the sitter to the source
+          // container runs 20,26 -> 19,25 -> 18,24 -> 19,23 at cost 13 against
+          // 14 for the inside route, so the room's primary haul lane exits the
+          // wall, and the pass's net effect there was to move a paved tile from
+          // UNDER a rampart (usable by defenders) to OUTSIDE it (usable by
+          // attackers). The room had a free interior alternative at
+          // 19,25 -> 20,25 at identical readings.
+          //
+          // Nothing in the record could see this: every gate on the channel
+          // reads the refusal PROSE, and this is a tile the pass TOOK. So it is
+          // asked of the board directly, against the same shipped exterior
+          // flood every other gate in this file uses. A room may legitimately
+          // ship roads outside its wall (source and controller lanes, 2027 of
+          // them across 145 rooms) — what it may not do is call one of them an
+          // interior parallel.
+          {
+            const [mx, my] = k.split(",").map(Number);
+            if (mx >= 0 && my >= 0 && mx <= 49 && my <= 49 && ext[idx(mx, my)]) {
+              bad.push(
+                `meta.walls.roadKind ${k}: classified "alongCutMoved" and the tile is OUTSIDE the wall this ` +
+                  `room SHIPS — it is in the exterior flood, so an attacker stands on it without crossing a ` +
+                  `rampart. Stage 5b's entire claim is that the road stepped to its INTERIOR parallel; a ` +
+                  `target outside the shipped wall moved a paved tile from under a rampart, where only the ` +
+                  `garrison uses it, to outside it, where only an attacker does — and where the tile is on a ` +
+                  `haul lane the room's own pathfinding will then prefer it, because it is the cheaper route`,
+              );
+            }
+          }
         }
       }
     }
@@ -11967,7 +12488,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `"undefined" in the channel a human reads: "…${want.slice(Math.max(0, want.search(/\b(undefined|NaN)\b/) - 60), want.search(/\b(undefined|NaN)\b/) + 60)}…"`,
               );
             }
-            for (const p2 of noteRecordBindingProblems(e, plan, s)) {
+            for (const p2 of noteRecordBindingProblems(e, plan, s, objects)) {
               bad2.push(`\`meta.noteRecords[${i}]\` (class ${e.cls}) ${p2}`);
             }
             if (normText(String(notesArr[i])) !== normText(want)) {
@@ -16772,6 +17293,10 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           if (typeof rec.declaredKeyRule !== "string" || rec.declaredKeyRule.length < 200) {
             bad6.push(`${at} publishes no \`declaredKeyRule\` — the general rule is printed on every record that runs a tie-break under it, because a rule nobody can read is a preference`);
           }
+          // the pre-take channel, hoisted: the totality block below compares the
+          // union against it index for index, and the SKIP check below needs the
+          // (gate, kind) pair at an index to decide what that declaration IS
+          const preList = Array.isArray(rec.preTakeShortfalls) ? rec.preTakeShortfalls : null;
           // ---- the map is this file's, and every key is in it
           const held9 = new Set();
           let lastAt = -1;
@@ -16824,18 +17349,63 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               if (sk && sk.declared !== undefined) {
                 bad6.push(`${at} skips \`${sk.gate}${sk.kind ? `/${sk.kind}` : ``}\` as publishing no quantity this panel measures and gives it the value ${String(JSON.stringify(sk.declared)).slice(0, 30)} — a skip with a reading is a repeat, and a repeat names the instrument it repeats`);
               }
-              // the pre-take shortfall may genuinely have carried no number; only
-              // the unmoved board can settle it, and it does, below
-              if (q && !moved) {
-                const der = derivedKeys.keys.find((x) => x.gate === (sk?.gate ?? null) && (x.kind ?? null) === (sk?.kind ?? null));
-                if (der) {
-                  bad6.push(
-                    `${at} skips \`${sk.gate}${sk.kind ? `/${sk.kind}` : ``}\` as publishing no quantity this panel ` +
-                      `measures, and this room's own declaration publishes \`${der.source}\` = ${der.declared}. ` +
-                      `Nothing moved this room's board after this pass, so the declaration channel it ranked on ` +
-                      `is the one on the page — a quantity dropped out of the key set is the ruling switched off`,
-                  );
-                }
+              // ==========================================================
+              // ROUND 23 / MF1 (CRITICAL) — WHICH DECLARATIONS PUBLISH A
+              // QUANTITY IS A PROPERTY OF THE PAIR, NOT OF THE BOARD.
+              // ==========================================================
+              // This check used to be guarded `if (q && !moved)`, and the guard
+              // was wrong about WHAT the moved board takes away. Two different
+              // questions live here:
+              //
+              //   MEMBERSHIP — is `towers/weak-battery` a declaration that
+              //     publishes a number this pass's panel measures? That is
+              //     decided by the (gate, kind) pair alone, against
+              //     DECLARED_QUANTITIES, which is this file's own transcription
+              //     of the producer's map. It is the SAME answer on a board that
+              //     moved after the pass as on one that did not, and the pair is
+              //     on the record twice over: on the skip entry itself and at
+              //     index `at` of `preTakeShortfalls`, the channel the key set
+              //     was derived from.
+              //   VALUE — what number did it publish at the time? THAT the moved
+              //     board really can take away (criticism 99's residue), which is
+              //     why the reading below is still read off the shipped
+              //     declaration only when nothing moved.
+              //
+              // Guarding both on `!moved` demoted a DECLARED KEY to a "publishes
+              // no quantity" SKIP on any of the 15 rooms whose board moved after
+              // the pass: move the entry from `declaredKeys` into
+              // `declaredSkipped` with the instrument omitted and a reason
+              // attached, strip its line out of `ranking`, regenerate the note —
+              // three meta edits, no board tile, and 12 of 12 declared keys swept
+              // over 11 moved rooms passed 172/172. It is round 22's X2 exploit
+              // one door over and it switches off obligation (i) of the round-21
+              // RULING exactly where the ruling has the most to do.
+              //
+              // The instrument mapping is TOTAL over the pair, so this needs
+              // nothing published beyond what the record already carries. Both
+              // spellings of the pair are consulted — the entry's own and the
+              // channel's — so re-labelling the skip to a pair outside the map
+              // fails here as well as at the index/pair comparison below.
+              const qPre = preList ? declaredQuantityOfV(preList[Number.isInteger(sk?.at) ? sk.at : -1]) : null;
+              const qq = q || qPre;
+              if (qq) {
+                const der = moved
+                  ? null
+                  : derivedKeys.keys.find((x) => x.gate === (sk?.gate ?? null) && (x.kind ?? null) === (sk?.kind ?? null));
+                bad6.push(
+                  `${at} skips \`${sk?.gate}${sk?.kind ? `/${sk.kind}` : ``}\` as publishing no quantity this ` +
+                    `panel measures, and the declaration this pass read at index ${JSON.stringify(sk?.at)} — ` +
+                    `\`${qq.gate}${qq.kind ? `/${qq.kind}` : ``}\` — is one this file's own DECLARED_QUANTITIES ` +
+                    `map reads as the instrument \`${qq.instrument}\` off \`${qq.source}\`. WHICH declarations ` +
+                    `publish a rankable quantity is a property of the (gate, kind) pair and not of the board, so ` +
+                    `it is the same answer on a board that moved after this pass as on one that did not; only ` +
+                    `the VALUE is a fact about a board that is gone. A key demoted to "no quantity" is the ` +
+                    `ruling's obligation (i) switched off from the one side the pre-take channel used to hide` +
+                    (der
+                      ? `. Nothing moved this room's board after the pass either, and its own declaration ` +
+                        `publishes \`${der.source}\` = ${der.declared}`
+                      : ``),
+                );
               }
             }
           }
@@ -16939,7 +17509,6 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           const ats = [...K9.map((k) => k.at), ...S9.map((k) => k?.at)];
           const uniq = new Set(ats);
           const preN = rec.preTakeShortfallCount;
-          const preList = Array.isArray(rec.preTakeShortfalls) ? rec.preTakeShortfalls : null;
           if (!Number.isInteger(preN) || preN < 0) {
             bad6.push(
               `${at} publishes \`preTakeShortfallCount\` ${String(JSON.stringify(preN)).slice(0, 30)}. It is the ` +
