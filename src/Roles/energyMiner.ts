@@ -42,6 +42,28 @@ function linkNetworkDelivers(room):boolean {
 }
 
 /**
+ * Is this room actually running its controller depot?
+ *
+ * An upgrader is the only role that meaningfully DRAINS the controller link
+ * (repair.ts drinks from it opportunistically when it already happens to be
+ * standing next to it, and has the whole bank as an alternative). A
+ * ControllerLinkFiller counts too, in the other direction: that creep exists
+ * for no other purpose than to feed the link, so while one is alive the room
+ * has decided upgrading is on and nothing here should fight it.
+ *
+ * Every producer AND the drain-back path key off this same answer, so they can
+ * never end up pushing energy past each other. Cached on the Room object,
+ * which the engine rebuilds every tick.
+ */
+export function roomFeedsController(room:any):boolean {
+    if(room._pacFeedsCtrl !== undefined) return room._pacFeedsCtrl;
+    const has = room.find(FIND_MY_CREEPS, {filter: (c:any) => c.memory &&
+        (c.memory.role === "upgrader" || c.memory.role === "ControllerLinkFiller")}).length > 0;
+    room._pacFeedsCtrl = has;
+    return has;
+}
+
+/**
  * Push a loaded link into the controller link.
  *
  * This exists as a separate pass because link forwarding is a STRUCTURE action,
@@ -85,6 +107,41 @@ export function forwardToControllerLink(room:any):void {
         if(!ctrlLinks.length) return;
         ctrlLink = room.controller.pos.findClosestByRange(ctrlLinks);
         S.controllerLink = ctrlLink.id;
+    }
+
+    /* ---- the return path -------------------------------------------------
+     *
+     * This function only ever pushed energy INTO the controller link, and
+     * nothing anywhere pushed it back out, so a room with no upgrader filled
+     * the link to 800 and left it there. Measured across both live servers,
+     * every single owned room: local E1S4 492, E2S1 469, E2S7 656, E2S8 457,
+     * E3S3 800, E4S6 529, E4S7 461, E7S2 465 — all eight RCL8 and all eight
+     * with zero upgraders (the RCL8 rung deliberately holds off until
+     * ticksToDowngrade < 125000), each figure unchanged across ~490 ticks of
+     * sampling. Worse on the VPS: W2N1 and W3N1 are RCL6 with storage at ZERO
+     * and 800 sitting in a controller link nobody can reach — more than a
+     * third of a spawn's capacity, in the two rooms least able to spare it.
+     *
+     * An upgrader is the only role that meaningfully drains this link, so when
+     * there is none, hand the energy back to the hub link where the
+     * EnergyManager will bank it, and stop topping the link up in the
+     * meantime. The two directions are mutually exclusive by construction —
+     * one runs only with an upgrader, the other only without — so they cannot
+     * ping-pong.
+     */
+    if(!roomFeedsController(room)) {
+        const held = ctrlLink.store[RESOURCE_ENERGY];
+        if(held <= 0 || ctrlLink.cooldown > 0) return;
+        // The hub link is the only sink: it is the one link a creep
+        // (EnergyManager) empties into the storage every tick. `hub === ctrl`
+        // happens in rooms whose two keys collided (live VPS W1N2) — sending a
+        // link to itself is ERR_INVALID_TARGET, so skip it rather than log it
+        // every tick.
+        const hub:any = Game.getObjectById(S.StorageLink);
+        if(!hub || hub.id === ctrlLink.id || hub.structureType !== STRUCTURE_LINK) return;
+        if(hub.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) return;
+        ctrlLink.transferEnergy(hub);
+        return;
     }
 
     // Same bar as the original rung: top it up while it is at or below half.
@@ -499,7 +556,12 @@ const run = function (creep) {
                 return;
             }
 
-            if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
+            // Feeding the controller link is only worth doing if something in
+            // the room will ever take the energy back out of it. With no
+            // upgrader this rung is what fills a controller link to 800 and
+            // leaves it there — see forwardToControllerLink() above for the
+            // measurements. Same test both places, so the two never disagree.
+            if(roomFeedsController(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
                 closestLink.transferEnergy(closestLinkToController);
             }
 
@@ -507,8 +569,27 @@ const run = function (creep) {
                 closestLink.transferEnergy(extraLink);
             }
 
-            else if(closestLink && closestLink.store[RESOURCE_ENERGY] == 800 && targetLink && targetLink.store[RESOURCE_ENERGY] == 0) {
-                closestLink.transferEnergy(targetLink);
+            /*
+             * The source -> hub rung used to demand the source link hold
+             * EXACTLY 800 and the hub link hold EXACTLY 0. Both halves are
+             * traps. A single unit left in the hub link — an EnergyManager that
+             * died, or is halfway through a lab errand — blocked every source
+             * link in the room from unloading, and paired with the `<= 400`
+             * bar on the controller rung above it, a room sitting at ctrl 500 /
+             * hub 50 had no legal link transfer at all while its source links
+             * pinned at 800 and its miners had nowhere to put their energy.
+             *
+             * Send what actually fits instead. `transferEnergy` with no amount
+             * means "all of it" and answers ERR_FULL if the target cannot take
+             * all of it, which is the other half of why the old test had to be
+             * so strict; naming the amount removes the need.
+             */
+            else if(closestLink && targetLink && closestLink.id !== targetLink.id && closestLink.store[RESOURCE_ENERGY] >= 400) {
+                const room = targetLink.store.getFreeCapacity(RESOURCE_ENERGY);
+                const send = Math.min(closestLink.store[RESOURCE_ENERGY], room);
+                if(send >= 100) {
+                    closestLink.transferEnergy(targetLink, send);
+                }
             }
         }
     }

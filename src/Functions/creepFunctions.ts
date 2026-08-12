@@ -424,7 +424,15 @@ Creep.prototype.findFillerTarget = function findFillerTarget(opts?:any):any {
                     return controllerLink;
                 }
             }
-            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400) {
+            // ...but only if the room will ever take it back out again. This
+            // rung is opportunistic — a filler with nothing better to do tops
+            // the controller link up out of the bank — and with no upgrader and
+            // no ControllerLinkFiller alive it is a pure loss: the energy goes
+            // storage -> filler -> controller link and stays there. Worse,
+            // since forwardToControllerLink now hands an unconsumed controller
+            // link back to the hub, the two would trade the same energy back
+            // and forth at a 3% link tax per hop. Same test both sides.
+            else if(controllerLink.structureType == STRUCTURE_LINK && controllerLink.store[RESOURCE_ENERGY] <= 400 && _roomFeedsController(this.room)) {
                 this.memory.t = controllerLink.id;
                 return controllerLink;
             }
@@ -787,6 +795,23 @@ function _roomHasEnergyIncome(room: any): boolean {
     }
     room._pacIncome = income;
     return income;
+}
+
+/**
+ * Is this room running its controller depot — i.e. will anything ever take
+ * energy back out of the controller link? See Roles/energyMiner's
+ * `roomFeedsController`, which this shares a cache slot with on purpose: this
+ * file is deliberately import-free (it declares ambient `interface Creep`
+ * merges, and a single `import` would turn it into a module and break them),
+ * so the two must agree by construction rather than by discipline.
+ */
+function _roomFeedsController(room: any): boolean {
+    if (room._pacFeedsCtrl !== undefined) return room._pacFeedsCtrl;
+    const has = room.find(FIND_MY_CREEPS, {
+        filter: (c: any) => c.memory && (c.memory.role === "upgrader" || c.memory.role === "ControllerLinkFiller"),
+    }).length > 0;
+    room._pacFeedsCtrl = has;
+    return has;
 }
 
 /** Does the room have anything to build? Cached on the Room object. */

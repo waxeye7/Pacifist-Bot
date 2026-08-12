@@ -124,7 +124,15 @@ Room.prototype.findStorageLink = function(): object | void {
             this.memory.Structures.StorageLink = nearby[0].id;
             return nearby[0];
         }
-        this.memory.Structures.storageLink = undefined;
+        // Lowercase `storageLink` here for years — a key with no reader, while
+        // every consumer reads `StorageLink`. So the "there is no link next to
+        // the storage" case never actually invalidated anything, and a stale
+        // id survived indefinitely. That id is used as an EXCLUSION filter in
+        // half a dozen places (the hub link is deliberately not a donor), so
+        // when it points at a source link that link can never forward, and it
+        // is simultaneously the transfer TARGET — a link sending to itself,
+        // answering ERR_INVALID_TARGET silently, forever.
+        delete this.memory.Structures.StorageLink;
     }
 }
 
