@@ -2134,12 +2134,28 @@ function add_creeps_to_spawn_list(room, spawn) {
     if(room.controller.level >= 2 ) {
         for(let remoteRoom of roomsToRemote) {
             if(remoteRoom !== room.name && Game.map.getRoomStatus(remoteRoom).status == "normal") {
-                if((Object.keys(room.memory.resources[remoteRoom]).length == 0 ||
-                Object.keys(room.memory.resources[remoteRoom]).length == 1) &&
-                room.memory.resources[remoteRoom].active &&
+                // "No `energy` key" IS the definition of an unscouted entry —
+                // manageRemotes uses exactly that test to build its `unscouted`
+                // list. The old gate also demanded the entry have at most ONE
+                // key, which made any extra bookkeeping field a permanent
+                // scouting block: scanRemoteThreats writes `hot` on any entry
+                // that is `active`, including a scout-queued one, and nothing
+                // ever clears `hot` on an entry with no miner or carrier to
+                // trigger the cooldown. That entry then had two keys forever
+                // and could never be scouted or reconsidered.
+                if(room.memory.resources[remoteRoom].active &&
                 !room.memory.resources[remoteRoom].energy
                 ) {
-                    if(scouts < 1 && EnergyMinersInRoom > 1) {
+                    // "Staff your own sources before you go looking for more"
+                    // was written as a flat `> 1`, which a ONE-SOURCE commune
+                    // can never satisfy — its miner census tops out at 1, so
+                    // the room could not spawn a 50-energy [MOVE] scout ever,
+                    // and therefore could never acquire a first remote. Live
+                    // VPS W2N1 is exactly that: one source, RCL6, zero remotes,
+                    // one miner standing in the room. Ask for a miner per local
+                    // source instead, still capped at the original bar of two.
+                    const localSources = room.find(FIND_SOURCES).length;
+                    if(scouts < 1 && EnergyMinersInRoom >= Math.min(2, localSources)) {
                         let newName = 'Scout-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'scout', homeRoom: room.name, targetRoom: remoteRoom}});
                         console.log('Adding Scout to Spawn List: ' + newName);

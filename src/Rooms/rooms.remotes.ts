@@ -51,11 +51,43 @@ function remotes(room) {
  *                                   rooms.spawning keys off exactly this:
  *                                   <=1 key, active, no `energy`)
  *   { active, energy: { id: {} } }  scouted, N sources  -> minable
- *   { active:false, energy: {} }    scouted, rejected   -> dead forever
+ *   { active:false, energy: {} }    scouted, rejected
+ *   { ..., retryAt: <tick> }        rejected for a reason that can EXPIRE
  *
  * Only DIRECT neighbours are ever activated (the seeder also stores the
  * second ring; those are map knowledge, not remote targets).
+ *
+ * `energy: {}` used to mean "dead forever", full stop, and nothing in the bot
+ * ever cleared it. That is only honest for a verdict about the map itself —
+ * a room with no controller, or with a source count outside 1..2, will never
+ * become minable. Every OTHER rejection is a snapshot of who happened to hold
+ * the room the day a scout walked in: a player owns it, someone else has it
+ * reserved, a structure was standing between us and a source. Those change,
+ * and a permanent no means the commune is structurally incapable of noticing.
+ *
+ * Live VPS W2N1 is exactly that shape. Its three exits are W2N2 (held by a
+ * rival at RCL4), W2N0 (an ungenerated world-border room), and W3N1 (our own
+ * commune) — so its only possible future remote is W2N2, and W2N2 was pinned
+ * at `{active:false, hot:552130, energy:{}}` where it would have stayed for
+ * the life of the server even if the rival dropped the room tomorrow.
+ *
+ * So rejections now carry `retryAt` when, and only when, they are revisable,
+ * and manageRemotes reopens them for one more scout when it expires.
  * ------------------------------------------------------------------ */
+
+/**
+ * How long a revisable rejection stands before it is worth another 50-energy
+ * [MOVE] scout. Long enough that a contested neighbour is not re-probed in a
+ * loop, short enough that a dropped room is picked up the same day.
+ */
+export const RESCOUT_AFTER = 20000;
+/**
+ * Entries written before `retryAt` existed carry no reason at all, so we
+ * cannot tell a world-border room from a rival's commune. Re-evaluate each of
+ * them exactly once, shortly after this lands; the scout then writes a verdict
+ * that knows whether it is permanent.
+ */
+const LEGACY_RECHECK = 200;
 
 /* ------------------------------------------------------------------ *
  * Remote threat hysteresis — "leave fast, return slowly".
@@ -217,23 +249,41 @@ export function manageRemotes(room: any): void {
             continue;
         }
         if (Memory.AvoidRooms && Memory.AvoidRooms.indexOf(name) >= 0) {
-            e.active = false;
-            continue;
+            // AvoidRooms is written by any creep that walks into a non-owned
+            // room holding a hostile tower (creepFunctions), and below RCL8 —
+            // no observer — nothing ever takes a name back off it. That makes
+            // it a second permanent trap sitting behind the rejection expiry
+            // added below: re-open a neighbour, send the scout, the scout sees
+            // the tower on arrival, and the room is blacklisted for good.
+            //
+            // Clear it only on positive evidence. If we are standing in the
+            // room right now and there is no hostile tower in it, the reason
+            // the name was written down is gone.
+            const look = Game.rooms[name];
+            const stillTowered = !look || look.find(FIND_HOSTILE_STRUCTURES, {
+                filter: (s: any) => s.structureType === STRUCTURE_TOWER,
+            }).length > 0;
+            if (stillTowered) {
+                e.active = false;
+                continue;
+            }
+            Memory.AvoidRooms.splice(Memory.AvoidRooms.indexOf(name), 1);
+            console.log(`[remotes] ${room.name} ${name} has no hostile tower any more - off AvoidRooms`);
         }
 
         // With vision we can reject before spending a scout.
         //
-        // ONLY an owned controller is a permanent verdict (`energy = {}` is
-        // read as "scouted and rejected" forever). A reservation must never
-        // be one: the first version of this also rejected reserved rooms, and
-        // since OUR OWN reserver puts a reservation on the remote, every
-        // remote killed itself a few hundred ticks after it started working.
-        // A foreign reservation just parks the room for now.
+        // A reservation must never be a lasting verdict: the first version of
+        // this also rejected reserved rooms, and since OUR OWN reserver puts a
+        // reservation on the remote, every remote killed itself a few hundred
+        // ticks after it started working. A foreign reservation just parks the
+        // room for now.
         const seen = Game.rooms[name];
         if (seen && seen.controller) {
             if (seen.controller.owner) {
                 e.active = false;
-                e.energy = {}; // owned by a player — permanent no
+                e.energy = {};                       // someone lives here...
+                e.retryAt = Game.time + RESCOUT_AFTER; // ...for now
                 continue;
             }
             const rsv = seen.controller.reservation;
@@ -261,6 +311,36 @@ export function manageRemotes(room: any): void {
                 continue;
             }
             delete e.foreignUntil;
+        }
+
+        // Reopen a rejection whose reason has expired. Only entries that were
+        // rejected for a revisable reason carry `retryAt`; a world-border room
+        // or a three-source room never gets one, so this cannot turn into a
+        // scout treadmill against the map itself. `hot` goes with it — an
+        // unscouted entry has no miner or carrier to ever call remoteIsHot()
+        // on it, so a stale `hot` on a re-opened entry would never expire.
+        //
+        // `retryAt` is three-valued on purpose. ABSENT means the entry predates
+        // this field and we have no idea why it was rejected, so it earns one
+        // re-look. ZERO is an explicit "never again" written by a scout that
+        // rejected the room on a fact about the map. A POSITIVE tick is a
+        // deadline. Reading "permanent" as absence instead of zero is a
+        // treadmill, and it ran live on the VPS before this line existed:
+        // W1N1 scouted W1N0 (an ungenerated border room), wrote its permanent
+        // verdict by deleting `retryAt`, and manageRemotes read the missing
+        // field as legacy data and re-queued the same scout 200 ticks later,
+        // forever.
+        if (e.energy && Object.keys(e.energy).length === 0) {
+            if (e.retryAt === undefined) {
+                e.retryAt = Game.time + LEGACY_RECHECK; // pre-`retryAt` data
+            } else if (e.retryAt > 0 && Game.time >= e.retryAt) {
+                delete e.energy;
+                delete e.retryAt;
+                delete e.hot;
+                console.log(`[remotes] ${room.name} re-opening ${name} for another look`);
+                unscouted.push(name);
+                continue;
+            }
         }
 
         if (!e.energy) {

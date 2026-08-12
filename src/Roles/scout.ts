@@ -2,6 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+import { RESCOUT_AFTER } from "../Rooms/rooms.remotes";
 
 const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
@@ -50,7 +51,13 @@ const run = function (creep) {
             }
         );
 
-        return !ret.incomplete && ret.path.length > 0;
+        // `path.length > 0` was also required here, which is a false negative
+        // for the one creep most likely to be asking: a scout that happens to
+        // stand within range 1 of the source already gets a zero-step path,
+        // and PathFinder reports that as a complete search with an empty path.
+        // The room was then written off as "sources unreachable" — permanently,
+        // before `retryAt` existed. Completeness is the whole question.
+        return !ret.incomplete;
     };
 
     // Check if all sources are reachable
@@ -71,6 +78,7 @@ const run = function (creep) {
             homeMem.resources[creep.room.name].energy[source.id] = {};
         }
         homeMem.resources[creep.room.name].active = true;
+        delete homeMem.resources[creep.room.name].retryAt;
         console.log("[remotes] scout scored", creep.room.name, "for", creep.memory.homeRoom, sources.length, "sources");
     }
     else {
@@ -83,7 +91,26 @@ const run = function (creep) {
         }
         homeMem.resources[creep.room.name].energy = {};
         homeMem.resources[creep.room.name].active = false;
-        console.log("[remotes] scout rejected", creep.room.name, "for", creep.memory.homeRoom);
+
+        // WHY we said no decides whether we will ever ask again.
+        //
+        // A missing controller or a source count outside 1..2 is a fact about
+        // the map and will not change for the life of the shard — that verdict
+        // stands forever, and it is what keeps the world-border rooms on the
+        // VPS (W2N0, W1N0, W0N2 ... 40 of 121 rooms are ungenerated) from
+        // being re-probed on a timer. Everything else here — a player living
+        // there, someone else's reservation, a structure standing between us
+        // and a source — is a snapshot of today, so it gets an expiry and
+        // manageRemotes takes another look later. Without this, W2N1's only
+        // possible future remote (W2N2, currently a rival's commune) was
+        // written off for the life of the server.
+        // retryAt 0 is an explicit "never again" — NOT a missing field, which
+        // manageRemotes reads as "written before this field existed, take one
+        // more look".
+        const permanent = !creep.room.controller || sources.length === 0 || sources.length > 2;
+        homeMem.resources[creep.room.name].retryAt = permanent ? 0 : Game.time + RESCOUT_AFTER;
+        console.log("[remotes] scout rejected", creep.room.name, "for", creep.memory.homeRoom,
+            permanent ? "(permanent)" : "(retry in " + RESCOUT_AFTER + ")");
     }
 
     creep.suicide();
