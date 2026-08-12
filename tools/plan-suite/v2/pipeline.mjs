@@ -105,18 +105,33 @@ export function composePlan(d, shellOpts = {}) {
   // this cut.
   //
   // `meta.shell.cut` is NOT this cut in every room: layer 7's inert prune
-  // deletes tiles from it and `reconcileSeal` adopts new ones into it, so seven
-  // of this fleet's rooms ship a cut the frozen flood never saw. Deriving the
-  // withheld set off the SHIPPED cut therefore reproduces 165 of 172 rooms and
-  // silently misses the seven where the answer matters most. The snapshot is
-  // taken here, before any of that, because "the list as it was at this instant"
-  // is not recoverable from a mutated array however it is reasoned about.
+  // deletes tiles from it and `reconcileSeal` adopts new ones into it, in 29 of
+  // this fleet's rooms (34 tiles in, 46 out — read `meta.shell.cutDrift`, which
+  // names the pass responsible for each one, rather than this sentence).
+  // Deriving the withheld set off the SHIPPED cut therefore reproduces 165 of
+  // 172 rooms and silently misses the ones where the answer matters most. The
+  // snapshot is taken here, before any of that, because "the list as it was at
+  // this instant" is not recoverable from a mutated array however it is
+  // reasoned about.
+  //
+  // (Round 25 typed "seven" here, in shared.mjs and in validate.mjs, from the
+  // round-24 measurement of a DIFFERENT question — 7 is how many rooms the
+  // withheld derivation gets WRONG off the shipped cut, not how many rooms move
+  // the cut. Criticism 123 published the right figure, 29, in the same round.
+  // The numeral audit could not see any of the three because all three were
+  // spelled out; it parses word-numbers now. MM4, round 26.)
   //
   // It is a plain copy of the tiles, not the array: both later mutations REPLACE
   // `shell.cut` with a new array, so a shared reference would survive by luck
   // and stop surviving the day one of them splices in place.
   // ------------------------------------------------------------------
   plan.meta.shell.cutAtFreeze = (shell.shell.cut || []).map((t) => ({ x: t.x, y: t.y }));
+  // ...AND THE DRIFT AWAY FROM IT IS A DECLARED LIST, EMPTY OR NOT. Layer 7
+  // appends one entry per tile it adds to or removes from the cut (see
+  // noteCutDrift, layer-walls.mjs); the list is created here so that a room that
+  // never moves its cut publishes `[]` and not `undefined` — "no drift" and "no
+  // record of drift" are the two answers this record exists to tell apart.
+  plan.meta.shell.cutDrift = [];
   // a wall segment the interior cannot walk to is the room beating the planner,
   // the same way a far lobe no tower can cover is — same channel, same rules
   plan.meta.shortfalls.push(...(shell.shortfalls || []));

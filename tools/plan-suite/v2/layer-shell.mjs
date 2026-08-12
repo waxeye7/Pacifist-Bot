@@ -520,7 +520,7 @@ export function computeCut(terrain, protectSet, opts = {}) {
  * Depth = pure chebyshev distance to the nearest exterior tile, THROUGH
  * walls — ranged attacks don't care about line of sight, so neither do we.
  */
-function depthFromExterior(ext) {
+export function depthFromExterior(ext) {
   const depth = new Int16Array(2500).fill(999);
   const q = [];
   for (let i = 0; i < 2500; i++) {

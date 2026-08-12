@@ -1410,7 +1410,46 @@ function promotesOutsider(terrain, set1, dropped, cutKeys, ext1, sitter) {
   return false;
 }
 
-function pruneInertRamparts(terrain, plan) {
+/**
+ * ------------------------------------------------------------------------
+ * MM1 (round 26) — WHO MOVED THE CUT AFTER IT WAS FROZEN, TILE BY TILE.
+ * ------------------------------------------------------------------------
+ * `meta.shell.cutAtFreeze` (pipeline.mjs) is layer 2's cut — the set the frozen
+ * enclosure every layer-3-to-6 consumer measures itself against was flooded
+ * over. `meta.shell.cut` is the cut the room SHIPS, and in 29 of this fleet's
+ * rooms the two differ: 34 tiles in and 46 out. Both mutations live in this
+ * file — the inert prune deletes cut tiles whose rampart bought nothing, and
+ * `reconcileSeal` adopts tiles the single-removal seal test proves are wall.
+ *
+ * AND NO PUBLISHED RECORD EXPLAINED THE DIFFERENCE, WHICH IS WHY THE FREEZE
+ * SNAPSHOT WAS UNGATED. The 46 removals are in `inertPruned` because
+ * `finalizeRoom` concatenates the two passes' rosters by hand. The 34 adoptions
+ * were NOT anywhere: both functions run TWICE (planWallRoads at layer 7, then
+ * finalizeRoom after layer 7b), `plan.shell.cutAdopted` is overwritten on every
+ * call, and the late pass adopts nothing in 172/172 rooms — so the late `[]`
+ * erased the early pass's answer in every room that had one. A record a later
+ * pass silently clobbers is worse than no record: it reads as proof of absence.
+ *
+ * So each mutation now APPENDS a per-tile entry to `plan.shell.cutDrift` naming
+ * the pass that made it and why, and the arithmetic closes without argument:
+ *
+ *     cutAtFreeze + every {op:"add"} - every {op:"remove"}, applied in order,
+ *     is exactly meta.shell.cut, in every room.
+ *
+ * That is the evidence a gate needs to bind `cutAtFreeze` to something instead
+ * of shape-checking it: an anchor edited by one tile stops reconciling.
+ * (`cutAdopted` still means what it always meant — the LAST reconciliation's
+ * adoptions — and is left alone because a declaration fires off it. The early
+ * pass's adoptions are undeclared; that is a separate open, and the drift log is
+ * where they are now visible.)
+ */
+function noteCutDrift(plan, pass, op, tiles, why) {
+  if (!plan.shell || !tiles || !tiles.length) return;
+  const log = (plan.shell.cutDrift ||= []);
+  for (const t of tiles) log.push({ x: t.x, y: t.y, op, pass, why });
+}
+
+function pruneInertRamparts(terrain, plan, pass) {
   const removed = [];
   let ramp = plan.structures.rampart || [];
   if (!ramp.length) return removed;
@@ -1915,7 +1954,16 @@ function pruneInertRamparts(terrain, plan) {
   // the rampart list just moved, so the shipped exterior every later
   // measurement is taken against is no longer the one we may have cached
   invalidateShippedFlood(plan);
-  plan.shell.cut = (plan.shell.cut || []).filter((c) => !dead.has(key(c.x, c.y)));
+  const cutWas = plan.shell.cut || [];
+  plan.shell.cut = cutWas.filter((c) => !dead.has(key(c.x, c.y)));
+  // the freeze-time provenance: which cut tiles this pass took out, and why
+  noteCutDrift(
+    plan,
+    pass,
+    "remove",
+    cutWas.filter((c) => dead.has(key(c.x, c.y))),
+    "the rampart on this cut tile bought nothing (inert) and was deleted, so the tile is no longer wall",
+  );
   // plan.shell.bubble is NOT scrubbed: keep-class (c) means no bubble can be in
   // `dead`, and a declaration this pass may not act on is one it may not edit.
   plan.shell.inertPruned = removed;
@@ -1963,7 +2011,7 @@ function pruneInertRamparts(terrain, plan) {
  * the mobility lap and the battery's weakest face — because a metric computed
  * on a wall the room does not have is not a measurement.
  */
-function reconcileSeal(terrain, plan) {
+function reconcileSeal(terrain, plan, pass) {
   const ramp = plan.structures.rampart || [];
   if (!ramp.length) return null;
   const rset = new Set(ramp.map((r) => key(r.x, r.y)));
@@ -1987,7 +2035,16 @@ function reconcileSeal(terrain, plan) {
     .filter((c) => !inCut.has(key(c.x, c.y)))
     .sort((a, b) => a.y - b.y || a.x - b.x);
   plan.shell.sealCritical = sealCritical.length;
+  // THE LAST PASS'S ADOPTIONS, and only those — see noteCutDrift for the record
+  // that survives both passes and for what this overwrite used to hide.
   plan.shell.cutAdopted = adopted;
+  noteCutDrift(
+    plan,
+    pass,
+    "add",
+    adopted,
+    "the single-removal seal test proves this rampart is holding the enclosure shut on its own, so it is a wall tile the declared cut did not name",
+  );
   if (!adopted.length) return { adopted, sealCritical };
   plan.shell.cut = cut.concat(adopted.map((c) => ({ x: c.x, y: c.y })));
   return { adopted, sealCritical, extFinal };
@@ -2478,10 +2535,15 @@ function noteRedundantCut(terrain, plan, sealCritical, inertPruned) {
  *
  *   crossing      the tile is on the published min-cut wall.
  *   seat          a CONTAINER stands on it. (Whether that container is outside
- *                 the shell is a separate published fact — `inBubble` — and the
- *                 film's caption reads it rather than assuming it: a seat may be
- *                 a bubble seat outside the shell or a container standing inside
- *                 the wall on shallow floor, and the two get different words.)
+ *                 the shell is a separate fact and the film's caption splits on
+ *                 it. Round 25 answered it with `inBubble` — membership in
+ *                 `shell.bubble` — and that was wrong on 210 of this fleet's 436
+ *                 seats, because `addBubble` bubbles a tile that is outside the
+ *                 shell OR inside it and shallow, and every mineral seat is
+ *                 ramparted after layer 2 and is in no bubble list at all. The
+ *                 accessor is GONE rather than documented: the honest answer is
+ *                 the flood over `meta.shell.cutAtFreeze`, which export-anim
+ *                 derives for itself. See OB1, round 26.)
  *   ring          part of the controller stand-denial ring.
  *   cover         some other structure of ours stands on it and is renting the
  *                 rampart for itself — on this fleet mostly links, plus a
@@ -2503,7 +2565,6 @@ export function rampartClassifier(plan) {
   const keysOf = (l) => new Set((l || []).map((t) => key(t.x, t.y)));
   const cut = keysOf(plan.shell?.cut || plan.meta?.shell?.cut);
   const denial = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
-  const bubble = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
   const ramp = keysOf(plan.structures?.rampart);
   const own = new Map();
   for (const t of Object.keys(plan.structures || {})) {
@@ -2525,7 +2586,11 @@ export function rampartClassifier(plan) {
   return {
     classOf,
     occupant: own,
-    inBubble: (k) => bubble.has(k),
+    // the membership tests the ORDER above is built from, exposed so a consumer
+    // deriving "why is this facet empty" runs the same tests this function does
+    // instead of rebuilding them (OL2, round 26)
+    onCut: (k) => cut.has(k),
+    inDenial: (k) => denial.has(k),
     isRampart: (k) => ramp.has(k),
   };
 }
@@ -2862,7 +2927,7 @@ export function planWallRoads(terrain, plan) {
   //      paves it — see pruneInertRamparts. This is the same license this layer
   //      already has over roads: it is the last pass, so it is the only one that
   //      can see what every earlier layer actually left behind.
-  const inertPruned = pruneInertRamparts(terrain, plan);
+  const inertPruned = pruneInertRamparts(terrain, plan, "layer7-inertPrune");
   // layer 2's own count, kept before the re-measure overwrites it — a room may
   // only declare the battlements ITS OWN mass stranded. See declareUnreachableCut.
   const unreachableAtLayer2 = plan.shell.battlementUnreachable || 0;
@@ -2872,7 +2937,7 @@ export function planWallRoads(terrain, plan) {
   //       reconcileSeal / remeasureShell — this is the single source of truth
   //       for "which tiles are the wall", and it has to run after the prune
   //       because the prune is the last thing that can change the answer.
-  reconcileSeal(terrain, plan);
+  reconcileSeal(terrain, plan, "layer7-reconcileSeal");
   // ------------------------------------------------------------------
   // THE RE-MEASURE IS UNCONDITIONAL, BECAUSE THE WALL MOVES WITHOUT THE CUT.
   //
@@ -4807,13 +4872,13 @@ export function finalizeRoom(terrain, plan) {
   if (!plan || plan.error || !plan.shell || !(plan.shell.cut || []).length) return plan;
   if (plan.meta?.finalized) return plan;
   const st = plan.wallPassState || { inertPruned: [], unreachableAtLayer2: 0 };
-  const inertPrunedLate = pruneInertRamparts(terrain, plan);
+  const inertPrunedLate = pruneInertRamparts(terrain, plan, "layer7b-inertPrune");
   const allInertPruned = (st.inertPruned || []).concat(inertPrunedLate);
   if (inertPrunedLate.length) {
     plan.shell.inertPruned = allInertPruned;
     if (plan.meta?.walls) plan.meta.walls.inertPruned = allInertPruned.length;
   }
-  const rec = reconcileSeal(terrain, plan);
+  const rec = reconcileSeal(terrain, plan, "layer7b-reconcileSeal");
   const adopted = rec?.adopted || [];
   const cutChanged = allInertPruned.length > 0 || adopted.length > 0;
   const shipDmg = remeasureShell(

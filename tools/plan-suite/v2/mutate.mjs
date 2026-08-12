@@ -60,7 +60,7 @@
  */
 import fs from "fs";
 import path from "path";
-import { checkRoom, ecoSidePartition, ecoWalks, witnessPromiseUnbacked, witnessSilentlyTypeOnly, RECORD_LEAF_STATS } from "./validate.mjs";
+import { checkRoom, ecoSidePartition, ecoWalks, resetOutputCaches, witnessPromiseUnbacked, witnessSilentlyTypeOnly, RECORD_LEAF_STATS } from "./validate.mjs";
 // the producer's own renderer — the round-14 record cases plant a lie in a
 // declaration's structured record and then regenerate `detail` from it, which is
 // exactly the attack the reviewers used: the prose-identity gate is satisfied by
@@ -7668,6 +7668,541 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       r.kind = r.kind === "seat" ? "no-parallel" : "seat";
     },
     "this room's own board re-derives");
+}
+
+// ===========================================================================
+// 2a-26. ROUND 26 — THE ROSTERS THAT WERE STILL FREE.
+// ===========================================================================
+// Six channels, one shape: a record whose content nothing re-derived.
+//
+//   MM1  the enclosure contract — ONE of four consumers was derived and the
+//        anchor the derivation runs on was shape-checked only, so appending to
+//        the last consumer and co-forging the anchor with all four rosters both
+//        passed 172/172 with a byte-identical summary;
+//   OB1  the film's seat caption, read off a DISJUNCTION as if it were one
+//        disjunct, wrong on 210 of 436 tiles under a gate written for it;
+//   MM5  the same gate dropping the cover caption's occupant, so 321 runs could
+//        be re-attributed to a structure the board does not carry there;
+//   OM1  `rampartCensus` and all 494 `emptyBecause` reasons, with no consumer
+//        at all — an invented facet at 99999 passed;
+//   MM3  `preTakeShortfallBasis`'s census, gated on `length >= 80`;
+//   ML6  the three unjudged channels, gated by CONTAINMENT, so one appended
+//        clause could agree with itself in all three at once.
+//
+// THE FILM AND THE PAGES ARE FORGED ON DISK, because that is where they live —
+// `runFile` writes the forgery, runs the gate against the room's UNMUTATED
+// plan, restores the bytes in a `finally` and then verifies the restore. A case
+// that cannot restore its file reports as a failure rather than passing
+// quietly, because a mutation suite that damages the artifact it is testing is
+// worse than one that does not run.
+{
+  const any26 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const K26 = (t) => `${t.x},${t.y}`;
+
+  /**
+   * A mutation whose subject is a FILE this suite writes, not a plan field.
+   * The plan is the shipped one; the forgery is on disk; the bytes come back.
+   */
+  const runFile = (name, room, file, transform, expect) => {
+    if (ONLY && !new RegExp(ONLY, "i").test(name)) {
+      skipped++;
+      return;
+    }
+    if (!room) {
+      results.push({ name, room: "-", caught: false, matched: false, fails: ["NO ROOM WITH THE REQUIRED PROPERTY"] });
+      return;
+    }
+    const d = T(room);
+    if (!d) {
+      results.push({ name, room, caught: false, matched: false, fails: ["no terrain in mongo"] });
+      return;
+    }
+    if (!fs.existsSync(file)) {
+      results.push({ name, room, caught: false, matched: false, fails: [`the file this case forges is not there (${file})`] });
+      return;
+    }
+    const orig = fs.readFileSync(file);
+    let res;
+    let threw = null;
+    try {
+      const next = transform(orig.toString("utf8"), byName.get(room));
+      if (next === null || next === undefined || next === orig.toString("utf8")) {
+        results.push({ name, room, caught: false, matched: false, fails: ["THE FORGERY CHANGED NOTHING — the case is not testing what it names"] });
+        return;
+      }
+      fs.writeFileSync(file, next);
+      resetOutputCaches();
+      res = checkRoom(clone(room), d.terrain, d.objects, FLEET);
+    } catch (e) {
+      threw = e;
+    } finally {
+      fs.writeFileSync(file, orig);
+      resetOutputCaches();
+    }
+    if (fs.readFileSync(file).toString("binary") !== orig.toString("binary")) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THE FILE WAS NOT RESTORED — fix this before reading any other result"] });
+      return;
+    }
+    if (threw) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THREW: " + threw.message] });
+      return;
+    }
+    const caught = res.fails.length > 0;
+    results.push({ name, room, caught, matched: expect ? res.fails.some((f) => new RegExp(expect, "i").test(f)) : caught, expect, fails: res.fails.slice(0, 3) });
+  };
+  const filmOf = (room) => path.join(OUT_V2, "anim", `${room}.json`);
+  const pageOf = (room) => path.join(OUT_V2, `${room}.html`);
+
+  // ---- MM1: all four consumers, and the anchor underneath them ------------
+  const ec26 = any26((p) => Array.isArray(p.meta?.exteriorContract) && p.meta.exteriorContract.length === 4 && p.meta.exteriorContract.every((e) => Array.isArray(e.withheldTiles)));
+  const ecFull26 = any26((p) => Array.isArray(p.meta?.exteriorContract) && (p.meta.exteriorContract[3]?.withheldTiles || []).length > 0);
+  const LADDER_MSG = "this file re-derives|not between the two readings";
+  run("r26/MM1-X-a-tile-appended-to-the-LAST-consumer-only-the-round-25-blind-spot",
+    ec26,
+    (p) => {
+      const e = p.meta.exteriorContract[3];
+      e.withheldTiles = [...e.withheldTiles, "49,49"];
+      e.withheld = e.withheldTiles.length;
+    },
+    LADDER_MSG);
+  run("r26/MM1-X-a-tile-appended-to-EVERY-consumer-so-containment-still-holds",
+    ec26,
+    (p) => {
+      for (const e of p.meta.exteriorContract) {
+        e.withheldTiles = [...e.withheldTiles, "49,49"];
+        e.withheld = e.withheldTiles.length;
+      }
+    },
+    LADDER_MSG);
+  run("r26/MM1-X-the-MIDDLE-consumers-padded-out-of-the-sandwich-with-the-LAST-one-s-tiles",
+    any26((p) => {
+      const ec = p.meta?.exteriorContract;
+      if (!Array.isArray(ec) || ec.length !== 4) return false;
+      const a = new Set((ec[1].withheldTiles || []).map(String));
+      return (ec[3].withheldTiles || []).some((t) => !a.has(String(t)));
+    }),
+    (p) => {
+      const ec = p.meta.exteriorContract;
+      for (const i of [1, 2]) {
+        ec[i].withheldTiles = (ec[3].withheldTiles || []).slice();
+        ec[i].withheld = ec[i].withheldTiles.length;
+      }
+    },
+    LADDER_MSG);
+  run("r26/MM1-a-tile-dropped-from-the-LAST-consumer-s-roster",
+    ecFull26,
+    (p) => {
+      const e = p.meta.exteriorContract[3];
+      e.withheldTiles = e.withheldTiles.slice(1);
+      e.withheld = e.withheldTiles.length;
+    },
+    LADDER_MSG);
+  // THE FLEET ZEROING, in the only shape that can survive the four
+  // derivations: the anchor is moved to the whole shipped rampart set, which
+  // makes every consumer's flood the same flood and every roster empty.
+  run("r26/MM1-X-the-FLEET-ZEROING-anchor-moved-to-the-whole-rampart-set-and-all-four-rosters-emptied",
+    any26((p) => Array.isArray(p.meta?.exteriorContract) && (p.structures?.rampart || []).length > (p.meta?.shell?.cut || []).length),
+    (p) => {
+      p.meta.shell.cutAtFreeze = (p.structures.rampart || []).map((t) => ({ x: t.x, y: t.y }));
+      for (const e of p.meta.exteriorContract) {
+        e.withheldTiles = [];
+        e.withheld = 0;
+      }
+    },
+    "meta.shell.cutAtFreeze carries|cutDrift|this file re-derives");
+  run("r26/MM1-X-a-single-tile-dropped-from-the-anchor-with-every-roster-re-derived-around-it",
+    any26((p) => {
+      const d = byRoom.get(p.room);
+      return d && Array.isArray(p.meta?.shell?.cutAtFreeze) && p.meta.shell.cutAtFreeze.length > 3 && Array.isArray(p.meta?.exteriorContract);
+    }),
+    (p, d) => {
+      const drop = p.meta.shell.cutAtFreeze[0];
+      p.meta.shell.cutAtFreeze = p.meta.shell.cutAtFreeze.slice(1);
+      // and the rosters re-derived against the moved anchor, which is what
+      // makes this the honest test rather than a bare field edit
+      const fz = new Set(p.meta.shell.cutAtFreeze.map(K26));
+      const bub = new Set((p.meta?.shell?.bubble || []).map(K26));
+      const ramp = new Set((p.structures.rampart || []).map(K26));
+      const under = (kinds) => {
+        const out = [];
+        for (const t of kinds) for (const q of p.structures[t] || []) if (ramp.has(K26(q))) out.push(K26(q));
+        return out;
+      };
+      const frozen = exteriorFlood(d.terrain, fz);
+      const roster = (extra) => {
+        const live = exteriorFlood(d.terrain, new Set([...fz, ...extra]));
+        const out = [];
+        for (let i = 0; i < 2500; i++) if (frozen[i] && !live[i]) out.push(`${i % 50},${(i / 50) | 0}`);
+        return out;
+      };
+      const walls = [[...bub], [...bub, ...under(["tower"])], [...bub, ...under(["tower", "lab"])], [...ramp]];
+      p.meta.exteriorContract.forEach((e, i) => {
+        e.withheldTiles = roster(walls[i]);
+        e.withheld = e.withheldTiles.length;
+      });
+      return { note: `dropped ${K26(drop)} from the anchor and re-derived all four rosters against it` };
+    },
+    "cutDrift|meta.shell.cutAtFreeze does not seal|carries \\d+ tile\\(s\\) the room does not ship");
+  run("r26/MM1-X-the-anchor-re-pointed-at-the-SHIPPED-cut-so-the-29-room-difference-disappears",
+    any26((p) => {
+      const fz = new Set((p.meta?.shell?.cutAtFreeze || []).map(K26));
+      const cut = new Set((p.meta?.shell?.cut || []).map(K26));
+      return fz.size && cut.size && ([...fz].some((t) => !cut.has(t)) || [...cut].some((t) => !fz.has(t)));
+    }),
+    (p) => { p.meta.shell.cutAtFreeze = (p.meta.shell.cut || []).map((t) => ({ x: t.x, y: t.y })); },
+    "this file re-derives|cutDrift");
+  run("r26/MM1-X-a-tile-invented-into-the-anchor-that-no-prune-roster-ever-lost",
+    any26((p) => Array.isArray(p.meta?.shell?.cutAtFreeze) && (p.structures?.rampart || []).length > 0),
+    (p) => {
+      const r = (p.structures.rampart || []).find((t) => !(p.meta.shell.cutAtFreeze || []).some((z) => z.x === t.x && z.y === t.y));
+      if (!r) return;
+      p.meta.shell.cutAtFreeze = [...p.meta.shell.cutAtFreeze, { x: r.x, y: r.y }];
+    },
+    "carries \\d+ tile\\(s\\) the room does not ship|this file re-derives|cutDrift");
+  const provRoom26 = any26((p) => Array.isArray(p.meta?.shell?.cutDrift) && p.meta.shell.cutDrift.length > 0);
+  run("r26/MM1-X-the-freeze-time-provenance-record-withdrawn",
+    provRoom26,
+    (p) => { delete p.meta.shell.cutDrift; },
+    "cutDrift");
+  run("r26/MM1-X-a-drift-entry-flipped-from-remove-to-add-so-the-replay-lands-elsewhere",
+    provRoom26,
+    (p) => {
+      const e = p.meta.shell.cutDrift[0];
+      e.op = e.op === "add" ? "remove" : "add";
+    },
+    "cutDrift");
+  run("r26/MM1-a-drift-entry-dropped-so-one-tile-of-the-difference-goes-unexplained",
+    provRoom26,
+    (p) => { p.meta.shell.cutDrift = p.meta.shell.cutDrift.slice(1); },
+    "cutDrift");
+  run("r26/MM1-a-drift-entry-about-a-tile-no-pass-ever-moved",
+    provRoom26,
+    (p) => { p.meta.shell.cutDrift = [...p.meta.shell.cutDrift, { x: 49, y: 49, op: "add", pass: "the reviewer", why: "the wall gained this tile because the reviewer said so" }]; },
+    "cutDrift");
+  run("r26/MM1-a-drift-entry-with-the-tile-and-no-reason-beside-it",
+    provRoom26,
+    (p) => { p.meta.shell.cutDrift[0].why = ""; },
+    "cutDrift");
+  run("r26/MM1-X-the-drift-log-emptied-while-the-two-cuts-still-differ",
+    provRoom26,
+    (p) => { p.meta.shell.cutDrift = []; },
+    "cutDrift");
+  run("r26/MM1-X-the-enclosure-basis-carried-in-from-another-room",
+    any26((p) => {
+      const other = plans.find((q) => q.room !== p.room && typeof q.meta?.exteriorContractBasis === "string" && q.meta.exteriorContractBasis !== p.meta?.exteriorContractBasis);
+      return typeof p.meta?.exteriorContractBasis === "string" && !!other;
+    }),
+    (p) => {
+      const other = plans.find((q) => q.room !== p.room && typeof q.meta?.exteriorContractBasis === "string" && q.meta.exteriorContractBasis !== p.meta.exteriorContractBasis);
+      p.meta.exteriorContractBasis = other.meta.exteriorContractBasis;
+    },
+    "exteriorContractBasis");
+
+  // ---- OB1 + MM5: the caption's disjunct and the cover's occupant ---------
+  const CAP26 = "the film captions|rampartCensus";
+  // the film paints "one <link>" and the board is made to carry a <lab> there
+  run("r26/MM5-X-the-structure-under-a-personal-cover-swapped-so-the-film-names-the-wrong-occupant",
+    any26((p) => {
+      const cut = new Set((p.meta?.shell?.cut || []).map(K26));
+      const den = new Set((p.meta?.shell?.standDenial || []).map(K26));
+      const ramp = new Set((p.structures?.rampart || []).map(K26));
+      return (p.structures?.link || []).some((l) => ramp.has(K26(l)) && !cut.has(K26(l)) && !den.has(K26(l)));
+    }),
+    (p) => {
+      const cut = new Set((p.meta.shell.cut || []).map(K26));
+      const den = new Set((p.meta.shell.standDenial || []).map(K26));
+      const ramp = new Set((p.structures.rampart || []).map(K26));
+      const l = p.structures.link.find((z) => ramp.has(K26(z)) && !cut.has(K26(z)) && !den.has(K26(z)));
+      p.structures.link = p.structures.link.filter((z) => z !== l);
+      p.structures.lab = [...(p.structures.lab || []), { x: l.x, y: l.y }];
+    },
+    CAP26);
+  // the frozen enclosure moved under a seat, so the film's "beyond the wall" /
+  // "inside the shell" disjunct is now the wrong one for that tile
+  run("r26/OB1-X-the-frozen-enclosure-moved-under-a-seat-so-the-film-s-disjunct-is-the-wrong-one",
+    any26((p) => {
+      const cut = new Set((p.meta?.shell?.cut || []).map(K26));
+      const ramp = new Set((p.structures?.rampart || []).map(K26));
+      return (p.structures?.container || []).some((c) => ramp.has(K26(c)) && !cut.has(K26(c))) && (p.meta?.shell?.cutAtFreeze || []).length > 0;
+    }),
+    (p) => {
+      // seal the whole board at the freeze: every tile is then INTERIOR, so
+      // every seat the film paints as "beyond the wall" is now inside it
+      const box = [];
+      for (let i = 0; i < 50; i++) {
+        box.push({ x: i, y: 1 }, { x: i, y: 48 }, { x: 1, y: i }, { x: 48, y: i });
+      }
+      p.meta.shell.cutAtFreeze = box;
+    },
+    CAP26);
+
+  // ---- OM1 + MM2: the census, re-derived from the board -------------------
+  run("r26/OM1-X-a-rampart-deleted-so-the-film-s-census-counts-a-tile-the-board-does-not-carry",
+    any26((p) => (p.structures?.rampart || []).length > 3),
+    (p) => {
+      const cut = new Set((p.meta?.shell?.cut || []).map(K26));
+      const r = (p.structures.rampart || []).find((z) => cut.has(K26(z)));
+      p.structures.rampart = p.structures.rampart.filter((z) => z !== r);
+    },
+    "rampartCensus|never paints|the film captions");
+  run("r26/OM1-X-a-container-planted-under-a-cut-rampart-so-a-census-facet-moves",
+    any26((p) => {
+      const cut = new Set((p.meta?.shell?.cut || []).map(K26));
+      const own = new Set(Object.keys(p.structures || {}).filter((t) => t !== "rampart" && t !== "road").flatMap((t) => (p.structures[t] || []).map(K26)));
+      return (p.structures?.rampart || []).some((z) => cut.has(K26(z)) && !own.has(K26(z)));
+    }),
+    (p) => {
+      const cut = new Set((p.meta.shell.cut || []).map(K26));
+      const own = new Set(Object.keys(p.structures).filter((t) => t !== "rampart" && t !== "road").flatMap((t) => (p.structures[t] || []).map(K26)));
+      const r = p.structures.rampart.find((z) => cut.has(K26(z)) && !own.has(K26(z)));
+      p.meta.shell.cut = p.meta.shell.cut.filter((z) => K26(z) !== K26(r));
+      p.structures.container = [...(p.structures.container || []), { x: r.x, y: r.y }];
+    },
+    "rampartCensus|the film captions");
+  // ...and the four FILM-SIDE forgeries, which are the reviewer's own
+  const filmRoom26 = any26((p) => (p.structures?.rampart || []).length > 0);
+  runFile("r26/OM1-X-an-invented-census-facet-at-99999",
+    filmRoom26, filmOf(filmRoom26),
+    (src) => {
+      const f = JSON.parse(src);
+      f.rampartCensus = [...(f.rampartCensus || []), { facet: "wumpus", class: "wumpus", count: 99999, captions: [{ caption: "invented", count: 1 }] }];
+      return JSON.stringify(f);
+    },
+    "rampartCensus");
+  runFile("r26/OM1-X-every-emptyBecause-reason-in-this-room-s-census-deleted",
+    filmRoom26, filmOf(filmRoom26),
+    (src) => {
+      const f = JSON.parse(src);
+      let hit = 0;
+      for (const row of f.rampartCensus || []) if (row.emptyBecause !== undefined) { delete row.emptyBecause; hit++; }
+      return hit ? JSON.stringify(f) : null;
+    },
+    "emptyBecause");
+  runFile("r26/OM1-X-a-census-count-inflated-over-the-board-it-is-a-count-of",
+    filmRoom26, filmOf(filmRoom26),
+    (src) => {
+      const f = JSON.parse(src);
+      const row = (f.rampartCensus || []).find((r) => r.count > 0);
+      if (!row) return null;
+      row.count = 99999;
+      return JSON.stringify(f);
+    },
+    "rampartCensus");
+  runFile("r26/OM1-a-census-row-deleted-so-a-dead-class-goes-back-into-hiding",
+    filmRoom26, filmOf(filmRoom26),
+    (src) => {
+      const f = JSON.parse(src);
+      if (!Array.isArray(f.rampartCensus) || !f.rampartCensus.length) return null;
+      f.rampartCensus = f.rampartCensus.filter((r) => r.count > 0);
+      return JSON.stringify(f);
+    },
+    "rampartCensus");
+  runFile("r26/OL2-X-an-empty-row-s-reason-rewritten-as-a-world-fact-the-room-refutes",
+    any26((p) => {
+      const f = filmOf(p.room);
+      if (!fs.existsSync(f)) return false;
+      try {
+        const cens = JSON.parse(fs.readFileSync(f, "utf8")).rampartCensus || [];
+        return cens.some((r) => !r.count && /\d{1,2},\d{1,2}/.test(String(r.emptyBecause || "")));
+      } catch { return false; }
+    }),
+    filmOf(any26((p) => {
+      const f = filmOf(p.room);
+      if (!fs.existsSync(f)) return false;
+      try {
+        const cens = JSON.parse(fs.readFileSync(f, "utf8")).rampartCensus || [];
+        return cens.some((r) => !r.count && /\d{1,2},\d{1,2}/.test(String(r.emptyBecause || "")));
+      } catch { return false; }
+    }) || "E11S1"),
+    (src) => {
+      const f = JSON.parse(src);
+      const row = (f.rampartCensus || []).find((r) => !r.count && /\d{1,2},\d{1,2}/.test(String(r.emptyBecause || "")));
+      if (!row) return null;
+      row.emptyBecause = "no tile of this room has ever matched this facet's own test, which is why the row is zero";
+      return JSON.stringify(f);
+    },
+    "emptyBecause|rampartCensus");
+  // THE SWAP THAT SHIPPED — the two seat captions exchanged on every tile the
+  // film paints, which is what round 25 did on 210 of this fleet's 436 seats
+  // and what its own gate could not see. The case needs a room whose film
+  // carries BOTH sentences, or the "swap" is a rename and proves nothing.
+  const SEAT_A26 = "seat outside the shell — a container beyond the wall, covered where it stands";
+  const SEAT_B26 = "container cover — a container inside the shell on shallow floor, renting a rampart of its own";
+  const bothSeats26 = any26((p) => {
+    const f = filmOf(p.room);
+    if (!fs.existsSync(f)) return false;
+    const src = fs.readFileSync(f, "utf8");
+    return src.includes(SEAT_A26) && src.includes(SEAT_B26);
+  });
+  runFile("r26/OB1-X-the-two-seat-captions-swapped-on-every-tile-the-film-paints",
+    bothSeats26, filmOf(bothSeats26 || "E11S1"),
+    (src) => {
+      if (!src.includes(SEAT_A26) || !src.includes(SEAT_B26)) return null;
+      const SENT = "<<seat-swap>>";
+      return src.split(SEAT_A26).join(SENT).split(SEAT_B26).join(SEAT_A26).split(SENT).join(SEAT_B26);
+    },
+    "the film captions|rampartCensus");
+  runFile("r26/MM5-X-every-personal-cover-run-re-attributed-to-one-lab",
+    any26((p) => {
+      const f = filmOf(p.room);
+      try { return fs.readFileSync(f, "utf8").includes("personal cover — one "); } catch { return false; }
+    }),
+    filmOf(any26((p) => {
+      const f = filmOf(p.room);
+      try { return fs.readFileSync(f, "utf8").includes("personal cover — one "); } catch { return false; }
+    }) || "E11S1"),
+    (src) => src.replace(/personal cover — one \w+ renting a rampart of its own/g, "personal cover — one lab renting a rampart of its own"),
+    "the film captions|rampartCensus");
+
+  // ---- MM3: the basis census, parsed --------------------------------------
+  const basisRec26 = (p) => {
+    const out = [];
+    const walk = (n) => {
+      if (!n || typeof n !== "object") return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      if (typeof n.preTakeShortfallBasis === "string" && Array.isArray(n.preTakeShortfalls)) out.push(n);
+      for (const k of Object.keys(n)) walk(n[k]);
+    };
+    walk(p.meta);
+    return out;
+  };
+  const basisRoom26 = any26((p) => basisRec26(p).length > 0);
+  const BASIS_MSG = "preTakeShortfallBasis";
+  run("r26/MM3-X-the-basis-census-replaced-with-an-invented-one",
+    basisRoom26,
+    (p) => {
+      for (const R of basisRec26(p)) {
+        R.preTakeShortfallBasis =
+          `ON THIS RECORD: the pre-take board carried 99 declaration(s) — 0:unicorn/rainbow, of which this pass ` +
+          `ranks on 7 as key(s) (unicorn/rainbow) and skips 12 (unicorn/rainbow); 7 + 12 = 44 against 99 entries. ` +
+          `MF1 (round 22) — the rule sentence that used to be the whole of this field, unchanged and still true.`;
+      }
+    },
+    BASIS_MSG);
+  run("r26/MM3-X-the-basis-census-count-alone-moved",
+    basisRoom26,
+    (p) => {
+      for (const R of basisRec26(p)) {
+        R.preTakeShortfallBasis = R.preTakeShortfallBasis.replace(/carried (\d+) declaration/, (m0, n0) => `carried ${Number(n0) + 5} declaration`);
+      }
+    },
+    BASIS_MSG);
+  run("r26/MM3-X-the-basis-census-arithmetic-broken",
+    basisRoom26,
+    (p) => {
+      for (const R of basisRec26(p)) {
+        R.preTakeShortfallBasis = R.preTakeShortfallBasis.replace(/(\d+) \+ (\d+) = (\d+) against/, (m0, a0, b0, c0) => `${a0} + ${b0} = ${Number(c0) + 3} against`);
+      }
+    },
+    BASIS_MSG);
+  run("r26/MM3-X-the-basis-census-renames-a-declaration-class-the-record-still-lists",
+    any26((p) => basisRec26(p).some((R) => /— \d+:/.test(R.preTakeShortfallBasis))),
+    (p) => {
+      for (const R of basisRec26(p)) {
+        R.preTakeShortfallBasis = R.preTakeShortfallBasis.replace(/— (\d+):[a-zA-Z/-]+/, (m0, i0) => `— ${i0}:unicorn/rainbow`);
+      }
+    },
+    BASIS_MSG);
+  // A CROSS-ROOM TRANSPLANT — the no-op that made the round-24 version of this
+  // field a decoration. It has to stop being a no-op.
+  const foreignBasis26 = (p) => {
+    const mine = new Set(basisRec26(p).map((R) => R.preTakeShortfallBasis));
+    for (const q of plans) {
+      if (q.room === p.room) continue;
+      for (const R of basisRec26(q)) if (!mine.has(R.preTakeShortfallBasis)) return R.preTakeShortfallBasis;
+    }
+    return null;
+  };
+  run("r26/MM3-X-the-basis-carried-in-from-another-room-s-record",
+    any26((p) => basisRec26(p).length > 0 && foreignBasis26(p)),
+    (p) => {
+      const foreign = foreignBasis26(byName.get(p.room));
+      for (const R of basisRec26(p)) R.preTakeShortfallBasis = foreign;
+    },
+    BASIS_MSG);
+  // THE MM3 RESIDUE SWEEP, which is the exploit that ran fleet-wide: the eco
+  // skip's index moved ahead of a key, in the record AND in the index fields
+  // that follow it — and the basis census, which is the sentence about that
+  // list, left where it was.
+  run("r26/MM3-X-the-eco-skip-moved-past-a-key-with-the-basis-sentence-left-behind",
+    any26((p) => basisRec26(p).some((R) => (R.preTakeShortfalls || []).findIndex((e) => e && e.gate === "eco") > 0)),
+    (p) => {
+      for (const R of basisRec26(p)) {
+        const i = (R.preTakeShortfalls || []).findIndex((e) => e && e.gate === "eco");
+        if (i <= 0) continue;
+        const P = R.preTakeShortfalls;
+        const a = P[i - 1];
+        const b = P[i];
+        P[i - 1] = { ...b, at: i - 1 };
+        P[i] = { ...a, at: i };
+        for (const arr of [R.declaredKeys, R.declaredSkipped]) {
+          if (!Array.isArray(arr)) continue;
+          for (const e of arr) {
+            if (e.at === i - 1) e.at = i;
+            else if (e.at === i) e.at = i - 1;
+          }
+          arr.sort((x, y) => x.at - y.at);
+        }
+      }
+    },
+    BASIS_MSG + "|the `eco` skip|stands `eco` after");
+
+  // ---- ML6: the three channels, EQUAL to the derived sentence -------------
+  const unjudged26 = any26((p) => {
+    const lap = typeof p.meta?.walls?.mobility?.builtGated === "number" ? p.meta.walls.mobility.builtGated : p.meta?.shell?.mobilityBuilt?.maxGated;
+    return lap === 0 && fs.existsSync(pageOf(p.room));
+  });
+  const ML6_MSG = "mobility-caption";
+  const APPEND26 = ", and every one of this room's cut tiles is redundant so the wall could be deleted for free";
+  runFile("r26/ML6-X-one-false-clause-appended-to-ALL-THREE-channels-at-once",
+    unjudged26, pageOf(unjudged26),
+    (src) => {
+      const out = src
+        .split(`, which is the floor below which a detour is not a detour`).join(`, which is the floor below which a detour is not a detour${APPEND26}`)
+        .split(`is excused by coverage (a defender on one wall tile already covers everything an attacker can stand on to grind the other)`)
+        .join(`is excused by coverage (a defender on one wall tile already covers everything an attacker can stand on to grind the other)${APPEND26}`);
+      return out === src ? null : out;
+    },
+    ML6_MSG);
+  runFile("r26/ML6-X-the-clause-appended-to-the-room-page-s-line-alone",
+    unjudged26, pageOf(unjudged26),
+    (src) => {
+      let done = false;
+      const out = src.replace(/<div class="mob-sub">((?!as-built UNGATED)[^<]*)<\/div>/, (m0, t0) => {
+        if (done) return m0;
+        done = true;
+        return `<div class="mob-sub">${t0}${APPEND26}</div>`;
+      });
+      return done ? out : null;
+    },
+    ML6_MSG);
+  runFile("r26/ML6-X-the-clause-appended-inside-the-film-caption-s-own-window",
+    unjudged26, pageOf(unjudged26),
+    (src) => {
+      const out = src.replace(/as-built gated lap 0 — ([^"]*?) \(target /, (m0, t0) => `as-built gated lap 0 — ${t0}${APPEND26} (target `);
+      return out === src ? null : out;
+    },
+    ML6_MSG);
+  const indexFile26 = path.join(OUT_V2, "index.html");
+  runFile("r26/ML6-X-the-clause-appended-to-the-index-chip-s-title-alone",
+    unjudged26, indexFile26,
+    (src, p) => {
+      const at = src.indexOf(`<div class="card"><h3><a href="${p.room}.html">`);
+      if (at < 0) return null;
+      const end = src.indexOf(`<div class="card">`, at + 10);
+      const card = src.slice(at, end < 0 ? src.length : end);
+      const next = card.replace(/(<span class="mob unjudged" title=")([^"]*)(")/, (m0, a0, t0, c0) => `${a0}${t0}${APPEND26}${c0}`);
+      if (next === card) return null;
+      return src.slice(0, at) + next + (end < 0 ? "" : src.slice(end));
+    },
+    ML6_MSG);
+  run("r26/ML6-X-the-published-detour-moved-so-the-derived-sentence-is-the-other-one",
+    any26((p) => {
+      const lap = typeof p.meta?.walls?.mobility?.builtGated === "number" ? p.meta.walls.mobility.builtGated : p.meta?.shell?.mobilityBuilt?.maxGated;
+      return lap === 0 && typeof p.meta?.walls?.mobility?.maxDetour === "number";
+    }),
+    (p) => { p.meta.walls.mobility.maxDetour = p.meta.walls.mobility.maxDetour > 4 ? 0 : 40; },
+    ML6_MSG);
 }
 
 // ===========================================================================

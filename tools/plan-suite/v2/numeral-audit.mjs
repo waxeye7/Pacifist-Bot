@@ -590,7 +590,97 @@ export function fleetTotals(P) {
 // ---------------------------------------------------------------------------
 // (3) THE PATTERN LIBRARY — the shapes a fleet claim takes in this codebase.
 // ---------------------------------------------------------------------------
-const num = (s) => Number(String(s).replace(/,/g, ""));
+/**
+ * ---------------------------------------------------------------------------
+ * MM4 (round 26) — A NUMERAL SPELLED OUT IS STILL A NUMERAL, AND THIS GATE
+ * COULD NOT SEE ONE.
+ * ---------------------------------------------------------------------------
+ * All five claim shapes below required DIGITS, so "layer 7 moves that cut in
+ * seven of this fleet's rooms" was invisible to a gate whose whole job is to
+ * stop a typed fleet figure from rotting. It was wrong — the answer is 29 — and
+ * it was wrong in THREE files at once, published correct as digits by the same
+ * round's own criticism. A blind spot that has one instance has one instance; a
+ * blind spot that has the same instance copied three times is a class.
+ *
+ * So a numeral here is "digits OR a spelled-out number this gate knows", and
+ * `num()` reads both. The vocabulary is deliberately small and closed —
+ * zero..twenty and the dozen forms — because those are the counts English
+ * actually spells out in technical prose; "a hundred and seventy-two" is not a
+ * shape this codebase writes, and guessing at compound numerals would buy
+ * matches at the price of false ones.
+ *
+ * WHERE IT IS NOT APPLIED, AND WHY, because an unstated exclusion is how the
+ * first blind spot got in:
+ *   `fleet-size` — its three shapes are 3-DIGIT room counts ("all 172 rooms",
+ *     "172/172", the last with a backreference). No word form of 172 exists in
+ *     this vocabulary and adding alternatives would renumber the backreference.
+ *   `room-road-count` — "(E12S6, 124 roads)" is a generated-looking parenthetical
+ *     that is never written in words.
+ * The CENSUS, which is the report's honest denominator for what the library
+ * cannot read, counts word numerals either way — that is where the size of this
+ * blind spot is stated per run rather than argued about here.
+ */
+const WORD_NUMBERS = new Map([
+  ["zero", 0],
+  ["one", 1],
+  ["two", 2],
+  ["three", 3],
+  ["four", 4],
+  ["five", 5],
+  ["six", 6],
+  ["seven", 7],
+  ["eight", 8],
+  ["nine", 9],
+  ["ten", 10],
+  ["eleven", 11],
+  ["twelve", 12],
+  ["thirteen", 13],
+  ["fourteen", 14],
+  ["fifteen", 15],
+  ["sixteen", 16],
+  ["seventeen", 17],
+  ["eighteen", 18],
+  ["nineteen", 19],
+  ["twenty", 20],
+  ["half a dozen", 6],
+  ["a dozen", 12],
+  ["one dozen", 12],
+  ["two dozen", 24],
+  ["three dozen", 36],
+]);
+/** the alternation, longest first so "one dozen" wins over "one", first letter either case */
+const wordAlt = (words) =>
+  words
+    .sort((a, b) => b.length - a.length || a.localeCompare(b))
+    .map((w) => `[${w[0].toUpperCase()}${w[0]}]${w.slice(1)}`.replace(/ /g, "\\s+"))
+    .join("|");
+const WORD_NUM_SRC = wordAlt([...WORD_NUMBERS.keys()]);
+/**
+ * THE CENSUS TAKES THE SAME THRESHOLD IT ALREADY TOOK, IN THE OTHER SCRIPT.
+ *
+ * The digit census starts at TWO DIGITS on a stated argument: "a single digit is
+ * almost always a size, a coordinate or an ordinal, so the census starts at two
+ * digits — the shape a fleet claim takes". The word script has the identical
+ * problem in a louder form — English writes "one grep", "one place", "one
+ * answer" where it would never write "1 grep", and counting those as quantity
+ * claims the library cannot read would triple the denominator with prose that
+ * makes no claim at all (measured: 3092 occurrences against 245 for the
+ * ten-and-over vocabulary). So the census's word branch is the words for values
+ * a digit census would see, ten and up, and nothing is silently dropped: the
+ * CLAIM SHAPES take the whole vocabulary, because "the fleet ships seven X" is a
+ * quantity claim whatever the value is, and it is context and not size that
+ * makes it one.
+ */
+const WORD_NUM_CENSUS_SRC = wordAlt([...WORD_NUMBERS].filter(([, v]) => v >= 10).map(([w]) => w));
+/** a numeral in either script — digits, or a spelled-out number this gate knows */
+const NUMERAL_SRC = `(?:[\\d,]+|(?:${WORD_NUM_SRC})(?![\\w-]))`;
+const num = (s) => {
+  const t = String(s).replace(/\s+/g, " ").trim().toLowerCase();
+  if (WORD_NUMBERS.has(t)) return WORD_NUMBERS.get(t);
+  return Number(t.replace(/,/g, ""));
+};
+/** was this occurrence spelled out rather than written in digits? */
+const isWordNumeral = (s) => WORD_NUMBERS.has(String(s).replace(/\s+/g, " ").trim().toLowerCase());
 /**
  * ONE SPACE BETWEEN WORDS. The wrap-join blanks comment furniture to spaces to
  * keep every offset where it was, so a noun phrase that crossed a line break
@@ -601,6 +691,30 @@ const num = (s) => Number(String(s).replace(/,/g, ""));
  */
 const tidy = (s) => String(s).replace(/\s+/g, " ").trim();
 /**
+ * MM4 — A SPELLED-OUT MATCH ONLY BECOMES A CLAIM WHEN ITS NOUN IS ONE THIS GATE
+ * CAN MEASURE, AND THAT RESTRICTION IS THE PRICE OF THE SCRIPT.
+ *
+ * "the fleet's 14100 roads" is a typed figure and nothing else; the digits are
+ * what make it one, which is why an unresolvable digit claim is reported OPEN
+ * and has to be waived by a human — the shape is unmistakable, so a numeral in
+ * it that nobody can measure deserves the argument. English does not behave that
+ * way. "the fleet's four WORST rooms", "the fleet's one honest disagreement",
+ * "the fleet ships one today" are ordinary sentences, not typed quantities, and
+ * the same pattern reads them as claims about "WORST rooms", "honest
+ * disagreement" and "today". Measured across this tree that is twenty-five
+ * unowned claims manufactured out of prose that asserts no fleet total, against
+ * a handful of real ones.
+ *
+ * So: a spelled-out match produces a claim when the noun resolves to a registry
+ * quantity — where the gate can actually check it, which is the whole point of
+ * seeing it — and produces NOTHING when it does not, rather than an OPEN nobody
+ * can close except with a waiver. Digit matches are untouched and still open.
+ * What this restriction costs is stated rather than hidden: a wrong spelled-out
+ * figure about a noun with no extractor is still invisible to this gate, and the
+ * census below is where its size is published every run.
+ */
+const wordClaimIsMeasurable = (raw, k) => !!k || !isWordNumeral(raw);
+/**
  * Every pattern returns zero or more CLAIMS: `{ what, value, resolve }`, where
  * `resolve(P)` gives the measured value or null when this gate cannot read it.
  * `what` is the human-readable subject printed in the report.
@@ -609,9 +723,14 @@ export const PATTERNS = [
   {
     id: "fleet-ships",
     // "this fleet ships 62 such tiles" · "the fleet ships 8208 ramparts"
-    re: /\b(?:this|the)\s+fleet\s+ships\s+([\d,]+)\s+([A-Za-z+][A-Za-z+ -]{0,30})/g,
+    // · "this fleet ships seven such rooms" (MM4 — spelled out is still a claim)
+    re: new RegExp(
+      `\\b(?:this|the)\\s+fleet\\s+ships\\s+(${NUMERAL_SRC})\\s+([A-Za-z+][A-Za-z+ -]{0,30})`,
+      "g",
+    ),
     claims: (m) => {
       const k = quantityFor(m[2]);
+      if (!wordClaimIsMeasurable(m[1], k)) return [];
       return [
         {
           what: `fleet total of ${k || `"${tidy(m[2])}"`}`,
@@ -624,10 +743,14 @@ export const PATTERNS = [
   },
   {
     id: "fleet-possessive",
-    // "the fleet's 14100 roads"
-    re: /\bthe\s+fleet(?:'s|s')\s+([\d,]+)\s+([A-Za-z+][A-Za-z+ -]{0,30})/g,
+    // "the fleet's 14100 roads" · "the fleet's seven rooms" (MM4)
+    re: new RegExp(
+      `\\bthe\\s+fleet(?:'s|s')\\s+(${NUMERAL_SRC})\\s+([A-Za-z+][A-Za-z+ -]{0,30})`,
+      "g",
+    ),
     claims: (m) => {
       const k = quantityFor(m[2]);
+      if (!wordClaimIsMeasurable(m[1], k)) return [];
       return [
         {
           what: `fleet total of ${k || `"${tidy(m[2])}"`}`,
@@ -651,9 +774,14 @@ export const PATTERNS = [
     // the same fix: a digit glued to a preceding word character or hyphen is
     // part of that word — a stage number, a range, an RCL level — and not the
     // head of a claim.
-    re: /(?<![\w-])([\d,]+)\s+([A-Za-z+][A-Za-z+ -]{0,30}?)\s+across\s+([\d,]+)\s+(?:shipped\s+|planned\s+)?rooms?\b/g,
+    re: new RegExp(
+      `(?<![\\w-])(${NUMERAL_SRC})\\s+([A-Za-z+][A-Za-z+ -]{0,30}?)\\s+across\\s+(${NUMERAL_SRC})\\s+(?:shipped\\s+|planned\\s+)?rooms?\\b`,
+      "g",
+    ),
     claims: (m) => {
       const k = quantityFor(m[2], ROSTER_KEYS);
+      // both numerals have to be readable for either claim to mean anything
+      if (!wordClaimIsMeasurable(m[1], k) || !wordClaimIsMeasurable(m[3], k)) return [];
       return [
         {
           what: `total of ${k || `"${tidy(m[2])}"`} across the fleet`,
@@ -949,8 +1077,18 @@ export function waiverTags(src) {
 // ---------------------------------------------------------------------------
 // (5) THE RUN.
 // ---------------------------------------------------------------------------
-/** "<2+ digits> <up to three words>" — the raw shape of a quantity claim */
-const NUMNOUN = /\b(\d[\d,]+)\s+([A-Za-z][A-Za-z+-]*(?:\s+[a-z][A-Za-z+-]*){0,2})/g;
+/**
+ * "<2+ digits, or a spelled-out number> <up to three words>" — the raw shape of
+ * a quantity claim. The word branch is MM4's: the census is where this report
+ * states how much prose the pattern library cannot read, so a whole script of
+ * numerals being absent from it made that denominator flattering rather than
+ * honest. The digit branch is untouched, deliberately — changing both at once
+ * would have moved the scope figures for two reasons at the same time.
+ */
+const NUMNOUN = new RegExp(
+  `(\\b\\d[\\d,]+|(?<![\\w-])(?:${WORD_NUM_CENSUS_SRC})(?![\\w-]))\\s+([A-Za-z][A-Za-z+-]*(?:\\s+[a-z][A-Za-z+-]*){0,2})`,
+  "g",
+);
 /** words that make the match a sentence rather than a quantity */
 const STOPWORDS = new Set(
   ("of and to the in on at by or for from per is are was were with a an it its this that these those " +
@@ -1057,6 +1195,7 @@ export function scanSource(rel, rawSrc) {
           quote: n[0].replace(/\s+/g, " ").trim(),
           value: num(n[1]),
           noun,
+          word: isWordNumeral(n[1]),
           parsed: matches.some((mm) => at >= mm.at && at < mm.end),
         });
       }
@@ -1232,6 +1371,11 @@ export const CRLF_FIXTURE = [
   "  `a published sentence saying the fleet ships 4242 ` +",
   "  `roads, split across a concatenation seam` +",
   "  ` and joined back into one claim`;",
+  // MM4 — and the script a claim can hide in: the same shape, spelled out. The
+  // noun is a registry quantity on purpose — see wordClaimIsMeasurable, which is
+  // the rule this fixture is here to hold in place.
+  "// this fleet ships seven ramparts, spelled out, which is the shape that was",
+  "// exempt from this gate by orthography until round 26.",
   "",
 ].join("\n");
 /** the scan path's whole visible output for one source string, as a flat list */
@@ -1283,8 +1427,8 @@ export function scannerSelfTest() {
   // and the fixture has to actually exercise the wrap-join, or the comparison
   // above is two identical readings of nothing
   const wrapped = lf.filter((l) => /n-across-m-rooms|fleet-possessive|fleet-ships/.test(l));
-  if (wrapped.length < 5)
-    fails.push(`the CRLF fixture stopped matching wrapped claims (${wrapped.length} of the 5 it carries)`);
+  if (wrapped.length < 6)
+    fails.push(`the CRLF fixture stopped matching wrapped claims (${wrapped.length} of the 6 it carries)`);
   if (!lf.some((l) => /fleet-size @5/.test(l)))
     fails.push(`the CRLF fixture's post-divider claim is no longer read on the line it sits on`);
   // MM5 — the concatenation seam. The fixture's last claim has its numeral in one
@@ -1294,6 +1438,12 @@ export function scannerSelfTest() {
     fails.push(
       `the CRLF fixture's concatenated claim is not matched — a claim split across a \`+\` seam is ` +
         `invisible again, which is the blind spot MM5 closed`,
+    );
+  // MM4 — the spelled-out claim, and the value it has to READ (7, not NaN)
+  if (!lf.some((l) => /fleet-ships .* = 7\b/.test(l)))
+    fails.push(
+      `the CRLF fixture's spelled-out claim ("this fleet ships seven imaginary widgets") is not matched ` +
+        `as the value 7 — a numeral written in words is invisible again, which is the blind spot MM4 closed`,
     );
   fails.push(...waiverScopeSelfTest());
   return fails;
@@ -1565,11 +1715,19 @@ export function report(res, { list = false } = {}) {
     const byNoun = new Map();
     for (const u of un) byNoun.set(u.noun, (byNoun.get(u.noun) || 0) + 1);
     const top = [...byNoun.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 8);
+    // MM4 — the spelled-out script, counted separately, because "how big was the
+    // blind spot we just opened our eyes on" is a figure this report should
+    // publish every run rather than a sentence somebody measured once.
+    const wordAll = (res.numerals.all || []).filter((u) => u.word);
+    const wordParsed = wordAll.filter((u) => u.parsed).length;
     out.push(
       `  scope — "${res.bad.length} WRONG" is a statement about those ${res.hits.length} claims and nothing ` +
         `else. ${res.numerals.seen} numeral+noun occurrence(s) sit in the audited prose; ${res.numerals.parsed} ` +
         `are read by the pattern library and ${un.length} are NOT PARSED by it, so they are unchecked rather ` +
-        `than clean.` +
+        `than clean. ${wordAll.length} of the occurrence(s) are SPELLED OUT rather than written in digits ` +
+        `(${wordParsed} of those read by a claim shape) — a script this gate could not see at all before ` +
+        `round 26, counted here at the census's own ten-and-over threshold while the claim shapes read the ` +
+        `whole vocabulary.` +
         (top.length
           ? ` Most frequent unparsed nouns: ${top.map(([nn, c]) => `${nn} (${c})`).join(" · ")}` +
             `${list ? `` : ` — --list prints all ${un.length}`}.`

@@ -20,9 +20,19 @@
  */
 import fs from "fs";
 import path from "path";
-import { D4, OUT_V2, fetchRoomsFromMongo, planStructureHash, walkable } from "./shared.mjs";
+import {
+  D4,
+  OUT_V2,
+  exteriorFlood,
+  fetchRoomsFromMongo,
+  planStructureHash,
+  walkable,
+} from "./shared.mjs";
 import { distanceTransform } from "./dt.mjs";
 import { distField, growBasin } from "./layer-hub.mjs";
+// the seat caption's "inside the shell" claims a DEPTH, so the depth is measured
+// with the pipeline's own function rather than a fifth copy of it (OB1 round 26)
+import { depthFromExterior } from "./layer-shell.mjs";
 import { planRoom } from "./pipeline.mjs";
 // DEPTH_SAFE is imported rather than re-typed: the caption's shallow/deep label
 // has to be the same threshold layer 6 and layer 7b place against, and a second
@@ -455,12 +465,12 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  *
  * WHAT STAYS HERE IS THE WORDING, AND IT IS DERIVED PER MEMBER. A class is not a
  * caption: `seat` is a container, and whether that container is OUTSIDE the shell
- * (a bubble seat) or inside it on shallow floor (personal cover for a container)
- * is a second published fact this film reads off `shell.bubble` instead of
- * assuming; most seats are bubble seats and a substantial minority are not, and
- * `rampartCensus` on each film is where the split is read rather than typed.
- * `cover` names the structure that is renting the rampart rather than calling
- * every one of them "a shallow structure". The run key is the FACET, so no chunk
+ * or inside it on shallow floor is a second fact, read off the BOARD per tile
+ * (see the OB1 round-26 header below — round 25 read it off `shell.bubble` and
+ * was wrong on 210 of 436 seats). `cover` names the structure that is renting the
+ * rampart rather than calling every one of them "a shallow structure", and
+ * `rampartCensus` on each film is where the splits are read rather than typed.
+ * The run key is the FACET, so no chunk
  * can carry two captions and every counter counts its own facet.
  *
  * AND THE DEAD CLASSES ARE DECLARED. `rampartCensus` on the film ships one row
@@ -468,75 +478,239 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
  * — the same discipline the note inventory keeps for `pavingGap`. A class that is
  * only visible when it fires is a class nobody can tell apart from a bug.
  */
+/**
+ * ------------------------------------------------------------------------
+ * OB1 (round 26) — THE SEAT CAPTION'S DISJUNCT NOW COMES OFF THE BOARD, AND SO
+ * DOES THE REASON AN EMPTY FACET IS EMPTY.
+ * ------------------------------------------------------------------------
+ * Round 25 split `seat` into "outside the shell" / "inside the wall on shallow
+ * floor" on membership in `meta.shell.bubble`. That list is not an
+ * outside-the-shell oracle and never was: its producer (`addBubble`,
+ * layer-shell.mjs) bubbles a tile that is OUTSIDE **or** inside-but-shallow, and
+ * containers ramparted after layer 2 — every mineral seat in this fleet — are
+ * outside the shell and are not in the list at all. Membership is a DISJUNCTION
+ * and the caption read it as one disjunct, in both directions at once:
+ * 79 seats painted "outside the shell" were inside it, 131 painted "inside the
+ * wall" were outside it, 210 of 436 captions false, and E12S1's film contradicted
+ * its own artifact over 22,40 and 36,24 in the same reel.
+ *
+ * THE LESSON, WHICH IS BIGGER THAN THE BUG. Round 25 shipped a gate for exactly
+ * this caption and the gate passed, because the gate compared the film's reading
+ * of `shell.bubble` against the classifier's reading of `shell.bubble`. Two
+ * readers of one list agreeing is an AGREEMENT test; it says nothing about
+ * whether the list means what the sentence says. The disjunct is now derived
+ * from the thing the sentence is ABOUT — the frozen enclosure itself:
+ *
+ *     outside(tile) := exteriorFlood(terrain, meta.shell.cutAtFreeze)[tile]
+ *
+ * which is the same flood layers 3-6 read (`plan.exterior`), published per room
+ * since round 25, and re-derivable by any reader holding the artifact and the
+ * terrain. This file cross-checks the two floods and refuses to write a film if
+ * they differ, because "the flood I derived" and "the flood the plan used" being
+ * the same object is the whole premise.
+ *
+ * `shell.bubble` is not consulted here any more, and `rampartClassifier` no
+ * longer exposes it: a fact with no honest consumer is a trap standing open.
+ *
+ * AND THE EMPTY ROWS (OL2). `emptyBecause` used to be a constant sentence per
+ * facet, written as a fact about the world — "every ramparted container this room
+ * ships stands outside the shell" — while the facets are a function of TEST
+ * ORDER: a container standing on a cut tile is `crossing`, so the seat facets can
+ * be empty in a room full of ramparted containers. 13 rows were false, and E15S4
+ * printed both "no ramparted container is outside" and "every ramparted container
+ * is outside" over a room shipping two. So each empty row is now derived per room
+ * from the board, and the two causes are told apart by measuring them: the tiles
+ * matching the facet's OWN test are counted, and the row either names the earlier
+ * facet that took them (absorption, with the tiles) or states the world-absence
+ * that the count of zero actually proves.
+ */
 const RAMPART_FACETS = {
   crossing: {
     caption: "min-cut wall",
     job: "it is a tile of the published min-cut wall, which this film's own ramparts stage paints and its last frame still carries",
-    empty: "this room ships no rampart on its own published cut, which no enclosure in this fleet does",
   },
-  "seat.bubble": {
-    caption: "bubble seat — a container outside the shell, covered where it stands",
-    job: "it is a bubble seat over a container outside the shell",
-    empty: "no container of this room stands outside the shell wearing a rampart of its own",
+  "seat.outside": {
+    caption: "seat outside the shell — a container beyond the wall, covered where it stands",
+    job: "it covers a container standing outside the frozen enclosure, where nothing else protects it",
   },
   "seat.inside": {
-    caption: "container cover — a container inside the wall, on shallow floor, renting a rampart of its own",
+    caption:
+      "container cover — a container inside the shell on shallow floor, renting a rampart of its own",
     job: "it carries a container standing inside the wall on floor too shallow to go bare",
-    empty: "every ramparted container this room ships stands outside the shell, so none is renting cover inside the wall",
+    // the caption asserts SHALLOW, so the depth is measured per tile and a
+    // container that is inside the wall and deep enough to stand bare gets its
+    // own words rather than the shallow ones
+    captionDeep:
+      "container cover — a container inside the shell at safe depth, renting a rampart of its own",
+    jobDeep:
+      "it carries a container standing inside the wall on floor deep enough to go bare, and it is ramparted anyway",
   },
   ring: {
     caption: "controller stand-denial ring",
     job: "it is part of the controller stand-denial ring",
-    empty: "this room's controller ring needed no rampart of its own — the cut already denies every stand beside it, or the ring tiles carry structures and are classed by what they carry",
   },
   cover: {
     caption: "personal cover — one structure renting a rampart of its own",
     job: "the shipped board still carries a rampart there and a structure of ours stands on it, renting it",
-    empty: "no structure of this room other than a container rents a rampart of its own",
   },
   unclassified: {
     caption: "rampart this room's own taxonomy has no word for",
     job: "the shipped board carries a rampart there that is not on the cut, carries nothing, and is not part of the stand-denial ring — a tile the enum has no word for",
-    empty: "every rampart this room ships lands in one of the four named classes, which is what the class exists to demonstrate",
   },
   none: {
     caption: "rampart",
     job: "the shipped board carries no rampart there at all, so there was none to retire",
-    empty: "this facet is never painted: the stage sweeps the rampart list, so every tile it paints carries one",
   },
 };
 /** the facet order the census prints in — the classifier's own test order */
 const RAMPART_FACET_ORDER = [
   "crossing",
-  "seat.bubble",
+  "seat.outside",
   "seat.inside",
   "ring",
   "cover",
   "unclassified",
   "none",
 ];
-function rampartFacets(plan) {
+function rampartFacets(plan, terrain) {
   const cls = rampartClassifier(plan);
+  // ------------------------------------------------------------------
+  // THE BOARD THE DISJUNCT IS READ OFF. `meta.shell.cutAtFreeze` is layer 2's
+  // cut, published per room, and the flood over it IS `plan.exterior` — the
+  // enclosure every consumer between layers 3 and 6 measured itself against.
+  // Deriving it here rather than reading `plan.exterior` is deliberate: the
+  // caption has to be re-derivable by a reader who holds the artifact and the
+  // terrain and nothing else, which is what makes a gate over it a truth test.
+  // ------------------------------------------------------------------
+  const freeze = plan.meta?.shell?.cutAtFreeze || plan.shell?.cutAtFreeze;
+  if (!freeze || !freeze.length) {
+    throw new Error(
+      `export-anim: ${plan.room || "room"} publishes no meta.shell.cutAtFreeze, so the seat caption's ` +
+        `"outside the shell" cannot be derived from the board. See pipeline.mjs (MM2, round 25).`,
+    );
+  }
+  const frozenExt = exteriorFlood(terrain, new Set(freeze.map((t) => `${t.x},${t.y}`)));
+  if (plan.exterior) {
+    let disagree = 0;
+    for (let i = 0; i < 2500; i++) if (!!frozenExt[i] !== !!plan.exterior[i]) disagree++;
+    if (disagree) {
+      throw new Error(
+        `export-anim: the flood over meta.shell.cutAtFreeze disagrees with the frozen plan.exterior ` +
+          `the room's own consumers read, on ${disagree} tile(s). The published snapshot is not the ` +
+          `cut the flood was taken against, and every caption derived from it would be a guess.`,
+      );
+    }
+  }
+  const frozenDepth = depthFromExterior(frozenExt);
+  const idxOfKey = (k) => {
+    const c = k.indexOf(",");
+    return +k.slice(0, c) + +k.slice(c + 1) * 50;
+  };
+  const outside = (k) => !!frozenExt[idxOfKey(k)];
+  const depthAt = (k) => frozenDepth[idxOfKey(k)];
   const facetOf = (k) => {
     const c = cls.classOf(k);
-    if (c === "seat") return cls.inBubble(k) ? "seat.bubble" : "seat.inside";
+    if (c === "seat") return outside(k) ? "seat.outside" : "seat.inside";
     return c;
   };
-  // `cover` names its occupant in the caption, so the caption is a function of
-  // the tile and not of the class alone
+  // `cover` names its occupant and `seat.inside` names the depth claim it makes,
+  // so the caption is a function of the TILE and not of the class alone
   const captionOf = (k) => {
     const f = facetOf(k);
-    if (f !== "cover") return RAMPART_FACETS[f].caption;
-    const on = cls.occupant.get(k);
-    return `personal cover — one ${on || "structure"} renting a rampart of its own`;
+    if (f === "cover") {
+      const on = cls.occupant.get(k);
+      return `personal cover — one ${on || "structure"} renting a rampart of its own`;
+    }
+    if (f === "seat.inside" && depthAt(k) >= DEPTH_SAFE) return RAMPART_FACETS[f].captionDeep;
+    return RAMPART_FACETS[f].caption;
   };
   const jobOf = (k) => {
     const f = facetOf(k);
-    if (f !== "cover") return RAMPART_FACETS[f].job;
-    const on = cls.occupant.get(k);
-    return `the shipped board still carries a rampart there and this room's ${on || "structure"} stands on it, renting it`;
+    if (f === "cover") {
+      const on = cls.occupant.get(k);
+      return `the shipped board still carries a rampart there and this room's ${on || "structure"} stands on it, renting it`;
+    }
+    if (f === "seat.inside" && depthAt(k) >= DEPTH_SAFE) return RAMPART_FACETS[f].jobDeep;
+    return RAMPART_FACETS[f].job;
   };
-  return { classOf: cls.classOf, facetOf, captionOf, job: jobOf, occupant: cls.occupant };
+  // ------------------------------------------------------------------
+  // OL2 — WHY A FACET IS EMPTY, DERIVED, PER ROOM.
+  //
+  // Each facet's OWN test, with no order in front of it. A facet is empty for
+  // exactly one of two reasons and they are told apart by running this over the
+  // room's ramparts: if it matches nothing, the room genuinely has none of these
+  // and the row says which absence that is; if it matches something, the tiles
+  // are sitting in an EARLIER facet and the row names it and lists them.
+  // ------------------------------------------------------------------
+  const ramparts = (plan.structures?.rampart || []).map((r) => `${r.x},${r.y}`);
+  const isContainer = (k) => cls.occupant.get(k) === "container";
+  const INTRINSIC = {
+    crossing: (k) => cls.onCut(k),
+    "seat.outside": (k) => isContainer(k) && outside(k),
+    "seat.inside": (k) => isContainer(k) && !outside(k),
+    ring: (k) => cls.inDenial(k),
+    cover: (k) => cls.occupant.has(k) && !isContainer(k),
+    unclassified: (k) => !cls.onCut(k) && !cls.occupant.has(k) && !cls.inDenial(k),
+    // the ramparts stage sweeps `structures.rampart`, so it can never paint a
+    // tile that carries no rampart — this facet is reachable only through the
+    // pass-7 caption, which asks about ORIGIN tiles
+    none: () => false,
+  };
+  const seatCount = ramparts.filter(isContainer).length;
+  const denialCount = (plan.shell?.standDenial || plan.meta?.shell?.standDenial || []).length;
+  const cutCount = (plan.shell?.cut || plan.meta?.shell?.cut || []).length;
+  /** the sentence a zero PROVES when nothing in the room matches the facet's own test */
+  const ABSENT = {
+    crossing: () =>
+      `this room publishes ${cutCount} cut tile(s) and no rampart of its own stands on any of them`,
+    "seat.outside": () =>
+      seatCount
+        ? `all ${seatCount} of this room's ramparted containers stand INSIDE the frozen enclosure, so none is covered out beyond the wall`
+        : `this room ships no rampart over a container at all, out beyond the wall or inside it`,
+    "seat.inside": () =>
+      seatCount
+        ? `all ${seatCount} of this room's ramparted containers stand OUTSIDE the frozen enclosure, so none is renting cover inside the wall`
+        : `this room ships no rampart over a container at all, inside the wall or out beyond it`,
+    ring: () =>
+      denialCount
+        ? `this room publishes ${denialCount} controller stand-denial tile(s) and no rampart of its own stands on any of them`
+        : `this room publishes no controller stand-denial ring, so there is no ring tile to rampart`,
+    cover: () =>
+      `no structure of this room other than a container stands on a rampart of this room's own`,
+    unclassified: () =>
+      `every rampart this room ships is on its cut, under a container, on its stand-denial ring or under some other structure of ours — which is what this class exists to demonstrate`,
+    none: () =>
+      `this facet is never painted: the stage sweeps the rampart list, so every tile it paints carries one`,
+  };
+  /** why facet `f` took no tile in THIS room — absorption or absence, measured */
+  const emptyBecause = (f) => {
+    const mine = ramparts.filter((k) => INTRINSIC[f](k));
+    if (!mine.length) return ABSENT[f]();
+    const by = new Map();
+    for (const k of mine) {
+      const g = facetOf(k);
+      if (!by.has(g)) by.set(g, []);
+      by.get(g).push(k);
+    }
+    const parts = [...by]
+      .sort((a, b) => RAMPART_FACET_ORDER.indexOf(a[0]) - RAMPART_FACET_ORDER.indexOf(b[0]))
+      .map(([g, ks]) => `${ks.join(" ")} as \`${g}\``);
+    return (
+      `${mine.length} tile(s) of this room DO match this facet's own test and are counted under an ` +
+      `earlier facet instead — the classifier tests in one order and the first test a tile fits wins: ` +
+      `${parts.join("; ")}`
+    );
+  };
+  return {
+    classOf: cls.classOf,
+    facetOf,
+    captionOf,
+    job: jobOf,
+    occupant: cls.occupant,
+    emptyBecause,
+    outside,
+    depthAt,
+  };
 }
 
 // --- road provenance ------------------------------------------------------
@@ -704,7 +878,7 @@ export function buildAnim(room, terrain, plan) {
   // rampartClassifier: the counter used to say "min-cut wall b/n" over the
   // WHOLE rampart set, which is false of 974 of this fleet's 8208 ramparts and
   // inflates the wall's own count in 171 rooms.
-  const rampartClass = rampartFacets(plan);
+  const rampartClass = rampartFacets(plan, terrain);
   const ramparts = plan.structures.rampart;
   // the room's own census, keyed on the CAPTION rather than on the class, so a
   // counter says "40 of the 50 tiles this caption is true of" — see rampartFacets
@@ -1333,7 +1507,10 @@ export function buildAnim(room, terrain, plan) {
         count,
       })),
     };
-    if (!n) row.emptyBecause = RAMPART_FACETS[f].empty;
+    // OL2 (round 26) — the reason is DERIVED from this room's own board, and it
+    // distinguishes the two causes rather than asserting one of them: a facet
+    // that matched nothing, or a facet whose tiles an earlier test took.
+    if (!n) row.emptyBecause = rampartClass.emptyBecause(f);
     return row;
   });
   return {

@@ -2812,7 +2812,13 @@ ${thumbLegendHtml()}
       const med = per.length ? per[Math.floor(per.length / 2)] : 0;
       console.log(
         `road+rampart: ${sum("total")} tile(s) — ${sum("crossing")} wall crossings on the cut · ` +
-          `${sum("seat")} bubble seats (container) · ${sum("ring")} controller stand-denial ring · ` +
+          // "bubble seat" until round 26, when the word was measured: bubble
+          // membership is not the same fact as standing outside the shell, and
+          // the film captioned roughly half its seat-class ramparts on the wrong
+          // one of the two. This class is CONTAINER-ON-A-RAMPART; whether the
+          // container is outside is the film's `seat.outside`/`seat.inside`
+          // split, derived from the frozen flood. See OB1, round 26.
+          `${sum("seat")} container seats · ${sum("ring")} controller stand-denial ring · ` +
           `${sum("cover")} personal cover · ${sum("unclassified")} UNCLASSIFIED · ` +
           `median ${med} max ${per.length ? per[per.length - 1] : 0} per room` +
           (sum("crossing") + sum("seat") + sum("ring") + sum("cover") + sum("unclassified") === sum("total")

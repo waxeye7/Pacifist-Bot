@@ -317,8 +317,32 @@ export function invalidateExterior(plan) {
  *   containment a gate can run and not just a pair of integers;
  *   and the FROZEN FLOOD ITSELF is reconstructible from `meta.shell.cutAtFreeze`
  *   (see pipeline.mjs) — layer 2's exterior is the flood over layer 2's cut, and
- *   layer 7 moves that cut in seven of this fleet's rooms, which is exactly why
- *   the pre-mutation list is published beside it.
+ *   layer 7 moves that cut in 29 of this fleet's rooms, which is exactly why
+ *   the pre-mutation list is published beside it. (Round 25 typed "seven" here:
+ *   7 is how many rooms the withheld derivation gets wrong off the SHIPPED cut,
+ *   not how many rooms move it. The per-tile provenance of the move is
+ *   `meta.shell.cutDrift`. MM4/MM1, round 26.)
+ */
+/**
+ * OL3 (round 26) — THE BASIS WAS A CONSTANT WEARING THE WORD "BASIS".
+ *
+ * `exteriorContractBasis` shipped byte-identical in 172/172 rooms: one rule
+ * sentence, no per-room quantity, so a cross-room transplant of it was a no-op
+ * and the field could not be wrong about any particular room. That is exactly
+ * the defect criticism 127(c) closed for `preTakeShortfallBasis` IN THE SAME
+ * BUILD (1 distinct string over 134 records -> 24), and this field shipped
+ * beside it untouched.
+ *
+ * So the rule text below is now the TAIL of the field, and the room's own census
+ * goes in front of it: how many consumers read the enclosure, what each one
+ * withheld and from which tiles, the sum of those readings, and the room's
+ * distinct union — the arithmetic the rule text warns a reader about, done for
+ * the room the record belongs to. The doc's worked example for this record
+ * (E11S1's `[10,10,10,11] = 41` over 11 distinct tiles) is that census; until
+ * now it existed only in the document.
+ *
+ * The constant stays exported and stays the suffix so a reader — and a gate —
+ * can still hold the rule to one sentence while holding the census to the room.
  */
 export const EXTERIOR_CONTRACT_BASIS =
   `Each entry is one consumer's reading of the FROZEN layer-2 enclosure (plan.exterior) against the ` +
@@ -330,6 +354,39 @@ export const EXTERIOR_CONTRACT_BASIS =
   `four times and the room's distinct withheld set is the UNION of the lists, not the sum of the ` +
   `counts. The frozen flood is reconstructible: it is exteriorFlood() over meta.shell.cutAtFreeze, ` +
   `which is layer 2's cut before layer 7's prune and seal reconciliation move it.`;
+/**
+ * The room's own reading of its own contract, in reading order — the census that
+ * goes in FRONT of the rule text. Recomputed on every call site so the record a
+ * room ships covers every consumer that has run, and the last call (ext(L6)) is
+ * the one that lands in the artifact with all four.
+ */
+function exteriorContractCensus(recs) {
+  const union = new Set();
+  let sum = 0;
+  for (const r of recs) {
+    sum += r.withheldTiles.length;
+    for (const t of r.withheldTiles) union.add(t);
+  }
+  const roster = recs
+    .map(
+      (r) =>
+        `${r.at} withheld ${r.withheldTiles.length}` +
+        (r.withheldTiles.length ? ` (${r.withheldTiles.join(" ")})` : "") +
+        ` and was exposed ${r.exposed}`,
+    )
+    .join("; ");
+  const distinct = [...union].sort((a, b) => {
+    const [ax, ay] = a.split(",").map(Number);
+    const [bx, by] = b.split(",").map(Number);
+    return ay - by || ax - bx;
+  });
+  return (
+    `ON THIS ROOM: ${recs.length} consumer reading(s) of the frozen enclosure — ${roster}. ` +
+    `That is ${sum} tile-reading(s) over ${distinct.length} DISTINCT tile(s)` +
+    (distinct.length ? ` (${distinct.join(" ")})` : "") +
+    `; the sum is not the room's withheld set and the union is. `
+  );
+}
 export function checkEnclosureContract(terrain, plan, at) {
   const frozen = plan.exterior;
   if (!frozen || !plan.meta) return null;
@@ -347,7 +404,8 @@ export function checkEnclosureContract(terrain, plan, at) {
   const rec = { at, exposed, withheld: withheldTiles.length, withheldTiles };
   if (exposed) rec.exposedTiles = exposedTiles;
   (plan.meta.exteriorContract ||= []).push(rec);
-  plan.meta.exteriorContractBasis = EXTERIOR_CONTRACT_BASIS;
+  plan.meta.exteriorContractBasis =
+    exteriorContractCensus(plan.meta.exteriorContract) + EXTERIOR_CONTRACT_BASIS;
   if (exposed) {
     (plan.meta.shortfalls ||= []).push({
       gate: "exterior",

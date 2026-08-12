@@ -811,7 +811,10 @@ function renderPavedRun(r) {
   return (
     `A PAVED RUN ALONG THE WALL, AND WHY IT IS STILL HERE: this room ships ${r.runs.length} ` +
     `ramparted tile(s) that carry a road and have a D8 neighbour which is also a paved rampart ` +
-    `(${r.runs.map((t) => `${t.x},${t.y}${t.onCut ? "" : t.seat ? "[bubble seat]" : "[off-cut rampart]"}`).join(" ")}). ` +
+    // "[bubble seat]" until round 26: the tag is set from the tile carrying a
+    // CONTAINER, which is what it now says. Bubble membership is a different
+    // fact and reading one off the other is the defect OB1 closed in the film.
+    `(${r.runs.map((t) => `${t.x},${t.y}${t.onCut ? "" : t.seat ? "[container seat]" : "[off-cut rampart]"}`).join(" ")}). ` +
     `The roster is every road+rampart tile and not only the ones on the cut: a creep walking a ` +
     `prepared surface does not know which rampart class it is standing on. A single crossing is a ` +
     `gate and is fine; ` +

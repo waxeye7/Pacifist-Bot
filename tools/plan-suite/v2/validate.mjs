@@ -108,7 +108,6 @@ import {
   OUT_V2,
   D4,
   D8,
-  EXTERIOR_CONTRACT_BASIS,
   chebyshev,
   engineBuildable,
   fetchRoomsFromMongo,
@@ -233,19 +232,64 @@ function animCaptionSource() {
 // ignoring it would be the "residue class that can absorb anything" the road
 // taxonomy already ruled out.
 //
-// THE WORDING IS THE FILM'S AND THE CLASS IS THE BOARD'S. The captions below
-// are the film's own vocabulary, mapped to the classifier's classes: the film
-// splits `seat` by whether the container stands outside the shell (a bubble
-// seat) or inside it on shallow floor (container cover) and names the occupant
-// on `cover`, which is a per-member fact and not a second taxonomy.
-const FILM_CAPTION_CLASS = [
-  [/^min-cut wall\b/, "crossing"],
-  [/^bubble seat\b/, "seat"],
-  [/^container cover\b/, "seat"],
-  [/^controller stand-denial ring\b/, "ring"],
-  [/^personal cover\b/, "cover"],
-  [/^rampart this room's own taxonomy has no word for\b/, "unclassified"],
-];
+// ==========================================================================
+// ROUND 26 / OB1 + MM5 — THE CAPTION IS NOT THE CLASS, AND THE ROUND-25 GATE
+// ONLY EVER CHECKED THE CLASS.
+// ==========================================================================
+// The round-25 table below mapped BOTH `^bubble seat` and `^container cover`
+// to one class, `seat`, and `^personal cover` to `cover` with no occupant
+// test. Two things followed, and both shipped:
+//
+//   * the film's seat captions were SWAPPED on 210 of 436 tiles in 158 rooms
+//     and the gate could not see it — 79 tiles painted "a container outside the
+//     shell" are inside the enclosure and 131 painted "inside the wall, on
+//     shallow floor" are outside it, E12S1 contradicting its own artifact over
+//     22,40 and 36,24 in one reel;
+//   * 321 `personal cover` runs could be re-attributed to "one lab" over a
+//     class the board reads as 299 links, 25 extensions and 1 lab, and pass.
+//
+// AND THE ROOT CAUSE IS THE ONE WORTH WRITING DOWN. The round-25 gate compared
+// the film's reading of `meta.shell.bubble` against the classifier's reading of
+// `meta.shell.bubble`. Two readers of one list agreeing is an AGREEMENT test.
+// It is silent about whether the list means what the sentence says — and this
+// one does not: `addBubble` (layer-shell.mjs) bubbles a tile that is OUTSIDE
+// the shell **or** inside it and shallow, so membership is a DISJUNCTION and
+// the caption read it as one disjunct, while every mineral-seat container is
+// outside the shell and absent from the list entirely.
+//
+// So the table below is the FILM'S FULL SENTENCE, exactly, mapped to the FACET
+// (not the class), and the facet is re-derived here from the BOARD:
+//
+//     outside(tile) := exteriorFlood(terrain, meta.shell.cutAtFreeze)[tile]
+//
+// which is the frozen enclosure the sentence is about, published per room and
+// re-derivable by any reader holding the artifact and the terrain. `cover`
+// names its occupant and the occupant is read off the shipped structure lists;
+// `seat.inside` claims SHALLOW or SAFE DEPTH and the depth is measured.
+//
+// An exact table and not a prefix regex: `^container cover\b` accepted both of
+// the two sentences that differ only in the half a reader cares about.
+const FILM_RAMPART_CAPTIONS = new Map([
+  ["min-cut wall", { facet: "crossing", variant: null }],
+  ["seat outside the shell — a container beyond the wall, covered where it stands", { facet: "seat.outside", variant: null }],
+  ["container cover — a container inside the shell on shallow floor, renting a rampart of its own", { facet: "seat.inside", variant: "shallow" }],
+  ["container cover — a container inside the shell at safe depth, renting a rampart of its own", { facet: "seat.inside", variant: "deep" }],
+  ["controller stand-denial ring", { facet: "ring", variant: null }],
+  ["rampart this room's own taxonomy has no word for", { facet: "unclassified", variant: null }],
+  ["rampart", { facet: "none", variant: null }],
+]);
+/** `cover` is the one facet whose caption carries a per-member fact: WHO rents it */
+const FILM_COVER_CAPTION = /^personal cover — one (.+) renting a rampart of its own$/;
+/** the census's facet order — the classifier's own test order, seat split by the board */
+const RAMPART_FACET_ORDER = ["crossing", "seat.outside", "seat.inside", "ring", "cover", "unclassified", "none"];
+/** render a facet+variant+occupant back into the one sentence the film may print */
+function filmCaptionFor(facet, variant, occupant) {
+  if (facet === "cover") return `personal cover — one ${occupant || "structure"} renting a rampart of its own`;
+  for (const [cap, v] of FILM_RAMPART_CAPTIONS) {
+    if (v.facet === facet && v.variant === variant) return cap;
+  }
+  return null;
+}
 // ==========================================================================
 // ROUND 25 / MM1 + OL5 — THE THREE CHANNELS THAT PRINT THE UNJUDGED REASON,
 // READ BACK OUT OF THE FILES THEY ARE PRINTED INTO.
@@ -262,6 +306,32 @@ const FILM_CAPTION_CLASS = [
 // its own writer emits, and a channel that cannot be found is reported as
 // missing rather than skipped — "the page has no such line" is the shape a
 // deleted channel takes.
+//
+// ==========================================================================
+// ROUND 26 / ML6 — CONTAINMENT WAS NOT THE CLAIM. THE THREE CHANNELS ARE
+// COMPARED WHOLE.
+// ==========================================================================
+// The round-25 test was `String(channel).includes(derivedReason)`, so every
+// word outside the derived sentence was free text in all three channels at
+// once, and a shared false clause appended to all three passed: E7S5's film
+// note, its `mob-sub` line and its index chip title all gained ", and every one
+// of this room's 14 cut tiles is redundant so the wall could be deleted for
+// free" with 0 `mobility-caption` failures. Criticism 121's own summing-up is
+// "one room, one question, one answer", which reads as a pinned sentence and
+// was not one.
+//
+// So the channels are held to EQUALITY, modulo a wrapper grammar that is stated
+// here rather than tolerated: each channel is the derived reason inside the
+// fixed frame its own writer puts around it, and nothing else. The page and the
+// chip are whole-value comparisons — there is no room left in either for a
+// clause. The film's reason lives inside a longer note, so its window is the
+// span between the two markers the note's own writer emits, and the whole
+// window is compared.
+const UNJUDGED_LEAD = "the gate judged no pair: ";
+const UNJUDGED_CHIP_TAIL =
+  " — so this room has no as-built gated lap. A zero here is the measurement not taken, not a room that passed.";
+const UNJUDGED_FILM_OPEN = "as-built gated lap 0 — ";
+const UNJUDGED_FILM_CLOSE = " (target ";
 const decodeEnt = (v) =>
   String(v)
     .replace(/&lt;/g, "<")
@@ -277,17 +347,24 @@ function unjudgedChannels(room) {
   let out;
   try {
     const html = fs.readFileSync(path.join(OUT_V2, `${room}.html`), "utf8");
-    // (1) the film caption — the ramparts note of the page's own NOTES map
+    // (1) the film caption — the ramparts note of the page's own NOTES map.
+    // The WINDOW is the span the note's own writer frames the answer with, and
+    // the whole window is returned: a clause appended after the answer and
+    // before the frame closes is part of what a reader meets.
     let film = null;
     {
       const at = html.indexOf("\n  var NOTES = ");
       const line = at < 0 ? null : html.slice(at + 15, html.indexOf("\n", at + 15));
       const notes = line ? JSON.parse(line.replace(/;\s*$/, "")) : null;
       const ramp = notes && typeof notes.ramparts === "string" ? notes.ramparts : "";
-      const m = ramp.match(/as-built gated lap 0 — (.*?)(?: \(target [^)]*\))?(?: — \d+ cut tiles| — |$)/);
-      if (m) film = m[1];
+      const openAt = ramp.indexOf(UNJUDGED_FILM_OPEN);
+      if (openAt >= 0) {
+        const from = openAt + UNJUDGED_FILM_OPEN.length;
+        const closeAt = ramp.indexOf(UNJUDGED_FILM_CLOSE, from);
+        film = closeAt < 0 ? ramp.slice(from) : ramp.slice(from, closeAt);
+      }
     }
-    // (2) the room page's own line
+    // (2) the room page's own line — the WHOLE line, not a prefix of it
     let page = null;
     for (const m of html.matchAll(/<div class="mob-sub">([^<]*)<\/div>/g)) {
       const t = decodeEnt(m[1]);
@@ -295,7 +372,8 @@ function unjudgedChannels(room) {
       page = t;
       break;
     }
-    // (3) the index chip's title, from this room's own card
+    // (3) the index chip's title, from this room's own card — the WHOLE title,
+    // with its own tail left on it and compared rather than stripped away
     let chip = null;
     if (INDEX_HTML === null) INDEX_HTML = fs.existsSync(path.join(OUT_V2, "index.html")) ? fs.readFileSync(path.join(OUT_V2, "index.html"), "utf8") : "";
     const cardAt = INDEX_HTML.indexOf(`<div class="card"><h3><a href="${room}.html">`);
@@ -303,7 +381,7 @@ function unjudgedChannels(room) {
       const cardEnd = INDEX_HTML.indexOf(`<div class="card">`, cardAt + 10);
       const card = INDEX_HTML.slice(cardAt, cardEnd < 0 ? INDEX_HTML.length : cardEnd);
       const m = card.match(/<span class="mob unjudged" title="([^"]*)"/);
-      if (m) chip = decodeEnt(m[1]).replace(/ — so this room has no as-built gated lap\..*$/, "");
+      if (m) chip = decodeEnt(m[1]);
     }
     out = { film, page, chip };
   } catch (err) {
@@ -313,35 +391,65 @@ function unjudgedChannels(room) {
   return out;
 }
 
-/** room -> { classes: Map<tileKey,string>, err } — parsed once per process */
+/**
+ * room -> { paint: Map<tileKey,{facet,variant,occupant,caption}>, unknown, census, err }
+ *
+ * Parsed once per process — keyed on the file's size and mtime so a harness that
+ * forges a film on disk, runs the gate and restores it is testing the forged
+ * film and not a cached parse of the clean one.
+ */
 const FILM_CACHE = new Map();
 function filmRampartClasses(room) {
-  if (FILM_CACHE.has(room)) return FILM_CACHE.get(room);
   const f = path.join(OUT_V2, "anim", `${room}.json`);
+  let stamp = "";
+  try {
+    const st = fs.statSync(f);
+    stamp = `${st.size}:${st.mtimeMs}`;
+  } catch {
+    stamp = "gone";
+  }
+  const hit0 = FILM_CACHE.get(room);
+  if (hit0 && hit0.stamp === stamp) return hit0.val;
   let out;
   try {
     const film = JSON.parse(fs.readFileSync(f, "utf8"));
-    const classes = new Map();
+    const paint = new Map();
     const unknown = new Set();
     for (const st of film.steps || []) {
       if (!st || st.stage !== "ramparts") continue;
       // the run counter ("min-cut wall 12/32") is the run's position in its own
-      // class, not part of the caption
+      // facet, not part of the caption
       const cap = String(st.label || "").replace(/\s+\d+\/\d+\s*$/, "");
-      const hit = FILM_CAPTION_CLASS.find(([re]) => re.test(cap));
+      let hit = FILM_RAMPART_CAPTIONS.get(cap);
+      let occupant = null;
+      if (!hit) {
+        const m = FILM_COVER_CAPTION.exec(cap);
+        if (m) {
+          hit = { facet: "cover", variant: null };
+          occupant = m[1];
+        }
+      }
       if (!hit) {
         unknown.add(cap);
         continue;
       }
       const cells = st.cells || [];
-      for (let i = 0; i + 1 < cells.length; i += 3) classes.set(key(cells[i], cells[i + 1]), hit[1]);
+      for (let i = 0; i + 1 < cells.length; i += 3) {
+        paint.set(key(cells[i], cells[i + 1]), { facet: hit.facet, variant: hit.variant, occupant, caption: cap });
+      }
     }
-    out = { classes, unknown: [...unknown] };
+    out = { paint, unknown: [...unknown], census: film.rampartCensus };
   } catch (err) {
     out = { err: err && err.message ? err.message : String(err) };
   }
-  FILM_CACHE.set(room, out);
+  FILM_CACHE.set(room, { stamp, val: out });
   return out;
+}
+/** the page/chip/film channel caches, dropped so a forged file is read again */
+export function resetOutputCaches() {
+  FILM_CACHE.clear();
+  CHANNEL_CACHE.clear();
+  INDEX_HTML = null;
 }
 
 // structures that must never be reachable by an enemy creep, and must be
@@ -10393,24 +10501,31 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // the seat search comes back at or under THIN_PARKS, and the as-built
         // re-measure amends that same entry — it is the one honest declaration a
         // genuinely cramped controller has. Raising this violation on kind "count"
-        // meant `excused()`'s `d.kind === f.kind` test could never match it, so the
-        // three rooms that DO declare (E16S3, E17S5, E8S7 — all three at 3 seats,
-        // all three claiming 3, i.e. producer and validator now agreeing on the
-        // number) were hard-failing for saying so. That is the shortfall channel
-        // punishing the behaviour it exists to reward.
+        // meant `excused()`'s `d.kind === f.kind` test could never match it, so a
+        // room that FILED the declaration was hard-failing for saying so. That is
+        // the shortfall channel punishing the behaviour it exists to reward.
         //
         // The tiles are the SURVIVING seats, not the lost ones, and they are what
         // makes the arbitration honest rather than merely permissive: a tiled
         // declaration excuses a violation only when every tile of the violation is
-        // inside its list, and the as-built survivors are a subset of the seats the
-        // layer-1 search declared in all three rooms (E16S3 19,11/18,10/19,12
-        // inside a declared four; E17S5 27,33/26,34/26,32 inside a declared six;
-        // E8S7 12,41/10,42/10,40 inside a declared four). So the declaration only
-        // covers a room that lost seats it had already named. A room that ships
-        // ZERO seats raises this with an EMPTY tile list, which no tiled
-        // declaration can ever excuse — `excused()` requires `f.tiles.length` — and
-        // that is the right floor: a controller with nowhere at all to park is not
-        // a cramped room, it is an upgrader that never runs.
+        // inside its list, and the as-built survivors have to be a subset of the
+        // seats the layer-1 search declared. That containment is RE-DERIVED per
+        // room, here, off `parksOf(ctrlLink)` against the board the room ships —
+        // so the declaration only covers a room that lost seats it had already
+        // named.
+        //
+        // (This paragraph used to name the three rooms that declared, with their
+        // rosters, and by round 26 it was wrong in every particular: different
+        // rooms, a different count of them and rosters of a different size. A
+        // fleet roster typed into a comment is a figure with no extractor behind
+        // it — the same class as the spelled-out numerals round 26 named — and the
+        // fix is not a fresher list, it is deriving the thing and typing none.)
+        //
+        // A room that ships ZERO seats raises this with an EMPTY tile list, which
+        // no tiled declaration can ever excuse — `excused()` requires
+        // `f.tiles.length` — and that is the right floor: a controller with
+        // nowhere at all to park is not a cramped room, it is an upgrader that
+        // never runs.
         late("ctrlparks", "seats",
           `AS BUILT the controller link ${ctrlLink.x},${ctrlLink.y} feeds ${built.length} park seat(s), ` +
             `under the ${MIN_PARKS_FLOOR} floor layer 1 plans to (MIN_PARKS, echoed as minParksFloor in ` +
@@ -11525,17 +11640,29 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     }
 
     // ==================================================================
-    // ROUND 25 / OB1 — THE FILM AND THE NOTE AGREE ABOUT EVERY RAMPART,
-    // TILE BY TILE, OR THE ROOM FAILS.
+    // ROUND 25 / OB1 + ROUND 26 / OB1 + MM5 + OM1 + MM2 — THE FILM AND THE
+    // BOARD AGREE ABOUT EVERY RAMPART, SENTENCE BY SENTENCE, OR THE ROOM FAILS.
     // ==================================================================
-    // See FILM_CAPTION_CLASS above for the defect. The comparison is between
-    // two CHANNELS a reader actually meets: the class the film paints a tile
-    // in, and the class this file derives for that tile off the shipped board —
-    // which is the same derivation the `meta.walls.roadRampart` census is held
-    // to three lines up, i.e. the note channel's classifier. It runs over every
-    // rampart the film paints and every rampart the room ships, so a film that
-    // paints a class the board does not carry, one that omits a rampart, and
-    // one that paints a tile carrying no rampart all fail here.
+    // See FILM_RAMPART_CAPTIONS above for the defect and for the lesson. The
+    // comparison is between two CHANNELS a reader actually meets: the SENTENCE
+    // the film paints a tile with, and the sentence this file derives for that
+    // tile off the shipped board and the frozen enclosure. Round 25 compared
+    // the CLASS and let the two halves of the sentence a reader actually cares
+    // about — which side of the wall the container is on, and what is renting
+    // the cover — through untouched.
+    //
+    // It runs over every rampart the film paints and every rampart the room
+    // ships, so a film that paints a class the board does not carry, one that
+    // omits a rampart, and one that paints a tile carrying no rampart all fail
+    // here — and now so does one that gets the disjunct or the occupant wrong.
+    //
+    // AND THE FILM'S OWN CENSUS IS READ (round 26 / OM1 + MM2). `rampartCensus`
+    // shipped with NO consumer at all: an invented `wumpus` facet at 99999 and
+    // all 494 `emptyBecause` reasons deleted validated 172/172 with a
+    // byte-identical summary. Every count in it is re-derived from the board
+    // here, every caption is re-rendered, and every empty row's REASON is held
+    // to what this file measures the reason to be — absorption by an earlier
+    // test, with the tiles named, or a genuine absence, naming none.
     //
     // (The film is an artifact on disk, not a field of the plan: this is the
     // only gate in this file that reads out-v2/anim, and it reads it because
@@ -11568,39 +11695,81 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 : own25.has(k25)
                   ? "cover"
                   : "unclassified";
+      // ------------------------------------------------------------------
+      // THE BOARD THE CAPTION'S DISJUNCT IS READ OFF — the frozen enclosure
+      // itself, floodable by any reader holding the artifact and the terrain.
+      // NOT `meta.shell.bubble`: that list is "outside the shell OR inside and
+      // shallow", and reading a disjunction as one disjunct is the whole of
+      // OB1. The flood is terrain-only (a road does not tunnel for the
+      // enclosure question), which is the same flood the enclosure contract is
+      // re-derived against below.
+      // ------------------------------------------------------------------
+      const freezeK26 = new Set(
+        (plan.meta?.shell?.cutAtFreeze || plan.shell?.cutAtFreeze || [])
+          .filter((t) => t && Number.isInteger(t.x) && Number.isInteger(t.y))
+          .map((t) => key(t.x, t.y)),
+      );
+      const frozenExt26 = freezeK26.size ? exteriorFlood(passableFn(terrain, new Set()), freezeK26) : null;
+      const frozenDepth26 = frozenExt26 ? depthFromExterior(frozenExt26) : null;
+      const at26 = (k26) => {
+        const c26 = k26.indexOf(",");
+        return idx(Number(k26.slice(0, c26)), Number(k26.slice(c26 + 1)));
+      };
+      const outside26 = (k26) => !!frozenExt26[at26(k26)];
+      const facetOf26 = (k26) => {
+        const c26 = noteClassOf(k26);
+        return c26 === "seat" ? (outside26(k26) ? "seat.outside" : "seat.inside") : c26;
+      };
+      const variantOf26 = (k26) =>
+        facetOf26(k26) === "seat.inside" ? (frozenDepth26[at26(k26)] >= DEPTH_SAFE ? "deep" : "shallow") : null;
+      const occOf26 = (k26) => (facetOf26(k26) === "cover" ? own25.get(k26) || "structure" : null);
+      const derivedCaption26 = (k26) => filmCaptionFor(facetOf26(k26), variantOf26(k26), occOf26(k26));
+
       const film25 = filmRampartClasses(plan.room);
-      if (film25.err) {
+      if (!frozenExt26) {
+        bad.push(
+          `this room publishes no \`meta.shell.cutAtFreeze\`, so the frozen enclosure the film's seat caption ` +
+            `is ABOUT ("a container beyond the wall" / "a container inside the shell") cannot be derived from ` +
+            `the board at all. The round-25 gate read \`meta.shell.bubble\` for it and \`bubble\` is a ` +
+            `disjunction — outside the shell OR inside and shallow — which is how 210 of 436 seat captions ` +
+            `shipped false under a passing gate`,
+        );
+      } else if (film25.err) {
         bad.push(
           `the film for this room cannot be read (out-v2/anim/${plan.room}.json: ${film25.err}). The film's ` +
-            `rampart stage captions every rampart with a CLASS, that caption is generated at export time and ` +
-            `lands in no plan field, and it disagreed with this room's own note about the job of a tile — so ` +
-            `it is compared against the board here, and a film that is not there is a channel nobody checked`,
+            `rampart stage captions every rampart with a full SENTENCE, that caption is generated at export ` +
+            `time and lands in no plan field, and it disagreed with this room's own board about the job of a ` +
+            `tile — so it is compared against the board here, and a film that is not there is a channel ` +
+            `nobody checked`,
         );
       } else {
         if (film25.unknown.length) {
           bad.push(
-            `the film's rampart stage paints ${film25.unknown.length} caption(s) this file cannot map to the ` +
-              `note channel's taxonomy ("${film25.unknown.slice(0, 3).join('", "')}"). The two channels answer ` +
-              `one question about one tile; a caption outside the five classes is a sixth class the board has ` +
-              `no word for, and a residue class that can absorb anything is not a taxonomy`,
+            `the film's rampart stage paints ${film25.unknown.length} caption(s) this file has no sentence for ` +
+              `("${film25.unknown.slice(0, 3).join('", "')}"). The two channels answer one question about one ` +
+              `tile; a caption outside the seven the taxonomy publishes is an eighth facet the board has no ` +
+              `word for, and a residue class that can absorb anything is not a taxonomy`,
           );
         }
         const disagree25 = [];
         const painted25 = new Set();
-        for (const [k25, fc25] of film25.classes) {
+        for (const [k25, got25] of film25.paint) {
           painted25.add(k25);
-          const nc25 = noteClassOf(k25);
-          if (nc25 !== fc25) disagree25.push(`${k25} film=${fc25} note=${nc25}`);
+          const wantF = facetOf26(k25);
+          const wantV = variantOf26(k25);
+          const wantO = occOf26(k25);
+          if (got25.facet === wantF && got25.variant === wantV && (wantF !== "cover" || got25.occupant === wantO)) continue;
+          disagree25.push(`${k25} film "${got25.caption}" · board "${derivedCaption26(k25)}"`);
         }
         const unpainted25 = [...rampK25].filter((k25) => !painted25.has(k25));
         if (disagree25.length) {
           bad.push(
-            `the film captions ${disagree25.length} of this room's ramparts with a class the note channel's ` +
-              `classifier does not give them (${disagree25.slice(0, 6).join(" · ")}). One tile, one job: the ` +
-              `classification is a membership test in the shipped board — the cut, the containers, the ` +
-              `stand-denial ring — and two channels that run their own copy of it in their own order are two ` +
-              `sentences that can disagree, which is what E11S3's 21,12 was (film "a container outside the ` +
-              `shell", the room's own note "carries no structure")`,
+            `the film captions ${disagree25.length} of this room's ramparts with a sentence the board does not ` +
+              `give them (${disagree25.slice(0, 4).join(" · ")}). One tile, one job, one sentence: the facet is ` +
+              `a membership test in the shipped board — the cut, the containers, the stand-denial ring — the ` +
+              `seat's side of the wall is the flood over \`meta.shell.cutAtFreeze\`, and the cover's occupant ` +
+              `is whatever structure of ours stands there. Comparing the CLASS and dropping the rest is how ` +
+              `210 swapped seat captions and 321 re-attributed covers passed a gate written for exactly them`,
           );
         }
         if (unpainted25.length) {
@@ -11610,6 +11779,143 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               `sweeps the rampart list, so a tile it does not carry is a tile the film's own census cannot ` +
               `count and a reader cannot see the job of`,
           );
+        }
+        // ==============================================================
+        // ROUND 26 / OM1 + MM2 — THE FILM'S OWN CENSUS, READ BY SOMEBODY.
+        // ==============================================================
+        // Counts and captions re-derived from the board; the facet list held to
+        // the taxonomy's own order; and every EMPTY row's reason held to the
+        // reason this file measures. `emptyBecause` was presence-checked once,
+        // by hand, in the round that shipped it — and the sentences were
+        // written as facts about the WORLD while the facets are a function of
+        // TEST ORDER, so 13 rows were false and E15S4 printed both "no
+        // ramparted container is outside the shell" and "every ramparted
+        // container is outside the shell" over a room shipping two.
+        const cens26 = film25.census;
+        const derCount26 = new Map(RAMPART_FACET_ORDER.map((f) => [f, 0]));
+        const derCaps26 = new Map(RAMPART_FACET_ORDER.map((f) => [f, new Map()]));
+        for (const k26 of rampK25) {
+          const f26 = facetOf26(k26);
+          derCount26.set(f26, (derCount26.get(f26) || 0) + 1);
+          const c26 = derivedCaption26(k26);
+          const m26 = derCaps26.get(f26);
+          m26.set(c26, (m26.get(c26) || 0) + 1);
+        }
+        // each facet's OWN membership test, with no test order in front of it —
+        // the two reasons a facet can be empty are told apart by running these
+        const intrinsic26 = {
+          crossing: (k26) => cutK25.has(k26),
+          "seat.outside": (k26) => own25.get(k26) === "container" && outside26(k26),
+          "seat.inside": (k26) => own25.get(k26) === "container" && !outside26(k26),
+          ring: (k26) => denialK.has(k26),
+          cover: (k26) => own25.has(k26) && own25.get(k26) !== "container",
+          unclassified: (k26) => !cutK25.has(k26) && !own25.has(k26) && !denialK.has(k26),
+          // the stage sweeps `structures.rampart`, so it cannot paint a tile
+          // that carries no rampart
+          none: () => false,
+        };
+        if (!Array.isArray(cens26) || cens26.length !== RAMPART_FACET_ORDER.length) {
+          bad.push(
+            `the film's \`rampartCensus\` is ${cens26 === undefined ? "ABSENT" : `${Array.isArray(cens26) ? `${cens26.length} row(s)` : String(JSON.stringify(cens26)).slice(0, 40)}`} — it is ` +
+              `one row per facet of the rampart taxonomy, all ${RAMPART_FACET_ORDER.length} of them, including ` +
+              `the ones that took nothing. A class that is only visible when it fires is a class nobody can ` +
+              `tell apart from a bug, and a census with a row missing is a class back in hiding`,
+          );
+        } else {
+          cens26.forEach((row26, i26) => {
+            const want26 = RAMPART_FACET_ORDER[i26];
+            if (!row26 || row26.facet !== want26) {
+              bad.push(
+                `the film's \`rampartCensus\` row ${i26} is facet ${String(JSON.stringify(row26?.facet)).slice(0, 30)} ` +
+                  `and the taxonomy's ${i26 === 0 ? "first" : `${i26 + 1}th`} facet is \`${want26}\`. The census ` +
+                  `prints the classifier's own test order, and a row this file has no test for is a facet the ` +
+                  `board has no word for — an invented facet at 99999 passed this channel for a whole round`,
+              );
+              return;
+            }
+            const cls26 = want26.split(".")[0];
+            if (row26.class !== cls26) {
+              bad.push(
+                `the film's \`rampartCensus\` row \`${want26}\` carries \`class\` ` +
+                  `${String(JSON.stringify(row26.class)).slice(0, 30)} and the note channel's class for that facet ` +
+                  `is \`${cls26}\` — the census exists so a reader can line it up against ` +
+                  `\`meta.walls.roadRampart\`, which is keyed on the class`,
+              );
+            }
+            const n26 = derCount26.get(want26) || 0;
+            if (row26.count !== n26) {
+              bad.push(
+                `the film's \`rampartCensus\` says facet \`${want26}\` took ${String(JSON.stringify(row26.count)).slice(0, 20)} ` +
+                  `of this room's ramparts and the board gives it ${n26}. Every count in this census is a ` +
+                  `membership test over the shipped rampart list, so it is re-derived here and not read`,
+              );
+            }
+            const gotCaps26 = (row26.captions || []).map((c26) => `${c26 && c26.caption} ${c26 && c26.count}`).sort();
+            const wantCaps26 = [...derCaps26.get(want26)].map(([c26, v26]) => `${c26} ${v26}`).sort();
+            if (gotCaps26.join(" | ") !== wantCaps26.join(" | ")) {
+              bad.push(
+                `the film's \`rampartCensus\` row \`${want26}\` publishes captions ` +
+                  `${JSON.stringify(row26.captions || []).slice(0, 160)} and the board renders ` +
+                  `${JSON.stringify([...derCaps26.get(want26)].map(([c26, v26]) => ({ caption: c26, count: v26 }))).slice(0, 160)}. ` +
+                  `The caption is a function of the TILE — the seat's side of the wall, the cover's occupant, ` +
+                  `the inside seat's depth — so the counters are per caption and every one of them is derived`,
+              );
+            }
+            // --- the empty row's REASON ---------------------------------
+            const eb26 = row26.emptyBecause;
+            if (n26 > 0) {
+              if (eb26 !== undefined) {
+                bad.push(
+                  `the film's \`rampartCensus\` row \`${want26}\` took ${n26} tile(s) and still carries an ` +
+                    `\`emptyBecause\` ("…${String(eb26).slice(0, 50)}…"). The reason a facet is empty is a ` +
+                    `sentence about a facet that is empty`,
+                );
+              }
+              return;
+            }
+            const mine26 = [...rampK25].filter((k26) => intrinsic26[want26](k26)).sort();
+            if (typeof eb26 !== "string" || eb26.length < 20) {
+              bad.push(
+                `the film's \`rampartCensus\` row \`${want26}\` took no tile and publishes \`emptyBecause\` ` +
+                  `${eb26 === undefined ? "NOT AT ALL" : String(JSON.stringify(eb26)).slice(0, 40)}. A class that ` +
+                  `is only visible when it fires is a class nobody can tell apart from a bug — the whole point ` +
+                  `of the row is the reason, and all 494 of this fleet's reasons could be deleted without a ` +
+                  `single room failing`,
+              );
+              return;
+            }
+            const named26 = new Set(String(eb26).match(/\b\d{1,2},\d{1,2}\b/g) || []);
+            if (mine26.length) {
+              // ABSORBED — tiles of this room DO match the facet's own test and
+              // an earlier test in the classifier's order claimed them. The row
+              // owes the tiles and the facet that took them.
+              const absent26 = mine26.filter((k26) => !named26.has(k26));
+              const takers26 = [...new Set(mine26.map((k26) => facetOf26(k26)))];
+              const unnamed26 = takers26.filter((f26) => !String(eb26).includes(f26));
+              if (absent26.length || unnamed26.length || !new RegExp(`(^|[^\\d])${mine26.length}([^\\d]|$)`).test(String(eb26))) {
+                bad.push(
+                  `the film's \`rampartCensus\` row \`${want26}\` is empty because ${mine26.length} tile(s) of ` +
+                    `this room DO match that facet's own test and an earlier test took them ` +
+                    `(${mine26.map((k26) => `${k26} as ${facetOf26(k26)}`).slice(0, 4).join(" · ")}), and its reason ` +
+                    `${absent26.length ? `names none of ${absent26.slice(0, 4).join(" ")}` : ``}` +
+                    `${absent26.length && unnamed26.length ? ` and ` : ``}` +
+                    `${unnamed26.length ? `never names the facet that took them (${unnamed26.join(" ")})` : ``}` +
+                    `${!absent26.length && !unnamed26.length ? `does not state the count ${mine26.length}` : ``}: ` +
+                    `"${String(eb26).slice(0, 120)}". A facet is a function of TEST ORDER, so "the room has no ` +
+                    `such tile" is a different sentence from "the room has ${mine26.length} and the cut claimed ` +
+                    `them first" — and the second one is this room's`,
+                );
+              }
+            } else if (named26.size) {
+              bad.push(
+                `the film's \`rampartCensus\` row \`${want26}\` is empty because this room has NO tile matching ` +
+                  `that facet's own test at all, and its reason names ${[...named26].slice(0, 4).join(" ")} as if ` +
+                  `it did: "${String(eb26).slice(0, 120)}". The two ways a facet reaches zero are absorption by ` +
+                  `an earlier test and plain absence, and a row that tells the wrong one is the defect the row ` +
+                  `exists to prevent`,
+              );
+            }
+          });
         }
       }
     }
@@ -12955,7 +13261,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         //
         // The producer now ships the WITNESS (`withheldTiles` per entry, and
         // `meta.shell.cutAtFreeze` — the cut the frozen flood was taken
-        // against, which is NOT the shipped cut in the seven rooms layer 7
+        // against, which is NOT the shipped cut in the 29 rooms layer 7
         // moves), so all four halves of the claim are checked here:
         //
         //   (i)   the count is the length of its own roster, and the roster is
@@ -12965,12 +13271,65 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         //   (ii)  the sets GROW in run order (containment, not just counts):
         //         a tile withheld from layer 3 is still withheld from layer 6,
         //         because the wall only ever gained ramparts between them;
-        //   (iii) the FIRST consumer's roster is re-derived from terrain —
-        //         frozen flood over `cutAtFreeze`, live wall over that cut plus
-        //         this room's bubbles — tile for tile;
+        //   (iii) ALL FOUR rosters are re-derived from terrain, tile for tile;
         //   (iv)  the basis sentence that tells a reader NOT to add the four
-        //         counts up (they are one tile set read four times) is the
-        //         producer's own, compared verbatim.
+        //         counts up (they are one tile set read four times) is checked
+        //         against this room's own four counts;
+        //   (v)   `cutAtFreeze` itself is bound to the board and to the shipped
+        //         cut, because a free anchor is a free answer.
+        //
+        // ==============================================================
+        // ROUND 26 / MM1 — THE FREE PARAMETER MOVED, IT DID NOT LEAVE.
+        // ==============================================================
+        // Round 25 derived ONE of the four consumers — ec[0], towers(L3) — and
+        // held the other three by SET CONTAINMENT alone. 516 of the 688 records
+        // the round-25 build published were therefore free: appending invented tiles to ext(L6)
+        // alone took the fleet's withheld sum from 2786 to 37186 and passed
+        // 172/172. And `cutAtFreeze` was shape-checked only, so co-forging the
+        // anchor with the rosters passed too — including the FLEET ZEROING,
+        // 688 records at 0/0/0/0, with a byte-identical validator summary,
+        // which is verbatim the sentence criticism 123 used to condemn the
+        // state this round-25 gate was written to replace.
+        //
+        // ALL FOUR ARE DERIVED NOW, and the derivation is the pipeline's own
+        // reading order — each consumer floods the frozen cut against the
+        // ramparts that EXISTED when it ran:
+        //
+        //   ec[0] towers(L3) : flood(F) \ flood(F ∪ bubble)
+        //   ec[1] labs(L4)   : flood(F) \ flood(F ∪ bubble ∪ ramparts on TOWERS)
+        //   ec[2] misc(L5)   : flood(F) \ flood(F ∪ bubble ∪ towers ∪ LABS)
+        //   ec[3] ext(L6)    : flood(F) \ flood(F ∪ ALL SHIPPED RAMPARTS)
+        //
+        // Measured exact in 172/172 rooms for every one of the four. ec[3] is
+        // the one that needs no producer list at all — the shipped rampart set
+        // is the board — so it is the anchor the other three hang from, and the
+        // SANDWICH is stated as well as the equalities: ec[0]'s derivation is a
+        // floor under ec[1] and ec[2] and ec[3]'s is a ceiling over them, which
+        // is the weaker claim that survives if a middle layer's rampart set ever
+        // stops being reconstructible.
+        //
+        // AND THE ANCHOR IS BOUND. `cutAtFreeze` is layer 2's cut and the room
+        // ships layer 7's, and the two differ on 80 tiles in 29 rooms. Three
+        // things hold the snapshot to the board:
+        //   * the frozen flood REACHES NO OWNED CORE STRUCTURE — it is a cut,
+        //     and a cut that does not seal is not one (the SHIPPED cut only
+        //     manages this in 170 of 172 rooms, so it is not a free property).
+        //     THIS IS THE CHECK THAT CLOSES THE SHRINKING DIRECTION, and it
+        //     closes it completely on this fleet: over the first sixty rooms,
+        //     not one of their 2524 frozen cut tiles can be dropped with the
+        //     core still sealed, so every "make the frozen flood bigger and
+        //     re-derive the four rosters around it" edit exposes a spawn;
+        //   * every tile in `cutAtFreeze` that the room does NOT ship on its cut
+        //     is in `meta.shell.inertPruned` — the roster of the tiles layer 7's
+        //     inert prune took off the wall — and carries no rampart at all on
+        //     the shipped board;
+        //   * the FREEZE-TIME DRIFT LOG replays: `meta.shell.cutDrift` is one
+        //     entry per tile either mutating pass moved, naming the pass and
+        //     the reason, and `cutAtFreeze` with every `add` added and every
+        //     `remove` removed, in order, IS the shipped cut — so an anchor
+        //     edited by one tile stops reconciling.
+        // A tile on either side of that difference with no provenance is the
+        // missing anchor, and it fails.
         {
           const okTile9 = (t9) => /^\d{1,2},\d{1,2}$/.test(String(t9)) && String(t9).split(",").every((v9) => Number(v9) >= 0 && Number(v9) <= 49);
           const sets9 = [];
@@ -13035,50 +13394,254 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `re-derived at all: the SHIPPED cut is a different list in the rooms layer 7's prune and seal ` +
                 `reconciliation move, which is exactly where a wrong reading would hide`,
             );
-          } else if (sets9[0]) {
+          } else {
             const freezeK9 = new Set(freeze9.map((t9) => key(t9.x, t9.y)));
             const bubbleK9 = new Set(
               (plan.shell?.bubble || plan.meta?.shell?.bubble || [])
                 .filter((t9) => t9 && Number.isInteger(t9.x))
                 .map((t9) => key(t9.x, t9.y)),
             );
+            const rampK9 = new Set((s.rampart || []).map((r9) => key(r9.x, r9.y)));
+            /** the ramparts a given structure kind is standing on, on the shipped board */
+            const rampsUnder9 = (kinds9) => {
+              const out9 = [];
+              for (const t9 of kinds9) {
+                for (const p9 of s[t9] || []) {
+                  const k9 = key(p9.x, p9.y);
+                  if (rampK9.has(k9)) out9.push(k9);
+                }
+              }
+              return out9;
+            };
             // the producer's flood is terrain-only (a road does NOT tunnel for
-            // the enclosure question), so this one is taken with an empty road
+            // the enclosure question), so these are taken with an empty road
             // set rather than with the room's roads
             const bare9 = passableFn(terrain, new Set());
             const frozen9 = exteriorFlood(bare9, freezeK9);
-            const liveL39 = exteriorFlood(bare9, new Set([...freezeK9, ...bubbleK9]));
-            const derived9 = [];
-            for (let i9 = 0; i9 < 2500; i9++) {
-              if (!!frozen9[i9] === !!liveL39[i9]) continue;
-              if (frozen9[i9] && !liveL39[i9]) derived9.push(`${i9 % 50},${(i9 / 50) | 0}`);
-            }
-            const derSet9 = new Set(derived9);
-            const missing9 = derived9.filter((t9) => !sets9[0].has(t9));
-            const extra9 = [...sets9[0]].filter((t9) => !derSet9.has(t9));
-            if (missing9.length || extra9.length) {
+            const withheldAgainst9 = (blockers9) => {
+              const live9 = exteriorFlood(bare9, new Set([...freezeK9, ...blockers9]));
+              const out9 = new Set();
+              for (let i9 = 0; i9 < 2500; i9++) if (frozen9[i9] && !live9[i9]) out9.add(`${i9 % 50},${(i9 / 50) | 0}`);
+              return out9;
+            };
+            // the wall as each consumer met it: layer 2's bubbles, then the
+            // personal cover layer 3 rents for its towers, then layer 4's for
+            // its labs, then everything the room ships
+            const wallAt9 = [
+              [...bubbleK9],
+              [...bubbleK9, ...rampsUnder9(["tower"])],
+              [...bubbleK9, ...rampsUnder9(["tower", "lab"])],
+              [...rampK9],
+            ];
+            const derived9 = wallAt9.map((b9) => withheldAgainst9(b9));
+            const WHY9 = [
+              "the cut layer 2 froze plus this room's own bubbles — the wall that existed when the tower layer read the enclosure",
+              "that wall plus the ramparts this room's towers stand on — the cover layer 3 rented before the lab layer ran",
+              "that wall plus the ramparts this room's labs stand on — the board layer 5 read",
+              "the cut layer 2 froze plus EVERY rampart this room ships — the widest wall any consumer could have read, and the one reading that needs no producer list at all",
+            ];
+            for (let i9 = 0; i9 < ec9.length; i9++) {
+              if (!sets9[i9]) continue;
+              const der9 = derived9[i9];
+              const missing9 = [...der9].filter((t9) => !sets9[i9].has(t9));
+              const extra9 = [...sets9[i9]].filter((t9) => !der9.has(t9));
+              if (!missing9.length && !extra9.length) continue;
               bad.push(
-                `meta.exteriorContract ${ec9[0].at}: its \`withheldTiles\` roster is ${sets9[0].size} tile(s) and ` +
-                  `this file re-derives ${derSet9.size} from terrain — the frozen flood over ` +
-                  `\`meta.shell.cutAtFreeze\` against the wall layer 2 leaves standing (that cut plus this room's ` +
-                  `bubbles), which is the board the FIRST consumer read` +
+                `meta.exteriorContract ${ec9[i9].at}: its \`withheldTiles\` roster is ${sets9[i9].size} tile(s) and ` +
+                  `this file re-derives ${der9.size} from terrain — the flood over \`meta.shell.cutAtFreeze\` ` +
+                  `against ${WHY9[i9]}` +
                   (missing9.length ? ` · ${missing9.length} derived tile(s) the record does not name (${missing9.slice(0, 6).join(" ")})` : ``) +
                   (extra9.length ? ` · ${extra9.length} named tile(s) the derivation does not reach (${extra9.slice(0, 6).join(" ")})` : ``) +
-                  `. The first reading is the one that is reconstructible without knowing what any later layer ` +
-                  `did, so it is the one held to the board`,
+                  `. All four readings are one frozen flood against a wall this file can rebuild, so all four are ` +
+                  `held to the board: holding three of them by containment alone left 516 of the 688 records ` +
+                  `that build published free, and appending invented tiles to the last one took the withheld sum ` +
+                  `this fleet publishes from 2786 to 37186 without a single room failing`,
               );
             }
-          }
-          // (iv) the basis a reader needs in order not to add the four up
-          if (plan.meta?.exteriorContractBasis !== EXTERIOR_CONTRACT_BASIS) {
-            bad.push(
-              `meta.exteriorContractBasis is ${plan.meta?.exteriorContractBasis === undefined ? "ABSENT" : `not the producer's own sentence ("…${String(plan.meta.exteriorContractBasis).slice(0, 60)}…")`}. ` +
-                `The four entries are ONE tile set read at four moments — this room's four counts sum to ` +
-                `${ec9.reduce((n9, e9) => n9 + (Number.isInteger(e9.withheld) ? e9.withheld : 0), 0)} over ` +
-                `${new Set(ec9.flatMap((e9) => (Array.isArray(e9.withheldTiles) ? e9.withheldTiles.map(String) : []))).size} ` +
-                `distinct tile(s) — and the sentence that says so travels with the record or the natural reading ` +
-                `of the column is wrong by a factor of four`,
+            // ...AND THE SANDWICH, stated separately. It is implied by the four
+            // equalities above and it is the claim that survives them: the
+            // FIRST consumer's derivation is a floor under every later reading
+            // and the LAST one's is a ceiling over every earlier one, because
+            // the wall only gains ramparts between layer 3 and layer 6.
+            for (let i9 = 1; i9 <= 2; i9++) {
+              if (!sets9[i9]) continue;
+              const under9 = [...derived9[0]].filter((t9) => !sets9[i9].has(t9));
+              const over9 = [...sets9[i9]].filter((t9) => !derived9[3].has(t9));
+              if (!under9.length && !over9.length) continue;
+              bad.push(
+                `meta.exteriorContract ${ec9[i9].at}: its roster is not between the two readings this file can ` +
+                  `take without believing anything the producer wrote — the frozen cut against layer 2's own ` +
+                  `bubbles (${derived9[0].size} tile(s)) and the frozen cut against every rampart the room ships ` +
+                  `(${derived9[3].size})` +
+                  (under9.length ? ` · ${under9.length} tile(s) below the floor are missing (${under9.slice(0, 6).join(" ")})` : ``) +
+                  (over9.length ? ` · ${over9.length} tile(s) above the ceiling are named (${over9.slice(0, 6).join(" ")})` : ``) +
+                  `. A middle consumer reads a wall between those two and nothing else`,
+              );
+            }
+            // (v) THE ANCHOR. `cutAtFreeze` is layer 2's cut; the room ships
+            // layer 7's; every tile of the difference carries provenance or the
+            // snapshot is a free parameter with a new name.
+            const coreLeak9 = [];
+            for (const t9 of ["storage", "spawn", "terminal", "tower", "lab", "nuker", "observer", "factory", "powerSpawn"]) {
+              for (const p9 of s[t9] || []) if (frozen9[idx(p9.x, p9.y)]) coreLeak9.push(`${p9.x},${p9.y}=${t9}`);
+            }
+            if (coreLeak9.length) {
+              bad.push(
+                `meta.shell.cutAtFreeze does not seal this room: the flood over it reaches ${coreLeak9.length} of ` +
+                  `this room's own owned structures (${coreLeak9.slice(0, 6).join(" ")}). It is published as LAYER ` +
+                  `2's CUT and every reading of the enclosure contract is taken against the flood over it, so a ` +
+                  `snapshot that is not a sealing curve is not the cut — and shrinking it is how a room inflates ` +
+                  `every withheld roster it publishes at once`,
+              );
+            }
+            const shipCutK9 = new Set(cutPts.map((c9) => key(c9.x, c9.y)));
+            const inert9 = new Set(
+              (plan.meta?.shell?.inertPruned || plan.shell?.inertPruned || [])
+                .filter((t9) => t9 && Number.isInteger(t9.x))
+                .map((t9) => key(t9.x, t9.y)),
             );
+            const dropped9 = [...freezeK9].filter((t9) => !shipCutK9.has(t9));
+            const added9 = [...shipCutK9].filter((t9) => !freezeK9.has(t9));
+            const unexplained9 = dropped9.filter((t9) => !inert9.has(t9) || rampK9.has(t9));
+            if (unexplained9.length) {
+              bad.push(
+                `meta.shell.cutAtFreeze carries ${dropped9.length} tile(s) the room does not ship on its cut, and ` +
+                  `${unexplained9.length} of them (${unexplained9.slice(0, 6).join(" ")}) are ` +
+                  `${unexplained9.some((t9) => rampK9.has(t9)) ? `either not in \`meta.shell.inertPruned\` or still carrying a rampart on the shipped board` : `not in \`meta.shell.inertPruned\``}. ` +
+                  `A tile that left the cut between layer 2 and layer 7 left it through the inert prune, which ` +
+                  `publishes its roster — and a tile the snapshot claims the wall once had, that no pass says it ` +
+                  `lost and that still wears a rampart, is a tile invented to move the flood`,
+              );
+            }
+            // THE DRIFT LOG, REPLAYED. `meta.shell.cutDrift` is one entry per
+            // tile either mutating pass moved — the inert prune's deletions and
+            // the seal reconciliation's adoptions — with the pass that made it
+            // and the reason. It is not believed: it is REPLAYED onto
+            // `cutAtFreeze` and the result has to be the shipped cut, tile for
+            // tile, which is an arithmetic identity a forged anchor breaks.
+            const drift9 = plan.meta?.shell?.cutDrift ?? plan.shell?.cutDrift;
+            if (!Array.isArray(drift9)) {
+              bad.push(
+                `meta.shell.cutDrift is ${drift9 === undefined ? "ABSENT" : String(JSON.stringify(drift9)).slice(0, 40)} — it is ` +
+                  `the freeze-time provenance: one entry per tile the passes after layer 2 moved on or off the cut ` +
+                  `(this room's two lists differ on ${added9.length + dropped9.length}), each naming the pass and ` +
+                  `the reason. Every reading of the enclosure contract is taken against the flood over the frozen ` +
+                  `cut, so a difference no record explains is the anchor missing — the snapshot could be anything ` +
+                  `that floods the same way, and co-forging it with the four rosters is exactly the exploit this ` +
+                  `gate exists for`,
+              );
+            } else {
+              const replay9 = new Set(freezeK9);
+              const badRow9 = [];
+              const noop9 = [];
+              drift9.forEach((e10, i10) => {
+                if (!e10 || !Number.isInteger(e10.x) || !Number.isInteger(e10.y) || (e10.op !== "add" && e10.op !== "remove")) {
+                  badRow9.push(`[${i10}] ${String(JSON.stringify(e10)).slice(0, 50)}`);
+                  return;
+                }
+                if (typeof e10.pass !== "string" || !e10.pass || typeof e10.why !== "string" || e10.why.length < 12) {
+                  badRow9.push(`[${i10}] ${e10.x},${e10.y} ${e10.op} names pass ${String(JSON.stringify(e10.pass)).slice(0, 20)} and why ${String(JSON.stringify(e10.why)).slice(0, 24)}`);
+                  return;
+                }
+                // EVERY ENTRY IS A REAL MOVE AT THE MOMENT IT IS APPLIED, which
+                // is what makes the replay pin the STARTING SET and not just
+                // the net effect. Without it, re-pointing `cutAtFreeze` at the
+                // shipped cut reconciles perfectly — every add is already
+                // there, every remove is already gone — and the anchor is free
+                // again in the 165 rooms whose two floods happen to agree.
+                const k10 = key(e10.x, e10.y);
+                if (e10.op === "add" && replay9.has(k10)) {
+                  noop9.push(`[${i10}] ${k10} is ADDED to a cut that already carries it`);
+                  return;
+                }
+                if (e10.op === "remove" && !replay9.has(k10)) {
+                  noop9.push(`[${i10}] ${k10} is REMOVED from a cut that does not carry it`);
+                  return;
+                }
+                if (e10.op === "add") replay9.add(k10);
+                else replay9.delete(k10);
+              });
+              if (noop9.length) {
+                bad.push(
+                  `meta.shell.cutDrift replays ${noop9.length} move(s) that change nothing when they are applied: ` +
+                    `${noop9.slice(0, 4).join(" · ")}. Each entry is a pass moving one tile on or off the cut, so ` +
+                    `an add of a tile the cut already has and a remove of a tile it does not are both a log about a ` +
+                    `different starting set than \`meta.shell.cutAtFreeze\` — which is precisely what re-pointing ` +
+                    `the snapshot at the SHIPPED cut looks like from here`,
+                );
+              }
+              if (badRow9.length) {
+                bad.push(
+                  `meta.shell.cutDrift carries ${badRow9.length} entr(y/ies) that are not a move: ${badRow9.slice(0, 4).join(" · ")}. ` +
+                    `Each one names a tile of this room's board, an \`op\` of "add" or "remove", the \`pass\` that made ` +
+                    `the move and the \`why\` — a log without the reason is the difference restated`,
+                );
+              }
+              const missR9 = [...shipCutK9].filter((t9) => !replay9.has(t9));
+              const extraR9 = [...replay9].filter((t9) => !shipCutK9.has(t9));
+              if (missR9.length || extraR9.length) {
+                bad.push(
+                  `meta.shell.cutDrift does not reconcile this room's two cuts: replaying its ${drift9.length} move(s) ` +
+                    `onto \`meta.shell.cutAtFreeze\` (${freezeK9.size} tile(s)) gives ${replay9.size} and the room ships ` +
+                    `${shipCutK9.size}` +
+                    (missR9.length ? ` · ${missR9.length} shipped cut tile(s) the replay never reaches (${missR9.slice(0, 6).join(" ")})` : ``) +
+                    (extraR9.length ? ` · ${extraR9.length} tile(s) the replay leaves on the cut that the room does not ship (${extraR9.slice(0, 6).join(" ")})` : ``) +
+                    `. The frozen cut plus every logged move IS the shipped cut — that identity is what binds the ` +
+                    `snapshot every withheld roster is derived from to a board a reader can see`,
+                );
+              }
+            }
+          }
+          // (iv) the basis a reader needs in order not to add the four up —
+          // AND IT IS THIS ROOM'S. Round 25 fixed exactly this defect for
+          // `preTakeShortfallBasis` ("a constant rule sentence wearing the word
+          // basis") and shipped `exteriorContractBasis` byte-identical in
+          // 172/172 rooms in the same build, so the numbers the sentence is
+          // about are required to be in it.
+          {
+            const eb9 = plan.meta?.exteriorContractBasis;
+            const counts9 = ec9.map((e9) => (Number.isInteger(e9.withheld) ? e9.withheld : -1));
+            const sum9 = counts9.reduce((a9, b9) => a9 + b9, 0);
+            const distinct9 = new Set(ec9.flatMap((e9) => (Array.isArray(e9.withheldTiles) ? e9.withheldTiles.map(String) : []))).size;
+            const RULE9 = "the sum is not the room's withheld set and the union is";
+            const head9 = typeof eb9 === "string" ? /ON THIS ROOM: (\d+) consumer reading\(s\)/.exec(eb9) : null;
+            const tail9 = typeof eb9 === "string" ? /(\d+) tile-reading\(s\) over (\d+) DISTINCT/.exec(eb9) : null;
+            if (typeof eb9 !== "string" || eb9.length < 80 || !head9 || !tail9 || !eb9.includes(RULE9)) {
+              bad.push(
+                `meta.exteriorContractBasis is ${eb9 === undefined ? "ABSENT" : `"…${String(eb9).slice(0, 70)}…"`} and it ` +
+                  `carries no census of this room. The four entries are ONE tile set read at four moments — this ` +
+                  `room's four counts are ${counts9.join(", ")} in run order, ${sum9} tile-readings over ${distinct9} ` +
+                  `distinct tile(s) — and the sentence that says so travels with the record or the natural reading of ` +
+                  `the column is wrong by a factor of four. A basis that is byte-identical in every room of the fleet ` +
+                  `is a constant rule sentence wearing the word basis, which is the ruling round 25 applied to ` +
+                  `\`preTakeShortfallBasis\` in the build that shipped this one constant`,
+              );
+            } else {
+              const off9 = [];
+              if (Number(head9[1]) !== ec9.length) off9.push(`it counts ${head9[1]} consumer reading(s) over ${ec9.length} entries`);
+              if (Number(tail9[1]) !== sum9) off9.push(`it sums the readings to ${tail9[1]} and the four counts add to ${sum9}`);
+              if (Number(tail9[2]) !== distinct9) off9.push(`it names ${tail9[2]} distinct tile(s) and the union of the four rosters holds ${distinct9}`);
+              ec9.forEach((e9, i9) => {
+                const re9 = new RegExp(`${e9.at.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")} withheld (\\d+)(?: \\(([^)]*)\\))? and was exposed (\\d+)`);
+                const m9 = re9.exec(eb9);
+                if (!m9) {
+                  off9.push(`it says nothing about ${e9.at}`);
+                  return;
+                }
+                if (Number(m9[1]) !== counts9[i9]) off9.push(`it reads ${e9.at} as withholding ${m9[1]} and the record says ${counts9[i9]}`);
+                const roster9 = (m9[2] || "").split(" ").filter(Boolean).sort().join(" ");
+                const want9 = (Array.isArray(e9.withheldTiles) ? e9.withheldTiles.map(String) : []).slice().sort().join(" ");
+                if (roster9 !== want9) off9.push(`it names ${e9.at}'s roster as "${roster9 || "nothing"}" and the record's is "${want9 || "nothing"}"`);
+                if (Number(m9[3]) !== e9.exposed) off9.push(`it reads ${e9.at} as exposing ${m9[3]} and the record says ${e9.exposed}`);
+              });
+              if (off9.length) {
+                bad.push(
+                  `meta.exteriorContractBasis's census contradicts the contract it is printed beside: ` +
+                    `${off9.slice(0, 4).join(" · ")}. The census is what makes the field about THIS room — without it ` +
+                    `a cross-room transplant is a no-op, which is what "byte-identical in 172 of 172 rooms" meant`,
+                );
+              }
+            }
           }
         }
         for (const e9 of ec9) {
@@ -17366,28 +17929,34 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `channel that stops printing it is a channel that has stopped answering`,
             );
           } else {
-            const disagree4 = named4.filter(([, v]) => v !== ch4.film);
-            if (disagree4.length) {
-              fails.push(
-                `walls/mobility-caption — this room's three channels print two different reasons for one ` +
-                  `unjudged lap. The film caption says "${ch4.film}"; ` +
-                  disagree4.map(([n, v]) => `${n} says "${v}"`).join("; ") +
-                  `. One room, one question, one answer: the reason is a derivation over this room's own ` +
-                  `\`maxDetour\` and coverage, published in one place, not sentences that can disagree`,
-              );
-            }
-            const off4 = named4.filter(([, v]) => !String(v).includes(want4));
+            // THE WRAPPER GRAMMAR, STATED. Each channel is the derived reason
+            // inside the one frame its own writer puts around it — and nothing
+            // else, in any of the three. Round 25 asked whether each channel
+            // CONTAINED the reason, so a clause appended to all three at once
+            // passed in all three at once.
+            const want4Full = [
+              ["the film caption", UNJUDGED_LEAD + want4, ch4.film],
+              ["the room page", UNJUDGED_LEAD + want4, ch4.page],
+              ["the index chip", UNJUDGED_LEAD + want4 + UNJUDGED_CHIP_TAIL, ch4.chip],
+            ];
+            const off4 = want4Full.filter(([, w4, v4]) => String(v4) !== w4);
             if (off4.length) {
               fails.push(
-                `walls/mobility-caption — ${off4.map(([n]) => n).join(", ")} ${off4.length === 1 ? "does" : "do"} ` +
-                  `not print the reason this room's own record gives. Derived here from \`maxDetour\` ` +
-                  `${pubDetour4} against the ${MOB_DETOUR_FLOOR}-tile floor, by the shared ` +
-                  `\`unjudgedReason\` the declaration channel also runs: "${want4}". Shipped: ` +
-                  off4.map(([n, v]) => `${n} "${v}"`).join("; ") +
+                `walls/mobility-caption — ${off4.map(([n]) => n).join(", ")} ${off4.length === 1 ? "is" : "are"} ` +
+                  `not the sentence this room's own record gives. Derived here from \`maxDetour\` ` +
+                  `${pubDetour4} against the ${MOB_DETOUR_FLOOR}-tile floor, by the shared \`unjudgedReason\` the ` +
+                  `declaration channel also runs: "${want4}". Shipped: ` +
+                  off4.map(([n, w4, v4]) => `${n} "${v4}" (wanted "${w4}")`).join("; ") +
                   `. There are TWO ways a room reaches an unjudged zero and a channel that types one of them ` +
-                  `states a false reason for a true zero in every room that reached it the other way`,
+                  `states a false reason for a true zero in every room that reached it the other way — and the ` +
+                  `comparison is EQUALITY, not containment: a clause appended to all three channels agrees with ` +
+                  `itself perfectly and is still a sentence about this room that nothing derived`,
               );
             }
+            // (the round-25 channel-vs-channel comparison is subsumed: three
+            // channels each equal to one derived sentence are equal to each
+            // other, and a channel that is not is named above with both
+            // strings quoted)
           }
         }
       }
@@ -18732,12 +19301,72 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 `a fabricated key and a deleted one both leave a contiguous list behind`,
             );
           }
+          // ==============================================================
+          // ROUND 26 / MM3 — THE BASIS'S OWN CENSUS, PARSED BACK OUT OF IT.
+          // ==============================================================
+          // Round 25 fixed the constant-sentence defect by deriving a per-record
+          // CENSUS into this string — how many declarations the pre-take board
+          // carried, which classes in declaration order with their indices, and
+          // how the pass split them into keys and skips — and the producer's own
+          // header says a record whose key set does not cover its own shortfall
+          // list "now contradicts itself in prose as well as in arithmetic".
+          // True, and read by nobody: the gate was `typeof === "string" &&
+          // length >= 80`, so all 134 of this fleet's basis strings could be
+          // replaced with one invented census ("carried 99 declaration(s) —
+          // 0:unicorn/rainbow … 7 + 12 = 44 against 99 entries") and the fleet
+          // validated byte-identically. So the census is parsed here and every
+          // number and name in it is compared with the record it is about.
           if (typeof rec.preTakeShortfallBasis !== "string" || rec.preTakeShortfallBasis.length < 80) {
             bad6.push(
               `${at} publishes \`preTakeShortfalls\` and no \`preTakeShortfallBasis\` — the sentence that says ` +
                 `what that list IS. A witness a reader cannot read the rule of is a second copy of the record ` +
                 `with no statement of what it witnesses`,
             );
+          } else {
+            const basis6 = rec.preTakeShortfallBasis;
+            const m6 =
+              /the pre-take board carried (\d+) declaration\(s\)(?: — ([^;]*?))?, of which this pass ranks on (\d+) as key\(s\)(?: \(([^)]*)\))? and skips (\d+)(?: \(([^)]*)\))?; (\d+) \+ (\d+) = (\d+) against (\d+) entries\./.exec(
+                basis6,
+              );
+            if (!m6) {
+              bad6.push(
+                `${at}'s \`preTakeShortfallBasis\` carries no census this file can read ("…${basis6.slice(0, 90)}…"). ` +
+                  `The sentence states how many declarations the pre-take board carried, which classes they were ` +
+                  `in declaration order with their indices, how many the pass ranks on and how many it skips, and ` +
+                  `that those two add up to the first number — and a witness whose only test is that it is 80 ` +
+                  `characters long is a paragraph, not a record`,
+              );
+            } else {
+              const pair6 = (e6) => `${e6?.gate ?? "?"}${e6?.kind ? `/${e6.kind}` : ``}`;
+              const wantClasses6 = (preList || []).map((e6, i6) => `${i6}:${pair6(e6)}`).join(", ");
+              const wantKeys6 = (K9 || []).map(pair6).join(", ");
+              const wantSkips6 = (S9 || []).map(pair6).join(", ");
+              const gotN6 = Number(m6[1]);
+              const gotClasses6 = (m6[2] || "").trim();
+              const gotK6 = Number(m6[3]);
+              const gotKeys6 = (m6[4] || "").trim();
+              const gotS6 = Number(m6[5]);
+              const gotSkips6 = (m6[6] || "").trim();
+              const [sumK6, sumS6, sumT6, sumN6] = [Number(m6[7]), Number(m6[8]), Number(m6[9]), Number(m6[10])];
+              const wrong6 = [];
+              if (Number.isInteger(preN) && gotN6 !== preN) wrong6.push(`it counts ${gotN6} declaration(s) against \`preTakeShortfallCount\` ${preN}`);
+              if (preList && gotN6 !== preList.length) wrong6.push(`it counts ${gotN6} declaration(s) against a \`preTakeShortfalls\` list of ${preList.length}`);
+              if (gotClasses6 !== wantClasses6) wrong6.push(`it names the channel as "${gotClasses6 || "nothing"}" and the record's own list, index for index, is "${wantClasses6 || "nothing"}"`);
+              if (gotK6 !== (K9 || []).length) wrong6.push(`it ranks on ${gotK6} key(s) and \`declaredKeys\` holds ${(K9 || []).length}`);
+              if (gotKeys6 !== wantKeys6) wrong6.push(`it names the keys as "${gotKeys6 || "nothing"}" and \`declaredKeys\` names "${wantKeys6 || "nothing"}"`);
+              if (gotS6 !== (S9 || []).length) wrong6.push(`it skips ${gotS6} and \`declaredSkipped\` holds ${(S9 || []).length}`);
+              if (gotSkips6 !== wantSkips6) wrong6.push(`it names the skips as "${gotSkips6 || "nothing"}" and \`declaredSkipped\` names "${wantSkips6 || "nothing"}"`);
+              if (sumK6 !== gotK6 || sumS6 !== gotS6 || sumT6 !== sumK6 + sumS6 || sumN6 !== gotN6 || sumT6 !== gotN6)
+                wrong6.push(`its own arithmetic reads ${sumK6} + ${sumS6} = ${sumT6} against ${sumN6} entries, over a census of ${gotK6} key(s), ${gotS6} skip(s) and ${gotN6} entr(y/ies)`);
+              if (wrong6.length) {
+                bad6.push(
+                  `${at}'s \`preTakeShortfallBasis\` census contradicts the record it is printed on: ` +
+                    `${wrong6.slice(0, 4).join(" · ")}. The producer's own header says a record whose key set does ` +
+                    `not cover its own shortfall list contradicts itself in prose as well as in arithmetic — this ` +
+                    `is that contradiction, read`,
+                );
+              }
+            }
           }
           if (!preList || (Number.isInteger(preN) && preList.length !== preN)) {
             bad6.push(
