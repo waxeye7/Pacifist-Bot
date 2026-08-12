@@ -28,7 +28,17 @@
  *   7. Battlements: cut tiles facing wide approach lanes — where the
  *      RampartDefenders should stand. Metadata for defence AI.
  */
-import { D8, borderLegal, buildable, chebyshev, isSwamp, isWall, key, walkable } from "./shared.mjs";
+import {
+  D8,
+  borderLegal,
+  buildable,
+  chebyshev,
+  exteriorFlood,
+  isSwamp,
+  isWall,
+  key,
+  walkable,
+} from "./shared.mjs";
 // DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
 import { renderDecl } from "./declprose.mjs";
 
@@ -504,45 +514,6 @@ export function computeCut(terrain, protectSet, opts = {}) {
     }
   }
   return { cut, flow };
-}
-
-/** Exterior = flood from exits, cut tiles block. */
-function exteriorFlood(terrain, cutSet) {
-  const ext = new Uint8Array(2500);
-  const q = [];
-  for (let i = 0; i < 50; i++) {
-    for (const [x, y] of [
-      [i, 0],
-      [i, 49],
-      [0, i],
-      [49, i],
-    ]) {
-      if (!walkable(terrain, x, y) || cutSet.has(key(x, y))) continue;
-      const ii = idx(x, y);
-      if (!ext[ii]) {
-        ext[ii] = 1;
-        q.push(ii);
-      }
-    }
-  }
-  let qi = 0;
-  while (qi < q.length) {
-    const i = q[qi++];
-    const x = i % 50,
-      y = (i / 50) | 0;
-    for (const [dx, dy] of D8) {
-      const nx = x + dx,
-        ny = y + dy;
-      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-      if (!walkable(terrain, nx, ny)) continue;
-      if (cutSet.has(key(nx, ny))) continue;
-      const ni = nx + ny * 50;
-      if (ext[ni]) continue;
-      ext[ni] = 1;
-      q.push(ni);
-    }
-  }
-  return ext;
 }
 
 /**

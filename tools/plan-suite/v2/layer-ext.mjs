@@ -52,7 +52,9 @@ import {
   D4,
   D8,
   buildable,
+  checkEnclosureContract,
   engineBuildable,
+  invalidateExterior,
   isWall,
   key,
   mineralGuard,
@@ -540,6 +542,14 @@ export function planExtensions(terrain, plan) {
   if (!plan.shell) return { error: "extensions need a shell (layer 2 missing)" };
   const depth = plan.depth;
   const ext = plan.exterior;
+  // THE ENCLOSURE READING, DECLARED AND CHECKED. `plan.exterior` is layer 2's
+  // flood against the min-cut RING — the shell this layer is placing inside,
+  // and the field `plan.depth` agrees with. That is the question this layer
+  // means to ask, so it keeps the frozen field rather than the live wall; what
+  // it may NOT do is rely on the two agreeing by luck. See the exteriorFlood
+  // header in shared.mjs: `exposed` must be 0, and a non-zero reading is a
+  // declared shortfall, not a comment.
+  checkEnclosureContract(terrain, plan, "ext(L6)");
   const forbidSeats = forbiddenExtSeats(plan);
 
   // structures whose faces must stay reachable
@@ -3924,6 +3934,10 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
     if (rampartsRetired.length) {
       const gone = new Set(rampartsRetired.map((r) => key(r.x, r.y)));
       plan.structures.rampart = ramparts.filter((r) => !gone.has(key(r.x, r.y)));
+      // a rampart-REMOVING pass, which is the direction that opens tiles to the
+      // outside — every cached exterior flood on this plan is now wrong. See the
+      // exteriorFlood header in shared.mjs.
+      invalidateExterior(plan);
     }
   }
 

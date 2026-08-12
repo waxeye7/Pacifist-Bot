@@ -103,6 +103,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import {
   OUT_V2,
   D4,
@@ -134,6 +135,66 @@ import { NOTE_CLASSES, renderNote } from "./declprose-notes.mjs";
 import { renderSatBasis } from "./declprose-towers.mjs";
 
 const idx = (x, y) => x + y * 50;
+
+// ==========================================================================
+// ROUND 24 / OM4 — THE FILM'S CAPTION IS A THIRD CHANNEL, AND IT ANSWERED A
+// DIFFERENT QUESTION FROM THE OTHER TWO.
+// ==========================================================================
+// `animNotes` (plan.mjs) captions a room whose as-built gated lap is 0 with a
+// hardcoded REASON: "no pair of wall tiles detours more than <floor> tiles, so
+// no pair was judged". That reason is FALSE wherever the zero has the other
+// cause — E7S5's worst pair detours 33 tiles at ratio 17.5 with `over: 3`, and
+// E6S3's detours 5 with `over: 26` — and the correct helper already exists and
+// is already used by the two channels beside it: `mobilityUnjudgedWhy` branches
+// on the room's own maxDetour and says "every pair that clears the floor is
+// excused by coverage" where that is what happened. One room, three reader
+// channels, two different answers, and the film's is the one nobody can check
+// against an artifact because the caption is generated at export time and never
+// lands in plans-hub.json.
+//
+// So it is checked where it lives. This is a SOURCE guard, deliberately: the
+// defect is that one of three call sites reimplements a shared helper, and the
+// property being asserted — "the caption comes from the helper" — is a property
+// of the code, not of any plan. It fires on the rooms whose film prints that
+// caption, so a regression fails the exact rooms that would ship the false
+// sentence.
+const V2_DIR = path.dirname(fileURLToPath(import.meta.url));
+/** the film's caption source, read once: { body, callSites, err } */
+let ANIM_SRC_CACHE = null;
+function animCaptionSource() {
+  if (ANIM_SRC_CACHE) return ANIM_SRC_CACHE;
+  const f = path.join(V2_DIR, "plan.mjs");
+  try {
+    const src = fs.readFileSync(f, "utf8");
+    const at = src.indexOf("\nfunction animNotes(");
+    if (at < 0) {
+      ANIM_SRC_CACHE = { err: `plan.mjs carries no \`function animNotes(\` — the film's caption channel has been renamed or removed, and this gate names it` };
+      return ANIM_SRC_CACHE;
+    }
+    // the function body runs to the first closing brace in column 0. COMMENTS
+    // ARE STRIPPED FIRST: the fix for this defect quotes the sentence it
+    // removed, in a comment, directly above the call that replaced it — which
+    // is the house style and is exactly right. A guard that reads prose is a
+    // guard that fails the fix.
+    const end = src.indexOf("\n}", at + 1);
+    const body = src
+      .slice(at, end < 0 ? src.length : end)
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .split("\n")
+      .filter((l) => !/^\s*(\/\/|\*)/.test(l))
+      .join("\n");
+    const helper = /function mobilityUnjudgedWhy\s*\(/.test(src);
+    ANIM_SRC_CACHE = {
+      body,
+      // the definition itself is not a call site
+      callSites: [...src.matchAll(/mobilityUnjudgedWhy\s*\(/g)].length - (helper ? 1 : 0),
+      helper,
+    };
+  } catch (err) {
+    ANIM_SRC_CACHE = { err: `plan.mjs cannot be read (${err && err.message ? err.message : String(err)})` };
+  }
+  return ANIM_SRC_CACHE;
+}
 
 // structures that must never be reachable by an enemy creep, and must be
 // serviceable by a hauler (i.e. touch the road network)
@@ -4623,6 +4684,14 @@ for (const [k, v] of [
       "metric.overGated": D,
       "metric.pairs": D,
       "metric.gatedPairs": D,
+      // ROUND 24 / OM3 — the two readings the three-way headline branches on.
+      // The headline says "the gate judged NO PAIR ... and here is WHY", and
+      // the why is these: a room whose worst absolute detour clears the floor
+      // was judged nothing because COVERAGE excused every pair that cleared it,
+      // and a room whose worst detour does not clear the floor has no pair to
+      // judge at all. Both are the same all-pairs walk this file already runs.
+      "metric.maxDetour": D,
+      "metric.coveredPairs": D,
       "metric.bareOver": D,
       "metric.bareOverGated": D,
       "metric.target": D,
@@ -4896,8 +4965,9 @@ for (const [k, v] of [
       "repair.mass.trials": SEARCH_COUNTER(`relocations it tried`, GE("repair.mass.moved")),
       "repair.mass.moved": SEARCH_COUNTER(`relocations it took`, LE("repair.mass.trials")),
       "repair.mass.blockersSeen": SEARCH_COUNTER(`blocking tiles it examined`, LE(BOARD("interiorWalkable"))),
-      // ROUND 17 / F3: all three of these laps are `null` in the fleet's 57
-      // records, and until this round that null was worth more than a number:
+      // ROUND 17 / F3: all three of these laps are `null` in every one of the
+      // fleet's records, and until this round that null was worth more than a
+      // number:
       // a null SELF skips every closure it carries, and a null REFERENT made
       // the closure pointing at it pass. Both halves are measured facts now —
       // `NULLIFF` on the leaf, `NULLREF` on the closure that reads it — and
@@ -5774,7 +5844,10 @@ const RECORD_ARRAY_LEAVES = new Map(
                 // while the sentence asserted the scan RETURNED an empty
                 // candidate list. On the round-17 baseline 19 of the fleet's
                 // 25 shallow slots rendered it against records that say
-                // otherwise: E9S2's fifteen slots all read "NO free deep
+                // otherwise [r22-waived: "25 shallow slots" is the round-17
+                // BASELINE's reading, quoted as this finding's own evidence —
+                // the fleet ships a different number of shallow slots today and
+                // correcting it would delete the finding]: E9S2's fifteen slots all read "NO free deep
                 // tile … in BOTH classes" beside `freeDeepRoadFaced 3`,
                 // `freeDeepOnePave 1`, `spentOnAdds 3`, `paveTaken 1`. The
                 // room HAD four and spent them elsewhere. A reader was told
@@ -8826,6 +8899,34 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
   // excused (there is nothing to excuse it with) and it never reaches excused().
   const fails = [...schemaFails, ...inadmissible];
   const notes = [];
+  // ------------------------------------------------------------------
+  // ROUND 24 / OM5 — THE ROAD-AXIS OFFER CENSUS, COUNTED WHERE IT IS RUN.
+  //
+  // Six code sites used to type "13 offers, 10 of them re-derived exactly, 3
+  // the taken-parallel class" — a fleet reading taken once, dated to an
+  // artifact, carried in comments and in one bad.push FAILURE MESSAGE, and
+  // stale on its own artifact by the time the round that wrote it ended. The
+  // figure is now COUNTED by the block that does the work, per room, and
+  // summed by main() into one published line, so the only number a reader is
+  // shown is the one this run measured.
+  //
+  // AND THE DEFINITION IS THE WHOLE OF THE DISPUTE, so it is stated: an OFFER
+  // is one "moving it to X,Y — <price>" segment of one `alongCutRefused`
+  // entry, counted whether or not the refusal's own run tile is still on the
+  // shipped roster, and an offer is ROAD-AXIS when its price is quoted on
+  // `offNetwork`. Two honest counts of this fleet disagreed at 13 and 14
+  // because one of them counted an E9S8 offer priced on the CONTAINER axis;
+  // both are now published, separately, and neither is typed anywhere.
+  // ------------------------------------------------------------------
+  const netOfferCensus = { offers: 0, roadAxis: 0, witness: 0, reproduced: 0 };
+  /**
+   * ROUND 24 / OB2 — how many layer-7 roads this room ships OUTSIDE its own
+   * wall. "Exactly 3 across the fleet" was an OBSERVATION in the goal document
+   * that nothing enforced; the invariant (the kind has to be one with a reason
+   * to be out there) is enforced below and the COUNT is measured here and
+   * printed by main(), so the observation stops being a typed figure.
+   */
+  let lateRoadsOutside = 0;
   for (const f of raw) (excused(f) ? notes : fails).push(f.msg);
   // meta.notes — the planner's own observations channel. A NOTE is not a
   // shortfall: it is a fact about the room that nothing failed on and that a
@@ -8896,8 +8997,18 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       // (ramparts aside), so a tile is unpaveable exactly when something else is
       // already standing on it" — and forty lines up, at the stack gate, the same
       // file writes `const bad = solids.filter((t) => t !== "container")`,
-      // i.e. ROAD AND CONTAINER LEGALLY SHARE A TILE. They share one in 60 tiles
-      // across 53 shipped rooms. push-plan.mjs says the same thing. So both
+      // i.e. ROAD AND CONTAINER LEGALLY SHARE A TILE. They share tiles across
+      // this fleet, and how many in how many rooms is on the "road+container
+      // coincidences" line of push-plan.mjs `--census` rather than typed here.
+      // (ROUND 24 / MB: this sentence used to quote a tile count and a room
+      // count of its own, and both were stale on the artifact they were written
+      // against — and it closed "push-plan.mjs says the same thing", which was
+      // false in the other direction: push-plan.mjs documents that very pair as
+      // the ROT, under a waiver, as its own worked example. The claim survived
+      // two rounds because it wrapped across two comment lines and the numeral
+      // audit scanned each line as its own prose range. The figures are gone
+      // rather than corrected: the census that prints them is one command away
+      // and it does not go stale.) So both
       // published "gaps" — E2S5 27,23 (container + rampart) and E5S3 32,11 (the
       // mineral container) — were ordinary floor a road closes, and the exemption
       // was laundering two roads the producer declined to lay as a terrain
@@ -11237,14 +11348,18 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     //
     // ROUND 23 / MF5 — AND THE NETWORK HALF IS NO LONGER IN THAT CATEGORY. It
     // used to be, on the argument that "the board the refusal describes is one
-    // the fleet does not ship". Re-run under the refusal's own definition on the
-    // SHIPPED board, 10 of the 13 road-axis offers this fleet files reproduce
-    // exactly — magnitude, both readings and the newly-off roster — and the
-    // other three are the taken-parallel witness class below, so the
-    // argument was false and the arithmetic is re-derived in the delta block
-    // below. `alongCutMoved` is likewise no longer merely bounded: round 23 / OB1
+    // the fleet does not ship". Re-run under the refusal's own definition, the
+    // offers this fleet files reproduce exactly — magnitude, both readings and
+    // the newly-affected roster — so the argument was false and the arithmetic
+    // is re-derived in the delta block below. ROUND 24 / OB1+MA: including the
+    // taken-parallel offers, on the board the take can be UNDONE to recover;
+    // and the fleet counts that used to be typed into this paragraph are
+    // measured by the run and printed by main() (`along-cut swap offers: …`),
+    // because the last pair typed here was stale on the next artifact.
+    // `alongCutMoved` is likewise no longer merely bounded: round 23 / OB1
     // asks the shipped exterior flood whether the tile the swap moved a road ONTO
-    // is inside the wall, because two rooms shipped one that was not.
+    // is inside the wall, because two rooms shipped one that was not — and round
+    // 24 / OB2 asks it of every layer-7 kind that has no reason to be out there.
     // ==================================================================
     {
       const cutKeyed = new Set(cutPts.map((c) => key(c.x, c.y)));
@@ -11307,18 +11422,20 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       };
       // ==================================================================
       // ROUND 23 / MF5 — THE PASS'S OWN NETWORK MEASUREMENT, ON THE BOARD
-      // THE ROOM SHIPS.
+      // THE ROOM SHIPS. ROUND 24 / OB1+MA — ALL FOUR AXES OF IT, AND ON THE
+      // BOARD THE OFFER WAS PRICED ON.
       // ==================================================================
-      // Stage 5b measures one D8 component from the sitter over roads and
-      // containers and calls everything else "off the network"; that is the
-      // definition the refusal's own sentence uses ("they are no longer
-      // D8-connected to the sitter over roads and containers"). It is
-      // reproduced here EXACTLY — same seed, same D8, same container set, same
-      // sort — so that a refusal's arithmetic can be re-derived rather than
-      // believed. See the delta block below for what that buys and for the one
-      // case where it honestly cannot be done.
+      // Stage 5b measures a board on FOUR axes — live road count, road tiles
+      // off the network, containers left with no road on any of their eight
+      // neighbours, extensions that lose their last D4 road face — and a
+      // refusal names the FIRST of those the swap makes numerically worse,
+      // with both readings and the tiles that newly appeared on it. All four
+      // are reproduced here EXACTLY (same seed, same D8, same container set,
+      // same D4 face test, same sort, same precedence order), because a gate
+      // that re-derives one axis and takes the other three on trust prices
+      // exactly the offers an editor would re-label.
       const containerK9 = new Set((s.container || []).map((c9) => key(c9.x, c9.y)));
-      const offNetOf9 = (live) => {
+      const netMeasure9 = (live) => {
         const comp = new Set([key(sitter.x, sitter.y)]);
         const q9 = [{ x: sitter.x, y: sitter.y }];
         for (let qi = 0; qi < q9.length; qi++) {
@@ -11332,65 +11449,389 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             q9.push({ x, y });
           }
         }
-        return [...live].filter((k9) => !comp.has(k9)).sort();
+        const offNetwork = [...live].filter((k9) => !comp.has(k9)).sort();
+        const containersWithoutFace = [];
+        for (const c9 of s.container || []) {
+          if (comp.has(key(c9.x, c9.y))) continue;
+          if (!D8.some(([dx, dy]) => comp.has(key(c9.x + dx, c9.y + dy)))) {
+            containersWithoutFace.push(`${c9.x},${c9.y}`);
+          }
+        }
+        const extensionsWithoutFace = [];
+        for (const e9 of s.extension || []) {
+          if (!D4.some(([dx, dy]) => live.has(key(e9.x + dx, e9.y + dy)))) {
+            extensionsWithoutFace.push(`${e9.x},${e9.y}`);
+          }
+        }
+        return { roads: live.size, offNetwork, containersWithoutFace, extensionsWithoutFace };
       };
-      /** the un-swapped shipped board's own off-network roster */
-      const shippedOff9 = offNetOf9(roadSet);
+      /** the producer's own precedence: the FIRST axis the swap makes worse, or null */
+      const worseAxis9 = (before9, after9) => {
+        if (after9.roads > before9.roads) return "roads";
+        for (const a9 of ["offNetwork", "containersWithoutFace", "extensionsWithoutFace"]) {
+          if (after9[a9].length > before9[a9].length) return a9;
+        }
+        return null;
+      };
+      /** the three delta prices stage 5b can quote, each with the axis it reads */
+      const PRICE_AXES9 = [
+        {
+          axis: "offNetwork",
+          re: /^(-?\d+) more road tile\(s\) fall off the network \((-?\d+) -> (-?\d+); newly off: ([^)]*)\)/,
+          // the producer elides this roster past six and marks the elision;
+          // the other two are printed whole
+          elides: true,
+        },
+        {
+          axis: "containersWithoutFace",
+          re: /^(-?\d+) more container\(s\) are left with no road on any of their 8 neighbours \((-?\d+) -> (-?\d+); newly stranded: ([^)]*)\)/,
+          elides: false,
+        },
+        {
+          axis: "extensionsWithoutFace",
+          re: /^(-?\d+) more extension\(s\) lose their last D4 road face \((-?\d+) -> (-?\d+); newly faceless: ([^)]*)\)/,
+          elides: false,
+        },
+      ];
+      // ==================================================================
+      // ROUND 24 / OB1 + MA (BLOCKING) — THE WITNESS EXEMPTION IS DEAD,
+      // BECAUSE THE BOARD IT SAID WAS GONE IS RECONSTRUCTIBLE.
+      // ==================================================================
+      // Round 23 granted an exemption: where the offered parallel already
+      // carries a road on the shipped board, simulating the swap would measure
+      // a board with a road DELETED rather than MOVED, so the arithmetic could
+      // not be re-derived — and the code bare-`return`ed on it. That exemption
+      // was granted on BOARD STATE (target paved, provenance "alongCutMoved"),
+      // which an editor satisfies by pointing a fabricated refusal at the
+      // room's own real take; nothing then bounded what the refusal could
+      // CLAIM. Six exploits landed in it in one round: a 999-more price whose
+      // own readings DECREASE 5 -> 3 citing tile 99,99, an invented roster, a
+      // 40-more inflation, and a 1-more DEFLATION that makes a kept
+      // anti-pattern look cheap. The exemption was also UNNECESSARY.
+      //
+      // THE RECONSTRUCTION. The exempted case is precisely the one where this
+      // room's own stage 5b TOOK a swap on a neighbouring run tile: a road
+      // moved from some run tile `from2` onto `t`. So the board the offer was
+      // priced on is the shipped board with that one swap undone —
+      // `shipped ∪ {from2} \ {t}` — and `from2` is derivable from the shipped
+      // board alone:
+      //   * it is a RAMPART (the swap moves a road off the wall, and the
+      //     rampart stays behind),
+      //   * it carries NO road today (its road is the one that moved),
+      //   * it is D8-adjacent to `t` (a parallel is a neighbour),
+      //   * and on the board it reconstructs, the offer this refusal prices is
+      //     genuinely WORSE on one of the four axes — which is the refusal's
+      //     own verdict, and the reason the pass refused instead of taking.
+      // Measured on this fleet that description picks exactly ONE candidate in
+      // every witness room, and all four witness offers then reproduce
+      // EXACTLY: magnitude, both readings, the roster string and its elision,
+      // on the road axis and on the container axis alike. Where it picks none
+      // or more than one the offer is FAILED rather than excused: an offer
+      // priced on a board nobody can name is the unbounded hole again.
       /**
-       * ONE OFFER'S PRICE, RE-DERIVED. `from` is the refused run tile, `t` the
-       * parallel it was offered, and `quoted` the refusal's own four terms
-       * [N, A, B, roster]. See the block comment at the delta gate below for the
-       * argument and for the one exception.
+       * the board an offer was priced on, and the take that has to be undone to
+       * get back to it. `board: null` means it cannot be reconstructed, with
+       * `why` saying which way it failed.
        */
-      const netPriceCheck9 = (from9, t, [n9, a9, b9, rosterTxt9]) => {
+      const offerBoard9 = (fromK9, t) => {
         const tgt9 = key(t.x, t.y);
+        if (!roadSet.has(tgt9)) return { board: roadSet, from2: null, why: null, cands: [] };
         const rk9 = plan.meta?.walls?.roadKind || {};
-        if (roadSet.has(tgt9)) {
-          if (rk9[tgt9] !== "alongCutMoved") {
+        if (rk9[tgt9] !== "alongCutMoved") {
+          return { board: null, from2: null, why: "provenance", kind: rk9[tgt9] ?? null, cands: [] };
+        }
+        const cands = [];
+        for (const [dx, dy] of D8) {
+          const c9 = key(t.x + dx, t.y + dy);
+          if (!rampartK.has(c9) || roadSet.has(c9)) continue;
+          const board = new Set(roadSet);
+          board.add(c9);
+          board.delete(tgt9);
+          if (!board.has(fromK9)) continue;
+          const after = new Set(board);
+          after.delete(fromK9);
+          after.add(tgt9);
+          if (!worseAxis9(netMeasure9(board), netMeasure9(after))) continue;
+          cands.push({ from2: c9, board });
+        }
+        if (cands.length !== 1) {
+          return { board: null, from2: null, why: "candidates", cands: cands.map((c9) => c9.from2) };
+        }
+        return { board: cands[0].board, from2: cands[0].from2, why: null, cands: [cands[0].from2] };
+      };
+      /**
+       * ONE OFFER, AUDITED WHOLE — the shape, the well-formedness of the
+       * subtraction and the MAGNITUDE, on the board the offer was priced on.
+       * Called for every priced offer of every refusal in BOTH loops below,
+       * witness or not, in-roster or not: round 23's arithmetic checks lived
+       * inside the shipped-run-roster loop, and a room whose run roster is
+       * empty (E17S5) filed every refusal it had into the other one, where
+       * nothing at all ran.
+       *
+       * @param fromK9 the refused tile, as a key
+       * @param t      the parallel the swap was offered to
+       * @param cost   the refusal's own price sentence for THIS offer
+       * @param rec9   the refusal record (for `baseline`)
+       */
+      const auditOffer9 = (fromK9, t, cost, rec9) => {
+        const tgt9 = key(t.x, t.y);
+        netOfferCensus.offers++;
+        let hit = null;
+        for (const sh of PRICE_AXES9) {
+          const m9 = sh.re.exec(cost);
+          if (m9) {
+            hit = { sh, m9 };
+            break;
+          }
+        }
+        if (!hit) {
+          if (/the container at (-?\d+),(-?\d+) is left with no road on any of its 8 neighbours/.test(cost)) {
+            const cm = cost.match(/the container at (-?\d+),(-?\d+) is left with no road on any of its 8 neighbours/);
             bad.push(
-              `meta.walls.alongCutRefused ${from9}: the refusal prices the swap to ${t.x},${t.y} at ` +
-                `${n9} more road tile(s) off the network, and ${t.x},${t.y} carries a road on the ` +
-                `shipped board whose provenance is ${JSON.stringify(rk9[tgt9] ?? null)}. The price is ` +
-                `re-derived here by MOVING this run tile's road onto the parallel; a parallel that is ` +
-                `already paved by some other pass makes that simulation a board with a road deleted ` +
-                `rather than a road moved, and the only occupant this file grants that exception to is ` +
-                `the swap this room's own stage 5b TOOK (\`roadKind\` "alongCutMoved") — which is a ` +
-                `board the record names, not a re-derivation nobody can do`,
+              `meta.walls.alongCutRefused ${fromK9}: the swap to ${t.x},${t.y} is priced "the container at ` +
+                `${cm[1]},${cm[2]} is left with no road on any of its 8 neighbours" — the round-21 ABSOLUTE ` +
+                `predicate. It is a statement about the board AFTER the swap and says nothing about what the ` +
+                `swap COST: six refusals in five rooms rested on it while the container they named was the ` +
+                `mineral seat, off the network before the swap and after it, and five rooms shipped a paved ` +
+                `run along their own wall because of it. A refused swap is priced as a subtraction ` +
+                `("N more … (A -> B)") or it is not priced`,
+            );
+            return;
+          }
+          bad.push(
+            `meta.walls.alongCutRefused ${fromK9}: the swap to ${t.x},${t.y} is priced "${cost.slice(0, 70)}${
+              cost.length > 70 ? "…" : ""
+            }" — stage 5b prices a refused swap as a measured worsening on a NAMED axis with both readings in ` +
+              `the sentence, and a price this file cannot subtract is a refusal nobody can re-derive`,
+          );
+          return;
+        }
+        const { sh, m9 } = hit;
+        if (sh.axis === "offNetwork") netOfferCensus.roadAxis++;
+        const n9 = Number(m9[1]);
+        const a9 = Number(m9[2]);
+        const b9 = Number(m9[3]);
+        const rosterTxt9 = m9[4];
+        const roster9 = rosterTxt9
+          .replace(/…/g, " ")
+          .trim()
+          .split(/\s+/)
+          .filter((w9) => /^-?\d+,-?\d+$/.test(w9));
+        const elided9 = /…/.test(rosterTxt9);
+        // ---- WELL-FORMEDNESS: it IS a subtraction, both terms read one board,
+        // and the roster is as long as the difference says. This block used to
+        // run only in the shipped-run-roster loop.
+        const problems9 = [];
+        if (!(b9 > a9)) {
+          problems9.push(
+            `its own subtraction is ${a9} -> ${b9}, which is not WORSE — a swap that leaves the axis ` +
+              `where it found it is a swap this rule TAKES`,
+          );
+        }
+        if (n9 !== b9 - a9) problems9.push(`it quotes ${n9} more and its own two readings differ by ${b9 - a9}`);
+        const B9 = rec9 && rec9.baseline;
+        const okBase9 = B9 && typeof B9 === "object" && Number.isInteger(B9[sh.axis]) && B9[sh.axis] >= 0;
+        if (!okBase9) {
+          problems9.push(
+            `the refusal record publishes no re-readable \`baseline.${sh.axis}\` ` +
+              `(${String(JSON.stringify(B9 ? B9[sh.axis] : B9)).slice(0, 30)}), so the board it prices the swap ` +
+              `AGAINST is a number with no second reading`,
+          );
+        } else if (a9 !== B9[sh.axis]) {
+          problems9.push(
+            `it prices the swap against a board reading ${a9} on \`${sh.axis}\` and this refusal's own ` +
+              `\`baseline.${sh.axis}\` is ${B9[sh.axis]} — the two terms of a subtraction have to be readings ` +
+              `of the same board`,
+          );
+        }
+        const owed9 = b9 - a9;
+        if (!elided9 && roster9.length !== owed9) {
+          problems9.push(`it names ${roster9.length} newly-affected tile(s) against a difference of ${owed9}, with nothing elided`);
+        }
+        if (elided9 && !sh.elides) {
+          problems9.push(`it marks its roster elided and this price prints its roster whole — the elision is not one this pass can produce`);
+        }
+        if (elided9 && sh.elides && roster9.length >= owed9) {
+          problems9.push(`it marks its roster elided and names ${roster9.length} of ${owed9}`);
+        }
+        for (const k9 of roster9) {
+          const fx9 = Number(k9.split(",")[0]);
+          const fy9 = Number(k9.split(",")[1]);
+          if (fx9 < 0 || fy9 < 0 || fx9 > 49 || fy9 > 49) problems9.push(`${k9} is not a tile of this room`);
+        }
+        if (problems9.length) {
+          bad.push(
+            `meta.walls.alongCutRefused ${fromK9}: the refusal prices the swap to ${t.x},${t.y} on ` +
+              `\`${sh.axis}\` and ${problems9.join("; ")}. That it IS a subtraction, and that both of its ` +
+              `terms are readings of one board, is checked on every refusal this room files — the ones whose ` +
+              `run the take broke included, because a price is a price wherever the run went`,
+          );
+        }
+        // ---- ...AND THE MAGNITUDE, on the board the offer was priced on.
+        const OB9 = offerBoard9(fromK9, t);
+        if (OB9.from2) netOfferCensus.witness++;
+        if (!OB9.board) {
+          if (OB9.why === "provenance") {
+            bad.push(
+              `meta.walls.alongCutRefused ${fromK9}: the refusal prices the swap to ${t.x},${t.y} at ` +
+                `${n9} more on \`${sh.axis}\`, and ${t.x},${t.y} carries a road on the shipped board whose ` +
+                `provenance is ${JSON.stringify(OB9.kind)}. The price is re-derived by MOVING this tile's ` +
+                `road onto the parallel; a parallel paved by some other pass makes that simulation a board ` +
+                `with a road deleted rather than a road moved, and the only occupant this file can undo is ` +
+                `the swap this room's own stage 5b TOOK (\`roadKind\` "alongCutMoved")`,
+            );
+          } else {
+            bad.push(
+              `meta.walls.alongCutRefused ${fromK9}: the refusal prices the swap to ${t.x},${t.y}, that tile ` +
+                `carries this room's own "alongCutMoved" road, and the take that put it there cannot be ` +
+                `undone: the board the offer was priced on is \`shipped ∪ {from} \\ {${t.x},${t.y}}\` where ` +
+                `\`from\` is the rampart the take moved that road OFF, and this room offers ` +
+                `${OB9.cands.length === 0 ? "no such rampart" : `${OB9.cands.length} of them (${OB9.cands.join(" ")})`} — ` +
+                `a roadless rampart D8-adjacent to the target on whose board this very offer is measurably ` +
+                `worse. An offer priced on a board nobody can name is a number nothing bounds, which is ` +
+                `exactly what the taken-parallel exemption used to be`,
             );
           }
           return;
         }
-        if (!roadSet.has(from9)) {
+        if (!OB9.board.has(fromK9)) {
           bad.push(
-            `meta.walls.alongCutRefused ${from9}: the refusal prices moving THIS TILE'S road to ` +
-              `${t.x},${t.y} and this room ships no road on ${from9}. The subtraction is a fact about a ` +
-              `road that exists; a refusal filed for a tile the board no longer paves prices nothing`,
+            `meta.walls.alongCutRefused ${fromK9}: the refusal prices moving THIS TILE'S road to ` +
+              `${t.x},${t.y} and ${OB9.from2 ? `the board that offer was made on` : `this room`} ships no ` +
+              `road on ${fromK9}. The subtraction is a fact about a road that exists; a refusal filed for a ` +
+              `tile the board no longer paves prices nothing`,
           );
           return;
         }
-        const attempt9 = new Set(roadSet);
-        attempt9.delete(from9);
+        const before9 = netMeasure9(OB9.board);
+        const attempt9 = new Set(OB9.board);
+        attempt9.delete(fromK9);
         attempt9.add(tgt9);
-        const after9 = offNetOf9(attempt9);
-        const newly9 = after9.filter((k9) => !shippedOff9.includes(k9));
-        const wantRoster9 = `${newly9.slice(0, 6).join(" ")}${newly9.length > 6 ? " …" : ""}`;
-        const gotRoster9 = String(rosterTxt9).trim();
+        const after9 = netMeasure9(attempt9);
+        const axis9 = worseAxis9(before9, after9);
         const off9 = [];
-        if (a9 !== shippedOff9.length) off9.push(`it prices the un-swapped board at ${a9} road tile(s) off the network and the shipped board reads ${shippedOff9.length}`);
-        if (b9 !== after9.length) off9.push(`it prices the swapped board at ${b9} and moving that road on the shipped board reads ${after9.length}`);
-        if (n9 !== after9.length - shippedOff9.length) off9.push(`it quotes ${n9} more and the swap costs ${after9.length - shippedOff9.length}`);
-        if (gotRoster9 !== wantRoster9) off9.push(`it names "${gotRoster9}" as the tiles that newly fall off and the ones that do are "${wantRoster9 || "none"}"`);
-        if (off9.length) {
-          bad.push(
-            `meta.walls.alongCutRefused ${from9}: the refusal prices the swap to ${t.x},${t.y} and, ` +
-              `re-derived on the board this room SHIPS under the refusal's own definition — delete ` +
-              `this tile's road, pave ${t.x},${t.y}, flood D8 from the sitter over roads and ` +
-              `containers — ${off9.join("; ")}. 10 of the 13 road-axis offers this fleet files reproduce ` +
-              `exactly this way and the other three are the taken-parallel class, so "the board the ` +
-              `refusal describes is not the one that ships" is not a licence for the number: the ` +
-              `anti-pattern this room keeps is kept on this arithmetic`,
+        if (axis9 !== sh.axis) {
+          off9.push(
+            `it prices the swap on \`${sh.axis}\` and the first axis this swap makes worse is ` +
+              `${axis9 === null ? `NONE — the swap is measurably no worse on all four, which is a swap this rule TAKES` : `\`${axis9}\``}`,
           );
         }
+        if (axis9 !== null) {
+          const bs9 = before9[sh.axis];
+          const as9 = after9[sh.axis];
+          const newly9 = as9.filter((k9) => !bs9.includes(k9));
+          const wantRoster9 = sh.elides
+            ? `${newly9.slice(0, 6).join(" ")}${newly9.length > 6 ? " …" : ""}`
+            : newly9.join(" ");
+          const gotRoster9 = String(rosterTxt9).trim();
+          if (a9 !== bs9.length) off9.push(`it prices the un-swapped board at ${a9} on \`${sh.axis}\` and that board reads ${bs9.length}`);
+          if (b9 !== as9.length) off9.push(`it prices the swapped board at ${b9} and making that swap reads ${as9.length}`);
+          if (n9 !== as9.length - bs9.length) off9.push(`it quotes ${n9} more and the swap costs ${as9.length - bs9.length}`);
+          if (gotRoster9 !== wantRoster9) off9.push(`it names "${gotRoster9}" as the tiles that newly appear on that axis and the ones that do are "${wantRoster9 || "none"}"`);
+        }
+        if (off9.length) {
+          bad.push(
+            `meta.walls.alongCutRefused ${fromK9}: the refusal prices the swap to ${t.x},${t.y} and, ` +
+              `re-derived under the refusal's own definition on ` +
+              (OB9.from2
+                ? `the board that offer was made on — this room's shipped board with its own taken swap ` +
+                  `undone, the road put back on ${OB9.from2} and lifted off ${t.x},${t.y} — `
+                : `the board this room SHIPS — `) +
+              `delete this tile's road, pave ${t.x},${t.y}, re-measure all four axes — ${off9.join("; ")}. ` +
+              `The taken-parallel case is re-derived like every other one now: the board it was priced on is ` +
+              `reconstructible, so "the board the refusal describes is not the one that ships" buys nothing. ` +
+              `The anti-pattern this room keeps is kept on this arithmetic`,
+          );
+          return;
+        }
+        if (!problems9.length) netOfferCensus.reproduced++;
+      };
+      /**
+       * the offered tile itself, checked before anything is priced on it: a
+       * refusal may only offer the swap to a REAL D8 candidate. Round 23 ran
+       * this in the shipped-run-roster loop only, so a refusal filed for a tile
+       * with no run — E17S5's whole channel — could name anything at all.
+       */
+      const offerTileCheck9 = (fromK9, c9, t) => {
+        const problems = [];
+        if (Math.max(Math.abs(t.x - c9.x), Math.abs(t.y - c9.y)) !== 1) {
+          problems.push(`it is not D8-adjacent to ${fromK9}, so it is not a parallel of anything`);
+        }
+        if (t.x < 1 || t.y < 1 || t.x > 48 || t.y > 48) problems.push(`it is off the buildable board`);
+        else if (!walkable(terrain, t.x, t.y)) {
+          problems.push(`it is natural wall — no road is ever built there`);
+        }
+        if (cutKeyed.has(key(t.x, t.y))) {
+          problems.push(`it is itself a cut tile, which is the same problem one tile over and never a parallel`);
+        }
+        if (problems.length) {
+          bad.push(
+            `meta.walls.alongCutRefused ${fromK9}: the refusal says the swap was offered to ${t.x},${t.y} and ` +
+              `${problems.join("; ")}. The price is re-derived on the board the offer was made on; the tile it ` +
+              `names is a fact about terrain and the shipped wall, and it is not true`,
+          );
+        }
+      };
+      /**
+       * the four baseline readings, once per refusal: they exist, and the
+       * refusal's own sentence quotes them. Run on every refusal that prices
+       * anything, in either loop.
+       */
+      const baselineCheck9 = (tk9, why9, rec9, nOffers9) => {
+        const AXES9 = ["roads", "offNetwork", "containersWithoutFace", "extensionsWithoutFace"];
+        const B0 = rec9 && rec9.baseline;
+        const okBase = B0 && typeof B0 === "object" && AXES9.every((a9) => Number.isInteger(B0[a9]) && B0[a9] >= 0);
+        if (nOffers9 && !okBase) {
+          bad.push(
+            `meta.walls.alongCutRefused ${tk9}: the refusal prices ${nOffers9} offered swap(s) and ` +
+              `publishes \`baseline\` ${String(JSON.stringify(B0)).slice(0, 60)}. The rule this refusal closes ` +
+              `with is that a swap is taken "only when the network is MEASURABLY NO WORSE" — a delta — and ` +
+              `the baseline is the half of that subtraction the un-swapped board supplies. Without it the ` +
+              `price is an absolute predicate again, which is how six free swaps in five rooms were refused ` +
+              `on a condition that was already true of the board before anyone offered anything`,
+          );
+        }
+        if (!okBase || !nOffers9) return;
+        const quoted = why9.match(
+          /\((\d+) live road tiles · (\d+) off the network · (\d+) container\(s\) with no road neighbour · (\d+) extension\(s\) with no D4 road face\)/,
+        );
+        if (!quoted) {
+          bad.push(
+            `meta.walls.alongCutRefused ${tk9}: the refusal prices a delta and its sentence never states the ` +
+              `board it is a delta FROM. The four baseline readings are what make "measurably worse" a ` +
+              `subtraction a reader can do rather than a verdict`,
+          );
+          return;
+        }
+        AXES9.forEach((a9, i9) => {
+          if (Number(quoted[i9 + 1]) !== B0[a9]) {
+            bad.push(
+              `meta.walls.alongCutRefused ${tk9}: the refusal's sentence says the un-swapped board reads ` +
+                `${quoted[i9 + 1]} on \`${a9}\` and \`baseline.${a9}\` says ${B0[a9]}. The paragraph and the ` +
+                `record are one measurement of one board`,
+            );
+          }
+        });
+      };
+      /** the offers a net refusal prices, parsed out of its own sentence */
+      const parseOffers9 = (why9) => {
+        const OTHERS9 = "The other neighbours: ";
+        const cutAt9 = why9.indexOf(OTHERS9);
+        const head9 = cutAt9 >= 0 ? why9.slice(0, cutAt9) : why9;
+        const out9 = [];
+        for (const seg9 of head9.split(" · ")) {
+          const mm9 = seg9.match(/moving it to (-?\d+),(-?\d+) — ([\s\S]*)$/);
+          if (!mm9) continue;
+          // the last offer's segment carries the pass's own closing sentence
+          // ("The swap is offered at equal road count and taken only when the
+          // network is measurably no worse; …") — that is the RULE, not this
+          // tile's price, and the price is what is re-derived
+          let cost9 = mm9[3];
+          const trailer9 = cost9.indexOf("The swap is offered at equal road count");
+          if (trailer9 >= 0) cost9 = cost9.slice(0, trailer9);
+          out9.push({ x: Number(mm9[1]), y: Number(mm9[2]), cost: cost9.trim() });
+        }
+        return { offers: out9, rejectedBody: cutAt9 >= 0 ? why9.slice(cutAt9 + OTHERS9.length) : "" };
       };
       for (const c of runs) {
         const tk = key(c.x, c.y);
@@ -11420,13 +11861,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // Both are checked the same way: the union of the tiles the refusal
         // speaks about must be all eight neighbours, the rejected ones must be
         // rejected for a reason that is TRUE on this board, and the ones the swap
-        // was offered to must be tiles a road could stand on. What is NOT checked
-        // is the network arithmetic — 5b runs in the middle of layer 7 and the
-        // reflow, the prune and the swamp paving all move the board after it, so
-        // "these road tiles fall off" is a fact about a board that no longer
-        // exists. Two of the fleet's named targets sit in the exterior flood
-        // TODAY for exactly that reason.
-        const OTHERS = "The other neighbours: ";
+        // was offered to must be tiles a road could stand on. ROUND 24 / OB1:
+        // and the network arithmetic is checked too, by the same shared
+        // machinery this file runs on the OTHER loop's refusals — the paragraph
+        // that used to stand here ("what is NOT checked is the network
+        // arithmetic … a fact about a board that no longer exists") described a
+        // board that is reconstructible, and every offer this fleet files
+        // reproduces on it.
         const tried = [];
         /** ROUND 22 / OM1 — the COST SENTENCE the refusal prices each offered tile with, kept beside the tile */
         const triedCost = new Map();
@@ -11434,23 +11875,11 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         if (why.startsWith("no interior parallel exists: ")) {
           rejectedBody = why.slice("no interior parallel exists: ".length);
         } else if (NET_REFUSAL_RE.test(why)) {
-          const cutAt = why.indexOf(OTHERS);
-          const head = cutAt >= 0 ? why.slice(0, cutAt) : why;
-          rejectedBody = cutAt >= 0 ? why.slice(cutAt + OTHERS.length) : "";
-          for (const seg of head.split(" · ")) {
-            const mm = seg.match(/moving it to (-?\d+),(-?\d+) — ([\s\S]*)$/);
-            if (!mm) continue;
-            const tx = Number(mm[1]),
-              ty = Number(mm[2]);
-            // the last offer's segment carries the pass's own closing sentence
-            // ("The swap is offered at equal road count and taken only when the
-            // network is measurably no worse; …") — that is the RULE, not this
-            // tile's price, and the price is what is re-derived below
-            let cost = mm[3];
-            const trailer = cost.indexOf("The swap is offered at equal road count");
-            if (trailer >= 0) cost = cost.slice(0, trailer);
-            tried.push({ x: tx, y: ty });
-            triedCost.set(key(tx, ty), cost.trim());
+          const parsed = parseOffers9(why);
+          rejectedBody = parsed.rejectedBody;
+          for (const o of parsed.offers) {
+            tried.push({ x: o.x, y: o.y });
+            triedCost.set(key(o.x, o.y), o.cost);
           }
           if (!tried.length) {
             bad.push(
@@ -11488,25 +11917,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         const named = new Set();
         for (const t of tried) {
           named.add(key(t.x, t.y));
-          const problems = [];
-          if (Math.max(Math.abs(t.x - c.x), Math.abs(t.y - c.y)) !== 1) {
-            problems.push(`it is not D8-adjacent to ${tk}, so it is not a parallel of anything`);
-          }
-          if (t.x < 1 || t.y < 1 || t.x > 48 || t.y > 48) problems.push(`it is off the buildable board`);
-          else if (!walkable(terrain, t.x, t.y)) {
-            problems.push(`it is natural wall — no road is ever built there`);
-          }
-          if (cutKeyed.has(key(t.x, t.y))) {
-            problems.push(`it is itself a cut tile, which is the same problem one tile over and never a parallel`);
-          }
-          if (problems.length) {
-            bad.push(
-              `meta.walls.alongCutRefused ${tk}: the refusal says the swap was offered to ${t.x},${t.y} and ` +
-                `${problems.join("; ")}. The network cost of the swap is a fact about the mid-layer-7 board ` +
-                `and is taken as witnessed; the tile it names is a fact about terrain and the shipped wall, ` +
-                `and it is not true`,
-            );
-          }
+          offerTileCheck9(tk, c, t);
         }
         // ==============================================================
         // ROUND 22 / OM1 — THE REFUSAL IS A DELTA, AND THE DELTA IS
@@ -11547,154 +11958,21 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         // finds 0 fallen tiles for all 21 road-axis offers)". That measurement
         // was taken with the ABSOLUTE predicate's refusals in the sample, which
         // is why it came back empty; round 22 replaced the predicate with the
-        // delta and the refusals that survive are re-derivable. Re-flooding the
-        // shipped board under the record's own definition reproduces 10 of the
-        // fleet's 13 offers EXACTLY, and the other three are the ones whose
-        // parallel the room's own taken swap occupies. So the magnitude and the tile list are
-        // checked below, not just the subtraction — a residue that says a number
-        // cannot be re-derived is a residue that has to be re-measured every time
-        // the pass it describes changes.
+        // delta and the refusals that survive are re-derivable.
+        //
+        // ROUND 24 / OB1 + MA — AND THE LAST EXEMPTION WENT WITH IT. Both
+        // halves of this — the well-formedness of the subtraction and the
+        // MAGNITUDE — now run through one shared pair of helpers, `auditOffer9`
+        // and `baselineCheck9`, which the out-of-roster loop below calls on
+        // exactly the same terms. Splitting them was the hole: a room whose run
+        // roster is empty files every refusal it has into the other loop, and
+        // that loop ran no well-formedness at all. The census this run measures
+        // is printed by main(); no figure is typed here, because the last one
+        // typed here went stale inside a single round.
         {
-          const AXES9 = ["roads", "offNetwork", "containersWithoutFace", "extensionsWithoutFace"];
           const rec9 = (Array.isArray(refusedArr) ? refusedArr : []).find((q) => q && q.x === c.x && q.y === c.y);
-          const B0 = rec9 && rec9.baseline;
-          const okBase = B0 && typeof B0 === "object" && AXES9.every((a) => Number.isInteger(B0[a]) && B0[a] >= 0);
-          if (tried.length && !okBase) {
-            bad.push(
-              `meta.walls.alongCutRefused ${tk}: the refusal prices ${tried.length} offered swap(s) and ` +
-                `publishes \`baseline\` ${String(JSON.stringify(B0)).slice(0, 60)}. The rule this refusal closes ` +
-                `with is that a swap is taken "only when the network is MEASURABLY NO WORSE" — a delta — and ` +
-                `the baseline is the half of that subtraction the un-swapped board supplies. Without it the ` +
-                `price is an absolute predicate again, which is how six free swaps in five rooms were refused ` +
-                `on a condition that was already true of the board before anyone offered anything`,
-            );
-          }
-          if (okBase && tried.length) {
-            const quoted = why.match(
-              /\((\d+) live road tiles · (\d+) off the network · (\d+) container\(s\) with no road neighbour · (\d+) extension\(s\) with no D4 road face\)/,
-            );
-            if (!quoted) {
-              bad.push(
-                `meta.walls.alongCutRefused ${tk}: the refusal prices a delta and its sentence never states the ` +
-                  `board it is a delta FROM. The four baseline readings are what make "measurably worse" a ` +
-                  `subtraction a reader can do rather than a verdict`,
-              );
-            } else {
-              AXES9.forEach((a, i) => {
-                if (Number(quoted[i + 1]) !== B0[a]) {
-                  bad.push(
-                    `meta.walls.alongCutRefused ${tk}: the refusal's sentence says the un-swapped board reads ` +
-                      `${quoted[i + 1]} on \`${a}\` and \`baseline.${a}\` says ${B0[a]}. The paragraph and the ` +
-                      `record are one measurement of one board`,
-                  );
-                }
-              });
-            }
-          }
-          for (const t of tried) {
-            const cost = triedCost.get(key(t.x, t.y)) || "";
-            const dm = cost.match(/(-?\d+) more road tile\(s\) fall off the network \((-?\d+) -> (-?\d+); newly off: ([^)]*)\)/);
-            if (dm) {
-              const n9 = Number(dm[1]);
-              const a9 = Number(dm[2]);
-              const b9 = Number(dm[3]);
-              const roster = dm[4]
-                .replace(/…/g, " ")
-                .trim()
-                .split(/\s+/)
-                .filter((w) => /^-?\d+,-?\d+$/.test(w));
-              const elided = /…/.test(dm[4]);
-              const problems = [];
-              if (!(b9 > a9)) {
-                problems.push(
-                  `its own subtraction is ${a9} -> ${b9}, which is not WORSE — a swap that leaves the axis ` +
-                    `where it found it is a swap this rule TAKES`,
-                );
-              }
-              if (n9 !== b9 - a9) problems.push(`it quotes ${n9} more and its own two readings differ by ${b9 - a9}`);
-              if (okBase && a9 !== B0.offNetwork) {
-                problems.push(
-                  `it prices the swap against a board with ${a9} road tile(s) off the network and this ` +
-                    `refusal's own \`baseline.offNetwork\` is ${B0.offNetwork} — the two terms of a subtraction ` +
-                    `have to be readings of the same board`,
-                );
-              }
-              const owed = b9 - a9;
-              if (!elided && roster.length !== owed) problems.push(`it names ${roster.length} newly-off tile(s) against a difference of ${owed}, with nothing elided`);
-              if (elided && roster.length >= owed) problems.push(`it marks its roster elided and names ${roster.length} of ${owed}`);
-              for (const k9 of roster) {
-                const fx = Number(k9.split(",")[0]);
-                const fy = Number(k9.split(",")[1]);
-                if (fx < 0 || fy < 0 || fx > 49 || fy > 49) problems.push(`${k9} is not a tile of this room`);
-              }
-              if (problems.length) {
-                bad.push(
-                  `meta.walls.alongCutRefused ${tk}: the refusal prices the swap to ${t.x},${t.y} on roads ` +
-                    `falling off the network and ${problems.join("; ")}. That it IS a subtraction, and that ` +
-                    `both of its terms are readings of one board, is checked here; the magnitude is ` +
-                    `re-derived on the shipped board immediately below`,
-                );
-              }
-              // ==========================================================
-              // ROUND 23 / MF5 — ...AND THE MAGNITUDE AND THE TILE LIST ARE
-              // RE-DERIVED, ON THE BOARD THE ROOM SHIPS.
-              // ==========================================================
-              // What stood here was the sign and the subtraction and nothing
-              // else, under a residue (criticism 104(a)) that said the numbers
-              // could not be re-derived at all "because the board the refusal
-              // describes is one the fleet does not ship". That claim was
-              // FALSE, and measurably so: re-run the refusal's own definition
-              // on the SHIPPED board — delete the run tile's road, add the
-              // candidate parallel's, flood D8 from the sitter over roads and
-              // containers — and 10 of the 13 road-axis offers this fleet files
-              // reproduce EXACTLY, magnitude, both readings and the newly-off
-              // roster string, elision included. The three that do not are the
-              // three whose parallel the room's OWN taken swap now occupies,
-              // which is a different board and not an unre-derivable one.
-              //
-              // With only the sign checked, the arithmetic was free: E5S9's
-              // real refusal ("9 more road tile(s) fall off the network (0 -> 9;
-              // newly off: 22,15 22,16 …)") rewritten in all three of its
-              // string sites to "1 more road tile(s) fall off the network
-              // (0 -> 1; newly off: 49,49)" passed 172/172 — 49,49 carries no
-              // road, is in no component, and is not even a tile a road could
-              // stand on. A named anti-pattern was being held in place by a
-              // number nobody could check, which is the same shape as the
-              // absolute predicate round 22 removed one line up.
-              //
-              // AND THE ONE HONEST EXCEPTION IS A WITNESS CLASS, NOT A GAP.
-              // Where the parallel carries a road on the shipped board the
-              // simulation would be measuring a board with one road MISSING
-              // rather than one road MOVED, so the answer would be a different
-              // question's. That happens in exactly one situation the record
-              // itself names: the swap this pass TOOK on a neighbouring run
-              // tile landed on this candidate. So the exception is granted only
-              // when the occupying tile carries this room's own
-              // `alongCutMoved` provenance — a parallel paved by anything else
-              // is a refusal that must still re-derive.
-              netPriceCheck9(tk, t, [n9, a9, b9, dm[4]]);
-              continue;
-            }
-            const cm = cost.match(/the container at (-?\d+),(-?\d+) is left with no road on any of its 8 neighbours/);
-            if (cm) {
-              bad.push(
-                `meta.walls.alongCutRefused ${tk}: the swap to ${t.x},${t.y} is priced "the container at ` +
-                  `${cm[1]},${cm[2]} is left with no road on any of its 8 neighbours" — the round-21 ABSOLUTE ` +
-                  `predicate. It is a statement about the board AFTER the swap and says nothing about what the ` +
-                  `swap COST: six refusals in five rooms rested on it while the container they named was the ` +
-                  `mineral seat, off the network before the swap and after it, and five rooms shipped a paved ` +
-                  `run along their own wall because of it. A refused swap is priced as a subtraction ` +
-                  `("N more … (A -> B)") or it is not priced`,
-              );
-              continue;
-            }
-            bad.push(
-              `meta.walls.alongCutRefused ${tk}: the swap to ${t.x},${t.y} is priced "${cost.slice(0, 70)}${
-                cost.length > 70 ? "…" : ""
-              }" — stage 5b prices a refused swap as a measured worsening on a NAMED axis with both readings in ` +
-                `the sentence, and a price this file cannot subtract is a refusal nobody can re-derive`,
-            );
-          }
+          baselineCheck9(tk, why, rec9, tried.length);
+          for (const t of tried) auditOffer9(tk, t, triedCost.get(key(t.x, t.y)) || "", rec9);
         }
         for (const part of rejectedBody ? rejectedBody.split(" · ") : []) {
           const m = part.match(/^(-?\d+),(-?\d+) (.*)$/);
@@ -11763,17 +12041,33 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       }
       // ==================================================================
       // ROUND 23 / MF5 — ...AND THE REFUSALS WHOSE RUN THE TAKE BROKE.
+      // ROUND 24 / OB1 — ON THE SAME TERMS AS THE ROSTER'S, NOT ON WEAKER ONES.
       // ==================================================================
       // The loop above walks the roster the SHIPPED board has, which is the
       // right scope for everything it checks: a room that no longer has a run
       // at X,Y owes no census about X,Y's neighbours. But it files a REFUSAL
-      // for X,Y all the same — 3 of the 13 road-axis offers this fleet prices
-      // sit on tiles whose run the taken swap broke (E15S1 15,17, E7S9 26,26,
-      // E9S8 19,24) — and a price is a price wherever the run went. Those
-      // three are exactly the ones an editor would reach for if the roster
-      // were the gate's whole scope, so the arithmetic is re-derived for them
-      // too, on the same board and by the same definition; everything else
-      // about them stays out of scope, deliberately.
+      // for X,Y all the same — the offers whose run tile the taken swap broke
+      // (E15S1 15,17, E7S9 26,26, E9S8 19,24 on this artifact) — and a price is
+      // a price wherever the run went.
+      //
+      // Round 23 re-derived only the MAGNITUDE here, and only on the road axis,
+      // and only through a helper that bare-returned on the witness class. The
+      // three gaps stacked into one hole: E17S5 ships an EMPTY run roster, so
+      // every refusal that room files lands in this loop, and an appended
+      // refusal offering the room's own taken parallel with "999 more road
+      // tile(s) fall off the network (5 -> 3; newly off: 99,99)" — not a
+      // subtraction, sign-improving, off a 50x50 board, contradicting its own
+      // published baseline — passed 172/172. Nothing here ran on it: not the
+      // sign check, not `n == b - a`, not the baseline agreement, not the
+      // roster length, not the tile bounds, and not the magnitude.
+      //
+      // So this loop now runs the WHOLE audit: the offered tile has to be a
+      // real D8 candidate (a refusal may name a tile only if a road could be
+      // moved there at all), the four baseline readings have to be published
+      // and quoted, and every priced offer goes through `auditOffer9` — the
+      // same function, on the same board reconstruction, as the roster loop's.
+      // Only the neighbour ENUMERATION stays out of scope, because that is the
+      // one claim a broken run genuinely no longer makes.
       {
         const rosterK9 = new Set(runs.map((c) => key(c.x, c.y)));
         for (const r9 of Array.isArray(refusedArr) ? refusedArr : []) {
@@ -11782,14 +12076,19 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           if (rosterK9.has(fk9)) continue;
           const why9 = String(r9.why || "");
           if (!NET_REFUSAL_RE.test(why9)) continue;
-          const cutAt9 = why9.indexOf("The other neighbours: ");
-          const head9 = cutAt9 >= 0 ? why9.slice(0, cutAt9) : why9;
-          for (const seg9 of head9.split(" · ")) {
-            const mm9 = seg9.match(/moving it to (-?\d+),(-?\d+) — ([\s\S]*)$/);
-            if (!mm9) continue;
-            const dm9 = mm9[3].match(/(-?\d+) more road tile\(s\) fall off the network \((-?\d+) -> (-?\d+); newly off: ([^)]*)\)/);
-            if (!dm9) continue;
-            netPriceCheck9(fk9, { x: Number(mm9[1]), y: Number(mm9[2]) }, [Number(dm9[1]), Number(dm9[2]), Number(dm9[3]), dm9[4]]);
+          const parsed9 = parseOffers9(why9);
+          if (!parsed9.offers.length) {
+            bad.push(
+              `meta.walls.alongCutRefused ${fk9}: the refusal says every interior parallel breaks the ` +
+                `network and names none of them. The whole content of that sentence is WHICH tiles were ` +
+                `offered the swap — and a refusal filed for a tile the shipped roster no longer carries is ` +
+                `held to that exactly like one it does`,
+            );
+          }
+          baselineCheck9(fk9, why9, r9, parsed9.offers.length);
+          for (const o9 of parsed9.offers) {
+            offerTileCheck9(fk9, r9, o9);
+            auditOffer9(fk9, o9, o9.cost, r9);
           }
         }
       }
@@ -12172,9 +12471,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           // reads the refusal PROSE, and this is a tile the pass TOOK. So it is
           // asked of the board directly, against the same shipped exterior
           // flood every other gate in this file uses. A room may legitimately
-          // ship roads outside its wall (source and controller lanes, 2027 of
-          // them across 145 rooms) — what it may not do is call one of them an
-          // interior parallel.
+          // ship roads outside its wall — the source and controller lanes do,
+          // in volume, in most of the fleet, and layer 1 lays them before a
+          // wall exists to be inside of — what it may not do is call one of
+          // them an interior parallel. (ROUND 24 / OM5: a fleet tile count and
+          // room count used to be typed here and nothing re-derived either.
+          // They are gone rather than refreshed; the invariant below is
+          // per-room and derived, which is the version that cannot go stale.)
           {
             const [mx, my] = k.split(",").map(Number);
             if (mx >= 0 && my >= 0 && mx <= 49 && my <= 49 && ext[idx(mx, my)]) {
@@ -12187,6 +12490,149 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `haul lane the room's own pathfinding will then prefer it, because it is the cheaper route`,
               );
             }
+          }
+        }
+        // ==============================================================
+        // ROUND 24 / OB2 (BLOCKING) — AND THE SAME QUESTION ASKED OF EVERY
+        // LAYER-7 KIND, BECAUSE THE STALE FLOOD WAS NEVER SPECIFIC TO ONE.
+        // ==============================================================
+        // Round 23 gated `alongCutMoved` targets against the shipped exterior
+        // flood, one kind out of seven, and stopped. The defect it was fixing
+        // is a CLASS defect: `paveable()` — the sole expansion predicate of the
+        // stitch, the rampart spurs and the extension-face net — read a flood
+        // captured at layer 2 and never refreshed, so it answered "inside" for
+        // 46 tiles across 30 rooms that the finished wall puts OUTSIDE, and
+        // "outside" for 314 legal interior tiles it therefore refused
+        // [r22-waived: the "46 tiles" / "314 tiles" pair is an INSTRUMENTED
+        // RE-COMPOSE of the producer's stale flood on the round-23 build —
+        // a reading of a predicate's two answers, not of any shipped artifact,
+        // and nothing in plans-hub.json carries either number]. Nothing
+        // gated the roads those three stages lay. That the fleet shipped none
+        // of them was terrain luck: most were D8-adjacent to a cut
+        // tile, which is exactly the class the spur search picks from.
+        //
+        // WHAT THE FLEET MAY DO, DERIVED RATHER THAN OBSERVED. A room may ship
+        // roads outside its wall — the source and controller lanes do, in
+        // volume — but those are LAYER 1. Of layer 7's kinds only two have a
+        // reason to leave the wall, and each states it:
+        //   swampPave     pays 5x movement down to 1 on ground the garrison
+        //                 walks often, and an approach lane outside the wall is
+        //                 still ground our creeps walk;
+        //   conductBridge closes the gap between the mineral seat and the
+        //                 network, and the seat can sit outside the cut.
+        // Every other layer-7 tile is laid to serve the interior — a spur to a
+        // wall cluster, a stitch between two interior components, an extension
+        // face, a reflowed extension road, the along-cut swap — and one of
+        // those outside the wall is a road built for the garrison that only an
+        // attacker can use. "Exactly 3 outside" was an OBSERVATION in the goal
+        // document that nothing enforced; this is the invariant, and the
+        // count it reports is this room's own.
+        {
+          const OUTSIDE_LEGIT7 = new Map([
+            ["swampPave", "swamp on an approach lane our own creeps walk, inside the wall or out"],
+            ["conductBridge", "the mineral-seat conduct lane, which the cut may legitimately leave outside"],
+          ]);
+          const outside7 = [];
+          for (const [kind7, tiles7] of byKind) {
+            for (const tk7 of tiles7) {
+              const [ox, oy] = tk7.split(",").map(Number);
+              if (!(ox >= 0 && oy >= 0 && ox <= 49 && oy <= 49 && ext[idx(ox, oy)])) continue;
+              // the fleet total the goal document used to state as an
+              // observation is counted here instead, legitimate ones and all,
+              // and printed by main()
+              lateRoadsOutside++;
+              if (!OUTSIDE_LEGIT7.has(kind7)) outside7.push(`${tk7}=${kind7}`);
+            }
+          }
+          if (outside7.length) {
+            bad.push(
+              `meta.walls.roadKind: ${outside7.length} layer-7 road tile(s) sit OUTSIDE the wall this room ` +
+                `SHIPS (${outside7.slice(0, 8).join(" ")}${outside7.length > 8 ? " …" : ""}) and carry a kind ` +
+                `laid to serve the INTERIOR. The two kinds with a reason to cross the wall are ` +
+                `${[...OUTSIDE_LEGIT7].map(([kk, wy]) => `"${kk}" (${wy})`).join(" and ")}; the rest — spur, ` +
+                `stitch, extFace, reflow, alongCutMoved — are laid for the garrison, and a tile in the ` +
+                `exterior flood is one an attacker stands on without crossing a rampart. Layer 7's paving ` +
+                `predicate reads a flood; a flood captured before the last rampart moved answers this ` +
+                `question about a wall the room does not ship`,
+            );
+          }
+        }
+      }
+    }
+
+    // ==================================================================
+    // ROUND 24 / OB2 — THE ENCLOSURE CONTRACT, READ BY SOMEBODY.
+    // ==================================================================
+    // The class fix for the stale flood re-points every LATE consumer at a live
+    // one and leaves the four placement layers (towers, labs, misc, extensions)
+    // reading layer 2's frozen enclosure ON PURPOSE — those layers ask "is this
+    // tile inside the wall layer 2 bought?", which is a question about the
+    // min-cut and not about the finished board, and nothing removes a rampart
+    // before layer 7 so the drift there is one-directional (tiles WITHHELD,
+    // never tiles EXPOSED). "One-directional" is exactly the kind of claim that
+    // is true until it is not, so the producer measures it per layer and
+    // publishes `meta.exteriorContract`.
+    //
+    // A published contract nobody reads is the channel this whole document
+    // exists to abolish, so it is read here: the four consumers, in the order
+    // they run, and `exposed` is ZERO at every one of them. A room that exposes
+    // a tile has to say so in its own declaration channel — the producer files
+    // a gate `exterior` shortfall for it — because a placement layer that put a
+    // structure on a tile the finished wall leaves outside is a defect a reader
+    // is owed a sentence about, not a field.
+    {
+      const EC_AT9 = ["towers(L3)", "labs(L4)", "misc(L5)", "ext(L6)"];
+      const ec9 = plan.meta?.exteriorContract;
+      if (!Array.isArray(ec9) || ec9.length !== EC_AT9.length || ec9.some((e, i) => !e || e.at !== EC_AT9[i])) {
+        bad.push(
+          `meta.exteriorContract is ${String(JSON.stringify(ec9)).slice(0, 80)} — it is the per-consumer ` +
+            `enclosure contract, one entry for each of the four placement layers that read layer 2's frozen ` +
+            `flood (${EC_AT9.join(", ")}), in the order they run. The layers are allowed to read a stale ` +
+            `enclosure only because the drift is measured and one-directional; an absent or reshaped ` +
+            `measurement is the permission without the thing that earns it`,
+        );
+      } else {
+        // ...AND THE OBLIGATION RUNS BOTH WAYS. A layer that exposed a tile owes
+        // the declaration; a room that FILES the declaration owes a consumer
+        // that exposed something. A gate `exterior` entry over a contract that
+        // reads zero at all four consumers is a shortfall with no board behind
+        // it — the laundering shape this file spends its whole declaration
+        // block on, one channel newer.
+        {
+          const exposedTotal9 = ec9.reduce((n9, e9) => n9 + (Number.isInteger(e9?.exposed) ? e9.exposed : 0), 0);
+          const declared9 = (plan.meta?.shortfalls || []).filter((sf9) => sf9 && normGate(sf9.gate) === "exterior");
+          if (declared9.length && !exposedTotal9) {
+            bad.push(
+              `this room files ${declared9.length} \`exterior\` declaration(s) and \`meta.exteriorContract\` ` +
+                `reads \`exposed\` 0 at every one of its ${ec9.length} consumers ` +
+                `(${ec9.map((e9) => `${e9.at}=${e9.exposed}`).join(" ")}). That declaration exists for exactly ` +
+                `one state — a placement layer put a structure on a tile the finished wall leaves outside — ` +
+                `and a room declaring a state its own measurement says it is not in is a suppression flag with ` +
+                `a paragraph attached`,
+            );
+          }
+        }
+        for (const e9 of ec9) {
+          if (!Number.isInteger(e9.exposed) || e9.exposed < 0 || !Number.isInteger(e9.withheld) || e9.withheld < 0) {
+            bad.push(
+              `meta.exteriorContract ${e9.at}: \`exposed\` ${String(JSON.stringify(e9.exposed)).slice(0, 20)} and ` +
+                `\`withheld\` ${String(JSON.stringify(e9.withheld)).slice(0, 20)} — both are tile counts and both ` +
+                `have to be readable, because the contract is that one of them is ZERO and the other is merely ` +
+                `conservative`,
+            );
+            continue;
+          }
+          if (e9.exposed > 0) {
+            const declared9 = (plan.meta?.shortfalls || []).some((sf9) => sf9 && normGate(sf9.gate) === "exterior");
+            bad.push(
+              `meta.exteriorContract ${e9.at}: this consumer read the frozen layer-2 enclosure as INSIDE for ` +
+                `${e9.exposed} tile(s) the wall this room SHIPS puts OUTSIDE` +
+                (Array.isArray(e9.exposedTiles) && e9.exposedTiles.length ? ` (${e9.exposedTiles.slice(0, 8).join(" ")})` : ``) +
+                `, and ${declared9 ? `declares it` : `files no \`exterior\` declaration about it`}. A placement ` +
+                `layer may read the enclosure layer 2 bought — that is the question it is asking — only while ` +
+                `the drift runs one way: tiles withheld from it are a room built more conservatively than it ` +
+                `had to be, and tiles exposed to it are structures standing where an attacker walks`,
+            );
           }
         }
       }
@@ -16195,6 +16641,70 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         }
       }
     }
+    // ==================================================================
+    // ROUND 24 / OM4 — AND THE THIRD CHANNEL SAYS THE SAME THING AS THE
+    // OTHER TWO, OR THE ROOMS IT MISCAPTIONS FAIL.
+    // ==================================================================
+    // The film's caption for an as-built gated lap of 0 states a REASON, and
+    // the reason was typed into `animNotes` instead of read from
+    // `mobilityUnjudgedWhy` — the helper the room page and the index chip both
+    // call. Where the zero has the other cause the typed sentence is simply
+    // false about the room it captions (E7S5: a 33-tile detour at ratio 17.5
+    // with `over: 3`).
+    //
+    // AND IT FIRES WHERE THE SENTENCE IS FALSE, not wherever it is printed.
+    // The typed clause claims this room has no pair detouring more than the
+    // floor; that claim is re-derived here from the room's own all-pairs walk
+    // (`maxDetour` against `MOB_DETOUR_FLOOR`), so the gate fails exactly the
+    // rooms whose film ships a false reason for a true zero — and it asks the
+    // whole channel question there, because the fix for one is the fix for all
+    // of them: the caption comes from the shared helper. See
+    // `animCaptionSource`.
+    {
+      const lapFilm =
+        typeof plan.meta?.walls?.mobility?.builtGated === "number"
+          ? plan.meta.walls.mobility.builtGated
+          : typeof plan.meta?.shell?.mobilityBuilt?.maxGated === "number"
+            ? plan.meta.shell.mobilityBuilt.maxGated
+            : null;
+      const captionFalse = mBuilt && typeof mBuilt.maxDetour === "number" && mBuilt.maxDetour > MOB_DETOUR_FLOOR;
+      if (lapFilm === 0 && captionFalse) {
+        const A4 = animCaptionSource();
+        if (A4.err) {
+          fails.push(`walls/mobility-caption — ${A4.err}. This room's film captions an as-built gated lap of 0, and the sentence that says WHY is the one three channels have to agree on`);
+        } else {
+          const owed4 = [];
+          if (!A4.helper) owed4.push("plan.mjs defines no `mobilityUnjudgedWhy` at all, and it is the shared answer the room page and the index chip both print");
+          if (!/mobilityUnjudgedWhy\s*\(/.test(A4.body)) {
+            owed4.push("`animNotes` does not call `mobilityUnjudgedWhy` — it composes its own answer, which is how one room came to ship three reader channels and two reasons");
+          }
+          if (/no pair of wall tiles detours more than/.test(A4.body)) {
+            owed4.push(
+              "`animNotes` still carries the hardcoded reason \"no pair of wall tiles detours more than " +
+                "<floor> tiles\", which is FALSE in every room whose zero comes from coverage rather than " +
+                "from a short detour",
+            );
+          }
+          if (A4.callSites < 3) {
+            owed4.push(
+              `\`mobilityUnjudgedWhy\` is called ${A4.callSites} time(s) in plan.mjs and the room page, the ` +
+                `index chip and the film caption are three channels — a helper one of them stopped using is ` +
+                `a helper that has stopped being the single answer`,
+            );
+          }
+          if (owed4.length) {
+            fails.push(
+              `walls/mobility-caption — this room ships an as-built gated lap of 0 and a worst detour of ` +
+                `${mBuilt.maxDetour} tiles, over the ${MOB_DETOUR_FLOOR}-tile floor — so the film's typed ` +
+                `caption ("no pair of wall tiles detours more than ${MOB_DETOUR_FLOOR} tiles, so no pair was ` +
+                `judged") is FALSE about this room, and ${owed4.join("; ")}. Three channels, one answer: the ` +
+                `reason is a derivation over this room's own \`maxDetour\` and coverage, and a channel that ` +
+                `types its own version states a false reason for a true zero`,
+            );
+          }
+        }
+      }
+    }
     {
       const laneA = plan.meta?.walls?.mobility?.lanes;
       const laneB = plan.meta?.extensions?.laneMeta;
@@ -17605,9 +18115,89 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               );
             }
           }
+          // ==============================================================
+          // ROUND 24 / ME — "IN DECLARATION ORDER" IS A CLAIM, AND IT IS
+          // DERIVED HERE INSTEAD OF READ OFF THE THING THAT MAKES IT.
+          // ==============================================================
+          // Everything about the key set was checked except the one property
+          // its own note names: the ORDER. `declaredKeys` was required to be
+          // ascending in `at`, and each `at` was required to carry the pair
+          // `preTakeShortfalls` has there — but `preTakeShortfalls` is the
+          // producer's own publication, so permuting two real keys' `at`,
+          // re-ordering `preTakeShortfalls` to match and re-ordering `ranking`
+          // to match that is a self-consistent lie. It passed 172/172 on a
+          // MOVED room (E11S7) and an UNMOVED one (E11S4), while the note
+          // beneath printed "THIS ROOM'S DECLARED QUANTITIES in declaration
+          // order". The one comparison that could have caught it — the
+          // set-equality on unmoved boards — SORTED both sides and dropped
+          // `at` entirely, which is a comparison of contents with the order
+          // deliberately removed.
+          //
+          // The channel the room SHIPS is the anchor, and it needs nothing
+          // published. Between the pre-take channel and the shipped one this
+          // pipeline does exactly two things:
+          //   * RETIRE `towers/clump`, when the tower swap took across a prior
+          //     take (already transcribed above, for the content check);
+          //   * RE-FILE `eco`, which is re-measured at the end of the pipeline
+          //     and re-appended, so it moves to the back of the channel in the
+          //     rooms where that happens (4 rooms here, all otherwise
+          //     unmoved). It is never a KEY — `eco` publishes no quantity in
+          //     DECLARED_QUANTITIES — so it can move without disturbing the
+          //     ranking at all.
+          // Drop those two and the two channels are the SAME LIST IN THE SAME
+          // ORDER, on 134 of 134 records, moved and unmoved alike. So the
+          // published pre-take order is checkable against the board, and the
+          // keys are checkable against the board directly as well.
+          {
+            const pairOf2 = (o) => `${o?.gate ?? null}${o?.kind ? `/${o.kind}` : ``}`;
+            /** the one declaration this pipeline re-files, transcribed with its reason */
+            const REFILED_LAST = "eco";
+            const RETIRABLE2 = "towers/clump";
+            const retired2 = plan.meta?.towers?.acrossPriorTake?.retiresClumpDeclaration === true;
+            const shipSeq = (plan.meta?.shortfalls || []).filter(Boolean).map(pairOf2);
+            const shipSpine = shipSeq.filter((p9) => p9 !== REFILED_LAST);
+            if (preList) {
+              const preSpine = preList
+                .map(pairOf2)
+                .filter((p9) => p9 !== REFILED_LAST && !(p9 === RETIRABLE2 && retired2));
+              if (preSpine.join(" ") !== shipSpine.join(" ")) {
+                bad6.push(
+                  `${at} publishes the pre-take declaration channel as [${preList.map(pairOf2).join(" ") || "nothing"}] ` +
+                    `and this room's shipped channel reads [${shipSeq.join(" ") || "nothing"}]. Setting aside the ` +
+                    `\`${REFILED_LAST}\` declaration (re-measured and re-appended at the end of the pipeline) and a ` +
+                    `\`${RETIRABLE2}\` this room ${retired2 ? "did" : "did NOT"} retire, the two are one list in one ` +
+                    `ORDER — and the order is the whole of what "in declaration order" claims. A pre-take channel ` +
+                    `nothing anchors is a permutation an editor writes at will, taking the key set's order, the ` +
+                    `\`ranking\` and the note with it`,
+                );
+              }
+            }
+            let lastShip = -1;
+            for (const k of K9) {
+              const i9 = shipSeq.indexOf(pairOf2(k));
+              // a key whose declaration this room no longer ships is the
+              // retirement case, and the content check above owns it
+              if (i9 < 0) continue;
+              if (i9 < lastShip) {
+                bad6.push(
+                  `${at} publishes its declared keys in the order ` +
+                    `[${K9.map((k9) => pairOf2(k9)).join(" ")}] and this room DECLARES them in the order ` +
+                    `[${shipSeq.join(" ")}]. The keys are the declaration channel filtered, not re-sorted: the ` +
+                    `ranking is applied in this order, so a pair swapped here is a different tie-break under a note ` +
+                    `that says "in declaration order"`,
+                );
+                break;
+              }
+              lastShip = i9;
+            }
+          }
           // ---- and on an unmoved board, the whole set is compared, exactly
           if (!moved) {
-            const sig9 = (l) => JSON.stringify(l.map((k) => [k.gate ?? null, k.kind ?? null, k.instrument ?? null, k.direction ?? null, k.source ?? null, k.declared ?? null]).sort());
+            // ROUND 24 / ME — the KEY list compared IN ORDER (it is a sequence,
+            // and the ranking applies it as one); the SKIP list still as a set,
+            // because the re-filed `eco` declaration moves within it and the
+            // spine comparison above is what holds its order.
+            const sig9 = (l) => JSON.stringify(l.map((k) => [k.gate ?? null, k.kind ?? null, k.instrument ?? null, k.direction ?? null, k.source ?? null, k.declared ?? null]));
             const sigS = (l) => JSON.stringify(l.map((k) => [k.gate ?? null, k.kind ?? null, k.instrument ?? null, k.declared ?? null]).sort());
             if (sig9(K9) !== sig9(derivedKeys.keys)) {
               bad6.push(
@@ -20179,6 +20769,8 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           put("metric.overGated", mBuilt.overGated);
           put("metric.pairs", mBuilt.pairs);
           put("metric.gatedPairs", mBuilt.gatedPairs);
+          put("metric.maxDetour", mBuilt.maxDetour);
+          put("metric.coveredPairs", mBuilt.coveredPairs);
           put("metric.target", MOB_TARGET);
           put("metric.detourFloor", MOB_DETOUR_FLOOR);
           put("metric.massSharePct", MOB_MASS_SHARE_PCT);
@@ -20580,6 +21172,56 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               `run, precisely so that the sentence a human reads cannot say something the audited record ` +
               `does not`,
           );
+        }
+      }
+
+      // ==================================================================
+      // ROUND 24 / OM3 — A PASS VERDICT REQUIRES A LAP SOMETHING JUDGED.
+      // ==================================================================
+      // The mobility headline had ONE hurdle where the chips have two. The
+      // renderer selects on `lap > target`, so a room whose gate judged ZERO
+      // pairs has `maxGated` 0, fails that test, and drops into the branch that
+      // prints "the defender lap is 0 …, INSIDE the 1.2 target (ungated over
+      // every pair it is 1.27)" — a PASS VERDICT on a lap nothing measured,
+      // with an ABOVE-TARGET number as its supporting parenthetical. The
+      // contract is explicit that where both hurdles are not met the
+      // declaration says the pair is NOT JUDGED AT ALL and quotes the ungated
+      // ratio as a NON-VERDICT; the index chip and the room page already
+      // branch three ways and say exactly that.
+      //
+      // The record carries the second hurdle — `metric.gatedPairs` — so this
+      // is checkable on the artifact and not only in the renderer: a
+      // declaration whose gate judged nothing may not contain the verdict
+      // phrase at all, and must say so in the words the other two channels use.
+      // The renderer that produced the sentence is imported and re-run above,
+      // so this is a claim about the room's shipped paragraph either way.
+      //
+      // SCOPE, STATED: the HEADLINE — the sentence before the worst-pair line,
+      // which is the one that states the verdict. The attribution clause below
+      // it still says "the room's gated lap is 0, inside the target" on an
+      // unjudged room, and that is the same defect one sentence down; it is
+      // recorded rather than gated here because the round-24 finding is about
+      // the headline and a gate wider than its finding fails an honest fix.
+      if (g === "mobility" && !k) {
+        const m3 = sf.metric || {};
+        if (m3.gatedPairs === 0) {
+          const txt3 = String(sf.detail || "").split(/: (?:between wall tiles|no pair of wall tiles)/)[0];
+          const verdict3 = new RegExp(`inside the ${String(m3.target ?? "").replace(".", "\\.")} target`, "i").test(txt3);
+          const nonVerdict3 = /NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/i.test(txt3);
+          if (verdict3 || !nonVerdict3) {
+            bad.push(
+              `mobility: this room's gate judged \`metric.gatedPairs\` ${m3.gatedPairs} pair(s) — no pair of ` +
+                `wall tiles detours far enough to be judged at all — and its headline ` +
+                `${verdict3 ? `states the VERDICT "inside the ${m3.target} target"` : `never says the lap was NOT JUDGED`}` +
+                `${verdict3 && !nonVerdict3 ? ` and never says the lap was NOT JUDGED` : ``}. The as-built lap ` +
+                `is ${m3.maxGated} because nothing was measured, not because the room walks well; the ungated ` +
+                `reading over every pair is ${m3.max}, which is ` +
+                `${typeof m3.max === "number" && typeof m3.target === "number" && m3.max > m3.target ? "OVER" : "under"} ` +
+                `the ${m3.target} target. A zero the gate never took is a non-verdict, and quoting an ` +
+                `above-target number as the supporting parenthetical of a pass is the reverse of what this ` +
+                `channel owes — the index chip and the room page both branch three ways here`,
+            );
+          }
         }
       }
 
@@ -22564,6 +23206,12 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
     mineralSeatSealed,
     ctrlParksShort,
     ctrlParksStale,
+    // ROUND 24 / OM5 — the census this room contributed, derived above
+    lateRoadsOutside,
+    netOffers: netOfferCensus.offers,
+    netRoadAxisOffers: netOfferCensus.roadAxis,
+    netWitnessOffers: netOfferCensus.witness,
+    netOffersReproduced: netOfferCensus.reproduced,
   };
 }
 
@@ -22648,6 +23296,12 @@ function main() {
     mineralSeatSealed: 0,
     ctrlParksShort: 0,
     ctrlParksStale: 0,
+    // ROUND 24 / OM5 — the offer census, summed from the rooms that measured it
+    lateRoadsOutside: 0,
+    netOffers: 0,
+    netRoadAxisOffers: 0,
+    netWitnessOffers: 0,
+    netOffersReproduced: 0,
   };
   const roadCounts = [];
   for (const p of list) {
@@ -22698,6 +23352,31 @@ function main() {
       `minerals entombed ${agg.mineralSeatSealed}, ` +
       `ctrlParks under floor ${agg.ctrlParksShort}, ctrlParks stale ${agg.ctrlParksStale}`,
   );
+  // ------------------------------------------------------------------
+  // ROUND 24 / OM5 — THE ALONG-CUT OFFER CENSUS, PRINTED FROM THIS RUN.
+  //
+  // "13 offers, 10 re-derived, 3 the taken-parallel class" was typed into five
+  // comments and one FAILURE MESSAGE, dated to an artifact, and wrong on that
+  // artifact's own successor within one round — two reviewers counted 13 and 14
+  // and both were right, because one counted only the offers priced on the road
+  // axis and the other counted every offer. The definition is now stated where
+  // the counting happens and BOTH figures are printed, from the run in front of
+  // you, over every refusal in both loops — the ones whose run the take broke
+  // included. Nothing downstream may type either number.
+  // ------------------------------------------------------------------
+  console.log(
+    `layer-7 roads outside the shipped wall: ${agg.lateRoadsOutside} across the fleet — every one of ` +
+      `them a kind with a stated reason to cross the wall (swampPave, conductBridge); any other layer-7 ` +
+      `kind out there fails its room`,
+  );
+  if (agg.netOffers) {
+    console.log(
+      `along-cut swap offers: ${agg.netOffers} priced across the fleet · ${agg.netRoadAxisOffers} on the ` +
+        `road axis (\`offNetwork\`), ${agg.netOffers - agg.netRoadAxisOffers} on the container/extension ` +
+        `axes · ${agg.netWitnessOffers} offered a parallel this room's own swap later took (re-derived on ` +
+        `the reconstructed offer-time board) · ${agg.netOffersReproduced}/${agg.netOffers} reproduce exactly`,
+    );
+  }
   if (roadCounts.length) {
     const rc = roadCounts.slice().sort((a, b) => a - b);
     const q = (f) => rc[Math.min(rc.length - 1, Math.floor(rc.length * f))];

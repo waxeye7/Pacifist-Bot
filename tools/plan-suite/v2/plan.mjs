@@ -30,6 +30,8 @@ import {
 } from "./render.mjs";
 import { EXT_TARGET, planRoom, redeclareEcoTax, setFleetMedians } from "./pipeline.mjs";
 import { LATE_KINDS, LATE_ORDER, lateRoadDecomp } from "./layer-walls.mjs";
+// the unjudged-lap sentence, written once — see mobilityUnjudgedWhy below
+import { unjudgedReason } from "./declprose-mobility.mjs";
 
 /**
  * Sprite kinds the animation player rasterises. Same names render.mjs uses, so
@@ -264,7 +266,6 @@ function animNotes(plan) {
         : null;
   if (lap !== null) {
     const tgt = typeof smob?.target === "number" ? smob.target : null;
-    const floor = typeof smob?.detourFloor === "number" ? smob.detourFloor : null;
     const over = typeof wmob?.overGated === "number" ? wmob.overGated : null;
     if (lap > 0) {
       bits.push(
@@ -274,12 +275,36 @@ function animNotes(plan) {
           " (interior ÷ exterior walk between wall tiles, extension mass in place)",
       );
     } else {
-      // A ZERO IS NOT A PERFECT WALL. It means the gate judged nothing.
+      // ------------------------------------------------------------------
+      // A ZERO IS NOT A PERFECT WALL. It means the gate judged nothing — and
+      // the FILM MAY NOT INVENT ITS OWN REASON FOR THAT ZERO.
+      //
+      // This branch used to compose the reason here, out of `detourFloor`
+      // alone: "no pair of wall tiles detours more than 4 tiles, so no pair was
+      // judged". There are TWO ways a room reaches an unjudged zero and that
+      // sentence names only one of them. E7S5 holds the worst absolute detour
+      // in the fleet — 33 tiles, with `over` at 3 — and E6S3 has one at 5; both
+      // clear the floor comfortably and the gate judged neither, because
+      // coverage excuses them (a defender on one wall tile already covers
+      // everything an attacker can stand on to grind the other). The film told
+      // a reader the opposite of the room's own record, on the two rooms where
+      // the distinction is the entire point.
+      //
+      // `mobilityUnjudgedWhy` is the helper that branches on `maxDetour` and it
+      // already existed — the room page and the index chip have both used it
+      // since the round that wrote it. The film was the third channel and it was
+      // printing a second answer to the same question about the same room.
+      //
+      // The declaration is the fourth, and round 24 gave it the same branch for
+      // the same reason (see the HEADLINE block in declprose-mobility), so the
+      // wording now lives in ONE function — `unjudgedReason`, in the prose module
+      // — that all four reach: this film note and the two HTML channels through
+      // `mobilityUnjudgedWhy` below, and the declaration off its own record. If
+      // the reason is ever wrong now it is wrong in all four at once, which is a
+      // bug a reader can find rather than one he has to collate.
+      // ------------------------------------------------------------------
       bits.push(
-        `as-built gated lap 0` +
-          (floor !== null
-            ? ` — no pair of wall tiles detours more than ${floor} tiles, so no pair was judged`
-            : " — no pair was judged") +
+        `as-built gated lap 0 — ${mobilityUnjudgedWhy(plan)}` +
           (tgt !== null ? ` (target ${tgt})` : ""),
       );
     }
@@ -1792,14 +1817,17 @@ function mobilityUnjudgedShort(plan) {
     ? `every pair over the detour floor is covered`
     : `no pair over the detour floor`;
 }
+/**
+ * ...and the long form, which is NOT written here. See `unjudgedReason` in
+ * declprose-mobility: the declaration's headline has to give this same answer
+ * off its own record, and a second copy of the sentence in this file is how the
+ * film came to state a different reason from the page it sits beside. This
+ * function is the plan-shaped ADAPTER — it knows where the two fields live on
+ * `meta.walls.mobility` — and the wording is the prose module's.
+ */
 function mobilityUnjudgedWhy(plan) {
-  const md = plan?.meta?.walls?.mobility?.maxDetour;
-  return typeof md === "number" && md > MOBILITY_DETOUR_FLOOR
-    ? `the gate judged no pair: this room's worst absolute detour is ${md} tiles, over the ` +
-        `${MOBILITY_DETOUR_FLOOR}-tile floor, and every pair that clears the floor is excused by coverage ` +
-        `(a defender on one wall tile already covers everything an attacker can stand on to grind the other)`
-    : `the gate judged no pair: no two wall tiles of this room are more than ${MOBILITY_DETOUR_FLOOR} ` +
-        `tiles apart in detour, which is the floor below which a detour is not a detour`;
+  const mob = plan?.meta?.walls?.mobility;
+  return `the gate judged no pair: ${unjudgedReason(mob?.maxDetour, MOBILITY_DETOUR_FLOOR)}`;
 }
 
 /**

@@ -140,6 +140,190 @@ export function key(x, y) {
 }
 
 // ---------------------------------------------------------------------------
+// THE EXTERIOR FLOOD — ONE IMPLEMENTATION, TWO FIELDS, AN EXPLICIT CONTRACT
+// ---------------------------------------------------------------------------
+/**
+ * Exterior = the tiles an attacker can stand on: flood from the four room
+ * edges, `blockSet` blocks, natural wall blocks. That is the whole definition
+ * and it was written out twice in this tree — layer-shell called the argument
+ * `cutSet`, layer-walls called it `rampartSet`, and the bodies were otherwise
+ * character-for-character the same function. Two copies of a definition is two
+ * chances for one of them to drift, so there is one. (layer-ext's 7b reflow
+ * keeps its own `floodExterior` and that is NOT a third copy: it floods over a
+ * `passable` predicate in which ROADS TUNNEL NATURAL WALL, because the reflow
+ * has to see the board a creep on the shipped road network sees. Different
+ * question, different flood, and it says so at its own call site.)
+ *
+ * ------------------------------------------------------------------------
+ * ...AND THE ANSWER DEPENDS ENTIRELY ON WHAT YOU PUT IN `blockSet`, WHICH IS
+ * WHY THERE ARE TWO FIELDS ON THE PLAN AND NOT ONE.
+ * ------------------------------------------------------------------------
+ *   plan.exterior   — THE ENCLOSURE. Flooded against layer 2's min-cut RING
+ *                     alone, frozen the moment the shell is bought, and never
+ *                     written again. This is the field `plan.depth` is derived
+ *                     from and the field every "is this tile inside the shell
+ *                     we paid for" question is asked of. It is not stale for
+ *                     that question: it IS that question.
+ *   liveExterior()  — THE WALL THE ROOM IS STANDING ON RIGHT NOW. Flooded
+ *                     against EVERY rampart in plan.structures.rampart at the
+ *                     moment of the call. This is the field every "may a creep
+ *                     / a road / an attacker be here" question is asked of.
+ *
+ * The two disagree, always and by construction, in BOTH directions:
+ *   - ADDING a rampart (every eco bubble, lab cover, mineral seat and personal
+ *     rampart from layers 2-6) can only SHRINK the exterior, so the enclosure
+ *     reading WITHHOLDS tiles that are legally interior to the shipped wall;
+ *   - REMOVING a rampart (layer 7's inert prune) can only GROW it, so the
+ *     enclosure reading EXPOSES tiles it still calls interior that the shipped
+ *     wall has since opened to the outside.
+ *
+ * The second direction is the dangerous one and it is the one that bit. Round
+ * 23 fixed a single pass (stage 5b, the along-the-cut swap) that had shipped
+ * two paved tiles outside their own wall. Round 24's instrumented re-compose of
+ * the 172-room world found the same defect one stage over and unfixed, in
+ * `paveable()` — the sole expansion predicate for every stitch, spur and
+ * extension-face road layer 7 lays. See the block above that predicate in
+ * layer-walls.mjs for the measurement and its roster; the short version is that
+ * it was answering a question about a wall the room had already stopped
+ * standing on, and that no other test in that layer would have caught it.
+ *
+ * So: consumers whose question is about the SHIPPED WALL call liveExterior();
+ * consumers whose question is about the ENCLOSURE keep plan.exterior AND SAY SO
+ * at the call site. There is no third option, and there is no consumer that
+ * gets to be vague about which one it meant.
+ *
+ * The refresh contract is not a convention. `liveExterior` memoises per plan and
+ * the memo key is the rampart array's IDENTITY and its LENGTH plus an explicit
+ * stamp, so every way this tree has ever moved a rampart — reassigning the array
+ * (the shell hand-off, the inert prune, layer-ext's retirement pass, the m7
+ * dedupe) and pushing onto it (lab cover, mineral bubbles, shallow-extension
+ * cover, the 7b reflow's shallow set) — invalidates it without anyone having to
+ * remember.
+ *
+ * `invalidateExterior()` exists for the case the key cannot see — a same-length
+ * in-place edit — and ALL EIGHT of those sites call it anyway (five in
+ * pipeline.mjs, two in layer-walls.mjs, one in layer-ext.mjs; layer-shell builds
+ * its list before it is on a plan and is not one). That is not
+ * belt-and-braces for its own sake: two of the eight (layer-ext's retirement pass
+ * and the 7b reflow's push) were relying on the length term of the memo key
+ * WITHOUT knowing it, because they were written before the memo existed and
+ * nobody had gone back to check. A memo that is correct by luck is the bug this
+ * whole header replaces, and "what can invalidate the flood" should be one grep
+ * and not an argument.
+ */
+export function exteriorFlood(terrain, blockSet) {
+  const e = new Uint8Array(2500);
+  const q = [];
+  for (let i = 0; i < 50; i++) {
+    for (const [x, y] of [
+      [i, 0],
+      [i, 49],
+      [0, i],
+      [49, i],
+    ]) {
+      if (!walkable(terrain, x, y) || blockSet.has(key(x, y))) continue;
+      const ii = x + y * 50;
+      if (!e[ii]) {
+        e[ii] = 1;
+        q.push(ii);
+      }
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (!walkable(terrain, nx, ny) || blockSet.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (e[ni]) continue;
+      e[ni] = 1;
+      q.push(ni);
+    }
+  }
+  return e;
+}
+
+/**
+ * The exterior of the wall the room is standing on at this instant.
+ * Returns `{ ext, rset }` — the flood and the rampart key set it was taken
+ * against, because every caller that wants one wants the other.
+ */
+export function liveExterior(terrain, plan) {
+  const ramp = plan.structures?.rampart || [];
+  const m = plan._liveExt;
+  if (m && m.ref === ramp && m.n === ramp.length && m.stamp === (plan._extStamp || 0)) return m;
+  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
+  const ext = exteriorFlood(terrain, rset);
+  plan._liveExt = { ref: ramp, n: ramp.length, stamp: plan._extStamp || 0, rset, ext };
+  // the field name layer 7 and the pipeline already publish under
+  plan.shippedExterior = ext;
+  return plan._liveExt;
+}
+
+/** call after anything mutates plan.structures.rampart */
+export function invalidateExterior(plan) {
+  plan._extStamp = (plan._extStamp || 0) + 1;
+  plan._liveExt = null;
+}
+
+/**
+ * THE ENCLOSURE READING IS ALLOWED, AND IT IS CHECKED.
+ *
+ * Layers 3-6 ask the enclosure question on purpose (see above) and their answer
+ * is one-directional by construction: nothing removes a rampart before layer 7,
+ * so the frozen flood can only ever be MORE conservative than the live wall —
+ * it withholds interior, it never exposes exterior. "By construction" is the
+ * same phrase that was true of `paveable()` right up until the inert prune was
+ * added underneath it, so it is measured instead of asserted.
+ *
+ * `exposed` is the count of tiles the frozen enclosure calls INTERIOR that the
+ * live wall calls EXTERIOR — the dangerous direction, and the number that must
+ * be 0. It is 0 in 172/172 rooms at every one of the four call sites today; the
+ * record ships so that a reader can see that rather than be told it, and so the
+ * validator can gate it. A non-zero reading is not a rounding error: it means
+ * that consumer has started running after a rampart-REMOVING pass and has to
+ * move to liveExterior() the same way paveable() did.
+ */
+export function checkEnclosureContract(terrain, plan, at) {
+  const frozen = plan.exterior;
+  if (!frozen || !plan.meta) return null;
+  const { ext: live } = liveExterior(terrain, plan);
+  let exposed = 0,
+    withheld = 0;
+  const exposedTiles = [];
+  for (let i = 0; i < 2500; i++) {
+    if (!!frozen[i] === !!live[i]) continue;
+    if (!frozen[i] && live[i]) {
+      exposed++;
+      if (exposedTiles.length < 8) exposedTiles.push(`${i % 50},${(i / 50) | 0}`);
+    } else withheld++;
+  }
+  const rec = { at, exposed, withheld };
+  if (exposed) rec.exposedTiles = exposedTiles;
+  (plan.meta.exteriorContract ||= []).push(rec);
+  if (exposed) {
+    (plan.meta.shortfalls ||= []).push({
+      gate: "exterior",
+      detail:
+        `${at} reads the frozen enclosure (plan.exterior) but ${exposed} tile(s) it ` +
+        `calls interior are OUTSIDE the wall the room is standing on ` +
+        `(${exposedTiles.join(" ")}${exposed > exposedTiles.length ? " ..." : ""}) — ` +
+        `this consumer now runs after a rampart-removing pass and must read ` +
+        `liveExterior() instead`,
+      tiles: exposedTiles.map((t) => {
+        const [x, y] = t.split(",").map(Number);
+        return { x, y };
+      }),
+    });
+  }
+  return rec;
+}
+
+// ---------------------------------------------------------------------------
 // PLACEMENT INVARIANTS THAT BELONG TO A ROOM OBJECT, NOT TO A STRUCTURE
 // ---------------------------------------------------------------------------
 /**

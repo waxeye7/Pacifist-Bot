@@ -6309,7 +6309,10 @@ run("r13/F8-untriggered-gate", R, (p) => {
 // switched off. MF5: the along-cut refusal's magnitude was gated on SIGN only,
 // so E5S9's "9 more road tile(s) fall off the network (0 -> 9; newly off:
 // 22,15 …)" rewritten to "1 more … (0 -> 1; newly off: 49,49)" passed — while
-// 10 of the 13 road-axis offers this fleet files re-derive EXACTLY on the shipped board.
+// the road-axis offers this fleet files re-derive EXACTLY on the shipped board
+// (the census is measured by the run and printed by validate.mjs's own summary
+// line; round 24 / OM5 took the dated pair of numbers out of this comment,
+// because it was already wrong on the artifact it was written against).
 // MF6: the one dead note class stated a false reason for its own silence.
 //
 // OWNER. OB1 (BLOCKING): stage 5b consulted a stale exterior flood and moved
@@ -6466,7 +6469,10 @@ run("r13/F8-untriggered-gate", R, (p) => {
     }
     regen23(p);
   };
-  const MF5_MSG = "re-derived on the board this room SHIPS";
+  // ROUND 24 / OB1: the message moved when the witness exemption died — the
+// gate now re-derives on the board the OFFER was priced on, which is the
+// shipped board except where a take has to be undone first.
+const MF5_MSG = "re-derived under the refusal's own definition";
   run("r23/MF5-X-the-49-49-forgery-a-real-magnitude-rewritten-to-one-tile",
     netRoom23(),
     refusal23((w) => w.replace(/\d+ more road tile\(s\) fall off the network \(\d+ -> \d+; newly off: [^)]*\)/,
@@ -6515,7 +6521,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
       p.meta.walls.roadKind[k] = "spur";
       regen23(p);
     },
-    "the only occupant this file grants that exception to");
+    "the only occupant this file can undo");
   run("r23/MF5-the-occupied-parallel-with-its-provenance-deleted-altogether",
     takenParallel23,
     (p) => {
@@ -6524,7 +6530,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
       delete p.meta.walls.roadKind[k];
       regen23(p);
     },
-    "the only occupant this file grants that exception to");
+    "the only occupant this file can undo");
   // ...and the same arithmetic in a refusal whose RUN THE TAKE BROKE, which the
   // roster loop does not walk and which is therefore where an editor would go
   const brokenRunPick23 = (wantOccupied) => (r, p) => {
@@ -6554,7 +6560,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
       p.meta.walls.roadKind[t] = "swampPave";
       regen23(p);
     },
-    "the only occupant this file grants that exception to");
+    "the only occupant this file can undo");
   run("r23/MF5-a-refusal-priced-for-a-tile-the-board-does-not-pave",
     brokenRunRoom23(false),
     (p, d) => {
@@ -6742,6 +6748,515 @@ run("r13/F8-untriggered-gate", R, (p) => {
   run("r23/OM9-the-orphan-set-s-basis-sentence-withdrawn",
     orphRoom23, orph23((rec) => { rec.orphanedByRemoval.basis = "the removal test"; }),
     "basis");
+}
+
+// ===========================================================================
+// ROUND 24 — the witness exemption, the layer-7 wall, and declaration order.
+// ===========================================================================
+// OWNER OB1 (BLOCKING) + MECHANICAL MA (MAJOR): the taken-parallel WITNESS
+// CLASS bought unlimited freedom on the price. `netPriceCheck9` bare-returned
+// on it, and the round-22 well-formedness block lived inside the shipped-run
+// roster loop only — so a room with an EMPTY roster (E17S5) filed every refusal
+// it had into a loop where nothing ran at all. Six exploits landed in one
+// round: an appended refusal offering the room's own take priced "999 more road
+// tile(s) fall off the network (5 -> 3; newly off: 99,99)" passed 172/172, as
+// did a 49,49 roster, an invented roster, a 40-more inflation, and a 1-more
+// DEFLATION that makes a kept anti-pattern look cheap. And the exemption was
+// UNNECESSARY: the offer-time board is `shipped ∪ {from2} \ {t}` and `from2` is
+// derivable, so every offer this fleet files re-derives exactly.
+//
+// OWNER OB2 (BLOCKING): the stale-flood class one stage over — nothing gated a
+// spur, a stitch or an ext-face road shipping OUTSIDE the wall.
+// MECHANICAL ME: declaration ORDER was derived on no board at all.
+// ===========================================================================
+{
+  const any24 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const NETRE24 = /^every interior parallel (?:breaks the network|makes the network measurably worse)\./;
+  const regen24 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+  const roadsOf24 = (p) => new Set((p.structures.road || []).map((r) => key(r.x, r.y)));
+  const rampOf24 = (p) => new Set((p.structures.rampart || []).map((r) => key(r.x, r.y)));
+  const cutOf24 = (p) => new Set((p.meta?.shell?.cut || []).map((c) => key(c.x, c.y)));
+  /** the run roster the validator re-derives: a paved rampart with a paved-rampart D8 neighbour */
+  const rosterOf24 = (p) => {
+    const roads = roadsOf24(p);
+    const paved = new Set((p.structures.rampart || []).filter((z) => roads.has(key(z.x, z.y))).map((z) => key(z.x, z.y)));
+    return new Set([...paved].filter((k) => {
+      const [x, y] = k.split(",").map(Number);
+      return D8.some(([dx, dy]) => paved.has(key(x + dx, y + dy)));
+    }));
+  };
+  /** every priced offer this room files, with everything a case needs to pick one */
+  const offers24 = (p) => {
+    const out = [];
+    const roads = roadsOf24(p);
+    const rk = p.meta?.walls?.roadKind || {};
+    const roster = rosterOf24(p);
+    for (const r of p.meta?.walls?.alongCutRefused || []) {
+      const why = String(r?.why || "");
+      if (!NETRE24.test(why)) continue;
+      const cutAt = why.indexOf("The other neighbours: ");
+      const head = cutAt >= 0 ? why.slice(0, cutAt) : why;
+      for (const seg of head.split(" · ")) {
+        const mm = seg.match(/moving it to (-?\d+),(-?\d+) — ([\s\S]*)$/);
+        if (!mm) continue;
+        const t = key(Number(mm[1]), Number(mm[2]));
+        out.push({
+          rec: r,
+          from: key(r.x, r.y),
+          t,
+          cost: mm[3],
+          axis: /fall off the network/.test(mm[3]) ? "road" : /more container\(s\) are left with no road/.test(mm[3]) ? "container" : "other",
+          witness: roads.has(t) && rk[t] === "alongCutMoved",
+          inRoster: roster.has(key(r.x, r.y)),
+        });
+      }
+    }
+    return out;
+  };
+  const hasOffer24 = (pred) => (p) => offers24(p).some(pred);
+  /** rewrite the price of the FIRST offer matching `pred`, in the record and in the note */
+  const reprice24 = (pred, fn) => (p) => {
+    const o = offers24(p).find(pred);
+    if (!o) throw new Error("no offer of the required class");
+    const before = String(o.rec.why);
+    const [tx, ty] = o.t.split(",");
+    const re = new RegExp(`(moving it to ${tx},${ty} — )([\\s\\S]*?)( —|\\)\\.| The swap is offered| · moving it to)`);
+    const after = before.replace(re, (m, head, price, tail) => head + fn(price, o, p) + tail);
+    if (after === before) throw new Error("the rewrite changed nothing");
+    o.rec.why = after;
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "pavedRun");
+    if (i >= 0) {
+      for (const rr of p.meta.noteRecords[i].rec.runs || []) {
+        if (rr && rr.x === o.rec.x && rr.y === o.rec.y) rr.refused = o.rec.why;
+      }
+    }
+    regen24(p);
+    return { note: `${o.from} -> ${o.t}` };
+  };
+  const ROAD_PRICE24 = /^\d+ more road tile\(s\) fall off the network \(\d+ -> \d+; newly off: [^)]*\)/;
+  const witnessRoad24 = (o) => o.witness && o.axis === "road";
+  const witnessRoom24 = any24(hasOffer24(witnessRoad24));
+  const OB1_MAG = "re-derived under the refusal's own definition";
+  const OB1_WF = "That it IS a subtraction";
+
+  // ---- the witness class, priced on the reconstructed offer-time board -----
+  run("r24/OB1-X-a-witness-offer-s-magnitude-INFLATED-with-a-roster-to-match",
+    witnessRoom24,
+    reprice24(witnessRoad24, () => "40 more road tile(s) fall off the network (0 -> 40; newly off: 1,1 1,2 1,3 1,4 1,5 1,6 …)"),
+    OB1_MAG);
+  run("r24/OB1-X-a-witness-offer-DEFLATED-so-the-kept-anti-pattern-looks-cheap",
+    witnessRoom24,
+    reprice24(witnessRoad24, () => "1 more road tile(s) fall off the network (0 -> 1; newly off: 3,3)"),
+    OB1_MAG);
+  run("r24/OB1-X-the-49-49-forgery-on-a-witness-offer",
+    witnessRoom24,
+    reprice24(witnessRoad24, () => "1 more road tile(s) fall off the network (0 -> 1; newly off: 49,49)"),
+    OB1_MAG);
+  run("r24/OB1-X-a-witness-offer-s-roster-invented-tile-for-tile",
+    witnessRoom24,
+    reprice24(witnessRoad24, (price) => price.replace(/newly off: [^)]*\)/, "newly off: 2,2 2,3 2,4 2,5 2,6 2,7 …)")),
+    OB1_MAG);
+  run("r24/OB1-X-a-witness-offer-priced-999-more-on-readings-that-IMPROVE",
+    witnessRoom24,
+    reprice24(witnessRoad24, () => "999 more road tile(s) fall off the network (5 -> 3; newly off: 99,99)"),
+    OB1_WF);
+  run("r24/OB1-a-witness-offer-priced-against-a-board-its-own-baseline-does-not-read",
+    witnessRoom24,
+    reprice24(witnessRoad24, (price) => price.replace(/\((\d+) -> (\d+);/, (m, a, b) => `(${Number(a) + 2} -> ${Number(b) + 2};`)),
+    OB1_WF);
+  run("r24/OB1-a-witness-offer-with-its-roster-marked-elided-so-the-tiles-need-not-be-named",
+    witnessRoom24,
+    reprice24(witnessRoad24, (price) => price.replace(/newly off: ([^)]*)\)/, (m, list) => `newly off: ${String(list).trim().split(/\s+/)[0]} …)`)),
+    `${OB1_WF}|${OB1_MAG}`);
+  run("r24/OB1-a-witness-offer-naming-a-tile-off-the-50x50-board",
+    witnessRoom24,
+    reprice24(witnessRoad24, (price) => price.replace(/newly off: [^)]*\)/, "newly off: 99,99)")),
+    `${OB1_WF}|${OB1_MAG}`);
+  run("r24/OB1-the-taken-parallel-s-provenance-repointed-at-another-pass",
+    witnessRoom24,
+    (p) => {
+      const o = offers24(p).find(witnessRoad24);
+      p.meta.walls.roadKind[o.t] = "spur";
+      regen24(p);
+    },
+    "provenance is");
+  run("r24/OB1-the-taken-parallel-s-provenance-deleted-so-nothing-can-be-undone",
+    witnessRoom24,
+    (p) => {
+      const o = offers24(p).find(witnessRoad24);
+      delete p.meta.walls.roadKind[o.t];
+      regen24(p);
+    },
+    "provenance is|carry NO provenance");
+  run("r24/OB1-X-the-take-s-ORIGIN-paved-so-the-offer-time-board-cannot-be-recovered",
+    witnessRoom24,
+    (p) => {
+      const o = offers24(p).find(witnessRoad24);
+      const roads = roadsOf24(p);
+      const ramp = rampOf24(p);
+      const [tx, ty] = o.t.split(",").map(Number);
+      const from2 = D8.map(([dx, dy]) => key(tx + dx, ty + dy)).find((k) => ramp.has(k) && !roads.has(k));
+      if (!from2) throw new Error("no reconstructible origin");
+      const [fx, fy] = from2.split(",").map(Number);
+      p.structures.road = [...p.structures.road, { x: fx, y: fy }];
+      if (p.meta.counts && typeof p.meta.counts.road === "number") p.meta.counts.road++;
+      if (p.meta.roadLayer) p.meta.roadLayer[from2] = 1;
+      regen24(p);
+    },
+    "cannot be undone");
+
+  // ---- the out-of-roster loop: the E17S5 class, where NOTHING ran ----------
+  //
+  // The forgery is the one the owner landed: an appended refusal, sited on a
+  // road tile the shipped roster does not carry, offering the room's own taken
+  // parallel. Every structural gate is satisfied by construction — the point of
+  // the case is that the PRICE is now checked in this loop too.
+  const forgeSite24 = (p) => {
+    const rk = p.meta?.walls?.roadKind || {};
+    const roads = roadsOf24(p);
+    const roster = rosterOf24(p);
+    const cut = cutOf24(p);
+    const filed = new Set((p.meta?.walls?.alongCutRefused || []).map((r) => key(r.x, r.y)));
+    for (const [k, kind] of Object.entries(rk)) {
+      if (kind !== "alongCutMoved") continue;
+      const [tx, ty] = k.split(",").map(Number);
+      for (const [dx, dy] of D8) {
+        const fx = tx + dx;
+        const fy = ty + dy;
+        const fk = key(fx, fy);
+        if (fx < 1 || fy < 1 || fx > 48 || fy > 48) continue;
+        if (!roads.has(fk) || roster.has(fk) || filed.has(fk) || cut.has(fk)) continue;
+        return { from: { x: fx, y: fy }, t: { x: tx, y: ty } };
+      }
+    }
+    return null;
+  };
+  const forgeRoom24 = any24((p) => !!forgeSite24(p));
+  /** the four-reading closing sentence, so the forged refusal is internally consistent */
+  const forgeWhy24 = (t, price, base) =>
+    `every interior parallel makes the network measurably worse. moving it to ${t.x},${t.y} — ${price} — ` +
+    `they are no longer D8-connected to the sitter over roads and containers. The swap is offered at equal ` +
+    `road count and taken only when the network is measurably no worse — a fact that is already true of the ` +
+    `un-swapped board prices nothing, so the comparison is against this room as it stands ` +
+    `(${base.roads} live road tiles · ${base.offNetwork} off the network · ${base.containersWithoutFace} ` +
+    `container(s) with no road neighbour · ${base.extensionsWithoutFace} extension(s) with no D4 road face); ` +
+    `this one is worse on a named axis, so the tile stays.`;
+  /** append a forged out-of-roster refusal; `shape` may re-point the offer or bend the record */
+  const forge24 = (price, shape = () => {}) => (p) => {
+    const site = forgeSite24(p);
+    if (!site) throw new Error("no forgery site");
+    const base = {
+      roads: (p.structures.road || []).length,
+      offNetwork: 0,
+      containersWithoutFace: 0,
+      extensionsWithoutFace: 0,
+    };
+    const rec = {
+      x: site.from.x,
+      y: site.from.y,
+      kind: "breaks-network",
+      offered: [{ x: site.t.x, y: site.t.y }],
+      baseline: base,
+      why: forgeWhy24(site.t, price, base),
+    };
+    shape(rec, p, site, base);
+    p.meta.walls.alongCutRefused = [...(p.meta.walls.alongCutRefused || []), rec];
+    regen24(p);
+    return { note: `${site.from.x},${site.from.y} -> ${site.t.x},${site.t.y}` };
+  };
+  run("r24/OB1-X-THE-FORGERY-an-appended-out-of-roster-refusal-offering-the-room-s-own-take",
+    forgeRoom24,
+    forge24("9 more road tile(s) fall off the network (0 -> 9; newly off: 1,1 1,2 1,3 1,4 1,5 1,6 …)"),
+    // either branch of the reconstruction is a bite: the forged refusal is
+    // priced on a board that either re-derives against it or cannot be named
+    `${OB1_MAG}|cannot be undone`);
+  run("r24/OB1-X-THE-FORGERY-with-self-contradicting-absurd-numbers",
+    forgeRoom24,
+    forge24("999 more road tile(s) fall off the network (5 -> 3; newly off: 99,99)"),
+    OB1_WF);
+  run("r24/OB1-an-out-of-roster-price-whose-quoted-difference-is-not-its-own-subtraction",
+    forgeRoom24,
+    forge24("3 more road tile(s) fall off the network (0 -> 5; newly off: 1,1 1,2 1,3 1,4 1,5)"),
+    "its own two readings differ by");
+  run("r24/OB1-an-out-of-roster-price-read-off-a-board-its-own-baseline-does-not-describe",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (2 -> 3; newly off: 1,1)"),
+    "the two terms of a subtraction have to be readings of the same board");
+  run("r24/OB1-an-out-of-roster-roster-shorter-than-the-difference-it-claims",
+    forgeRoom24,
+    forge24("3 more road tile(s) fall off the network (0 -> 3; newly off: 1,1)"),
+    "newly-affected tile\\(s\\) against a difference of");
+  run("r24/OB1-an-out-of-roster-roster-naming-a-tile-off-the-board",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 99,99)"),
+    "is not a tile of this room");
+  run("r24/OB1-an-out-of-roster-price-that-IMPROVES-the-axis-it-claims-to-worsen",
+    forgeRoom24,
+    forge24("-2 more road tile(s) fall off the network (5 -> 3; newly off: 1,1)"),
+    "which is not WORSE");
+  run("r24/OB1-an-out-of-roster-refusal-offering-a-tile-that-is-not-a-neighbour",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 1,1)", (rec, p, site) => {
+      const far = { x: site.t.x + 4, y: site.t.y + 4 };
+      rec.offered = [far];
+      rec.why = rec.why.replace(`moving it to ${site.t.x},${site.t.y}`, `moving it to ${far.x},${far.y}`);
+    }),
+    "not D8-adjacent");
+  run("r24/OB1-an-out-of-roster-refusal-offering-a-CUT-tile-as-an-interior-parallel",
+    any24((p) => {
+      const site = forgeSite24(p);
+      if (!site) return false;
+      const cut = cutOf24(p);
+      return D8.some(([dx, dy]) => cut.has(key(site.from.x + dx, site.from.y + dy)));
+    }),
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 1,1)", (rec, p, site) => {
+      const cut = cutOf24(p);
+      const c = D8.map(([dx, dy]) => ({ x: site.from.x + dx, y: site.from.y + dy })).find((z) => cut.has(key(z.x, z.y)));
+      rec.offered = [c];
+      rec.why = rec.why.replace(`moving it to ${site.t.x},${site.t.y}`, `moving it to ${c.x},${c.y}`);
+    }),
+    "itself a cut tile");
+  run("r24/OB1-an-out-of-roster-refusal-that-prices-a-swap-and-publishes-no-baseline",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 1,1)", (rec) => { delete rec.baseline; }),
+    "publishes `baseline`");
+  run("r24/OB1-an-out-of-roster-refusal-whose-sentence-and-record-read-two-boards",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 1,1)", (rec) => { rec.baseline.containersWithoutFace = 7; }),
+    "The paragraph and the record are one measurement of one board");
+  run("r24/OB1-an-out-of-roster-refusal-that-names-no-offer-at-all",
+    forgeRoom24,
+    forge24("1 more road tile(s) fall off the network (0 -> 1; newly off: 1,1)", (rec) => {
+      rec.why = rec.why.replace(/moving it to [^—]+— [^—]+— /, "");
+      rec.offered = [];
+    }),
+    "names none of them");
+
+  // ---- the OTHER axes, which the roster loop used to refuse outright ------
+  const contOffer24 = (o) => o.axis === "container";
+  const contRoom24 = any24(hasOffer24(contOffer24));
+  run("r24/OB1-a-container-axis-price-inflated-past-the-board-that-answers-it",
+    contRoom24,
+    reprice24(contOffer24, () => "2 more container(s) are left with no road on any of their 8 neighbours (1 -> 3; newly stranded: 1,1 1,2)"),
+    OB1_MAG);
+  run("r24/OB1-a-container-axis-newly-stranded-tile-substituted",
+    contRoom24,
+    reprice24(contOffer24, (price) => price.replace(/newly stranded: [^)]*\)/, "newly stranded: 4,4)")),
+    OB1_MAG);
+  run("r24/OB1-a-container-axis-price-re-labelled-as-a-road-axis-one",
+    contRoom24,
+    reprice24(contOffer24, () => "1 more road tile(s) fall off the network (0 -> 1; newly off: 5,5)"),
+    OB1_MAG);
+  run("r24/OB1-a-container-axis-roster-marked-elided-where-this-price-prints-it-whole",
+    contRoom24,
+    reprice24(contOffer24, (price) => price.replace(/newly stranded: ([^)]*)\)/, "newly stranded: …)")),
+    "the elision is not one this pass can produce|newly-affected tile");
+
+  // ---- OB2: the whole of layer 7 is inside the wall, or it says why -------
+  /** a live road tile in this room's exterior flood, with its provenance re-pointed */
+  const outsideRoad24 = (p, t) => {
+    const ramp = rampOf24(p);
+    const seen = new Uint8Array(2500);
+    const q = [];
+    const seed = (x, y) => {
+      if (x < 0 || y < 0 || x > 49 || y > 49) return;
+      if (isWall(t.terrain, x, y) || ramp.has(key(x, y))) return;
+      if (seen[idx(x, y)]) return;
+      seen[idx(x, y)] = 1;
+      q.push([x, y]);
+    };
+    for (let i = 0; i < 50; i++) { seed(i, 0); seed(i, 49); seed(0, i); seed(49, i); }
+    for (let qi = 0; qi < q.length; qi++) {
+      const [x, y] = q[qi];
+      for (const [dx, dy] of D8) seed(x + dx, y + dy);
+    }
+    for (const r of p.structures.road || []) if (seen[idx(r.x, r.y)]) return key(r.x, r.y);
+    return null;
+  };
+  const outsideRoom24 = any24((p) => {
+    const d = byRoom.get(p.room);
+    return !!d && !!outsideRoad24(p, d);
+  });
+  const OB2_MSG = "sit OUTSIDE the wall this room";
+  for (const kind of ["stitch", "reflow", "extFace", "spur"]) {
+    run(`r24/OB2-X-a-layer-7-${kind}-road-shipped-OUTSIDE-the-wall`,
+      outsideRoom24,
+      (p, d) => {
+        const k = outsideRoad24(p, d);
+        if (!k) throw new Error("no road outside the wall");
+        p.meta.walls.roadKind[k] = kind;
+        p.meta.roadLayer[k] = 7;
+      },
+      OB2_MSG);
+  }
+
+  // ---- OB2: the enclosure contract the four placement layers run under ----
+  const ecRoom24 = any24((p) => Array.isArray(p.meta?.exteriorContract) && p.meta.exteriorContract.length === 4);
+  const EC_MSG = "meta.exteriorContract";
+  run("r24/OB2-the-enclosure-contract-withdrawn-so-the-frozen-flood-is-read-on-trust",
+    ecRoom24, (p) => { delete p.meta.exteriorContract; }, EC_MSG);
+  run("r24/OB2-one-consumer-dropped-out-of-the-enclosure-contract",
+    ecRoom24, (p) => { p.meta.exteriorContract = p.meta.exteriorContract.slice(1); }, EC_MSG);
+  run("r24/OB2-the-contract-published-out-of-the-order-the-layers-run-in",
+    ecRoom24, (p) => { p.meta.exteriorContract = p.meta.exteriorContract.slice().reverse(); }, EC_MSG);
+  run("r24/OB2-X-a-placement-layer-EXPOSING-tiles-and-declaring-nothing",
+    ecRoom24,
+    (p) => { p.meta.exteriorContract[0] = { ...p.meta.exteriorContract[0], exposed: 2, exposedTiles: ["1,1", "1,2"] }; },
+    "files no `exterior` declaration about it");
+  run("r24/OB2-X-an-exterior-declaration-filed-over-a-contract-that-exposed-nothing",
+    ecRoom24,
+    (p) => {
+      p.meta.shortfalls = [
+        ...(p.meta.shortfalls || []),
+        {
+          gate: "exterior",
+          kind: null,
+          detail: "a placement layer stood a structure outside the wall this room ships.",
+          tiles: [{ x: 1, y: 1 }],
+        },
+      ];
+    },
+    "reads `exposed` 0 at every one of its|UNRENDERED DECLARATION KIND");
+  run("r24/OB2-a-contract-entry-whose-counts-are-not-tile-counts",
+    ecRoom24,
+    (p) => { p.meta.exteriorContract[1] = { ...p.meta.exteriorContract[1], exposed: null }; },
+    "both are tile counts");
+
+  // ---- ME: the order the note claims, derived against the board -----------
+  const recWithKeys24 = (p) => {
+    const out = [];
+    const walk = (node) => {
+      if (!node || typeof node !== "object") return;
+      if (Array.isArray(node)) { node.forEach(walk); return; }
+      if (Array.isArray(node.declaredKeys) && Array.isArray(node.preTakeShortfalls)) out.push(node);
+      for (const k of Object.keys(node)) walk(node[k]);
+    };
+    walk(p.meta);
+    return out;
+  };
+  const moved24 = (p) => {
+    let r = p.meta?.sealedRecovery;
+    let g = 0;
+    let took = false;
+    while (r && typeof r === "object" && g++ < 8) { if (r.outcome === "taken") took = true; r = r.next; }
+    return took || !!p.meta?.towers?.acrossPriorTake?.taken;
+  };
+  const twoKeyRoom24 = (wantMoved) =>
+    any24((p) => moved24(p) === wantMoved && recWithKeys24(p).some((R) => (R.declaredKeys || []).length > 1));
+  /** swap two real keys' declaration indices, and re-order the pre-take channel and the ranking to match */
+  const permute24 = (p) => {
+    for (const R of recWithKeys24(p)) {
+      const K = R.declaredKeys || [];
+      if (K.length < 2) continue;
+      const a = K[0];
+      const b = K[1];
+      const ia = a.at;
+      const ib = b.at;
+      a.at = ib;
+      b.at = ia;
+      R.declaredKeys = [b, a, ...K.slice(2)];
+      const P = R.preTakeShortfalls;
+      const pa = P[ia];
+      const pb = P[ib];
+      P[ia] = { ...pb, at: ia };
+      P[ib] = { ...pa, at: ib };
+      if (Array.isArray(R.ranking)) {
+        const la = R.ranking.findIndex((l) => String(l).includes(`${a.gate}${a.kind ? `/${a.kind}` : ``} declares`));
+        const lb = R.ranking.findIndex((l) => String(l).includes(`${b.gate}${b.kind ? `/${b.kind}` : ``} declares`));
+        if (la >= 0 && lb >= 0) {
+          const tmp = R.ranking[la];
+          R.ranking[la] = R.ranking[lb];
+          R.ranking[lb] = tmp;
+        }
+      }
+    }
+    regen24(p);
+  };
+  const ME_MSG = "pre-take declaration channel|publishes its declared keys in the order";
+  run("r24/ME-X-two-real-declared-keys-permuted-with-the-pre-take-channel-on-a-MOVED-board",
+    twoKeyRoom24(true), permute24, ME_MSG);
+  run("r24/ME-X-the-same-permutation-on-an-UNMOVED-board",
+    twoKeyRoom24(false), permute24, ME_MSG);
+  run("r24/ME-the-pre-take-channel-re-ordered-on-its-own",
+    any24((p) => recWithKeys24(p).some((R) => (R.preTakeShortfalls || []).length > 1)),
+    (p) => {
+      for (const R of recWithKeys24(p)) {
+        const P = R.preTakeShortfalls;
+        if (!P || P.length < 2) continue;
+        const a = P[0];
+        const b = P[1];
+        R.preTakeShortfalls = [{ ...b, at: 0 }, { ...a, at: 1 }, ...P.slice(2)];
+      }
+      regen24(p);
+    },
+    ME_MSG + "|a second opinion about it");
+  // ...and the SKIP that is swapped may not be the `eco` declaration: `eco` is
+  // the one entry this pipeline re-files at the end, so the spine comparison
+  // deliberately sets it aside — and it is never a key, so moving it past a key
+  // in a record with one key reorders nothing anybody applies. The case picks a
+  // skip that IS anchored, which is every other one.
+  const nonEcoSkip24 = (R) => (R.declaredSkipped || []).find((s) => s && s.gate !== "eco");
+  run("r24/ME-a-KEY-and-a-SKIP-swapped-at-their-declaration-indices",
+    any24((p) => recWithKeys24(p).some((R) => (R.declaredKeys || []).length && nonEcoSkip24(R))),
+    (p) => {
+      for (const R of recWithKeys24(p)) {
+        const k = (R.declaredKeys || [])[0];
+        const s = nonEcoSkip24(R);
+        if (!k || !s) continue;
+        const P = R.preTakeShortfalls;
+        const pk = P[k.at];
+        const ps = P[s.at];
+        P[k.at] = { ...ps, at: k.at };
+        P[s.at] = { ...pk, at: s.at };
+        const t = k.at;
+        k.at = s.at;
+        s.at = t;
+        R.declaredKeys = (R.declaredKeys || []).slice().sort((x, y) => x.at - y.at);
+      }
+      regen24(p);
+    },
+    ME_MSG + "|a second opinion about it|the channel this pass read carries");
+  run("r24/ME-the-key-list-published-out-of-its-own-declaration-order",
+    twoKeyRoom24(false),
+    (p) => {
+      for (const R of recWithKeys24(p)) {
+        if ((R.declaredKeys || []).length > 1) R.declaredKeys = R.declaredKeys.slice().reverse();
+      }
+      regen24(p);
+    },
+    "out of declaration order|publishes its declared keys in the order");
+
+  // ---- OM3: a pass verdict on a lap nothing judged ------------------------
+  //
+  // The record's own second hurdle is `metric.gatedPairs`, so this is checkable
+  // on the artifact: put the verdict phrase back into the paragraph of a room
+  // whose gate judged nothing and the room fails, whichever way the renderer
+  // currently spells the honest version.
+  const unjudgedRoom24 = any24((p) => (p.meta?.shortfalls || []).some((sf) => sf && sf.gate === "mobility" && !sf.kind && sf.metric && sf.metric.gatedPairs === 0));
+  run("r24/OM3-X-the-verdict-phrase-restored-to-a-declaration-whose-gate-judged-nothing",
+    unjudgedRoom24,
+    (p) => {
+      const sf = (p.meta.shortfalls || []).find((z) => z && z.gate === "mobility" && !z.kind && z.metric && z.metric.gatedPairs === 0);
+      // wording-independent on purpose: whatever the honest headline says, this
+      // one states the verdict and says nothing about a measurement not taken
+      sf.detail =
+        `AS BUILT the defender lap is ${sf.metric.maxGated} over pairs costing more than ` +
+        `${sf.metric.detourFloor} tiles of detour, INSIDE the ${sf.metric.target} target (ungated over ` +
+        `every pair it is ${sf.metric.max})` +
+        String(sf.detail).replace(/^[^:]*/, "").replace(/NOT JUDGED AT ALL|NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/gi, "judged");
+    },
+    "gate judged `metric.gatedPairs`");
+  run("r24/OM3-the-non-verdict-wording-quietly-dropped",
+    unjudgedRoom24,
+    (p) => {
+      const sf = (p.meta.shortfalls || []).find((z) => z && z.gate === "mobility" && !z.kind && z.metric && z.metric.gatedPairs === 0);
+      sf.detail = String(sf.detail).replace(/NOT JUDGED AT ALL|NOT JUDGED|UNJUDGED|judged NO PAIR|no verdict/gi, "judged");
+    },
+    "gate judged `metric.gatedPairs`");
 }
 
 // ===========================================================================

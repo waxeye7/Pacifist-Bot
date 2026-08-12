@@ -46,7 +46,16 @@
  * (TOWER_POWER_ATTACK 600, TOWER_OPTIMAL_RANGE 5, TOWER_FALLOFF_RANGE 20,
  * TOWER_FALLOFF 0.75).
  */
-import { D4, D8, buildable, key, mineralGuard, reservedTiles, walkable } from "./shared.mjs";
+import {
+  D4,
+  D8,
+  buildable,
+  checkEnclosureContract,
+  key,
+  mineralGuard,
+  reservedTiles,
+  walkable,
+} from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 // DECLARATION PROSE IS GENERATED, NOT WRITTEN — see the header of declprose.mjs.
 // Both of this layer's declarations used to build their paragraph inline out of
@@ -223,6 +232,14 @@ export function planTowers(terrain, plan, opts = {}) {
   if (!plan.shell) return { error: "towers need a shell (layer 2 missing)" };
   const depth = plan.depth; // Int16Array from layer 2
   const ext = plan.exterior;
+  // THE ENCLOSURE READING, DECLARED AND CHECKED. `plan.exterior` is layer 2's
+  // flood against the min-cut RING — the shell this layer is placing inside,
+  // and the field `plan.depth` agrees with. That is the question this layer
+  // means to ask, so it keeps the frozen field rather than the live wall; what
+  // it may NOT do is rely on the two agreeing by luck. See the exteriorFlood
+  // header in shared.mjs: `exposed` must be 0, and a non-zero reading is a
+  // declared shortfall, not a comment.
+  checkEnclosureContract(terrain, plan, "towers(L3)");
 
   // TWO different questions, and the old layer answered both with one set.
   //   occupied — tiles that cannot HOLD a tower (something is already there)

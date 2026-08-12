@@ -42,7 +42,17 @@
  *       reports it. It moves NOTHING. See the header on verifyMobility below
  *       for what used to live here and why it is gone.
  */
-import { D4, D8, chebyshev, isSwamp, key, walkable } from "./shared.mjs";
+import {
+  D4,
+  D8,
+  chebyshev,
+  exteriorFlood,
+  invalidateExterior,
+  isSwamp,
+  key,
+  liveExterior,
+  walkable,
+} from "./shared.mjs";
 import {
   BUILT_OBSTACLES,
   MOBILITY_TARGET,
@@ -93,7 +103,11 @@ const round2 = (v) => Math.round(v * 100) / 100;
  * measured the finished base's defender lap, found the wall pair the extension
  * mass had walled off, and RELOCATED one to four extensions out of the lane.
  * It worked — fleet as-built worst-pair mean 3.61 -> 2.92, 178 extensions moved
- * across 67 rooms — and it was the "repair-loop architecture" anti-pattern by
+ * across 67 rooms [r22-waived: a reading of a pass that NO LONGER EXISTS — the
+ * 3.61/2.92 means and the 178-extensions-across-67-rooms roster are what
+ * `breachCorridors` did on the build it was deleted from, and nothing in the
+ * shipped artifact can re-derive a deleted pass's output] — and it was the
+ * "repair-loop architecture" anti-pattern by
  * name: a layer fixing a previous layer's output instead of the previous layer
  * being corrected at the source. Its own header argued the fix was impossible
  * anywhere else, because the lap is a property of the FINISHED base.
@@ -696,6 +710,16 @@ function verifyMobility(terrain, plan) {
         pairs: mBuilt.pairs,
         overGated: mBuilt.overGated,
         gatedPairs: mBuilt.gatedPairs,
+        // ...and the two the HEADLINE's third branch needs. `gatedPairs === 0`
+        // is what makes a lap of 0 a NON-VERDICT rather than a pass, and
+        // `maxDetour` against `detourFloor` is what says WHICH of the two ways
+        // the room got there — every pair below the floor, or every pair above
+        // it excused by coverage. Both were already computed by mobilityStats
+        // and both already reach the room page and the index chip through
+        // `meta.walls.mobility`; the declaration was the one channel deriving
+        // its verdict without them. See the HEADLINE block in renderMobility.
+        maxDetour: mBuilt.maxDetour,
+        coveredPairs: mBuilt.coveredPairs,
         bareOver: mFree.over,
         bareOverGated: mFree.overGated,
         detourFloor: mBuilt.detourFloor,
@@ -945,8 +969,9 @@ function verifyMobility(terrain, plan) {
  * claim/attack creep the only tiles it can stand on. Delete one and no depth
  * moves, no structure changes flag, the walk region is identical — the test
  * passes cleanly, and it passed 161 times across 66 rooms, deleting 161 of this
- * [r22-waived: the DEFECT the ring declaration fixed, measured on the build it
- * was found on — the pass cannot reach a declared ring tile now.]
+ * [r22-waived: the 161-times-across-66-rooms DEFECT the ring declaration fixed,
+ * measured on the build it was found on — the pass cannot reach a declared ring
+ * tile now.]
  * pass's 173 deletions and reopening every ring the goal document mandates
  * ("controller outside the wall: rampart ONLY its adjacent ring — denies
  * claim-attack stands").
@@ -1023,70 +1048,45 @@ const idxOf = (x, y) => x + y * 50;
  * to suppress a shortfall it had already measured — see verifyMobility.
  *
  * This is the wall the room actually ships: EVERY rampart in plan.structures,
- * flooded from the four edges. It is memoised on the plan and invalidated by
- * hand whenever layer 7 changes the rampart list (the prune and the
- * reconciliation are the only two things that can), so nothing downstream has
- * to remember to recompute it and no consumer pays for the flood a second time.
- * (Round 21, Mm1: that last clause used to read "nothing recomputes it 159
- * times either" — a count of the retired 159-room world, in a sentence about a
- * per-plan memo, where the fleet size was never what the memo was saving.)
+ * flooded from the four edges. It is memoised on the plan, so nothing
+ * downstream has to remember to recompute it and no consumer pays for the flood
+ * a second time. (Round 21, Mm1: that last clause used to read "nothing
+ * recomputes it 159 times either" — a count of the retired 159-room world, in a
+ * sentence about a per-plan memo, where the fleet size was never what the memo
+ * was saving.)
  *
  * plan.exterior is deliberately NOT overwritten. It is what layer 2 decided
  * against, several later measurements are legitimately attributed to it, and
  * silently redefining a field half the pipeline reads is how this bug got
  * here. The stale one keeps its name; the shipped one gets its own.
+ *
+ * ------------------------------------------------------------------------
+ * ROUND 24: THE DEFINITION, THE MEMO AND THE REFRESH CONTRACT ALL MOVED TO
+ * shared.mjs, BECAUSE THIS FILE WAS NOT THE ONLY PLACE THAT NEEDED THEM.
+ * ------------------------------------------------------------------------
+ * Two things were wrong with keeping them here. The flood itself was written
+ * out three times in this tree — here, in layer-shell and in layer-ext's 7b
+ * reflow — for one definition. And the memo was invalidated BY HAND, which
+ * worked exactly as long as every author of a rampart mutation remembered:
+ * layer-ext's rampart-retirement pass and the 7b reflow's `shallowRamparts`
+ * push both move the list and neither calls the invalidator, and both were
+ * saved only by the memo key happening to include the array's length.
+ *
+ * `liveExterior` in shared.mjs keys the memo on the rampart array's IDENTITY
+ * and LENGTH as well as the explicit stamp, so reassigning the array and
+ * pushing onto it both invalidate it whether or not anyone remembered; the
+ * explicit `invalidateExterior` calls stay for the case the key cannot see.
+ * These two functions are kept as thin local names because this file calls
+ * them under those names in thirty places and the names say which question is
+ * being asked. See the header on `exteriorFlood` in shared.mjs for the two
+ * fields, the two questions and the instrumented reason paveable() had to move.
  */
 function shippedFlood(terrain, plan) {
-  const ramp = plan.structures.rampart || [];
-  if (plan._shipped && plan._shipped.n === ramp.length && plan._shipped.stamp === plan._shippedStamp) {
-    return plan._shipped;
-  }
-  const rset = new Set(ramp.map((r) => key(r.x, r.y)));
-  const ext = exteriorFlood(terrain, rset);
-  plan._shipped = { rset, ext, n: ramp.length, stamp: plan._shippedStamp };
-  plan.shippedExterior = ext;
-  return plan._shipped;
+  return liveExterior(terrain, plan);
 }
 /** call after anything mutates plan.structures.rampart under layer 7 */
 function invalidateShippedFlood(plan) {
-  plan._shippedStamp = (plan._shippedStamp || 0) + 1;
-  plan._shipped = null;
-}
-
-function exteriorFlood(terrain, rampartSet) {
-  const e = new Uint8Array(2500);
-  const q = [];
-  for (let i = 0; i < 50; i++) {
-    for (const [x, y] of [
-      [i, 0],
-      [i, 49],
-      [0, i],
-      [49, i],
-    ]) {
-      if (!walkable(terrain, x, y) || rampartSet.has(key(x, y))) continue;
-      const ii = idxOf(x, y);
-      if (!e[ii]) {
-        e[ii] = 1;
-        q.push(ii);
-      }
-    }
-  }
-  for (let qi = 0; qi < q.length; qi++) {
-    const i = q[qi];
-    const x = i % 50,
-      y = (i / 50) | 0;
-    for (const [dx, dy] of D8) {
-      const nx = x + dx,
-        ny = y + dy;
-      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
-      if (!walkable(terrain, nx, ny) || rampartSet.has(key(nx, ny))) continue;
-      const ni = nx + ny * 50;
-      if (e[ni]) continue;
-      e[ni] = 1;
-      q.push(ni);
-    }
-  }
-  return e;
+  invalidateExterior(plan);
 }
 function depthFromExterior(e) {
   const depth = new Int16Array(2500).fill(999);
@@ -1432,7 +1432,11 @@ function pruneInertRamparts(terrain, plan) {
   // (a) and (b) exist for one argument: an attacking claim/attack creep can
   // STAND on this tile, and the rampart is what stops him. The argument is
   // sound and it was applied without ever checking its premise, so 12 ramparts
-  // across 10 rooms shipped as pure forever-upkeep — non-sealing, carrying no
+  // across 10 rooms [r22-waived: the DEFECT this check fixed — the 12 ramparts
+  // across 10 rooms are the pre-fix reading and the eleven-room roster below is
+  // its evidence; the shipped artifact contains none of them, which is the
+  // point, so no extractor can re-derive them] shipped as pure
+  // forever-upkeep — non-sealing, carrying no
   // structure, and provably unreachable by the exterior even when deleted alone
   // (E11S6 13,25 · E16S2 22,32 · E16S6 13,18 14,18 · E17S4 12,11 · E21S3 23,24
   // 23,25 · E5S2 38,24 · E5S5 21,10 · E6S7 17,16 · E7S9 40,44 · E8S1 24,14).
@@ -2823,7 +2827,6 @@ export function planWallRoads(terrain, plan) {
 
   const cut = plan.shell.cut || [];
   if (!cut.length) return { error: "shell has no cut tiles" };
-  const ext = plan.exterior;
 
   // (0b) THE LAP THE FINISHED MASS LEAVES THE GARRISON IS MEASURED LAST, NOT
   //      HERE. It used to run at this point, which was correct only for as long
@@ -2910,9 +2913,58 @@ export function planWallRoads(terrain, plan) {
   // structure, not the wall itself. Excluding the cut keeps every spur on
   // this side of the wall — a paved path THROUGH a rampart line would be a
   // ladder for anything that breaches it.
+  //
+  // ------------------------------------------------------------------
+  // "INSIDE" MEANS INSIDE THE WALL THE ROOM IS STANDING ON, AND IT USED TO MEAN
+  // INSIDE THE ONE LAYER 2 BOUGHT.
+  //
+  // This read `plan.exterior` — layer 2's flood, frozen at the moment the shell
+  // was priced, before a single bubble rampart existed and, fatally, before
+  // stage (0a) above DELETED inert ramparts out of the cut thirty lines earlier
+  // in this very function. It is the sole expansion predicate for every road
+  // this layer lays: stitch, rampart spur, extension-face safety net and the
+  // swamp-hole pre-pave all reach new tiles through `fieldFromNetwork`, and
+  // `fieldFromNetwork` reaches them through here. Nothing else gates them.
+  //
+  // Round 23 found and fixed exactly this defect one stage LOWER, at the
+  // along-the-cut swap (stage 5b), which had shipped two paved tiles outside
+  // their own wall — and left the predicate that feeds four other passes
+  // reading the stale field. An instrumented re-compose of the 172-room world
+  // measured what that predicate was actually answering on the SHIPPED
+  // composition of each room, counting only tiles whose verdict it changes and
+  // that the road search can reach out of the live network:
+  //
+  //   · 35 tiles across 21 rooms that layer 2 calls INTERIOR and the wall the
+  //     room is standing on has OPENED TO THE OUTSIDE (E9S8 and E17S5 among
+  //     them — round 23's own two rooms).
+  //     [r22-waived: "35 tiles across 21 rooms" is an instrumented reading of
+  //     the DEFECT — the disagreement between a frozen field and a live flood
+  //     at one moment INSIDE a pass. The artifact records the board that pass
+  //     produced, not the moment, so nothing in it re-derives this.]
+  //
+  //   · 392 tiles across 144 rooms in the other direction: legally interior to
+  //     the shipped wall, and silently withheld from the search.
+  //     [r22-waived: "392 tiles across 144 rooms" — the same instrumented
+  //     reading, the other direction. The FIX's own result is the derivable
+  //     claim and it is the stronger one: with the predicate on the live wall
+  //     the 172-room fleet re-composes to the same board, tile for tile, in
+  //     every room, which is what the round-24 build measured.]
+  //
+  // Of those 35, exactly one carries a road at all, and it is a LAYER 1 eco
+  // road (E19S8 34,36) that this predicate never gated — the deliberate
+  // outside-the-shell haul roads the header at the top of this file argues for.
+  // ZERO were laid by any pass of this layer. That is terrain luck and not a
+  // design: no pass here asks any other question before laying a tile, so
+  // nothing but the shape of the ground was stopping the next one.
+  //
+  // So the predicate asks the live wall, per call. `liveExterior` is memoised on
+  // the rampart list, so the cost is one flood for the layer rather than one per
+  // call, and the reading cannot go stale between the two prunes that bracket
+  // these passes the way a captured `const ext` did.
+  // ------------------------------------------------------------------
   const paveable = (x, y) => {
     if (x < 1 || y < 1 || x > 48 || y > 48) return false;
-    if (!walkable(terrain, x, y) || ext[idx(x, y)]) return false;
+    if (!walkable(terrain, x, y) || liveExterior(terrain, plan).ext[idx(x, y)]) return false;
     const k = key(x, y);
     return !occupied.has(k) && !cutSet.has(k);
   };
@@ -3107,11 +3159,29 @@ export function planWallRoads(terrain, plan) {
   // any structure — extensions included. Since the extension mass is grown
   // FLANKING corridors, that protected essentially every corridor tile in the
   // room by construction, and the "removability" test underneath it never got
-  // a chance to fire. Measured with an independent re-derivation, 1774 of the
-  // fleet's 14288 road tiles were removable without touching a single promise
-  // the plan makes: whole parallel corridors survived (E18S8 ran twin
-  // hub-to-controller lanes at y=18 AND y=19, 38 removable tiles in one room),
-  // each of them decaying and being repaired forever for nothing.
+  // a chance to fire. Measured with an independent re-derivation, 1774 road
+  // tiles were removable without touching a single promise the plan makes:
+  // whole parallel corridors survived (E18S8 ran twin hub-to-controller lanes
+  // at y=18 AND y=19, 38 removable tiles in one room), each of them decaying and
+  // being repaired forever for nothing.
+  //
+  // THE FLEET ROAD TOTAL THAT USED TO SIT IN THAT SENTENCE IS DELETED, NOT
+  // CORRECTED. It read "1774 of the fleet's 14288 road tiles" [r22-waived: the
+  // ROTTED FIGURE IS QUOTED — "the fleet's 14288 road tiles" is what this
+  // comment used to assert, kept verbatim so the next clause can say what was
+  // wrong with it; correcting the numeral would delete the finding, and the
+  // live total is re-derived by this same gate under `road`] and the fleet has
+  // not shipped that many roads for several rounds — the figure had gone stale
+  // by nearly two hundred tiles and survived six numeral sweeps, because it sat on
+  // the far side of a line wrap and the numeral audit treated each line of a
+  // `//` run as its own prose range. (Round 24 taught it to join them; this was
+  // one of the two live wrong figures that came out from under the join.) The
+  // number is `meta.counts.road` summed over plans-hub.json, the audit
+  // re-derives it every run, and a comment has no business holding a second
+  // copy of a quantity that already has a channel. The 1774 keeps its meaning
+  // without it: it is a count of tiles the OLD rule left removable, on the
+  // board it was measured on, and after this fixpoint the removable count is 0
+  // by construction — which is the claim a reader should be checking.
   //
   // THE HONEST DEFINITION. A road tile may go when, after it goes:
   //   ONE NET    the road+container+sitter graph is still ONE D8 component
@@ -3492,7 +3562,7 @@ export function planWallRoads(terrain, plan) {
     // ------------------------------------------------------------------
     // THE FLOOD THIS PASS ASKS IS THE ONE THE ROOM CURRENTLY HAS.
     //
-    // `ext` (== plan.exterior) is LAYER 2's flood: the exterior reachable
+    // `plan.exterior` is LAYER 2's flood: the exterior reachable
     // set against the min-cut ring as it stood before layers 3-7 added a
     // single bubble rampart and before pruneInertRamparts (above, stage 5)
     // TOOK ramparts away. The comment on the rejection order below already
@@ -3526,8 +3596,13 @@ export function planWallRoads(terrain, plan) {
     // never LARGER than the shipped wall's interior, which is the direction
     // that matters: this test can now only refuse a tile the shipped board
     // would also refuse, never accept one it would reject.)
+    //
+    // Round 24: this pass was the only one in the layer asking the live wall,
+    // and it was asking it with a private flood of its own. `paveable` — which
+    // gates the FOUR passes above — now asks the same question through the same
+    // memo, so the two cannot disagree and the room pays for one flood, not two.
     // ------------------------------------------------------------------
-    const extNow = exteriorFlood(terrain, rampartSet);
+    const extNow = liveExterior(terrain, plan).ext;
     const liveNow = () => {
       const s = new Set();
       for (const r of plan.structures.road.concat(newRoads)) {
@@ -3901,6 +3976,10 @@ export function planWallRoads(terrain, plan) {
   }
   if (reflow.shallowRamparts.length && plan.structures.rampart) {
     plan.structures.rampart.push(...reflow.shallowRamparts);
+    // 7b moves the wall as surely as the prune does, and this site never said
+    // so. It was correct only because the memo key happens to include the
+    // array's length; the contract is that every mutation declares itself.
+    invalidateShippedFlood(plan);
   }
   if (plan.meta) {
     plan.meta.counts = plan.meta.counts || {};

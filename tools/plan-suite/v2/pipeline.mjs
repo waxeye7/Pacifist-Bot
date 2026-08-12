@@ -16,7 +16,7 @@
  *   7 late roads  rampart spurs + extension-face net + dead-end prune, last
  *                so they never steal a tile from the 60 extensions
  */
-import { D4, D8, PARK_PROTECT, isWall, key, walkable } from "./shared.mjs";
+import { D4, D8, PARK_PROTECT, invalidateExterior, isWall, key, walkable } from "./shared.mjs";
 import { planHub, distField } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { CLUMP_NOTE, MAX_REFILL, MIN_SAT, REFILL_NOTE, planTowers } from "./layer-towers.mjs";
@@ -81,6 +81,13 @@ export function composePlan(d, shellOpts = {}) {
     return plan;
   }
   plan.structures.rampart = shell.rampart;
+  // EVERY SITE THAT MOVES THE RAMPART LIST SAYS SO. `liveExterior`'s memo key
+  // would catch all three of this file's sites on its own (the array changes
+  // identity here and length at the two pushes below), and that is exactly the
+  // "correct by luck" the contract in shared.mjs exists to replace: the key is
+  // the belt, these calls are the braces, and a reader looking for "what can
+  // invalidate the flood" finds one grep instead of an argument.
+  invalidateExterior(plan);
   plan.shell = shell.shell;
   plan.exterior = shell.exterior;
   plan.depth = shell.depth;
@@ -135,7 +142,10 @@ export function composePlan(d, shellOpts = {}) {
     }
     plan.structures.road.push(...lb.roads);
     tagRoads(4, lb.roads);
-    if (lb.shallowLabs.length) plan.structures.rampart.push(...lb.shallowLabs);
+    if (lb.shallowLabs.length) {
+      plan.structures.rampart.push(...lb.shallowLabs);
+      invalidateExterior(plan); // lab cover moves the wall — see planShell above
+    }
     plan.meta.counts.lab = lb.lab.length;
     plan.meta.labs = lb.labsMeta;
   }
@@ -148,7 +158,10 @@ export function composePlan(d, shellOpts = {}) {
     // m11: the extractor is the one structure allowed on an object tile
     if (ms.extractor.length) plan.structures.extractor = ms.extractor;
     if (ms.mineralContainer.length) plan.structures.container.push(...ms.mineralContainer);
-    if (ms.bubbles.length && plan.structures.rampart) plan.structures.rampart.push(...ms.bubbles);
+    if (ms.bubbles.length && plan.structures.rampart) {
+      plan.structures.rampart.push(...ms.bubbles);
+      invalidateExterior(plan); // the mineral seat's bubble, same reason
+    }
     plan.meta.shortfalls.push(...(ms.shortfalls || []));
     for (const b of ms.bubbleRejected || []) {
       plan.meta.shortfalls.push({
@@ -177,6 +190,7 @@ export function composePlan(d, shellOpts = {}) {
     tagRoads(6, ex.roads);
     if (ex.shallowExts.length && plan.structures.rampart) {
       plan.structures.rampart.push(...ex.shallowExts);
+      invalidateExterior(plan); // shallow-extension cover, same reason
     }
     plan.meta.counts.extension = ex.extension.length;
     plan.meta.extensions = ex.extMeta;
@@ -494,6 +508,10 @@ export function composePlan(d, shellOpts = {}) {
       seen.add(k);
       return true;
     });
+    // the deduped list is the same SET of tiles, so this one cannot move the
+    // flood — but it does move the array, and the contract is about sites and
+    // not about which of them happen to matter. See shared.mjs.
+    invalidateExterior(plan);
     if (plan.shell) {
       plan.shell.upkeepPerTick = Math.round(plan.structures.rampart.length * 3) / 100;
     }
@@ -1542,7 +1560,10 @@ function attachRungProof(plan, trail) {
     // MF4 (round 18) — THE SECOND RUNGS ARRAY IS GONE.
     //
     // This wrote `s.rungs` — every composition of every seed, 228 numbers across
-    // 57 rooms — beside `s.ladder.rungs`, which is the table the paragraph is
+    // 57 rooms [r22-waived: the size of the DELETED array, measured on the build
+    // it was deleted from — 228 numbers across 57 rooms is a count of something
+    // this artifact deliberately no longer publishes] — beside `s.ladder.rungs`,
+    // which is the table the paragraph is
     // actually rendered from. `rungs` is in the declaration ENVELOPE
     // (validate.mjs RECORD_ENVELOPE), so the leaf inventory walked straight past
     // it: a wholly unaudited numeric array, published as evidence

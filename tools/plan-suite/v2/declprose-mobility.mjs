@@ -230,6 +230,38 @@ function renderLadder(sf) {
  *               against the wall the room ships. `sf.negotiated`.
  *   LADDER      the rungs, and the verdict read off them. `sf.ladder`.
  */
+/**
+ * WHY THE GATE JUDGED NOTHING — ONE SENTENCE, EVERY CHANNEL THAT SAYS IT.
+ *
+ * There are exactly two ways a room reaches an unjudged lap and four places
+ * that have to say which one it was: this declaration's headline, the room
+ * page, the index chip and the film's note. Round 24 caught the film stating
+ * the wrong one of the two (it composed its own answer out of `detourFloor`
+ * alone, so E7S5 — the room holding the fleet's worst absolute detour, 33
+ * tiles — was told no pair detours more than 4). The fix for that was to make
+ * the film call the helper the other two already used; writing the same
+ * sentence a second time HERE, for the declaration, would have been the same
+ * defect with a fresh copy to rot.
+ *
+ * So the wording lives once, in the prose module, and takes the two record
+ * fields the branch is a function of. plan.mjs's `mobilityUnjudgedWhy` reads
+ * them off `meta.walls.mobility` and calls this; the declaration reads them off
+ * `sf.metric` and calls this. The two channels read different objects — that
+ * part is not shareable and should not be — but they cannot give different
+ * answers, or different reasons, or different words.
+ */
+export function unjudgedReason(maxDetour, detourFloor) {
+  const md = num(maxDetour);
+  const fl = num(detourFloor);
+  return isFinite(md) && isFinite(fl) && md > fl
+    ? `this room's worst absolute detour is ${n(maxDetour)} tiles, over the ` +
+        `${n(detourFloor)}-tile floor, and every pair that clears the floor is excused by ` +
+        `coverage (a defender on one wall tile already covers everything an attacker can ` +
+        `stand on to grind the other)`
+    : `no two wall tiles of this room are more than ${n(detourFloor)} tiles apart in ` +
+        `detour, which is the floor below which a detour is not a detour`;
+}
+
 export function renderMobility(sf) {
   const m = sf.metric || {};
   const mass = sf.mass || {};
@@ -265,14 +297,52 @@ export function renderMobility(sf) {
   // check.
   const liftClears = !!lift && num(lift.liftedLap) <= target;
 
+  // ------------------------------------------------------------------
+  // THE HEADLINE HAS THREE BRANCHES, BECAUSE THE MEASUREMENT HAS THREE
+  // OUTCOMES — AND IT SHIPPED WITH TWO.
+  //
+  // `gatedMiss` is one hurdle and the headline was built out of it alone, so
+  // every room that is not OVER the target was told it is INSIDE the target.
+  // That is a PASS VERDICT, and a room whose gate judged NO PAIR has not passed
+  // anything: its lap is 0 because nothing was measured, not because the wall is
+  // perfect. E17S3 and E7S9 both shipped "the defender lap is 0 ... INSIDE the
+  // 1.2 target" with `gatedPairs` at 0 — and E17S3's own ungated reading, in the
+  // same sentence, is well ABOVE 1.2. The block immediately above this one
+  // already knew: it quotes those two rooms by name, calls the paragraph "a
+  // paragraph of confident falsehoods", and then fixes only the attribution
+  // prose UNDERNEATH the headline that states the verdict.
+  //
+  // The room page and the index chip have printed this correctly since round 23
+  // — `mobilityUnjudged` / `mobilityUnjudgedWhy` in plan.mjs branch on exactly
+  // these two fields, and the chip wears the word UNJUDGED rather than a number.
+  // The declaration is the channel of record and it was the one channel still
+  // rounding an unjudged zero up to a pass. So it takes the same branch, off the
+  // same two record fields, and says the same thing.
+  //
+  // The ungated reading stays in the sentence in all three branches, but its JOB
+  // changes: in the two verdict branches it is context beside a judgement; in
+  // this one it is the only lap reading the room actually has, and it is
+  // labelled as context for a verdict that was never reached rather than as the
+  // thing the target was applied to.
+  // ------------------------------------------------------------------
+  const judged = m.gatedPairs === null || m.gatedPairs === undefined ? null : num(m.gatedPairs) > 0;
+  const unjudgedWhy = unjudgedReason(m.maxDetour, m.detourFloor);
+
   const head = gatedMiss
     ? `AS BUILT the defender lap is ${n(m.maxGated)} over pairs costing more than ` +
       `${n(m.detourFloor)} tiles of detour (target ${n(m.target)}; ungated over every pair it is ` +
       `${n(m.max)})`
-    : `AS BUILT the defender lap is ${n(m.maxGated)} over pairs costing more than ` +
-      `${n(m.detourFloor)} tiles of detour, INSIDE the ${n(m.target)} target (ungated over ` +
-      `every pair it is ${n(m.max)}) — this room is declared because the enclosure it was ` +
-      `negotiated from was not, and the ladder that priced it is stapled below`;
+    : judged === false
+      ? `AS BUILT the gate judged NO PAIR in this room, so there is NO as-built gated lap and ` +
+        `no verdict against the ${n(m.target)} target either way — ${unjudgedWhy}. The ` +
+        `${n(m.maxGated)} on the record is the measurement not taken, not a wall that passed. ` +
+        `For context only, the ungated reading over every pair — no floor, no gate, no target ` +
+        `applied to it — is ${n(m.max)}; this room is declared because the enclosure it was ` +
+        `negotiated from missed, and the ladder that priced it is stapled below`
+      : `AS BUILT the defender lap is ${n(m.maxGated)} over pairs costing more than ` +
+        `${n(m.detourFloor)} tiles of detour, INSIDE the ${n(m.target)} target (ungated over ` +
+        `every pair it is ${n(m.max)}) — this room is declared because the enclosure it was ` +
+        `negotiated from was not, and the ladder that priced it is stapled below`;
 
   const pairLine = worst
     ? `: between wall tiles ${n(worst.a && worst.a.x)},${n(worst.a && worst.a.y)} and ` +
@@ -313,12 +383,34 @@ export function renderMobility(sf) {
         `laps ${n(mass.bareLap)} and that pair walks ${n(mass.bareDin)} inside; as built the room laps ` +
         `${n(m.maxGated)} and the same pair walks ${n(worst ? worst.din : mass.din)}. The mass adds ` +
         `${n(mass.adds)} tile(s) to the worst walk — ${pct}% of it` +
-        (!gatedMiss
-          ? `. THERE IS NO MISS TO ATTRIBUTE: the room's gated lap is ${n(m.maxGated)}, inside the ` +
-            `${n(m.target)} target, and this pair is the RECORD's worst, not a failure. Nothing ` +
-            `here says whose fault the lap is, because there is no fault — the pair is named so the ` +
-            `number can be re-walked, and the ladder below is why the enclosure cost what it did.`
-          : bareAlreadyOver
+        // ------------------------------------------------------------------
+        // ...AND THE "NO MISS TO ATTRIBUTE" CLAUSE TAKES THE SAME THREE-WAY
+        // BRANCH THE HEADLINE DOES, BECAUSE IT MAKES THE SAME CLAIM.
+        //
+        // This was the second half of the defect the headline block above
+        // fixes, one sentence lower and reading off the same single hurdle:
+        // "the room's gated lap is 0, inside the 1.2 target". On a room whose
+        // gate judged NO PAIR that is the identical false pass verdict —
+        // asserted, this time, in the same breath as an attribution the room
+        // is not entitled to make. Fixing the headline and leaving this would
+        // have shipped a paragraph that contradicts its own first line.
+        //
+        // The unjudged room keeps the honest half of the sentence — there is
+        // still no miss to attribute, and the pair is still the record's worst
+        // — and loses the verdict it never earned.
+        // ------------------------------------------------------------------
+        (judged === false
+          ? `. THERE IS NO MISS TO ATTRIBUTE, AND NO VERDICT EITHER: the gate judged no pair in ` +
+            `this room, so the ${n(m.maxGated)} beside "gated lap" is an empty maximum and not a ` +
+            `reading inside the ${n(m.target)} target. This pair is the RECORD's worst — it is ` +
+            `named so the number can be re-walked — and the ladder below is why the enclosure ` +
+            `cost what it did.`
+          : !gatedMiss
+            ? `. THERE IS NO MISS TO ATTRIBUTE: the room's gated lap is ${n(m.maxGated)}, inside the ` +
+              `${n(m.target)} target, and this pair is the RECORD's worst, not a failure. Nothing ` +
+              `here says whose fault the lap is, because there is no fault — the pair is named so the ` +
+              `number can be re-walked, and the ladder below is why the enclosure cost what it did.`
+            : bareAlreadyOver
             ? `. THE PRIMARY CAUSE IS THE ENCLOSURE AND THE TERRAIN, not the mass: this pair is over ` +
               `target at ${round2(bareDin / dout)} with every extension removed, so deleting the whole ` +
               `mass leaves the room failing here. The ${n(mass.adds)} tile(s) our structures add are an ` +
@@ -478,16 +570,33 @@ export function renderMobility(sf) {
             `above, which is what the label states — a single pair can be fixed while the room still ` +
             `misses on another one.)`
           : ``)
-      : !gatedMiss
-        ? ` CAUSE, as built: none — the gated lap is ${n(m.maxGated)}, inside the ${n(m.target)} ` +
-          `target, so this room has no miss for anything to be the cause OF and the whole-room lift ` +
-          `test was never run (it is only paid for by rooms that miss). The record's worst pair does ` +
-          `carry a pair-level label of "${n(sf.pairCause)}" and it is published as \`pairCause\`, not as ` +
-          `\`cause\`: with every structure of ours lifted out it walks ${walkVerdict(walks.noStructures)}, ` +
-          `and with the interior's natural walls lifted out as well it walks ` +
-          `${walkVerdict(walks.noWalls)}. That is evidence about one pair on a passing wall, and it is ` +
-          `deliberately not a verdict about the room.`
-        : // UNREACHABLE BY CONSTRUCTION AND PRINTED ANYWAY. The lift test is paid
+      : // THE THIRD SITE OF THE SAME BRANCH. The headline and the mass-share
+        // clause both had to learn that a lap of 0 over an EMPTY judged set is
+        // not a pass; this clause makes the identical claim about the identical
+        // number ("inside the target, so this room has no miss") and needs the
+        // identical hurdle. The honest half — no miss for anything to be the
+        // cause of, no lift test paid for, a pair-level label that is not a
+        // room verdict — is true of the unjudged room too, and is kept.
+        judged === false
+        ? ` CAUSE, as built: none, and no verdict either — the gate judged no pair, so the ` +
+          `${n(m.maxGated)} beside "gated lap" is an empty maximum rather than a reading inside ` +
+          `the ${n(m.target)} target. There is no miss for anything to be the cause OF and the ` +
+          `whole-room lift test was never run (it is only paid for by rooms that miss). The ` +
+          `record's worst pair does carry a pair-level label of "${n(sf.pairCause)}" and it is ` +
+          `published as \`pairCause\`, not as \`cause\`: with every structure of ours lifted out it ` +
+          `walks ${walkVerdict(walks.noStructures)}, and with the interior's natural walls lifted ` +
+          `out as well it walks ${walkVerdict(walks.noWalls)}. That is evidence about one pair, and ` +
+          `it is deliberately not a verdict about the room.`
+        : !gatedMiss
+          ? ` CAUSE, as built: none — the gated lap is ${n(m.maxGated)}, inside the ${n(m.target)} ` +
+            `target, so this room has no miss for anything to be the cause OF and the whole-room lift ` +
+            `test was never run (it is only paid for by rooms that miss). The record's worst pair does ` +
+            `carry a pair-level label of "${n(sf.pairCause)}" and it is published as \`pairCause\`, not as ` +
+            `\`cause\`: with every structure of ours lifted out it walks ${walkVerdict(walks.noStructures)}, ` +
+            `and with the interior's natural walls lifted out as well it walks ` +
+            `${walkVerdict(walks.noWalls)}. That is evidence about one pair on a passing wall, and it is ` +
+            `deliberately not a verdict about the room.`
+          : // UNREACHABLE BY CONSTRUCTION AND PRINTED ANYWAY. The lift test is paid
           // for by exactly the rooms that miss, and the validator hard-fails a
           // record that carries one while inside the target. A record that misses
           // and carries NO lift test is the mirror of that, and the sentence above

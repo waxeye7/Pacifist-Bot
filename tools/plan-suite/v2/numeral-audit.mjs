@@ -52,6 +52,29 @@
  *
  * plan.mjs runs it as the last step of a full `--all-claimable` build, on the
  * artifact that build just wrote.
+ *
+ * ROUND 24 — FOUR WAYS THIS GATE WAS BELIEVING ITSELF, each written up in full
+ * above the code that fixes it:
+ *
+ *   THE WRAP-JOIN (MB, `scanRanges`/`joinedText`). A claim that hit the eighty-
+ *   column margin was split across two prose ranges and matched by nothing. Two
+ *   live wrong figures were sitting in that blind spot. Wrapped comment lines
+ *   are now joined into one offset-preserving prose range before matching.
+ *
+ *   THE TWIN TEST (MC, `registryTwinTest`). The registry was only asked whether
+ *   an extractor read ZERO. Every extractor with a second derivation available
+ *   is now measured twice down two different paths and has to agree; the ones
+ *   with no second path are printed as SINGLE-SOURCED rather than assumed fine.
+ *
+ *   LINE ENDINGS (MD, `normalizeEol`/`scannerSelfTest`). Every rule here is a
+ *   distance in characters, so a CRLF checkout moved them all and could flip the
+ *   gate with no numeral changed. Normalised, with a fixture read in three
+ *   endings every run.
+ *
+ *   WAIVER SCOPE (MF, `waiverRefers`/`isParagraphBreak`). A tag now binds only
+ *   to a claim it REFERS to — quoting its numeral or noun, or sitting nearer to
+ *   it than to any other numeral in the prose — and a `// ----` divider ends a
+ *   paragraph the way a blank line does.
  */
 import fs from "fs";
 import path from "path";
@@ -91,6 +114,28 @@ export function auditFiles() {
 // ---------------------------------------------------------------------------
 // (1) WHERE A CLAIM CAN LIVE — comments and string literals, nothing else.
 // ---------------------------------------------------------------------------
+/**
+ * LINE ENDINGS ARE NOT PART OF A CLAIM (MD, round 24).
+ *
+ * Everything below measures in OFFSETS: the scanner returns [start,end) pairs,
+ * `lineOf` bisects a table of line starts, and the waiver scope is "how many
+ * characters lie between this tag and that numeral". A CRLF checkout adds one
+ * character per line, which moves every one of those distances — and the tag
+ * scope is a distance comparison, so a tag that binds to the claim beside it on
+ * an LF tree can bind to a different claim on a CRLF tree with not one numeral
+ * changed. `git config core.autocrlf true` is the Windows default, so that is a
+ * FRESH CLONE failing a build over a file-format setting, which is the least
+ * defensible way for a gate to fail.
+ *
+ * So the source is normalised to LF before anything looks at it. Lone `\r`
+ * (classic-Mac endings, and what a botched merge tool leaves behind) collapses
+ * too, because a lone `\r` is a line break to a human reader and to `lines`
+ * below it would be nothing at all. `crlfSelfTest` runs the whole scan path over
+ * a CRLF copy of a fixture every run and asserts it reads identically.
+ */
+export function normalizeEol(src) {
+  return String(src).replace(/\r\n?/g, "\n");
+}
 /**
  * A single left-to-right scan producing the [start,end) ranges of every line
  * comment, block comment and string literal. Deliberately a scanner and not a
@@ -161,6 +206,139 @@ export function proseRanges(src) {
     i++;
   }
   return out;
+}
+
+/**
+ * THE WRAP-JOIN — A CLAIM THAT WRAPPED WAS A CLAIM THIS GATE COULD NOT SEE (MB).
+ *
+ * `proseRanges` is a LEXER: it returns one range per `//` line and one range per
+ * `/* … *​/` block, which is the right answer to "where does the source say this
+ * is prose" and the wrong unit to match a SENTENCE against. These comments are
+ * hard-wrapped at eighty columns, so a claim longer than the tail of a line is
+ * split across two ranges (a `//` run) or across a ` * ` continuation marker
+ * (a block), and the pattern library — whose shapes are all "numeral, then a
+ * noun phrase, then maybe `across N rooms`" — matched neither half.
+ *
+ * That was not a theoretical hole. It hid LIVE WRONG FIGURES: `validate.mjs`
+ * wrote "They share one in 60 tiles / across 53 shipped rooms" over a line break
+ * and `layer-walls.mjs` wrote "1774 of the / fleet's 14288 road tiles" over one,
+ * and both sat in the audited tree reporting "0 WRONG" for as long as the gate
+ * has existed. The gate's whole claim is that a numeral in these files is
+ * re-derived; a numeral that wrapped was exempt from it by typography.
+ *
+ * THE JOIN IS OFFSET-PRESERVING, which is the only property that matters here.
+ * Every consumer downstream — `lineOf`, the paragraph walk, the waiver distance
+ * — indexes the ORIGINAL source, so the joined text is built as a same-length
+ * rewrite of the slice: comment furniture (`//`, ` * `, `/**`) is blanked to
+ * spaces and the newline between two wrapped lines becomes a space. Nothing
+ * moves; `r.start + m.index` still points at the real character.
+ *
+ * TWO THINGS DELIBERATELY DO NOT JOIN.
+ *
+ *   A PARAGRAPH BREAK. A blank comment line, or a `// -----` divider, is where
+ *   one argument ends and the next begins, and no claim wraps across one. Those
+ *   lines are filled with NUL instead of spaces — NUL is matched by none of the
+ *   pattern library's character classes (`\s`, `[A-Za-z+ -]`, `[\d,]`), so it is
+ *   a wall a regex cannot step over, where a newline is not: `\s+` crosses a
+ *   newline happily and would have stitched the last word of one paragraph to
+ *   the first numeral of the next.
+ *
+ *   A `//` COMMENT THAT FOLLOWS CODE. Two `//` ranges merge only when the second
+ *   one OWNS ITS LINE — nothing but whitespace before it — and exactly one
+ *   newline separates them. `foo(); // seven` above `// tiles` is two comments
+ *   about two statements to every reader of this file, and joining them would
+ *   invent a claim nobody wrote.
+ *
+ * STRING LITERALS ARE LEFT EXACTLY AS THEY ARE. A template literal has no
+ * comment furniture to strip and no paragraph convention to respect, and the
+ * published strings this gate reads are built by concatenation, so the wrap in a
+ * string is a `+` between two separate ranges rather than a line break inside
+ * one. Rewriting them would only add ways to be wrong.
+ */
+/** a run of one punctuation character, three or more long: `-----`, `=====` */
+const DIVIDER_RE = /^([-=*_~#+])\1{2,}$/;
+/** the comment furniture at the head of a line, as it appears after the indent */
+const FURNITURE_RE = /^[ \t]*(?:\/\/+|\/\*+|\*+(?!\/))[ \t]?/;
+/** NUL, the one character no pattern in the library can match across */
+const WALL = "\0";
+export function joinedText(src, range) {
+  const raw = src.slice(range.start, range.end);
+  if (range.kind === "string") return raw;
+  const lines = raw.split("\n");
+  const cells = raw.split("");
+  let at = 0;
+  const spans = [];
+  for (const line of lines) {
+    spans.push({ at, len: line.length, barrier: isParagraphBreak(line) });
+    at += line.length + 1;
+  }
+  for (let i = 0; i < spans.length; i++) {
+    const s = spans[i];
+    if (s.barrier) {
+      // the break itself, plus the newline on either side of it, so no match can
+      // reach through a blank line or a divider in either direction
+      for (let k = s.at; k < s.at + s.len && k < cells.length; k++) cells[k] = WALL;
+      if (s.at + s.len < cells.length) cells[s.at + s.len] = WALL;
+      if (s.at > 0) cells[s.at - 1] = WALL;
+      continue;
+    }
+    const f = FURNITURE_RE.exec(lines[i]);
+    if (f) for (let k = s.at; k < s.at + f[0].length; k++) cells[k] = " ";
+    // the newline that ends this line joins it to the next, unless the next line
+    // is a barrier (handled above, which overwrites this)
+    if (s.at + s.len < cells.length && cells[s.at + s.len] === "\n") cells[s.at + s.len] = " ";
+  }
+  return cells.join("");
+}
+/** true when `off` starts a comment that owns its line (only whitespace before) */
+function ownsItsLine(src, off) {
+  const nl = src.lastIndexOf("\n", off - 1);
+  return /^[ \t]*$/.test(src.slice(nl + 1, off));
+}
+/**
+ * the ranges the pattern library actually scans: `proseRanges` with adjacent
+ * own-line `//` comments merged into one, each carrying its offset-preserving
+ * joined `text`.
+ */
+export function scanRanges(src) {
+  const merged = [];
+  for (const r of proseRanges(src)) {
+    const prev = merged[merged.length - 1];
+    if (
+      prev &&
+      prev.kind === "line" &&
+      r.kind === "line" &&
+      ownsItsLine(src, r.start) &&
+      /^\n[ \t]*$/.test(src.slice(prev.end, r.start))
+    ) {
+      prev.end = r.end;
+      continue;
+    }
+    merged.push({ start: r.start, end: r.end, kind: r.kind });
+  }
+  for (const r of merged) r.text = maskWaiverText(joinedText(src, r));
+  return merged;
+}
+/**
+ * A WAIVER'S OWN TEXT IS NOT A CLAIM (MB, and the rule MF then leans on).
+ *
+ * Almost every tag in this tree QUOTES the figure it excuses — that is what makes
+ * a waiver auditable, and MF below makes the quoting mandatory. The wrap-join
+ * made those quotes visible to the pattern library for the first time, and the
+ * effect was perverse: `push-plan.mjs`'s tag says `the sentence below QUOTES the
+ * rotted figure — "(E12S6, 123 roads)"`, so the tag became the NEAREST matched
+ * claim to itself, waived its own quotation, and left the real sentence three
+ * lines below it unwaived and WRONG.
+ *
+ * The excuse is prose ABOUT a numeral, not a statement OF one. So the tag spans
+ * are masked out of the scanned text — same length, so every offset downstream
+ * still lands on the real character — and a numeral inside `[r22-waived: … ]` is
+ * neither a claim nor a census occurrence. The numeral it is talking about is
+ * still right there in the sentence beside it, still matched, still checked.
+ */
+const WAIVER_SPAN_RE = /\[r22-waived:[^\]]*\]/g;
+export function maskWaiverText(text) {
+  return text.replace(WAIVER_SPAN_RE, (s) => WALL.repeat(s.length));
 }
 
 // ---------------------------------------------------------------------------
@@ -347,6 +525,15 @@ export function fleetTotals(P) {
 // ---------------------------------------------------------------------------
 const num = (s) => Number(String(s).replace(/,/g, ""));
 /**
+ * ONE SPACE BETWEEN WORDS. The wrap-join blanks comment furniture to spaces to
+ * keep every offset where it was, so a noun phrase that crossed a line break
+ * arrives here as `of              them` — fourteen spaces of blanked ` * `.
+ * That is right for the offsets and wrong for every string a human reads or
+ * that gets matched against an alias, so the noun and the report text are
+ * collapsed the same way the quote already was.
+ */
+const tidy = (s) => String(s).replace(/\s+/g, " ").trim();
+/**
  * Every pattern returns zero or more CLAIMS: `{ what, value, resolve }`, where
  * `resolve(P)` gives the measured value or null when this gate cannot read it.
  * `what` is the human-readable subject printed in the report.
@@ -360,7 +547,8 @@ export const PATTERNS = [
       const k = quantityFor(m[2]);
       return [
         {
-          what: `fleet total of ${k || `"${m[2].trim()}"`}`,
+          what: `fleet total of ${k || `"${tidy(m[2])}"`}`,
+          noun: tidy(m[2]),
           value: num(m[1]),
           resolve: (P) => (k ? QUANTITIES[k].total(P) : null),
         },
@@ -375,7 +563,8 @@ export const PATTERNS = [
       const k = quantityFor(m[2]);
       return [
         {
-          what: `fleet total of ${k || `"${m[2].trim()}"`}`,
+          what: `fleet total of ${k || `"${tidy(m[2])}"`}`,
+          noun: tidy(m[2]),
           value: num(m[1]),
           resolve: (P) => (k ? QUANTITIES[k].total(P) : null),
         },
@@ -385,17 +574,29 @@ export const PATTERNS = [
   {
     id: "n-across-m-rooms",
     // "62 tiles across 55 shipped rooms" · "25 shallow extensions across 3 rooms"
-    re: /\b([\d,]+)\s+([A-Za-z+][A-Za-z+ -]{0,30}?)\s+across\s+([\d,]+)\s+(?:shipped\s+|planned\s+)?rooms?\b/g,
+    //
+    // THE LEADING NUMERAL MAY NOT BE THE TAIL OF A HYPHENATED WORD. `\b` fires
+    // between the hyphen and the digit of "stage-3", so push-plan's "Fleet-wide
+    // 57 stage-3 tiles across 18 rooms" was read as the claim "3 tiles across
+    // 18 rooms" — a figure that sentence does not make, reported OPEN against a
+    // quantity nobody had typed. The wrap-join above is what let this pattern
+    // see whole sentences, so it is what surfaced it, and the guard belongs to
+    // the same fix: a digit glued to a preceding word character or hyphen is
+    // part of that word — a stage number, a range, an RCL level — and not the
+    // head of a claim.
+    re: /(?<![\w-])([\d,]+)\s+([A-Za-z+][A-Za-z+ -]{0,30}?)\s+across\s+([\d,]+)\s+(?:shipped\s+|planned\s+)?rooms?\b/g,
     claims: (m) => {
       const k = quantityFor(m[2], ROSTER_KEYS);
       return [
         {
-          what: `total of ${k || `"${m[2].trim()}"`} across the fleet`,
+          what: `total of ${k || `"${tidy(m[2])}"`} across the fleet`,
+          noun: tidy(m[2]),
           value: num(m[1]),
           resolve: (P) => (k ? QUANTITIES[k].total(P) : null),
         },
         {
-          what: `rooms carrying ${k || `"${m[2].trim()}"`}`,
+          what: `rooms carrying ${k || `"${tidy(m[2])}"`}`,
+          noun: `rooms`,
           value: num(m[3]),
           resolve: (P) => (k ? QUANTITIES[k].rooms(P) : null),
         },
@@ -426,6 +627,7 @@ export const PATTERNS = [
       return [
         {
           what: `a fleet-wide completeness denominator`,
+          noun: `rooms`,
           value: v,
           // "correct" here means: the fleet HAS a set of this size. The label of
           // the set it matched is carried through to the report so a reader can
@@ -443,6 +645,8 @@ export const PATTERNS = [
     claims: (m) => [
       {
         what: `roads shipped by ${m[1]}`,
+        noun: `roads`,
+        room: m[1],
         value: num(m[2]),
         resolve: (P) => {
           const p = P.find((q) => q.room === m[1]);
@@ -471,7 +675,27 @@ export function proseOfLine(l) {
     .replace(/\*+\/\s*$/, "")
     .trim();
 }
-const isParagraphBreak = (l) => proseOfLine(l) === "";
+/**
+ * A DIVIDER IS A PARAGRAPH BREAK, AND PRETENDING OTHERWISE GAVE TAGS A DOOR (MF).
+ *
+ * This codebase separates the sections of a long comment with a rule — `// ----`,
+ * ` * ====` — far more often than with a blank line, because the rule is what a
+ * reader's eye stops at. The paragraph walk only recognised BLANK, so a `// ----`
+ * was just another line of prose to it and the "nearest paragraph" a waiver could
+ * search ran straight through the section heading into the section above or below.
+ * Nine of the twenty-seven shipped tags reached eleven to twenty lines that way,
+ * which is not a paragraph by anyone's reading and is exactly the over-reach the
+ * paragraph rule was introduced to end.
+ *
+ * A line of three or more of the same punctuation character, once the comment
+ * furniture is off, is a rule and nothing else — there is no sentence it can be
+ * confused with, and requiring the character to REPEAT ITSELF keeps "..." and an
+ * em-dash line from being read as one.
+ */
+export const isParagraphBreak = (l) => {
+  const p = proseOfLine(l);
+  return p === "" || DIVIDER_RE.test(p);
+};
 /**
  * A WAIVER COVERS THE NUMERAL IT IS WRITTEN BESIDE. NOT THE COMMENT IT IS IN.
  *
@@ -509,9 +733,108 @@ const isParagraphBreak = (l) => proseOfLine(l) === "";
  *       load-bearing instead of decorative. Two dated numerals in one paragraph
  *       need two tags, which is also what a reader auditing them would want.
  *
+ *   (c) THE TAG HAS TO REFER TO THE CLAIM (MF, round 24). Rules (a) and (b)
+ *       together still say "nearest wins", and "nearest" is a fact about
+ *       typography rather than about meaning. The great majority of the numerals
+ *       in this prose are NOT PARSED by the pattern library — the report prints
+ *       that denominator every run — and a tag is written beside the numeral its
+ *       author was excusing, which is very often one of the unparsed ones.
+ *       Nearest-wins then hands the excuse to the nearest PARSED claim
+ *       instead, which is a different sentence, and prints its reason beside it
+ *       so the report reads plausible. That is the same failure as (a) with a
+ *       smaller radius, and it is worse to read, because the excuse now looks
+ *       precisely placed.
+ *
+ *       So a tag binds only where it REFERS to the claim, and there are exactly
+ *       two ways a tag can do that:
+ *
+ *         QUOTED — the tag's own text contains the claim's numeral (bare or
+ *           comma-grouped) or the claim's noun. This is the strong form and the
+ *           one to write: "[r22-waived: the 60/53 reading is pre-fix …]" says
+ *           what it excuses out loud, and stays right when the prose around it
+ *           is re-flowed. The report names the mode every tag bound by, so the
+ *           waiver list states how many of its own entries are the strong kind.
+ *
+ *         ADJACENT — nothing numeric lies BETWEEN the tag and the claim: no
+ *           other matched claim and no other numeral+noun occurrence from the
+ *           census. "Written immediately beside it" is a reference by position,
+ *           and it is how every other tag in this tree is placed. What it no
+ *           longer permits is REACHING PAST a numeral: a tag beside an unparsed
+ *           "40 extra personal ramparts" cannot skip over it to waive the
+ *           "all 172 rooms" further down the paragraph, because the numeral it
+ *           was actually written about is in the way. (The census starts at two
+ *           digits, so a tag written beside a one-digit figure is still only
+ *           held by rule (b); the report prints the measured value beside every
+ *           waiver now, which is the reader's check on that.)
+ *
  * A tag that ends up next to no matched claim at all is DEAD and is reported as
  * such — an excuse for a numeral that no longer exists is prose rot of its own.
  */
+/** the numeral as prose writes it: bare, and comma-grouped for the thousands */
+function numeralForms(v) {
+  const bare = String(v);
+  const grouped = Number.isFinite(v) ? Number(v).toLocaleString("en-US") : bare;
+  return grouped === bare ? [bare] : [bare, grouped];
+}
+/** `why` states this number, not merely a longer number containing its digits */
+function quotesNumber(why, form) {
+  const esc = form.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[^\\d,.])${esc}(?![\\d,.]*\\d)`).test(why);
+}
+/**
+ * the strings a claim may be NAMED by in an excuse: its noun phrase, the last
+ * word of it, and the room it is about. Words shorter than four letters are
+ * dropped — "of", "in", "the" appear in every reason ever written and matching
+ * on them would make the quoting test a formality.
+ */
+export function claimNouns(h) {
+  const out = new Set();
+  const raw = tidy(h.noun || "").toLowerCase();
+  if (raw) {
+    out.add(raw);
+    const w = raw.split(" ").filter(Boolean);
+    for (const one of w) out.add(one);
+  }
+  if (h.room) out.add(String(h.room).toLowerCase());
+  return [...out].filter((s) => s.length >= 4);
+}
+/**
+ * does `g` refer to `mm` — by quoting it, or by sitting beside it? Returns HOW,
+ * because the report prints it: "quoted" is a tag that will still be right after
+ * the paragraph is re-flowed, "adjacent" is a tag held up by where it sits, and a
+ * reader auditing the waiver list wants to know which of the two he is reading.
+ */
+function waiverRefers(g, mm, censusHere, matches) {
+  const why = g.why.toLowerCase();
+  for (const h of mm.hits) {
+    for (const form of numeralForms(h.value)) if (quotesNumber(why, form)) return "quoted";
+    for (const nn of claimNouns(h)) if (why.includes(nn)) return "quoted";
+  }
+  // ADJACENCY IS MEASURED AGAINST EVERY NUMERAL, NOT ONLY THE MATCHED ONES.
+  // "Nearest matched claim wins" is what let a tag written about an unparsed
+  // figure drift: the figure it was about is invisible to the comparison, so the
+  // matched claim thirty characters further on wins by default. The tag's
+  // referent is the numeral CLOSEST TO IT in the prose, whether this gate can
+  // parse that numeral or not — so a claim only counts as adjacent when no other
+  // numeral occurrence sits nearer to the tag than it does.
+  const gap = (x, y) => Math.max(0, y.at - x.end, x.at - y.end);
+  const d = gap(g, mm);
+  for (const u of censusHere) {
+    // one of this claim's own numerals. Membership is decided by where the
+    // occurrence STARTS, exactly as the `parsed` flag decides it: the census
+    // grabs up to three words after a numeral, so "23 rooms and the" begins
+    // inside "65 such tiles shipped across 23 rooms" and ends four words past
+    // it, and an end-inclusive test would count a claim's own room-count as a
+    // rival numeral sitting four characters from the tag.
+    if (u.at >= mm.at && u.at < mm.end) continue;
+    if (gap(g, u) < d) return null;
+  }
+  for (const o of matches) {
+    if (o === mm) continue;
+    if (gap(g, o) < d) return null;
+  }
+  return "adjacent";
+}
 /** the [firstLine,lastLine] of the paragraph containing `lineIdx` */
 function paragraphLines(lines, lineIdx, range, lineOf) {
   let a = lineIdx;
@@ -569,17 +892,31 @@ const STOPWORDS = new Set(
     .split(" ")
     .filter(Boolean),
 );
-export function audit(plans) {
+/**
+ * ONE FILE'S WHOLE READING, AS A FUNCTION OF ITS TEXT.
+ *
+ * This used to be the body of a `for (const file of auditFiles())` loop, which
+ * meant the only way to ask what this gate does with a given piece of prose was
+ * to write that prose into a file in the tree and run the whole build. Every
+ * rule that has ever gone wrong here — the waiver scope, the paragraph walk, the
+ * wrap-join, the line endings — is a rule about ONE STRING, so it takes a string
+ * and returns everything it read, and `scannerSelfTest` below drives it over
+ * fixtures that carry the failures on purpose.
+ */
+export function scanSource(rel, rawSrc) {
   const hits = [];
-  /** every numeral+noun occurrence in audited prose, parsed or not — see OM4 */
-  const numerals = { all: [], get seen() { return this.all.length; }, get parsed() { return this.all.filter((u) => u.parsed).length; }, get unparsed() { return this.all.filter((u) => !u.parsed); } };
+  /** every numeral+noun occurrence in this file's prose, parsed or not — see OM4 */
+  const census = [];
   /** waiver tags that ended up next to no matched claim */
   const deadWaivers = [];
-  for (const file of auditFiles()) {
-    const rel = path.relative(REPO, file).replace(/\\/g, "/");
-    const src = fs.readFileSync(file, "utf8");
-    const ranges = proseRanges(src);
-    const lines = src.split(/\r?\n/);
+  {
+    // LF first (MD), then the wrap-join (MB): every offset below — the paragraph
+    // table, `lineOf`, the tag-to-claim distance — is an index into THIS string,
+    // and `scanRanges` guarantees its `text` is the same length as the slice it
+    // rewrites, so a match index in the joined prose is a real source offset.
+    const src = normalizeEol(rawSrc);
+    const ranges = scanRanges(src);
+    const lines = src.split("\n");
     // line index of every offset, computed once
     const lineStarts = [0];
     for (let i = 0; i < lines.length; i++) lineStarts.push(lineStarts[i] + lines[i].length + 1);
@@ -596,7 +933,7 @@ export function audit(plans) {
     // (a) every match, with the paragraph it lives in, and the hits it produced
     const matches = [];
     for (const r of ranges) {
-      const text = src.slice(r.start, r.end);
+      const text = r.text;
       for (const pat of PATTERNS) {
         pat.re.lastIndex = 0;
         let m;
@@ -642,8 +979,13 @@ export function audit(plans) {
         const noun = w.join(" ");
         if (STOPWORDS.has(w[0])) continue;
         const at = r.start + n.index;
-        numerals.all.push({
+        census.push({
           file: rel,
+          // the OFFSET as well as the line: the waiver-binding rule below asks
+          // "does another numeral sit between this tag and that claim", and that
+          // is a question about character positions, not about lines
+          at,
+          end: at + n[0].length,
           line: lineOf(at) + 1,
           quote: n[0].replace(/\s+/g, " ").trim(),
           value: num(n[1]),
@@ -652,14 +994,18 @@ export function audit(plans) {
         });
       }
     }
-    // (b) ONE TAG, ONE NUMERAL — see the block above waiverTags()
+    // (b) ONE TAG, ONE NUMERAL and (c) THE TAG HAS TO REFER TO THE CLAIM — see
+    // the block above waiverTags()
+    const censusHere = census;
     for (const g of waiverTags(src)) {
       let best = null;
       for (const mm of matches) {
         if (g.end < mm.pStart || g.at > mm.pEnd) continue;
+        const via = waiverRefers(g, mm, censusHere, matches);
+        if (!via) continue;
         // gap between the two spans, zero if they touch or overlap
         const dist = Math.max(0, mm.at - g.end, g.at - mm.end);
-        if (!best || dist < best.dist) best = { dist, mm };
+        if (!best || dist < best.dist) best = { dist, mm, via };
       }
       if (!best) {
         deadWaivers.push({ file: rel, line: lineOf(g.at) + 1, why: g.why });
@@ -669,9 +1015,26 @@ export function audit(plans) {
         if (h.waiver === null || best.dist < h.waiverDist) {
           h.waiver = g.why;
           h.waiverDist = best.dist;
+          h.waiverVia = best.via;
         }
       }
     }
+  }
+  return { hits, census, deadWaivers };
+}
+
+export function audit(plans) {
+  const hits = [];
+  /** every numeral+noun occurrence in audited prose, parsed or not — see OM4 */
+  const numerals = { all: [], get seen() { return this.all.length; }, get parsed() { return this.all.filter((u) => u.parsed).length; }, get unparsed() { return this.all.filter((u) => !u.parsed); } };
+  /** waiver tags that ended up next to no matched claim */
+  const deadWaivers = [];
+  for (const file of auditFiles()) {
+    const rel = path.relative(REPO, file).replace(/\\/g, "/");
+    const one = scanSource(rel, fs.readFileSync(file, "utf8"));
+    hits.push(...one.hits);
+    numerals.all.push(...one.census);
+    deadWaivers.push(...one.deadWaivers);
   }
   const resolved = [];
   const waived = [];
@@ -697,7 +1060,19 @@ export function audit(plans) {
     if (measured === null || measured === undefined) open.push(h);
     else bad.push(h);
   }
-  return { hits, resolved, waived, open, bad, pending, numerals, deadWaivers, registry: registrySelfTest(plans, numerals) };
+  return {
+    hits,
+    resolved,
+    waived,
+    open,
+    bad,
+    pending,
+    numerals,
+    deadWaivers,
+    registry: registrySelfTest(plans, numerals),
+    twins: registryTwinTest(plans),
+    selfTest: scannerSelfTest(),
+  };
 }
 
 /**
@@ -751,6 +1126,298 @@ export function registrySelfTest(plans, numerals) {
   return out;
 }
 
+/**
+ * THE SCANNER IS RUN TWICE OVER THE SAME PROSE IN TWO LINE ENDINGS (MD).
+ *
+ * "Normalise the line endings at read time" is a one-line fix and it is the kind
+ * of one-line fix that silently stops being true: somebody adds a second reader,
+ * or a helper that takes a path instead of a string, and the CRLF path is live
+ * again with nothing to say so. There is no CRLF file in this tree to notice it
+ * on, because the tree is checked out LF here — which is exactly why the failure
+ * would land on somebody else's fresh clone and not on the author's.
+ *
+ * So the test carries its own fixture and asserts the WHOLE scan path — the
+ * ranges, the wrap-join, the paragraph breaks, the waiver spans, the matched
+ * claims and the line numbers they report — reads identically on `\n`, on
+ * `\r\n` and on a lone `\r`. The fixture is deliberately made of the shapes that
+ * broke: a claim wrapped across two `//` lines, a claim wrapped across a ` * `
+ * continuation, a divider, and a waiver tag whose reason wraps.
+ *
+ * Its own numerals are FICTIONAL and stated as such, and it lives in a string
+ * this gate does not audit (numeral-audit.mjs is excluded from `auditFiles`), so
+ * nothing here is a claim about the fleet that could rot.
+ */
+export const CRLF_FIXTURE = [
+  "// a header",
+  "// the fleet's 4242 roads and a wrapped clause that carries 99 tiles",
+  "// across 77 rooms, which is the shape that used to vanish at the margin.",
+  "// ----------------------------------------------------------------",
+  "// after a divider, all 172 rooms [r22-waived: a fixture reason that",
+  "// itself wraps over two lines and quotes 172]",
+  "const x = 1;",
+  "/**",
+  " * a block header that says the fleet ships 8208 ramparts and then wraps a",
+  " * second claim of 62 road+container tiles across 55 rooms over the star.",
+  " */",
+  "",
+].join("\n");
+/** the scan path's whole visible output for one source string, as a flat list */
+function scanFingerprint(src) {
+  const s = normalizeEol(src);
+  const lines = s.split("\n");
+  const lineStarts = [0];
+  for (let i = 0; i < lines.length; i++) lineStarts.push(lineStarts[i] + lines[i].length + 1);
+  const lineOf = (off) => {
+    let lo = 0;
+    let hi = lines.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (lineStarts[mid] <= off) lo = mid;
+      else hi = mid - 1;
+    }
+    return lo;
+  };
+  const out = [];
+  for (const r of scanRanges(s)) {
+    out.push(`range ${r.kind} @${lineOf(r.start) + 1}-${lineOf(Math.max(r.start, r.end - 1)) + 1}`);
+    for (const pat of PATTERNS) {
+      pat.re.lastIndex = 0;
+      let m;
+      while ((m = pat.re.exec(r.text))) {
+        const at = r.start + m.index;
+        for (const c of pat.claims(m, r.text))
+          out.push(`${pat.id} @${lineOf(at) + 1} ${c.what} = ${c.value} "${tidy(m[0])}"`);
+      }
+    }
+  }
+  for (const g of waiverTags(s)) out.push(`waiver @${lineOf(g.at) + 1} "${g.why}"`);
+  return out;
+}
+export function scannerSelfTest() {
+  const fails = [];
+  const lf = scanFingerprint(CRLF_FIXTURE);
+  for (const [name, variant] of [
+    ["CRLF", CRLF_FIXTURE.replace(/\n/g, "\r\n")],
+    ["lone CR", CRLF_FIXTURE.replace(/\n/g, "\r")],
+  ]) {
+    const got = scanFingerprint(variant);
+    if (JSON.stringify(got) !== JSON.stringify(lf))
+      fails.push(
+        `the scanner reads a ${name} checkout differently from an LF one — ` +
+          `LF ${JSON.stringify(lf)} vs ${name} ${JSON.stringify(got)}`,
+      );
+  }
+  // and the fixture has to actually exercise the wrap-join, or the comparison
+  // above is two identical readings of nothing
+  const wrapped = lf.filter((l) => /n-across-m-rooms|fleet-possessive|fleet-ships/.test(l));
+  if (wrapped.length < 4)
+    fails.push(`the CRLF fixture stopped matching wrapped claims (${wrapped.length} of the 4 it carries)`);
+  if (!lf.some((l) => /fleet-size @5/.test(l)))
+    fails.push(`the CRLF fixture's post-divider claim is no longer read on the line it sits on`);
+  fails.push(...waiverScopeSelfTest());
+  return fails;
+}
+/**
+ * THE WAIVER SCOPE IS TESTED ON PROSE THAT IS SUPPOSED TO DEFEAT IT (MF).
+ *
+ * Every one of these three fixtures is a shape the old rule got wrong, written
+ * out so the rule cannot quietly go back to getting it wrong. They are the whole
+ * argument of rule (c) in executable form: a tag reaches the numeral it is about
+ * and no further, a divider is a wall, and quoting the figure beats both.
+ *
+ * The numerals in them are FICTIONAL and this file is not audited, so none of
+ * them is a claim about the fleet.
+ */
+export function waiverScopeSelfTest() {
+  const fails = [];
+  const check = (name, src, want) => {
+    const one = scanSource("fixture.mjs", src);
+    const claim = one.hits.find((h) => h.pattern === "fleet-ships");
+    if (!claim) {
+      fails.push(`waiver fixture "${name}" no longer produces the claim it is built around`);
+      return;
+    }
+    const got = claim.waiver ? claim.waiverVia : "unwaived";
+    if (got !== want) fails.push(`waiver fixture "${name}" expected ${want}, got ${got}`);
+    if (want === "unwaived" && one.deadWaivers.length !== 1)
+      fails.push(`waiver fixture "${name}" should report its unbound tag DEAD (${one.deadWaivers.length} reported)`);
+  };
+  // (1) a tag written beside an unparsed numeral may not reach past it
+  check(
+    "reaches past the numeral it was written about",
+    ["// the pass moved 40 extra widgets [r22-waived: a fixture reason with no figure in it]", "// and this fleet ships 8208 rampart tiles."].join("\n"),
+    "unwaived",
+  );
+  // (2) a divider ends the paragraph, so a tag on the far side of one is out of scope
+  check(
+    "reaches across a divider",
+    [
+      "// this fleet ships 8208 rampart tiles.",
+      "// ------------------------------------------------------------------",
+      "// [r22-waived: a fixture reason that quotes 8208 and still may not reach]",
+    ].join("\n"),
+    "unwaived",
+  );
+  // (3) quoting the figure binds even where something else sits nearer
+  check(
+    "quotes the figure over a nearer numeral",
+    ["// this fleet ships 8208 rampart tiles, then 40 unrelated widgets, then", "// [r22-waived: a fixture reason that quotes 8208]"].join("\n"),
+    "quoted",
+  );
+  return fails;
+}
+
+/**
+ * THE TWIN TEST — AN EXTRACTOR IS CHECKED AGAINST A SECOND DERIVATION (MC).
+ *
+ * `registrySelfTest` above only catches an extractor that reads NOTHING. That is
+ * the failure the dead `p.shell?.cut` entry had, and it is the least interesting
+ * one: an extractor that returns a plausible number off the WRONG FIELD passes it
+ * untouched. Point `cut tiles` at `meta.shell.battlements` and it reads 5,823
+ * instead of 7,234; point the road total at `structures.rampart` and it reads
+ * 8,208 instead of 14,100. Both are positive, both are stable, and the gate would
+ * have gone on marking prose "re-derived and correct" against a quantity that is
+ * not the one the sentence is about. That is worse than no gate, because the
+ * report says the number was checked.
+ *
+ * So each extractor is asked for its answer TWICE, down two different paths
+ * through the artifact, and a disagreement exits 1. What makes a path a second
+ * path rather than a copy is that it reads DIFFERENT FIELDS or aggregates them
+ * DIFFERENTLY, so that a mis-pointed extractor and its twin cannot move together:
+ *
+ *   meta.counts.*        the per-room structure census the composer publishes
+ *                        beside the tile arrays. Repointing a structure total at
+ *                        another structure moves the array sum and leaves the
+ *                        census where it was.
+ *   the rampart upkeep   `meta.shell.upkeepPerTick` is an ECONOMIC figure — energy
+ *                        per tick to hold the shell — computed by the shell layer
+ *                        from the decay rule (300 hits per 100 ticks, 100 hits
+ *                        repaired per energy = 0.03 e/tick each). Divide it back
+ *                        out and it counts ramparts, through arithmetic that
+ *                        never touches a tile array at all.
+ *   the cut's ramparts   the cut curve is what the fleet puts ramparts ON, so
+ *                        walking `structures.rampart` and asking which tiles the
+ *                        declared cut contains counts the same set from the other
+ *                        end. A cut extractor repointed at the battlements reads
+ *                        5,823 while this still reads 7,234.
+ *   the partition sum    declarations counted by (gate/kind) bucket and the
+ *                        buckets added up — the census `fleetTotals` builds for
+ *                        its denominators — rather than by array length.
+ *   the record twin      `meta.notes` is prose and `meta.noteRecords` is the
+ *                        machine-readable record behind it; every note has one.
+ *   distinctness         172 entries is not the same statement as 172 distinct
+ *                        room names, and a duplicated room would separate them.
+ *
+ * AN EXTRACTOR WITH NO SECOND PATH IS NOT SILENTLY FINE, IT IS SINGLE-SOURCED,
+ * and the report names it as such every run. That roster is the honest statement
+ * of how much of the registry this test actually covers, and it is the list to
+ * shorten — not a thing to leave implicit and let a reader assume away.
+ */
+const RAMPART_UPKEEP_PER_TICK = 0.03;
+export const REGISTRY_TWINS = {
+  "rooms in the fleet": {
+    via: "distinct room names, not array length",
+    fn: (P) => new Set(P.map((p) => p.room)).size,
+  },
+  "road shipped fleet-wide": { via: "meta.counts.road", fn: (P) => sum(P, (p) => p.meta?.counts?.road) },
+  "rampart shipped fleet-wide": {
+    via: `meta.shell.upkeepPerTick / ${RAMPART_UPKEEP_PER_TICK} e per rampart per tick`,
+    fn: (P) => Math.round(sum(P, (p) => p.meta?.shell?.upkeepPerTick) / RAMPART_UPKEEP_PER_TICK),
+  },
+  "extension shipped fleet-wide": { via: "meta.counts.extension", fn: (P) => sum(P, (p) => p.meta?.counts?.extension) },
+  "container shipped fleet-wide": { via: "meta.counts.container", fn: (P) => sum(P, (p) => p.meta?.counts?.container) },
+  "tower shipped fleet-wide": { via: "meta.counts.tower", fn: (P) => sum(P, (p) => p.meta?.counts?.tower) },
+  "lab shipped fleet-wide": { via: "meta.counts.lab", fn: (P) => sum(P, (p) => p.meta?.counts?.lab) },
+  "link shipped fleet-wide": { via: "meta.counts.link", fn: (P) => sum(P, (p) => p.meta?.counts?.link) },
+  "spawn shipped fleet-wide": { via: "meta.counts.spawn", fn: (P) => sum(P, (p) => p.meta?.counts?.spawn) },
+  "observer shipped fleet-wide": { via: "meta.counts.observer", fn: (P) => sum(P, (p) => p.meta?.counts?.observer) },
+  "extractor shipped fleet-wide": { via: "meta.counts.extractor", fn: (P) => sum(P, (p) => p.meta?.counts?.extractor) },
+  "nuker shipped fleet-wide": { via: "meta.counts.nuker", fn: (P) => sum(P, (p) => p.meta?.counts?.nuker) },
+  "cut tiles": {
+    via: "the ramparts standing on the declared cut curve",
+    fn: (P) =>
+      sum(P, (p) => {
+        const cut = new Set((p.meta?.shell?.cut || []).map((t) => `${t.x},${t.y}`));
+        return (p.structures?.rampart || []).filter((r) => cut.has(`${r.x},${r.y}`)).length;
+      }),
+  },
+  "declaration shipped fleet-wide": {
+    via: "the (gate/kind) partition of fleetTotals, added back up",
+    fn: (P) => {
+      let n = 0;
+      for (const p of P) for (const sf of p.meta?.shortfalls || []) if (sf && sf.gate) n++;
+      return n;
+    },
+  },
+  "note shipped fleet-wide": {
+    via: "meta.noteRecords, the machine-readable twin of every note",
+    fn: (P) => sum(P, (p) => (p.meta?.noteRecords || []).length),
+  },
+  "planner notes": {
+    via: "meta.noteRecords, the machine-readable twin of every note",
+    fn: (P) => sum(P, (p) => (p.meta?.noteRecords || []).length),
+  },
+  "shallowExt shipped fleet-wide": {
+    via: "meta.noteRecords[cls=shallowExt].rec.shallowNow, the note's own reading",
+    fn: (P) =>
+      sum(P, (p) =>
+        (p.meta?.noteRecords || [])
+          .filter((e) => e && e.cls === "shallowExt")
+          .reduce((s, e) => s + (e.rec?.shallowNow || 0), 0),
+      ),
+  },
+  "source works": {
+    via: "meta.shell.srcEnclosed, one verdict per source work",
+    fn: (P) => sum(P, (p) => (p.meta?.shell?.srcEnclosed || []).length),
+  },
+  controllers: {
+    via: "rooms with a meta.pathController route",
+    fn: (P) => countRooms(P, (p) => p.meta?.pathController != null),
+  },
+  minerals: { via: "rooms with a meta.mineralSeat", fn: (P) => countRooms(P, (p) => p.meta?.mineralSeat) },
+  "sealed tiles": {
+    via: "meta.sealedFloor.pockets, the partition the tile count is of",
+    fn: (P) => sum(P, (p) => (p.meta?.sealedFloor?.pockets || []).reduce((s, q) => s + (q.tiles || 0), 0)),
+  },
+};
+/** every registry entry, with the label the twin table keys on */
+export function registryEntries() {
+  return [
+    ...Object.entries(QUANTITIES)
+      .filter(([k]) => k !== "room")
+      .map(([k, q]) => ({ label: `${k} shipped fleet-wide`, nouns: q.aliases, fn: q.total })),
+    ...FLEET_EXTRACTORS,
+  ];
+}
+export function registryTwinTest(plans) {
+  const agree = [];
+  const disagree = [];
+  const single = [];
+  for (const e of registryEntries()) {
+    const twin = REGISTRY_TWINS[e.label];
+    let measured;
+    try {
+      measured = e.fn(plans);
+    } catch (err) {
+      measured = undefined;
+    }
+    if (!twin) {
+      single.push({ label: e.label, measured });
+      continue;
+    }
+    let second;
+    try {
+      second = twin.fn(plans);
+    } catch (err) {
+      second = undefined;
+    }
+    const row = { label: e.label, measured, second, via: twin.via };
+    if (measured === second) agree.push(row);
+    else disagree.push(row);
+  }
+  return { agree, disagree, single };
+}
+
 export function report(res, { list = false } = {}) {
   const where = (h) => `${h.file}:${h.line}`;
   const out = [];
@@ -802,6 +1469,31 @@ export function report(res, { list = false } = {}) {
         `that ships none of them.`,
     );
   }
+  // THE TWIN ROSTER (MC). Printed every run, agreements included, because "which
+  // extractors are checked against a second derivation and which are taken on
+  // trust" is the honest scope of the sentence "re-derived and correct" above it.
+  const tw = res.twins;
+  if (tw) {
+    out.push(
+      `  registry — ${tw.agree.length + tw.disagree.length} of ${tw.agree.length + tw.disagree.length + tw.single.length} ` +
+        `extractor(s) carry an independent second derivation, ${tw.disagree.length} DISAGREEING. ` +
+        `Twinned: ${tw.agree.map((r) => `${r.label} = ${r.measured} (${r.via})`).join(" · ") || "none"}.` +
+        (tw.single.length
+          ? ` SINGLE-SOURCED, nothing to check them against: ${tw.single
+              .map((r) => `${r.label} = ${r.measured === undefined ? "nothing" : r.measured}`)
+              .join(" · ")}.`
+          : ``),
+    );
+    for (const r of tw.disagree) {
+      out.push(
+        `  REGISTRY-TWIN ${r.label} measures ${r.measured === undefined ? "nothing" : r.measured} while its ` +
+          `independent second derivation (${r.via}) measures ${r.second === undefined ? "nothing" : r.second}. ` +
+          `One of the two is reading the wrong field, and until they agree no claim checked against this ` +
+          `extractor means anything.`,
+      );
+    }
+  }
+  for (const f of res.selfTest || []) out.push(`  SELF-TEST ${f}`);
   for (const d of res.deadWaivers || []) {
     out.push(`  DEAD-WAIVER ${d.file}:${d.line} — no matched claim sits beside this tag — "${d.why}"`);
   }
@@ -816,10 +1508,26 @@ export function report(res, { list = false } = {}) {
         ` (file not yet swept; see PENDING_FILES)`,
     );
   }
+  // A WAIVED LINE PRINTS WHAT THE ARTIFACT ACTUALLY SAYS (OL7). The measured
+  // value was already computed for every hit — that is how the gate decided the
+  // claim was not correct in the first place — and then thrown away on exactly
+  // the lines where a reader most needs it. A waiver is an argument that a
+  // number is HISTORY, and the only thing that makes that argument checkable on
+  // sight is the number standing next to it: "60 tiles across 53 rooms" beside
+  // "the artifact ships 62/55" reads as a dated figure the moment you see it,
+  // and beside nothing at all it reads as whatever the reason says it is. Where
+  // no extractor resolves, it says so, which is its own useful admission: the
+  // waiver is the only thing holding that numeral up.
+  const measuredOf = (c) =>
+    c.measured === null || c.measured === undefined
+      ? `no extractor`
+      : c.measured === -1
+        ? `no set of this size in the registry`
+        : `artifact ships ${c.measured}`;
   for (const { h, claims } of waivedSites.values()) {
     out.push(
-      `  waived ${where(h)} — "${h.quote}" — ` +
-        `${claims.map((c) => `${c.what} = ${c.value}`).join(" + ")} — ${h.waiver}`,
+      `  waived(${h.waiverVia}) ${where(h)} — "${h.quote}" — ` +
+        `${claims.map((c) => `${c.what} = ${c.value} [${measuredOf(c)}]`).join(" + ")} — ${h.waiver}`,
     );
   }
   for (const h of res.open) {
@@ -848,7 +1556,9 @@ export function runAudit({ list = false, log = console.log } = {}) {
   const plans = JSON.parse(fs.readFileSync(PLANS, "utf8")).filter((p) => p && p.structures);
   const res = audit(plans);
   log(report(res, { list }));
-  return res.bad.length || res.open.length || res.registry.length ? 1 : 0;
+  return res.bad.length || res.open.length || res.registry.length || res.twins.disagree.length || res.selfTest.length
+    ? 1
+    : 0;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url))) {
