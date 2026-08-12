@@ -181,6 +181,58 @@ function renderSealedRecoveryTail(r) {
   }
   return out;
 }
+/**
+ * OBLIGATION (ii) OF THE ROUND-21 RULING (criticism 95).
+ *
+ * The ruling that made a room's DECLARED quantities keys in its own tie-breaks
+ * ships with three obligations, and this is the reader-facing one: a tie-break
+ * a declared quantity actually DECIDED has to say so, name the candidate the
+ * pass would otherwise have taken, and give the margin on BOTH axes — the
+ * declared one the winner won and the priced one it paid. A rule you only hear
+ * about when it flatters the board is not a rule, and a rule you never hear
+ * about at all is a preference with better lawyers.
+ *
+ * Rendered from `record.decidedBy`, which the pass writes only when the rule
+ * changed the pick — see DECLARED_KEY_RULE in pipeline.mjs. The runner-up there
+ * is the winner under the pass's OWN pre-ruling order, so this sentence is a
+ * counterfactual the record carries rather than one the prose invents.
+ */
+const DECLARED_INSTRUMENT_PROSE = {
+  lap: "its as-built gated defender lap",
+  shallowExts: "how many of its sixty extensions stand shallower than the safe depth",
+  refill: "the furthest of its per-tower filler walks",
+  clump: "how many towers stand within chebyshev 2 of the sitter",
+  offNetwork: "the owned structures its own road network does not reach",
+};
+function declaredDecided(r) {
+  const db = r.decidedBy;
+  if (!db) return "";
+  const what = DECLARED_INSTRUMENT_PROSE[db.instrument] || `\`${db.instrument}\``;
+  const gap = Math.abs(db.margin.declared);
+  const price = db.margin.priced;
+  const step = (v) => (v === null || v === undefined ? "not measured" : v > 0 ? `+${v}` : `${v}`);
+  return (
+    ` A DECLARED QUANTITY DECIDED THIS TIE-BREAK (round 21, the RULING on criticism 95). This room ` +
+    `DECLARES ${what} — \`${db.source}\` = ${db.declared}, filed in meta.shortfalls on the board this ` +
+    `pass judged — and a quantity a room has to publish is a KEY in that room's tie-breaks: ranked ` +
+    `immediately after the pass's admission quantities, ahead of every priced preference, and never a ` +
+    `veto over what gets in. WITHOUT IT this pass would have taken the ${db.runnerUp.kind} seat at ` +
+    `${xy(db.runnerUp.withdrawn)}, which ties this one on both admission quantities ` +
+    `(${db.tiedOn.gainedDeep} deep tile(s) back, ${db.tiedOn.gainedTiles} in total) and beats it on ` +
+    `the price: extension tour ${step(db.runnerUp.extTourDelta)} steps against this seat's ` +
+    `${step(db.taken.extTourDelta)}. It loses on the declared one: ${db.instrument} ` +
+    `${db.runnerUp.value} against ${db.taken.value}, a margin of ${gap} ` +
+    `(${db.direction === "up" ? "more" : "less"} is better). ` +
+    (price > 0
+      ? `So this room pays ${price} step(s) of a filler tour that nothing outside this record reads, ` +
+        `to keep ${gap} of a number it has to stand behind in front of every reader of its own ` +
+        `declaration channel. `
+      : `The two are level on the filler tour and the priced order separated them further down it, on ` +
+        `interior, then face, then raster. `) +
+    `Both margins are on \`decidedBy\` — the declared axis and the priced one — because a decision ` +
+    `published only on the axis it won is a decision the reader cannot argue with.`
+  );
+}
 function renderSealedRecoveryRun(r) {
   const deltaWord = (v) =>
     v === null || v === undefined ? "not measured" : v === 0 ? "unchanged" : v > 0 ? `+${v}` : `${v}`;
@@ -251,10 +303,16 @@ function renderSealedRecoveryRun(r) {
       `seat never touched). ` +
       (rivals.length
         ? `${r.accepted} of them cleared the whole panel and this seat won the published tie-break — ` +
-          `largest deep recovery, then largest total recovery, then the cheapest panel (least ` +
-          `extension tour, then most interior, then strongest face), then raster order — ` +
-          `ahead of ${rivals.map((o) => xy(o.withdrawn)).join(" ")}.`
+          `largest deep recovery, then largest total recovery, then ` +
+          ((r.declaredKeys || []).length
+            ? `THIS ROOM'S DECLARED QUANTITIES in declaration order (${r.declaredKeys
+                .map((k) => `${k.instrument}, declared at ${k.declared} by \`${k.source}\``)
+                .join("; ")}), then `
+            : ``) +
+          `the cheapest panel (least extension tour, then most interior, then strongest face), then ` +
+          `raster order — ahead of ${rivals.map((o) => xy(o.withdrawn)).join(" ")}.`
         : `It is the only one that cleared the whole panel.`) +
+      declaredDecided(r) +
       tourTaken
     );
   }

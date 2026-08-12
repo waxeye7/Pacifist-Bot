@@ -1022,7 +1022,10 @@ const idxOf = (x, y) => x + y * 50;
  * flooded from the four edges. It is memoised on the plan and invalidated by
  * hand whenever layer 7 changes the rampart list (the prune and the
  * reconciliation are the only two things that can), so nothing downstream has
- * to remember to recompute it and nothing recomputes it 159 times either.
+ * to remember to recompute it and no consumer pays for the flood a second time.
+ * (Round 21, Mm1: that last clause used to read "nothing recomputes it 159
+ * times either" — a count of the retired 159-room world, in a sentence about a
+ * per-plan memo, where the fleet size was never what the memo was saving.)
  *
  * plan.exterior is deliberately NOT overwritten. It is what layer 2 decided
  * against, several later measurements are legitimately attributed to it, and
@@ -1173,6 +1176,219 @@ function sealCriticalSet(terrain, rampartSet, ext, inside) {
     if (touchIn && touchOut) out.push({ x, y });
   }
   return out;
+}
+
+/**
+ * ------------------------------------------------------------------------
+ * OM6 (round 21) — IS `meta.shell.cut` A SEALING CURVE ON ITS OWN? MEASURED.
+ * ------------------------------------------------------------------------
+ * REQUIRED_META calls `meta.shell.cut` "THE WALL. Every shell metric in this
+ * file — battlements, the weakest face, the mobility endpoints, stale-cut,
+ * cut-not-rampart — is computed over it". In 170 of this fleet's 172 rooms that
+ * is exactly true. In TWO it is not: block only the cut in E15S1 and in E5S6 and
+ * the exterior flood walks into the GARRISON — the region the sitter holds — and
+ * reaches 85 and 89 core structures respectively. What closes the curve there is
+ * a BUBBLE PAIR standing outside the cut, the personal cover on a source
+ * container and on its link (E15S1 16,19 + 17,20; E5S6 6,30 + 7,31).
+ *
+ * The shape of that pair is why nothing caught it, and it is worth stating
+ * precisely, because the obvious guess is wrong. The two are not "critical only
+ * together": measured here, EITHER of them closes the curve on its own. They are
+ * individually sufficient and mutually redundant, so neither one is NECESSARY —
+ * and `sealCritical` is the necessity test ("take this tile alone off the
+ * shipped wall and does the room open"). Fleet-wide 7191 ramparts are
+ * seal-critical and every one of them is in the cut, so the published
+ * `sealCritical ⊆ cut` invariant HOLDS, exactly, over a curve with a hole in it:
+ * a one-at-a-time test cannot see a hole that is plugged twice.
+ *
+ * It is not a safety defect and this pass does not dress it as one: the flood
+ * over the room's WHOLE rampart set leaks 0 core structures in 172/172, which is
+ * the flood the room actually ships and the one the validator runs. It is a
+ * DECLARATION defect — the contract says the cut is the sealing curve and in two
+ * rooms the sealing curve is the cut plus a closure — so the honest minimal fix
+ * is to publish the closure rather than to move the tiles into the cut (they are
+ * bubbles, they are declared as bubbles, and adopting them would make the wall's
+ * own metrics run over tiles the wall did not buy) and rather than to say
+ * nothing.
+ *
+ * WHAT IS PUBLISHED, IN EVERY ROOM, whether or not it is needed — a field that
+ * only appears when the news is bad is a field whose absence means nothing:
+ *
+ *   meta.shell.closures = {
+ *     needed,   is the cut alone open? (false in 170/172)
+ *     leaked,   core structures the cut-only flood reaches (0 when not needed)
+ *     tiles,      a MINIMAL set of non-cut ramparts that closes it with the cut
+ *     minimal,    every tile of it is load-bearing: drop any one and it re-opens
+ *     kinds,      what those ramparts are declared as (bubble / cover / ...)
+ *     candidates, every non-cut rampart standing in the region the open cut lets
+ *                 the flood into — the set `tiles` is drawn from
+ *     soloClosers, the candidates that close the curve single-handed, so a
+ *                 minimal closure is never mistaken for the only one
+ *   }
+ *
+ * THE DERIVATION, and it is exact rather than a search. Flood the exterior with
+ * the cut blocked and call that region X. Every non-cut rampart standing in X is
+ * a candidate; blocking cut ∪ (all of them) gives the same flood as blocking
+ * every rampart — because a rampart outside X is outside every sub-flood of X
+ * too, so it cannot be what shuts the door — and the whole-rampart flood leaks
+ * nothing. So cut ∪ candidates IS a closure. It is then minimised by dropping
+ * candidates one at a time, in reading order, keeping only the ones whose
+ * removal re-opens the curve: what survives is a minimal closure, and `minimal`
+ * says so as a measured property rather than an adjective.
+ */
+const CLOSURE_CORE_KINDS = [
+  "spawn",
+  "extension",
+  "tower",
+  "storage",
+  "terminal",
+  "lab",
+  "link",
+  "nuker",
+  "observer",
+  "factory",
+  "powerSpawn",
+  "container",
+];
+/**
+ * "Open" means THE GARRISON IS REACHED, and the garrison is this file's own
+ * definition of the inside: the region the sitter holds behind the shipped
+ * rampart set (`insideFlood`), which is exactly what `reconcileSeal` calls a
+ * seal ("removing it alone lets the exterior flood reach the sitter").
+ *
+ * The alternative — "any core structure the flood touches" — is the wrong
+ * question and answers it wrongly: a source container OUTSIDE the shell under
+ * its own bubble is not inside anything, so a flood that walks up to it has
+ * broken nothing. Measured both ways, that difference is three rooms: the
+ * structure-reached reading fires in E9S2 over three deliberately-outside
+ * containers, and the garrison reading does not.
+ */
+function closureLeak(terrain, plan, blockedSet, garrison) {
+  const ext = exteriorFlood(terrain, blockedSet);
+  let structures = 0;
+  for (const t of CLOSURE_CORE_KINDS) {
+    for (const p of plan.structures[t] || []) {
+      const i = idxOf(p.x, p.y);
+      if (!garrison[i]) continue; // never inside — nothing was breached to reach it
+      if (ext[i]) structures++;
+    }
+  }
+  // ...and a breach that has not reached a STRUCTURE yet is still a breach: the
+  // count is what the reader is owed, the PREDICATE is whether the garrison's
+  // own floor was entered at all.
+  let entered = structures > 0;
+  if (!entered) {
+    for (let i = 0; i < 2500; i++) {
+      if (garrison[i] && ext[i]) {
+        entered = true;
+        break;
+      }
+    }
+  }
+  return { structures, entered };
+}
+function deriveShellClosures(terrain, plan) {
+  if (!plan.shell || !plan.sitter) return;
+  const ramp = plan.structures.rampart || [];
+  const cut = plan.shell.cut || [];
+  const inCut = new Set(cut.map((c) => key(c.x, c.y)));
+  const garrison = insideFlood(terrain, new Set(ramp.map((r) => key(r.x, r.y))), plan.sitter);
+  const leak = closureLeak(terrain, plan, new Set(inCut), garrison);
+  if (!leak.entered) {
+    plan.shell.closures = {
+      needed: false,
+      leaked: 0,
+      tiles: [],
+      minimal: true,
+      kinds: {},
+      basis:
+        `blocked at meta.shell.cut and nothing else, the exterior flood reaches 0 of this room's core ` +
+        `structures: the declared cut IS the sealing curve here, on its own, which is what every ` +
+        `cut-shaped metric in this file assumes. (OM6, round 21 — the property is measured in every ` +
+        `room and published in every room, so its absence never has to be read as a pass.)`,
+    };
+    return;
+  }
+  const extCut = exteriorFlood(terrain, new Set(inCut));
+  const candidates = ramp
+    .filter((r) => !inCut.has(key(r.x, r.y)) && extCut[idxOf(r.x, r.y)])
+    .map((r) => ({ x: r.x, y: r.y }))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  // minimise: a candidate whose removal leaves the curve closed was never
+  // holding it
+  const keep = candidates.slice();
+  for (const c of candidates) {
+    const trial = new Set(inCut);
+    for (const k of keep) {
+      if (k.x === c.x && k.y === c.y) continue;
+      trial.add(key(k.x, k.y));
+    }
+    if (!closureLeak(terrain, plan, trial, garrison).entered) {
+      const i = keep.findIndex((k) => k.x === c.x && k.y === c.y);
+      keep.splice(i, 1);
+    }
+  }
+  const bubbleKeys = new Set((plan.shell.bubble || []).map((b) => key(b.x, b.y)));
+  const kinds = {};
+  for (const k of keep) {
+    const cls = bubbleKeys.has(key(k.x, k.y)) ? "bubble" : "cover";
+    kinds[cls] = (kinds[cls] || 0) + 1;
+  }
+  // A MINIMAL CLOSURE IS NOT A UNIQUE ONE, AND PUBLISHING ONE AS IF IT WERE
+  // WOULD BE THE SAME KIND OF HALF-TRUTH THIS FIELD EXISTS TO END. E5S6's two
+  // non-cut ramparts are the personal cover on a source container and on its
+  // link, standing next to each other: EITHER of them closes the curve, so
+  // "these tiles are what holds it" would be false of both. Every candidate
+  // that closes it on its own is published beside the kept set.
+  const soloClosers = candidates.filter(
+    (c) => !closureLeak(terrain, plan, new Set([...inCut, key(c.x, c.y)]), garrison).entered,
+  );
+  // every kept tile is load-bearing by construction; measured again rather than
+  // asserted, because "minimal" is the whole claim
+  let minimal = true;
+  for (const c of keep) {
+    const trial = new Set(inCut);
+    for (const k of keep) {
+      if (k.x === c.x && k.y === c.y) continue;
+      trial.add(key(k.x, k.y));
+    }
+    if (!closureLeak(terrain, plan, trial, garrison).entered) minimal = false;
+  }
+  plan.shell.closures = {
+    needed: true,
+    leaked: leak.structures,
+    tiles: keep,
+    minimal,
+    kinds,
+    candidates,
+    soloClosers,
+    basis:
+      `THE CUT IS NOT A SEALING CURVE ON ITS OWN IN THIS ROOM. Blocked at meta.shell.cut and nothing ` +
+      `else, the exterior flood walks into the garrison — the region the sitter holds behind the ` +
+      `shipped rampart set — and reaches ${leak.structures} of the core structures standing in it. ` +
+      `What closes it is the cut PLUS ${keep.length} rampart(s) outside it — ` +
+      `${keep.map((k) => `${k.x},${k.y}`).join(" + ")} ` +
+      `(${Object.entries(kinds)
+        .map(([c, n]) => `${n} ${c}`)
+        .join(", ")}) — and that set is MINIMAL: drop any one of them and the flood walks back in. ` +
+      `It is not the only one: ${candidates.length} rampart(s) stand in the region the open cut lets ` +
+      `the flood into (${candidates.map((k) => `${k.x},${k.y}`).join(" ")}) and ` +
+      `${soloClosers.length} of them close the curve SINGLE-HANDED ` +
+      `(${soloClosers.map((k) => `${k.x},${k.y}`).join(" ") || "none"}), so \`tiles\` is a minimal ` +
+      `closure and not the room's only one — \`candidates\` and \`soloClosers\` are published so the ` +
+      `substitution is visible rather than implied. `+
+      `No single rampart outside the cut is seal-critical here, and that is exactly WHY the ` +
+      `single-removal test could not see this. sealCritical asks whether a tile is NECESSARY — take ` +
+      `it alone off the shipped wall and does the room open — and these tiles are individually ` +
+      `SUFFICIENT and mutually redundant: removing any ONE of them opens nothing, while removing ALL ` +
+      `of them (which is what "the cut alone" means) opens the room. A one-at-a-time test cannot see ` +
+      `a hole that is plugged twice, so the published sealCritical ⊆ cut invariant holds here over a ` +
+      `curve that is not closed. NOT A SAFETY DEFECT, and it is stated as such: the flood over the ` +
+      `room's whole rampart set — the wall this room actually ships and the one the validator runs — ` +
+      `leaks nothing. It is a DECLARATION defect, and this field is the amendment: the sealing curve ` +
+      `is cut ∪ closures, and every cut-shaped metric in this file is computed over the cut alone. ` +
+      `(OM6, round 21.)`,
+  };
 }
 
 /**
@@ -4964,6 +5180,10 @@ export function finalizeRoom(terrain, plan) {
       `about. A class listed here MUST appear in meta.noteRecords; a class in meta.noteRecords that ` +
       `is not listed here is a note nothing demanded. why names every triggering field and its value.`;
   }
+  // OM6 (round 21) — last, on the rampart set and the cut the room actually
+  // ships: is the declared cut a sealing curve by itself, and if not, which
+  // ramparts outside it close the curve? See deriveShellClosures.
+  deriveShellClosures(terrain, plan);
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;
   // layer 6's worst-case blocked set, handed to layer 7b so it could re-derive

@@ -323,7 +323,7 @@ async function api(cfg, method, endpoint, body) {
  * containers — built at RCL2, a whole level EARLIER than those extensions —
  * had no guarantee at all. Fleet-wide the two add 36 road tiles to RCL3 across
  * 31 of the 172 rooms, max 3 in one room (E14S5), against an arterial set of
- * 7,919 of 14,102 tiles.
+ * 7,926 of 14,100 tiles.
  *
  * EVERY NUMBER IN THIS HEADER IS PRINTED BY `--census`, and that is the only
  * reason it is allowed to be here. The previous set was hand-transcribed from an
@@ -332,6 +332,16 @@ async function api(cfg, method, endpoint, body) {
  * goal document off a comment that itself said 29/27; the arterial split read
  * 7,870 of 14,053 against a measured 7,871 of 14,055). Re-run --census after any
  * change to this file or to the planner and paste what it says.
+ *
+ * ROUND 21 IS THE WORKED EXAMPLE OF WHY THAT LAST SENTENCE SAYS "OR TO THE
+ * PLANNER". Round 20 re-ran the census, wrote the result into the goal document
+ * and did not carry it here, so four of these numerals were one out. They were
+ * carried in this round — and then the round's own planner change (the
+ * sealed-floor recovery in E11S7 takes a different seat under the declared-key
+ * ruling, two roads fewer) moved three of them straight back and the arterial
+ * split to 7,926 of 14,100. Every numeral above is the current --census output
+ * of the shipped artifact; none of them is a constant, and a re-plan is a reason
+ * to re-run it.
  * ---------------------------------------------------------------------------
  */
 const ARTERIAL_LAYER = 3; // eco kit + tower spurs
@@ -799,14 +809,17 @@ function roadStageFor(plan) {
   //
   // AND IT WAS STILL NOT 0 AFTER THAT, WHICH IS THE POINT. Round 10 fixed WHICH
   // TYPES conduct and republished "0 unreachable eco terminals"; round 13 fixed
-  // WHEN they conduct (containersForRcl) and it is 1 — E5S1's controller
+  // WHEN they conduct (containersForRcl) and it was 1 — E5S1's controller
   // container 28,33, reachable at RCL3 only by standing on the mineral container
-  // at 29,30 that PlanV2 does not build until RCL6. This pass cannot repair it:
-  // its 0-1 BFS never reaches 28,33's neighbourhood at all on the honest graph,
-  // so there is no parent chain to promote and nothing here invents a road the
-  // planner did not place. It is a PLANNER finding surfaced by an honest audit,
-  // and it is left visible in `--census` and in the push warning rather than
-  // hidden behind a conductor that does not exist yet. The lesson to keep: each
+  // at 29,30 that PlanV2 does not build until RCL6. This pass could not repair
+  // it: its 0-1 BFS never reached 28,33's neighbourhood at all on the honest
+  // graph, so there was no parent chain to promote and nothing here invents a
+  // road the planner did not place. It was a PLANNER finding surfaced by an
+  // honest audit, and it was left visible in `--census` and in the push warning
+  // rather than hidden behind a conductor that does not exist yet — and the
+  // PLANNER then answered it, by paving the join. `--census` now prints E5S1
+  // (28,30) on its RCL-deferred conduct line and 0 unreachable eco terminals in
+  // 0 rooms at every one of RCL 3..8. The lesson to keep: each
   // time this number was published as 0 it was 0 because the checker was
   // standing on the same wrong graph as the pass — not because the rooms were
   // fine. Do not publish this figure again without asking what the checker is
@@ -1010,18 +1023,21 @@ function verifiedGapTiles(plan) {
  * ...AND THE ONE GAP A ROAD CANNOT CLOSE, READ OFF THE PLAN.
  *
  * The planner re-derives this same graph and PAVES the join where a join can be
- * paved (see bridgeDeferredConduct in layer-walls). TWO rooms have a join that
- * cannot be paved by anybody, and in both the reason is the same one: E5S3's
- * north-east extension pocket meets the rest of its network on the single tile
- * 32,11, and E2S5's eastern run on 27,23 — each of those tiles is where that
- * room's mineral container goes, and the engine allows one structure per tile,
- * so no arrangement of roads closes either before RCL6.
+ * paved (see bridgeDeferredConduct in layer-walls). It paves ALL of them on this
+ * fleet: `--census` prints 3 room(s) PAVED the join — E2S5(27,23) E5S1(28,30)
+ * E5S3(32,11) — and 0 room(s) publishing a paving gap. The first and third of
+ * those are the two this paragraph used to call unpaveable: E5S3's north-east
+ * extension pocket meets the rest of its network on the single tile 32,11, and
+ * E2S5's eastern run on 27,23, and each of those tiles is where that room's
+ * mineral container goes. The reason given for calling them unpaveable — one
+ * structure per tile — was wrong: road and container are BOTH non-obstacle and
+ * legally share a tile, so the planner simply laid the road under the container
+ * and both rooms now carry a road and a container on that one tile.
  *
- * (This sentence said ONE room for exactly as long as it took E2S5 to recompose
- * — which it did in the same round, on an unrelated fix — and the count was
- * never derived from anything. It is written out here because a reader wants the
- * shape of the exception, and the COUNT is printed by `--census`; if the two ever
- * disagree again, believe the census.)
+ * (This sentence said ONE room, then TWO, and neither count was ever derived
+ * from anything. It is written out here because a reader wants the shape of the
+ * exception, and the COUNT is printed by `--census`; if the two ever disagree
+ * again, believe the census.)
  *
  * A creep still walks it: containers are not obstacles and neither is bare
  * floor, so the cost is one extra tick per crossing and nothing is unreachable.

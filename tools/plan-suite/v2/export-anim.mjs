@@ -390,6 +390,82 @@ function chunked(sb, stage, tiles, size, hex, labelFor) {
   }
 }
 
+// --- what each rampart is FOR ---------------------------------------------
+/**
+ * OM4 (round 21) — THE RAMPARTS STAGE CALLED 974 RAMPARTS SOMETHING THEY ARE NOT.
+ *
+ * The stage painted every rampart in the room under one caption, `min-cut wall
+ * b/n`, in 171 of the 172 rooms. On this fleet 8208 ramparts ship and 7234 of
+ * them are tiles of `meta.shell.cut`; the other 974 are not the wall at all —
+ * 807 are bubble seats (a container outside the shell, covered where it stands)
+ * and 167 are personal cover, a rampart rented by ONE shallow structure standing
+ * on that tile (141 containers, 25 extensions, 1 lab). The counter lied twice:
+ * it called a bubble seat a wall tile, and it inflated the wall's own count by
+ * the ones that are not in it.
+ *
+ * E9S2 contradicted itself inside a single film over the same tile: 33,4 was
+ * painted "min-cut wall" by this stage and then narrated by the pass-7 caption
+ * as a rampart the origin "rents forever" — which is what it is. The classifier
+ * that got that second sentence right was ALREADY IN THIS FILE, one function
+ * down, as `rampartJob`; the stage simply never asked it. So the classification
+ * is lifted out here and both callers read the same one: a fact that is a
+ * membership test in the shipped board, published in one place, not two
+ * sentences that can disagree.
+ *
+ * The sweep is unchanged — the tiles are painted in the same order around the
+ * hub, so the wall still reads as a radar hand. The film emits one chunked RUN
+ * per stretch of same-class tiles instead of one run over everything, and each
+ * run's counter counts ITS OWN class, so "min-cut wall 40/50" now means 40 of
+ * the room's 50 cut tiles.
+ */
+const RAMPART_CLASSES = {
+  cut: {
+    caption: "min-cut wall",
+    job: "it is a tile of the published min-cut wall, which this film's own ramparts stage paints and its last frame still carries",
+  },
+  bubble: {
+    caption: "bubble seat — a container outside the shell, covered where it stands",
+    job: "it is a bubble seat over a container outside the shell",
+  },
+  denial: {
+    caption: "controller stand-denial ring",
+    job: "it is part of the controller stand-denial ring",
+  },
+  cover: {
+    caption: "personal cover — one shallow structure renting a rampart of its own",
+    job: "the shipped board still carries a rampart there, so something else is renting it — another shallow structure, or the exterior flood itself",
+  },
+  none: {
+    caption: "rampart",
+    job: "the shipped board carries no rampart there at all, so there was none to retire",
+  },
+};
+function rampartClassifier(plan) {
+  const keysOf = (l) => new Set((l || []).map((t) => `${t.x},${t.y}`));
+  const cutKeys = keysOf(plan.meta?.shell?.cut);
+  const bubbleKeys = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
+  const denialKeys = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
+  const rampartKeys = keysOf(plan.structures?.rampart);
+  // what stands ON the tile, so "personal cover" can name the structure that is
+  // renting it rather than leaving the viewer to guess
+  const occupant = new Map();
+  for (const [type, list] of Object.entries(plan.structures || {})) {
+    if (type === "rampart" || type === "road") continue;
+    for (const p of list || []) occupant.set(`${p.x},${p.y}`, type);
+  }
+  const classOf = (k) =>
+    cutKeys.has(k)
+      ? "cut"
+      : bubbleKeys.has(k)
+        ? "bubble"
+        : denialKeys.has(k)
+          ? "denial"
+          : rampartKeys.has(k)
+            ? "cover"
+            : "none";
+  return { classOf, occupant, job: (k) => RAMPART_CLASSES[classOf(k)].job };
+}
+
 // --- road provenance ------------------------------------------------------
 /**
  * ONE LUMP OF ROADS WAS A LIE ABOUT WHEN THEY EXISTED.
@@ -551,10 +627,47 @@ export function buildAnim(room, terrain, plan) {
 
   emitRoads(sb, rp, 1, plan);
 
+  // OM4 (round 21) — every rampart under its own job, in the same sweep. See
+  // rampartClassifier: the counter used to say "min-cut wall b/n" over the
+  // WHOLE rampart set, which is false of 974 of this fleet's 8208 ramparts and
+  // inflates the wall's own count in 171 rooms.
+  const rampartClass = rampartClassifier(plan);
   const ramparts = plan.structures.rampart;
   if (ramparts && ramparts.length) {
     const sweep = sweepOrder(ramparts, plan.hub || plan.seed);
-    chunked(sb, "ramparts", sweep, RAMPART_CHUNK, "#4dff9e", (a, b, n) => `min-cut wall ${b}/${n}`);
+    // the room's own census, so each run's counter counts its own class
+    const total = {};
+    const done = {};
+    for (const t of sweep) {
+      const c = rampartClass.classOf(`${t.x},${t.y}`);
+      total[c] = (total[c] || 0) + 1;
+    }
+    // consecutive same-class stretches of the sweep: the paint order is exactly
+    // the order it was, and no chunk can mix two jobs under one caption
+    let run = [];
+    let runClass = null;
+    const flush = () => {
+      if (!run.length) return;
+      const c = runClass;
+      const label = RAMPART_CLASSES[c].caption;
+      // the occupant is what makes "personal cover" checkable on the last frame
+      const occ = c === "cover" ? [...new Set(run.map((t) => rampartClass.occupant.get(`${t.x},${t.y}`)))] : [];
+      const what = occ.length ? `${label} (${occ.filter(Boolean).join(", ")})` : label;
+      chunked(sb, "ramparts", run, RAMPART_CHUNK, "#4dff9e", (a, b) => {
+        done[c] = (done[c] || 0) + (b - a);
+        return `${what} ${done[c]}/${total[c]}`;
+      });
+      run = [];
+    };
+    for (const t of sweep) {
+      const c = rampartClass.classOf(`${t.x},${t.y}`);
+      if (c !== runClass) {
+        flush();
+        runClass = c;
+      }
+      run.push(t);
+    }
+    flush();
   }
   for (let i = 0; i < (plan.structures.tower || []).length; i++) {
     const t = plan.structures.tower[i];
@@ -819,23 +932,12 @@ export function buildAnim(room, terrain, plan) {
   // finding: it is a MIN-CUT WALL tile, painted by this same film's ramparts
   // stage and standing in its own last frame, under a caption that said the move
   // had retired it.
-  const keysOf = (l) => new Set((l || []).map((t) => `${t.x},${t.y}`));
-  const cutKeys = keysOf(plan.meta?.shell?.cut);
-  const bubbleKeys = keysOf(plan.shell?.bubble || plan.meta?.shell?.bubble);
-  const denialKeys = keysOf(plan.shell?.standDenial || plan.meta?.shell?.standDenial);
-  const rampartKeys = keysOf(plan.structures?.rampart);
-  const rampartJob = (k) =>
-    cutKeys.has(k)
-      ? "it is a tile of the published min-cut wall, which this film's own ramparts stage paints and " +
-        "its last frame still carries"
-      : bubbleKeys.has(k)
-        ? "it is a bubble seat over a container outside the shell"
-        : denialKeys.has(k)
-          ? "it is part of the controller stand-denial ring"
-          : rampartKeys.has(k)
-            ? "the shipped board still carries a rampart there, so something else is renting it — " +
-              "another shallow structure, or the exterior flood itself"
-            : "the shipped board carries no rampart there at all, so there was none to retire";
+  // ...and it is the SAME classification the ramparts stage paints with (OM4,
+  // round 21): one membership test in the shipped board, read by both callers,
+  // so the stage and this caption cannot disagree about a tile the way E9S2's
+  // 33,4 did — painted "min-cut wall" up there and narrated as a rented
+  // personal rampart down here, in one film.
+  const rampartJob = rampartClass.job;
   for (const r of relocated) {
     const d = r.closer;
     // layer 7b publishes the two depths instead of a hub-walk delta, because the
@@ -961,16 +1063,62 @@ export function buildAnim(room, terrain, plan) {
     );
   }
   // ...and NOW the backfill layer 7b ran on the floor that prune just freed.
+  // ------------------------------------------------------------------
+  // OM5 (round 21) — "THE FLOOR THE PRUNE HANDED BACK" WAS AN ASSERTION ABOUT
+  // TEN TILES THE PRUNE NEVER TOUCHED.
+  //
+  // Every deep 7b add carried `on deep road-faced floor the dead-end prune
+  // handed back`, unconditionally — the same defect the MOVES above had fixed
+  // one block earlier and by the same test. On this fleet 19 deep adds ship and
+  // 10 of them sit on floor no road of this plan ever occupied: the tile has no
+  // `meta.roadLayer` entry at all, so nothing was ever laid there to prune. The
+  // prune-freed nine are real (E5S3 25,27 / 24,28, E9S2 35,11 / 37,13 / 36,14 /
+  // 35,15, E9S7 35,4 / 37,9 / 32,4) and they are the ones that can say it.
+  //
+  // The second half is `paved`. An add carries the same field a move does — the
+  // road face it bought itself — and the stage printed neither the field nor its
+  // fate. E5S3 paves 33,8 for the add at 32,8 and 35,10 for the add at 35,9, and
+  // NEITHER tile is on the shipped board: the room's own extensions ship their
+  // faces on other roads, and the film said nothing at all. That is OM3's defect
+  // (a road narrated as laid on a tile no frame ever kept) in the one stage OM3
+  // did not reach. So the add's pave is read off the shipped board exactly the
+  // way the move's is, and "road-faced" stops being an adjective and becomes the
+  // D4 road tiles the slot actually ships, named.
+  // ------------------------------------------------------------------
   for (const a of reflowAdds) {
     const deep = typeof a.depth !== "number" || a.depth >= 4;
+    const addKey = `${a.x},${a.y}`;
+    const provenance = prunedKeys.has(addKey)
+      ? `floor the dead-end prune handed back — this tile carried a road until the prune deleted it, ` +
+        `and this film erases it on screen a beat ago`
+      : everPrunedKeys.has(addKey)
+        ? `floor a layer-7 road held and gave up before any frame of this film drew it — the room ` +
+          `publishes the tile in meta.walls.prunedTiles`
+        : `floor NO road of this plan ever occupied: it carries no meta.roadLayer tag, so the prune ` +
+          `handed this slot nothing — the tile was simply free`;
+    const addPaveKey = a.paved ? `${a.paved.x},${a.paved.y}` : null;
+    const addPaveShipped = addPaveKey !== null && shippedRoadKeys.has(addPaveKey);
+    const addPaveClause = !a.paved
+      ? ``
+      : addPaveShipped
+        ? `, paving ${addPaveKey} to give it a road face`
+        : `, paving ${addPaveKey} for a road face that is NOT on the shipped board — ` +
+          (prunedKeys.has(addPaveKey)
+            ? `the dead-end prune took it back on screen`
+            : everPrunedKeys.has(addPaveKey)
+              ? `it was laid and deleted inside layer 7, so no frame of this film ever carries it`
+              : `no later pass kept it`);
+    const addFaces = shippedFacesOf(a);
     sb.push(
       "extAdd",
       `layer 7b adds an extension at (${a.x},${a.y})` +
         (typeof a.depth === "number" ? ` — depth ${a.depth}` : "") +
         (deep
-          ? `, on deep road-faced floor the dead-end prune handed back`
+          ? `, on deep ${provenance}`
           : `, and it is SHALLOW: the priced ladder had no deep tile left, so this one rents a ` +
-            `personal rampart forever to close the count`) +
+            `personal rampart forever to close the count — it stands on ${provenance}`) +
+        addPaveClause +
+        `; the road face it ships is ${addFaces.join(" / ") || "NO D4 road at all"}` +
         `; this room was ${reflowAdds.length} extension(s) short of ${EXT_TARGET_ANIM} before this pass`,
       sb.flat([a], "#ffd24d"),
     );

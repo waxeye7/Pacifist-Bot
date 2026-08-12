@@ -5486,6 +5486,402 @@ run("r13/F8-untriggered-gate", R, (p) => {
 }
 
 // ===========================================================================
+// ROUND 21 — the RULING on criticism 95, and the two reviewers' rosters.
+// ===========================================================================
+// THE RULING: where a room's plan DECLARES a quantity, that quantity is a KEY
+// in every tie-break that room's passes run — after the admission quantities,
+// ahead of every priced preference, never a veto. Three obligations ship with
+// it and all three are mutated here: (i) the key set is DERIVED from
+// `meta.shortfalls` and published beside the ranking; (ii) a tie-break a
+// declaration DECIDES says so in the room's note, runner-up named and the
+// margin on both axes; (iii) it applies to EVERY pass with a tie-break, which
+// is the recovery pass AND the across-prior tower swap.
+// OWNER M2: `meta.walls.mobility` is layer walls' copy of a record this file
+// re-derives, and `builtGated` — the gallery headline, the worst-room pick and
+// the film caption — was compared with nothing.
+// MECHANICAL: MF1 `kindsAttempted`, the unpinned third of the pass's rule
+// triple; MF2 `sealCritical`, exactly right in 172/172 and bounded by nothing;
+// Mm2 the chain's obligations hung on the producer's own `next` pointer; Mm3
+// the roundCap branch read off producer keys; Mm4 the third witness to the
+// park seat search; Mm5 the cut is not a sealing curve in two rooms; ML1
+// `relocatedCount`.
+{
+  const any21 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const regen21 = (p) => {
+    for (let i = 0; i < (p.meta.noteRecords || []).length; i++) {
+      try { p.meta.notes[i] = renderNote(p.meta.noteRecords[i]); } catch { /* a throwing record is its own failure */ }
+    }
+  };
+  const recov21 = (edit) => (p) => {
+    const R = p.meta.sealedRecovery;
+    if (!R) throw new Error("no sealedRecovery");
+    edit(R, p);
+    const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+    if (i >= 0) p.meta.noteRecords[i].rec = R;
+    regen21(p);
+  };
+  const recovRoom21 = (pred) => any21((p) => (p.meta?.sealedRecovery ? pred(p.meta.sealedRecovery, p) : false));
+  const takenRoom21 = (pred) => recovRoom21((R, p) => R.outcome === "taken" && (!pred || pred(R, p)));
+  const bothLanes21 = (edit) => (p) => {
+    edit(p.meta.walls.mobility.lanes, p);
+    edit(p.meta.extensions.laneMeta, p);
+    regen21(p);
+  };
+  const laneRoom21 = (pred) => any21((p) => { const L = p.meta?.walls?.mobility?.lanes; return !!(L && pred(L, p)); });
+  const apRoom21 = (pred) => any21((p) => { const t = p.meta?.towers?.acrossPriorTake; return !!(t && pred(t, p)); });
+
+  // ---- M2: the as-built mobility record, written twice and read nowhere
+  const mobRoom21 = any21((p) => typeof p.meta?.walls?.mobility?.builtGated === "number" && p.meta.walls.mobility.builtGated > 1);
+  run("r21/M2-the-gallery-s-as-built-gated-lap-headline-rewritten",
+    mobRoom21, (p) => { p.meta.walls.mobility.builtGated = 0.5; }, "mobility-built|builtGated");
+  run("r21/M2-the-headline-lap-and-its-re-derived-twin-moved-together",
+    mobRoom21,
+    (p) => { p.meta.walls.mobility.builtGated = 0.5; p.meta.shell.mobilityBuilt.maxGated = 0.5; },
+    "mobility-built|builtGated");
+  run("r21/M2-the-headline-lap-withdrawn-altogether",
+    mobRoom21, (p) => { delete p.meta.walls.mobility.builtGated; }, "mobility-built|builtGated");
+  run("r21/M2-the-gated-pairs-over-target-inflated-on-the-copy",
+    mobRoom21, (p) => { p.meta.walls.mobility.overGated = p.meta.walls.mobility.overGated * 3 + 1; }, "mobility-built|overGated");
+  run("r21/M2-the-copy-s-ungated-lap-flattered",
+    mobRoom21, (p) => { p.meta.walls.mobility.built = 1; }, "mobility-built|built");
+  run("r21/M2-cut-tiles-the-defender-cannot-reach-hidden-on-the-copy",
+    mobRoom21, (p) => { p.meta.walls.mobility.walled = 4; }, "mobility-built|walled");
+
+  // ---- MF1: the pass's rule triple, third leg
+  const recovAny21 = recovRoom21(() => true);
+  run("r21/MF1-the-pass-narrowed-to-one-class-so-the-observer-was-never-considered",
+    takenRoom21((R) => Array.isArray(R.kindsAttempted) && R.kindsAttempted.length > 1),
+    recov21((R) => {
+      R.kindsAttempted = ["extension"];
+      R.seats = { extension: 60 };
+      R.offered = R.offered.filter((o) => !(o && o.withdrawn && o.kind === "observer"));
+      R.candidates = 60;
+      R.tried = 60;
+      if (typeof R.accepted === "number") R.accepted = R.offered.filter((o) => o && (o.verdict === "TAKEN" || /^accepted, not taken/.test(String(o.verdict)))).length;
+    }),
+    "kindsAttempted");
+  run("r21/MF1-the-pass-narrowed-to-the-observer-seat-alone",
+    recovAny21, recov21((R) => { R.kindsAttempted = ["observer"]; }), "kindsAttempted");
+  run("r21/MF1-a-class-the-pass-cannot-move-added-to-the-triple",
+    recovAny21, recov21((R) => { R.kindsAttempted = ["extension", "observer", "tower"]; }), "kindsAttempted");
+  run("r21/MF1-the-attempted-classes-withdrawn",
+    recovAny21, recov21((R) => { delete R.kindsAttempted; }), "kindsAttempted");
+
+  // ---- MF2: the seal-critical count
+  const sealRoom21 = any21((p) => typeof p.meta?.shell?.sealCritical === "number" && p.meta.shell.sealCritical > 0);
+  run("r21/MF2-sealCritical-zeroed-the-exploit-that-landed-in-all-172-rooms",
+    sealRoom21, (p) => { p.meta.shell.sealCritical = 0; }, "sealCritical");
+  run("r21/MF2-sealCritical-x3-plus-1", sealRoom21, (p) => { p.meta.shell.sealCritical = p.meta.shell.sealCritical * 3 + 1; }, "sealCritical");
+  run("r21/MF2-sealCritical-off-by-one", sealRoom21, (p) => { p.meta.shell.sealCritical -= 1; }, "sealCritical");
+  run("r21/MF2-sealCritical-withdrawn", sealRoom21, (p) => { delete p.meta.shell.sealCritical; }, "sealCritical");
+  run("r21/MF2-sealCritical-raised-to-the-whole-declared-cut",
+    any21((p) => typeof p.meta?.shell?.sealCritical === "number" && (p.meta.shell.cut || []).length > p.meta.shell.sealCritical),
+    (p) => { p.meta.shell.sealCritical = p.meta.shell.cut.length; }, "sealCritical");
+
+  // ---- Mm2: the chain, off the record's shape
+  const fabNext21 = (R, p) => {
+    const sf = p.meta.sealedFloor;
+    R.next = {
+      threshold: R.threshold,
+      kindsAttempted: R.kindsAttempted,
+      tourSlack: R.tourSlack,
+      declaredKeys: R.declaredKeys,
+      declaredSkipped: R.declaredSkipped,
+      ranking: R.ranking,
+      declaredKeyRule: R.declaredKeyRule,
+      outcome: "belowThreshold",
+      candidates: 0,
+      tried: 0,
+      taken: null,
+      sealedTiles: sf ? sf.tiles : 0,
+      sealedDeep: sf ? sf.deep : 0,
+      bestDeepAnywhere: 0,
+      pockets: JSON.parse(JSON.stringify(R.pockets || [])),
+      offered: [{ verdict: `nothing qualified: this room's whole sealed floor is ${sf ? sf.deep : 0} deep tile(s) against a threshold of ${R.threshold}, and a withdrawal cannot give back more than the room seals (best anywhere 0)` }],
+      instruments: R.instruments,
+      directions: R.directions,
+      walkRule: R.walkRule,
+      tourRule: R.tourRule,
+      basis: R.basis,
+    };
+    R.residual.reran = true;
+  };
+  run("r21/Mm2-a-run-of-the-pass-that-never-happened-appended-to-the-chain",
+    takenRoom21((R) => R.next === undefined && R.residual), recov21(fabNext21), "residual|handed over|fixpoint");
+  run("r21/Mm2-the-fixpoint-sentence-contradicting-its-own-reran-flag",
+    takenRoom21((R) => R.next === undefined && R.residual && /fixpoint/i.test(R.residual.why)),
+    recov21(fabNext21), "contradicts itself|fixpoint|residual");
+  run("r21/Mm2-a-second-run-the-record-owed-cut-off-the-tail",
+    takenRoom21((R) => R.next !== undefined),
+    recov21((R) => { delete R.next; R.residual.reran = false; }), "residual|handed over|OWES");
+  run("r21/Mm2-the-residual-sentence-rewritten-into-the-other-branch",
+    takenRoom21((R) => R.residual && /fixpoint/i.test(R.residual.why)),
+    recov21((R) => { R.residual.why = R.residual.why.replace(/so the pass is at its fixpoint here/, "so the pass runs again on it with this withdrawal held (see `next`)"); }),
+    "residual|contradicts itself");
+
+  // ---- Mm3: which branch the round cap came from
+  run("r21/Mm3-a-priced-shrink-refusal-deleted-and-the-cap-raised-back",
+    laneRoom21((L) => L.shrunk && L.stranded > 0),
+    bothLanes21((L) => { delete L.shrunk; L.roundCap = 10; }), "lane-anchor");
+  run("r21/Mm3-a-priced-shrink-refusal-deleted-and-its-leftovers-with-it",
+    laneRoom21((L) => L.shrunk && L.stranded > 0),
+    bothLanes21((L) => { delete L.shrunk; L.roundCap = 10; L.stranded = 0; }), "lane-anchor");
+  run("r21/Mm3-the-shrink-moved-with-the-cap-in-both-copies",
+    laneRoom21((L) => L.shrunk && L.rounds > 1),
+    bothLanes21((L) => { L.shrunk.to = L.rounds - 1; L.roundCap = L.rounds - 1; }), "lane-anchor");
+  run("r21/Mm3-a-shrink-that-refused-no-larger-reservation",
+    laneRoom21((L) => L.shrunk), bothLanes21((L) => { L.shrunk.wanted = L.tiles; }), "lane-anchor");
+  run("r21/Mm3-a-shrink-to-the-full-round-count",
+    laneRoom21((L) => L.shrunk), bothLanes21((L) => { L.shrunk.to = 10; L.roundCap = 10; L.rounds = 10; }), "lane-anchor");
+  run("r21/Mm3-a-reservation-dropped-AND-shrunk-at-once",
+    laneRoom21((L) => L.dropped === true),
+    bothLanes21((L) => { L.shrunk = { from: 10, to: 2, wanted: 5, premium: 0 }; }), "lane-anchor");
+  run("r21/Mm3-stranded-stubs-in-a-room-that-records-no-drop-and-no-shrink",
+    laneRoom21((L) => !L.dropped && !L.shrunk && L.stranded === 0),
+    bothLanes21((L) => { L.stranded = 6; }), "lane-anchor");
+  run("r21/Mm3-the-no-bound-licence-taken-by-a-reservation-that-ran-to-exhaustion",
+    laneRoom21((L) => !L.dropped && !L.shrunk && L.bounded !== null),
+    bothLanes21((L) => { L.bounded = null; L.boundedUngated = null; }), "lane-anchor");
+  run("r21/Mm3-the-gated-and-ungated-halves-of-one-bound-disagreeing",
+    laneRoom21((L) => L.bounded === null),
+    bothLanes21((L) => { L.boundedUngated = 1.5; }), "lane-anchor");
+
+  // ---- Mm4: the third witness to the park seat search
+  const parkRoom21 = any21((p) => Array.isArray(p.meta?.ctrlParkSeatSearchTiles) && p.meta.ctrlParkSeatSearchTiles.length > 0);
+  const releaseRoom21 = any21(
+    (p) => typeof p.meta?.ctrlParkFloor === "number" && Array.isArray(p.meta?.ctrlParkSeatSearchTiles) &&
+      p.meta.ctrlParkFloor < p.meta.ctrlParkSeatSearchTiles.length && (p.meta.ctrlParksBuiltTiles || []).length > p.meta.ctrlParkFloor,
+  );
+  const dropRelease21 = (p) => { p.meta.shortfalls = (p.meta.shortfalls || []).filter((s) => !(s && s.gate === "ctrlParks" && s.kind === "released")); };
+  run("r21/Mm4-a-released-seat-hidden-by-falsifying-BOTH-published-scalars",
+    releaseRoom21, (p) => { p.meta.ctrlParksAtSeatSearch = p.meta.ctrlParkFloor; dropRelease21(p); }, "ctrlParkSeatSearchTiles|released back to the extension");
+  run("r21/Mm4-...-and-the-tile-list-truncated-to-match",
+    releaseRoom21,
+    (p) => { p.meta.ctrlParksAtSeatSearch = p.meta.ctrlParkFloor; p.meta.ctrlParkSeatSearchTiles = p.meta.ctrlParkSeatSearchTiles.slice(0, p.meta.ctrlParkFloor); dropRelease21(p); },
+    "ctrlParkSeatSearchTiles|released back to the extension");
+  run("r21/Mm4-the-seat-search-s-own-tile-list-deleted",
+    parkRoom21, (p) => { delete p.meta.ctrlParkSeatSearchTiles; }, "ctrlParkSeatSearchTiles");
+  run("r21/Mm4-the-tile-list-replaced-with-arbitrary-tiles",
+    parkRoom21,
+    (p) => { const a = []; for (let i = 0; i < 40; i++) a.push({ x: 2 + (i % 40), y: 2 + ((i * 7) % 40) }); p.meta.ctrlParkSeatSearchTiles = a; p.meta.ctrlParksAtSeatSearch = 40; },
+    "ctrlParkSeatSearchTiles");
+  run("r21/Mm4-one-search-tile-moved-off-the-controller-s-window",
+    parkRoom21, (p) => { p.meta.ctrlParkSeatSearchTiles[0] = { x: 25, y: 25 }; }, "ctrlParkSeatSearchTiles");
+  run("r21/Mm4-a-search-tile-counted-twice",
+    parkRoom21, (p) => { p.meta.ctrlParkSeatSearchTiles.push({ ...p.meta.ctrlParkSeatSearchTiles[0] }); p.meta.ctrlParksAtSeatSearch += 1; }, "ctrlParkSeatSearchTiles");
+  run("r21/Mm4-the-seat-count-x3-plus-1-against-its-own-list",
+    parkRoom21, (p) => { p.meta.ctrlParksAtSeatSearch = p.meta.ctrlParksAtSeatSearch * 3 + 1; }, "ctrlParkSeatSearchTiles");
+  run("r21/Mm4-a-seat-the-room-still-parks-on-struck-out-of-the-search-list",
+    any21((p) => Array.isArray(p.meta?.ctrlParkSeatSearchTiles) && (p.meta.ctrlParksBuiltTiles || []).length > 0),
+    (p) => {
+      const b = p.meta.ctrlParksBuiltTiles[0];
+      p.meta.ctrlParkSeatSearchTiles = p.meta.ctrlParkSeatSearchTiles.filter((t) => !(t.x === b.x && t.y === b.y));
+      p.meta.ctrlParksAtSeatSearch = p.meta.ctrlParkSeatSearchTiles.length;
+    },
+    "ctrlParkSeatSearchTiles");
+
+  // ---- Mm5: the sealing curve
+  const closRoom21 = any21((p) => p.meta?.shell?.closures?.needed === true);
+  const shutRoom21 = any21((p) => p.meta?.shell?.closures?.needed === false);
+  run("r21/Mm5-the-sealing-curve-record-deleted", shutRoom21, (p) => { delete p.meta.shell.closures; }, "closures");
+  run("r21/Mm5-an-open-cut-reported-as-a-sealing-curve",
+    closRoom21, (p) => { p.meta.shell.closures = { needed: false, leaked: 0, tiles: [], minimal: true, kinds: {}, basis: p.meta.shell.closures.basis }; }, "closures");
+  run("r21/Mm5-a-closed-cut-reported-as-open",
+    shutRoom21, (p) => { p.meta.shell.closures.needed = true; p.meta.shell.closures.leaked = 3; }, "closures");
+  run("r21/Mm5-the-leak-the-open-cut-lets-in-flattered",
+    closRoom21, (p) => { p.meta.shell.closures.leaked = 1; }, "closures");
+  run("r21/Mm5-the-published-closure-emptied", closRoom21, (p) => { p.meta.shell.closures.tiles = []; }, "closures");
+  run("r21/Mm5-the-closure-swapped-for-a-rampart-that-does-not-close-it",
+    any21((p) => { const c = p.meta?.shell?.closures; return c?.needed && (c.candidates || []).some((k) => !(c.soloClosers || []).some((s) => s.x === k.x && s.y === k.y)); }),
+    (p) => { const c = p.meta.shell.closures; c.tiles = [c.candidates.find((k) => !c.soloClosers.some((s) => s.x === k.x && s.y === k.y))]; },
+    "closures");
+  run("r21/Mm5-the-closure-padded-and-still-called-minimal",
+    any21((p) => { const c = p.meta?.shell?.closures; return c?.needed && (c.candidates || []).length > (c.tiles || []).length; }),
+    (p) => { const c = p.meta.shell.closures; c.tiles = c.candidates.slice(); c.minimal = true; }, "closures");
+  run("r21/Mm5-a-closure-tile-that-carries-no-rampart",
+    closRoom21, (p) => { p.meta.shell.closures.tiles = [{ x: 25, y: 25 }]; }, "closures");
+  run("r21/Mm5-the-substitutes-hidden-so-the-closure-reads-unique",
+    any21((p) => (p.meta?.shell?.closures?.soloClosers || []).length > 0),
+    (p) => { p.meta.shell.closures.soloClosers = []; }, "closures");
+  run("r21/Mm5-the-candidate-region-truncated",
+    any21((p) => (p.meta?.shell?.closures?.candidates || []).length > 2),
+    (p) => { p.meta.shell.closures.candidates = p.meta.shell.closures.candidates.slice(0, 2); }, "closures");
+
+  // ---- ML1: the relocation count
+  const relocRoom21 = any21((p) => Array.isArray(p.meta?.extensions?.relocated) && p.meta.extensions.relocated.length > 1);
+  run("r21/ML1-the-relocation-count-x3-plus-1",
+    relocRoom21, (p) => { p.meta.extensions.relocatedCount = p.meta.extensions.relocatedCount * 3 + 1; }, "relocated");
+  run("r21/ML1-the-relocation-count-zeroed",
+    relocRoom21, (p) => { p.meta.extensions.relocatedCount = 0; }, "relocated");
+  run("r21/ML1-the-relocation-list-deleted-under-its-own-count",
+    relocRoom21, (p) => { delete p.meta.extensions.relocated; }, "relocated");
+  run("r21/ML1-a-relocation-whose-origin-is-still-occupied",
+    relocRoom21, (p) => { p.meta.extensions.relocated[0].from = { ...p.structures.extension[0] }; }, "relocated");
+
+  // ---- THE RULING, obligation (i): the key set
+  const keyRoom21 = recovRoom21((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.length > 0);
+  const twoKeyRoom21 = recovRoom21((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.length > 1);
+  const skipRoom21 = recovRoom21((R) => Array.isArray(R.declaredSkipped) && R.declaredSkipped.length > 0);
+  run("r21/RULING-i-the-declared-key-set-withdrawn",
+    keyRoom21, recov21((R) => { delete R.declaredKeys; }), "declared|RULING");
+  run("r21/RULING-i-the-skipped-declarations-withdrawn",
+    skipRoom21, recov21((R) => { delete R.declaredSkipped; }), "declared|RULING");
+  run("r21/RULING-i-the-general-rule-withdrawn",
+    keyRoom21, recov21((R) => { delete R.declaredKeyRule; }), "declaredKeyRule");
+  run("r21/RULING-i-a-declared-key-dropped-out-of-the-tie-break",
+    twoKeyRoom21,
+    recov21((R) => { const k = R.declaredKeys.pop(); R.ranking = R.ranking.filter((l) => l !== `declared: ${k.instrument}, ${k.direction === "up" ? "more" : "less"} is better (${k.gate}${k.kind ? `/${k.kind}` : ``} declares ${k.source} = ${k.declared})`); }),
+    "declared|ranking");
+  run("r21/RULING-i-a-declared-key-laundered-into-the-skipped-list",
+    twoKeyRoom21,
+    recov21((R) => {
+      const k = R.declaredKeys.pop();
+      R.declaredSkipped.push({ at: k.at, gate: k.gate, kind: k.kind, why: "this declaration publishes no quantity this pass's instrument panel measures on a finished board, so there is nothing here a candidate could be ranked on" });
+      R.ranking = R.ranking.filter((l) => !new RegExp(`^declared: ${k.instrument},`).test(l));
+    }),
+    "declared|ranking");
+  run("r21/RULING-i-a-key-invented-from-a-declaration-that-publishes-no-quantity",
+    keyRoom21,
+    recov21((R) => { R.declaredKeys.push({ at: 99, gate: "eco", kind: null, instrument: "interior", declared: 3, direction: "up", source: "eco.interior" }); }),
+    "declared|DECLARED_QUANTITIES|map");
+  run("r21/RULING-i-a-declared-key-sorted-the-wrong-way",
+    keyRoom21,
+    recov21((R) => { const k = R.declaredKeys[0]; k.direction = "up"; R.ranking = R.ranking.map((l) => l.replace(`declared: ${k.instrument}, less is better`, `declared: ${k.instrument}, more is better`)); }),
+    "direction|declared");
+  run("r21/RULING-i-a-declared-key-relabelled-onto-another-instrument",
+    keyRoom21, recov21((R) => { R.declaredKeys[0].instrument = "face"; }), "declared|instrument");
+  run("r21/RULING-i-a-declared-key-read-off-a-field-the-room-does-not-declare",
+    keyRoom21, recov21((R) => { R.declaredKeys[0].source = "mobility.metric.max"; }), "declared|source|read off");
+  run("r21/RULING-i-the-declared-value-x3-plus-1",
+    keyRoom21, recov21((R) => { R.declaredKeys[0].declared = R.declaredKeys[0].declared * 3 + 1; }), "declared|ranking");
+  run("r21/RULING-i-the-keys-published-out-of-declaration-order",
+    twoKeyRoom21, recov21((R) => { R.declaredKeys.reverse(); }), "declaration order|declared");
+  run("r21/RULING-i-a-declaration-accounted-for-by-neither-list",
+    skipRoom21, recov21((R) => { R.declaredSkipped = []; }), "account|declared");
+  run("r21/RULING-i-a-declaration-accounted-for-twice",
+    skipRoom21, recov21((R) => { R.declaredSkipped.push({ ...R.declaredSkipped[0] }); }), "account|declared");
+  run("r21/RULING-i-a-skip-claiming-a-repeat-of-a-key-that-was-never-made",
+    recovRoom21((R) => Array.isArray(R.declaredSkipped) && R.declaredSkipped.length > 0 && !R.declaredKeys.some((k) => k.instrument === "clump")),
+    recov21((R) => { R.declaredSkipped[0] = { at: R.declaredSkipped[0].at, gate: "towers", kind: "clump", instrument: "clump", why: "`clump` is already a key from an earlier declaration in this list" }; }),
+    "repeat|declared|already a key");
+  const dupeSkipRoom21 = recovRoom21((R) => (R.declaredSkipped || []).some((s) => s && s.instrument));
+  const plainSkipRoom21 = recovRoom21((R) => (R.declaredSkipped || []).some((s) => s && !s.instrument));
+  run("r21/RULING-i-a-repeated-declaration-s-own-reading-withdrawn",
+    dupeSkipRoom21, recov21((R) => { delete R.declaredSkipped.find((s) => s.instrument).declared; }), "repeat|declared");
+  run("r21/RULING-i-a-repeated-declaration-s-reading-x3-plus-1",
+    dupeSkipRoom21, recov21((R) => { const s = R.declaredSkipped.find((x) => x.instrument); s.declared = s.declared * 3 + 1; }), "DECLARES a lap|repeat|declared");
+  run("r21/RULING-i-a-no-quantity-skip-handed-a-reading",
+    plainSkipRoom21, recov21((R) => { R.declaredSkipped.find((x) => !x.instrument).declared = 4; }), "skip with a reading|declared");
+  run("r21/RULING-i-the-whole-key-set-erased-on-a-board-nothing-moved",
+    recovRoom21((R, p) => Array.isArray(R.declaredKeys) && R.declaredKeys.length > 0 && R.outcome !== "taken" && !p.meta?.towers?.acrossPriorTake?.taken),
+    recov21((R) => {
+      R.declaredSkipped = [...R.declaredKeys.map((k) => ({ at: k.at, gate: k.gate, kind: k.kind, why: "this declaration publishes no quantity this pass's instrument panel measures on a finished board, so there is nothing here a candidate could be ranked on" })), ...R.declaredSkipped];
+      R.declaredKeys = [];
+      R.ranking = R.ranking.filter((l) => !/^declared:/.test(l));
+    }),
+    "declared|re-derive");
+
+  // ---- THE RULING, obligation (iii): the ranking and the winner
+  run("r21/RULING-iii-the-published-ranking-withdrawn",
+    keyRoom21, recov21((R) => { delete R.ranking; }), "ranking");
+  run("r21/RULING-iii-the-declared-keys-struck-out-of-the-published-ranking",
+    keyRoom21, recov21((R) => { R.ranking = R.ranking.filter((l) => !/^declared:/.test(l)); }), "ranking");
+  run("r21/RULING-iii-the-declared-keys-demoted-behind-the-price",
+    keyRoom21,
+    recov21((R) => {
+      const d = R.ranking.filter((l) => /^declared:/.test(l));
+      const rest = R.ranking.filter((l) => !/^declared:/.test(l));
+      R.ranking = [...rest.filter((l) => /^admission:/.test(l)), ...rest.filter((l) => /^priced:/.test(l)), ...d, ...rest.filter((l) => /raster/.test(l))];
+    }),
+    "ranking");
+  run("r21/RULING-iii-the-winner-worsened-past-a-rival-on-the-declared-key",
+    takenRoom21((R) => Array.isArray(R.declaredKeys) && R.declaredKeys.some((k) => k.instrument === "lap") && (R.offered || []).filter((o) => /^accepted, not taken/.test(String(o.verdict))).length > 0),
+    recov21((R) => { const w = R.offered.find((o) => o.verdict === "TAKEN"); w.after.lap = w.after.lap + 1; }),
+    "tie-break|declared|lap");
+
+  // ---- THE RULING, obligation (ii): decidedBy, and the note that owes it
+  const decidedRoom21 = takenRoom21((R) => R.decidedBy && typeof R.decidedBy === "object");
+  run("r21/RULING-ii-the-declaration-that-decided-the-take-goes-unmentioned",
+    decidedRoom21, recov21((R) => { delete R.decidedBy; }), "decidedBy|RULING");
+  run("r21/RULING-ii-a-different-seat-named-as-the-one-it-displaced",
+    decidedRoom21, recov21((R) => { R.decidedBy.runnerUp.withdrawn = { x: R.decidedBy.runnerUp.withdrawn.x + 1, y: R.decidedBy.runnerUp.withdrawn.y }; }), "runnerUp|decidedBy");
+  run("r21/RULING-ii-the-margin-on-the-declared-axis-rewritten",
+    decidedRoom21, recov21((R) => { R.decidedBy.margin.declared = -1.5; }), "margin|decidedBy");
+  run("r21/RULING-ii-the-margin-on-the-priced-axis-withdrawn",
+    decidedRoom21, recov21((R) => { delete R.decidedBy.margin.priced; }), "margin|decidedBy");
+  run("r21/RULING-ii-the-price-the-room-paid-flattered",
+    decidedRoom21, recov21((R) => { R.decidedBy.margin.priced = 2; }), "margin|decidedBy");
+  run("r21/RULING-ii-the-admission-tie-the-whole-claim-rests-on-falsified",
+    decidedRoom21, recov21((R) => { R.decidedBy.tiedOn.gainedDeep = R.decidedBy.tiedOn.gainedDeep * 3 + 1; }), "tiedOn|decidedBy");
+  run("r21/RULING-ii-decidedBy-claimed-where-the-rule-changed-nothing",
+    takenRoom21((R) => R.decidedBy === undefined && (R.offered || []).some((o) => o && o.verdict === "TAKEN")),
+    recov21((R) => {
+      const w = R.offered.find((o) => o.verdict === "TAKEN");
+      R.decidedBy = {
+        instrument: "lap", gate: "mobility", kind: null, source: "mobility.metric.maxGated", declared: 1, direction: "down",
+        taken: { withdrawn: w.withdrawn, kind: w.kind, value: 1, extTourDelta: w.extTourDelta },
+        runnerUp: { withdrawn: { x: 1, y: 1 }, kind: "extension", value: 2, extTourDelta: 0 },
+        margin: { declared: -1, priced: 1, pricedKey: "extTourDelta" },
+        tiedOn: { gainedDeep: 1, gainedTiles: 1 },
+      };
+    }),
+    "decidedBy|RULING");
+  run("r21/RULING-ii-the-note-stops-naming-the-seat-the-declaration-displaced",
+    decidedRoom21,
+    (p) => {
+      const R = p.meta.sealedRecovery;
+      const ru = `${R.decidedBy.runnerUp.withdrawn.x},${R.decidedBy.runnerUp.withdrawn.y}`;
+      const i = (p.meta.noteRecords || []).findIndex((e) => e && e.cls === "sealedRecovery");
+      if (i < 0) throw new Error("no sealedRecovery note");
+      p.meta.notes[i] = p.meta.notes[i].split(ru).join("49,49");
+    },
+    "note does not quote|runner|displaced");
+
+  // ---- THE RULING, obligation (iii): the pass that is EXCLUDED, and the
+  // exclusion audited rather than accepted. The seat-release pass ranks on
+  // shallow extensions first — which IS a declared quantity in the validator's
+  // own map — and runs before finalizeRoom, so it may neither fail its own
+  // first key nor claim a key set it could not have read.
+  const relRoom21 = any21((p) => (p.meta?.shortfalls || []).some((s) => s && s.gate === "ctrlParks" && s.kind === "released" && s.ctrlParks));
+  const relRec21 = (edit) => (p) => {
+    const d = (p.meta.shortfalls || []).find((s) => s && s.gate === "ctrlParks" && s.kind === "released");
+    if (!d) throw new Error("no released declaration");
+    edit(d, p);
+    regen21(p);
+  };
+  run("r21/RULING-iii-the-excluded-pass-kept-a-rung-no-better-on-its-declared-key",
+    relRoom21, relRec21((d) => { d.ctrlParks.shallowReleasing = d.ctrlParks.shallowHolding; }), "release-rule");
+  run("r21/RULING-iii-the-excluded-pass-s-kept-rung-is-not-the-board-it-ships",
+    relRoom21, relRec21((d) => { d.ctrlParks.shallowReleasing = d.ctrlParks.shallowReleasing + 3; }), "release-rule");
+  run("r21/RULING-iii-the-excluded-pass-claims-a-key-set-it-could-not-read",
+    relRoom21,
+    relRec21((d) => { d.declaredKeys = [{ at: 0, gate: "extensions", kind: "shallow", instrument: "shallowExts", declared: 3, direction: "down", source: "extensions/shallow.count" }]; }),
+    "release-rule");
+  run("r21/RULING-iii-the-excluded-pass-publishes-a-ranking",
+    relRoom21, relRec21((d) => { d.ranking = ["admission: shallowExts, less is better"]; }), "release-rule");
+  run("r21/RULING-iii-the-excluded-pass-s-priced-readings-withdrawn",
+    relRoom21, relRec21((d) => { delete d.ctrlParks.shallowHolding; }), "release-rule");
+
+  // ---- THE RULING, obligation (iii): the OTHER pass with a tie-break
+  const apTakeRoom21 = apRoom21((t) => !!t.taken && Array.isArray(t.declaredKeys));
+  const apRefuseRoom21 = apRoom21((t) => !t.taken && Array.isArray(t.declaredKeys));
+  run("r21/RULING-iii-tower-swap-the-key-set-withdrawn",
+    apTakeRoom21, (p) => { delete p.meta.towers.acrossPriorTake.declaredKeys; }, "declared|RULING");
+  run("r21/RULING-iii-tower-swap-the-key-set-withdrawn-on-the-refusing-branch",
+    apRefuseRoom21, (p) => { delete p.meta.towers.acrossPriorTake.declaredKeys; }, "declared|RULING");
+  run("r21/RULING-iii-tower-swap-the-ranking-withdrawn-on-a-take",
+    apTakeRoom21, (p) => { delete p.meta.towers.acrossPriorTake.ranking; }, "ranking");
+  run("r21/RULING-iii-tower-swap-the-declared-keys-struck-out-of-its-ranking",
+    apTakeRoom21, (p) => { const t = p.meta.towers.acrossPriorTake; t.ranking = t.ranking.filter((l) => !/^declared:/.test(l)); }, "ranking");
+  run("r21/RULING-iii-tower-swap-a-key-invented",
+    apTakeRoom21, (p) => { p.meta.towers.acrossPriorTake.declaredKeys.push({ at: 99, gate: "eco", kind: null, instrument: "interior", declared: 1, direction: "up", source: "eco.interior" }); }, "declared|map|DECLARED_QUANTITIES");
+  run("r21/RULING-iii-tower-swap-the-accepted-count-inflated",
+    apTakeRoom21, (p) => { p.meta.towers.acrossPriorTake.accepted = 4; }, "accepted");
+  run("r21/RULING-iii-tower-swap-a-tie-break-claimed-where-there-was-one-offer",
+    apTakeRoom21, (p) => { p.meta.towers.acrossPriorTake.decidedBy = { instrument: "lap" }; }, "decidedBy");
+}
+
+// ===========================================================================
 // 3. REPORT
 // ===========================================================================
 const runMs = Date.now() - tBase - baseMs;

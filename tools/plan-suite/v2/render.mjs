@@ -525,11 +525,25 @@ export function thumbLegendHtml() {
   // right until the paint moves — and that is the class this project keeps
   // closing.
   html += swatch(overHex(RAMPART_PAINT.fill, RAMPART_PAINT.fillOpacity, TERRAIN_PAINT.plain), "Rampart");
-  // OL7 (round 20): these two were typed here and typed again in the dot() calls
+  // OL7 (round 20): these were typed here and typed again in the dot() calls
   // above — the same value in two places is the same defect as two different
   // ones, just not caught yet. MARKER_PAINT is the dot's own colour.
-  html += swatch(MARKER_PAINT.source, "Source", "border-radius:50%");
-  html += swatch(MARKER_PAINT.controller, "Controller", "border-radius:50%");
+  //
+  // L2 (round 21): the key swatched two of the three dots renderThumbSvg draws
+  // and stopped, so the mineral had no entry — and because the extractor row of
+  // THUMB_PAINT carries the same colour the mineral dot is painted in, a reader
+  // decoding a thumbnail met that colour labelled "Extractor" and nothing else.
+  // Two markers were being keyed by hand, one at a time, which is why the third
+  // could go missing at all; the rows are now generated FROM MARKER_PAINT, so
+  // every dot the painter can draw has a labelled swatch and a fourth marker
+  // added to the paint cannot arrive on the boards unkeyed. (The collision with
+  // the extractor swatch is real and left alone: both are published colours and
+  // this fix changes none of them. The extractor keeps its row; the mineral now
+  // has one too, and the round shape distinguishes the dots from the structure
+  // squares in the key exactly as it does on the thumbnail.)
+  const MARKER_LABEL = { source: "Source", controller: "Controller", mineral: "Mineral" };
+  for (const [key, color] of Object.entries(MARKER_PAINT))
+    html += swatch(color, MARKER_LABEL[key] || key, "border-radius:50%");
   html += "</div>";
   return html;
 }
@@ -606,8 +620,22 @@ export function legendHtml(inv = null) {
     `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${ROAD_PAINT.top};border:1px solid ${ROAD_PAINT.base};border-radius:2px;display:inline-block"></span> Road</span>`;
   // the rampart is the single largest painted class on these boards (the shell
   // cut plus the eco bubbles plus personal cover) and the key did not have it
+  //
+  // L1 (round 21): the swatch reached the two rampart opacities through CSS
+  // `opacity` on the whole box, which is a different operation from the one the
+  // painter performs and got both halves wrong. It faded the BORDER to .28 as
+  // well, though iconRampart strokes at strokeOpacity (.8) — the swatch was
+  // making a numeric claim about the outline that the board does not support,
+  // the same defect OL5 closed on the sealing-wall stroke — and it composited
+  // the fill over whatever the PAGE background happens to be rather than over
+  // the floor tile a rampart actually sits on. The thumbnail key one function
+  // above already does this correctly, so this swatch now does what that one
+  // does: overHex flattens fill at fillOpacity onto the same plain-floor colour
+  // the terrain pass paints, and the opacity that belongs to the stroke is
+  // carried by the border alone, as an alpha suffix off the painter's own
+  // constant. No colour moved; the arithmetic did.
   html +=
-    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${RAMPART_PAINT.fill};opacity:${RAMPART_PAINT.fillOpacity};border:1px solid ${RAMPART_PAINT.stroke};border-radius:3px;display:inline-block"></span> Rampart${cnt("rampart")}</span>`;
+    `<span style="display:inline-flex;align-items:center;gap:6px"><span style="width:22px;height:22px;background:${overHex(RAMPART_PAINT.fill, RAMPART_PAINT.fillOpacity, TERRAIN_PAINT.plain)};border:1px solid ${hex6(RAMPART_PAINT.stroke)}${alphaHex(RAMPART_PAINT.strokeOpacity)};border-radius:3px;display:inline-block"></span> Rampart${cnt("rampart")}</span>`;
   // OL6 (round 20): the ring green was typed here and painted from two other
   // literals; HUB_PAINT is now the one value iconHub, the thumbnail circle and
   // this swatch all read.

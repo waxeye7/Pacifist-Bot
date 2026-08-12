@@ -221,12 +221,13 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
 // ---------------------------------------------------------------------------
 /**
  * Layer 1 chooses the controller link on how many walkable range-3 seats it
- * feeds, declares the number, and then layers 3-7 eat them: 80 rooms lost 159
- * seats, and four rooms (E14S2 8->3, E16S3 8->3, E18S8 8->3, E17S5 5->3) shipped
- * UNDER the 4-seat floor this planner calls hard — passing the validator only on
- * a declaration they had generated themselves. 120 of the 159 went to
- * extensions, 18 to the observer (the one structure whose position is
- * irrelevant), 14 to towers and 7 to labs.
+ * feeds, declares the number, and then layers 3-7 eat them — measured on the
+ * round-9 build (2026-08-02), the run this rule was written against: 80 rooms
+ * lost 159 seats, and four rooms (E14S2 8->3, E16S3 8->3, E18S8 8->3,
+ * E17S5 5->3) shipped UNDER the 4-seat floor this planner calls hard — passing
+ * the validator only on a declaration they had generated themselves. 120 of
+ * the 159 went to extensions, 18 to the observer (the one structure whose
+ * position is irrelevant), 14 to towers and 7 to labs.
  *
  * A seat is worth more than the three tiles of hauler walk an extension saves by
  * standing on it: it throttles the upgrader fleet for the life of the room. So
@@ -236,9 +237,10 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  *
  * This is a veto and not a score because a score has to be tuned against every
  * other term in five different layers and a floor does not — and because the
- * measurement above says the price of the veto is zero: the fleet ships the same
- * ramparts, the same shallow count and the same 172/172 extensions with the
- * whole ring held as it did with three quarters of it held.
+ * measurement above says the price of the veto is zero: in that same round-9
+ * A/B the fleet shipped the same ramparts, the same shallow count and the same
+ * 172/172 extensions with the whole ring held as it did with three quarters of
+ * it held.
  *
  * ---------------------------------------------------------------------------
  * "THE DEFAULT" IS DOING REAL WORK IN THAT SENTENCE — TWO ROOMS ARE BELOW IT.
@@ -269,8 +271,11 @@ export function mineralSeatHolds(terrain, plan, blocked, ring) {
  * layer. 8 is the ring's own maximum, so this is "all of them" — and that is a
  * measurement, not a maximalist default. A floor of 6 (the number the review
  * asked for) was run over the whole fleet first: it cost 33 rooms one seat each,
- * and it bought NOTHING — identical 8264 ramparts, identical 39 shallow
- * extensions, identical 172/172 at 60 extensions, identical road median. The
+ * and it bought NOTHING — identical ramparts, identical shallow extensions,
+ * identical 172/172 at 60 extensions, identical road median. That A/B ran on
+ * the round-9 build (2026-08-02), whose totals were 8264 ramparts and 39
+ * shallow extensions; the round-20 build of this same 172-room fleet ships 8208
+ * ramparts and 25 shallow extensions, still 172/172 at 60 (road median 81). The
  * seats the mass wanted at 6 it simply took from somewhere else, so the cheaper
  * floor was cheaper only for the controller. Held at the full count.
  */

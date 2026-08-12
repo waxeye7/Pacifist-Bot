@@ -350,10 +350,15 @@ function angleGap(a, b) {
 const SECTOR_TARGET = 60;
 const SECTOR_WEIGHT = 0.4; // 0..24 pts — sized against the tile-quality sum
 // Weight on hugging the pocket edge. Sized so the distance transform leads
-// and exit count breaks its ties, not the other way round: at 2.0 the fleet
-// keeps 335/477 spawns on full-8-exit tiles while the shallow-extension
-// count falls below the pre-fan baseline. Higher starts crowding spawns into
-// rock pockets for no further gain.
+// and exit count breaks its ties, not the other way round: at 2.0 the current
+// 172-room fleet (round-20 build) keeps 331 of its 516 spawns on full-8-exit
+// tiles — `exits === 8` exactly as counted below, i.e. all eight D8 neighbours
+// buildable and claimed by no object tile, no hub-trio member and not the
+// sitter — with another 134 at 7 exits and only 7 spawns below 6. The other
+// half of the trade, the shallow-extension count falling below the pre-fan
+// baseline, was measured once on the retired 159-room fleet (477 spawns,
+// commit 75ac6d8, 2026-08-01) and has not been re-swept since. Higher starts
+// crowding spawns into rock pockets for no further gain.
 const HUG_WEIGHT = 2.0;
 // A filler tours storage → spawns → storage every generation. Five walk steps
 // from storage is already a long leash; past that the fan costs more than the
@@ -387,10 +392,14 @@ const TOP_OVERALL = 8;
 // proved, which is exactly right — this is a veto on tiles that cannot work,
 // not a promise about the ones that can.
 //
-// Calibrated against the finished fleet (477 spawns, proxy vs re-derived
-// post-shell depth): at the horizon below it flags all 3 shallow spawns with
-// one false alarm; at 10 it costs two false alarms, at 14 it misses one of the
-// three. Mean absolute error against the true depth is 1.09 tiles.
+// Calibrated once, on the retired 159-room fleet (477 spawns, commit 76969ab,
+// 2026-08-01 — proxy vs re-derived post-shell depth): at the horizon below it
+// flagged all 3 shallow spawns of that fleet with one false alarm; at 10 it
+// cost two false alarms, at 14 it missed one of the three, and mean absolute
+// error against the true depth was 1.09 tiles. Past tense on purpose — that
+// world is gone, and re-sweeping the horizon means re-planning the whole fleet
+// once per candidate, so the constant stands on that calibration until someone
+// pays for a new one.
 const DEPTH_SAFE = 4;
 const PROXY_WALK_HORIZON = 12;
 // Points shaved per tile of proven shortfall. Sized against the fan: the

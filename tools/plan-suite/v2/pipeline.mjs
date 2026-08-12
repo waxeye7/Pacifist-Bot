@@ -2013,6 +2013,22 @@ function maybeReleaseParks(d, plan) {
   // So the walk runs to the bottom, which is what the sentence always said it did,
   // and every rung it composed is recorded. It costs at most `held` compositions
   // in the two rooms on the fleet that reach this function at all.
+  //
+  // THE ROUND-21 RULING, AND WHY IT DOES NOT ADD A KEY HERE (obligation iii —
+  // see DECLARED_KEY_RULE). A declared quantity is a key in every tie-break the
+  // room's passes run, and this pass has one: shallow extensions, then parks,
+  // then ramparts. Two facts about it, both stated rather than assumed:
+  //   · its FIRST key already IS a declared quantity — `extensions/shallow` is
+  //     the declaration this pass exists to shrink, and it outranks everything
+  //     else here, which is the rule's own ordering arriving by construction;
+  //   · this pass runs BEFORE finalizeRoom, so the candidates it compares have
+  //     no as-built declaration channel yet — no verifyMobility, no shipped
+  //     battery, no built lap. A key derived from `meta.shortfalls` here would
+  //     be derived from half a board, and a key read off a panel that does not
+  //     exist is a key that decides nothing while claiming to.
+  // The two passes that DO carry the rule (the sealed-floor recovery and the
+  // across-prior tower swap) both run at the end of `done`, on finalized rooms,
+  // which is exactly what makes their panels able to read it.
   // ------------------------------------------------------------------
   const composedCaps = [];
   const rejected = { error: 0, incomplete: 0, underFloor: 0 };
@@ -2446,6 +2462,193 @@ function instrumentsHold(before, after) {
   return worse;
 }
 /**
+ * ===========================================================================
+ * THE DECLARED QUANTITY IS A KEY (round 21 — the RULING on criticism 95).
+ * ===========================================================================
+ * Criticism 95 was E11S7: the sealed-floor recovery admitted nine seats, four of
+ * them recovering the same 5 deep tiles, and picked between them on the filler's
+ * extension tour alone. The seat it took (20,8) buys 46 steps of tour and ships
+ * an as-built gated defender lap of 9.00; the seat it passed over (14,8) buys 23
+ * and ships 8.67 — and E11S7 is a room that DECLARES its defender lap, in
+ * `meta.shortfalls`, gate `mobility`. The lap was on the instrument panel as a
+ * non-worsening GATE (it may not get worse than the un-taken board's 9.33) and
+ * nowhere in the tie-break, so the pass spent a number the room has to publish
+ * to buy a number nothing outside the record reads, and the room's own gallery
+ * headline moved. Both readings were published, so nothing was hidden; the
+ * ordering was simply wrong.
+ *
+ * THE RULE, GENERAL AND STATED ONCE:
+ *
+ *   Where a room's plan DECLARES a quantity, that quantity is a KEY in every
+ *   tie-break that room's passes run — ranked immediately after the pass's own
+ *   ADMISSION quantities and ahead of every PRICED preference. It is NEVER a
+ *   veto: it may not refuse a candidate the pass has admitted, it may not be
+ *   spent to protect a number the room already misses, and it does not change
+ *   what gets in. It ORDERS the candidates that are already in.
+ *
+ * Why that rank and not another. The admission quantities are what the pass
+ * EXISTS to buy (deep floor, for the recovery; a lifted face or a retired clump
+ * declaration, for the tower swap) and a rule that outranked them would turn a
+ * declaration into a veto over the pass's own purpose. The priced preferences
+ * are the pass's internal economics — a filler's walk, an interior tile count —
+ * and every one of them is cheaper to the room than a number it has to stand up
+ * in front of a reader and defend. A declared quantity is the room's published
+ * word. Between two candidates the pass is otherwise indifferent to, the one
+ * that is kinder to the room's own declaration wins, and the room says so.
+ *
+ * THREE OBLIGATIONS SHIP WITH IT:
+ *  (i)   the key set is DERIVED from `meta.shortfalls` on the PRE-TAKE board —
+ *        the board the pass is judging — and PUBLISHED on the record beside the
+ *        ranking (`declaredKeys` + `declaredSkipped` + `ranking`), so the
+ *        validator re-derives it rather than trusting it. The two lists between
+ *        them account for EVERY entry of `meta.shortfalls`, in declaration
+ *        order, with the reason a skipped one is not a key.
+ *  (ii)  a tie-break a declared quantity actually DECIDES says so in the room's
+ *        note: `decidedBy` names the runner-up — the candidate the pass would
+ *        have taken without this rule — and the margin on BOTH axes, the
+ *        declared one it won and the priced one it paid.
+ *  (iii) it applies to EVERY pass with a tie-break, not to the one the
+ *        criticism was written about.
+ *
+ * WHICH QUANTITIES. A declaration declares a quantity when the shortfall it
+ * files publishes a NUMBER that this pass's own instrument panel measures on a
+ * finished board — otherwise the key could not be read on a candidate and the
+ * "rule" would be a sentence. The map below is that intersection, and it is
+ * exhaustive by construction: every shortfall the map does not name is
+ * published in `declaredSkipped` with its gate, its kind and the reason, so a
+ * reader (and the validator) sees the whole of `meta.shortfalls` accounted for
+ * rather than the flattering half of it. The direction is the instrument's own
+ * from INSTRUMENT_DIRECTION — the key sorts a candidate that is KINDER to the
+ * declaration first, and since every one of these instruments is also a
+ * non-worsening gate, "kinder" can only ever mean "at or better than the
+ * un-taken board".
+ */
+const DECLARED_QUANTITIES = [
+  // the as-built gated defender lap — the criticism's own room, and the
+  // headline of the gallery's mobility column
+  { gate: "mobility", kind: null, instrument: "lap", source: "metric.maxGated", read: (sf) => sf.metric?.maxGated },
+  {
+    gate: "mobility",
+    kind: "covered-detour",
+    instrument: "lap",
+    source: "record.gatedLap",
+    read: (sf) => sf.record?.gatedLap,
+  },
+  // "this room stands N of its sixty extensions shallower than the safe depth"
+  { gate: "extensions", kind: "shallow", instrument: "shallowExts", source: "count", read: (sf) => sf.count },
+  // the weak battery's furthest filler walk, and the tower clump the room has
+  // to explain — both already named as declared quantities by TAKE_WALK_RULE
+  {
+    gate: "towers",
+    kind: "weak-battery",
+    instrument: "refill",
+    source: "battery.maxRefill",
+    read: (sf) => sf.battery?.maxRefill,
+  },
+  { gate: "towers", kind: "clump", instrument: "clump", source: "clump.within", read: (sf) => sf.clump?.within },
+  // the structures this room's own road network does not reach
+  {
+    gate: "misc",
+    kind: "off-network",
+    instrument: "offNetwork",
+    source: "tiles.length",
+    read: (sf) => (Array.isArray(sf.tiles) ? sf.tiles.length : undefined),
+  },
+];
+function declaredQuantityOf(sf) {
+  if (!sf || !sf.gate) return null;
+  for (const q of DECLARED_QUANTITIES) {
+    if (q.gate !== sf.gate) continue;
+    if ((q.kind ?? null) !== (sf.kind ?? null)) continue;
+    const v = q.read(sf);
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    return { instrument: q.instrument, declared: v, source: `${sf.gate}${sf.kind ? `/${sf.kind}` : ``}.${q.source}` };
+  }
+  return null;
+}
+/**
+ * Obligation (i): the key set, derived from the pre-take board's own
+ * declaration channel and published in declaration order. Two declarations of
+ * the same instrument are ONE key — the first — because a key repeated is a key
+ * that decides nothing the second time, and the duplicate is published as such.
+ */
+function declaredKeySet(plan) {
+  const keys = [];
+  const skipped = [];
+  const held = new Set();
+  const sfs = plan?.meta?.shortfalls || [];
+  sfs.forEach((sf, at) => {
+    const where = { at, gate: sf?.gate ?? null, kind: sf?.kind ?? null };
+    const d = declaredQuantityOf(sf);
+    if (!d) {
+      skipped.push({
+        ...where,
+        why:
+          `this declaration publishes no quantity this pass's instrument panel measures on a finished ` +
+          `board, so there is nothing here a candidate could be ranked on`,
+      });
+      return;
+    }
+    if (held.has(d.instrument)) {
+      skipped.push({
+        ...where,
+        instrument: d.instrument,
+        declared: d.declared,
+        why: `\`${d.instrument}\` is already a key from an earlier declaration in this list`,
+      });
+      return;
+    }
+    held.add(d.instrument);
+    keys.push({
+      ...where,
+      instrument: d.instrument,
+      declared: d.declared,
+      direction: INSTRUMENT_DIRECTION[d.instrument],
+      source: d.source,
+    });
+  });
+  return { keys, skipped };
+}
+/** one line of a published `ranking`, in the same words for every pass */
+function declaredKeyLabel(k) {
+  return (
+    `declared: ${k.instrument}, ${k.direction === "up" ? "more" : "less"} is better ` +
+    `(${k.gate}${k.kind ? `/${k.kind}` : ``} declares ${k.source} = ${k.declared})`
+  );
+}
+/** one declared key, read on two candidates' finished-board panels */
+function declaredKeyCompare(key, a, b) {
+  const av = a?.[key.instrument],
+    bv = b?.[key.instrument];
+  if (typeof av !== "number" || typeof bv !== "number") return 0;
+  return key.direction === "up" ? bv - av : av - bv;
+}
+/** the whole key set, in declaration order */
+function declaredKeysCompare(keys, a, b) {
+  for (const k of keys) {
+    const v = declaredKeyCompare(k, a, b);
+    if (v) return v;
+  }
+  return 0;
+}
+/** laps are 2dp; a margin printed as -0.33000000000000007 is not a margin */
+const margin2 = (v) => Math.round(v * 100) / 100;
+const DECLARED_KEY_RULE =
+  `THE DECLARED QUANTITY IS A KEY (round 21, the RULING on criticism 95). Where this room's plan ` +
+  `DECLARES a quantity — an entry of \`meta.shortfalls\` on the board this pass is judging, publishing ` +
+  `a number this pass's own instrument panel measures on a finished board — that quantity is a KEY in ` +
+  `this tie-break, ranked immediately after the pass's ADMISSION quantities and ahead of every PRICED ` +
+  `preference, in the order the room declares. It is NEVER a veto: it cannot refuse a candidate the ` +
+  `panel admitted, it is never spent to protect a number the room already misses, and it changes ` +
+  `nothing about what gets in — it orders what is already in. \`declaredKeys\` is that set, derived ` +
+  `from the pre-take board; \`declaredSkipped\` accounts for every other entry of \`meta.shortfalls\` ` +
+  `and why it is not a key, so the two lists together are the whole declaration channel and the ` +
+  `derivation can be re-run against it; \`ranking\` is the full ordering this pass sorted on; and ` +
+  `\`decidedBy\`, when the rule actually changed the pick, names the candidate this pass would have ` +
+  `taken without it and the margin on both axes — the declared one the winner won and the priced one ` +
+  `it paid. The rule was written because E11S7 spent 0.33 of a defender lap it has to publish to buy ` +
+  `23 steps of a filler tour nothing outside the record reads.`;
+/**
  * ---------------------------------------------------------------------------
  * O2 — THE TOTAL WALK IS PRICED, NOT FREE, AND IT IS NOT FREE AT ALL IN A ROOM
  * THAT DECLARES ON IT.
@@ -2527,19 +2730,30 @@ function maybeTakeTowerSwap(d, plan) {
   }
   if (!candidates.length) return plan;
   const before = asBuiltInstruments(d.terrain, plan);
+  // obligation (iii) of the round-21 RULING — see DECLARED_KEY_RULE. This pass
+  // has a tie-break too: it offers a lift and a clump retirement, and until now
+  // it took the FIRST of them that cleared the panel, which is a preference
+  // (the offer order) doing a tie-break's job with nothing published about it.
+  // So every offer is composed and priced, the accepted ones are RANKED, and
+  // the room's declared quantities are keys ahead of that offer order. On this
+  // fleet the pass runs in 4 rooms and every one of them has exactly ONE
+  // candidate, so no board moves on it — the rule is here because a rule that
+  // only exists in the pass the criticism was written about is not a rule.
+  const declared = declaredKeySet(plan);
   const tried = [];
-  for (const c of candidates) {
+  const accepted = [];
+  candidates.forEach((c, order) => {
     const alt = composePlan(d, { ...plan.meta.composeOpts, takeTowerSwap: { from: c.from, to: c.to } });
     if (alt.error || !alt.shell || !grade(alt).complete) {
       tried.push({ ...c, verdict: "the re-composition did not produce a complete room" });
-      continue;
+      return;
     }
     finalizeRoom(d.terrain, alt);
     const after = asBuiltInstruments(d.terrain, alt);
     const worse = instrumentsHold(before, after);
     if (worse.length) {
       tried.push({ ...c, before, after, verdict: `refused: ${worse.join(", ")}` });
-      continue;
+      return;
     }
     const lifts = after.face > before.face;
     const retires = before.clump >= CLUMP_NOTE && after.clump < CLUMP_NOTE;
@@ -2553,19 +2767,41 @@ function maybeTakeTowerSwap(d, plan) {
           `weakest face is unchanged at ${after.face} and the clump is ${after.clump} against a ` +
           `${CLUMP_NOTE} line`,
       });
-      continue;
+      return;
     }
-    tried.push({ ...c, before, after, verdict: "TAKEN" });
-    alt.meta.towers.acrossPriorTake = {
-      taken: { from: c.from, to: c.to, why: c.why },
-      lifts,
-      retiresClumpDeclaration: retires,
+    const panel = { ...c, before, after, verdict: "ACCEPTED" };
+    tried.push(panel);
+    accepted.push({ c, order, alt, after, lifts, retires, panel });
+  });
+  if (accepted.length) {
+    // ADMISSION HERE IS A PREDICATE, NOT A QUANTITY: a swap is in when no
+    // instrument moves the wrong way and it either lifts the weakest face or
+    // retires the clump declaration. There is no scalar gain to rank on ahead
+    // of the declared keys, so they are the first keys, and the offer order —
+    // lift before clump — is the priced preference behind them.
+    accepted.sort((a, b) => declaredKeysCompare(declared.keys, a.after, b.after) || a.order - b.order);
+    const win = accepted[0];
+    const withoutRule = accepted.slice().sort((a, b) => a.order - b.order)[0];
+    const rec = {
+      taken: { from: win.c.from, to: win.c.to, why: win.c.why },
+      lifts: win.lifts,
+      retiresClumpDeclaration: win.retires,
       clumpNote: CLUMP_NOTE,
       before,
-      after,
+      after: win.after,
       offered: tried,
       instruments: Object.keys(INSTRUMENT_DIRECTION),
       directions: { ...INSTRUMENT_DIRECTION },
+      declaredKeys: declared.keys,
+      declaredSkipped: declared.skipped,
+      ranking: [
+        `admission: every instrument holds AND (the weakest cut face rises OR the clump falls under ` +
+          `${CLUMP_NOTE}) — a predicate, so this pass has no admission QUANTITY to rank on`,
+        ...declared.keys.map((k) => declaredKeyLabel(k)),
+        `priced: offer order, the lift across the prior before the clump retirement`,
+      ],
+      declaredKeyRule: DECLARED_KEY_RULE,
+      accepted: accepted.length,
       walkRule: TAKE_WALK_RULE,
       basis:
         `the room was RE-COMPOSED with this swap taken (opts.takeTowerSwap, applied in layer 3 after ` +
@@ -2573,18 +2809,53 @@ function maybeTakeTowerSwap(d, plan) {
         `finished boards: before is the plan this room would otherwise ship, after is the plan it ` +
         `does. A swap is kept only when no instrument moves the wrong way AND either the weakest ` +
         `cut-tile face rises or the clump falls below ${CLUMP_NOTE}, which is the line the clump ` +
-        `declaration fires at. ${TAKE_WALK_RULE}`,
+        `declaration fires at. EVERY offer is composed and priced — round 21: this pass used to take ` +
+        `the first offer that cleared the panel, so its offer order was deciding a tie-break with ` +
+        `nothing published about it — and the accepted ones are ranked. ${DECLARED_KEY_RULE} ` +
+        `${TAKE_WALK_RULE}`,
     };
+    if (withoutRule !== win) {
+      const key = declared.keys.find((k) => declaredKeyCompare(k, win.after, withoutRule.after) !== 0);
+      rec.decidedBy = {
+        instrument: key.instrument,
+        gate: key.gate,
+        kind: key.kind,
+        source: key.source,
+        declared: key.declared,
+        direction: key.direction,
+        taken: { from: win.c.from, to: win.c.to, why: win.c.why, value: win.after[key.instrument], order: win.order },
+        runnerUp: {
+          from: withoutRule.c.from,
+          to: withoutRule.c.to,
+          why: withoutRule.c.why,
+          value: withoutRule.after[key.instrument],
+          order: withoutRule.order,
+        },
+        margin: {
+          declared: margin2(win.after[key.instrument] - withoutRule.after[key.instrument]),
+          priced: withoutRule.order - win.order,
+          pricedKey: "offer order",
+        },
+      };
+    }
+    for (const a of accepted) {
+      a.panel.verdict =
+        a === win
+          ? "TAKEN"
+          : `accepted, not taken: ${accepted.length} offer(s) cleared the panel and the pick is the ` +
+            `room's declared quantities in declaration order, then the offer order`;
+    }
+    win.alt.meta.towers.acrossPriorTake = rec;
     // O6 (round 17): if this swap put two towers on neighbouring tiles, the
     // crossing record is where the adjacency contract says the evidence lives —
     // see recordTakeCrossing.
-    recordTakeCrossing(alt, c, before, after);
+    recordTakeCrossing(win.alt, win.c, before, win.after);
     // the sealed-floor recovery ran BEFORE this pass and its record is written
     // by the pipeline, not by composePlan, so the re-composition does not carry
     // it. Its two panels describe the recovery's own decision point — the board
     // this take then re-priced on top of — which is what its basis says.
-    if (plan.meta.sealedRecovery) alt.meta.sealedRecovery = plan.meta.sealedRecovery;
-    return alt;
+    if (plan.meta.sealedRecovery) win.alt.meta.sealedRecovery = plan.meta.sealedRecovery;
+    return win.alt;
   }
   // nothing was kept — say so on the plan the room does ship, so a reader can
   // see the offer WAS priced on the shipped board rather than ignored
@@ -2594,11 +2865,26 @@ function maybeTakeTowerSwap(d, plan) {
     offered: tried,
     instruments: Object.keys(INSTRUMENT_DIRECTION),
     directions: { ...INSTRUMENT_DIRECTION },
+    declaredKeys: declared.keys,
+    declaredSkipped: declared.skipped,
+    // ...published on the REFUSAL branch too, and in the same shape. The key
+    // set is a property of the board this pass judged, not of the answer it
+    // reached: a room that publishes it only when it ranked something is a room
+    // whose derivation cannot be checked in the rooms where nothing was ranked.
+    ranking: [
+      `admission: every instrument holds AND (the weakest cut face rises OR the clump falls under ` +
+        `${CLUMP_NOTE}) — a predicate, so this pass has no admission QUANTITY to rank on`,
+      ...declared.keys.map((k) => declaredKeyLabel(k)),
+      `priced: offer order, the lift across the prior before the clump retirement`,
+    ],
+    declaredKeyRule: DECLARED_KEY_RULE,
     clumpNote: CLUMP_NOTE,
     walkRule: TAKE_WALK_RULE,
     basis:
       `every offer above was re-composed and finalized, and the instrument panel of the finished ` +
-      `board refused it. before is the plan this room ships. ${TAKE_WALK_RULE}`,
+      `board refused it — nothing reached the tie-break, so \`ranking\` and \`declaredKeys\` describe ` +
+      `the order this pass would have used rather than one it ran. before is the plan this room ` +
+      `ships. ${TAKE_WALK_RULE}`,
   };
   // ...and the refusal has to reach the record the forgone damage is summed out
   // of, or the reader of `satAcrossPrior` still sees a seat that is "free" and
@@ -2790,19 +3076,21 @@ function restateSatBasis(plan) {
  *     trial order is deterministic and the interesting seats are priced first),
  *     it still names the fixed-geometry holders a reader is owed, and every
  *     priced entry says whether the seat it withdrew was a holder at all.
- *     WHAT THIS COSTS, SAID OUT LOUD. The tie-break's third key is the extension
- *     tour, and the DEFENDER LAP is a non-worsening gate rather than a tie-break
- *     key — so a cheaper-tour winner may ship a lap anywhere at or under the
- *     un-taken board's, not necessarily the lowest one available. It did in
- *     E11S7: the widened winner buys 23 more steps of tour off the filler's walk
- *     and ships a HIGHER gated lap than the seat round 19 took, which moves the
- *     fleet's worst-lap headline and drops E11S7's lane bound claim. Both
- *     readings are published per room and totalled by the fleet summary, and the
- *     trade is the published rule doing what it says rather than an accident —
- *     but it is a trade, this pass ships the losing side of it in that room, and
- *     a rule you only quote when it flatters you is not a rule. Making the lap a
+ *     WHAT THIS COST, SAID OUT LOUD — AND THEN PAID BACK (round 21). Round 20's
+ *     tie-break ranked the extension tour third and left the DEFENDER LAP a
+ *     non-worsening gate rather than a key, so a cheaper-tour winner could ship
+ *     a lap anywhere at or under the un-taken board's rather than the lowest one
+ *     available. It did in E11S7: the widened winner bought 23 more steps of
+ *     tour off the filler's walk and shipped a HIGHER gated lap (9.00) than the
+ *     seat round 19 took (8.67), which moved the fleet's worst-lap headline and
+ *     dropped E11S7's lane bound claim. That entry ended "making the lap a
  *     tie-break key is a change to the WINNER rule and belongs to whichever
- *     round argues for it, not to the round that widened the candidate list.
+ *     round argues for it". This is that round: criticism 95 was ruled, and the
+ *     answer is not a special case for the lap but the general rule under
+ *     DECLARED_KEY_RULE — every quantity a room DECLARES is a key in that room's
+ *     tie-breaks, ranked after the admission quantities and ahead of every
+ *     priced preference, never a veto. E11S7 takes 14,8 again, at 23 steps of
+ *     tour instead of 46, and says in its note that it did and what it paid.
  *   · TO A FIXPOINT (OL5, round 20). A take re-composes the room, and the room
  *     it hands back has its own sealed floor. E8S2's did: it took 6 deep tiles
  *     back and still shipped a 4-deep residual seal, published under a SEALED
@@ -2821,9 +3109,11 @@ function restateSatBasis(plan) {
  *   · ALL OF THEM, THEN THE BEST — not the first that passes. With every
  *     candidate priced anyway, taking the first acceptable one is taking a raster
  *     accident. The winner is the largest deep recovery, then the largest total
- *     recovery, then the CHEAPEST PANEL (least extension-tour cost, then most
- *     interior, then strongest face), then raster order. The order candidates are
- *     TRIED in cannot change the outcome, which is the point.
+ *     recovery — the ADMISSION quantities — then THIS ROOM'S DECLARED QUANTITIES
+ *     in declaration order (round 21; see DECLARED_KEY_RULE), then the CHEAPEST
+ *     PANEL (least extension-tour cost, then most interior, then strongest
+ *     face), then raster order. The order candidates are TRIED in cannot change
+ *     the outcome, which is the point.
  *   · THE WHOLE PANEL. Same `asBuiltInstruments` the across-prior take uses,
  *     which since round 17 also carries sealedTiles/sealedDeep, the per-tower
  *     refill walks, the extension D4-face count and the off-network count. The
@@ -2935,10 +3225,28 @@ function runSealedRecovery(d, plan, pass) {
   const opts = plan.meta.composeOpts;
   const sf = plan.meta.sealedFloor;
   if (!sf || !sf.pockets?.length) return null;
+  // obligation (i) of the round-21 RULING — derived from THIS board, which is
+  // the board every candidate below is judged against, and published on the
+  // record whatever the outcome: a room that refuses without composing anything
+  // still says what its tie-break would have ranked on, because the derivation
+  // is a property of the board and not of the branch.
+  const declared = declaredKeySet(plan);
   const record = {
     threshold: SEALED_RECOVERY_MIN,
     kindsAttempted: Object.keys(SEALED_RECOVERY_KINDS),
     tourSlack: SEALED_RECOVERY_TOUR_SLACK,
+    declaredKeys: declared.keys,
+    declaredSkipped: declared.skipped,
+    ranking: [
+      `admission: gainedDeep, more is better`,
+      `admission: gainedTiles, more is better`,
+      ...declared.keys.map((k) => declaredKeyLabel(k)),
+      `priced: extTourDelta, less is better`,
+      `priced: interior, more is better`,
+      `priced: face, more is better`,
+      `raster order of the withdrawn seat`,
+    ],
+    declaredKeyRule: DECLARED_KEY_RULE,
     outcome: null,
     candidates: 0,
     tried: 0,
@@ -3203,20 +3511,29 @@ function runSealedRecovery(d, plan, pass) {
     });
     return { plan, record };
   }
-  // the winner: most deep floor back, then most floor, then the cheapest panel,
-  // then raster. See the header — every candidate was priced, so the pick is a
-  // comparison and not an accident of iteration order.
+  // the winner: most deep floor back, then most floor — the two ADMISSION
+  // quantities, what this pass exists to buy — then THIS ROOM'S DECLARED
+  // QUANTITIES in declaration order (round 21, the RULING on criticism 95: see
+  // DECLARED_KEY_RULE), then the cheapest panel, then raster. See the header —
+  // every candidate was priced, so the pick is a comparison and not an accident
+  // of iteration order.
+  const admissionCmp = (a, b) => b.gainedDeep - a.gainedDeep || b.gainedTiles - a.gainedTiles;
+  const pricedCmp = (a, b) =>
+    (a.extTourDelta ?? 0) - (b.extTourDelta ?? 0) ||
+    (b.after.interior ?? 0) - (a.after.interior ?? 0) ||
+    (b.after.face ?? 0) - (a.after.face ?? 0) ||
+    a.withdrawn.y - b.withdrawn.y ||
+    a.withdrawn.x - b.withdrawn.x;
   accepted.sort(
-    (a, b) =>
-      b.gainedDeep - a.gainedDeep ||
-      b.gainedTiles - a.gainedTiles ||
-      (a.extTourDelta ?? 0) - (b.extTourDelta ?? 0) ||
-      (b.after.interior ?? 0) - (a.after.interior ?? 0) ||
-      (b.after.face ?? 0) - (a.after.face ?? 0) ||
-      a.withdrawn.y - b.withdrawn.y ||
-      a.withdrawn.x - b.withdrawn.x,
+    (a, b) => admissionCmp(a, b) || declaredKeysCompare(declared.keys, a.after, b.after) || pricedCmp(a, b),
   );
   const win = accepted[0];
+  // obligation (ii): the candidate this pass WOULD have taken without the rule.
+  // It ties the winner on both admission quantities by construction — a
+  // candidate that beat the winner on those would have won under both orders —
+  // so the only thing between them is a declared quantity against a price, and
+  // that is exactly the sentence the room owes its reader.
+  const withoutRule = accepted.slice().sort((a, b) => admissionCmp(a, b) || pricedCmp(a, b))[0];
   record.outcome = "taken";
   record.accepted = accepted.length;
   // WHICH POCKETS ACTUALLY OPENED, MEASURED ON THE TWO BOARDS (O1, round 19).
@@ -3256,14 +3573,56 @@ function runSealedRecovery(d, plan, pass) {
   record.extTourDelta = win.extTourDelta;
   record.before = before;
   record.after = win.after;
+  // obligation (ii) — published only when the rule actually CHANGED the pick,
+  // because "a declared quantity decided this" is a claim and a claim printed
+  // on every take is a claim about nothing.
+  if (withoutRule !== win) {
+    const key = declared.keys.find((k) => declaredKeyCompare(k, win.after, withoutRule.after) !== 0);
+    record.decidedBy = {
+      instrument: key.instrument,
+      gate: key.gate,
+      kind: key.kind,
+      source: key.source,
+      declared: key.declared,
+      direction: key.direction,
+      taken: {
+        withdrawn: win.withdrawn,
+        kind: win.kind,
+        value: win.after[key.instrument],
+        extTourDelta: win.extTourDelta,
+      },
+      runnerUp: {
+        withdrawn: withoutRule.withdrawn,
+        kind: withoutRule.kind,
+        value: withoutRule.after[key.instrument],
+        extTourDelta: withoutRule.extTourDelta,
+      },
+      // BOTH AXES. `declared` is what the winner won by on the room's own
+      // published number (negative when less is better means the winner is
+      // ahead); `priced` is what it cost on the key the pass would otherwise
+      // have decided on, positive when the winner is the more expensive one.
+      margin: {
+        declared: margin2(win.after[key.instrument] - withoutRule.after[key.instrument]),
+        priced: margin2((win.extTourDelta ?? 0) - (withoutRule.extTourDelta ?? 0)),
+        pricedKey: "extTourDelta",
+      },
+      tiedOn: { gainedDeep: win.gainedDeep, gainedTiles: win.gainedTiles },
+    };
+  }
   for (const o of record.offered) {
     if (o.verdict !== "ACCEPTED") continue;
     o.verdict =
       o.withdrawn.x === win.withdrawn.x && o.withdrawn.y === win.withdrawn.y
         ? "TAKEN"
         : `accepted, not taken: ${accepted.length} candidate(s) cleared the panel and the pick is the ` +
-          `largest deep recovery, then the largest total recovery, then the cheapest panel (least ` +
-          `extension tour, then most interior, then strongest face), then raster order`;
+          `largest deep recovery, then the largest total recovery, then ` +
+          (declared.keys.length
+            ? `this room's DECLARED quantities in declaration order (${declared.keys
+                .map((k) => k.instrument)
+                .join(", ")}), then `
+            : `— this room declares no quantity this panel measures, so no declared key applies — then `) +
+          `the cheapest panel (least extension tour, then most interior, then strongest face), then ` +
+          `raster order`;
   }
   return { plan: win.alt, record };
 }
@@ -3303,9 +3662,15 @@ const SEALED_RECOVERY_BASIS =
   `taken.pockets is read off the two boards afterwards: every pocket of the before seal whose own ` +
   `named tiles are no longer sealed, with sealedNew counting any floor the re-composition sealed that ` +
   `was not sealed before, so the recovery adds up tile by tile. Among the accepted, ` +
-  `the one TAKEN is the largest deep recovery, then the largest total recovery, then the cheapest ` +
-  `panel (least extension tour, most interior, strongest face), then raster order — a comparison over ` +
-  `every priced candidate rather than whichever one iteration reached first.`;
+  `the one TAKEN is the largest deep recovery, then the largest total recovery — the two ADMISSION ` +
+  `quantities, what this pass exists to buy — then THIS ROOM'S DECLARED QUANTITIES in declaration ` +
+  `order, then the cheapest panel (least extension tour, most interior, strongest face), then raster ` +
+  `order: a comparison over every priced candidate rather than whichever one iteration reached first. ` +
+  `The declared keys are derived from meta.shortfalls on the board this run judged and published on ` +
+  `this record as \`declaredKeys\` (with \`declaredSkipped\` accounting for every other declaration ` +
+  `and \`ranking\` printing the whole order) — round 21, the RULING on criticism 95, stated in full ` +
+  `under \`declaredKeyRule\`: a quantity the room has to publish outranks every price this pass pays ` +
+  `in private, and is never a veto over what gets in.`;
 const SEALED_RECOVERY_TOUR_RULE =
   `THE FILLER'S OTHER WALK, PRICED AND NOT GATED (OF6, round 18): extTourBefore/extTourAfter are the ` +
   `TOTAL extension tour — for each of the sixty extensions, the walk from the sitter across the ` +
