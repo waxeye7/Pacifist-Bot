@@ -1453,35 +1453,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            // Was 120k — effectively blocked all building at early RCL6 (roads/labs never finished)
-            if(builders < spawnrules[6].build_creep.amount && sites.length > 0 && (EnergyMinersInRoom > 1 || bankCanBuild) && (storage && storage.store[RESOURCE_ENERGY] > 8000 || !storage)) {
-                let allowSpawn = true;
-                let spawnSmall = false;
-                // Prefer building real structures (roads/ext/labs) over rampart-only spam
-                let hasUsefulSite = false;
-                for(let site of sites) {
-                    if(site.structureType !== STRUCTURE_RAMPART) {
-                        hasUsefulSite = true;
-                        allowSpawn = true;
-                        spawnSmall = false;
-                        break;
-                    }
-                    else {
-                        allowSpawn = false;
-                        spawnSmall = true;
-                    }
-                }
-                if(allowSpawn || hasUsefulSite) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(spawnrules[6].build_creep.body, name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
-                else if(!allowSpawn && spawnSmall && builders < 1) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
-            }
+            // Was 120k, then 8k — both floors soft-bricked a poor RCL6 room. See queueBuilder().
+            queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 8000);
             if(upgraders < spawnrules[6].upgrade_creep.amount + 3 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 400000 || room.controller.ticksToDowngrade < 80000 && upgraders < spawnrules[6].upgrade_creep.amount) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
@@ -1496,7 +1469,18 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             // FLOOR — same dead band as RCL7 below (400k spend / 120k surplus /
             // 80k downgrade against a 150k maximum). See keepOneUpgrader().
-            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)) {
+            // ...but the floor is not a licence to outbid the room's own economy.
+            // sitesMayNotVetoUpgraders is the existing "rich enough to pay for
+            // both" test (bank > 10k, or no sites at all); it was wired into
+            // RCL2/3/4 and never into RCL6/7, so on live VPS W2N1/W3N1 a 15-WORK
+            // floor upgrader took the whole 10-20 e/tick income of a room that
+            // was banking ZERO and had nine open sites, with ticksToDowngrade at
+            // 119,948 of 120,000. That is not downgrade insurance, it is the
+            // reason the builder gate's bank floor was never reached. The
+            // downgrade rungs above (and the < 21000 escape here) still fire the
+            // moment the controller is actually at risk.
+            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)
+                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
@@ -1555,30 +1539,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                     console.log('Adding Repair to Spawn List: ' + name);
                 }
             }
-            if(builders < spawnrules[7].build_creep.amount && !room.memory.danger && room.memory.danger_timer == 0 && sites.length > 0 && (EnergyMinersInRoom > 1 || bankCanBuild) && (storage && storage.store[RESOURCE_ENERGY] > 15000 || !storage)) {
-                let allowSpawn = true;
-                let spawnSmall = false;
-                for(let site of sites) {
-                    if(site.structureType == STRUCTURE_RAMPART) {
-                        allowSpawn = false;
-                        spawnSmall = true;
-                    }
-                    else {
-                        allowSpawn = true;
-                        spawnSmall = false;
-                        break;
-                    }
-                }
-                if(allowSpawn) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(spawnrules[7].build_creep.body, name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
-                else if(!allowSpawn && spawnSmall && builders < 1) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
+            if(!room.memory.danger && room.memory.danger_timer == 0) {
+                queueBuilder(room, spawnrules[7], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 15000);
             }
             if((upgraders < spawnrules[7].upgrade_creep_spend.amount && room.name !== Memory.targetRampRoom.room || upgraders < spawnrules[7].upgrade_creep_spend.amount + 3 && room.name == Memory.targetRampRoom.room) && storage && storage.store[RESOURCE_ENERGY] > 400000 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1608,7 +1570,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             // with a rising storage and an empty spawn queue. keepOneUpgrader()
             // is the guarantee that an owned room below RCL8 never does that; it
             // was only ever wired into the RCL4/5 gates, so RCL6/7 never had it.
-            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)) {
+            // Same veto as RCL6 above — see the note there.
+            else if(upgraders < keepOneUpgrader(room, EnergyMinersInRoom)
+                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Floor Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
@@ -3206,6 +3170,86 @@ function keepOneUpgrader(room, miners:number): number {
     // "can pay for it": live income, or a bank worth spending.
     if(miners <= 0 && bankEnergy(room) < UPGRADE_FLOOR) return 0;
     return 1;
+}
+
+/* -------------------------------------------------------------------------
+ * THE RCL6/7 BUILDER GATE — one function, because it was wrong in both places.
+ *
+ * LIVE PROOF (VPS shard0, tick ~1,573,400). Three of the bot's four owned rooms
+ * were at RCL6 with open construction sites, an EMPTY spawn queue, spawnStall 0,
+ * blown_fuse false, danger false — and ZERO builders. Controller progress was
+ * frozen in all three across a 53-tick sample:
+ *
+ *   W1N2  1 source  bank  1,818   sites: 2 container, 2 extension
+ *   W2N1  1 source  bank      0   sites: lab, 3 rampart, 5 road
+ *   W3N1  2 sources bank    150   sites: terminal, link, lab, container
+ *
+ * W1N2 had been sitting at 25/40 extensions with ZERO containers, ZERO links and
+ * ZERO roads — every one of them a site the room had correctly placed off its v2
+ * plan and could not build. The old gate was
+ *
+ *   builders < amount && sites.length > 0
+ *     && (EnergyMinersInRoom > 1 || bankCanBuild)     // bankCanBuild = bank > 15000
+ *     && (storage && storage.store[RESOURCE_ENERGY] > FLOOR || !storage)
+ *
+ * and it carried two independently unsatisfiable clauses:
+ *
+ *  1. `EnergyMinersInRoom > 1`. That counter cannot exceed the number of SOURCES
+ *     standing in the room, so in a ONE-SOURCE room it is false by construction,
+ *     forever, and the gate collapses to "bank > 15000". The RCL4/5 rungs
+ *     directly above use `> 0` and are right; `> 1` is a typo with a five-RCL
+ *     blast radius. W1N2 and W2N1 are one-source rooms.
+ *
+ *  2. the bank floor itself. It reads as prudence — do not drain the bank into
+ *     construction — but the rooms it actually binds are the ones whose bank is
+ *     empty BECAUSE they are still missing the extensions, containers, links and
+ *     roads that would fill it. "Wait until you are rich to build the things that
+ *     make you rich" is a deadlock, and a room that is at break-even sits in it
+ *     permanently: no bank -> no builder -> no economy -> no bank.
+ *
+ * The rule that replaces it separates the two kinds of site, which is what the
+ * bank floor was groping at:
+ *
+ *   REAL structures (anything not a rampart) are the economy. A room with live
+ *   income builds them whatever the bank says — but on a thin bank it runs ONE
+ *   builder instead of the full roster, so construction is a trickle rather than
+ *   a competing sink. The body needs no clamp of its own: getBody() sizes off
+ *   room.energyAvailable at queue time, so a poor room emits a small builder.
+ *
+ *   RAMPARTS are discretionary hit-points and keep the old behaviour exactly —
+ *   they come off a bank, and off a thin bank a rampart-only room gets nothing.
+ * ------------------------------------------------------------------------- */
+function queueBuilder(room, rules, sites, builders:number, miners:number,
+                      bankCanBuild:boolean, storage, bankFloor:number): void {
+    if(!sites.length) return;
+    // income OR a bank worth spending — same test as the RCL4/5 rungs
+    if(miners <= 0 && !bankCanBuild) return;
+    const realBank = storage && storage.structureType === STRUCTURE_STORAGE;
+    // no real storage yet -> nothing to protect, judge the room on its sites
+    const rich = !realBank || storage.store[RESOURCE_ENERGY] > bankFloor;
+
+    let hasUsefulSite = false;
+    for(const site of sites) {
+        if(site.structureType !== STRUCTURE_RAMPART) { hasUsefulSite = true; break; }
+    }
+
+    if(!hasUsefulSite) {
+        // rampart-only: one token builder, and only off a bank
+        if(rich && builders < 1) {
+            const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+            room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
+            console.log('Adding Builder to Spawn List: ' + name + ' (ramparts only)');
+        }
+        return;
+    }
+
+    const want = rich ? rules.build_creep.amount : 1;
+    if(builders >= want) return;
+    const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+    room.memory.spawn_list.push(rules.build_creep.body, name, {memory: {role: 'builder'}});
+    console.log('Adding Builder to Spawn List: ' + name +
+        ' (' + (builders+1) + '/' + want + ', bank ' + bankEnergy(room) +
+        ', miners ' + miners + (rich ? '' : ', THIN BANK') + ')');
 }
 
 /**
