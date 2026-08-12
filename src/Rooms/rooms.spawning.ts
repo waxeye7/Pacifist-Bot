@@ -132,6 +132,32 @@ function spawning(room: any) {
  * useful creep is dropped. Both paths log.
  */
 function clampSpawnListToCapacity(room) {
+    // ---- length cap ------------------------------------------------------
+    //
+    // The queue is a short list of what to build next, not a ledger. Nothing
+    // ever bounded it, and the producers push unconditionally — they never ask
+    // whether the same creep is already queued — so a room whose head is stuck
+    // grows the list forever. Live pacifist2 E18S3: 836 entries, built out of
+    // 291 Sweepers, 264 Builders, 113 Scouts, 73 Maintainers and 54
+    // RampartErectors, while the head (a 1500-energy EnergyMiner) answered
+    // ERR_NOT_ENOUGH_ENERGY against 1204 available for 220 ticks straight.
+    //
+    // Nothing is lost by throwing the tail away: every producer re-derives its
+    // demand from the live creep census on the next pass, so a genuinely
+    // needed creep is re-queued within one cadence window, while an entry from
+    // tens of thousands of ticks ago is describing a room that no longer
+    // exists. The bloat is not free either — this function walks the whole
+    // list and sums every body on every producer pass.
+    //
+    // Trim from the TAIL: the front of the queue is where urgency lives
+    // (defenders and emergency fillers `unshift`).
+    if(room.memory.spawn_list.length > MAX_SPAWN_QUEUE * 3) {
+        let dropped = room.memory.spawn_list.length / 3 - MAX_SPAWN_QUEUE;
+        room.memory.spawn_list.length = MAX_SPAWN_QUEUE * 3;
+        console.log("spawn queue in", room.name, "capped at", MAX_SPAWN_QUEUE,
+            "- dropped", Math.floor(dropped), "stale entries from the tail");
+    }
+
     let hardCap = room.energyCapacityAvailable;
     // What the room can actually PAY right now: the bank plus whatever is
     // already sitting in the spawn and extensions. energyCapacityAvailable is
@@ -231,6 +257,21 @@ const ROUTINE_SPAWN_PREFIXES = ["Filler", "filler", "EmergencyFiller", "emergenc
     "Builder", "Upgrader", "Repair", "Maintainer", "EnergyManager", "Carrier",
     "EnergyMiner", "MineralMiner", "Sweeper", "Reserver", "RemoteRepair", "Scout",
     "ContainerBuilder", "SneakyControllerUpgrader"];
+
+/**
+ * How many consecutive ERR_NOT_ENOUGH_ENERGY ticks a queue head has to answer
+ * before it is thrown away. Must sit ABOVE the shrink and interleave rungs
+ * (both keyed on spawnStall > 40) so those get to try first — dropping the
+ * head earlier than they fire makes them unreachable.
+ */
+const SHRED_STALLED_HEAD_AFTER = 60;
+
+/**
+ * Most entries the queue may hold. A healthy commune sits at 0-2; the biggest
+ * legitimate burst is a full roster refresh (miners per source, carriers per
+ * remote, a reserver or two), which is well under this.
+ */
+const MAX_SPAWN_QUEUE = 24;
 
 function isRoutineSpawn(name:string):boolean {
     if(!name) return false;
@@ -2913,7 +2954,36 @@ function spawnFirstInLine(room, spawn) {
                     return "spawning";
                 }
 
-                if((room.memory.spawn_list[0].length >= 4
+                // ---- the shredder ----------------------------------------
+                //
+                // This clause used to fire on the FIRST ERR_NOT_ENOUGH_ENERGY,
+                // which is not a verdict about the creep — it is a statement
+                // that the extensions happen to be empty this tick, which is
+                // the fillers' job to fix and normally takes a few ticks.
+                // Dropping the head there does three bad things:
+                //
+                //  * it churns. Live E4S7 (RCL8, 380k in the bank, extensions
+                //    at 800/12900) shredded FOUR different Repair-* entries in
+                //    240 ticks — the producers simply re-queue the same body
+                //    under a new random name and it is shredded again.
+                //  * it shreds the cure. E1S4 dropped Filler-916212 on its
+                //    first -6; a filler is precisely the creep that ends an
+                //    ERR_NOT_ENOUGH_ENERGY.
+                //  * it kills the two relief rungs below it. `spawnStall`
+                //    counts consecutive -6s on the SAME head, and both the
+                //    shrink rung and the interleave rung need it above 40 —
+                //    but a non-exempt head was thrown away at spawnStall == 1,
+                //    so neither could ever fire for any role not on the
+                //    exemption list. Measured over 4 minutes across 8 RCL8
+                //    communes: 5 shreds, and ZERO "shrinking stalled head" and
+                //    ZERO "interleaving" lines, with spawnStall pinned at 0.
+                //
+                // So make it what it reads like: a last resort. Wait out the
+                // shrink and interleave thresholds first, then give up.
+                // The capacity clause below is unaffected — a body the room can
+                // never afford is still thrown out on sight.
+                if((room.memory.spawnStall > SHRED_STALLED_HEAD_AFTER
+                && room.memory.spawn_list[0].length >= 4
                 && !room.memory.spawn_list[1].startsWith("Carrier")
                 && !room.memory.spawn_list[1].startsWith("EnergyMiner")
                 && !room.memory.spawn_list[1].startsWith("WallClearer")
