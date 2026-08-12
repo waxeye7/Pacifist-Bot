@@ -901,6 +901,39 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
 /** Native moveTo — captured before we replace it */
 const _nativeMoveTo: any = Creep.prototype.moveTo;
 
+/**
+ * A stable cache key for "where am I walking to".
+ *
+ * The seven MoveCostMatrix* variants all guard their PathFinder call with
+ * `!this.memory.MoveTargetId || this.memory.MoveTargetId != target.id`, and
+ * then store `target.id`. That works for a structure or a creep and silently
+ * fails for everything else: a bare RoomPosition has no `id`, so the guard
+ * stored `undefined`, read `undefined` back, and `!undefined` re-triggered the
+ * search on the very next tick. Every such creep re-ran a `maxOps: 1000`
+ * PathFinder EVERY TICK for its whole life, with a perfectly good path already
+ * sitting in memory.
+ *
+ * Measured on the live local server: of 202 creeps, 82 were holding a path and
+ * 25 of those (30%) had no MoveTargetId — 16 carriers, 6 miners, 3 remote
+ * repairers — i.e. up to 25,000 pathfinding ops a tick thrown away, against a
+ * 100-tick average of 38 CPU.
+ *
+ * Positions get a key built from their coordinates, which is exactly as stable
+ * as an id: the same destination produces the same string, a different one
+ * invalidates the path just like a different id would. Flags fall back to
+ * their name.
+ */
+function moveKeyOf(target: any): string {
+    if (!target) return "";
+    if (target.id) return target.id;
+    const p: any = target.pos || target;
+    if (p && typeof p.x === "number" && typeof p.y === "number" && p.roomName) {
+        return "p" + p.roomName + ":" + p.x + "," + p.y;
+    }
+    if (target.name) return "n" + target.name;
+    return "";
+}
+
 function asMoveTarget(target: any, dest: RoomPosition): any {
     if (target && target.pos && target.id) return target;
     if (target && target.pos) return target;
@@ -2594,7 +2627,7 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             this.memory.path = false;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
             let costMatrix = roomCallbackRoadPrio;
             if(this.memory.fleeing || this.room.memory.danger) {
                 costMatrix = roomCallbackRoadPrioFlee;
@@ -2621,7 +2654,7 @@ Creep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(target,
             let direction = this.pos.getDirectionTo(pos);
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
         let pos = this.memory.path[0];
@@ -2822,7 +2855,7 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
             }
         }
 
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
             let costMatrix = roomCallbackSafeToSource;
 
             let targetPos = goalPos(this, target);
@@ -2848,7 +2881,7 @@ Creep.prototype.MoveToSourceSafely = function MoveToSourceSafely(target, range) 
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
@@ -3036,7 +3069,7 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
             this.memory.path = false;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
             let costMatrix:any = roomCallbackRoadPrioUpgraderInPosition;
 
             let targetPos = goalPos(this, target);
@@ -3062,7 +3095,7 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
@@ -3204,7 +3237,7 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
             this.memory.path = false;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
             let targetPos = goalPos(this, target);
             if(!targetPos) {
                 return;
@@ -3229,7 +3262,7 @@ Creep.prototype.MoveCostMatrixSwampPrio = function MoveCostMatrixSwampPrio(targe
             this.SwapPositionWithCreep(direction);
 
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
@@ -3344,7 +3377,7 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
             let targetPos = goalPos(this, target);
             if(!targetPos) {
                 return;
@@ -3367,7 +3400,7 @@ Creep.prototype.MoveCostMatrixIgnoreRoads = function MoveCostMatrixIgnoreRoads(t
             let direction = this.pos.getDirectionTo(pos);
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
@@ -3631,7 +3664,7 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id || target.roomName !== this.room.name) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target) || target.roomName !== this.room.name) {
             let costMatrix;
             if(this.memory.role == "carry" && this.memory.full == true || this.memory.suicide == true || this.memory.role == "EnergyMiner") {
                 costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull;
@@ -3667,7 +3700,7 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
             let direction = this.pos.getDirectionTo(pos);
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
@@ -4122,7 +4155,7 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
             this.memory.path = false;
         }
 
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != target.id) {
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target)) {
 
             let costMatrix;
             if(this.memory.role == "RampartDefender") {
@@ -4158,7 +4191,7 @@ Creep.prototype.moveToSafePositionToRepairRampart = function moveToSafePositionT
 
             this.SwapPositionWithCreep(direction);
             this.memory.path = path.path;
-            this.memory.MoveTargetId = target.id;
+            this.memory.MoveTargetId = moveKeyOf(target);
         }
 
 
