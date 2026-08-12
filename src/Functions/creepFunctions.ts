@@ -918,6 +918,13 @@ const _nativeMoveTo: any = Creep.prototype.moveTo;
  * repairers — i.e. up to 25,000 pathfinding ops a tick thrown away, against a
  * 100-tick average of 38 CPU.
  *
+ * After: that count is zero. The honest CPU figure is per-creep, because the
+ * fleet size moves on its own between samples and the raw average moves with
+ * it — 38.37 CPU / 202 creeps = 0.190 before, 0.166-0.181 (mean ~0.175) across
+ * three post-deploy samples of 192-213 creeps, so roughly -8%. The raw 100-tick
+ * average did read 31.60 right after the deploy, but the fleet was at 157 at
+ * that moment and that number should not be quoted on its own.
+ *
  * Positions get a key built from their coordinates, which is exactly as stable
  * as an id: the same destination produces the same string, a different one
  * invalidates the path just like a different id would. Flags fall back to
