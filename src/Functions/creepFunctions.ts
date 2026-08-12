@@ -721,14 +721,118 @@ Creep.prototype.findClosestLinkToStorage = function():any {
 
 
 
+/**
+ * ---------------------------------------------------------------------------
+ * Storage withdrawal floors
+ *
+ * The reserve in `withdrawStorage` exists for ONE consumer: the fillers. They
+ * are what turn a bank into spawnable energy, so they draw with no floor at
+ * all and everyone else leaves them a cushion.
+ *
+ * The old rule was a single hard 2000 for every non-filler role, and that is
+ * what starved W2N1 during its recovery: with the storage sitting anywhere
+ * under 2000 the builder was locked out entirely, fell through to
+ * `acquireEnergyWithContainersAndOrDroppedEnergy()` — containers 0, drops 0,
+ * every source container empty — and did nothing for hours while the energy it
+ * needed to finish the room's own extensions/containers sat eight tiles away.
+ * A room in that state cannot climb out: the very structures that would give
+ * it throughput are the ones the builder is forbidden to pay for.
+ *
+ * So the floor becomes a priority ladder rather than a wall:
+ *
+ *     filler                     0     absolute priority, unchanged
+ *     builder / buildcontainer   300   only while the room HAS sites + income
+ *     upgrader / CtrlLinkFiller  1000  only while the room has income
+ *     everything else            2000  unchanged
+ *
+ * Both lowered rungs are gated on the room still having an energy income (a
+ * live miner, or a remote hauler feeding it). With no income the room is not
+ * recovering, it is dying, and the right answer there is the old behaviour:
+ * hand everything to the fillers so a miner gets spawned first.
+ * ---------------------------------------------------------------------------
+ */
+const STORAGE_FLOOR_DEFAULT = 2000;
+const STORAGE_FLOOR_BUILD = 300;
+const STORAGE_FLOOR_UPGRADE = 1000;
+/** Smallest slice above a lowered floor that is worth walking to the bank for. */
+const STORAGE_MIN_DRAW = 50;
+
+/** Roles allowed to draw the storage down to STORAGE_FLOOR_BUILD. */
+const STORAGE_BUILD_ROLES: { [role: string]: boolean } = {
+    builder: true,
+    buildcontainer: true,
+};
+
+/** Roles allowed to draw the storage down to STORAGE_FLOOR_UPGRADE. */
+const STORAGE_UPGRADE_ROLES: { [role: string]: boolean } = {
+    upgrader: true,
+    ControllerLinkFiller: true,
+};
+
+/**
+ * Does the room still earn energy? Cached on the Room object, which the engine
+ * rebuilds every tick, so this costs one `find` per room per tick at most.
+ */
+function _roomHasEnergyIncome(room: any): boolean {
+    if (room._pacIncome !== undefined) return room._pacIncome;
+    let income = false;
+    const creeps: any[] = room.find(FIND_MY_CREEPS);
+    for (let i = 0; i < creeps.length; i++) {
+        const role = creeps[i].memory && creeps[i].memory.role;
+        // A miner is local income; a hauler is remote income arriving.
+        if (role === "EnergyMiner" || role === "energyMiner" || role === "carry") {
+            income = true;
+            break;
+        }
+    }
+    room._pacIncome = income;
+    return income;
+}
+
+/** Does the room have anything to build? Cached on the Room object. */
+function _roomHasSites(room: any): boolean {
+    if (room._pacSites !== undefined) return room._pacSites;
+    const has = room.find(FIND_MY_CONSTRUCTION_SITES).length > 0;
+    room._pacSites = has;
+    return has;
+}
+
+/** The storage floor this creep must respect, by role and room state. */
+function _storageFloorFor(creep: any): number {
+    const role = creep.memory && creep.memory.role;
+    if (role === "filler") return 0;
+    const room = creep.room;
+    if (STORAGE_BUILD_ROLES[role]) {
+        if (_roomHasSites(room) && _roomHasEnergyIncome(room)) return STORAGE_FLOOR_BUILD;
+        return STORAGE_FLOOR_DEFAULT;
+    }
+    if (STORAGE_UPGRADE_ROLES[role]) {
+        if (_roomHasEnergyIncome(room)) return STORAGE_FLOOR_UPGRADE;
+        return STORAGE_FLOOR_DEFAULT;
+    }
+    return STORAGE_FLOOR_DEFAULT;
+}
+
 Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
     if(storage) {
         let StructureType = storage.structureType;
         let StorageEnergyStore = storage.store[RESOURCE_ENERGY];
         let Role = this.memory.role;
-        if(StorageEnergyStore < 2000 && Role != "filler" && StructureType == STRUCTURE_STORAGE) {
+        let StorageFloor = _storageFloorFor(this);
+        // A lowered floor is a CAP, not just a gate. `withdraw()` with no
+        // amount takes everything the creep can hold, so a bare gate at 300
+        // let the first builder to reach a 407-energy storage empty it — the
+        // cushion the floor is supposed to be existed only on paper. Live
+        // W2N1 did exactly that within a minute of this landing: 407 -> 0.
+        // Above the default rung nothing changes: 2000 already dwarfs any
+        // worker body, so the cap never binds there.
+        let StorageCapped = StorageFloor > 0 && StorageFloor < STORAGE_FLOOR_DEFAULT && StructureType == STRUCTURE_STORAGE;
+        // ...and a trip is only worth making if the slice above the floor is
+        // worth carrying.
+        let StorageGate = StorageCapped ? StorageFloor + STORAGE_MIN_DRAW : StorageFloor;
+        if(StorageEnergyStore < StorageGate && StructureType == STRUCTURE_STORAGE) {
             if(Game.time % 50 == 1) {
-                console.log("Storage requires 2000 energy to withdraw. Try again later.", this.room.name)
+                console.log("Storage requires", StorageGate, "energy for role", Role, "- try again later.", this.room.name)
             }
             this.acquireEnergyWithContainersAndOrDroppedEnergy();
             return;
@@ -742,6 +846,14 @@ Creep.prototype.withdrawStorage = function withdrawStorage(storage) {
         }
         else {
             if(this.pos.isNearTo(storage)) {
+                if(StorageCapped) {
+                    let draw = Math.min(this.store.getFreeCapacity(RESOURCE_ENERGY), StorageEnergyStore - StorageFloor);
+                    if(draw <= 0) {
+                        this.acquireEnergyWithContainersAndOrDroppedEnergy();
+                        return;
+                    }
+                    return this.withdraw(storage, RESOURCE_ENERGY, draw);
+                }
                 let result = this.withdraw(storage, RESOURCE_ENERGY);
                 return result;
             }
