@@ -2911,6 +2911,40 @@ a declaration is held to the standard the declaration would have been.
 **And one fact this document had wrong:** the 34 adoptions span **27 rooms**,
 not 29 (E15S1 and E5S6 carry removes only — the two rooms whose shipped cut
 does not seal).
+**Round 28 moves NOTHING.** Ten implementation passes against the two r27
+reviews, zero boards, the 300 declarations and the 236 notes unmoved.
+Mechanical 1 BLOCKING / 4 MAJOR plus 88/93/98 re-confirmed; owner-voice 0
+BLOCKING / 1 MEDIUM / 1 LOW (L1) plus 141(d) restated. **Unchanged in
+round 28: every physical figure in this block** — ramparts 8208 · roads
+14,100 · extensions 60/60 in 172/172 (10,320) · declarations 300 in 157
+rooms · `declared-shortfall 122` · shallow extensions 25 in the same three
+rooms · planner notes 236 · road+rampart `274 = 231 + 30 + 13` · roads
+median 81 · `validate.mjs` at `pass 172/172 · fail 0 · declared-shortfall
+122` with every physical total 0. Artifact md5 started the round at
+`239f4e43331181cf4484d462003ff6b5` (r27) and ended at
+`c2e6039a7ac5816c1c6c40161685354a` (meta only: mineral-why re-render of 3
+rooms, `fullRun` on 172 laneMeta, `cutTiles` on 57 ladders). **Moved in
+round 28: the reader channel the r27 inventories left unread.**
+`mineralOffNetworkWhy` is whole-value against the official census ·
+`towerSwapOffer.basis` face is `minShellDmg` ± one 30-point step, not
+parsed out of the sentence · `battlementUnreachable` is the interior walk
+· `cutAdopted ⊆ cutDrift` adds · `shippedShellDmg` is `shellDamage(towers,
+cut)` · `mobilityShipped.maxGated` is the as-built lap · refillBasis
+blocked-count is rebuilt from room objects · `cutPasses` leaves are
+bounded · the cheap MF6 presence names that flipped flattering
+(nuker/observer hub walks, `refillDistsUnblocked`, `protectRadius` enum,
+`priceyWall = baseCut > MAX_CUT`, `mineralBubble`, `swampPaved`,
+`spurred`, `newRoads`) · film `roadsPrune` names ghosts and pruned
+separately · criticism 88: discarded-rung laps re-walked from published
+`cutTiles` (54/57 then 57/57) · criticism 98: shrink is a proper prefix of
+the published cap-10 `fullRun` · criticism 93 invent: taken-room
+`fixedHolders` must be shipped unmovables (`recovers` still pre-take) ·
+the mutation suite 1258 → **1285** · numeral-audit **210 / 151 re-derived
+/ 59 waived at 36 sites / 0 unowned / 0 WRONG**. **Still open, named:**
+134(a) is a fleet property not a theorem · 134(c)/(d) unchanged · 93
+`recovers`/`recoversDeep` on taken rooms · 98 residue is forge-the-whole-
+`fullRun` then invent a consistent shrink · 141(e) dropped `seed` in 46
+rooms · exact `baseCut`/`protectRadius` pick.
 **And one thing the gates gained that no channel shows:** all four
 `exteriorContract` consumers are re-derived from terrain now rather than one,
 and the frozen anchor they are derived against is bound three ways — the flood
@@ -5269,6 +5303,13 @@ paragraph), and the three new `REQUIRED_META` paths (the delete-escape bullet).
    shipped in a room at or under the `buyFloor`, which the walk's rule cannot
    reach because the walk would have refused it anyway. Closing it needs a
    producer-side rung trail in `meta` — criticism 88.
+   **ROUND 28 SHIPPED THE TRAIL.** Each composed rung of the shipped seed
+   publishes `cutTiles` (layer 2's `cutAtFreeze`, not the post-L7 cut).
+   `enclosureMobility` re-walks that cut against the layer-2 occupied set;
+   `ladder.rungs[].mobility` must match. The three sealed-recovery rooms that
+   ship a ladder and no `shellEscalation` carry the tiles on the declaration
+   itself. Residue: invent a fake cut that walks a prettier lap. The stated
+   exploit (fatter discarded rung `2.5 → 0.5` + regen) bites.
 
 Round-17 findings. **Two fresh reviewers, 14 confirmed findings between them** —
 the mechanical reviewer 1 CRITICAL, 3 MAJOR and 3 MEDIUM; the owner-voice
@@ -7249,6 +7290,12 @@ which is the first time this campaign has separated those two jobs on purpose.
    the reason the validator is a second witness at all. Recommended for round 21,
    with criticism 88's rung trail, which is the same shape one channel over: both
    are boards the planner composed and did not publish.
+   **ROUND 28 CLOSED THE INVENT-A-HOLDER HALF AND LEFT THE RECOVERS HALF.**
+   A `fixedHolders` tile on a taken room must be a shipped unmovable (lab,
+   spawn, storage, …). Appending `{type:"lab", x:1, y:1, recovers:99}` on
+   E11S7 now bites. `recovers`/`recoversDeep` and `offered[].withdrawn` on
+   taken links are still readings of the pre-take board. The heading's 53
+   is not re-measured this round.
    **ROUND 21 DID NOT SHIP THE TWIN EITHER, AND THE NUMBER IN THE HEADING IS 53
    BECAUSE THE SURFACE GREW AND THE ESCAPE SET DID NOT.** The ruling's record
    fields — `declaredKeys`, `declaredSkipped`, `ranking`, `declaredKeyRule`,
@@ -7845,6 +7892,15 @@ The five bullets are the reader-channel and binding fixes:
    that deletes a refusal and the half that is open is the half that manufactures
    one, and a reader who is told only the first would draw the wrong conclusion
    about which way this record can lie.
+   **ROUND 28 CLOSED THE STATED INVENT, AND THE ERASE OF THE FIVE NO-STRANDED
+   SHRINKS WITH IT.** `fullRun` is the cap-10 walk every room already composed
+   before the shrink search. `ran` is a function of that walk (`tiles && (ext
+   < 60 || shallow > 0)`), not of `shrunk`. A shrink is a proper prefix
+   (`wanted === fullRun.tiles`, `to !== 0 && to !== used`). A drop is `to ===
+   0`. Invent on a free walk (E11S3) and erase of a real shrink (E11S1) both
+   bite. Residue: forge the whole `fullRun` (flip `ran`) and then invent a
+   consistent shrink — the same class as criticism 99's "invent the entire
+   pre-take list", one field over.
 99. **CLOSED IN ROUND 22 BY PUBLISHING THE INPUT INSTEAD OF MOURNING THE
    ARTIFACT.** The entry below is kept verbatim because the way it closed is the
    point: it had been filed as a missing-artifact residue — the same family as
@@ -9731,6 +9787,8 @@ it says so in the entry rather than in a comment.
    argument: the ladder rung trail, the pre-take sealed floor and the pre-shrink
    lane run are all layer-6/7 boards, and `cutAtFreeze` is a LAYER-2 snapshot, so
    nothing round 25 or round 26 published reaches any of the three.
+   **ROUND 28 CLOSED 88 AND THE STATED 98, AND NARROWED 93.** See those
+   entries. (c) and (d) are unchanged.
    **134(b) ANSWERED IN ROUND 27, AS A RULING, NOT AS A DECLARATION.** The 34
    adoptions stay a record. The record is now held to the standard the
    declaration would have been: `pass` a closed enum, `why` generated from
@@ -9914,8 +9972,8 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
-- Mutations: `.../mutate.mjs` (**1258/1258 bite** against a clean 172/172
-  baseline; `--only r27/` for one round's block; honours `PLANS_FILE` and never
+- Mutations: `.../mutate.mjs` (**1285/1285 bite** against a clean 172/172
+  baseline; `--only r28/` for one round's block; honours `PLANS_FILE` and never
   writes the artifact). Four of round 25's controls were NOT in that count and say
   so at criticism 128(a): the film, page and chip forgeries live in `out-v2/` and
   this harness mutates plans. **Round 26 pulled that class inside** — `runFile`
