@@ -95,7 +95,7 @@ export const PROGRAM_TILES =
 const CORRIDOR_OVERHEAD = 45;
 const NEED_DEEP = PROGRAM_TILES + CORRIDOR_OVERHEAD;
 
-const MAX_CUT = 45;
+export const MAX_CUT = 45;
 const DEPTH_SAFE = 4; // ranged attacker reach is 3
 
 // A rampart the interior cannot WALK to is a rampart no defender can hold, no

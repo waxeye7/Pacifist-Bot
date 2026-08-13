@@ -11,8 +11,9 @@
  *      appeared nowhere in validate.mjs carry an explicit klass + reason;
  *      the cheap ones are derived here.
  */
-import { D8, chebyshev, key, walkable } from "./shared.mjs";
-import { BUILT_OBSTACLES, interiorWalk } from "./layer-shell.mjs";
+import { D8, chebyshev, walkable } from "./shared.mjs";
+import { fieldFrom } from "./layer-hub.mjs";
+import { BUILT_OBSTACLES, interiorWalk, MAX_CUT, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -51,7 +52,7 @@ export const META_LEAF_NAMES = new Set(idents.all);
  */
 export const META_DARK = {
   arrayPartner: { klass: "presence", why: "layer-3 adjacency bookkeeping; the crossing census is gated on the shipped tiles" },
-  baseCut: { klass: "presence", why: "layer-2's own cut size at negotiation; the shipped cut is re-derived" },
+  baseCut: { klass: "presence", why: "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness" },
   baseOverGated: { klass: "presence", why: "layer-3 mobility veto input; the as-built lap is the gated quantity" },
   battlementFloor: { klass: "derived" },
   battlementGap: { klass: "presence", why: "layer-2 battlement spacing; battlementUnreachable is derived" },
@@ -94,7 +95,7 @@ export const META_DARK = {
   minDmgArray: { klass: "presence", why: "layer-3 hill-climb witness" },
   minDmgPicked: { klass: "presence", why: "layer-3 hill-climb witness" },
   mineralApproachAtReservation: { klass: "presence", why: "layer-1's approach, kept beside the shipped one (OL5)" },
-  mineralBubble: { klass: "presence", why: "whether the mineral seat rented a bubble; the bubble list is gated" },
+  mineralBubble: { klass: "derived" },
   mineralContainer: { klass: "presence", why: "layer-5's own seat pick; the shipped container is gated" },
   mineralOffNetworkWhy: { klass: "rendered" },
   mineralSeatAtReservation: { klass: "presence", why: "layer-1's reserved seat, kept beside the shipped one (OL5)" },
@@ -102,22 +103,22 @@ export const META_DARK = {
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
   mobilityShipped: { klass: "derived" },
   mobilityShippedFree: { klass: "presence", why: "the same lap with mass removed; as-built is the gated one" },
-  newRoads: { klass: "presence", why: "roads a layer laid; the shipped road list is gated" },
+  newRoads: { klass: "presence", why: "layer-3 laid-road event count; later prune may delete them; the shipped road list is gated" },
   noAlternative: { klass: "presence", why: "a search-refusal witness" },
-  nukerHubDist: { klass: "presence", why: "layer-5 walk from the hub on that layer's board, not chebyshev" },
+  nukerHubDist: { klass: "derived" },
   nukerInWindow: { klass: "presence", why: "nukeWindow.nukerInWindow sibling; the window is re-derived" },
-  observerHubDist: { klass: "presence", why: "layer-5 walk from the hub on that layer's board" },
+  observerHubDist: { klass: "derived" },
   parkCap: { klass: "presence", why: "composeOpts park cap; ctrlParks are re-derived" },
   paveRetired: { klass: "presence", why: "layer-7b reflow witness" },
   pickedBy: { klass: "presence", why: "a search's own picker label" },
   priceProven: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
-  priceyWall: { klass: "presence", why: "layer-2 price-of-wall witness; the shipped cut is gated" },
-  protectRadius: { klass: "presence", why: "layer-2 protect-region radius; the enclosure is re-flooded" },
+  priceyWall: { klass: "derived" },
+  protectRadius: { klass: "derived" },
   prunedBasis: { klass: "rendered" },
   radii: { klass: "presence", why: "composeOpts seed radii" },
   rcl5Pair: { klass: "presence", why: "which tower RCL5 gets; the shipped six are gated" },
   refillBasis: { klass: "rendered" },
-  refillDistsUnblocked: { klass: "presence", why: "layer-3 pre-mass refill field; as-built refillDists is gated" },
+  refillDistsUnblocked: { klass: "derived" },
   remeasured: { klass: "rendered" },
   rescueSpent: { klass: "presence", why: "layer-6 rescue spend" },
   rescuedLap: { klass: "presence", why: "layer-6 rescue witness" },
@@ -135,14 +136,14 @@ export const META_DARK = {
   shippedShellDmg: { klass: "derived" },
   shippedWeakTiles: { klass: "derived" },
   shippedWeakest: { klass: "derived" },
-  spurred: { klass: "presence", why: "layer-7 spur count; roadKind taxonomy is gated" },
+  spurred: { klass: "derived" },
   stitchTiles: { klass: "presence", why: "layer-7 stitch roster" },
   stitched: { klass: "presence", why: "layer-7 stitch count" },
   strandedFirst: { klass: "presence", why: "conduct-bridge witness" },
   stubCap: { klass: "presence", why: "layer-6 stub cap" },
   stubExhausted: { klass: "presence", why: "layer-6 stub exhaustion" },
   stubRoads: { klass: "presence", why: "layer-6 stub roster" },
-  swampPaved: { klass: "presence", why: "layer-7 swamp-pave count; roadKind taxonomy is gated" },
+  swampPaved: { klass: "derived" },
   takeTowerSwap: { klass: "presence", why: "composeOpts input from a re-composition; the shipped battery is gated" },
   tourRule: { klass: "presence", why: "sealed-recovery tour ceiling (OF6)" },
   towerOnly: { klass: "presence", why: "nuke-window's layer-3 sibling" },
@@ -226,6 +227,40 @@ function netTilesOf(plan) {
 function mineralSeatOf(plan) {
   if (!plan.mineral) return null;
   return (plan.structures?.container || []).find((c) => chebyshev(c, plan.mineral) <= 1) || null;
+}
+
+function objectTilesOf(plan) {
+  const s = new Set();
+  for (const src of plan.sources || []) s.add(K(src));
+  if (plan.controller) s.add(K(plan.controller));
+  if (plan.mineral) s.add(K(plan.mineral));
+  return s;
+}
+
+/** layer 5's hub field: hub kit + towers + labs + non-mineral containers. Mineral seat is placed after the walk. */
+function hubFieldAtLayer5(terrain, plan) {
+  const occ = new Set();
+  for (const t of ["storage", "terminal", "link", "spawn", "tower", "lab"]) {
+    for (const q of plan.structures?.[t] || []) occ.add(K(q));
+  }
+  const seat = mineralSeatOf(plan);
+  for (const c of plan.structures?.container || []) {
+    if (seat && c.x === seat.x && c.y === seat.y) continue;
+    occ.add(K(c));
+  }
+  if (plan.sitter) occ.add(K(plan.sitter));
+  for (const k of objectTilesOf(plan)) occ.add(k);
+  return fieldFrom(terrain, plan.sitter, occ);
+}
+
+/** layer 3's pre-mass refill field: hub-kit blockers only. Containers are walkable. */
+function refillFieldAtLayer3(terrain, plan) {
+  const blk = new Set();
+  for (const t of ["storage", "terminal", "link", "spawn"]) {
+    for (const q of plan.structures?.[t] || []) blk.add(K(q));
+  }
+  for (const k of objectTilesOf(plan)) blk.add(k);
+  return fieldFrom(terrain, plan.sitter, blk);
 }
 
 function consideredOf(plan) {
@@ -626,6 +661,114 @@ export function checkR27(plan, ctx = {}) {
         `meta.shell.mobilityShipped.maxGated is ${sh.mobilityShipped.maxGated} and the as-built gated lap ` +
           `(walls.mobility.builtGated) is ${builtLap}. They are the same walk on the same shipped wall — ` +
           `zeroing the shipped copy alone used to pass`,
+      );
+    }
+  }
+
+  // ROUND 28 — MF6 presence names the review flipped fleet-wide to flattering
+  // values at pass 172/172. Each one below is a function of terrain + the
+  // shipped structure lists, or of a leaf this file already re-derives.
+  if (ctx.terrain && plan.sitter) {
+    const hub5 = hubFieldAtLayer5(ctx.terrain, plan);
+    const nuker = (plan.structures?.nuker || [])[0];
+    if (nuker && typeof misc.nukerHubDist === "number") {
+      const want = hub5[idx(nuker.x, nuker.y)];
+      if (misc.nukerHubDist !== want) {
+        fails.push(
+          `meta.misc.nukerHubDist is ${misc.nukerHubDist} and the layer-5 hub walk to the shipped nuker ` +
+            `at ${nuker.x},${nuker.y} is ${want}. It is a walk, not a chebyshev, and it is not a comment`,
+        );
+      }
+    }
+    const observer = (plan.structures?.observer || [])[0];
+    if (observer && typeof misc.observerHubDist === "number") {
+      const want = hub5[idx(observer.x, observer.y)];
+      if (misc.observerHubDist !== want) {
+        fails.push(
+          `meta.misc.observerHubDist is ${misc.observerHubDist} and the layer-5 hub walk to the shipped ` +
+            `observer at ${observer.x},${observer.y} is ${want}`,
+        );
+      }
+    }
+
+    if (Array.isArray(tw.refillDistsUnblocked)) {
+      const towers = plan.structures?.tower || [];
+      const refill3 = refillFieldAtLayer3(ctx.terrain, plan);
+      if (tw.refillDistsUnblocked.length !== towers.length) {
+        fails.push(
+          `meta.towers.refillDistsUnblocked has ${tw.refillDistsUnblocked.length} entries and this room ` +
+            `ships ${towers.length} tower(s). They are one vector`,
+        );
+      } else {
+        const off = [];
+        for (let i = 0; i < towers.length; i++) {
+          const want = refill3[idx(towers[i].x, towers[i].y)];
+          if (tw.refillDistsUnblocked[i] !== want) {
+            off.push(`${towers[i].x},${towers[i].y}: ${tw.refillDistsUnblocked[i]} vs ${want}`);
+          }
+        }
+        if (off.length) {
+          fails.push(
+            `meta.towers.refillDistsUnblocked is not the pre-mass hub-kit walk to the shipped towers: ` +
+              `${off.slice(0, 4).join(" · ")}. Flattening every entry to 1 used to pass`,
+          );
+        }
+      }
+    }
+  }
+
+  if (typeof sh.protectRadius === "number" && !RADII_WIDE.includes(sh.protectRadius)) {
+    fails.push(
+      `meta.shell.protectRadius is ${sh.protectRadius} and the negotiation radii are ${RADII_WIDE.join(",")}. ` +
+        `Zero is not a radius this room was allowed to try`,
+    );
+  }
+
+  if (typeof sh.baseCut === "number") {
+    if (!Number.isInteger(sh.baseCut) || sh.baseCut < 1) {
+      fails.push(
+        `meta.shell.baseCut is ${sh.baseCut}. It is layer 2's pick size and a room with no cut is not a room`,
+      );
+    }
+    const wantPrice = sh.baseCut > MAX_CUT;
+    if (!!sh.priceyWall !== wantPrice) {
+      fails.push(
+        `meta.shell.priceyWall is ${JSON.stringify(sh.priceyWall)} and baseCut ${sh.baseCut} ` +
+          `${wantPrice ? "exceeds" : "does not exceed"} MAX_CUT ${MAX_CUT}. priceyWall is that comparison, ` +
+          `not a free flag`,
+      );
+    }
+  }
+
+  const seat = mineralSeatOf(plan);
+  if (typeof misc.mineralBubble === "number" && seat) {
+    const hasRamp = (plan.structures?.rampart || []).some((r) => r.x === seat.x && r.y === seat.y);
+    const want = hasRamp ? 1 : 0;
+    if (misc.mineralBubble !== want) {
+      fails.push(
+        `meta.misc.mineralBubble is ${misc.mineralBubble} and the mineral seat at ${seat.x},${seat.y} ` +
+          `${hasRamp ? "carries" : "does not carry"} a rampart. The count is 1 iff the seat is ramparted`,
+      );
+    }
+  }
+
+  const laid = w.laidByKind || {};
+  const restored = w.restoredByKind || {};
+  if (typeof w.swampPaved === "number") {
+    const want = (laid.swampPave || 0) + (Array.isArray(restored.swampPave) ? restored.swampPave.length : 0);
+    if (w.swampPaved !== want) {
+      fails.push(
+        `meta.walls.swampPaved is ${w.swampPaved} and laid.swampPave + restored.swampPave is ${want}. ` +
+          `It counts holes closed, which is laid tiles plus the ones the prune had taken and this pass put back`,
+      );
+    }
+  }
+  if (typeof w.spurred === "number") {
+    const laidSpur = laid.spur || 0;
+    if ((w.spurred === 0) !== (laidSpur === 0)) {
+      fails.push(
+        `meta.walls.spurred is ${w.spurred} and laidByKind.spur is ${laidSpur}. A cluster was served ` +
+          `iff the spur pass laid a tile — zeroing the event while the laid book still names tiles used to pass`,
       );
     }
   }

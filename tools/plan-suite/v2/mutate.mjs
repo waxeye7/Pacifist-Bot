@@ -8443,6 +8443,42 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       p.meta.shell.battlementUnreachableTiles = [];
     },
     "battlementUnreachable");
+  run("r28/MF6-X-nukerHubDist-flattered-to-1",
+    any28((p) => typeof p.meta?.misc?.nukerHubDist === "number" && p.meta.misc.nukerHubDist !== 1),
+    (p) => { p.meta.misc.nukerHubDist = 1; },
+    "nukerHubDist");
+  run("r28/MF6-X-observerHubDist-flattered-to-1",
+    any28((p) => typeof p.meta?.misc?.observerHubDist === "number" && p.meta.misc.observerHubDist !== 1),
+    (p) => { p.meta.misc.observerHubDist = 1; },
+    "observerHubDist");
+  run("r28/MF6-X-refillDistsUnblocked-flattened-to-1",
+    any28((p) => Array.isArray(p.meta?.towers?.refillDistsUnblocked) && p.meta.towers.refillDistsUnblocked.some((v) => v !== 1)),
+    (p) => { p.meta.towers.refillDistsUnblocked = p.meta.towers.refillDistsUnblocked.map(() => 1); },
+    "refillDistsUnblocked");
+  run("r28/MF6-X-protectRadius-zeroed",
+    any28((p) => typeof p.meta?.shell?.protectRadius === "number"),
+    (p) => { p.meta.shell.protectRadius = 0; },
+    "protectRadius");
+  run("r28/MF6-X-priceyWall-cleared",
+    any28((p) => p.meta?.shell?.priceyWall),
+    (p) => { p.meta.shell.priceyWall = 0; },
+    "priceyWall");
+  run("r28/MF6-X-baseCut-zeroed",
+    any28((p) => typeof p.meta?.shell?.baseCut === "number" && p.meta.shell.baseCut > 0),
+    (p) => { p.meta.shell.baseCut = 0; },
+    "baseCut");
+  run("r28/MF6-X-mineralBubble-zeroed",
+    any28((p) => p.meta?.misc?.mineralBubble > 0),
+    (p) => { p.meta.misc.mineralBubble = 0; },
+    "mineralBubble");
+  run("r28/MF6-X-swampPaved-zeroed",
+    any28((p) => (p.meta?.walls?.swampPaved || 0) > 0),
+    (p) => { p.meta.walls.swampPaved = 0; },
+    "swampPaved");
+  run("r28/MF6-X-spurred-zeroed",
+    any28((p) => (p.meta?.walls?.spurred || 0) > 0 && (p.meta?.walls?.laidByKind?.spur || 0) > 0),
+    (p) => { p.meta.walls.spurred = 0; },
+    "spurred");
 }
 
 // ===========================================================================
