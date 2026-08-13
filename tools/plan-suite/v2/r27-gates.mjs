@@ -13,7 +13,7 @@
  */
 import { D8, chebyshev, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, interiorWalk, MAX_CUT, RADII_WIDE } from "./layer-shell.mjs";
+import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, MAX_CUT, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -784,6 +784,60 @@ export function checkR27(plan, ctx = {}) {
           `including tags whose tiles the prune later deleted. It is that event count, not a comment — ` +
           `zeroing it while the tags still name the roads used to pass`,
       );
+    }
+  }
+
+  // ROUND 28 / criticism 88 — a discarded rung with MORE ramparts than the
+  // shipped wall had a free mobility. The trail now publishes each composed
+  // rung's cut; the lap is enclosureMobility of that cut, not a number.
+  {
+    const esc = meta.shellEscalation;
+    const ladderDecl = (meta.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+    if (esc && ladderDecl && !Array.isArray(esc.rungs)) {
+      fails.push(
+        `meta.shellEscalation has no rungs trail and this room declares a ladder. Deleting the cut ` +
+          `list is how a fatter discarded lap goes back to being a free number`,
+      );
+    }
+    if (esc && Array.isArray(esc.rungs) && ctx.terrain && plan.sitter) {
+      const freeze = new Set((sh.cutAtFreeze || []).map(K));
+      const picked = esc.rungs.find((r) => r && r.needDeepBonus === esc.pickedNeedDeepBonus);
+      if (picked && Array.isArray(picked.cutTiles) && freeze.size) {
+        const got = new Set(picked.cutTiles.map(K));
+        if (got.size !== freeze.size || [...got].some((k) => !freeze.has(k))) {
+          fails.push(
+            `meta.shellEscalation.rungs picked needDeep+${esc.pickedNeedDeepBonus} cutTiles do not equal ` +
+              `cutAtFreeze. The winning rung IS layer 2's cut`,
+          );
+        }
+      }
+      const ladder = (meta.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const declRungs = ladder?.ladder?.rungs || [];
+      for (const row of esc.rungs) {
+        if (!row || !Array.isArray(row.cutTiles) || !row.cutTiles.length) {
+          fails.push(
+            `meta.shellEscalation.rungs has a row (needDeep+${row?.needDeepBonus}) with no cutTiles. ` +
+              `A rung without its enclosure is how a fatter discarded lap stayed free`,
+          );
+          continue;
+        }
+        const want = enclosureMobility(ctx.terrain, plan, row.cutTiles);
+        if (typeof row.mobility === "number" && typeof want === "number" && Math.abs(row.mobility - want) > 1e-6) {
+          fails.push(
+            `meta.shellEscalation.rungs needDeep+${row.needDeepBonus} mobility is ${row.mobility} and ` +
+              `enclosureMobility of its own cutTiles is ${want}. The discarded rung's lap is a walk ` +
+              `over the published cut, not a free number`,
+          );
+        }
+        const twin = declRungs.find((r) => r && r.needDeepBonus === row.needDeepBonus);
+        if (twin && typeof twin.mobility === "number" && typeof want === "number" && Math.abs(twin.mobility - want) > 1e-6) {
+          fails.push(
+            `ladder.rungs needDeep+${row.needDeepBonus} mobility is ${twin.mobility} and the cut the ` +
+              `trail published for that rung walks ${want}. Regenerating the paragraph does not ` +
+              `launder a fatter rung's invented lap`,
+          );
+        }
+      }
     }
   }
 

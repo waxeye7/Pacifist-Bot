@@ -619,6 +619,30 @@ export function maskFromKeys(set) {
 }
 
 /**
+ * Layer-2 defender lap of an enclosure given only its cut.
+ *
+ * Occupied set is the layer-2 walk: hub kit + every link + room objects.
+ * Towers, labs, extensions, nuker, observer are not on that board — they
+ * land later — so a discarded escalation rung, which never built them, is
+ * re-derivable from the cut tiles the trail publishes.
+ */
+export function enclosureMobility(terrain, plan, cut) {
+  if (!cut || !cut.length || !plan?.sitter || !terrain) return null;
+  const occupied = new Set();
+  for (const t of ["storage", "terminal", "spawn", "link"]) {
+    for (const q of plan.structures?.[t] || []) occupied.add(key(q.x, q.y));
+  }
+  if (plan.sitter) occupied.add(key(plan.sitter.x, plan.sitter.y));
+  for (const src of plan.sources || []) occupied.add(key(src.x, src.y));
+  if (plan.controller) occupied.add(key(plan.controller.x, plan.controller.y));
+  if (plan.mineral) occupied.add(key(plan.mineral.x, plan.mineral.y));
+  const cutSet = new Set(cut.map((c) => key(c.x, c.y)));
+  const ext = exteriorFlood(terrain, cutSet);
+  const walk = interiorWalk(terrain, cutSet, ext, occupied, plan.sitter);
+  return mobilityStats(cut, ext, maskFromKeys(walk)).maxGated;
+}
+
+/**
  * Deterministic farthest-point subset: seed with the farthest pair, then
  * repeatedly take the tile furthest from everything already chosen. No RNG,
  * no dependence on the order the cut was scanned in — ties are broken by

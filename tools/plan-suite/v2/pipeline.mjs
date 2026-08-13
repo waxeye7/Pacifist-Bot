@@ -1630,6 +1630,8 @@ const mobilityAllowance = (reclaimed) =>
 const MATERIAL_LAP = 0.25;
 const round2 = (v) => Math.round(v * 100) / 100;
 
+const cutTilesOf = (p) =>
+  (p?.meta?.shell?.cutAtFreeze || p?.shell?.cut || []).map((t) => ({ x: t.x, y: t.y }));
 const rungRecord = (p, seedSkip, si) => ({
   seedSkip,
   rung: si,
@@ -1638,6 +1640,9 @@ const rungRecord = (p, seedSkip, si) => ({
   mobility: mobOf(p),
   ramparts: rampartsOf(p),
   cut: cutOf(p),
+  // criticism 88 — the discarded rung's enclosure. Mobility is re-derived
+  // from these tiles; without them a fatter rung's lap is a free number.
+  cutTiles: cutTilesOf(p),
   complete: p?.shell ? grade(p).complete : false,
   ecoCost: ecoCost(p),
   // the program this composition actually held — the evidence behind an
@@ -2026,6 +2031,7 @@ function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache)
       if (noGainStreak > NO_GAIN_PATIENCE && !(mobilityWalk && mobOf(win) > MOBILITY_TARGET)) break;
     }
   }
+  const mine = trail.filter((r) => r.seedSkip === seedSkip);
   win.meta.shellEscalation = {
     steps,
     walked: shallowWalk || mobilityWalk || demandWalk,
@@ -2038,6 +2044,16 @@ function minUpkeepShell(d, first, firstIdx, ecoCap, seedSkip, trail, shellCache)
     mobilityPicked: mobOf(win),
     // kept as colour on the report, never as a gate on the search — see above
     causeFirst: mobCauseOf(first),
+    // criticism 88 — every composed rung of this seed, with the cut the
+    // validator re-walks. ladder.rungs mobility must equal enclosureMobility
+    // of the matching cutTiles; a fatter discarded rung is no longer free.
+    rungs: mine.map((r) => ({
+      needDeepBonus: r.needDeepBonus,
+      mobility: r.mobility,
+      ramparts: r.ramparts,
+      complete: r.complete,
+      cutTiles: (r.cutTiles || []).map((t) => ({ x: t.x, y: t.y })),
+    })),
   };
   return win;
 }

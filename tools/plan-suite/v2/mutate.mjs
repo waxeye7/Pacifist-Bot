@@ -8483,6 +8483,24 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.towers?.newRoads || 0) > 0),
     (p) => { p.meta.towers.newRoads = 0; },
     "newRoads");
+  run("r28/88-X-fatter-discarded-rung-mobility-and-regen",
+    any28((p) => {
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const shipped = (p.structures?.rampart || []).length;
+      return !!(sf && (p.meta?.shellEscalation?.rungs || []).some((r) => r && Array.isArray(r.cutTiles) && r.cutTiles.length) &&
+        sf.ladder.rungs.some((r) => r && r.ramparts > shipped && typeof r.mobility === "number"));
+    }),
+    (p) => {
+      const shipped = (p.structures.rampart || []).length;
+      for (const sf of p.meta.shortfalls || []) {
+        if (!sf.ladder?.rungs) continue;
+        for (const r of sf.ladder.rungs) {
+          if (r && r.ramparts > shipped && typeof r.mobility === "number") r.mobility = 0.5;
+        }
+        sf.detail = renderDecl(sf);
+      }
+    },
+    "ladder.rungs|enclosureMobility|invented lap");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {
