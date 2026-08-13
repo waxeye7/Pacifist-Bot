@@ -282,9 +282,12 @@ const MAX_SPAWN_QUEUE = 24;
 /**
  * Minimum ticks between two head-of-line interleaves in one room. Interleaving
  * spends the energy the stalled head is waiting for, so it has to be rare
- * enough that the head still gets there.
+ * enough that the head still gets there. RCL1-3 uses INTERLEAVE_EVERY_RCL1_3
+ * for both the consecutive -6 bar and this cooldown (a 500e head used to idle
+ * a full cheap creep at 40).
  */
 const INTERLEAVE_EVERY = 40;
+const INTERLEAVE_EVERY_RCL1_3 = 10;
 
 function isRoutineSpawn(name:string):boolean {
     if(!name) return false;
@@ -3084,11 +3087,12 @@ function spawnFirstInLine(room, spawn) {
                 // 300 energy Builder sitting second in line was affordable that
                 // entire time and never once got a spawnCreep() call.
                 //
-                // So after the head has answered -6 for 40 ticks straight, walk
-                // down the queue and spawn the first entry the room can
-                // actually pay for. Memory is NOT reordered - the head keeps
-                // its first claim on the spawn every following tick, it just
-                // stops holding the whole room hostage while it waits.
+                // So after the head has answered -6 for INTERLEAVE_EVERY ticks
+                // (10 at RCL<=3), walk down the queue and spawn the first
+                // entry the room can actually pay for. Memory is NOT reordered
+                // - the head keeps its first claim on the spawn every following
+                // tick, it just stops holding the whole room hostage while it
+                // waits.
                 //
                 // The scan used to stop after 5 entries, to keep a long war
                 // queue from making this expensive. That bound is what made it
@@ -3106,10 +3110,12 @@ function spawnFirstInLine(room, spawn) {
                 // affordable second entry was spawned every single tick. One
                 // per 40 ticks (the cadence the shrink rung already uses) keeps
                 // the spawn busy while still letting the head accumulate.
-                if(room.memory.spawnStall > 40
+                const interleaveAfter = room.controller.level <= 3
+                    ? INTERLEAVE_EVERY_RCL1_3 : INTERLEAVE_EVERY;
+                if(room.memory.spawnStall > interleaveAfter
                 && room.memory.spawn_list.length >= 6
                 && room.memory.spawn_list[1] === headName
-                && Game.time - (room.memory.lastInterleave || 0) > INTERLEAVE_EVERY) {
+                && Game.time - (room.memory.lastInterleave || 0) > interleaveAfter) {
                     for(let i = 3; i + 2 < room.memory.spawn_list.length; i += 3) {
                         let candidate:string[] = room.memory.spawn_list[i];
                         if(!candidate || !candidate.length) continue;

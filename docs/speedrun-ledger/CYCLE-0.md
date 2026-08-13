@@ -74,3 +74,5 @@ RCL1–3 builder and RCL2/3 repair gates in `src/Rooms/rooms.spawning.ts` no lon
 Home carriers no longer price haul off a phantom 6 WORK / 12 e/t. `getCarrierBody` (home sources only) and `homeCarriersWanted` size to `2 *` live EnergyMiner WORK on that `memory.sourceId` (floor 4 if none hatched yet — one 2W about to exist — cap 10). First hauler stays `[CARRY,CARRY,MOVE]`. Hypothesis: RCL1–3 rooms stop queuing 150e carriers that steal the spawn from upgraders. A/B still pending.
 
 `getBody` now sizes segments from `energyCapacityAvailable` and will not emit above capacity (stack clamped to 85% of cap; one oversize segment ships only if it fits, else a prefix or skip). RCL1 queues 2 upgraders of `[W,C,C,M]` (250), not 6. RCL2 at 550 cap ships a fixed `[4W,C,M]` (500, 4 WORK) instead of one 300-energy `[2W,C,M]` leftover-sized segment. RCL3 uses `[4W,C,M]` until cap hits 800, then `getBody([W,W,C,M])` → 4W2C2M. Hypothesis: RCL2 upgrades at 4 e/t, not 2. A/B still pending.
+
+RCL1–3 `spawnFirstInLine` interleaves the next affordable queue entry after 10 consecutive `ERR_NOT_ENOUGH_ENERGY` (was 40); RCL4+ stays at 40.
