@@ -735,6 +735,10 @@ export function planExtensions(terrain, plan) {
     capped: false,
     used: laneRounds > 0,
     roundCap: laneRounds,
+    // criticism 98 — the reserved tiles themselves, by greedy round. A shrink
+    // is a proper prefix of this board, not a pair of integers that agree.
+    reserved: [],
+    byRound: [],
   };
   const extensions = [];
   /** the same tiles as `extensions`, for the O(1) 2x2 test below */
@@ -1597,6 +1601,7 @@ export function planExtensions(terrain, plan) {
       }
       deepSpent += deepAdd;
       laneInfo.rounds++;
+      laneInfo.byRound.push([...add].sort());
       if (strandRound) laneInfo.strandRounds++;
       boundMask = boundWalk();
       strands = strandsIn(boundMask);
@@ -1611,6 +1616,7 @@ export function planExtensions(terrain, plan) {
     laneInfo.stranded = strands.length;
     laneInfo.tiles = laneSet.size;
     laneInfo.deep = deepSpent;
+    laneInfo.reserved = [...laneSet].sort();
 
     // ---- PAVE THE LANE. A reserved tile is floor the mass may not build on;
     //      left bare that is a slot spent on nothing. Paved, it is CORRIDOR —
@@ -2287,6 +2293,8 @@ export function planExtensions(terrain, plan) {
       ran: !!(L.tiles && (run.extension.length < TARGET || run.extMeta.shallow > 0)),
       used: L.rounds || 0,
       to: L.rounds || 0,
+      reserved: [...(L.reserved || [])],
+      byRound: (L.byRound || []).map((r) => [...r]),
     };
   };
   const fullRun = snapFull(out);
@@ -2450,6 +2458,8 @@ export function planExtensions(terrain, plan) {
         roundCap: 0,
         tiles: 0,
         deep: 0,
+        reserved: [],
+        byRound: [],
         dropped: true,
         droppedFor: shorter ? "extensions" : dearer ? "ramparts" : "no-gain",
         wanted: lm.tiles,

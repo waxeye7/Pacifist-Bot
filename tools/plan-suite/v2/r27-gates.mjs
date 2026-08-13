@@ -835,6 +835,12 @@ export function checkR27(plan, ctx = {}) {
   // shipped board of a real shrink is 60/0 with tiles, same as a kept-free
   // reservation. fullRun is the cap-10 walk that decided whether shrink
   // was considered. ran is a function of that walk, not of `shrunk`.
+  //
+  // ROUND 29 / the residue: forging the whole fullRun then inventing a
+  // consistent shrink. Counts that agree with each other are a log. The
+  // reserved tiles are the board. A shrink is a proper prefix of that
+  // board; a kept walk's fullRun.ext/shallow on a 60/0 room is the
+  // shipped board, not a pair of free integers.
   {
     const lane = meta.extensions?.laneMeta || w.mobility?.lanes;
     if (lane && typeof lane === "object") {
@@ -906,6 +912,128 @@ export function checkR27(plan, ctx = {}) {
               `fullRun.to is ${fr.to} and used is ${fr.used} and the room publishes neither shrink nor ` +
                 `drop. The search kept the cap-10 walk`,
             );
+          }
+        }
+
+        const reserved = Array.isArray(fr.reserved) ? fr.reserved.map(String) : null;
+        const byRound = Array.isArray(fr.byRound) ? fr.byRound : null;
+        const laneRes = Array.isArray(lane.reserved) ? lane.reserved.map(String) : null;
+        if (!reserved) {
+          fails.push(
+            `fullRun.reserved is missing. It is the cap-10 reserved-tile board; without it a plain ` +
+              `room forges tiles/ext/shallow and publishes a priced shrink of a walk that never ran`,
+          );
+        } else {
+          const seen = new Set();
+          let bad = 0;
+          for (const k of reserved) {
+            if (seen.has(k) || !COORD.test(k)) bad++;
+            else seen.add(k);
+          }
+          if (bad) {
+            fails.push(
+              `fullRun.reserved has ${bad} duplicate or off-board key(s). It is a set of tiles, not a bag`,
+            );
+          }
+          if (reserved.length !== (fr.tiles || 0)) {
+            fails.push(
+              `fullRun.reserved has ${reserved.length} tile(s) and fullRun.tiles is ${fr.tiles}. ` +
+                `tiles is that board's size`,
+            );
+          }
+          if (!byRound) {
+            fails.push(
+              `fullRun.byRound is missing. It is the cap-10 walk split by greedy round; a shrink is ` +
+                `the prefix of this list, not a free integer`,
+            );
+          } else {
+            if (byRound.length !== (fr.rounds || 0)) {
+              fails.push(
+                `fullRun.byRound has ${byRound.length} round(s) and fullRun.rounds is ${fr.rounds}. ` +
+                  `rounds is that list's length`,
+              );
+            }
+            const empty = byRound.findIndex((r) => !Array.isArray(r) || !r.length);
+            if (empty >= 0) {
+              fails.push(
+                `fullRun.byRound[${empty}] is empty. The greedy does not record a round that reserved nothing`,
+              );
+            }
+            const flat = byRound.flat().map(String).sort();
+            const want = reserved.slice().sort();
+            if (flat.join("|") !== want.join("|")) {
+              fails.push(
+                `fullRun.byRound flattens to ${flat.length} tile(s) and reserved is ${want.length}. ` +
+                  `They are one set, grouped by the round that took each tile`,
+              );
+            }
+          }
+          if (!laneRes) {
+            fails.push(
+              `lane.reserved is missing. It is the shipped reservation; a shrink is a proper prefix ` +
+                `of the cap-10 board, and without the shipped tiles that sentence has no board`,
+            );
+          } else {
+            if (laneRes.length !== (lane.tiles || 0)) {
+              fails.push(
+                `lane.reserved has ${laneRes.length} tile(s) and lane.tiles is ${lane.tiles}. ` +
+                  `tiles is that board's size`,
+              );
+            }
+            const sortJ = (a) => a.slice().sort().join("|");
+            if (!shrunk && !dropped) {
+              if (sortJ(reserved) !== sortJ(laneRes)) {
+                fails.push(
+                  `fullRun.reserved and lane.reserved disagree and this room kept the cap-10 walk. ` +
+                    `They are the same board when shrink never ran`,
+                );
+              }
+              const shippedExt = (plan.structures?.extension || []).length;
+              if (fr.ext !== shippedExt) {
+                fails.push(
+                  `fullRun.ext is ${fr.ext} and this room ships ${shippedExt} extension(s). A kept ` +
+                    `cap-10 walk is the shipped mass`,
+                );
+              }
+              const shippedShallow = meta.extensions?.shallow || 0;
+              if (shippedExt === 60 && shippedShallow === 0 && ((fr.ext || 0) !== 60 || (fr.shallow || 0) !== 0)) {
+                fails.push(
+                  `this room ships 60/0 and kept the cap-10 walk, and fullRun is ext=${fr.ext} ` +
+                    `shallow=${fr.shallow}. Forging those two integers is how a free walk publishes ` +
+                    `a priced refusal that never ran`,
+                );
+              }
+            } else if (shrunk) {
+              const to = lane.shrunk && typeof lane.shrunk.to === "number" ? lane.shrunk.to : -1;
+              const prefix = (byRound || []).slice(0, to).flat().map(String);
+              if (sortJ(prefix) !== sortJ(laneRes)) {
+                fails.push(
+                  `the first ${to} round(s) of fullRun.byRound are [${prefix.slice(0, 6).join(" ")}] ` +
+                    `and lane.reserved is [${laneRes.slice(0, 6).join(" ")}]. A shrink is that prefix, ` +
+                    `tile for tile`,
+                );
+              }
+              if (reserved.length <= laneRes.length) {
+                fails.push(
+                  `fullRun.reserved has ${reserved.length} tile(s) and the shipped reservation has ` +
+                    `${laneRes.length}. A shrink is a proper tile prefix, not the same board with a ` +
+                    `new integer in front of it`,
+                );
+              }
+            } else if (dropped) {
+              if (laneRes.length) {
+                fails.push(
+                  `this room DROPPED the reservation and lane.reserved still names ${laneRes.length} ` +
+                    `tile(s). The shipped reservation is empty`,
+                );
+              }
+              if (!reserved.length) {
+                fails.push(
+                  `this room DROPPED the reservation and fullRun.reserved is empty. The walk it ` +
+                    `refused is a board, not a count`,
+                );
+              }
+            }
           }
         }
       }

@@ -581,7 +581,7 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **1237/1237 caught** (1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
+  The mutation suite is at **1299/1299 caught** (1237/1237 at round 26, 1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
   round 17, 603/603 at
   round 16, 465/465 at
   round 15, 338/338 at
@@ -2942,9 +2942,19 @@ the published cap-10 `fullRun` · criticism 93 invent: taken-room
 the mutation suite 1258 → **1285** · numeral-audit **210 / 151 re-derived
 / 59 waived at 36 sites / 0 unowned / 0 WRONG**. **Still open, named:**
 134(a) is a fleet property not a theorem · 134(c)/(d) unchanged · 93
-`recovers`/`recoversDeep` on taken rooms · 98 residue is forge-the-whole-
-`fullRun` then invent a consistent shrink · 141(e) dropped `seed` in 46
+`recovers`/`recoversDeep` on taken rooms · 141(e) dropped `seed` in 46
 rooms · exact `baseCut`/`protectRadius` pick.
+**Round 29 is in progress, four implementation passes, zero boards.**
+r29p1: `cutAdopted` is the last pass · r29p2: `cutPasses` leaves derived ·
+r29p3: cheap META_DARK twins (`extractorOffNetwork`, `extractorSeatNetTiles`,
+`mobilityShippedFree`) · r29p4: criticism 98 — every room publishes the
+cap-10 reserved-tile board (`fullRun.reserved` / `fullRun.byRound`); a
+shrink is a proper tile prefix of that board; a kept 60/0 walk's
+`fullRun.ext`/`shallow` are the shipped board. Artifact md5
+`7eed9e2c02f0641ec4fc80b4c8a0b496`. Mutate 1295 → **1299**. Residue of
+98: invent extra reserved tiles that still prefix-match. Still open: 88
+other fake cuts · 93 recovers · remaining presence · exact pick · 141(e)
+· 134(a,c,d).
 **And one thing the gates gained that no channel shows:** all four
 `exteriorContract` consumers are re-derived from terrain now rather than one,
 and the frozen anchor they are derived against is bound three ways — the flood
@@ -9893,9 +9903,16 @@ it says so in the entry rather than in a comment.
    Last prune's `ramparts` is shipped + its own deletions; first prune's is the
    reconstructed start (a +1 slack only on the three rooms whose pre-reflow
    array had a duplicate slot). A sum-preserving `rampartsDeleted` swap bites.
-   Mutate 1287 → **1292**. Still open: 98 forge-`fullRun`, 88 other fake cuts
-   that walk the claimed lap, 93 recovers, META_DARK presence, exact pick,
-   141(e), 134(a,c,d).
+   r29p3: `extractorOffNetwork` is the mineral-off twin; `extractorSeatNetTiles`
+   is the finished network; `mobilityShippedFree.maxGated` is the mass-free walk.
+   r29p4: criticism 98 — `fullRun.reserved` / `fullRun.byRound` is the cap-10
+   reserved-tile board. A shrink is a proper tile prefix of that board (the
+   first `shrunk.to` rounds flatten to `lane.reserved`). A kept 60/0 walk cannot
+   publish a costly `fullRun.ext`/`shallow`. Forging the whole count-log then
+   inventing shrink BITES; deleting the reserved board on a real shrink BITES.
+   Residue: invent extra reserved tiles that still prefix-match. Mutate 1295 →
+   **1299**. Still open: 88 other fake cuts that walk the claimed lap, 93
+   recovers, remaining META_DARK presence, exact pick, 141(e), 134(a,c,d).
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
@@ -9983,7 +10000,7 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
-- Mutations: `.../mutate.mjs` (**1285/1285 bite** against a clean 172/172
+- Mutations: `.../mutate.mjs` (**1299/1299 bite** against a clean 172/172
   baseline; `--only r28/` for one round's block; honours `PLANS_FILE` and never
   writes the artifact). Four of round 25's controls were NOT in that count and say
   so at criticism 128(a): the film, page and chip forgeries live in `out-v2/` and

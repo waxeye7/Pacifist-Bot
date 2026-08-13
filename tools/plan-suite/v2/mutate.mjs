@@ -8555,6 +8555,60 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       if (p.meta.walls?.mobility?.lanes) delete p.meta.walls.mobility.lanes.fullRun;
     },
     "fullRun is missing");
+  run("r29/98-X-forge-fullRun-then-invent-shrink",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.fullRun && !L.fullRun.ran && !L.shrunk && !L.dropped && Array.isArray(L.fullRun.reserved));
+    }),
+    (p) => {
+      const L = p.meta.extensions.laneMeta;
+      const W = p.meta.walls.mobility.lanes;
+      const wanted = (L.tiles || 0) + 12;
+      const fullRun = {
+        ...L.fullRun,
+        tiles: wanted,
+        rounds: 10,
+        shallow: 2,
+        ext: 58,
+        ran: true,
+        used: 10,
+        to: L.rounds || 2,
+      };
+      const shrunk = { from: 10, to: fullRun.to, wanted, premium: 0 };
+      L.fullRun = fullRun;
+      L.shrunk = shrunk;
+      L.roundCap = fullRun.to;
+      if (W && W !== L) {
+        W.fullRun = { ...fullRun };
+        W.shrunk = { ...shrunk };
+        W.roundCap = fullRun.to;
+      }
+    },
+    "invent|shrink|reserved|prefix|60/0");
+  run("r29/98-X-fullRun-reserved-deleted-on-a-shrink",
+    any28((p) => p.meta?.extensions?.laneMeta?.shrunk && Array.isArray(p.meta.extensions.laneMeta.fullRun?.reserved)),
+    (p) => {
+      delete p.meta.extensions.laneMeta.fullRun.reserved;
+      delete p.meta.extensions.laneMeta.fullRun.byRound;
+      if (p.meta.walls?.mobility?.lanes?.fullRun) {
+        delete p.meta.walls.mobility.lanes.fullRun.reserved;
+        delete p.meta.walls.mobility.lanes.fullRun.byRound;
+      }
+    },
+    "fullRun.reserved is missing");
+  run("r29/98-X-kept-60-0-fullRun-shallow-forged",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.fullRun && !L.fullRun.ran && !L.shrunk && !L.dropped &&
+        (p.structures?.extension || []).length === 60 && !(p.meta?.extensions?.shallow));
+    }),
+    (p) => {
+      const L = p.meta.extensions.laneMeta;
+      const W = p.meta.walls.mobility.lanes;
+      L.fullRun = { ...L.fullRun, shallow: 2, ran: true };
+      if (W && W !== L && W.fullRun) W.fullRun = { ...W.fullRun, shallow: 2, ran: true };
+    },
+    "ships 60/0|forging those two integers");
   run("r28/93-X-taken-room-fixedHolder-invented-off-the-board",
     any28((p) => p.meta?.sealedRecovery?.outcome === "taken"),
     (p) => {
