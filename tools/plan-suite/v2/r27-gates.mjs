@@ -1148,6 +1148,57 @@ export function checkR27(plan, ctx = {}) {
   {
     const esc = meta.shellEscalation;
     const ladderDecl = (meta.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+    const shippedRamp = (plan.structures?.rampart || []).length;
+    const shippedCuts = sh.cutAtFreeze?.length ? sh.cutAtFreeze : sh.cut;
+    const pickedBonus = esc && typeof esc.pickedNeedDeepBonus === "number" ? esc.pickedNeedDeepBonus : null;
+    const shippedLap =
+      ctx.terrain && plan.sitter && shippedCuts && shippedCuts.length
+        ? enclosureMobility(ctx.terrain, plan, shippedCuts)
+        : null;
+    const sameCutSet = (a, b) => {
+      const s = new Set((b || []).map(K));
+      return !!(s.size && a && a.length === s.size && a.every((t) => s.has(K(t))));
+    };
+    // Discarded = not the picked bonus. Recovery rooms ship a ladder and no
+    // escalation trail; there the winner is the rung whose ramparts match the
+    // wall this room built.
+    const isDiscarded = (row) => {
+      if (!row) return false;
+      if (esc && pickedBonus !== null) return row.needDeepBonus !== pickedBonus;
+      return typeof row.ramparts === "number" && row.ramparts !== shippedRamp;
+    };
+    // r29p8 / 88 — judge the published cut, not the free ramparts integer.
+    // cheaper-and-not-longer on row.ramparts misses an 8-tile box at lap 0
+    // that keeps ramparts=50 when shippedLap is under the buy floor.
+    const judgeDiscardedPublishedCut = (row, cuts, where) => {
+      if (!isDiscarded(row) || !cuts || !cuts.length) return;
+      if (
+        (sameCutSet(cuts, sh.cutAtFreeze) || sameCutSet(cuts, sh.cut)) &&
+        (typeof row.ramparts !== "number" || row.ramparts !== shippedRamp)
+      ) {
+        fails.push(
+          `${where} needDeep+${row.needDeepBonus} discarded enclosure is not the winner's cut — ` +
+            `its published cut equals cutAtFreeze or shell.cut. Dropping ramparts to the cut length ` +
+            `used to skip the fatter-and-freeze identity`,
+        );
+      }
+      if (!ctx.terrain || !plan.sitter || typeof shippedLap !== "number") return;
+      const lap = enclosureMobility(ctx.terrain, plan, cuts);
+      if (typeof lap !== "number" || !(lap < shippedLap - 1e-6) || cuts.length > shippedCuts.length) return;
+      // E4S2 needDeep+0 walks lap 0 at the same published-cut length as the
+      // winner and lost on ramparts. A strictly shorter cut is never a real
+      // discarded composition; a same-length prettier cut is only a would-have
+      // against a later challenger.
+      const later =
+        pickedBonus === null || (typeof row.needDeepBonus === "number" && row.needDeepBonus > pickedBonus);
+      if (cuts.length === shippedCuts.length && !later) return;
+      fails.push(
+        `${where} needDeep+${row.needDeepBonus} published cut is ${cuts.length} tile(s) at a lap of ${lap} ` +
+          `against the shipped published cut of ${shippedCuts.length} at ${shippedLap}. The escalation ` +
+          `would have taken this challenger — a discarded enclosure that walks a strictly better lap ` +
+          `at no extra length is judged by its published cut, not a free ramparts integer`,
+      );
+    };
     if (esc && ladderDecl && !Array.isArray(esc.rungs)) {
       fails.push(
         `meta.shellEscalation has no rungs trail and this room declares a ladder. Deleting the cut ` +
@@ -1180,11 +1231,11 @@ export function checkR27(plan, ctx = {}) {
               `launder a fatter rung's invented lap`,
           );
         }
+        judgeDiscardedPublishedCut(row, cuts, "ladder.rungs");
         // r29 / 88 residue — a fatter discarded cut replaced with the shipped
         // cut, mobility set to the winner's lap, regen, escaped. enclosureMobility
         // of a free list is an agreement test. A wider enclosure is not the
         // winner's cut.
-        const shippedRamp = (plan.structures?.rampart || []).length;
         if (typeof row.ramparts === "number" && row.ramparts > shippedRamp) {
           const freeze = new Set((sh.cutAtFreeze || []).map(K));
           const same =
@@ -1231,6 +1282,7 @@ export function checkR27(plan, ctx = {}) {
               `over the published cut, not a free number`,
           );
         }
+        judgeDiscardedPublishedCut(row, row.cutTiles, "meta.shellEscalation.rungs");
         const twin = declRungs.find((r) => r && r.needDeepBonus === row.needDeepBonus);
         if (twin && typeof twin.mobility === "number" && typeof want === "number" && Math.abs(twin.mobility - want) > 1e-6) {
           fails.push(

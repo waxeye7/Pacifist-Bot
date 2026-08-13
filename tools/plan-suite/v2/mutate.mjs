@@ -82,6 +82,7 @@ import { renderSatBasis } from "./declprose-towers.mjs";
 // under a sentence nobody re-typed, which is the exact shape the class takes.
 import { audit as numeralAudit, report as numeralReport, PENDING_FILES as NUMERAL_PENDING } from "./numeral-audit.mjs";
 import { D4, D8, OUT_V2, exteriorFlood, fetchRoomsFromMongo, isSwamp, isWall, key, walkable } from "./shared.mjs";
+import { enclosureMobility } from "./layer-shell.mjs";
 
 const argv = process.argv.slice(2);
 const flag = (n) => argv.includes(n);
@@ -8773,6 +8774,54 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "would have|cheaper|upkeep|first objective");
+  run("r30/88-X-last-fat-8-tile-box-keep-ramparts",
+    any28((p) => {
+      const shipped = (p.structures?.rampart || []).length;
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const rungs = sf?.ladder?.rungs || [];
+      const last = rungs[rungs.length - 1];
+      const s = p.sitter;
+      return !!(
+        last &&
+        last.complete &&
+        last.ramparts > shipped &&
+        Array.isArray(last.cutTiles) &&
+        last.cutTiles.length &&
+        s &&
+        Number.isInteger(s.x) &&
+        s.x >= 3 &&
+        s.x <= 46 &&
+        s.y >= 3 &&
+        s.y <= 46
+      );
+    }),
+    (p, d) => {
+      const s = p.sitter;
+      const box = [];
+      for (const [dx, dy] of [[-3, 0], [3, 0], [0, -3], [0, 3], [-3, -3], [-3, 3], [3, -3], [3, 3]]) {
+        box.push({ x: s.x + dx, y: s.y + dy });
+      }
+      const lap = enclosureMobility(d.terrain, p, box);
+      if (typeof lap !== "number") throw new Error("8-tile box around the sitter has no enclosureMobility");
+      const sf = (p.meta.shortfalls || []).find((s0) => s0 && s0.ladder);
+      const lastBonus = sf.ladder.rungs[sf.ladder.rungs.length - 1].needDeepBonus;
+      for (const row of sf.ladder.rungs) {
+        if (row && row.needDeepBonus === lastBonus) {
+          row.cutTiles = box.map((t) => ({ x: t.x, y: t.y }));
+          row.mobility = lap;
+        }
+      }
+      sf.detail = renderDecl(sf);
+      if (p.meta.shellEscalation?.rungs) {
+        for (const row of p.meta.shellEscalation.rungs) {
+          if (row && row.needDeepBonus === lastBonus) {
+            row.cutTiles = box.map((t) => ({ x: t.x, y: t.y }));
+            row.mobility = lap;
+          }
+        }
+      }
+    },
+    "would have taken|published cut");
   run("r29/MF6-X-extractorOffNetwork-flipped-alone",
     any28((p) => typeof p.meta?.misc?.extractorOffNetwork === "boolean" && typeof p.meta?.misc?.mineralOffNetwork === "boolean"),
     (p) => { p.meta.misc.extractorOffNetwork = !p.meta.misc.extractorOffNetwork; },
