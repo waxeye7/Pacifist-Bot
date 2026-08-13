@@ -181,6 +181,12 @@ function clampSpawnListToCapacity(room) {
         // full capacity budget: they are sized deliberately for a fight and a
         // shrunk war creep is worse than a late one.
         let budget = isRoutineSpawn(name) ? Math.floor(hardCap * 0.85) : hardCap;
+        // 4W+C+M is 500; 85% of RCL2's 550 is 467 and would strip a WORK.
+        // Early rooms wait for one empty extension. The 100%-of-cap HOL this
+        // 85% exists for is an RCL5+ maintainer, not a 500-energy upgrader.
+        if(name && name.startsWith("Upgrader") && hardCap <= 550) {
+            budget = hardCap;
+        }
         // BOOTSTRAP budget. Everything above assumes the room can eventually
         // fill its extensions - but filling them is exactly what a miner pays
         // for, so an UNWORKED source plus an empty bank is a body the room can
@@ -748,7 +754,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             upgrade_creep: {
 
-                amount: 6,
+                amount: 2,
                 body:   getBody([WORK,CARRY,CARRY,MOVE], room),
 
             },
@@ -774,7 +780,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 4,
-                body:   getBody([WORK,WORK,CARRY,MOVE], room),
+                body:   room.energyCapacityAvailable >= 550
+                    ? [WORK,WORK,WORK,WORK,CARRY,MOVE]
+                    : getBody([WORK,WORK,CARRY,MOVE], room),
 
             },
 
@@ -813,7 +821,11 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 2,
-                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                body:   room.energyCapacityAvailable >= 800
+                    ? getBody([WORK,WORK,CARRY,MOVE], room)
+                    : room.energyCapacityAvailable >= 550
+                        ? [WORK,WORK,WORK,WORK,CARRY,MOVE]
+                        : getBody([WORK,WORK,CARRY,MOVE], room),
 
             },
 
@@ -1943,8 +1955,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     //   - A room at RCL3 may have NO STORAGE AT ALL, which the old `storage &&`
     //     silently excluded — the exact rooms that needed this most were the
     //     ones the gate refused. So no-storage passes: getBody() sizes the body
-    //     off room.energyAvailable, never off storage, so a storage-less room
-    //     simply gets the smaller erector its spawn pool can afford.
+    //     off energyCapacityAvailable (clamped to 85%), never off storage.
     //   - 2000 when storage DOES exist: deliberately modest, not a build budget.
     //     Ramparts cost 1 energy per construction site to complete (the hits
     //     come later, from towers and repairers), so the shell is nearly free
@@ -3324,7 +3335,8 @@ function keepOneUpgrader(room, miners:number): number {
  *   income builds them whatever the bank says — but on a thin bank it runs ONE
  *   builder instead of the full roster, so construction is a trickle rather than
  *   a competing sink. The body needs no clamp of its own: getBody() sizes off
- *   room.energyAvailable at queue time, so a poor room emits a small builder.
+ *   energyCapacityAvailable (85% soft cap), so it never exceeds what the room
+ *   can eventually pay.
  *
  *   RAMPARTS are discretionary hit-points and keep the old behaviour exactly —
  *   they come off a bank, and off a thin bank a rampart-only room gets nothing.
@@ -3474,13 +3486,39 @@ function drainPressure(room): any {
 
 function getBody(segment:string[], room, bodyMaxLength=50) {
     let body = [];
+    if(!segment || !segment.length) return body;
     let segmentCost = _.sum(segment, s => BODYPART_COST[s]);
-    let energyAvailable = room.energyAvailable;
+    if(segmentCost <= 0) return body;
 
-    // never 0 segments: an energy dip at queue time would emit an EMPTY body,
-    // and spawnCreep([]) fails -10 forever (the queue re-adds it each pass).
-    // With one segment minimum the spawner just waits -6 until affordable.
-    let maxSegments = Math.max(1, Math.floor(energyAvailable / segmentCost));
+    // Size off energyCapacityAvailable, not this tick's leftovers. An energy
+    // dip used to pin every RCL2 upgrader at one 300-energy segment (2 WORK)
+    // for the whole level. Soft-cap the stack at 85% of capacity — same budget
+    // as clampSpawnListToCapacity — so we never emit a 100% body the queue
+    // cannot buy. A single segment that overshoots 85% still ships if it fits
+    // capacity; otherwise the largest prefix that fits, or empty.
+    let capacity = room.energyCapacityAvailable;
+    let budget = Math.min(capacity, Math.floor(capacity * 0.85));
+    let maxSegments = Math.floor(capacity / segmentCost);
+    if(budget > 0) {
+        maxSegments = Math.min(maxSegments, Math.floor(budget / segmentCost));
+    } else {
+        maxSegments = 0;
+    }
+
+    if(maxSegments < 1) {
+        if(segmentCost <= capacity && segment.length <= bodyMaxLength) {
+            return segment.slice();
+        }
+        let cost = 0;
+        for(let i = 0; i < segment.length && body.length < bodyMaxLength; i++) {
+            let partCost = BODYPART_COST[segment[i]];
+            if(cost + partCost > capacity) break;
+            body.push(segment[i]);
+            cost += partCost;
+        }
+        return body;
+    }
+
     _.times(maxSegments, function() {if(segment.length + body.length <= bodyMaxLength){_.forEach(segment, s => body.push(s));}});
 
     return body;
