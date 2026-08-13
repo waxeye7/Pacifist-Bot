@@ -3486,6 +3486,30 @@ function getBody(segment:string[], room, bodyMaxLength=50) {
     return body;
 }
 
+/**
+ * Live harvest e/t for one HOME source.
+ *
+ * spawn_energy_miner tags miners with memory.sourceId. Each WORK harvests 2e/t;
+ * a source caps at 10. Count body WORK (not getActiveBodyparts) so a hatching
+ * miner is already sized for. No live miner yet → 4 (one 2W about to exist),
+ * never a phantom 6W / 12 e/t.
+ */
+function homeSourceHarvest(room, sourceId): {energyPerTick: number, miners: number} {
+    let work = 0;
+    let miners = 0;
+    for(const name in Game.creeps) {
+        const c: any = Game.creeps[name];
+        if(c.memory.role != 'EnergyMiner' || c.memory.sourceId != sourceId) continue;
+        miners++;
+        const body = c.body;
+        if(!body) continue;
+        for(let i = 0; i < body.length; i++) {
+            if(body[i].type == WORK) work++;
+        }
+    }
+    return {energyPerTick: work > 0 ? Math.min(10, 2 * work) : 4, miners};
+}
+
 
 function getCarrierBody(sourceId, values, storage, spawn, room) {
 
@@ -3508,10 +3532,6 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
         values.pathLength = pathFromHomeToSource.length - 1;
     }
 
-    let threeWorkParts = 6;
-    let sixWorkParts = 12;
-
-
     if(carriersInRoom.length == 0 && !storage) {
         return [CARRY,CARRY,MOVE];
     }
@@ -3523,7 +3543,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
     if(targetSource.room.name == room.name) {
         let ticksPerRoundTrip = (values.pathLength * 2) + 2;
-        let energyProducedPerRoundTrip = sixWorkParts * ticksPerRoundTrip
+        let energyProducedPerRoundTrip = homeSourceHarvest(room, sourceId).energyPerTick * ticksPerRoundTrip
         let body = [];
         let alternate = 1;
         while (energyProducedPerRoundTrip > 0) {
@@ -3671,17 +3691,14 @@ const MAX_HOME_CARRIERS_PER_SOURCE = 3;
 /**
  * How many carriers one OWNED source needs.
  *
- * An owned source regenerates 3,000 per 300 ticks = 10 energy/tick, and a
- * carrier ties up `2L + slack` ticks per round trip, so the capacity that has
- * to be in flight is `10 * (2L + 6)`. getCarrierBody() already sizes ONE body
- * for that trip; this decides how many of them the room actually needs when its
- * spawn budget cannot build a single body big enough.
- *
- * Drain pressure adds at most one more, and only when the haulers are NOT
- * already sitting full — a room whose carriers are parked loaded is
- * sink-limited, and more carriers there make the jam worse (see drainPressure).
+ * Sized to the same live e/t getCarrierBody uses (`2 *` WORK on miners tagged
+ * with this sourceId, floor 4, cap 10), times `roundTrip * headroom`. A source
+ * with a miner always wants at least one hauler. Drain pressure adds at most
+ * one more, and only when the haulers are NOT already sitting full — a room
+ * whose carriers are parked loaded is sink-limited, and more carriers there
+ * make the jam worse (see drainPressure).
  */
-function homeCarriersWanted(room, values, body): number {
+function homeCarriersWanted(room, values, body, sourceId): number {
     const L = values && values.pathLength ? values.pathLength : 15;
     let carry = 0;
     let move = 0;
@@ -3711,10 +3728,12 @@ function homeCarriersWanted(room, values, body): number {
      * floor, and a room sized exactly to its floor can never clear a backlog.
      */
     const headroom = room.storage && room.storage.my ? 1.15 : 1.35;
-    const capacityNeeded = 10 * roundTrip * headroom;
+    const harvest = homeSourceHarvest(room, sourceId);
+    const capacityNeeded = harvest.energyPerTick * roundTrip * headroom;
     const per = Math.max(50, carry * 50);
     let want = Math.ceil(capacityNeeded / per);
-    if(want < 1) want = 1;
+    const minerFloor = Math.max(1, harvest.miners);
+    if(want < minerFloor) want = minerFloor;
     if(want > MAX_HOME_CARRIERS_PER_SOURCE) want = MAX_HOME_CARRIERS_PER_SOURCE;
     const pressure = drainPressure(room);
     if(pressure.haul > 0) want = Math.min(MAX_HOME_CARRIERS_PER_SOURCE + 1, want + pressure.haul);
@@ -4171,7 +4190,7 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                 const haveHome = liveCarriersForSource(room, sourceId);
                 const homeBody = getCarrierBody(sourceId, values, storage, spawn, room);
                 if(!homeBody || homeBody.length === 0) return;
-                const wantHome = homeCarriersWanted(room, values, homeBody);
+                const wantHome = homeCarriersWanted(room, values, homeBody, sourceId);
                 if(haveHome >= wantHome) return;
                 // One per source per 25 ticks. A hatching creep is already in
                 // Game.creeps so it is counted above; this only stops a burst of
