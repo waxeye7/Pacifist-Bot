@@ -104,13 +104,22 @@ import { isSanctionedRampart } from "utils/PlanV2";
 	}
 
     if(buildingsToBuild.length > 0) {
+		// RCL3 leftover is arterial roads. 1:1 haulers already walk plains
+		// at 1 tick/tile; do not spend the 135k climb paving.
+		if(creep.room.controller && creep.room.controller.level == 3) {
+			let nonRoad = 0;
+			for(let i = 0; i < buildingsToBuild.length; i++) {
+				if(buildingsToBuild[i].structureType !== STRUCTURE_ROAD) { nonRoad++; break; }
+			}
+			if(nonRoad == 0) {
+				creep.memory.suicide = true;
+				return;
+			}
+		}
 		creep.memory.suicide = false;
 		creep.say("🎯", true);
 		let closestBuildingToBuild = creep.pos.findClosestByRange(buildingsToBuild);
-		// buildingsToBuild.sort((a,b) => b.progressTotal - a.progressTotal);
-        // return buildingsToBuild[0].id;
 		return closestBuildingToBuild.id;
-		// if building is link or storage build first.
     }
 	creep.memory.suicide = true;
 }

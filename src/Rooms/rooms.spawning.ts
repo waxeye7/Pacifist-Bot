@@ -1331,8 +1331,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            // Pavement after the 135k sink: ext/tower/container still beat
-            // upgraders, but a road-only queue must not HOL-block them.
+            // Pavement waits for RCL4. 1:1 haulers already walk plains at
+            // 1 tick/tile; arterial tiles are ~12k the controller wants.
             const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount);
             const rcl3RoadsOnly = onlyRoadSites(sites);
             if(!rcl3RoadsOnly && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < rcl3BuildWant) {
@@ -1353,11 +1353,6 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
-            }
-            if(rcl3RoadsOnly && EnergyMinersInRoom >= 1 && builders < rcl3BuildWant) {
-                let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
-                console.log('Adding Builder to Spawn List: ' + name);
             }
             // No RCL3 maintainer. The 800e [4W,2M,4C] used to queue the moment
             // an arterial hit 2000 (≈3000 ticks of decay) and HOL-block the
