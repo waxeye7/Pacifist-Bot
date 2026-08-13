@@ -11,7 +11,7 @@
  *      appeared nowhere in validate.mjs carry an explicit klass + reason;
  *      the cheap ones are derived here.
  */
-import { D8, buildable, chebyshev, walkable, exteriorFlood, mineralGuard, reservedTiles } from "./shared.mjs";
+import { D4, D8, buildable, chebyshev, walkable, exteriorFlood, mineralGuard, reservedTiles } from "./shared.mjs";
 import { fieldFrom, winningSeedScore } from "./layer-hub.mjs";
 import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, MOBILITY_TARGET, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
@@ -46,6 +46,7 @@ const STUB_CAP_RICH = 51;
 const STUB_RICH_RATIO = 1.5;
 const HUB_CAP_LADDER = [16, 19, 23, 999];
 const ESCALATION_RADII_LATE = [10, 11, 12, 13, 14];
+const MIN_CLUSTER = 2;
 const L6_OCC_TYPES = ["storage", "terminal", "link", "spawn", "container", "tower", "lab", "nuker", "observer"];
 const round2 = (v) => Math.round(Number(v) * 100) / 100;
 
@@ -200,7 +201,7 @@ export const META_DARK = {
   roadsEaten: { klass: "derived" },
   rolledBackFrom: { klass: "presence", why: "layer-7b rollback origin" },
   searchedSeats: { klass: "presence", why: "towerSwapOffer leaf" },
-  servedExts: { klass: "presence", why: "layer-7 service census" },
+  servedExts: { klass: "derived" },
   servedFree: { klass: "derived" },
   shallowCost: { klass: "derived" },
   shallowNow: { klass: "presence", why: "reflow's own remaining-shallow count; the board's shallow set is gated" },
@@ -223,8 +224,8 @@ export const META_DARK = {
   towerOnly: { klass: "derived" },
   towerSwapOffer: { klass: "presence", why: "the offer record; its basis is rendered" },
   tradeCost: { klass: "presence", why: "a priced-refusal witness" },
-  unreachableExts: { klass: "presence", why: "layer-7 unreachable-extension census" },
-  unreachedClusters: { klass: "presence", why: "layer-7 cluster census" },
+  unreachableExts: { klass: "derived" },
+  unreachedClusters: { klass: "derived" },
   unsealed: { klass: "presence", why: "a pocket-unseal witness" },
   uselessCut: { klass: "presence", why: "tiles layer-2 kept that the single-removal test does not need; redundantCut is gated" },
   wasLap: { klass: "presence", why: "a before-lap on a relocation record" },
@@ -608,6 +609,96 @@ function l6ExtensionSeats(plan) {
     seats.set(K(m.from), { x: m.from.x, y: m.from.y });
   }
   return [...seats.values()];
+}
+
+/**
+ * The take this room published: acrossPriorTake.taken (twin of towerSwapTaken),
+ * else the offer whose destination is a shipped tower, else the lift across
+ * the prior. composeOpts.takeTowerSwap is that pair, not a D8 ring.
+ */
+function wantTakenSwap(plan) {
+  const taken = plan.meta?.towers?.acrossPriorTake?.taken;
+  if (taken && Number.isInteger(taken.from?.x) && Number.isInteger(taken.to?.x)) {
+    return { from: taken.from, to: taken.to };
+  }
+  const twin = plan.meta?.towers?.towerSwapTaken;
+  if (twin && Number.isInteger(twin.from?.x) && Number.isInteger(twin.to?.x)) {
+    return { from: twin.from, to: twin.to };
+  }
+  const towers = new Set((plan.structures?.tower || []).map(K));
+  const offer = plan.meta?.towers?.towerSwapOffer?.best;
+  if (
+    offer &&
+    Number.isInteger(offer.from?.x) &&
+    Number.isInteger(offer.to?.x) &&
+    towers.has(K(offer.to))
+  ) {
+    return { from: offer.from, to: offer.to };
+  }
+  const sap = plan.meta?.towers?.adjacency?.satAcrossPrior;
+  if (
+    sap?.leaves &&
+    sap?.seat &&
+    Number.isInteger(sap.leaves.x) &&
+    Number.isInteger(sap.seat.x) &&
+    towers.has(K(sap.seat))
+  ) {
+    return { from: sap.leaves, to: sap.seat };
+  }
+  return null;
+}
+
+/** shipped-cut clusters of size ≥ MIN_CLUSTER that no shipped road D8-touches. */
+function wantUnreachedClusters(plan) {
+  const cut = plan.meta?.shell?.cut || [];
+  const cutSet = new Set();
+  const tiles = [];
+  for (const c of cut) {
+    if (!c || !Number.isInteger(c.x)) continue;
+    cutSet.add(K(c));
+    tiles.push(c);
+  }
+  const roads = new Set((plan.structures?.road || []).map(K));
+  const seen = new Set();
+  let n = 0;
+  for (const c of tiles) {
+    const k0 = K(c);
+    if (seen.has(k0)) continue;
+    seen.add(k0);
+    const cl = [c];
+    for (let i = 0; i < cl.length; i++) {
+      for (const [dx, dy] of D8) {
+        const k = `${cl[i].x + dx},${cl[i].y + dy}`;
+        if (seen.has(k) || !cutSet.has(k)) continue;
+        seen.add(k);
+        cl.push({ x: cl[i].x + dx, y: cl[i].y + dy });
+      }
+    }
+    if (cl.length < MIN_CLUSTER) continue;
+    let hit = false;
+    for (const t of cl) {
+      for (const [dx, dy] of D8) {
+        if (roads.has(`${t.x + dx},${t.y + dy}`)) {
+          hit = true;
+          break;
+        }
+      }
+      if (hit) break;
+    }
+    if (!hit) n++;
+  }
+  return n;
+}
+
+/** extensions with no D4 road on the shipped network. */
+function wantUnreachableExts(plan) {
+  const roads = new Set((plan.structures?.road || []).map(K));
+  let n = 0;
+  for (const e of plan.structures?.extension || []) {
+    if (!e || !Number.isInteger(e.x)) continue;
+    if (!D4.some(([dx, dy]) => roads.has(`${e.x + dx},${e.y + dy}`))) n++;
+  }
+  return n;
 }
 
 /** layer 6's hub-field max over the seats it stood, before the 7b reflow. */
@@ -1730,6 +1821,33 @@ export function checkR27(plan, ctx = {}) {
       );
     }
   }
+  if (typeof w.servedExts === "number") {
+    const fill = typeof w.fillerTiles === "number" ? w.fillerTiles : w.laidByKind?.extFace || 0;
+    if ((w.servedExts === 0) !== (fill === 0)) {
+      fails.push(
+        `meta.walls.servedExts is ${w.servedExts} and the filler laid ${fill} tile(s). The service ` +
+          `census is 0 iff the filler laid nothing — setting it used to pass`,
+      );
+    }
+  }
+  if (typeof w.unreachableExts === "number") {
+    const want = wantUnreachableExts(plan);
+    if (w.unreachableExts !== want) {
+      fails.push(
+        `meta.walls.unreachableExts is ${w.unreachableExts} and ${want} shipped extension(s) have no ` +
+          `D4 road. It is that walk, not a comment — setting it used to pass`,
+      );
+    }
+  }
+  if (typeof w.unreachedClusters === "number") {
+    const want = wantUnreachedClusters(plan);
+    if (w.unreachedClusters !== want) {
+      fails.push(
+        `meta.walls.unreachedClusters is ${w.unreachedClusters} and ${want} shipped-cut cluster(s) of ` +
+          `size ≥ ${MIN_CLUSTER} D8-touch no road. It is that walk, not a comment — setting it used to pass`,
+      );
+    }
+  }
   if (typeof meta.labs?.shallowCost === "number" && ctx.extShip) {
     const depth = depthFromExterior(ctx.extShip);
     const n = (plan.structures?.lab || []).filter((l) => l && Number.isInteger(l.x) && depth[idx(l.x, l.y)] < DEPTH_SAFE).length;
@@ -1976,6 +2094,16 @@ export function checkR27(plan, ctx = {}) {
           `meta.composeOpts.takeTowerSwap.from is ${sw.from.x},${sw.from.y} and to is ${sw.to.x},${sw.to.y}. ` +
             `The take vacated a D8 neighbour of the destination — moving it off that ring used to pass`,
         );
+      }
+      const rec = wantTakenSwap(plan);
+      if (rec && sw.from && Number.isInteger(sw.from.x) && Number.isInteger(sw.from.y)) {
+        if (K(sw.from) !== K(rec.from) || K(sw.to) !== K(rec.to)) {
+          fails.push(
+            `meta.composeOpts.takeTowerSwap is ${sw.from.x},${sw.from.y} -> ${sw.to.x},${sw.to.y} and ` +
+              `the published swap is ${rec.from.x},${rec.from.y} -> ${rec.to.x},${rec.to.y}. The take ` +
+              `vacated that seat for that destination — moving it to another D8 used to pass`,
+          );
+        }
       }
     }
   }

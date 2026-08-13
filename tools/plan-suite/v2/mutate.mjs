@@ -9150,6 +9150,43 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => p.meta?.composeOpts?.takeTowerSwap?.from && Number.isInteger(p.meta.composeOpts.takeTowerSwap.from.x)),
     (p) => { p.meta.composeOpts.takeTowerSwap.from = { x: 1, y: 1 }; },
     "takeTowerSwap|composeOpts|D8");
+  run("r40/MF6-X-takeTowerSwap-from-other-d8",
+    any28((p) => {
+      const sw = p.meta?.composeOpts?.takeTowerSwap;
+      if (!sw?.from || !sw?.to || !Number.isInteger(sw.from.x) || !Number.isInteger(sw.to.x)) return false;
+      const towers = new Set((p.structures?.tower || []).map((t) => `${t.x},${t.y}`));
+      return D8.some(([dx, dy]) => {
+        const x = sw.to.x + dx;
+        const y = sw.to.y + dy;
+        if (x === sw.from.x && y === sw.from.y) return false;
+        if (x < 2 || y < 2 || x > 47 || y > 47) return false;
+        if (towers.has(`${x},${y}`)) return false;
+        return true;
+      });
+    }),
+    (p) => {
+      const sw = p.meta.composeOpts.takeTowerSwap;
+      const towers = new Set((p.structures?.tower || []).map((t) => `${t.x},${t.y}`));
+      const alt = D8.map(([dx, dy]) => ({ x: sw.to.x + dx, y: sw.to.y + dy })).find((t) =>
+        (t.x !== sw.from.x || t.y !== sw.from.y) &&
+        t.x >= 2 && t.y >= 2 && t.x <= 47 && t.y <= 47 &&
+        !towers.has(`${t.x},${t.y}`),
+      );
+      if (alt) sw.from = alt;
+    },
+    "takeTowerSwap|vacated|composeOpts");
+  run("r40/MF6-X-unreachedClusters-plus-1",
+    any28((p) => typeof p.meta?.walls?.unreachedClusters === "number"),
+    (p) => { p.meta.walls.unreachedClusters += 1; },
+    "unreachedClusters|cluster");
+  run("r40/MF6-X-unreachableExts-plus-1",
+    any28((p) => typeof p.meta?.walls?.unreachableExts === "number"),
+    (p) => { p.meta.walls.unreachableExts += 1; },
+    "unreachableExts|D4");
+  run("r40/MF6-X-servedExts-plus-1",
+    any28((p) => typeof p.meta?.walls?.servedExts === "number"),
+    (p) => { p.meta.walls.servedExts += 1; },
+    "servedExts|filler");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
