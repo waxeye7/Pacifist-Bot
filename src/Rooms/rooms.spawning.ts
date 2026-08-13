@@ -2740,10 +2740,23 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
     // Sweep floor loot (drops / tombs / ruins from dead creeps & destroyed structures)
-    const looseLootCount =
-        room.find(FIND_DROPPED_RESOURCES, { filter: (r) => r.amount >= 50 }).length +
+    const tombRuinLoot =
         room.find(FIND_TOMBSTONES, { filter: (t) => _.sum(t.store) > 0 }).length +
         room.find(FIND_RUINS, { filter: (r) => _.sum(r.store) > 0 }).length;
+    // RCL1–3 drop-mine piles sit on the source tile and hit 50e in ~13 ticks
+    // of a 2W miner. Carriers already haul those; a sweeper here is a 150e
+    // HOL tax on the upgraders. Only tombs/ruins or stray (off-source) piles.
+    let looseLootCount = tombRuinLoot;
+    if(room.controller.level < 4) {
+        if(looseLootCount === 0) {
+            const sources = room.find(FIND_SOURCES);
+            looseLootCount = room.find(FIND_DROPPED_RESOURCES, {filter: (r) =>
+                r.amount >= 50 && !sources.some((s) => s.pos.getRangeTo(r) <= 1)}).length;
+        }
+    }
+    else {
+        looseLootCount += room.find(FIND_DROPPED_RESOURCES, { filter: (r) => r.amount >= 50 }).length;
+    }
     // RCL1–3: one small sweeper if there's real loot; RCL4+: scale with storage
     const wantSweepers =
         looseLootCount === 0
