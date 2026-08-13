@@ -9820,6 +9820,10 @@ it says so in the entry rather than in a comment.
    protectRadius enum, priceyWall = baseCut > MAX_CUT, mineralBubble, swampPaved,
    spurred. p5 named ghosts vs pruned on the film prune caption. p6:
    `newRoads` is the count of `roadLayer` layer-3 tags, ghosts included.
+   p7/p8: criticism 88 — discarded-rung laps re-walked from published
+   `cutTiles` (shellEscalation trail, then the declaration itself so the three
+   sealed-recovery rooms that ship a ladder and no shellEscalation cannot keep
+   a free number). 93 and 98 still need unpublished mid-pipeline boards.
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)

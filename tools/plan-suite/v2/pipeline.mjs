@@ -1742,6 +1742,10 @@ function attachRungProof(plan, trail) {
         mobility: r.mobility,
         ramparts: r.ramparts,
         complete: r.complete,
+        // criticism 88 residue — recovery recompositions ship a ladder and no
+        // shellEscalation. The cut lives on the declaration so a discarded
+        // rung's lap is still a walk, not a free number.
+        cutTiles: (r.cutTiles || []).map((t) => ({ x: t.x, y: t.y })),
       })),
       trailLength: trail.length,
       shippedLap: shipped,

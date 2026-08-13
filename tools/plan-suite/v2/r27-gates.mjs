@@ -790,6 +790,10 @@ export function checkR27(plan, ctx = {}) {
   // ROUND 28 / criticism 88 — a discarded rung with MORE ramparts than the
   // shipped wall had a free mobility. The trail now publishes each composed
   // rung's cut; the lap is enclosureMobility of that cut, not a number.
+  //
+  // THREE ROOMS (sealed-recovery recompositions) ship a ladder and no
+  // shellEscalation. Their cutTiles live on the declaration. A room that
+  // declares a ladder owes a cut on every rung, from one of those two lists.
   {
     const esc = meta.shellEscalation;
     const ladderDecl = (meta.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
@@ -798,6 +802,34 @@ export function checkR27(plan, ctx = {}) {
         `meta.shellEscalation has no rungs trail and this room declares a ladder. Deleting the cut ` +
           `list is how a fatter discarded lap goes back to being a free number`,
       );
+    }
+    if (ladderDecl && ctx.terrain && plan.sitter) {
+      const escRungs = Array.isArray(esc?.rungs) ? esc.rungs : [];
+      for (const row of ladderDecl.ladder.rungs) {
+        if (!row) continue;
+        const twin = escRungs.find((r) => r && r.needDeepBonus === row.needDeepBonus);
+        const cuts = Array.isArray(row.cutTiles) && row.cutTiles.length
+          ? row.cutTiles
+          : twin && Array.isArray(twin.cutTiles) && twin.cutTiles.length
+            ? twin.cutTiles
+            : null;
+        if (!cuts) {
+          fails.push(
+            `ladder.rungs needDeep+${row.needDeepBonus} has no cutTiles and shellEscalation has no twin. ` +
+              `A recovery-room discarded lap used to stay free because the trail never landed on the ` +
+              `shipped plan`,
+          );
+          continue;
+        }
+        const want = enclosureMobility(ctx.terrain, plan, cuts);
+        if (typeof row.mobility === "number" && typeof want === "number" && Math.abs(row.mobility - want) > 1e-6) {
+          fails.push(
+            `ladder.rungs needDeep+${row.needDeepBonus} mobility is ${row.mobility} and ` +
+              `enclosureMobility of its published cut is ${want}. Regenerating the paragraph does not ` +
+              `launder a fatter rung's invented lap`,
+          );
+        }
+      }
     }
     if (esc && Array.isArray(esc.rungs) && ctx.terrain && plan.sitter) {
       const freeze = new Set((sh.cutAtFreeze || []).map(K));

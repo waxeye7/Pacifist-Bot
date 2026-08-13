@@ -6535,6 +6535,15 @@ const RECORD_ARRAY_LEAVES = new Map(
                 `it to and that is the whole bound`,
               WITNESS_BOOL,
             ),
+            cutTiles: AW(
+              `the enclosure this rung composed. A discarded rung is not on the board; the lap is ` +
+                `enclosureMobility of these tiles. Recovery rooms ship a ladder and no shellEscalation, ` +
+                `so the cut lives here`,
+              (v) =>
+                Array.isArray(v) && v.length > 0 && v.every((t) => t && Number.isInteger(t.x) && Number.isInteger(t.y))
+                  ? null
+                  : `is ${String(JSON.stringify(v)).slice(0, 60)}, not a non-empty cut`,
+            ),
           },
         ),
         "negotiated.tiles": ELEMENTS(

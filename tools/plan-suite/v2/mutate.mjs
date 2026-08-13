@@ -8487,7 +8487,8 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => {
       const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
       const shipped = (p.structures?.rampart || []).length;
-      return !!(sf && (p.meta?.shellEscalation?.rungs || []).some((r) => r && Array.isArray(r.cutTiles) && r.cutTiles.length) &&
+      const hasCut = (r) => Array.isArray(r?.cutTiles) && r.cutTiles.length;
+      return !!(sf && (sf.ladder.rungs.some(hasCut) || (p.meta?.shellEscalation?.rungs || []).some(hasCut)) &&
         sf.ladder.rungs.some((r) => r && r.ramparts > shipped && typeof r.mobility === "number"));
     }),
     (p) => {
@@ -8501,6 +8502,22 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "ladder.rungs|enclosureMobility|invented lap");
+  run("r28/88-X-recovery-room-discarded-rung-without-shellEscalation",
+    any28((p) => {
+      if (p.meta?.shellEscalation) return false;
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      return !!(sf && sf.ladder.rungs.some((r) => r && Array.isArray(r.cutTiles) && r.cutTiles.length && typeof r.mobility === "number"));
+    }),
+    (p) => {
+      for (const sf of p.meta.shortfalls || []) {
+        if (!sf.ladder?.rungs) continue;
+        for (const r of sf.ladder.rungs) {
+          if (r && typeof r.mobility === "number") r.mobility = 0.5;
+        }
+        sf.detail = renderDecl(sf);
+      }
+    },
+    "ladder.rungs|enclosureMobility|invented lap|recovery");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {
