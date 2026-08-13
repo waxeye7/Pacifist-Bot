@@ -96,6 +96,13 @@ a tight spec, A/B it, keep or revert, commit, log the ledger entry, repeat.
 
 ## Status
 
-- **Waiting on the base-planner perfection goal.** Preparation allowed early:
-  building `race.mjs`, choosing benchmark rooms, and fixing already-known
-  early-game bugs (task list #4) do not need to wait.
+- **Campaign STARTED 2026-08-13** in implement-and-review mode. Owner kicked
+  this off now; the planner loop continues in parallel — do not wait on
+  planner perfection.
+- **A/B harness blocked** until local docker is allowed or `big_vps` seeds a
+  race world. `tools/server/race.mjs` is local-docker-only; local docker is
+  OFF on purpose. From this repo: no SSH, no VPS world/mod/tick changes, no
+  spawn-in. Candidate dest is VPS (`npm run push-vps`) when there is
+  something to measure.
+- Control stays frozen at `e839fc8`. **Never** `npm run push-race`.
+- Cycle 0: `docs/speedrun-ledger/CYCLE-0.md`.

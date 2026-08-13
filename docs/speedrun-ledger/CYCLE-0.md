@@ -1,0 +1,68 @@
+# Cycle 0 — implement while A/B is blocked
+
+Opened **2026-08-13**. Owner started the spawn→RCL4 campaign now, in
+**implement-and-review** mode, in parallel with the planner loop. This page is
+the cycle-0 ledger. It is not a results sheet.
+
+## Mission
+
+**RCL4 first.** Primary metric: mean game ticks from spawn placement to RCL4
+on the frozen benchmark set. RCL6 is a later milestone and starts from the
+RCL4-optimized bot. No baseline times yet — do not invent any.
+
+## Frozen control
+
+| | |
+| --- | --- |
+| Commit | **`e839fc8143a9b1c5807b9ad672410a1ce3e10090`** (`e839fc8`) |
+| Dest / user | `race` / `pacifist-race` |
+| Pin | `docs/speedrun-ledger/CONTROL.md` |
+
+**NEVER `npm run push-race`.** That dest holds the control build. Pushing it
+invalidates every later A/B. Re-baseline is a deliberate later step, not this
+cycle.
+
+## Benchmark set
+
+`docs/BENCHMARK-ROOMS.json` — `setHash` **`1f90aub`**, frozen
+**2026-08-01T16:15:28Z**, 8 paired slots (2 easy / 3 median / 3 hard).
+`--swap` is mandatory when A/B eventually runs (6/8 pairs exceed the pair-
+distance warn bar). No `run-*.json` this cycle; no numbers to report.
+
+## A/B blocked
+
+`tools/server/race.mjs` seeds via local docker/mongo only. Local docker is
+**OFF on purpose.** VPS is the live dest (`npm run push-vps`) but this repo
+does not SSH, does not change VPS world/mod/tick, and does not spawn-in
+there.
+
+Unblock when **either**:
+
+1. local docker is allowed, or
+2. `big_vps` seeds a race world.
+
+Until then: implement and review, do not keep-or-revert on vibes.
+
+## Cycle-0 work
+
+Audits + first implementations against the campaign backlog, pending A/B:
+
+1. Spawn body tiers from `energyCapacity` (not `energyAvailable` snapshots).
+2. RCL1–3 build order — no early road tax.
+3. First-100-ticks harvest-to-spawn choreography.
+
+Clock already exists: `src/utils/Speedrun.ts` (`trackRoomRcl`,
+`resetSpeedrun`, `speedrunStatus`). Reuse it; do not rebuild it.
+
+Nothing in this cycle is kept as a measured win. Ledger a hypothesis when it
+lands; keep-or-revert waits for a real A/B.
+
+## Guardrails
+
+- Planner board stays the planner loop's. Do not bend the base to the race.
+- CPU shard3-viable (~20/tick avg, no tick spikes > 100); tower up by RCL3;
+  remotes are a lever, not a crutch (benchmark must also pass remotes-off).
+- No fake times. No docker. No `push-race`. No `server:local:reset`.
+- Candidate uploads, when they happen, are `npm run push-vps` only.
+- `tsc` clean on any bot change; live-fleet bugs found along the way still
+  get fixed.
