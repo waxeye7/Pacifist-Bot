@@ -1283,7 +1283,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(EnergyMiners < 1) {
                 break;
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < Math.min(spawnrules[1].build_creep.amount, Math.max(1, sites.length))) {
+            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[1].build_creep.amount)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[1].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1313,7 +1313,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[2].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < Math.min(spawnrules[2].build_creep.amount, Math.max(1, sites.length))) {
+            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[2].build_creep.amount)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1343,7 +1343,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < Math.min(spawnrules[3].build_creep.amount, Math.max(1, sites.length))) {
+            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[3].build_creep.amount)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -3367,6 +3367,20 @@ function keepOneUpgrader(room, miners:number): number {
  *   RAMPARTS are discretionary hit-points and keep the old behaviour exactly —
  *   they come off a bank, and off a thin bank a rampart-only room gets nothing.
  * ------------------------------------------------------------------------- */
+/**
+ * RCL1–3 builder roster. Two on real structures (ext/container/tower);
+ * one once only roads remain. Six 300e bodies on pavement steal the
+ * 135k climb from the upgraders.
+ */
+function earlyBuildSlots(sites, cap: number): number {
+    let useful = 0;
+    for(let i = 0; i < sites.length; i++) {
+        if(sites[i].structureType !== STRUCTURE_ROAD) useful++;
+    }
+    if(useful > 0) return Math.min(cap, useful, 2);
+    return sites.length > 0 ? 1 : 0;
+}
+
 function queueBuilder(room, rules, sites, builders:number, miners:number,
                       bankCanBuild:boolean, storage, bankFloor:number): void {
     if(!sites.length) return;

@@ -27,6 +27,10 @@ import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
+/** RCL2 only: five slots so all five extensions site in one 15-tick pass. */
+function maxSitesFor(lvl: number): number {
+  return lvl === 2 ? 5 : MAX_SITES;
+}
 /** how often the legacy-facing memory mirror is refreshed (ticks) */
 const SYNC_EVERY = 100;
 
@@ -1687,7 +1691,7 @@ export function placeFromPlanV2(room: Room): void {
     liveSites = 0;
     for (const s of sites) if (s.structureType === STRUCTURE_SPAWN) liveSites++;
   }
-  let budget = MAX_SITES - liveSites;
+  let budget = maxSitesFor(lvl) - liveSites;
   // existing structures + sites by type (containers/roads are unowned)
   const have: { [type: string]: { [packed: number]: boolean } } = {};
   const count: { [type: string]: number } = {};

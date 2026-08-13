@@ -70,6 +70,19 @@ import { isSanctionedRampart } from "utils/PlanV2";
 		}
 	}
 
+	// Tower before leftover roads. PLACE_ORDER sites it first at RCL3, but
+	// findClosestByRange then commits to a nearby road and the tower sits
+	// through the 135k climb. Campaign guardrail: tower up by RCL3.
+	if(buildingsToBuild.length > 0) {
+		let towers = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_TOWER;});
+		if(towers.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🎯", true);
+			towers.sort((a,b) => b.progress - a.progress);
+			return towers[0].id;
+		}
+	}
+
     if(buildingsToBuild.length > 0) {
 		creep.memory.suicide = false;
 		creep.say("🎯", true);
