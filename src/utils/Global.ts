@@ -117,8 +117,15 @@ declare global {
     interface RoomMemory {
         safeGuard:number;
         spawn_list: Array<Array<string> | string | object>;
-        /** Local speedrun markers (active, rcl) — see utils/Speedrun.ts */
-        speedrun?: { active?: boolean; rcl?: number; [key: string]: any };
+        /** Local speedrun clock + policy markers — see utils/Speedrun.ts */
+        speedrun?: {
+          active?: boolean;
+          rcl?: number;
+          startTick?: number;
+          rclTimes?: { [level: number]: number };
+          lastRcl?: number;
+          [key: string]: any;
+        };
         /** Dynamic layout cache — see utils/BasePlan.ts */
         basePlan?: any;
         /** Adopted v2 plan (packed coords) — see utils/PlanV2.ts */

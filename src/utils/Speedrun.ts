@@ -1,10 +1,15 @@
 /**
  * Low-RCL speedrun instrumentation + policy.
- * Scores are in GAME TICKS (not wall-clock). Memory.speedrun.rclTimes[level] = first Game.time at that RCL.
+ * Scores are in GAME TICKS (not wall-clock).
+ *
+ * Global Memory.speedrun is the primary/first-room compat view.
+ * Each owned room also records on room.memory.speedrun (startTick, rclTimes, lastRcl)
+ * so race.mjs / HTTP memory reads can harvest without the singleton.
  *
  * Console:
  *   speedrunStatus()
- *   resetSpeedrun()  — clears timers (use after local room reset)
+ *   resetSpeedrun()  — clears global + all owned room clocks
+ *   resetSpeedrun("E5S1")  — clears that room + rebinds the global primary
  *   enableSpeedrun() / disableSpeedrun()
  */
 
@@ -12,13 +17,19 @@ import { logAlways } from "utils/Logger";
 import { getFeatures } from "utils/Features";
 
 export interface SpeedrunState {
-  /** Game.time when we started tracking (spawn / reset) */
+  /** Game.time when we started tracking (spawn / reset / first RCL1 track) */
   startTick: number;
   /** First Game.time when controller reached this level (1..8) */
   rclTimes: { [level: number]: number };
-  /** Last seen RCL for this room (per-room tracking in room memory also) */
   lastRcl: number;
   roomName?: string;
+}
+
+/** Clock fields on room.memory.speedrun (reuses the existing policy object). */
+export interface RoomSpeedrunClock {
+  startTick?: number;
+  rclTimes?: { [level: number]: number };
+  lastRcl?: number;
 }
 
 function ensure(): SpeedrunState {
@@ -33,34 +44,89 @@ function ensure(): SpeedrunState {
   return Memory.speedrun as SpeedrunState;
 }
 
-/** Call once per owned room each tick (cheap). */
-export function trackRoomRcl(room: Room): void {
-  if (!room.controller || !room.controller.my) return;
-  const s = ensure();
-  const level = room.controller.level;
+function ensureRoomClock(room: Room): RoomSpeedrunClock {
+  if (!room.memory.speedrun) room.memory.speedrun = {};
+  const rs = room.memory.speedrun;
+  if (!rs.rclTimes) rs.rclTimes = {};
+  if (rs.lastRcl == null) rs.lastRcl = 0;
 
-  if (!s.roomName) s.roomName = room.name;
-  // track primary room only if set; else first owned room wins
-  if (s.roomName && s.roomName !== room.name) return;
+  // One-shot seed from the global primary so a mid-run upgrade keeps history.
+  const g = Memory.speedrun;
+  if (
+    g &&
+    g.roomName === room.name &&
+    Object.keys(rs.rclTimes).length === 0 &&
+    g.rclTimes &&
+    Object.keys(g.rclTimes).length > 0
+  ) {
+    rs.rclTimes = { ...g.rclTimes };
+    if (rs.startTick == null && g.startTick) rs.startTick = g.startTick;
+    if (!rs.lastRcl && g.lastRcl) rs.lastRcl = g.lastRcl;
+  }
+  return rs;
+}
 
-  if (!s.startTick) s.startTick = Game.time;
+function hasMySpawn(room: Room): boolean {
+  return room.find(FIND_MY_SPAWNS).length > 0;
+}
 
-  // record first time we see each RCL
-  if (level >= 1 && s.rclTimes[level] == null) {
-    s.rclTimes[level] = Game.time;
-    const fromStart = Game.time - s.startTick;
-    logAlways(
-      `[speedrun] RCL${level} @ tick ${Game.time} (+${fromStart} from start) room=${room.name}`,
-    );
+/** Record first-seen RCL / startTick onto a clock. Returns true if a new RCL was stamped. */
+function applyTrack(s: RoomSpeedrunClock, room: Room): boolean {
+  const level = room.controller!.level;
+  if (!s.rclTimes) s.rclTimes = {};
+
+  if (s.startTick == null) {
+    if (level === 1 || hasMySpawn(room)) s.startTick = Game.time;
   }
 
-  // if we just got a spawn at RCL1 with no start, lock start
-  if (level === 1 && s.lastRcl === 0 && Object.keys(s.rclTimes).length <= 1) {
+  let stamped = false;
+  if (level >= 1 && s.rclTimes[level] == null) {
+    if (s.startTick == null) s.startTick = Game.time;
+    s.rclTimes[level] = Game.time;
+    stamped = true;
+  }
+
+  // RCL1 + no prior RCL: lock start if still unset / in the future
+  if (level === 1 && (s.lastRcl || 0) === 0 && Object.keys(s.rclTimes).length <= 1) {
     if (s.rclTimes[1] == null) s.rclTimes[1] = Game.time;
     if (!s.startTick || s.startTick > Game.time) s.startTick = Game.time;
   }
 
   s.lastRcl = level;
+  return stamped;
+}
+
+/** Call once per owned room each tick (cheap). Updates that room always; global only if primary. */
+export function trackRoomRcl(room: Room): void {
+  if (!room.controller || !room.controller.my) return;
+
+  const rs = ensureRoomClock(room);
+  const stampedRoom = applyTrack(rs, room);
+
+  const g = ensure();
+  if (!g.roomName) g.roomName = room.name;
+  const isPrimary = g.roomName === room.name;
+  let stampedGlobal = false;
+  if (isPrimary) stampedGlobal = applyTrack(g, room);
+
+  if (stampedRoom || stampedGlobal) {
+    const level = room.controller.level;
+    const clock = isPrimary ? g : rs;
+    const start = clock.startTick || Game.time;
+    logAlways(
+      `[speedrun] RCL${level} @ tick ${Game.time} (+${Game.time - start} from start) room=${room.name}`,
+    );
+  }
+}
+
+function resetRoomClockByName(roomName: string): void {
+  const live = Game.rooms[roomName];
+  const mem = live ? live.memory : Memory.rooms && Memory.rooms[roomName];
+  if (!mem) return;
+  if (!mem.speedrun) mem.speedrun = {};
+  mem.speedrun.startTick = Game.time;
+  mem.speedrun.rclTimes = {};
+  mem.speedrun.lastRcl = 0;
 }
 
 export function resetSpeedrun(roomName?: string): string {
@@ -70,29 +136,71 @@ export function resetSpeedrun(roomName?: string): string {
     lastRcl: 0,
     roomName: roomName || undefined,
   };
-  const msg = `speedrun reset at tick ${Game.time}` + (roomName ? ` room=${roomName}` : "");
+  if (roomName) {
+    resetRoomClockByName(roomName);
+  } else {
+    for (const name in Game.rooms) {
+      const room = Game.rooms[name];
+      if (room.controller && room.controller.my) resetRoomClockByName(name);
+    }
+  }
+  const msg =
+    `speedrun reset at tick ${Game.time}` + (roomName ? ` room=${roomName}` : " (all owned)");
   logAlways(msg);
   return msg;
 }
 
-export function speedrunStatus(): string {
-  const s = ensure();
-  const f = getFeatures();
+function formatClock(label: string, s: RoomSpeedrunClock): string[] {
+  const start = s.startTick;
+  const times = s.rclTimes || {};
   const lines: string[] = [];
-  lines.push(`speedrun=${f.speedrun} disablePower=${f.disablePower}`);
-  lines.push(`room=${s.roomName || "?"} startTick=${s.startTick} now=${Game.time}`);
-  lines.push(`elapsed=${Game.time - (s.startTick || Game.time)} ticks`);
-
+  const elapsed = start != null ? Game.time - start : 0;
+  lines.push(
+    `${label} startTick=${start ?? "?"} elapsed=${start != null ? elapsed : "?"} ticks lastRcl=${s.lastRcl ?? "?"}`,
+  );
   for (let lvl = 1; lvl <= 8; lvl++) {
-    const t = s.rclTimes[lvl];
+    const t = times[lvl];
     if (t == null) {
       lines.push(`  RCL${lvl}: —`);
     } else {
-      const fromStart = t - s.startTick;
-      const fromPrev = lvl > 1 && s.rclTimes[lvl - 1] != null ? t - s.rclTimes[lvl - 1] : fromStart;
+      const fromStart = start != null ? t - start : 0;
+      const fromPrev = lvl > 1 && times[lvl - 1] != null ? t - times[lvl - 1] : fromStart;
       lines.push(`  RCL${lvl}: tick ${t}  (+${fromStart} total, +${fromPrev} from RCL${lvl - 1})`);
     }
   }
+  return lines;
+}
+
+export function speedrunStatus(): string {
+  const g = ensure();
+  const f = getFeatures();
+  const lines: string[] = [];
+  lines.push(`speedrun=${f.speedrun} disablePower=${f.disablePower} now=${Game.time}`);
+
+  const owned: Room[] = [];
+  for (const name in Game.rooms) {
+    const room = Game.rooms[name];
+    if (room.controller && room.controller.my) owned.push(room);
+  }
+  owned.sort((a, b) => a.name.localeCompare(b.name));
+
+  if (owned.length === 0) {
+    lines.push(...formatClock(`primary ${g.roomName || "?"}`, g));
+  } else {
+    for (const room of owned) {
+      const rs = room.memory.speedrun;
+      const isPrimary = g.roomName === room.name;
+      const clock: RoomSpeedrunClock =
+        rs && (rs.startTick != null || (rs.rclTimes && Object.keys(rs.rclTimes).length > 0))
+          ? rs
+          : isPrimary
+            ? g
+            : { startTick: rs?.startTick, rclTimes: (rs && rs.rclTimes) || {}, lastRcl: rs?.lastRcl };
+      const tag = isPrimary ? " (primary)" : "";
+      lines.push(...formatClock(`${room.name}${tag}`, clock));
+    }
+  }
+
   const text = lines.join("\n");
   logAlways(text);
   return text;
