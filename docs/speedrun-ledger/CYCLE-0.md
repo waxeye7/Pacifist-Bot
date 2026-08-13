@@ -66,3 +66,7 @@ lands; keep-or-revert waits for a real A/B.
 - Candidate uploads, when they happen, are `npm run push-vps` only.
 - `tsc` clean on any bot change; live-fleet bugs found along the way still
   get fixed.
+
+## Cycle 0 implementations
+
+RCL1–3 builder and RCL2/3 repair gates in `src/Rooms/rooms.spawning.ts` no longer require `carriers > 1 && EnergyMinersInRoom > 1`. One-source rooms could never pass the miner clause, and two-source rooms queued zero builders until the second miner *and* second carrier existed, so the first five RCL2 extensions sat idle through eco bootstrap. Builders now queue when `sites.length > 0` and one home miner exists (`EnergyMinersInRoom >= 1`), capped at `min(spawnrules amount, sites)` so six bodies do not pile onto one site; repair uses the same miner floor and still keeps `!room.memory.danger` plus the RCL2 `progress > 4500` check. Hypothesis: first extensions start during the first miner, not after the second carrier. A/B still pending — docker is off and no race world; keep-or-revert waits for a measured run.
