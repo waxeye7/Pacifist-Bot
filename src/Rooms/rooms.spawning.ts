@@ -783,7 +783,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             build_creep: {
 
                 amount: 6,
-                body:   [WORK,CARRY,CARRY,CARRY,MOVE],
+                body:   earlyBuilderBody(room),
 
             },
 
@@ -812,7 +812,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             build_creep: {
 
                 amount: 4,
-                body:   getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50),
+                body:   earlyBuilderBody(room),
 
             },
 
@@ -838,7 +838,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             build_creep: {
 
                 amount: 6,
-                body:   getBody([WORK,CARRY,CARRY,CARRY,MOVE], room, 50),
+                body:   earlyBuilderBody(room),
 
             },
             upgrade_creep: {
@@ -3373,6 +3373,18 @@ function onlyRoadSites(sites): boolean {
         if(sites[i].structureType !== STRUCTURE_ROAD) return false;
     }
     return true;
+}
+
+/**
+ * RCL1–3 builder. No roads (RCL3 only sites arterials and we do not pave
+ * them first). [W,3C,M] is 4 ticks/tile loaded; getBody stacks that to
+ * [2W,6C,2M] once cap hits 800 and HOL-blocks the 500e 4W. [W,2C,2M] is
+ * the same 300e, 2 ticks/tile loaded, 100e tank.
+ */
+function earlyBuilderBody(room) {
+    return room.energyCapacityAvailable >= 300
+        ? [WORK, CARRY, CARRY, MOVE, MOVE]
+        : [WORK, CARRY, MOVE];
 }
 
 /** Source↔controller shuttle. Used at RCL2 and at RCL3 before the depot exists. */

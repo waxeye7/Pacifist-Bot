@@ -104,3 +104,5 @@ RCL3 no longer queues the 800e maintainer. Arterials hit 2000 hits after ≈3000
 RCL2 upgraders are `[2W,2C,2M]` (450), not `[4W,C,M]`. The controller container is RCL3, so RCL2 is a source↔controller shuttle: `[4W,C,M]` is 3 ticks/tile and a 50-energy tank (~0.5 e/t delivered on a 15-tile walk, not 4). The 2W/2C/2M body walks and holds 100. RCL3 still parks the 4W on the depot. Hypothesis: RCL2 actually delivers ~1 e/t per upgrader. A/B still pending.
 
 RCL3 keeps the shuttle body until the controller container exists, then switches to the parked 4W. Builders finish that depot before leftover extensions (the next five only raise cap 550→800; the 4W is already 500e). Hypothesis: the first third of the 135k climb is not 4W shuttling at ~0.3 e/t. A/B still pending.
+
+RCL1–3 builders are `[W,2C,2M]` (300), not `[W,3C,M]` / `getBody` of that segment. Dirt walk is 2 ticks/tile loaded instead of 4, and cap 800 no longer stacks a 600e `[2W,6C,2M]` that HOL-blocks the parked 4W. RCL4+ still uses the road-era stack. Hypothesis: the controller depot and the five RCL2 extensions finish on a walk that matches the ground. A/B still pending.
