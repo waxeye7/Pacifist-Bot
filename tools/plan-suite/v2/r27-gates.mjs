@@ -128,7 +128,7 @@ export const META_LEAF_NAMES = new Set(idents.all);
 export const META_DARK = {
   arrayPartner: { klass: "derived" },
   baseCut: { klass: "presence", why: "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness" },
-  baseOverGated: { klass: "presence", why: "layer-3 mobility veto input; the as-built lap is the gated quantity" },
+  baseOverGated: { klass: "derived" },
   battlementFloor: { klass: "derived" },
   battlementGap: { klass: "derived" },
   battlementGapTiles: { klass: "derived" },
@@ -228,7 +228,7 @@ export const META_DARK = {
   unreachedClusters: { klass: "derived" },
   unsealed: { klass: "presence", why: "a pocket-unseal witness" },
   uselessCut: { klass: "presence", why: "tiles layer-2 kept that the single-removal test does not need; redundantCut is gated" },
-  wasLap: { klass: "presence", why: "a before-lap on a relocation record" },
+  wasLap: { klass: "derived" },
   worstCase: { klass: "presence", why: "layer-6 worst-case bound" },
   worstCaseUngated: { klass: "presence", why: "layer-6 worst-case ungated bound" },
 };
@@ -699,6 +699,23 @@ function wantUnreachableExts(plan) {
     if (!D4.some(([dx, dy]) => roads.has(`${e.x + dx},${e.y + dy}`))) n++;
   }
   return n;
+}
+
+/**
+ * Layer-5 mobility-veto board: freeze cut, extension mass / nuker / observer
+ * lifted. baseOverGated is that walk's overGated; wasLap is its maxGated.
+ */
+function wantLayer5VetoMobility(terrain, plan) {
+  const cut = freezeCutOf(plan);
+  if (!cut.length || !plan.sitter) return null;
+  const cutSet = new Set(cut.map(K));
+  const ext = exteriorFlood(terrain, cutSet);
+  const blocked = builtBlocked(plan, true);
+  for (const t of ["nuker", "observer"]) {
+    for (const q of plan.structures?.[t] || []) blocked.delete(K(q));
+  }
+  const walk = interiorWalk(terrain, cutSet, ext, blocked, plan.sitter);
+  return mobilityStats(cut, ext, maskFromKeys(walk));
 }
 
 /** layer 6's hub-field max over the seats it stood, before the 7b reflow. */
@@ -2115,6 +2132,35 @@ export function checkR27(plan, ctx = {}) {
           `the extensions this room stood before the 7b reflow is ${want}. It is that walk, not a ` +
           `comment — flattening it used to pass`,
       );
+    }
+  }
+  // r29p20 — leftover presence: freeze-cut walk with the mass / nuker / observer
+  // lifted. Zeroing them used to pass.
+  if (ctx.terrain && plan.sitter) {
+    const wantMob = wantLayer5VetoMobility(ctx.terrain, plan);
+    if (wantMob) {
+      const bog = meta.misc?.mobilityVeto?.baseOverGated;
+      if (typeof bog === "number" && bog !== wantMob.overGated) {
+        fails.push(
+          `meta.misc.mobilityVeto.baseOverGated is ${bog} and the freeze-cut walk with the extension ` +
+            `mass, nuker and observer lifted has ${wantMob.overGated} gated over-target pair(s). It is ` +
+            `that walk, not a comment — flattening it used to pass`,
+        );
+      }
+      const refused = meta.misc?.mobilityVeto?.refused;
+      if (Array.isArray(refused)) {
+        for (let i = 0; i < refused.length; i++) {
+          const got = refused[i]?.wasLap;
+          if (typeof got !== "number") continue;
+          if (Math.abs(got - wantMob.maxGated) > 1e-9) {
+            fails.push(
+              `meta.misc.mobilityVeto.refused[${i}].wasLap is ${got} and the freeze-cut gated lap with ` +
+                `the extension mass, nuker and observer lifted is ${wantMob.maxGated}. It is that walk, ` +
+                `not a comment — flattening it used to pass`,
+            );
+          }
+        }
+      }
     }
   }
 

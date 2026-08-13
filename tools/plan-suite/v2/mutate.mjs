@@ -9187,6 +9187,18 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => typeof p.meta?.walls?.servedExts === "number"),
     (p) => { p.meta.walls.servedExts += 1; },
     "servedExts|filler");
+  run("r41/MF6-X-baseOverGated-flattered",
+    any28((p) => typeof p.meta?.misc?.mobilityVeto?.baseOverGated === "number" && p.meta.misc.mobilityVeto.baseOverGated !== 0),
+    (p) => { p.meta.misc.mobilityVeto.baseOverGated = 0; },
+    "baseOverGated|freeze-cut|over-target");
+  run("r41/MF6-X-wasLap-flattered",
+    any28((p) => (p.meta?.misc?.mobilityVeto?.refused || []).some((r) => r && typeof r.wasLap === "number" && r.wasLap !== 0)),
+    (p) => {
+      for (const r of p.meta.misc.mobilityVeto.refused || []) {
+        if (r && typeof r.wasLap === "number") r.wasLap = 0;
+      }
+    },
+    "wasLap|freeze-cut|gated lap");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
