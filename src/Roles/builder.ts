@@ -50,6 +50,26 @@ import { isSanctionedRampart } from "utils/PlanV2";
 		}
 	}
 
+	// RCL3: controller depot before leftover extensions. The parked 4W
+	// only pays once this container exists; the next five extensions
+	// raise cap 550→800 but the 4W is already 500e. Same range-4 /
+	// not-source-adjacent test as upgrader.ts and carry.ts.
+	if(buildingsToBuild.length > 0 && creep.room.controller && creep.room.controller.level == 3) {
+		const ctrl = creep.room.controller;
+		const sources = creep.room.find(FIND_SOURCES);
+		const depotSites = buildingsToBuild.filter(function(building) {
+			return building.structureType == STRUCTURE_CONTAINER &&
+				building.pos.getRangeTo(ctrl) <= 4 &&
+				building.pos.findInRange(sources, 1).length == 0;
+		});
+		if(depotSites.length > 0) {
+			creep.memory.suicide = false;
+			creep.say("🎯", true);
+			depotSites.sort((a,b) => b.progress - a.progress);
+			return depotSites[0].id;
+		}
+	}
+
 	if(buildingsToBuild.length > 0) {
 		let buildings = buildingsToBuild.filter(function(building) {return building.structureType == STRUCTURE_EXTENSION;});
 		if(buildings.length > 0) {

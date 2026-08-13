@@ -102,3 +102,5 @@ Pre-road home carriers are 1:1 CARRY:MOVE (same rule remotes already use). The o
 RCL3 no longer queues the 800e maintainer. Arterials hit 2000 hits after ≈3000 ticks of decay, which is mid-135k-climb, and the body stole a spawn from a 500e 4W upgrader. Ramparts are RCL4+; the existing `[W,C,M]` repairer covers roads. RCL4+ maintainers unchanged. Hypothesis: the climb is not paying 800e to nurse a 300-hit road. A/B still pending.
 
 RCL2 upgraders are `[2W,2C,2M]` (450), not `[4W,C,M]`. The controller container is RCL3, so RCL2 is a source↔controller shuttle: `[4W,C,M]` is 3 ticks/tile and a 50-energy tank (~0.5 e/t delivered on a 15-tile walk, not 4). The 2W/2C/2M body walks and holds 100. RCL3 still parks the 4W on the depot. Hypothesis: RCL2 actually delivers ~1 e/t per upgrader. A/B still pending.
+
+RCL3 keeps the shuttle body until the controller container exists, then switches to the parked 4W. Builders finish that depot before leftover extensions (the next five only raise cap 550→800; the 4W is already 500e). Hypothesis: the first third of the 135k climb is not 4W shuttling at ~0.3 e/t. A/B still pending.

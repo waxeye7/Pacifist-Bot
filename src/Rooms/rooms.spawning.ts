@@ -804,10 +804,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                 // No controller depot until RCL3. [4W,C,M] is 3 ticks/tile
                 // (5 non-MOVE / 1 MOVE) and a 50-energy tank — ~0.5 e/t
                 // delivered on a 15-tile shuttle, not 4. [2W,2C,2M] walks
-                // and holds 100, ~1 e/t each. RCL3 keeps the parked 4W.
-                body:   room.energyCapacityAvailable >= 550
-                    ? [WORK,WORK,CARRY,CARRY,MOVE,MOVE]
-                    : getBody([WORK,CARRY,MOVE], room),
+                // and holds 100, ~1 e/t each.
+                body:   shuttleUpgraderBody(room),
 
             },
 
@@ -846,11 +844,12 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 4,
-                body:   room.energyCapacityAvailable >= 800
-                    ? getBody([WORK,WORK,CARRY,MOVE], room)
-                    : room.energyCapacityAvailable >= 550
-                        ? [WORK,WORK,WORK,WORK,CARRY,MOVE]
-                        : getBody([WORK,WORK,CARRY,MOVE], room),
+                // Parked 4W only pays once the controller container exists.
+                // Until then this is the same shuttle as RCL2 — builders
+                // finish that depot before leftover extensions.
+                body:   hasControllerDepot(room)
+                    ? parkedUpgraderBody(room)
+                    : shuttleUpgraderBody(room),
 
             },
 
@@ -3374,6 +3373,46 @@ function onlyRoadSites(sites): boolean {
         if(sites[i].structureType !== STRUCTURE_ROAD) return false;
     }
     return true;
+}
+
+/** Source↔controller shuttle. Used at RCL2 and at RCL3 before the depot exists. */
+function shuttleUpgraderBody(room) {
+    return room.energyCapacityAvailable >= 550
+        ? [WORK, WORK, CARRY, CARRY, MOVE, MOVE]
+        : getBody([WORK, CARRY, MOVE], room);
+}
+
+/** Parked on the controller container. 4W at 550, 4W2C2M once cap hits 800. */
+function parkedUpgraderBody(room) {
+    return room.energyCapacityAvailable >= 800
+        ? getBody([WORK, WORK, CARRY, MOVE], room)
+        : room.energyCapacityAvailable >= 550
+            ? [WORK, WORK, WORK, WORK, CARRY, MOVE]
+            : getBody([WORK, WORK, CARRY, MOVE], room);
+}
+
+/**
+ * Controller-side container, same definition as upgrader.ts / carry.ts:
+ * range 4, not a source container, not the bin or the storage.
+ */
+function hasControllerDepot(room): boolean {
+    const ctrl = room.controller;
+    if (!ctrl) return false;
+    const S = room.memory.Structures || {};
+    const known: any = Game.getObjectById(S.controllerLink);
+    if (known && known.structureType == STRUCTURE_CONTAINER &&
+        known.pos.getRangeTo(ctrl) <= 4 &&
+        known.pos.findInRange(FIND_SOURCES, 1).length == 0) {
+        return true;
+    }
+    const sources = room.find(FIND_SOURCES);
+    return room.find(FIND_STRUCTURES, {filter: (s: any) =>
+        s.structureType == STRUCTURE_CONTAINER &&
+        s.id !== S.bin &&
+        s.id !== S.storage &&
+        s.pos.getRangeTo(ctrl) <= 4 &&
+        s.pos.findInRange(sources, 1).length == 0
+    }).length > 0;
 }
 
 /**
