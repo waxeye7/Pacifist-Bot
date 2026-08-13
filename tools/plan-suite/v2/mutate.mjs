@@ -9015,6 +9015,46 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.walls?.servedFree || 0) > 0),
     (p) => { p.meta.walls.servedFree = 0; },
     "servedFree|pre-layer-7|already-served");
+  run("r35/MF6-X-arrayPartner-moved",
+    any28((p) => p.meta?.towers?.rcl5Pair?.arrayPartner && Number.isInteger(p.meta.towers.rcl5Pair.arrayPartner.x)),
+    (p) => { p.meta.towers.rcl5Pair.arrayPartner = { x: 1, y: 1 }; },
+    "arrayPartner|towers\\[swapped");
+  run("r35/MF6-X-minDmgArray-zeroed",
+    any28((p) => typeof p.meta?.towers?.rcl5Pair?.minDmgArray === "number" && p.meta.towers.rcl5Pair.minDmgArray !== 0),
+    (p) => { p.meta.towers.rcl5Pair.minDmgArray = 0; },
+    "minDmgArray|freeze cut|pair");
+  run("r35/MF6-X-rcl5Pair-picked-moved",
+    any28((p) => p.meta?.towers?.rcl5Pair?.picked && Number.isInteger(p.meta.towers.rcl5Pair.picked.x) && (p.structures?.tower || []).length >= 2),
+    (p) => { p.meta.towers.rcl5Pair.picked = { x: 1, y: 1 }; },
+    "picked|towers\\[1\\]");
+  run("r35/MF6-X-battlementGap-set-to-1",
+    any28((p) => typeof p.meta?.shell?.battlementGap === "number" && p.meta.shell.battlementGap === 0),
+    (p) => { p.meta.shell.battlementGap = 1; },
+    "battlementGap|pickBattlements|uncovered");
+  run("r35/MF6-X-battlementGapTiles-planted",
+    any28((p) => Array.isArray(p.meta?.shell?.battlementGapTiles)),
+    (p) => { p.meta.shell.battlementGapTiles = [{ x: 1, y: 1 }]; },
+    "battlementGapTiles|pickBattlements|uncovers");
+  run("r35/MF6-X-boundHeld-flipped",
+    any28((p) => p.meta?.walls?.mobility?.boundHeld === true),
+    (p) => { p.meta.walls.mobility.boundHeld = false; },
+    "boundHeld|bounded|bound held");
+  run("r35/MF6-X-boundLap-flattered",
+    any28((p) => typeof p.meta?.walls?.mobility?.boundLap === "number" && p.meta.walls.mobility.boundLap !== 0 && p.meta.walls.mobility.boundHeld === true),
+    (p) => { p.meta.walls.mobility.boundLap = 0; },
+    "boundLap|as-built gated lap");
+  run("r35/MF6-X-fillerTiles-set-to-1",
+    any28((p) => typeof p.meta?.walls?.fillerTiles === "number" && p.meta.walls.fillerTiles !== 1),
+    (p) => { p.meta.walls.fillerTiles = 1; },
+    "fillerTiles|laidByKind.extFace");
+  run("r35/MF6-X-shallowCost-zeroed",
+    any28((p) => (p.meta?.labs?.shallowCost || 0) > 0),
+    (p) => { p.meta.labs.shallowCost = 0; },
+    "shallowCost|depth");
+  run("r35/MF6-X-shallowRefused-cleared",
+    any28((p) => Array.isArray(p.meta?.walls?.reflow?.shallowRefused) && p.meta.walls.reflow.shallowRefused.length > 0),
+    (p) => { p.meta.walls.reflow.shallowRefused = []; },
+    "shallowRefused|shallow extension");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },

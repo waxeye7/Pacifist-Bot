@@ -13,7 +13,7 @@
  */
 import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, RADII_WIDE } from "./layer-shell.mjs";
+import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -37,6 +37,35 @@ import idents from "./_r27-idents.json" with { type: "json" };
 const K = (t) => `${t.x},${t.y}`;
 const idx = (x, y) => x + y * 50;
 const COORD = /^\d{1,2},\d{1,2}$/;
+const DEPTH_SAFE = 4;
+const SHALLOW_LAB_COST = 3;
+
+/** chebyshev depth from an exterior flood — same steps as validate.mjs. */
+function depthFromExterior(ext) {
+  const depth = new Int16Array(2500).fill(999);
+  const q = [];
+  for (let i = 0; i < 2500; i++) {
+    if (ext[i]) {
+      depth[i] = 0;
+      q.push(i);
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50;
+    const y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (depth[ni] <= depth[i] + 1) continue;
+      depth[ni] = depth[i] + 1;
+      q.push(ni);
+    }
+  }
+  return depth;
+}
 /** 99,99 matches COORD. The floor bind parses any integer pair. */
 function parseCoord(k) {
   const m = /^(-?\d+),(-?\d+)$/.exec(String(k));
@@ -87,14 +116,14 @@ export const META_LEAF_NAMES = new Set(idents.all);
  *   presence — published, content unread, reason stated
  */
 export const META_DARK = {
-  arrayPartner: { klass: "presence", why: "layer-3 adjacency bookkeeping; the crossing census is gated on the shipped tiles" },
+  arrayPartner: { klass: "derived" },
   baseCut: { klass: "presence", why: "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness" },
   baseOverGated: { klass: "presence", why: "layer-3 mobility veto input; the as-built lap is the gated quantity" },
   battlementFloor: { klass: "derived" },
-  battlementGap: { klass: "presence", why: "layer-2 battlement spacing; battlementUnreachable is derived" },
-  battlementGapTiles: { klass: "presence", why: "the tiles of that gap; the unreachable roster is derived" },
-  boundHeld: { klass: "presence", why: "layer-6 corridor-bound instrument; the as-built lap is gated" },
-  boundLap: { klass: "presence", why: "same bound, the lap it held" },
+  battlementGap: { klass: "derived" },
+  battlementGapTiles: { klass: "derived" },
+  boundHeld: { klass: "derived" },
+  boundLap: { klass: "derived" },
   boundRederived: { klass: "presence", why: "the bound re-read after relocation; a layer-6 witness" },
   budgetSpent: { klass: "presence", why: "layer-6 lane reservation spend; the reservation is the note's evidence" },
   causeFirst: { klass: "presence", why: "mobility-cause tie-break witness on a declaration record" },
@@ -113,7 +142,7 @@ export const META_DARK = {
   extractorOffNetwork: { klass: "derived" },
   extractorSeatNetTiles: { klass: "derived" },
   faceAndSatHeld: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
-  fillerTiles: { klass: "presence", why: "layer-7 filler-tile census; roads are gated by the network check" },
+  fillerTiles: { klass: "derived" },
   floorGated: { klass: "presence", why: "mobility floor on a declaration record" },
   floorOver: { klass: "presence", why: "mobility floor witness" },
   floorOverGated: { klass: "presence", why: "mobility floor witness" },
@@ -128,7 +157,7 @@ export const META_DARK = {
   massAdds: { klass: "presence", why: "mobility mass-share witness on a declaration" },
   maxDist: { klass: "presence", why: "a search's own max-distance counter" },
   maxHubDist: { klass: "presence", why: "layer-1 seed scoring witness" },
-  minDmgArray: { klass: "presence", why: "layer-3 hill-climb witness" },
+  minDmgArray: { klass: "derived" },
   minDmgPicked: { klass: "derived" },
   mineralApproachAtReservation: { klass: "presence", why: "layer-1's approach, kept beside the shipped one (OL5)" },
   mineralBubble: { klass: "derived" },
@@ -152,7 +181,7 @@ export const META_DARK = {
   protectRadius: { klass: "derived" },
   prunedBasis: { klass: "rendered" },
   radii: { klass: "presence", why: "composeOpts seed radii" },
-  rcl5Pair: { klass: "presence", why: "which tower RCL5 gets; the shipped six are gated" },
+  rcl5Pair: { klass: "derived" },
   refillBasis: { klass: "rendered" },
   refillDistsUnblocked: { klass: "derived" },
   remeasured: { klass: "rendered" },
@@ -164,10 +193,10 @@ export const META_DARK = {
   searchedSeats: { klass: "presence", why: "towerSwapOffer leaf" },
   servedExts: { klass: "presence", why: "layer-7 service census" },
   servedFree: { klass: "derived" },
-  shallowCost: { klass: "presence", why: "lab-stamp shallow-lab cost" },
+  shallowCost: { klass: "derived" },
   shallowNow: { klass: "presence", why: "reflow's own remaining-shallow count; the board's shallow set is gated" },
   shallowRamparts: { klass: "presence", why: "personal-rampart count at a layer; the board's ramparts are gated" },
-  shallowRefused: { klass: "presence", why: "reflow refusal roster; OL6 registers the sentences" },
+  shallowRefused: { klass: "derived" },
   shippedAvgShellDmg: { klass: "derived" },
   shippedShellDmg: { klass: "derived" },
   shippedWeakTiles: { klass: "derived" },
@@ -806,6 +835,23 @@ export function checkR27(plan, ctx = {}) {
           `The count and the roster are one walk, not two leaves that agree`,
       );
     }
+    const b = pickBattlements(ctx.terrain, sh.cut, ctx.extShip, walk);
+    if (typeof sh.battlementGap === "number" && sh.battlementGap !== b.battlementGap) {
+      fails.push(
+        `meta.shell.battlementGap is ${sh.battlementGap} and pickBattlements on the shipped cut leaves ` +
+          `${b.battlementGap} uncovered. It is that uncovered count, not a comment — flattening it used to pass`,
+      );
+    }
+    if (Array.isArray(sh.battlementGapTiles)) {
+      const wantGap = (b.battlementGapTiles || []).map(K).sort();
+      const gotGap = sh.battlementGapTiles.map((t) => (t && Number.isInteger(t.x) ? K(t) : String(t))).sort();
+      if (gotGap.join(" ") !== wantGap.join(" ")) {
+        fails.push(
+          `meta.shell.battlementGapTiles is [${gotGap.join(" ")}] and pickBattlements uncovers ` +
+            `[${wantGap.join(" ")}]. The roster is that walk, not a free list — planting a tile used to pass`,
+        );
+      }
+    }
   }
 
   const builtLap = meta.walls?.mobility?.builtGated ?? sh.mobilityBuilt?.maxGated;
@@ -816,6 +862,35 @@ export function checkR27(plan, ctx = {}) {
           `(walls.mobility.builtGated) is ${builtLap}. They are the same walk on the same shipped wall — ` +
           `zeroing the shipped copy alone used to pass`,
       );
+    }
+  }
+
+  {
+    const mob = w.mobility || {};
+    if ("boundHeld" in mob || typeof mob.boundLap === "number") {
+      const lane = meta.extensions?.laneMeta || mob.lanes;
+      const b = lane && typeof lane === "object" ? lane.bounded : null;
+      if (b == null) {
+        if (mob.boundHeld != null) {
+          fails.push(
+            `meta.walls.mobility.boundHeld is ${mob.boundHeld} and lane.bounded is missing. boundHeld is ` +
+              `null when the reservation published no bound — forging a hold used to pass`,
+          );
+        }
+      } else if (typeof builtLap === "number" && builtLap <= b + 1e-9) {
+        if (mob.boundHeld !== true) {
+          fails.push(
+            `meta.walls.mobility.boundHeld is ${JSON.stringify(mob.boundHeld)} and the as-built gated lap ` +
+              `${builtLap} is inside lane.bounded ${b}. The bound held — flipping the flag used to pass`,
+          );
+        }
+        if (typeof mob.boundLap !== "number" || Math.abs(mob.boundLap - builtLap) > 1e-9) {
+          fails.push(
+            `meta.walls.mobility.boundLap is ${mob.boundLap} and the as-built gated lap is ${builtLap}. ` +
+              `They are the same walk when the bound held — flattening it used to pass`,
+          );
+        }
+      }
     }
   }
 
@@ -1062,14 +1137,50 @@ export function checkR27(plan, ctx = {}) {
     const pair = tw.rcl5Pair;
     const towers = plan.structures?.tower || [];
     const freeze = Array.isArray(sh.cutAtFreeze) && sh.cutAtFreeze.length ? sh.cutAtFreeze : sh.cut;
-    if (pair && typeof pair.minDmgPicked === "number" && towers.length >= 2 && freeze && freeze.length) {
-      const want = towerPairMinDmg(towers[0], towers[1], freeze);
-      if (pair.minDmgPicked !== want) {
+    if (pair && towers.length >= 2) {
+      if (pair.picked && (!towers[1] || pair.picked.x !== towers[1].x || pair.picked.y !== towers[1].y)) {
         fails.push(
-          `meta.towers.rcl5Pair.minDmgPicked is ${pair.minDmgPicked} and towers[0]+towers[1] cover the ` +
-            `freeze cut's weakest tile at ${want}. It is that pair's min on the freeze wall, not a ` +
-            `comment — flattening it used to pass`,
+          `meta.towers.rcl5Pair.picked is ${pair.picked.x},${pair.picked.y} and towers[1] is ` +
+            `${towers[1] ? `${towers[1].x},${towers[1].y}` : "missing"}. The RCL5 pick is the second ` +
+            `shipped tower — moving it used to pass`,
         );
+      }
+      const partnerWant = pair.swapped ? towers[2] : towers[1];
+      if (pair.arrayPartner && partnerWant && (pair.arrayPartner.x !== partnerWant.x || pair.arrayPartner.y !== partnerWant.y)) {
+        fails.push(
+          `meta.towers.rcl5Pair.arrayPartner is ${pair.arrayPartner.x},${pair.arrayPartner.y} and ` +
+            `towers[swapped ? 2 : 1] is ${partnerWant.x},${partnerWant.y}. The partner is that shipped ` +
+            `tower — moving it used to pass`,
+        );
+      }
+      if (typeof pair.swapped === "boolean" && pair.arrayPartner && pair.picked) {
+        const wantSwap = pair.arrayPartner.x !== pair.picked.x || pair.arrayPartner.y !== pair.picked.y;
+        if (pair.swapped !== wantSwap) {
+          fails.push(
+            `meta.towers.rcl5Pair.swapped is ${pair.swapped} and arrayPartner ` +
+              `${wantSwap ? "is not" : "is"} picked. swapped is that comparison — flipping it used to pass`,
+          );
+        }
+      }
+      if (typeof pair.minDmgPicked === "number" && freeze && freeze.length) {
+        const want = towerPairMinDmg(towers[0], towers[1], freeze);
+        if (pair.minDmgPicked !== want) {
+          fails.push(
+            `meta.towers.rcl5Pair.minDmgPicked is ${pair.minDmgPicked} and towers[0]+towers[1] cover the ` +
+              `freeze cut's weakest tile at ${want}. It is that pair's min on the freeze wall, not a ` +
+              `comment — flattening it used to pass`,
+          );
+        }
+      }
+      if (typeof pair.minDmgArray === "number" && pair.arrayPartner && freeze && freeze.length) {
+        const want = towerPairMinDmg(towers[0], pair.arrayPartner, freeze);
+        if (pair.minDmgArray !== want) {
+          fails.push(
+            `meta.towers.rcl5Pair.minDmgArray is ${pair.minDmgArray} and towers[0]+arrayPartner cover the ` +
+              `freeze cut's weakest tile at ${want}. It is that pair's min on the freeze wall, not a ` +
+              `comment — flattening it used to pass`,
+          );
+        }
       }
     }
   }
@@ -1413,6 +1524,44 @@ export function checkR27(plan, ctx = {}) {
         `meta.walls.servedFree is ${w.servedFree} and ${want} shipped-cut cluster(s) already D8-touch a ` +
           `pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass`,
       );
+    }
+  }
+  if (typeof w.fillerTiles === "number") {
+    const want = w.laidByKind?.extFace || 0;
+    if (w.fillerTiles !== want) {
+      fails.push(
+        `meta.walls.fillerTiles is ${w.fillerTiles} and laidByKind.extFace is ${want}. It is that laid ` +
+          `count, not a comment — setting it while the book still names the tiles used to pass`,
+      );
+    }
+  }
+  if (typeof meta.labs?.shallowCost === "number" && ctx.extShip) {
+    const depth = depthFromExterior(ctx.extShip);
+    const n = (plan.structures?.lab || []).filter((l) => l && Number.isInteger(l.x) && depth[idx(l.x, l.y)] < DEPTH_SAFE).length;
+    const want = n * SHALLOW_LAB_COST;
+    if (meta.labs.shallowCost !== want) {
+      fails.push(
+        `meta.labs.shallowCost is ${meta.labs.shallowCost} and this room ships ${n} lab(s) at depth < ` +
+          `${DEPTH_SAFE}, which costs ${want}. It is that depth count times ${SHALLOW_LAB_COST}, not a ` +
+          `comment — zeroing it used to pass`,
+      );
+    }
+  }
+  {
+    const sr = w.reflow?.shallowRefused;
+    if (Array.isArray(sr) && ctx.extShip) {
+      const depth = depthFromExterior(ctx.extShip);
+      const want = (plan.structures?.extension || [])
+        .filter((e) => e && Number.isInteger(e.x) && depth[idx(e.x, e.y)] < DEPTH_SAFE)
+        .map(K)
+        .sort();
+      const got = sr.filter((t) => t && Number.isInteger(t.x)).map(K).sort();
+      if (got.join("|") !== want.join("|")) {
+        fails.push(
+          `meta.walls.reflow.shallowRefused names [${got.join(" ")}] and this room ships shallow ` +
+            `extension(s) [${want.join(" ")}]. The roster is those tiles, not a comment — clearing it used to pass`,
+        );
+      }
     }
   }
 
