@@ -862,7 +862,10 @@ function add_creeps_to_spawn_list(room, spawn) {
             repair_creep: {
 
                 amount: 1,
-                body:   getBody([WORK,CARRY,MOVE], room, 50),
+                // 1W covers container decay (50 hits/t). getBody stacked this
+                // to [2W,2C,2M] at 550 and [3W,3C,3M] at 800 — 400–600e HOL
+                // in front of the parked 4W. Roads are not paved first.
+                body:   [WORK, CARRY, MOVE],
 
             },
             maintain_creep: {
