@@ -9111,6 +9111,37 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.extensions?.corridorPlaced || 0) === 60 && (p.meta?.extensions?.corridorFallback || 0) === 0),
     (p) => { p.meta.extensions.corridorPlaced = 0; },
     "corridorPlaced|corridorFallback");
+  run("r38/MF6-X-stubCap-rich-poor-swap",
+    any28((p) => p.meta?.extensions?.stubCap === 43),
+    (p) => { p.meta.extensions.stubCap = 51; },
+    "stubCap|paving ceiling|deep pool");
+  run("r38/MF6-X-stubCap-poor-rich-swap",
+    any28((p) => p.meta?.extensions?.stubCap === 51),
+    (p) => { p.meta.extensions.stubCap = 43; },
+    "stubCap|paving ceiling|deep pool");
+  run("r38/MF6-X-floorUngated-flattered",
+    any28((p) => typeof p.meta?.extensions?.laneMeta?.floorUngated === "number" && p.meta.extensions.laneMeta.floorUngated !== 0),
+    (p) => {
+      p.meta.extensions.laneMeta.floorUngated = 0;
+      if (p.meta.walls?.mobility?.lanes) p.meta.walls.mobility.lanes.floorUngated = 0;
+    },
+    "floorUngated|mass-free");
+  run("r38/MF6-X-radii-rewritten",
+    any28((p) => Array.isArray(p.meta?.composeOpts?.radii) && p.meta.composeOpts.radii.length > 0),
+    (p) => { p.meta.composeOpts.radii = [1, 2, 3]; },
+    "radii|composeOpts|escalation");
+  run("r38/MF6-X-radii-planted",
+    any28((p) => p.meta?.composeOpts && !p.meta.composeOpts.radii),
+    (p) => { p.meta.composeOpts.radii = [6, 7, 8, 9, 10, 11, 12, 13, 14]; },
+    "radii|composeOpts");
+  run("r38/MF6-X-parkCap-zeroed",
+    any28((p) => typeof p.meta?.composeOpts?.parkCap === "number" && p.meta.composeOpts.parkCap !== 0),
+    (p) => { p.meta.composeOpts.parkCap = 0; },
+    "parkCap|composeOpts");
+  run("r38/MF6-X-takeTowerSwap-to-moved",
+    any28((p) => p.meta?.composeOpts?.takeTowerSwap?.to && Number.isInteger(p.meta.composeOpts.takeTowerSwap.to.x)),
+    (p) => { p.meta.composeOpts.takeTowerSwap.to = { x: 1, y: 1 }; },
+    "takeTowerSwap|composeOpts|tower");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },

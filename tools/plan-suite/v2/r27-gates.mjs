@@ -11,7 +11,7 @@
  *      appeared nowhere in validate.mjs carry an explicit klass + reason;
  *      the cheap ones are derived here.
  */
-import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
+import { D8, buildable, chebyshev, walkable, exteriorFlood, mineralGuard, reservedTiles } from "./shared.mjs";
 import { fieldFrom, winningSeedScore } from "./layer-hub.mjs";
 import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, MOBILITY_TARGET, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
@@ -43,7 +43,11 @@ const FLANK_RELAX = 2;
 const FLANK_HARD_CAP = 18;
 const STUB_CAP_POOR = 43;
 const STUB_CAP_RICH = 51;
+const STUB_RICH_RATIO = 1.5;
 const HUB_CAP_LADDER = [16, 19, 23, 999];
+const ESCALATION_RADII_LATE = [10, 11, 12, 13, 14];
+const L6_OCC_TYPES = ["storage", "terminal", "link", "spawn", "container", "tower", "lab", "nuker", "observer"];
+const round2 = (v) => Math.round(Number(v) * 100) / 100;
 
 /** chebyshev depth from an exterior flood — same steps as validate.mjs. */
 function depthFromExterior(ext) {
@@ -151,7 +155,7 @@ export const META_DARK = {
   floorGated: { klass: "derived" },
   floorOver: { klass: "derived" },
   floorOverGated: { klass: "derived" },
-  floorUngated: { klass: "presence", why: "mobility floor witness" },
+  floorUngated: { klass: "derived" },
   freeDin: { klass: "derived" },
   freeLeft: { klass: "presence", why: "layer-6 remaining free-deep count" },
   haulCost: { klass: "presence", why: "lab haul scoring witness; the shipped haul is declared" },
@@ -178,14 +182,14 @@ export const META_DARK = {
   nukerHubDist: { klass: "derived" },
   nukerInWindow: { klass: "derived" },
   observerHubDist: { klass: "derived" },
-  parkCap: { klass: "presence", why: "composeOpts park cap; ctrlParks are re-derived" },
+  parkCap: { klass: "derived" },
   paveRetired: { klass: "presence", why: "layer-7b reflow witness" },
   pickedBy: { klass: "presence", why: "a search's own picker label" },
   priceProven: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
   priceyWall: { klass: "derived" },
   protectRadius: { klass: "derived" },
   prunedBasis: { klass: "rendered" },
-  radii: { klass: "presence", why: "composeOpts seed radii" },
+  radii: { klass: "derived" },
   rcl5Pair: { klass: "derived" },
   refillBasis: { klass: "rendered" },
   refillDistsUnblocked: { klass: "derived" },
@@ -214,7 +218,7 @@ export const META_DARK = {
   stubExhausted: { klass: "presence", why: "layer-6 stub exhaustion" },
   stubRoads: { klass: "derived" },
   swampPaved: { klass: "derived" },
-  takeTowerSwap: { klass: "presence", why: "composeOpts input from a re-composition; the shipped battery is gated" },
+  takeTowerSwap: { klass: "derived" },
   tourRule: { klass: "presence", why: "sealed-recovery tour ceiling (OF6)" },
   towerOnly: { klass: "derived" },
   towerSwapOffer: { klass: "presence", why: "the offer record; its basis is rendered" },
@@ -482,6 +486,98 @@ function hubFieldAtLayer5(terrain, plan) {
   if (plan.sitter) occ.add(K(plan.sitter));
   for (const k of objectTilesOf(plan)) occ.add(k);
   return fieldFrom(terrain, plan.sitter, occ);
+}
+
+function freezeCutOf(plan) {
+  const sh = plan.meta?.shell || {};
+  return Array.isArray(sh.cutAtFreeze) && sh.cutAtFreeze.length ? sh.cutAtFreeze : sh.cut || [];
+}
+
+/** layer 6's occupancy at the start of the cohesion walk — extensions have not landed. */
+function l6Occupied(plan) {
+  const occ = new Set();
+  for (const t of L6_OCC_TYPES) {
+    for (const q of plan.structures?.[t] || []) occ.add(K(q));
+  }
+  for (const k of objectTilesOf(plan)) occ.add(k);
+  return occ;
+}
+
+/** claim seat + parks. The artifact ships them on meta; layer 6 reads plan.parkReserve. */
+function l6Reserved(plan) {
+  const s = reservedTiles(plan);
+  for (const p of plan.parkReserve || plan.meta?.ctrlParkReserve || []) {
+    if (p && Number.isInteger(p.x) && Number.isInteger(p.y)) s.add(K(p));
+  }
+  const seat = plan.claimSeat || plan.meta?.claimSeat;
+  const appr = plan.claimApproach || plan.meta?.claimApproach;
+  if (seat && Number.isInteger(seat.x)) s.add(K(seat));
+  if (appr && Number.isInteger(appr.x)) s.add(K(appr));
+  return s;
+}
+
+function preL6Paved(plan) {
+  const s = new Set();
+  for (const [k, v] of Object.entries(plan.meta?.roadLayer || {})) {
+    if (typeof v === "number" && v < 6) s.add(k);
+  }
+  return s;
+}
+
+/**
+ * Layer 6's rich/poor paving ceiling: 51 iff deep ext-capable tiles / 60 >= 1.5.
+ * The cohesion ceiling is 18 on every legal rung (min(cap+2, 18)), so the pool
+ * does not depend on the unread hubDistCap pick.
+ */
+function wantStubCap(terrain, plan) {
+  if (!plan.sitter) return null;
+  const freeze = freezeCutOf(plan);
+  const freezeSet = new Set(freeze.map(K));
+  const ext = exteriorFlood(terrain, freezeSet);
+  const depth = depthFromExterior(ext);
+  const occ = l6Occupied(plan);
+  const reserved = l6Reserved(plan);
+  const paved = preL6Paved(plan);
+  const forbid = new Set();
+  for (const s of Array.isArray(plan.meta?.composeOpts?.forbidExtSeat) ? plan.meta.composeOpts.forbidExtSeat : []) {
+    if (s && Number.isInteger(s.x)) forbid.add(K(s));
+  }
+  const hf = fieldFrom(terrain, plan.sitter, occ);
+  const mGuard = mineralGuard(terrain, plan);
+  const blockedNow = new Set(occ);
+  let n = 0;
+  for (let x = 2; x <= 47; x++) {
+    for (let y = 2; y <= 47; y++) {
+      const i = idx(x, y);
+      if (depth[i] < DEPTH_SAFE || ext[i] || !buildable(terrain, x, y)) continue;
+      const k = `${x},${y}`;
+      if (occ.has(k) || reserved.has(k) || paved.has(k) || forbid.has(k)) continue;
+      if (hf[i] >= 9999 || hf[i] > FLANK_HARD_CAP) continue;
+      if (!mGuard.ok({ x, y }, blockedNow)) continue;
+      n++;
+    }
+  }
+  return n / 60 >= STUB_RICH_RATIO ? STUB_CAP_RICH : STUB_CAP_POOR;
+}
+
+/** layer 6's mass-free ungated lap on the freeze cut, extensions not yet placed. */
+function wantFloorUngated(terrain, plan) {
+  if (!plan.sitter) return null;
+  const freeze = freezeCutOf(plan);
+  if (!freeze.length) return null;
+  const freezeSet = new Set(freeze.map(K));
+  const ext = exteriorFlood(terrain, freezeSet);
+  const walkBlocked = l6Occupied(plan);
+  for (const c of plan.structures?.container || []) walkBlocked.delete(K(c));
+  const walk = interiorWalk(terrain, freezeSet, ext, walkBlocked, plan.sitter);
+  return round2(mobilityStats(freeze, ext, maskFromKeys(walk)).max);
+}
+
+function wantComposeRadii(opts) {
+  const bonus = opts?.needDeepBonus;
+  if (bonus === 85) return ESCALATION_RADII_LATE;
+  if (bonus === 25 || bonus === 55) return RADII_WIDE;
+  return null;
 }
 
 /** layer 3's pre-mass refill field: hub-kit blockers only. Containers are walkable. */
@@ -1694,11 +1790,22 @@ export function checkR27(plan, ctx = {}) {
         );
       }
     }
-    if (typeof ext.stubCap === "number" && ext.stubCap !== STUB_CAP_POOR && ext.stubCap !== STUB_CAP_RICH) {
-      fails.push(
-        `meta.extensions.stubCap is ${ext.stubCap} and the layer-6 paving ceiling is ${STUB_CAP_POOR} ` +
-          `or ${STUB_CAP_RICH}. Flattening it used to pass`,
-      );
+    if (typeof ext.stubCap === "number") {
+      if (ctx.terrain && plan.sitter) {
+        const want = wantStubCap(ctx.terrain, plan);
+        if (want != null && ext.stubCap !== want) {
+          fails.push(
+            `meta.extensions.stubCap is ${ext.stubCap} and the rich/poor paving ceiling on this room's ` +
+              `deep ext-capable pool is ${want}. It is 51 iff that pool / 60 is at least ${STUB_RICH_RATIO}, ` +
+              `not a comment — swapping 43 for 51 used to pass`,
+          );
+        }
+      } else if (ext.stubCap !== STUB_CAP_POOR && ext.stubCap !== STUB_CAP_RICH) {
+        fails.push(
+          `meta.extensions.stubCap is ${ext.stubCap} and the layer-6 paving ceiling is ${STUB_CAP_POOR} ` +
+            `or ${STUB_CAP_RICH}. Flattening it used to pass`,
+        );
+      }
     }
     if (typeof ext.hubDistCap === "number" && !HUB_CAP_LADDER.includes(ext.hubDistCap)) {
       fails.push(
@@ -1749,6 +1856,70 @@ export function checkR27(plan, ctx = {}) {
           `meta.mineralApproachAtReservation is ${appr.x},${appr.y} and the reserved seat is ` +
             `${seatRes.x},${seatRes.y}. The reserved approach is a D8 neighbour of that seat — ` +
             `moving it used to pass`,
+        );
+      }
+    }
+  }
+
+  // r29p17 — leftover presence: freeze mass-free ungated walk, composeOpts
+  // radii/parkCap/takeTowerSwap. hubDistCap in-enum (16 vs 19 vs 23) has no
+  // cohesion walk on the shipped board (r16 left it open).
+  if (ctx.terrain && plan.sitter) {
+    const wantFu = wantFloorUngated(ctx.terrain, plan);
+    if (wantFu != null) {
+      const copies = [
+        ["extensions.laneMeta.floorUngated", meta.extensions?.laneMeta?.floorUngated],
+        ["walls.mobility.lanes.floorUngated", w.mobility?.lanes?.floorUngated],
+      ];
+      for (const [path, got] of copies) {
+        if (typeof got === "number" && Math.abs(got - wantFu) > 1e-9) {
+          fails.push(
+            `meta.${path} is ${got} and the mass-free ungated walk on the freeze cut ` +
+              `(extensions not yet placed) is ${wantFu}. It is that floor, not a comment — ` +
+              `flattening it used to pass`,
+          );
+        }
+      }
+    }
+  }
+  {
+    const opts = meta.composeOpts || {};
+    if ("radii" in opts || typeof opts.needDeepBonus === "number") {
+      const want = wantComposeRadii(opts);
+      const got = opts.radii;
+      const same =
+        want == null
+          ? got == null
+          : Array.isArray(got) && got.length === want.length && got.every((x, i) => x === want[i]);
+      if (!same) {
+        fails.push(
+          `meta.composeOpts.radii is ${JSON.stringify(got)} and the escalation table for ` +
+            `needDeepBonus ${opts.needDeepBonus ?? "none"} is ${want == null ? "absent" : want.join(",")}. ` +
+            `The list is that composeOpts walk — rewriting it used to pass`,
+        );
+      }
+    }
+    if (typeof opts.parkCap === "number" && typeof meta.ctrlParkFloorCap === "number") {
+      if (opts.parkCap !== meta.ctrlParkFloorCap) {
+        fails.push(
+          `meta.composeOpts.parkCap is ${opts.parkCap} and ctrlParkFloorCap is ${meta.ctrlParkFloorCap}. ` +
+            `The cap is the reservation this composition held — flattening it used to pass`,
+        );
+      }
+    }
+    const sw = opts.takeTowerSwap;
+    if (sw && Number.isInteger(sw.to?.x) && Number.isInteger(sw.to?.y)) {
+      const towers = new Set((plan.structures?.tower || []).map(K));
+      if (!towers.has(K(sw.to))) {
+        fails.push(
+          `meta.composeOpts.takeTowerSwap.to is ${sw.to.x},${sw.to.y} and no shipped tower sits there. ` +
+            `The take's destination is a tower on the board this room ships — moving it used to pass`,
+        );
+      }
+      if (sw.from && Number.isInteger(sw.from.x) && towers.has(K(sw.from))) {
+        fails.push(
+          `meta.composeOpts.takeTowerSwap.from is ${sw.from.x},${sw.from.y} and a shipped tower still ` +
+            `sits there. The take vacated that seat — leaving it on a live tower used to pass`,
         );
       }
     }
