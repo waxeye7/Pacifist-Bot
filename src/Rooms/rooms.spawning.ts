@@ -1864,34 +1864,16 @@ function add_creeps_to_spawn_list(room, spawn) {
      * only be refreshed by a filler that already exists, which is a deadlock),
      * and cap the roster.
      */
-    if(room.controller.level !== 8 && ControllerLinkFillers < 1) {
-        // The RCL5+ case: an actual LINK. The RCL3/4 case: the controller-side
-        // CONTAINER, which upgrader.ts drinks from (it reads the same
-        // Structures.controllerLink key) — killing this outright would cut the
-        // controller's supply line in exactly the rooms that need it most. Live
-        // E1S4 has its controller at 20,30 and both sources at 44,10 / 41,16, so
-        // its 1-CARRY RCL3 upgraders spend ~25 tiles each way per 50 energy; the
-        // near container is what makes them productive at all.
-        //
-        // The waste finding #9 measured was FIVE of these at once for a
-        // structure that did not exist, in a room with zero upgraders. Requiring
-        // a real target, an upgrader to serve, and a roster of one keeps the
-        // supply line and removes the pile-up.
-        let ctrlTarget: any = null;
-        if(room.controller.level >= 5) {
-            const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
-                s.structureType == STRUCTURE_LINK && s.pos.getRangeTo(room.controller) <= 3});
-            if(ctrlLinks.length) ctrlTarget = room.controller.pos.findClosestByRange(ctrlLinks);
-        }
-        if(!ctrlTarget && room.controller.level >= 3 && upgraders > 0) {
-            const ctrlConts = room.find(FIND_STRUCTURES, {filter: (s:any) =>
-                s.structureType == STRUCTURE_CONTAINER &&
-                s.id !== room.memory.Structures?.bin &&
-                s.id !== room.memory.Structures?.storage &&
-                s.pos.getRangeTo(room.controller) <= 3 &&
-                s.pos.findInRange(FIND_SOURCES, 1).length === 0});
-            if(ctrlConts.length) ctrlTarget = room.controller.pos.findClosestByRange(ctrlConts);
-        }
+    if(room.controller.level >= 5 && room.controller.level !== 8 && ControllerLinkFillers < 1) {
+        // Links only. The RCL3/4 container branch unshifted a 250–500e
+        // [4C,M] the tick the depot existed — HOL in front of the parked
+        // 4W that depot is for. Carriers already dump surplus there
+        // (carry.ts depotSink); dry-depot upgraders shuttle.
+        const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
+            s.structureType == STRUCTURE_LINK && s.pos.getRangeTo(room.controller) <= 3});
+        const ctrlTarget: any = ctrlLinks.length
+            ? room.controller.pos.findClosestByRange(ctrlLinks)
+            : null;
         const feedable = ctrlTarget && (storage && storage.store[RESOURCE_ENERGY] > 1000 ||
             room.find(FIND_DROPPED_RESOURCES, {filter: (r:any) => r.resourceType == RESOURCE_ENERGY && r.amount > 500}).length > 0);
         // NO `Game.time % 70 < 12` WINDOW. This whole function only runs on the
@@ -1908,10 +1890,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         if(feedable && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
             room.memory.Structures.controllerLink = ctrlTarget.id;
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            // Below RCL5 this is a 550-energy room: 8 CARRY is plenty and the
-            // 20-part cap would otherwise buy a 1,200-energy creep.
-            const cap = room.controller.level >= 5 ? 20 : 10;
-            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, cap), name, {memory: {role: 'ControllerLinkFiller'}});
+            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 20), name, {memory: {role: 'ControllerLinkFiller'}});
             console.log('Adding ControllerLinkFiller to Spawn List: ' + name + ' -> ' + ctrlTarget.structureType);
         }
     }

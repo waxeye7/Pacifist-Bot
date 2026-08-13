@@ -106,3 +106,5 @@ RCL2 upgraders are `[2W,2C,2M]` (450), not `[4W,C,M]`. The controller container 
 RCL3 keeps the shuttle body until the controller container exists, then switches to the parked 4W. Builders finish that depot before leftover extensions (the next five only raise cap 550→800; the 4W is already 500e). Hypothesis: the first third of the 135k climb is not 4W shuttling at ~0.3 e/t. A/B still pending.
 
 RCL1–3 builders are `[W,2C,2M]` (300), not `[W,3C,M]` / `getBody` of that segment. Dirt walk is 2 ticks/tile loaded instead of 4, and cap 800 no longer stacks a 600e `[2W,6C,2M]` that HOL-blocks the parked 4W. RCL4+ still uses the road-era stack. Hypothesis: the controller depot and the five RCL2 extensions finish on a walk that matches the ground. A/B still pending.
+
+`ControllerLinkFiller` is RCL5+ link-only. The RCL3/4 container branch unshifted a 250–500e `[4C,M]` (4 ticks/tile loaded) the tick the depot existed, HOL in front of the parked 4W that depot is for. Carriers already dump surplus into the depot; dry-depot upgraders shuttle. Hypothesis: the 135k climb is not paying a 250e HOL for a third hauler. A/B still pending.
