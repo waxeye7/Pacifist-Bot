@@ -2177,6 +2177,22 @@ export function checkR27(plan, ctx = {}) {
       }
     }
   }
+  // r29p22 — towers.baseLap is the layer-2 empty-room lap on the freeze cut
+  // (hub kit only). Not the p21 walk, which still has the battery standing.
+  // Zeroing it used to pass once the declaration twin was rewritten with it.
+  if (ctx.terrain && plan.sitter) {
+    const got = meta.towers?.mobilityVeto?.baseLap;
+    if (typeof got === "number") {
+      const want = enclosureMobility(ctx.terrain, plan, freezeCutOf(plan));
+      if (typeof want === "number" && Math.abs(got - want) > 1e-9) {
+        fails.push(
+          `meta.towers.mobilityVeto.baseLap is ${got} and the freeze-cut gated lap with only the hub ` +
+            `kit standing is ${want}. It is the empty-room walk the battery is measured against, not a ` +
+            `comment — flattening it used to pass`,
+        );
+      }
+    }
+  }
 
   // ROUND 28 / criticism 88 — a discarded rung with MORE ramparts than the
   // shipped wall had a free mobility. The trail now publishes each composed
