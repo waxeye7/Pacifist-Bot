@@ -9099,6 +9099,18 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => typeof p.meta?.seedScore === "number" && p.meta.seedScore !== 0),
     (p) => { p.meta.seedScore = 0; },
     "seedScore|confluence");
+  run("r37/MF6-X-hubDistCap-off-ladder",
+    any28((p) => typeof p.meta?.extensions?.hubDistCap === "number"),
+    (p) => { p.meta.extensions.hubDistCap = 17; },
+    "hubDistCap|cohesion ladder");
+  run("r37/MF6-X-lapCeilingFloor-flattered",
+    any28((p) => typeof p.meta?.walls?.reflow?.lapCeilingFloor === "number" && p.meta.walls.reflow.lapCeilingFloor !== 0),
+    (p) => { p.meta.walls.reflow.lapCeilingFloor = 0; p.meta.extensions.reflow.lapCeilingFloor = 0; },
+    "lapCeilingFloor|MOBILITY_TARGET");
+  run("r37/MF6-X-corridorPlaced-zeroed",
+    any28((p) => (p.meta?.extensions?.corridorPlaced || 0) === 60 && (p.meta?.extensions?.corridorFallback || 0) === 0),
+    (p) => { p.meta.extensions.corridorPlaced = 0; },
+    "corridorPlaced|corridorFallback");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },

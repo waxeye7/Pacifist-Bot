@@ -13,7 +13,7 @@
  */
 import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
 import { fieldFrom, winningSeedScore } from "./layer-hub.mjs";
-import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
+import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, MOBILITY_TARGET, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -43,6 +43,7 @@ const FLANK_RELAX = 2;
 const FLANK_HARD_CAP = 18;
 const STUB_CAP_POOR = 43;
 const STUB_CAP_RICH = 51;
+const HUB_CAP_LADDER = [16, 19, 23, 999];
 
 /** chebyshev depth from an exterior flood — same steps as validate.mjs. */
 function depthFromExterior(ext) {
@@ -133,8 +134,8 @@ export const META_DARK = {
   causeFirst: { klass: "presence", why: "mobility-cause tie-break witness on a declaration record" },
   center: { klass: "derived" },
   cleanAnchor: { klass: "presence", why: "lab-anchor search witness; the shipped diamond is gated" },
-  corridorFallback: { klass: "presence", why: "layer-6 corridor bookkeeping" },
-  corridorPlaced: { klass: "presence", why: "layer-6 corridor bookkeeping" },
+  corridorFallback: { klass: "derived" },
+  corridorPlaced: { klass: "derived" },
   counterfactualBasis: { klass: "rendered" },
   coveredDetourDeclared: { klass: "derived" },
   cutAdopted: { klass: "derived" },
@@ -154,9 +155,9 @@ export const META_DARK = {
   freeDin: { klass: "derived" },
   freeLeft: { klass: "presence", why: "layer-6 remaining free-deep count" },
   haulCost: { klass: "presence", why: "lab haul scoring witness; the shipped haul is declared" },
-  hubDistCap: { klass: "presence", why: "layer-1 hub-distance cap" },
+  hubDistCap: { klass: "derived" },
   inertPromoted: { klass: "presence", why: "inert-prune promotion roster; cutDrift binds the prune" },
-  lapCeilingFloor: { klass: "presence", why: "layer-6 lap-ceiling witness" },
+  lapCeilingFloor: { klass: "derived" },
   lapVeto: { klass: "presence", why: "layer-3/4 lap veto record; the as-built lap is gated" },
   massAdds: { klass: "derived" },
   maxDist: { klass: "derived" },
@@ -1697,6 +1698,29 @@ export function checkR27(plan, ctx = {}) {
       fails.push(
         `meta.extensions.stubCap is ${ext.stubCap} and the layer-6 paving ceiling is ${STUB_CAP_POOR} ` +
           `or ${STUB_CAP_RICH}. Flattening it used to pass`,
+      );
+    }
+    if (typeof ext.hubDistCap === "number" && !HUB_CAP_LADDER.includes(ext.hubDistCap)) {
+      fails.push(
+        `meta.extensions.hubDistCap is ${ext.hubDistCap} and the cohesion ladder is ${HUB_CAP_LADDER.join(",")}. ` +
+          `Zero is not a rung this room was allowed to try — flattening it used to pass`,
+      );
+    }
+    if (typeof ext.corridorPlaced === "number" && typeof ext.corridorFallback === "number") {
+      if ((ext.corridorFallback === 0) !== (ext.corridorPlaced === 60)) {
+        fails.push(
+          `meta.extensions.corridorPlaced is ${ext.corridorPlaced} and corridorFallback is ` +
+            `${ext.corridorFallback}. Fallback is 0 iff every extension sat on a corridor (60) — ` +
+            `flattening the count used to pass`,
+        );
+      }
+    }
+  }
+  for (const reflow of [meta.extensions?.reflow, w.reflow]) {
+    if (reflow && typeof reflow.lapCeilingFloor === "number" && reflow.lapCeilingFloor !== MOBILITY_TARGET) {
+      fails.push(
+        `reflow.lapCeilingFloor is ${reflow.lapCeilingFloor} and MOBILITY_TARGET is ${MOBILITY_TARGET}. ` +
+          `The ceiling floor is that target, not a comment — flattening it used to pass`,
       );
     }
   }

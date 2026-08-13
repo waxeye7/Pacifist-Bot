@@ -199,7 +199,7 @@ const COHESION_W = 0.06;
  * tile in the shallow band instead and bolts a rampart to it. A ceiling that
  * converts deep floor into upkeep is not a tidier plan, it is a worse one.
  */
-const HUB_CAP_LADDER = [16, 19, 23, 999];
+export const HUB_CAP_LADDER = [16, 19, 23, 999];
 /**
  * The ladder climbs for REACH only — never to shave a personal rampart.
  *
