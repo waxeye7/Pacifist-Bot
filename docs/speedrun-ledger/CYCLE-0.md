@@ -114,3 +114,5 @@ RCL3 carriers feed the controller depot once spawn/ext hold 550e, not only once 
 RCL3 repairer stays `[W,C,M]` (200). `getBody` stacked it to `[2W,2C,2M]` (400) at cap 550 and `[3W,3C,3M]` (600) at 800 — HOL in front of the parked 4W. One WORK covers container decay (50 hits/t); roads are not paved first. RCL4+ unchanged. Hypothesis: the climb is not paying 400–600e to nurse a container. A/B still pending.
 
 RCL3 does not pave. The roads-only builder is gone, and leftover builders recycle once only roads remain. 1:1 haulers already walk plains at 1 tick/tile; arterial tiles are ~12k the controller wants. RCL4 still gets the full road array. Hypothesis: the 135k climb is not spent on pavement. A/B still pending.
+
+RCL3 builders finish the tower before the second-source container. Depot still first (unlocks the parked 4W); leftover containers were 5k in front of the 3k tower. Hypothesis: the first tower finishes during the climb, not after a second drop-mine buffer. A/B still pending.
