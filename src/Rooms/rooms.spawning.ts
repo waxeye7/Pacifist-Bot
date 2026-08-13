@@ -775,7 +775,7 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             upgrade_creep: {
 
-                amount: 2,
+                amount: 1,
                 body:   getBody([WORK,CARRY,CARRY,MOVE], room),
 
             },
@@ -841,7 +841,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 2,
+                amount: 4,
                 body:   room.energyCapacityAvailable >= 800
                     ? getBody([WORK,WORK,CARRY,MOVE], room)
                     : room.energyCapacityAvailable >= 550
@@ -1343,7 +1343,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[3].build_creep.amount)) {
+            // Pavement after the 135k sink: ext/tower/container still beat
+            // upgraders, but a road-only queue must not HOL-block them.
+            const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount);
+            const rcl3RoadsOnly = onlyRoadSites(sites);
+            if(!rcl3RoadsOnly && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < rcl3BuildWant) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1361,6 +1365,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            if(rcl3RoadsOnly && EnergyMinersInRoom >= 1 && builders < rcl3BuildWant) {
+                let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
+                console.log('Adding Builder to Spawn List: ' + name);
             }
             if(maintainers < spawnrules[3].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
                 if(spawnMaintainer) {
@@ -3379,6 +3388,14 @@ function earlyBuildSlots(sites, cap: number): number {
     }
     if(useful > 0) return Math.min(cap, useful, 2);
     return sites.length > 0 ? 1 : 0;
+}
+
+function onlyRoadSites(sites): boolean {
+    if(!sites.length) return false;
+    for(let i = 0; i < sites.length; i++) {
+        if(sites[i].structureType !== STRUCTURE_ROAD) return false;
+    }
+    return true;
 }
 
 function queueBuilder(room, rules, sites, builders:number, miners:number,
