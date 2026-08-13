@@ -13,7 +13,7 @@
  */
 import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
+import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -39,6 +39,10 @@ const idx = (x, y) => x + y * 50;
 const COORD = /^\d{1,2},\d{1,2}$/;
 const DEPTH_SAFE = 4;
 const SHALLOW_LAB_COST = 3;
+const FLANK_RELAX = 2;
+const FLANK_HARD_CAP = 18;
+const STUB_CAP_POOR = 43;
+const STUB_CAP_RICH = 51;
 
 /** chebyshev depth from an exterior flood — same steps as validate.mjs. */
 function depthFromExterior(ext) {
@@ -136,34 +140,34 @@ export const META_DARK = {
   cutAdopted: { klass: "derived" },
   deepBudget: { klass: "presence", why: "layer-6 deep-tile budget witness" },
   deepExhausted: { klass: "presence", why: "layer-6 search exhaustion flag" },
-  deepReach: { klass: "presence", why: "layer-6 reach witness" },
+  deepReach: { klass: "derived" },
   digRoads: { klass: "presence", why: "layer-5 road-on-wall tunnel count; the road+rampart taxonomy is gated" },
   enclosureBasis: { klass: "rendered" },
   extractorOffNetwork: { klass: "derived" },
   extractorSeatNetTiles: { klass: "derived" },
   faceAndSatHeld: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
   fillerTiles: { klass: "derived" },
-  floorGated: { klass: "presence", why: "mobility floor on a declaration record" },
-  floorOver: { klass: "presence", why: "mobility floor witness" },
-  floorOverGated: { klass: "presence", why: "mobility floor witness" },
+  floorGated: { klass: "derived" },
+  floorOver: { klass: "derived" },
+  floorOverGated: { klass: "derived" },
   floorUngated: { klass: "presence", why: "mobility floor witness" },
-  freeDin: { klass: "presence", why: "mass-free interior walk on a mobility record" },
+  freeDin: { klass: "derived" },
   freeLeft: { klass: "presence", why: "layer-6 remaining free-deep count" },
   haulCost: { klass: "presence", why: "lab haul scoring witness; the shipped haul is declared" },
   hubDistCap: { klass: "presence", why: "layer-1 hub-distance cap" },
   inertPromoted: { klass: "presence", why: "inert-prune promotion roster; cutDrift binds the prune" },
   lapCeilingFloor: { klass: "presence", why: "layer-6 lap-ceiling witness" },
   lapVeto: { klass: "presence", why: "layer-3/4 lap veto record; the as-built lap is gated" },
-  massAdds: { klass: "presence", why: "mobility mass-share witness on a declaration" },
-  maxDist: { klass: "presence", why: "a search's own max-distance counter" },
+  massAdds: { klass: "derived" },
+  maxDist: { klass: "derived" },
   maxHubDist: { klass: "presence", why: "layer-1 seed scoring witness" },
   minDmgArray: { klass: "derived" },
   minDmgPicked: { klass: "derived" },
-  mineralApproachAtReservation: { klass: "presence", why: "layer-1's approach, kept beside the shipped one (OL5)" },
+  mineralApproachAtReservation: { klass: "derived" },
   mineralBubble: { klass: "derived" },
   mineralContainer: { klass: "derived" },
   mineralOffNetworkWhy: { klass: "rendered" },
-  mineralSeatAtReservation: { klass: "presence", why: "layer-1's reserved seat, kept beside the shipped one (OL5)" },
+  mineralSeatAtReservation: { klass: "derived" },
   mineralSeatNetTiles: { klass: "derived" },
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
   mobilityShipped: { klass: "derived" },
@@ -205,7 +209,7 @@ export const META_DARK = {
   stitchTiles: { klass: "derived" },
   stitched: { klass: "derived" },
   strandedFirst: { klass: "presence", why: "conduct-bridge witness" },
-  stubCap: { klass: "presence", why: "layer-6 stub cap" },
+  stubCap: { klass: "derived" },
   stubExhausted: { klass: "presence", why: "layer-6 stub exhaustion" },
   stubRoads: { klass: "derived" },
   swampPaved: { klass: "derived" },
@@ -354,6 +358,56 @@ function servedFreeOf(cut, roadLayer) {
     if (already) n++;
   }
   return n;
+}
+
+/** object tiles + built obstacles; skipExtension lifts the mass the floor reading lifts. */
+function builtBlocked(plan, skipExtension) {
+  const blocked = new Set();
+  for (const src of plan.sources || []) blocked.add(K(src));
+  if (plan.controller) blocked.add(K(plan.controller));
+  if (plan.mineral) blocked.add(K(plan.mineral));
+  if (plan.sitter) blocked.add(K(plan.sitter));
+  for (const t of BUILT_OBSTACLES) {
+    if (skipExtension && t === "extension") continue;
+    for (const q of plan.structures?.[t] || []) blocked.add(K(q));
+  }
+  return blocked;
+}
+
+/** interior walk on the shipped ramparts with that occupancy. */
+function shippedInterior(plan, extShip, terrain, skipExtension) {
+  const rset = new Set((plan.structures?.rampart || []).map(K));
+  return interiorWalk(terrain, rset, extShip, builtBlocked(plan, skipExtension), plan.sitter);
+}
+
+/** max sitter-to-road BFS on the conducting network (roads + containers). */
+function roadOrderMaxDist(plan) {
+  const sitter = plan.sitter;
+  if (!sitter) return null;
+  const conduct = new Set((plan.structures?.road || []).map(K));
+  for (const c of plan.structures?.container || []) conduct.add(K(c));
+  conduct.add(K(sitter));
+  const dist = new Map([[K(sitter), 0]]);
+  const q = [{ x: sitter.x, y: sitter.y }];
+  for (let qi = 0; qi < q.length; qi++) {
+    const cur = q[qi];
+    const d = dist.get(K(cur));
+    for (const [dx, dy] of D8) {
+      const nx = cur.x + dx;
+      const ny = cur.y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const k = `${nx},${ny}`;
+      if (dist.has(k) || !conduct.has(k)) continue;
+      dist.set(k, d + 1);
+      q.push({ x: nx, y: ny });
+    }
+  }
+  let mx = 0;
+  for (const r of plan.structures?.road || []) {
+    const d = dist.get(K(r));
+    if (d != null && d > mx) mx = d;
+  }
+  return mx;
 }
 
 /** fullest 5x5 count over spawn/storage/terminal/tower — layer 3's set, no nuker. */
@@ -1560,6 +1614,108 @@ export function checkR27(plan, ctx = {}) {
         fails.push(
           `meta.walls.reflow.shallowRefused names [${got.join(" ")}] and this room ships shallow ` +
             `extension(s) [${want.join(" ")}]. The roster is those tiles, not a comment — clearing it used to pass`,
+        );
+      }
+    }
+  }
+
+  // r29p15 — leftover presence: mass-free floor, worst-pair walks, road BFS,
+  // deep-flank formula, stub-cap enum. Zeroing them used to pass.
+  if (ctx.terrain && ctx.extShip && plan.sitter && Array.isArray(sh.cut)) {
+    const freeMask = maskFromKeys(shippedInterior(plan, ctx.extShip, ctx.terrain, true));
+    const freeStats = mobilityStats(sh.cut, ctx.extShip, freeMask);
+    const mob = w.mobility || {};
+    if (typeof mob.floorGated === "number" && Math.abs(mob.floorGated - freeStats.maxGated) > 1e-6) {
+      fails.push(
+        `meta.walls.mobility.floorGated is ${mob.floorGated} and the mass-free walk on the shipped wall ` +
+          `(extensions lifted, other structures kept) is ${freeStats.maxGated}. It is that floor, not a ` +
+          `comment — flattening it used to pass`,
+      );
+    }
+    if (typeof mob.floorOver === "number" && mob.floorOver !== freeStats.over) {
+      fails.push(
+        `meta.walls.mobility.floorOver is ${mob.floorOver} and the mass-free walk has ${freeStats.over} ` +
+          `ungated over-target pair(s). It is that count, not a comment — flattening it used to pass`,
+      );
+    }
+    if (typeof mob.floorOverGated === "number" && mob.floorOverGated !== freeStats.overGated) {
+      fails.push(
+        `meta.walls.mobility.floorOverGated is ${mob.floorOverGated} and the mass-free walk has ` +
+          `${freeStats.overGated} gated over-target pair(s). It is that count, not a comment — flattening ` +
+          `it used to pass`,
+      );
+    }
+    const worst = mob.worst;
+    if (worst && Number.isInteger(worst.a?.x) && Number.isInteger(worst.b?.x)) {
+      const wantFree = arriveAt(bfsField(freeMask, worst.a), worst.b);
+      if (typeof worst.freeDin === "number" && Number.isFinite(wantFree) && worst.freeDin !== wantFree) {
+        fails.push(
+          `meta.walls.mobility.worst.freeDin is ${worst.freeDin} and the mass-free walk of the published ` +
+            `worst pair is ${wantFree}. It is that walk, not a comment — flattening it used to pass`,
+        );
+      }
+      const builtMask = maskFromKeys(shippedInterior(plan, ctx.extShip, ctx.terrain, false));
+      const wantDin = arriveAt(bfsField(builtMask, worst.a), worst.b);
+      const wantAdds = Number.isFinite(wantDin) && Number.isFinite(wantFree) ? wantDin - wantFree : null;
+      if (wantAdds != null) {
+        if (typeof worst.massAdds === "number" && worst.massAdds !== wantAdds) {
+          fails.push(
+            `meta.walls.mobility.worst.massAdds is ${worst.massAdds} and the built walk minus the ` +
+              `mass-free walk of that pair is ${wantAdds}. It is that difference — flattening it used to pass`,
+          );
+        }
+        if (typeof mob.massAdds === "number" && mob.massAdds !== wantAdds) {
+          fails.push(
+            `meta.walls.mobility.massAdds is ${mob.massAdds} and the built walk minus the mass-free walk ` +
+              `of the published worst pair is ${wantAdds}. It is that difference — flattening it used to pass`,
+          );
+        }
+      }
+    }
+  }
+  if (typeof meta.roadOrder?.maxDist === "number") {
+    const want = roadOrderMaxDist(plan);
+    if (want != null && meta.roadOrder.maxDist !== want) {
+      fails.push(
+        `meta.roadOrder.maxDist is ${meta.roadOrder.maxDist} and the sitter-to-road BFS on the ` +
+          `conducting network is ${want}. It is that walk, not a comment — flattening it used to pass`,
+      );
+    }
+  }
+  {
+    const ext = meta.extensions || {};
+    if (typeof ext.deepReach === "number" && typeof ext.hubDistCap === "number") {
+      const want = Math.min(ext.hubDistCap + FLANK_RELAX, FLANK_HARD_CAP);
+      if (ext.deepReach !== want) {
+        fails.push(
+          `meta.extensions.deepReach is ${ext.deepReach} and min(hubDistCap+${FLANK_RELAX}, ` +
+            `${FLANK_HARD_CAP}) is ${want}. The deep flank ceiling is that formula — flattening it used to pass`,
+        );
+      }
+    }
+    if (typeof ext.stubCap === "number" && ext.stubCap !== STUB_CAP_POOR && ext.stubCap !== STUB_CAP_RICH) {
+      fails.push(
+        `meta.extensions.stubCap is ${ext.stubCap} and the layer-6 paving ceiling is ${STUB_CAP_POOR} ` +
+          `or ${STUB_CAP_RICH}. Flattening it used to pass`,
+      );
+    }
+  }
+  {
+    const seatRes = meta.mineralSeatAtReservation;
+    if (plan.mineral && seatRes && Number.isInteger(seatRes.x) && Number.isInteger(seatRes.y)) {
+      if (chebyshev(seatRes, plan.mineral) > 1) {
+        fails.push(
+          `meta.mineralSeatAtReservation is ${seatRes.x},${seatRes.y} and the mineral is at ` +
+            `${plan.mineral.x},${plan.mineral.y}. The reserved seat is a chebyshev-1 neighbour of the ` +
+            `mineral — moving it used to pass`,
+        );
+      }
+      const appr = meta.mineralApproachAtReservation;
+      if (appr && Number.isInteger(appr.x) && Number.isInteger(appr.y) && chebyshev(appr, seatRes) !== 1) {
+        fails.push(
+          `meta.mineralApproachAtReservation is ${appr.x},${appr.y} and the reserved seat is ` +
+            `${seatRes.x},${seatRes.y}. The reserved approach is a D8 neighbour of that seat — ` +
+            `moving it used to pass`,
         );
       }
     }

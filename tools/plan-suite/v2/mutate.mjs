@@ -9055,6 +9055,46 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => Array.isArray(p.meta?.walls?.reflow?.shallowRefused) && p.meta.walls.reflow.shallowRefused.length > 0),
     (p) => { p.meta.walls.reflow.shallowRefused = []; },
     "shallowRefused|shallow extension");
+  run("r36/MF6-X-floorGated-flattered",
+    any28((p) => typeof p.meta?.walls?.mobility?.floorGated === "number" && p.meta.walls.mobility.floorGated !== 0),
+    (p) => { p.meta.walls.mobility.floorGated = 0; },
+    "floorGated|mass-free walk");
+  run("r36/MF6-X-floorOver-flattered",
+    any28((p) => (p.meta?.walls?.mobility?.floorOver || 0) > 0),
+    (p) => { p.meta.walls.mobility.floorOver = 0; },
+    "floorOver|mass-free walk");
+  run("r36/MF6-X-floorOverGated-flattered",
+    any28((p) => (p.meta?.walls?.mobility?.floorOverGated || 0) > 0),
+    (p) => { p.meta.walls.mobility.floorOverGated = 0; },
+    "floorOverGated|mass-free walk");
+  run("r36/MF6-X-freeDin-flattered",
+    any28((p) => (p.meta?.walls?.mobility?.worst?.freeDin || 0) > 0),
+    (p) => { p.meta.walls.mobility.worst.freeDin = 0; },
+    "freeDin|mass-free walk|worst pair");
+  run("r36/MF6-X-massAdds-flattered",
+    any28((p) => (p.meta?.walls?.mobility?.massAdds || 0) !== 0),
+    (p) => { p.meta.walls.mobility.massAdds = 0; p.meta.walls.mobility.worst.massAdds = 0; },
+    "massAdds|built walk minus");
+  run("r36/MF6-X-maxDist-flattered",
+    any28((p) => (p.meta?.roadOrder?.maxDist || 0) > 0),
+    (p) => { p.meta.roadOrder.maxDist = 0; },
+    "maxDist|sitter-to-road BFS");
+  run("r36/MF6-X-deepReach-flattered",
+    any28((p) => typeof p.meta?.extensions?.deepReach === "number" && p.meta.extensions.deepReach !== 0),
+    (p) => { p.meta.extensions.deepReach = 0; },
+    "deepReach|hubDistCap|flank");
+  run("r36/MF6-X-stubCap-flattered",
+    any28((p) => typeof p.meta?.extensions?.stubCap === "number" && p.meta.extensions.stubCap !== 0),
+    (p) => { p.meta.extensions.stubCap = 0; },
+    "stubCap|paving ceiling");
+  run("r36/MF6-X-mineralSeatAtReservation-moved",
+    any28((p) => p.meta?.mineralSeatAtReservation && Number.isInteger(p.meta.mineralSeatAtReservation.x)),
+    (p) => { p.meta.mineralSeatAtReservation = { x: 1, y: 1 }; },
+    "mineralSeatAtReservation|chebyshev-1");
+  run("r36/MF6-X-mineralApproachAtReservation-moved",
+    any28((p) => p.meta?.mineralApproachAtReservation && Number.isInteger(p.meta.mineralApproachAtReservation.x)),
+    (p) => { p.meta.mineralApproachAtReservation = { x: 1, y: 1 }; },
+    "mineralApproachAtReservation|D8 neighbour");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
