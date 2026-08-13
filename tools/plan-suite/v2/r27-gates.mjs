@@ -98,12 +98,12 @@ export const META_DARK = {
   boundRederived: { klass: "presence", why: "the bound re-read after relocation; a layer-6 witness" },
   budgetSpent: { klass: "presence", why: "layer-6 lane reservation spend; the reservation is the note's evidence" },
   causeFirst: { klass: "presence", why: "mobility-cause tie-break witness on a declaration record" },
-  center: { klass: "presence", why: "nuke-window centre, already published on nukeWindow.center" },
+  center: { klass: "derived" },
   cleanAnchor: { klass: "presence", why: "lab-anchor search witness; the shipped diamond is gated" },
   corridorFallback: { klass: "presence", why: "layer-6 corridor bookkeeping" },
   corridorPlaced: { klass: "presence", why: "layer-6 corridor bookkeeping" },
   counterfactualBasis: { klass: "rendered" },
-  coveredDetourDeclared: { klass: "presence", why: "whether the covered-detour declaration fired; the declaration channel is gated" },
+  coveredDetourDeclared: { klass: "derived" },
   cutAdopted: { klass: "derived" },
   deepBudget: { klass: "presence", why: "layer-6 deep-tile budget witness" },
   deepExhausted: { klass: "presence", why: "layer-6 search exhaustion flag" },
@@ -135,14 +135,14 @@ export const META_DARK = {
   mineralContainer: { klass: "presence", why: "layer-5's own seat pick; the shipped container is gated" },
   mineralOffNetworkWhy: { klass: "rendered" },
   mineralSeatAtReservation: { klass: "presence", why: "layer-1's reserved seat, kept beside the shipped one (OL5)" },
-  mineralSeatNetTiles: { klass: "presence", why: "D8 neighbours of the mineral seat on the network as finalize measured it; the off-network declaration is gated" },
+  mineralSeatNetTiles: { klass: "derived" },
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
   mobilityShipped: { klass: "derived" },
   mobilityShippedFree: { klass: "derived" },
   newRoads: { klass: "derived" },
   noAlternative: { klass: "presence", why: "a search-refusal witness" },
   nukerHubDist: { klass: "derived" },
-  nukerInWindow: { klass: "presence", why: "nukeWindow.nukerInWindow sibling; the window is re-derived" },
+  nukerInWindow: { klass: "derived" },
   observerHubDist: { klass: "derived" },
   parkCap: { klass: "presence", why: "composeOpts park cap; ctrlParks are re-derived" },
   paveRetired: { klass: "presence", why: "layer-7b reflow witness" },
@@ -263,6 +263,32 @@ function netTilesOf(plan) {
 function mineralSeatOf(plan) {
   if (!plan.mineral) return null;
   return (plan.structures?.container || []).find((c) => chebyshev(c, plan.mineral) <= 1) || null;
+}
+
+/** fullest 5x5 over spawn/storage/terminal/nuker/tower; tie-break is north-then-west. */
+function nukeWindowCenterOf(plan) {
+  const pts = [];
+  for (const t of ["spawn", "storage", "terminal", "nuker", "tower"]) {
+    for (const q of plan.structures?.[t] || []) pts.push({ x: q.x, y: q.y });
+  }
+  let mx = 0;
+  let at = null;
+  for (const a of pts) {
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        const cx = a.x + ox;
+        const cy = a.y + oy;
+        if (cx < 0 || cy < 0 || cx > 49 || cy > 49) continue;
+        let n = 0;
+        for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+        if (n > mx || (n === mx && at && (cy < at.y || (cy === at.y && cx < at.x)))) {
+          mx = n;
+          at = { x: cx, y: cy };
+        }
+      }
+    }
+  }
+  return at;
 }
 
 function objectTilesOf(plan) {
@@ -845,6 +871,69 @@ export function checkR27(plan, ctx = {}) {
             `extractor excluding the seat is [${want.join(" ")}]. Clearing it used to pass`,
         );
       }
+    }
+  }
+  {
+    const seat = mineralSeatOf(plan);
+    if (seat && Array.isArray(misc.mineralSeatNetTiles)) {
+      const kind = w.roadKind || {};
+      const net = new Set();
+      for (const r of plan.structures?.road || []) {
+        if (kind[K(r)] === "conductBridge") continue;
+        net.add(K(r));
+      }
+      for (const c of plan.structures?.container || []) net.add(K(c));
+      net.delete(K(seat));
+      const want = [];
+      for (const [dx, dy] of D8) {
+        const k = `${seat.x + dx},${seat.y + dy}`;
+        if (net.has(k)) want.push(k);
+      }
+      want.sort();
+      const got = misc.mineralSeatNetTiles.map(String).sort();
+      if (got.join("|") !== want.join("|")) {
+        fails.push(
+          `meta.misc.mineralSeatNetTiles is [${got.join(" ")}] and the shipped network's D8 of the ` +
+            `mineral seat excluding conduct-bridge roads is [${want.join(" ")}]. The deferred bridge ` +
+            `is laid after this field is measured. Clearing it used to pass`,
+        );
+      }
+    }
+  }
+  {
+    const nw = tw.nukeWindow;
+    if (nw && typeof nw.nukerInWindow === "boolean") {
+      const nuker = (plan.structures?.nuker || [])[0];
+      const at = nw.center;
+      const want = !!(nuker && at && Math.abs(nuker.x - at.x) <= 2 && Math.abs(nuker.y - at.y) <= 2);
+      if (nw.nukerInWindow !== want) {
+        fails.push(
+          `meta.towers.nukeWindow.nukerInWindow is ${nw.nukerInWindow} and the shipped nuker ` +
+            `${nuker ? `at ${nuker.x},${nuker.y}` : "is missing and"} ` +
+            `${want ? "is" : "is not"} inside the published nuke window bbox` +
+            `${at ? ` at ${at.x},${at.y}` : ""}. They are one bbox — flipping the flag used to pass`,
+        );
+      }
+    }
+    if (nw && nw.center && Number.isInteger(nw.center.x) && Number.isInteger(nw.center.y)) {
+      const want = nukeWindowCenterOf(plan);
+      if (!want || nw.center.x !== want.x || nw.center.y !== want.y) {
+        fails.push(
+          `meta.towers.nukeWindow.center is ${nw.center.x},${nw.center.y} and the fullest 5x5 over ` +
+            `spawn/storage/terminal/nuker/tower is ${want ? `${want.x},${want.y}` : "uncomputable"}. ` +
+            `It is already published on nukeWindow.center — moving it used to pass`,
+        );
+      }
+    }
+  }
+  {
+    const declared = (meta.shortfalls || []).some((d) => d && d.gate === "mobility" && d.kind === "covered-detour");
+    if (!!w.mobility?.coveredDetourDeclared !== declared) {
+      fails.push(
+        `meta.walls.mobility.coveredDetourDeclared is ${w.mobility?.coveredDetourDeclared} and this room ` +
+          `${declared ? "ships" : "does not ship"} a mobility/covered-detour shortfall. The flag is ` +
+          `whether that declaration fired — flipping it used to pass`,
+      );
     }
   }
   if (ctx.terrain && ctx.extShip && plan.sitter && Array.isArray(sh.cut) && sh.mobilityShippedFree && typeof sh.mobilityShippedFree.maxGated === "number") {

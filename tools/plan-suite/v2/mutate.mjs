@@ -8830,6 +8830,22 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => Array.isArray(p.meta?.misc?.extractorSeatNetTiles)),
     (p) => { p.meta.misc.extractorSeatNetTiles = ["1,1"]; },
     "extractorSeatNetTiles|finished network");
+  run("r30/MF6-X-nukerInWindow-flattered",
+    any28((p) => typeof p.meta?.towers?.nukeWindow?.nukerInWindow === "boolean"),
+    (p) => { p.meta.towers.nukeWindow.nukerInWindow = !p.meta.towers.nukeWindow.nukerInWindow; },
+    "nukerInWindow|published nuke window|one bbox");
+  run("r30/MF6-X-center-flattered",
+    any28((p) => p.meta?.towers?.nukeWindow?.center && Number.isInteger(p.meta.towers.nukeWindow.center.x)),
+    (p) => { p.meta.towers.nukeWindow.center = { x: 1, y: 1 }; },
+    "nukeWindow.center|fullest 5x5");
+  run("r30/MF6-X-mineralSeatNetTiles-flattered",
+    any28((p) => Array.isArray(p.meta?.misc?.mineralSeatNetTiles)),
+    (p) => { p.meta.misc.mineralSeatNetTiles = ["1,1"]; },
+    "mineralSeatNetTiles|conduct-bridge|shipped network");
+  run("r30/MF6-X-coveredDetourDeclared-flattered",
+    any28((p) => p.meta?.walls?.mobility?.coveredDetourDeclared === true),
+    (p) => { p.meta.walls.mobility.coveredDetourDeclared = false; },
+    "coveredDetourDeclared|covered-detour");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
