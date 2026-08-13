@@ -501,6 +501,7 @@ function unjudgedChannels(room) {
     let film = null;
     let filmWhole = null;
     let roadsPrune = null;
+    let seedNote = null;
     {
       const at = html.indexOf("\n  var NOTES = ");
       const line = at < 0 ? null : html.slice(at + 15, html.indexOf("\n", at + 15));
@@ -508,6 +509,7 @@ function unjudgedChannels(room) {
       const ramp = notes && typeof notes.ramparts === "string" ? notes.ramparts : "";
       if (ramp) filmWhole = ramp;
       if (notes && typeof notes.roadsPrune === "string") roadsPrune = notes.roadsPrune;
+      if (notes && typeof notes.seed === "string") seedNote = notes.seed;
       const openAt = ramp.indexOf(UNJUDGED_FILM_OPEN);
       if (openAt >= 0) {
         const from = openAt + UNJUDGED_FILM_OPEN.length;
@@ -534,7 +536,7 @@ function unjudgedChannels(room) {
       const m = card.match(/<span class="mob unjudged" title="([^"]*)"/);
       if (m) chip = decodeEnt(m[1]);
     }
-    out = { film, page, chip, filmWhole, roadsPrune };
+    out = { film, page, chip, filmWhole, roadsPrune, seedNote };
   } catch (err) {
     out = { err: err && err.message ? err.message : String(err) };
   }
@@ -19178,6 +19180,27 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
         }
       }
     }
+    // 141(e) — the film prints seed (x,y) → hub. Dropping plan.seed left that
+    // caption with no artifact leaf. The coordinates are required and the
+    // note is generated from them.
+    {
+      const seed = plan.seed;
+      const chS = unjudgedChannels(plan.room);
+      if (!seed || !Number.isInteger(seed.x) || !Number.isInteger(seed.y)) {
+        fails.push(
+          `film note — plan.seed is ${JSON.stringify(seed)}. The page and the film print a seed tile; ` +
+            `dropping it from the artifact left 46 rooms' seed≠hub unre-derivable`,
+        );
+      } else if (!chS.err) {
+        const want = `seed (${seed.x},${seed.y}) → hub (${plan.hub.x},${plan.hub.y})`;
+        if (chS.seedNote !== want) {
+          fails.push(
+            `film note — NOTES.seed is ${JSON.stringify(chS.seedNote)} and this room's plan.seed / hub ` +
+              `generate ${JSON.stringify(want)}. The caption is a rendered channel`,
+          );
+        }
+      }
+    }
     {
       const laneA = plan.meta?.walls?.mobility?.lanes;
       const laneB = plan.meta?.extensions?.laneMeta;
@@ -26005,7 +26028,9 @@ function main() {
   const only = args.find((a) => !a.startsWith("--"));
   const list = only ? plans.filter((p) => only.split(",").includes(p.room)) : plans;
 
-  const data = fetchRoomsFromMongo(list.map((p) => p.room));
+  const data = process.env.ROOMS_FILE
+    ? JSON.parse(fs.readFileSync(process.env.ROOMS_FILE, "utf8"))
+    : fetchRoomsFromMongo(list.map((p) => p.room));
   const byRoom = new Map(data.map((d) => [d.room, d]));
 
   // ------------------------------------------------------------------

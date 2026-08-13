@@ -8613,6 +8613,10 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
     "mobilityShippedFree|mass-free");
+  run("r29/141e-X-seed-moved-off-the-hub-line",
+    any28((p) => p.seed && Number.isInteger(p.seed.x)),
+    (p) => { p.seed = { x: (p.seed.x + 3) % 48, y: (p.seed.y + 5) % 48 }; },
+    "NOTES.seed|plan.seed|rendered channel");
   run("r29/M1-X-cutPasses-sealCritical-plus-1-inside-the-old-bound",
     any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical))),
     (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical += 1; },

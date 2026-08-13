@@ -2673,6 +2673,7 @@ ${thumbLegendHtml()}
       room: p.room,
       hub: p.hub,
       sitter: p.sitter, // push-plan.mjs ships this to the live segment
+      seed: p.seed, // 141(e) — the film prints this; dropping it left 46 rooms' seed≠hub unre-derivable
       labInputs: p.labInputs,
       structures: p.structures,
       meta,
