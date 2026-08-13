@@ -3667,42 +3667,28 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
 
     if(targetSource.room.name == room.name) {
-        let ticksPerRoundTrip = (values.pathLength * 2) + 2;
-        let energyProducedPerRoundTrip = homeSourceHarvest(room, sourceId).energyPerTick * ticksPerRoundTrip
-        let body = [];
-        let alternate = 1;
-        while (energyProducedPerRoundTrip > 0) {
-            body.push(CARRY);
-            if((body.length * 50) == room.energyCapacityAvailable && alternate % 2 == 0) {
-                while(body.length > 50) {
-                    body.pop();
-                }
-                return body;
-            }
-            else if((body.length * 50) == room.energyCapacityAvailable && alternate % 2 == 1) {
-                body.pop();
-                while(body.length > 50) {
-                    body.pop();
-                }
-                return body;
-            }
-
-            if(alternate % 2 == 1) {
-                body.push(MOVE);
-                if((body.length * 50) == room.energyCapacityAvailable) {
-                    body.pop();
-                    body.pop();
-                    while(body.length > 50) {
-                        body.pop();
-                    }
-                    return body;
-                }
-            }
-            energyProducedPerRoundTrip = energyProducedPerRoundTrip - 50;
-            alternate = alternate + 1;
-        }
-        // console.log(body,room.name)
-
+        // Same ratio rule as remotes: 1:1 on dirt, 2:1 once the hub is roaded.
+        // The old loop added MOVE every other CARRY (road speed) at every RCL.
+        // RCL2 has no roads; RCL3 only sites hub↔source arterials and we
+        // deprioritized paving them. A loaded 2:1 body is 2 ticks/tile on
+        // plain, so the trip was sized for a walk it could not make.
+        const roaded = !!(room.controller && room.controller.level >= 4 &&
+            room.storage && room.storage.my);
+        const movePerCarry = roaded ? 0.5 : 1;
+        const budget = room.energyCapacityAvailable;
+        const unitCost = 50 + 50 * movePerCarry;
+        const maxCarryByBudget = Math.max(1, Math.floor(budget / unitCost));
+        const maxCarryByParts = Math.floor(50 / (1 + movePerCarry));
+        const L = values.pathLength;
+        const loadedTicks = movePerCarry >= 1 ? 1 : 2;
+        const headroom = roaded ? 1.15 : 1.35;
+        const need = homeSourceHarvest(room, sourceId).energyPerTick * (L + L * loadedTicks + 6) * headroom;
+        const carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(need / 50)));
+        const move = Math.max(1, Math.ceil(carry * movePerCarry));
+        const body = [];
+        for(let i = 0; i < carry; i++) body.push(CARRY);
+        for(let i = 0; i < move; i++) body.push(MOVE);
+        while(body.length > 50) body.pop();
         return body;
     }
     else {
@@ -3837,14 +3823,11 @@ function homeCarriersWanted(room, values, body, sourceId): number {
     /*
      * The loaded leg is NOT one tick per tile.
      *
-     * getCarrierBody emits ~2 CARRY : 1 MOVE, and a loaded CARRY generates 2
-     * fatigue per plain tile against 2 removed per MOVE — so a 7C/4M body needs
-     * ceil(7/4) = 2 ticks per tile on the way home. An EMPTY carrier generates
-     * no fatigue at all, so the outbound leg is always full speed. Modelling the
-     * round trip as a flat 2L (which is what the first cut of this did)
-     * under-counts by ~50% and leaves the room short of haul capacity — measured
-     * live: E1S4 11,843 -> 17,767 and E15S6 3,020 -> 7,819 on the floor within
-     * 1,800 ticks of the carrier cap going in.
+     * getCarrierBody is 1:1 on dirt (RCL1–3) and 2:1 once storage exists.
+     * A loaded CARRY generates 2 fatigue per plain tile against 2 removed per
+     * MOVE, so ticks/tile is ceil(CARRY/MOVE). An EMPTY carrier generates no
+     * fatigue, so the outbound leg is always full speed. Modelling the round
+     * trip as a flat 2L under-counts a 2:1 body by ~50%.
      */
     const loadedTicksPerTile = move > 0 ? Math.max(1, Math.ceil(carry / move)) : 3;
     const roundTrip = L + L * loadedTicksPerTile + 6;
