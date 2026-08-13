@@ -583,13 +583,20 @@ export function checkR27(plan, ctx = {}) {
   }
 
   if (Array.isArray(sh.cutAdopted)) {
-    const addK = new Set((sh.cutDrift || []).filter((e) => e && e.op === "add").map((e) => K(e)));
-    const stray = sh.cutAdopted.filter((t) => t && Number.isInteger(t.x) && !addK.has(K(t)));
-    if (stray.length) {
+    // The field is the LAST reconciliation's adoptions (layer 7b). That pass
+    // adopts nothing in this fleet; the 34 real adoptions live in cutDrift
+    // under layer7-reconcileSeal. ⊆ of an empty list is a comment — planting
+    // a real add escaped. === the layer-7b add set (empty) is the meaning.
+    const want = (sh.cutDrift || [])
+      .filter((e) => e && e.op === "add" && e.pass === "layer7b-reconcileSeal")
+      .map((e) => K(e))
+      .sort();
+    const got = sh.cutAdopted.filter((t) => t && Number.isInteger(t.x)).map((t) => K(t)).sort();
+    if (got.join("|") !== want.join("|")) {
       fails.push(
-        `meta.shell.cutAdopted names ${stray.length} tile(s) (${stray.slice(0, 4).map(K).join(" ")}) that ` +
-          `cutDrift does not adopt. The list is empty in this fleet (layer-7b overwrite); a planted rampart ` +
-          `tile is not an adoption`,
+        `meta.shell.cutAdopted is [${got.join(" ")}] and layer7b-reconcileSeal adds are [${want.join(" ")}]. ` +
+          `The list is that pass's adoptions, not a subset of every add — planting a real layer-7 add ` +
+          `into the empty list used to pass`,
       );
     }
   }
@@ -909,6 +916,25 @@ export function checkR27(plan, ctx = {}) {
               `enclosureMobility of its published cut is ${want}. Regenerating the paragraph does not ` +
               `launder a fatter rung's invented lap`,
           );
+        }
+        // r29 / 88 residue — a fatter discarded cut replaced with the shipped
+        // cut, mobility set to the winner's lap, regen, escaped. enclosureMobility
+        // of a free list is an agreement test. A wider enclosure is not the
+        // winner's cut.
+        const shippedRamp = (plan.structures?.rampart || []).length;
+        if (typeof row.ramparts === "number" && row.ramparts > shippedRamp) {
+          const freeze = new Set((sh.cutAtFreeze || []).map(K));
+          const same =
+            freeze.size &&
+            cuts.length === freeze.size &&
+            cuts.every((t) => freeze.has(K(t)));
+          if (same) {
+            fails.push(
+              `ladder.rungs needDeep+${row.needDeepBonus} has ${row.ramparts} ramparts against a shipped ` +
+                `${shippedRamp} and its cutTiles ARE cutAtFreeze. A fatter discarded enclosure is not the ` +
+                `winner's cut — swapping them in and walking the prettier lap used to pass`,
+            );
+          }
         }
       }
     }

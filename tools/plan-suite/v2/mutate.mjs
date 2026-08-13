@@ -8562,6 +8562,45 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       R.fixedHolders = [...(R.fixedHolders || []), { type: "lab", x: 1, y: 1, recovers: 99, recoversDeep: 99 }];
     },
     "fixedHolders|ships nothing|inventing a tile");
+  run("r29/M5-X-cutAdopted-planted-a-real-cutDrift-add",
+    any28((p) => (p.meta?.shell?.cutDrift || []).some((e) => e && e.op === "add") && Array.isArray(p.meta?.shell?.cutAdopted)),
+    (p) => {
+      const add = p.meta.shell.cutDrift.find((e) => e && e.op === "add");
+      p.meta.shell.cutAdopted = [{ x: add.x, y: add.y }];
+    },
+    "cutAdopted|layer7b-reconcileSeal|planting a real");
+  run("r29/88-X-fatter-discarded-cut-replaced-with-the-shipped-cut",
+    any28((p) => {
+      const shipped = (p.structures?.rampart || []).length;
+      const freeze = p.meta?.shell?.cutAtFreeze || [];
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      return !!(sf && freeze.length && sf.ladder.rungs.some((r) => r && r.ramparts > shipped && Array.isArray(r.cutTiles) && r.cutTiles.length !== freeze.length));
+    }),
+    (p) => {
+      const freeze = (p.meta.shell.cutAtFreeze || []).map((t) => ({ x: t.x, y: t.y }));
+      const shipped = (p.structures.rampart || []).length;
+      const winner = (p.meta.shortfalls || []).find((s) => s && s.ladder)?.ladder?.rungs?.find((r) => r && r.ramparts === shipped);
+      const lap = winner && typeof winner.mobility === "number" ? winner.mobility : 1.56;
+      for (const sf of p.meta.shortfalls || []) {
+        if (!sf.ladder?.rungs) continue;
+        for (const r of sf.ladder.rungs) {
+          if (r && r.ramparts > shipped) {
+            r.cutTiles = freeze.map((t) => ({ x: t.x, y: t.y }));
+            r.mobility = lap;
+          }
+        }
+        sf.detail = renderDecl(sf);
+      }
+      if (p.meta.shellEscalation?.rungs) {
+        for (const r of p.meta.shellEscalation.rungs) {
+          if (r && r.ramparts > shipped) {
+            r.cutTiles = freeze.map((t) => ({ x: t.x, y: t.y }));
+            r.mobility = lap;
+          }
+        }
+      }
+    },
+    "fatter discarded|winner's cut|swapping");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {
