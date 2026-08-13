@@ -76,3 +76,5 @@ Home carriers no longer price haul off a phantom 6 WORK / 12 e/t. `getCarrierBod
 `getBody` now sizes segments from `energyCapacityAvailable` and will not emit above capacity (stack clamped to 85% of cap; one oversize segment ships only if it fits, else a prefix or skip). RCL1 queues 2 upgraders of `[W,C,C,M]` (250), not 6. RCL2 at 550 cap ships a fixed `[4W,C,M]` (500, 4 WORK) instead of one 300-energy `[2W,C,M]` leftover-sized segment. RCL3 uses `[4W,C,M]` until cap hits 800, then `getBody([W,W,C,M])` → 4W2C2M. Hypothesis: RCL2 upgrades at 4 e/t, not 2. A/B still pending.
 
 RCL1–3 `spawnFirstInLine` interleaves the next affordable queue entry after 10 consecutive `ERR_NOT_ENOUGH_ENERGY` (was 40); RCL4+ stays at 40.
+
+RCL3 `roadsForRcl` now keeps only hub↔source/controller chains (D8 of those containers plus the first-tower spur). `plan.rs` still stages the whole arterial at 3 — extension faces, unused hub filler, later tower spurs — so the bot filters that set geometrically rather than restaging. RCL2 still has no roads; RCL4+ still gets the full array. Monotone prefix. Hypothesis: the 135k climb is not spent paving extension flanks. A/B still pending.

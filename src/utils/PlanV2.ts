@@ -506,20 +506,141 @@ function typeAllowedAtRcl(type: string, lvl: number): boolean {
  * `plan.rs` is indexed off `plan.t.road` itself, so any caller that hands us a
  * REORDERED or SHORTENED road array (plannedTilesFor can drop an element — the
  * mineral-container case) must not be allowed to read the stages off by one:
- * the length check below drops us back to the legacy schedule instead, which is
- * also what a plan pushed before this change gets.
+ * the length check below treats the array as unstaged and lets the RCL3
+ * geometry filter pick the haul chains instead of trusting a scrambled
+ * parallel array.
+ * ---------------------------------------------------------------------------
+ * RCL3 IS THE ECO+TOWER SUBSET OF THAT ARTERIAL, NOT THE WHOLE SET.
+ *
+ * roadStage still marks extension[0..9] faces, later-tower spurs and leftover
+ * hub filler as stage 3. Those tiles do not pay during the 135k RCL3 climb, and
+ * the builder then closest-sites them. PackedPlan does not ship roadLayer, so
+ * this side cannot read "eco" off a tag. It reconstructs the haul from tiles
+ * the plan already has: BFS over the stage<=3 road graph (the full array if
+ * unstaged) from the sitter to each RCL2 container and to the first tower,
+ * plus every arterial D8 of those containers. Every kept tile is already in
+ * the RCL4 set. RCL2 stays empty. No slice(0, N).
  * ---------------------------------------------------------------------------
  */
+function rcl3EcoAndTowerRoads(plan: PackedPlan, arterial: number[]): number[] {
+  if (!arterial.length) return arterial;
+  const roadSet: { [p: number]: boolean } = {};
+  for (const p of arterial) roadSet[p] = true;
+
+  const keep: { [p: number]: boolean } = {};
+  const terminals = plannedTilesFor(plan, STRUCTURE_CONTAINER, 3);
+
+  const markD8 = (packed: number) => {
+    const { x, y } = unpack(packed);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = nx + ny * 50;
+        if (roadSet[np]) keep[np] = true;
+      }
+    }
+  };
+  for (const c of terminals) markD8(c);
+
+  const seed =
+    plan.si !== undefined
+      ? plan.si
+      : plan.t.storage && plan.t.storage.length
+        ? plan.t.storage[0]
+        : undefined;
+  if (seed === undefined) {
+    if (plan.t.tower && plan.t.tower.length) markD8(plan.t.tower[0]);
+    const faces: number[] = [];
+    for (const p of arterial) if (keep[p]) faces.push(p);
+    return faces;
+  }
+
+  const conduct: { [p: number]: boolean } = { [seed]: true };
+  for (const p of arterial) conduct[p] = true;
+  for (const p of terminals) conduct[p] = true;
+
+  const parent: { [p: number]: number } = {};
+  const dist: { [p: number]: number } = { [seed]: 0 };
+  const seen: { [p: number]: boolean } = { [seed]: true };
+  const queue: number[] = [seed];
+  let qi = 0;
+  while (qi < queue.length) {
+    const cur = queue[qi++];
+    const { x, y } = unpack(cur);
+    const cd = dist[cur];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = nx + ny * 50;
+        if (seen[np] || !conduct[np]) continue;
+        seen[np] = true;
+        parent[np] = cur;
+        dist[np] = cd + 1;
+        queue.push(np);
+      }
+    }
+  }
+
+  const markChain = (from: number) => {
+    let cur: number | undefined = from;
+    while (cur !== undefined && cur !== seed) {
+      if (roadSet[cur]) keep[cur] = true;
+      cur = parent[cur];
+    }
+    if (roadSet[seed]) keep[seed] = true;
+  };
+
+  for (const c of terminals) {
+    if (!seen[c]) continue;
+    // parent, not the container tile: a road under the seat is not a haul tile
+    if (parent[c] !== undefined) markChain(parent[c]);
+  }
+
+  const towers = plan.t.tower;
+  if (towers && towers.length) {
+    const { x, y } = unpack(towers[0]);
+    let best: number | undefined;
+    let bestD = 1e9;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || nx > 49 || ny < 0 || ny > 49) continue;
+        const np = nx + ny * 50;
+        if (!seen[np] || !roadSet[np]) continue;
+        if (dist[np] < bestD) {
+          bestD = dist[np];
+          best = np;
+        }
+      }
+    }
+    if (best !== undefined) markChain(best);
+  }
+
+  const out: number[] = [];
+  for (const p of arterial) if (keep[p]) out.push(p);
+  return out;
+}
+
 function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number[] {
   if (lvl < 3) return [];
   const stage = plan.rs;
+  const arterial: number[] = [];
   if (!stage || stage.length !== planRoads.length) {
-    // no staging shipped (pre-roadStage payload) — the old schedule verbatim
-    return lvl === 3 ? planRoads.slice(0, Math.min(20, planRoads.length)) : planRoads;
+    if (lvl > 3) return planRoads;
+    for (let i = 0; i < planRoads.length; i++) arterial.push(planRoads[i]);
+  } else {
+    for (let i = 0; i < planRoads.length; i++) if (stage[i] <= lvl) arterial.push(planRoads[i]);
+    if (lvl !== 3) return arterial;
   }
-  const out: number[] = [];
-  for (let i = 0; i < planRoads.length; i++) if (stage[i] <= lvl) out.push(planRoads[i]);
-  return out;
+  return rcl3EcoAndTowerRoads(plan, arterial);
 }
 
 /**
@@ -530,12 +651,12 @@ function roadsForRcl(plan: PackedPlan, planRoads: number[], lvl: number): number
  * tiles nothing can walk to, and nobody notices until someone re-derives it
  * offline (which is exactly how M4 was found). One log line makes it visible.
  *
- * Only runs at RCL3 and only over the <=20-tile prefix, because that is the
- * ONLY level where the prefix is a prioritisation decision — from RCL4 the
+ * Only runs at RCL3 and only over the eco+tower selection, because that is
+ * the ONLY level where the set is a prioritisation decision — from RCL4 the
  * budget is the whole array, so there is no prefix to get wrong. Bounded at
- * ~26 tiles of 8-way BFS over a plain object, throttled to roughly one pass
- * per 1000 ticks. Deliberately NOT PathFinder: this must never be a per-tick
- * cost on shard3, and an approximate answer is enough for a warning.
+ * one 8-way BFS over that selection, throttled to roughly one pass per 1000
+ * ticks. Deliberately NOT PathFinder: this must never be a per-tick cost on
+ * shard3, and an approximate answer is enough for a warning.
  *
  * WHAT CONDUCTS: WHAT A CREEP CAN STAND ON.
  *
@@ -822,25 +943,17 @@ function conductorsForRcl(plan: PackedPlan, lvl: number): number[] {
 // whose entire premise is "it's all about defence".
 //
 // Ramparts are RCL4+ and roads RCL3+, so the practical schedule is now:
-// RCL3 builds the whole ARTERIAL set — the eco kit, the tower spurs, a face
-// road for each of the ten RCL3 extensions and for each of the three
-// containers the room already built at RCL2, and a connected chain from the
-// hub out to each of those containers (see roadsForRcl, which spells out what
-// that set does and does not promise; median 44 tiles, max 87). It is worth
-// stating the promise precisely rather than as "the roads a hauler actually
-// walks", which is what this comment used to say and which was false in 8
-// rooms — E14S5's arterial stopped 3 tiles short of the source container at
-// 42,39, E16S6's stopped 1 short of the controller container at 16,19 — until
-// push-plan.mjs was made to guarantee it. From RCL4 the shell goes up
-// before the remaining roads. That is the right trade in both directions: the
-// arterials are the ones that pay per tick and they now land a whole RCL
-// earlier than the old "first 20 by distance, the rest at RCL4" schedule, while
-// the tiles the shell delays are extension corridors, lab access, the mineral
-// run and the rampart spurs, which buy a few ticks of hauler fatigue against a
-// shell that is
-// the difference between being raided and not. Nothing is lost, just later, and
-// the 15-tick placement cadence chews through them steadily once the shell is
-// sited.
+// RCL3 builds the eco+tower subset of the arterial — hub→source and
+// hub→controller chains, D8 of those containers, and the first tower's spur
+// (see roadsForRcl). Extension faces, later-tower spurs and leftover hub
+// filler wait with the rest of the road array. From RCL4 the shell goes up
+// before those remaining roads. That is the right trade in both directions:
+// the haul lines pay per tick during the 135k climb, while the tiles the
+// shell delays are extension corridors, lab access, the mineral run and the
+// rampart spurs, which buy a few ticks of hauler fatigue against a shell that
+// is the difference between being raided and not. Nothing is lost, just
+// later, and the 15-tick placement cadence chews through them steadily once
+// the shell is sited.
 //
 // Storage and the towers still sit AHEAD of the 60-extension mass — at RCL4
 // the extensions would otherwise eat every site slot for thousands of ticks
