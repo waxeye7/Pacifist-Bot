@@ -1443,13 +1443,114 @@ function promotesOutsider(terrain, set1, dropped, cutKeys, ext1, sitter) {
  * pass's adoptions are undeclared; that is a separate open, and the drift log is
  * where they are now visible.)
  */
-function noteCutDrift(plan, pass, op, tiles, why) {
+/**
+ * ------------------------------------------------------------------------
+ * THE RULING (round 27, criticism 134(b)) — A RECORD STANDING IN FOR A
+ * DECLARATION IS HELD TO THE DECLARATION'S STANDARD, AND THAT INCLUDES ITS
+ * SENTENCES.
+ * ------------------------------------------------------------------------
+ * The 34 adoptions stay UNDECLARED — that is the ruling — and the price is that
+ * `cutDrift` has to carry the weight a declaration would have carried: "every
+ * leaf re-derived or bounded, and every sentence GENERATED from the leaves".
+ * `why` was free text held by `why.length >= 12`, so six forgeries passed
+ * 172/172, including re-attributing E13S5's adoption to the layer-7b pass — the
+ * inversion of the exact fact the criticism is about.
+ *
+ * So `why` is a FUNCTION of `(op, pass)` and of nothing else, it is exported,
+ * and a reader holding the row re-renders it and compares whole values. Two
+ * sentences, one per question the row raises: WHAT this op did to the cut, and
+ * WHICH pass did it and on whose evidence. `pass` stays the real pass name —
+ * the enum below is closed, and an op/pass this file cannot name throws rather
+ * than rendering a sentence about a pass that does not exist.
+ */
+export const CUT_DRIFT_PASSES = [
+  "layer7-inertPrune",
+  "layer7-reconcileSeal",
+  "layer7b-inertPrune",
+  "layer7b-reconcileSeal",
+];
+/** what each pass is, where it runs, and the roster that holds its evidence */
+const CUT_DRIFT_PASS_SENTENCE = {
+  "layer7-inertPrune":
+    `The pass that did it is the inert-rampart prune inside planWallRoads (layer 7, the first of this ` +
+    `file's two prune calls), and its whole roster ships as meta.shell.inertPruned — this tile is in it.`,
+  "layer7b-inertPrune":
+    `The pass that did it is the inert-rampart prune inside finalizeRoom (layer 7b, the second of this ` +
+    `file's two prune calls), and its whole roster ships as meta.shell.inertPruned — this tile is in it.`,
+  "layer7-reconcileSeal":
+    `The pass that did it is the seal reconciliation inside planWallRoads (layer 7, the first of this ` +
+    `file's two reconcile calls), and the evidence is the tile itself rather than a roster: re-flood the ` +
+    `exterior over this room's ramparts with this one deleted and the flood reaches the sitter.`,
+  "layer7b-reconcileSeal":
+    `The pass that did it is the seal reconciliation inside finalizeRoom (layer 7b, the second of this ` +
+    `file's two reconcile calls), and the evidence is the tile itself rather than a roster: re-flood the ` +
+    `exterior over this room's ramparts with this one deleted and the flood reaches the sitter.`,
+};
+/** what the op itself did to the declared cut — the op's own argument, not the pass's */
+const CUT_DRIFT_OP_SENTENCE = {
+  remove:
+    `This tile LEFT the declared cut: the rampart standing on it bought nothing this room can point at ` +
+    `— it was not holding the seal, it carried no structure of ours, and no creep this room does not own ` +
+    `can ever stand there — so the rampart was deleted, and a tile with no rampart on it is not wall.`,
+  add:
+    `This tile JOINED the declared cut: the single-removal seal test proves the rampart standing on it is ` +
+    `holding the enclosure shut on its own, so it is a wall tile the cut layer 2 froze did not name.`,
+};
+/** the whole `why` of a drift row, generated from (op, pass) and nothing else */
+export function cutDriftWhy(op, pass) {
+  const first = CUT_DRIFT_OP_SENTENCE[op];
+  const second = CUT_DRIFT_PASS_SENTENCE[pass];
+  if (!first) throw new Error(`cutDriftWhy: no sentence for op "${op}" — the op enum is add|remove`);
+  if (!second) {
+    throw new Error(
+      `cutDriftWhy: no sentence for pass "${pass}" — the pass enum is ${CUT_DRIFT_PASSES.join(" | ")}`,
+    );
+  }
+  return `${first} ${second}`;
+}
+function noteCutDrift(plan, pass, op, tiles) {
   if (!plan.shell || !tiles || !tiles.length) return;
   const log = (plan.shell.cutDrift ||= []);
+  const why = cutDriftWhy(op, pass);
   for (const t of tiles) log.push({ x: t.x, y: t.y, op, pass, why });
 }
+/**
+ * WHICH PASSES RAN, WHETHER OR NOT THEY MOVED ANYTHING (MF1, round 27).
+ *
+ * `cutDrift` records the moves. It cannot record a pass that ran and moved
+ * nothing, and that is the hole the anchor exploit walked through: delete a
+ * room's add rows, absorb the tiles into `cutAtFreeze`, and the artifact reads
+ * exactly like a room whose passes found nothing to do. So each of the four
+ * invocations publishes a marker with its own counters as it returns, and the
+ * two records bind: the number of drift rows carrying a pass name IS that
+ * marker's `adds`/`removes`, in every room, and a marker with `adds > 0` and no
+ * matching rows is a room that deleted its own evidence.
+ */
+function noteCutPass(plan, pass, rec) {
+  if (!plan.shell) return;
+  (plan.shell.cutPasses ||= []).push({ pass, ...rec });
+}
 
+/**
+ * The marker wrapper — see noteCutPass. Every invocation publishes what it did,
+ * including the ones that did nothing, and the counters are taken here, off the
+ * cut list itself, rather than reported by the pass about itself.
+ */
 function pruneInertRamparts(terrain, plan, pass) {
+  const cutBefore = (plan.shell?.cut || []).length;
+  const rampartsBefore = (plan.structures?.rampart || []).length;
+  const removed = pruneInertRampartsPass(terrain, plan, pass);
+  noteCutPass(plan, pass, {
+    kind: "inertPrune",
+    ramparts: rampartsBefore,
+    rampartsDeleted: removed.length,
+    adds: 0,
+    removes: cutBefore - (plan.shell?.cut || []).length,
+  });
+  return removed;
+}
+
+function pruneInertRampartsPass(terrain, plan, pass) {
   const removed = [];
   let ramp = plan.structures.rampart || [];
   if (!ramp.length) return removed;
@@ -1962,7 +2063,6 @@ function pruneInertRamparts(terrain, plan, pass) {
     pass,
     "remove",
     cutWas.filter((c) => dead.has(key(c.x, c.y))),
-    "the rampart on this cut tile bought nothing (inert) and was deleted, so the tile is no longer wall",
   );
   // plan.shell.bubble is NOT scrubbed: keep-class (c) means no bubble can be in
   // `dead`, and a declaration this pass may not act on is one it may not edit.
@@ -2011,7 +2111,23 @@ function pruneInertRamparts(terrain, plan, pass) {
  * the mobility lap and the battery's weakest face — because a metric computed
  * on a wall the room does not have is not a measurement.
  */
+/** the marker wrapper — see noteCutPass and the prune's twin above */
 function reconcileSeal(terrain, plan, pass) {
+  const cutBefore = (plan.shell?.cut || []).length;
+  const rec = reconcileSealPass(terrain, plan, pass);
+  noteCutPass(plan, pass, {
+    kind: "reconcileSeal",
+    // null when the pass stood down (no ramparts at all, or a sitter already
+    // outside its own wall) — "the test did not run" and "the test found
+    // nothing" are the two answers this marker exists to tell apart
+    sealCritical: rec ? rec.sealCritical.length : null,
+    adds: (plan.shell?.cut || []).length - cutBefore,
+    removes: 0,
+  });
+  return rec;
+}
+
+function reconcileSealPass(terrain, plan, pass) {
   const ramp = plan.structures.rampart || [];
   if (!ramp.length) return null;
   const rset = new Set(ramp.map((r) => key(r.x, r.y)));
@@ -2038,16 +2154,209 @@ function reconcileSeal(terrain, plan, pass) {
   // THE LAST PASS'S ADOPTIONS, and only those — see noteCutDrift for the record
   // that survives both passes and for what this overwrite used to hide.
   plan.shell.cutAdopted = adopted;
-  noteCutDrift(
-    plan,
-    pass,
-    "add",
-    adopted,
-    "the single-removal seal test proves this rampart is holding the enclosure shut on its own, so it is a wall tile the declared cut did not name",
-  );
+  noteCutDrift(plan, pass, "add", adopted);
   if (!adopted.length) return { adopted, sealCritical };
   plan.shell.cut = cut.concat(adopted.map((c) => ({ x: c.x, y: c.y })));
   return { adopted, sealCritical, extFinal };
+}
+
+/**
+ * ===========================================================================
+ * MF5 (round 27) — THE *Basis / *Why FIELDS THIS FILE WRITES, RENDERED.
+ * ===========================================================================
+ * Six of the eleven prose fields nobody read live in this file, and seven of
+ * the eleven were BYTE-IDENTICAL in 172/172 rooms: a constant rule sentence
+ * wearing the word "basis", which is the defect this suite closed twice on two
+ * OTHER fields while these shipped beside them (127(c), 132(b)). 1550 strings
+ * were replaced fleet-wide with one invented sentence and the validator's whole
+ * output stayed byte-identical.
+ *
+ * The standard the suite already set, on `preTakeShortfallBasis` (24 distinct)
+ * and `exteriorContractBasis` (166 distinct), is: THE ROOM'S OWN CENSUS FIRST,
+ * THE CONSTANT RULE AS THE SUFFIX. The rule text is a constant because it IS
+ * constant — every room's basis is the same rule — and it is exported so a
+ * reader can `endsWith` it; the census in front of it is this room's numbers
+ * and this room's tiles, so a reader who re-runs the measurement re-renders the
+ * whole string and compares whole values.
+ *
+ * Every renderer below is a pure function of a census object. Nothing in it
+ * reads a plan, so a validator builds the census off the board and the terrain
+ * and asks this file what the sentence should say.
+ */
+const xyOf = (t) => `${t.x},${t.y}`;
+const roster = (ts) => ts.map(xyOf).join(" ");
+
+export const ENCLOSURE_BASIS =
+  `SOURCES re-derived at finalizeRoom over the SHIPPED rampart union (every cut tile, bubble, ` +
+  `stand-denial and personal rampart the room ships), not over the min-cut ring layer 2 negotiated — ` +
+  `a source counts as enclosed on the strict reading, its works AND every walkable tile of its ring ` +
+  `inside the wall. shell.enclosedAtNegotiation keeps layer 2's reading, which is the one the ` +
+  `enclosure was BOUGHT on. enclosedController is NOT re-derived on this basis and the comment in ` +
+  `layer-walls says why: against the union it is a tautology, because the controller's own ` +
+  `stand-denial ring is made of ramparts.`;
+/**
+ * @param c {{sources:{at,works,worksOutside,ring,ringOutside,strict}[],
+ *           enclosedStrict:number, atNegotiation:number}}
+ */
+export function renderEnclosureBasis(c) {
+  const per = c.sources.map(
+    (s) =>
+      `${xyOf(s.at)} carries ${s.works} work(s) of ours within reach, ` +
+      (s.works === 0
+        ? `so there is nothing for the wall to have taken in`
+        : s.worksOutside.length
+          ? `${s.worksOutside.length} of them outside the union (${roster(s.worksOutside)})`
+          : `every one of them inside the union`) +
+      `, and ${s.ring} walkable ring tile(s), ` +
+      (s.ringOutside.length
+        ? `${s.ringOutside.length} outside (${roster(s.ringOutside)})`
+        : `none outside`) +
+      ` — ${s.strict ? "ENCLOSED" : "NOT enclosed"} on the strict reading`,
+  );
+  return (
+    `ON THIS ROOM: ${c.sources.length} source(s) re-read over the shipped rampart union — ` +
+    `${per.join("; ")}. That is ${c.enclosedStrict}/${c.sources.length} strictly enclosed, against ` +
+    `the ${c.atNegotiation}/${c.sources.length} layer 2 published when the enclosure was bought. ` +
+    ENCLOSURE_BASIS
+  );
+}
+
+export const REMEASURE_BASIS =
+  `The re-measure is unconditional: the cut is the min-cut RING, and layers 2-6 also add bubble ` +
+  `ramparts that move the exterior flood without moving one byte of shell.cut, so the exterior — and ` +
+  `every metric taken against it — is re-derived over the shipped rampart UNION rather than over the ` +
+  `ring layer 2 negotiated.`;
+/** @param c {{pruned:number, adopted:number, ramparts:number, cut:number, cutAtFreeze:number}} */
+export function renderRemeasureReason(c) {
+  const moved = c.pruned > 0 || c.adopted > 0;
+  return (
+    `ON THIS ROOM: layer 7 pruned ${c.pruned} inert cut tile(s) and adopted ${c.adopted} by the ` +
+    `single-removal seal test, so the declared cut moves from the ${c.cutAtFreeze} tile(s) layer 2 ` +
+    `froze to the ${c.cut} this room ships` +
+    (moved ? `` : ` — which is the same set, tile for tile`) +
+    `, and the wall this is measured over is all ${c.ramparts} rampart(s) the room ships. ` +
+    REMEASURE_BASIS
+  );
+}
+
+export const REFILL_BASIS =
+  `re-derived at finalizeRoom over the WHOLE as-built board — every OBSTACLE_OBJECT_TYPE the room ` +
+  `ships blocks (spawn, extension, link, storage, tower, observer, lab, terminal, nuker) plus the ` +
+  `source / controller / mineral tiles; roads, containers and our own ramparts are walkable. Layer 3's ` +
+  `reading, over the board it could see, is kept as refillDistsAtPlacement.`;
+/** @param c {{towers:{at,was,now}[], maxWas:number, maxNow:number, unreachable:number, blocked:number}} */
+export function renderRefillBasis(c) {
+  const d = (v) => (v >= REFILL_UNREACHED ? "unreachable" : String(v));
+  return (
+    `ON THIS ROOM: ${c.towers.length} tower(s) re-walked from the sitter with ${c.blocked} tile(s) ` +
+    `blocked by the finished mass — ` +
+    c.towers.map((t) => `${xyOf(t.at)} ${d(t.was)}->${d(t.now)}`).join(" · ") +
+    `; the longest refill walk goes ${d(c.maxWas)} -> ${d(c.maxNow)} and ${c.unreachable} tower(s) ` +
+    `cannot be reached at all on the board this room ships. ` +
+    REFILL_BASIS
+  );
+}
+
+export const PRUNED_BASIS =
+  `pruned = TILES the dead-end prune deleted that carry NO road in structures.road on the board ` +
+  `this room ships, listed tile by tile in prunedTiles. prunedAtPass is the same pass's EVENT ` +
+  `count, taken when planWallRoads returned; the difference is prunedRelaid — tiles a later pass ` +
+  `(layer 7b's reflow, the swamp pave, the conduct bridge) put back and the room ships as roads — ` +
+  `so prunedAtPass === pruned + prunedRelaid.length. Within pruned, prunedGhosts carry a ` +
+  `meta.roadLayer entry (the set the film's roadsPrune stage erases) and prunedTransient were laid ` +
+  `and deleted inside layer 7 itself, so no layer ever tagged them and the film never drew them; ` +
+  `every one of those is in this room's laidTilesByKind AND lostByKind. ` +
+  `pruned === prunedGhosts + prunedTransient.`;
+/** @param c {{atPass:number, pruned:tile[], relaid:tile[], ghosts:number, transient:number}} */
+export function renderPrunedBasis(c) {
+  return (
+    `ON THIS ROOM: the dead-end prune deleted ${c.atPass} road tile(s) as it ran. ` +
+    `${c.pruned.length} of them carry no road on the board this room ships` +
+    (c.pruned.length ? ` (${roster(c.pruned)})` : ``) +
+    ` and ${c.relaid.length} were put back by a later pass and ship as road` +
+    (c.relaid.length ? ` (${roster(c.relaid)})` : ``) +
+    `, which is ${c.atPass} = ${c.pruned.length} + ${c.relaid.length}. Of the ${c.pruned.length} ` +
+    `still pruned, ${c.ghosts} carry a meta.roadLayer entry and ${c.transient} never got one. ` +
+    PRUNED_BASIS
+  );
+}
+
+export const SEALED_COUNTERFACTUAL_BASIS =
+  `pockets are the D8-connected components of the sealed set. For each pocket, every structure of ` +
+  `ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running ` +
+  `the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. ` +
+  `Only D8-adjacent structures are candidates and that is not an approximation — removing one ` +
+  `structure makes exactly one tile walkable, so a structure that touches no tile of this pocket ` +
+  `cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single ` +
+  `holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.`;
+/** @param c {{pockets:[], singleStructureTiles:number, singleStructureDeep:number, ourFault:number, sealed:number}} */
+export function renderCounterfactualBasis(c) {
+  const per = c.pockets.map(
+    (p) =>
+      `${xyOf(p.at)}: ${p.tiles} tile(s), ${p.deep} deep, ${p.holders.length} structure(s) of ours ` +
+      `D8 of it recover any of it` +
+      (p.best
+        ? ` and the best single one is the ${p.best.type} at ${xyOf(p.best)}, worth ${p.best.recovers} ` +
+          `tile(s) (${p.best.recoversDeep} deep)`
+        : ` — no single structure of ours recovers one tile of it`),
+  );
+  return (
+    `ON THIS ROOM: ${c.sealed} sealed tile(s) in ${c.pockets.length} pocket(s) — ${per.join("; ")}. ` +
+    `Summed over the best single holder of each pocket that is ${c.singleStructureTiles} tile(s) ` +
+    `(${c.singleStructureDeep} deep), under the ${c.ourFault} tile(s) the whole mass is responsible ` +
+    `for. ` +
+    SEALED_COUNTERFACTUAL_BASIS
+  );
+}
+
+export const DEEP_TILES_BASIS =
+  `THREE DIFFERENT BOARDS, THREE NAMES. deepTiles === negotiationFreeDeep is countDeep on layer ` +
+  `2's negotiation board — deep (>= ${DEPTH_SAFE}), buildable, inside the 2..47 band, not exterior, ` +
+  `not cut, not road, not occupied — where "occupied" is the hub kit plus the room objects, ` +
+  `because towers, labs, the nuker, the observer and the extensions do not exist when the shell is ` +
+  `chosen. It is the supply budgetPass (>= needDeep) was decided on and it is the only figure that ` +
+  `explains that decision. shippedFreeDeep is the SAME function over the shipped rampart flood, ` +
+  `the shipped cut, the shipped roads and every structure this room ships. shippedDeepInterior ` +
+  `counts deep floor in the band whatever stands on it, which is what the phrase "deep tiles ` +
+  `inside" means and what neither of the other two is.`;
+/**
+ * @param c {{negotiation:number, shippedFree:number, shippedInterior:number,
+ *           cut:number, roads:number, occupied:number}}
+ */
+export function renderDeepTilesBasis(c) {
+  return (
+    `ON THIS ROOM: negotiationFreeDeep ${c.negotiation}, shippedFreeDeep ${c.shippedFree}, ` +
+    `shippedDeepInterior ${c.shippedInterior}. The first two differ by ` +
+    `${c.negotiation - c.shippedFree} tile(s) because the board under them differs by everything ` +
+    `layers 3-7 built: ${c.cut} cut tile(s), ${c.roads} road tile(s) and ${c.occupied} tile(s) ` +
+    `carrying a structure or a room object stand on the shipped board and none of them counts as ` +
+    `free. ` +
+    DEEP_TILES_BASIS
+  );
+}
+
+export const NOTE_OBLIGATION_BASIS =
+  `one entry per note class this room owes, derived at the end of finalizeRoom from records that ` +
+  `exist for their own reasons — never from meta.notes, which is the thing the obligation is ` +
+  `about. A class listed here MUST appear in meta.noteRecords; a class in meta.noteRecords that ` +
+  `is not listed here is a note nothing demanded. why names every triggering field and its value.`;
+/** @param c {{considered:{cls:string, why:{field:string,value:number}[]}[]}} */
+export function renderNoteObligationBasis(c) {
+  const owed = c.considered.filter((e) => e.why.length);
+  const quiet = c.considered.filter((e) => !e.why.length);
+  return (
+    `ON THIS ROOM: ${c.considered.length} note class(es) were asked and ${owed.length} of them owe a ` +
+    `note — ` +
+    (owed.length
+      ? owed
+          .map((e) => `${e.cls} (${e.why.map((w) => `${w.field} = ${w.value}`).join(", ")})`)
+          .join("; ")
+      : `none`) +
+    `. The other ${quiet.length} are not owed because every field that could demand them reads zero` +
+    (quiet.length ? `: ${quiet.map((e) => e.cls).join(" ")}` : ``) +
+    `. ` +
+    NOTE_OBLIGATION_BASIS
+  );
 }
 
 /**
@@ -2163,6 +2472,10 @@ function remeasureShell(terrain, plan, reason) {
     const ctrlLink = links.length > 1 ? links[links.length - 1] : null;
     let enclosedSources = 0;
     let enclosedSourceWorks = 0;
+    // MF5 (round 27) — the census the basis sentence is rendered from. The
+    // verdict is a conjunction and the row says which conjunct decided it, with
+    // the tiles: a reader re-running the flood re-derives every figure here.
+    const srcCensus = [];
     const srcEnclosed = (plan.sources || []).map((s) => {
       const mine = [
         ...(plan.structures.container || []).filter((c) => chebyshev(c, s) <= 1),
@@ -2170,8 +2483,18 @@ function remeasureShell(terrain, plan, reason) {
       ];
       const works = mine.length > 0 && mine.every((p) => !outside(p));
       if (works) enclosedSourceWorks++;
-      const strict = works && walkableRing(s).every((p) => !outside(p));
+      const ring = walkableRing(s);
+      const ringOut = ring.filter(outside);
+      const strict = works && ringOut.length === 0;
       if (strict) enclosedSources++;
+      srcCensus.push({
+        at: { x: s.x, y: s.y },
+        works: mine.length,
+        worksOutside: mine.filter(outside),
+        ring: ring.length,
+        ringOutside: ringOut,
+        strict,
+      });
       return strict;
     });
     // ------------------------------------------------------------------
@@ -2211,14 +2534,11 @@ function remeasureShell(terrain, plan, reason) {
     // 344/344 by construction and answers nothing. Layer 2's number answers the
     // question it was asked — did the ENCLOSURE take the works in.
     void enclosedSourceWorks;
-    plan.shell.enclosureBasis =
-      `SOURCES re-derived at finalizeRoom over the SHIPPED rampart union (every cut tile, bubble, ` +
-      `stand-denial and personal rampart the room ships), not over the min-cut ring layer 2 negotiated — ` +
-      `a source counts as enclosed on the strict reading, its works AND every walkable tile of its ring ` +
-      `inside the wall. shell.enclosedAtNegotiation keeps layer 2's reading, which is the one the ` +
-      `enclosure was BOUGHT on. enclosedController is NOT re-derived on this basis and the comment in ` +
-      `layer-walls says why: against the union it is a tautology, because the controller's own ` +
-      `stand-denial ring is made of ramparts.`;
+    plan.shell.enclosureBasis = renderEnclosureBasis({
+      sources: srcCensus,
+      enclosedStrict: enclosedSources,
+      atNegotiation: plan.shell.enclosedAtNegotiation.sources,
+    });
   }
 
   const dmg = shellDamage(plan.structures.tower || [], cut);
@@ -2782,14 +3102,13 @@ function noteSealedFloor(terrain, plan, shallowNow) {
     pocketCount: pockets.length,
     singleStructureTiles,
     singleStructureDeep,
-    counterfactualBasis:
-      `pockets are the D8-connected components of the sealed set. For each pocket, every structure of ` +
-      `ours D8-adjacent to one of its tiles is priced by DELETING THAT ONE STRUCTURE and re-running ` +
-      `the same own-creep flood: recovers/recoversDeep are the pocket tiles that become reachable. ` +
-      `Only D8-adjacent structures are candidates and that is not an approximation — removing one ` +
-      `structure makes exactly one tile walkable, so a structure that touches no tile of this pocket ` +
-      `cannot join it to the flood. singleStructureTiles/singleStructureDeep sum the BEST single ` +
-      `holder of each pocket, which is the honest one-move floor under ourFault's whole-mass ceiling.`,
+    counterfactualBasis: renderCounterfactualBasis({
+      pockets,
+      singleStructureTiles,
+      singleStructureDeep,
+      ourFault,
+      sealed,
+    }),
     basis:
       `unreachable under the OWN-CREEP flood over the whole board from the sitter (ownCreepWalk): ` +
       `terrain wall, room objects and our own OBSTACLE structures block; roads, containers and our ` +
@@ -4552,11 +4871,17 @@ function recomputeRefill(terrain, plan) {
   tw.refillDists = dists;
   tw.maxRefill = Math.max(...dists);
   tw.refillUnreachable = dists.filter((d) => d >= REFILL_UNREACHED).length;
-  tw.refillBasis =
-    `re-derived at finalizeRoom over the WHOLE as-built board — every OBSTACLE_OBJECT_TYPE the room ` +
-    `ships blocks (spawn, extension, link, storage, tower, observer, lab, terminal, nuker) plus the ` +
-    `source / controller / mineral tiles; roads, containers and our own ramparts are walkable. Layer 3's ` +
-    `reading, over the board it could see, is kept as refillDistsAtPlacement.`;
+  tw.refillBasis = renderRefillBasis({
+    towers: towers.map((t, i) => ({
+      at: { x: t.x, y: t.y },
+      was: (atPlacement || [])[i] ?? REFILL_UNREACHED,
+      now: dists[i],
+    })),
+    maxWas: atPlacement && atPlacement.length ? Math.max(...atPlacement) : REFILL_UNREACHED,
+    maxNow: tw.maxRefill,
+    unreachable: tw.refillUnreachable,
+    blocked: blocked.size,
+  });
   return { dists, atPlacement };
 }
 
@@ -4880,17 +5205,20 @@ export function finalizeRoom(terrain, plan) {
   }
   const rec = reconcileSeal(terrain, plan, "layer7b-reconcileSeal");
   const adopted = rec?.adopted || [];
-  const cutChanged = allInertPruned.length > 0 || adopted.length > 0;
+  // MF5 (round 27): the sentence is generated from this room's own counters —
+  // the two hand-written branches were 6 distinct strings over 172 rooms, and
+  // the "cut unchanged" branch asserted a thing the counters already say.
+  const cutDriftNow = plan.shell.cutDrift || [];
   const shipDmg = remeasureShell(
     terrain,
     plan,
-    cutChanged
-      ? `${allInertPruned.length} tile(s) pruned as inert, ${adopted.length} adopted into the cut by ` +
-          `the single-removal seal test — re-derived after layer 7b, on the mass the room ships`
-      : `cut unchanged by layer 7, but the shipped rampart set includes every bubble laid by layers ` +
-          `2-6 and every personal rampart layer 7b retired or rented, so the exterior — and every ` +
-          `metric taken against it — is re-derived over the union rather than over the min-cut ring ` +
-          `layer 2 negotiated`,
+    renderRemeasureReason({
+      pruned: cutDriftNow.filter((e) => e.op === "remove").length,
+      adopted: cutDriftNow.filter((e) => e.op === "add").length,
+      ramparts: (plan.structures.rampart || []).length,
+      cut: (plan.shell.cut || []).length,
+      cutAtFreeze: (plan.meta?.shell?.cutAtFreeze || []).length,
+    }),
   );
   if (adopted.length) declareAdoptedSeal(plan, adopted, shipDmg);
   if (shipDmg) declareShippedBattery(plan, shipDmg);
@@ -5345,16 +5673,14 @@ export function finalizeRoom(terrain, plan) {
       }
     }
     plan.shell.shippedDeepInterior = deepInterior;
-    plan.shell.deepTilesBasis =
-      `THREE DIFFERENT BOARDS, THREE NAMES. deepTiles === negotiationFreeDeep is countDeep on layer ` +
-      `2's negotiation board — deep (>= ${DEPTH_SAFE}), buildable, inside the 2..47 band, not exterior, ` +
-      `not cut, not road, not occupied — where "occupied" is the hub kit plus the room objects, ` +
-      `because towers, labs, the nuker, the observer and the extensions do not exist when the shell is ` +
-      `chosen. It is the supply budgetPass (>= needDeep) was decided on and it is the only figure that ` +
-      `explains that decision. shippedFreeDeep is the SAME function over the shipped rampart flood, ` +
-      `the shipped cut, the shipped roads and every structure this room ships. shippedDeepInterior ` +
-      `counts deep floor in the band whatever stands on it, which is what the phrase "deep tiles ` +
-      `inside" means and what neither of the other two is.`;
+    plan.shell.deepTilesBasis = renderDeepTilesBasis({
+      negotiation: plan.shell.negotiationFreeDeep,
+      shippedFree: plan.shell.shippedFreeDeep,
+      shippedInterior: deepInterior,
+      cut: cutSetNow.size,
+      roads: roadSetNow.size,
+      occupied: occNow.size,
+    });
   }
 
   // ------------------------------------------------------------------
@@ -5543,16 +5869,13 @@ export function finalizeRoom(terrain, plan) {
     plan.meta.walls.prunedRelaid = relaid;
     plan.meta.walls.prunedGhosts = ghosts.length;
     plan.meta.walls.prunedTransient = stillPruned.length - ghosts.length;
-    plan.meta.walls.prunedBasis =
-      `pruned = TILES the dead-end prune deleted that carry NO road in structures.road on the board ` +
-      `this room ships, listed tile by tile in prunedTiles. prunedAtPass is the same pass's EVENT ` +
-      `count, taken when planWallRoads returned; the difference is prunedRelaid — tiles a later pass ` +
-      `(layer 7b's reflow, the swamp pave, the conduct bridge) put back and the room ships as roads — ` +
-      `so prunedAtPass === pruned + prunedRelaid.length. Within pruned, prunedGhosts carry a ` +
-      `meta.roadLayer entry (the set the film's roadsPrune stage erases) and prunedTransient were laid ` +
-      `and deleted inside layer 7 itself, so no layer ever tagged them and the film never drew them; ` +
-      `every one of those is in this room's laidTilesByKind AND lostByKind. ` +
-      `pruned === prunedGhosts + prunedTransient.`;
+    plan.meta.walls.prunedBasis = renderPrunedBasis({
+      atPass: plan.meta.walls.prunedAtPassTiles.length,
+      pruned: stillPruned,
+      relaid,
+      ghosts: ghosts.length,
+      transient: stillPruned.length - ghosts.length,
+    });
   }
   // ------------------------------------------------------------------
   // WHO OWES A NOTE — derived from records, not from the notes (OF5, round 16).
@@ -5585,7 +5908,12 @@ export function finalizeRoom(terrain, plan) {
   if (plan.shell?.closures?.needed) pushNote(plan, "shellClosure", plan.shell.closures);
   if (plan.meta) {
     const owed = [];
+    // MF5 (round 27): the classes that were ASKED and said no are kept too. The
+    // basis sentence is rendered from this list, and "nothing in this room
+    // demanded a pavingGap note" is a different claim from "nobody asked".
+    const considered = [];
     const owe = (cls, why) => {
+      considered.push({ cls, why });
       if (why.length) owed.push({ cls, why });
     };
     const sf = plan.meta.sealedFloor;
@@ -5651,11 +5979,7 @@ export function finalizeRoom(terrain, plan) {
         : [],
     );
     plan.meta.noteObligations = owed;
-    plan.meta.noteObligationBasis =
-      `one entry per note class this room owes, derived at the end of finalizeRoom from records that ` +
-      `exist for their own reasons — never from meta.notes, which is the thing the obligation is ` +
-      `about. A class listed here MUST appear in meta.noteRecords; a class in meta.noteRecords that ` +
-      `is not listed here is a note nothing demanded. why names every triggering field and its value.`;
+    plan.meta.noteObligationBasis = renderNoteObligationBasis({ considered });
   }
   if (plan.meta) plan.meta.finalized = true;
   delete plan.wallPassState;

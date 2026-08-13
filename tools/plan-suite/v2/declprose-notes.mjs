@@ -868,6 +868,41 @@ function renderRoadRampart(r) {
  * is called what it is — the band the sweep covered, and the walkable floor
  * this particular room has inside its own wall.
  */
+/**
+ * OM2 (round 27) — the worked example of "a candidate left the one-pave class
+ * without being taken", derived from the room's own opening class.
+ *
+ * The partition is layer-ext's (`openingTaken` / `openingStill` /
+ * `openingExited`, which sum to `freeDeepOnePave`), so every figure and every
+ * tile in this sentence is a leaf of the record beside it. A room with no
+ * exited tile says it has none rather than borrowing another room's.
+ */
+export function renderOnePaveExit(s) {
+  const opened = s.freeDeepOnePave || 0;
+  const taken = s.openingTaken || [];
+  const still = s.openingStill || [];
+  const exited = s.openingExited || [];
+  const list = (ts) => ts.map((t) => `${t.x},${t.y}`).join(" ");
+  if (!opened) {
+    return (
+      `This room's one-pave class opened empty, so no tile of its own can illustrate that: the ` +
+      `${s.paveLeft} on the table now all entered the class after the opening census. `
+    );
+  }
+  return (
+    `Followed forward, the ${opened} tile(s) that opened in this room's one-pave class went: ` +
+    `${taken.length} now carry an extension of ours` +
+    (taken.length ? ` (${list(taken)})` : ``) +
+    `, ${still.length} are still one pave from the network` +
+    (still.length ? ` (${list(still)})` : ``) +
+    `, and ${exited.length} left the class untaken` +
+    (exited.length
+      ? ` — ${exited.map((e) => `${e.x},${e.y}, because ${e.why}`).join("; ")}`
+      : `, so this room has no example of one`) +
+    `. `
+  );
+}
+
 function renderShallowExtNote(r) {
   const l6note = r.l6
     ? `Layer 6's own end-of-layer pass moved ${r.l6.moved} slot(s) onto deep floor whose road face ` +
@@ -896,8 +931,16 @@ function renderShallowExtNote(r) {
         `WHICH IS THE POINT: "left" is the class RE-SCANNED against the board this room ships, not ` +
         `${r.search.freeDeepOnePave} minus ${r.search.paveTaken}. A candidate can leave the one-pave ` +
         `class without anybody taking it, and the commonest way is that a neighbour took it as ITS ` +
-        `pave — the tile is on the network now, so it is no longer one pave from it (E12S6's 35,13 is ` +
-        `the tile that named this). A "left" figure that closed against the other two would be ` +
+        `pave — the tile is on the network now, so it is no longer one pave from it. ` +
+        // OM2 (round 27) — THE EXEMPLAR IS THIS ROOM'S, OR THERE IS NO EXEMPLAR.
+        // The parenthetical here read "(E12S6's 35,13 is the tile that named
+        // this)": a hardcoded literal, printed in three rooms, and in the one
+        // room it names the SAME NOTE lists 35,3(d2)->35,13(d4) — the tile was
+        // taken, so it is the one thing it cannot be an example of. The opening
+        // class is now followed forward tile by tile (see openingExited in
+        // layer-ext), so a room either names one of its own or says it has none.
+        renderOnePaveExit(r.search) +
+        `A "left" figure that closed against the other two would be ` +
         `reporting a subtraction instead of a search. It rejected ` +
         `${r.search.refusedCount} distinct tile(s) for a stated reason each ` +
         `(${r.search.refusedExaminations} examinations — a tile re-offered on a later round is ` +
@@ -907,10 +950,20 @@ function renderShallowExtNote(r) {
             `engine-legal, reachable by a builder and either road-faced or one pave from the ` +
             `network — that is a statement about a completed scan of all ` +
             `${r.search.interiorTiles} band positions, not about a budget`
-          : (r.search.spentOnAdds || r.search.spentOnMoves
-              ? `Of those, ${r.search.spentOnAdds} became extension(s) this room did not have at all ` +
-                `— the backfill to ${r.extTarget}/${r.extTarget}, which outranks retiring a rampart — and ` +
-                `${r.search.spentOnMoves} took a relocated shallow slot. `
+          : // OL3 (round 27) — THE SENTENCE NAMES THE SET IT IS ABOUT. "Of
+            // those" followed the count of REJECTED tiles and hung
+            // spentOnAdds/spentOnMoves under it; both are properties of the
+            // free deep ROAD-FACED candidates, and in the three rooms that
+            // printed it the two sets were 11 and 2. The antecedent is now
+            // written out, with the identity that closes over it.
+            (r.search.spentOnAdds || r.search.spentOnMoves
+              ? `Of the ${r.search.freeDeepRoadFaced} free deep ROAD-FACED candidate(s) — not of the ` +
+                `rejected tiles just counted, which are a different set — ${r.search.spentOnAdds} ` +
+                `became extension(s) this room did not have at all (the backfill to ` +
+                `${r.extTarget}/${r.extTarget}, which outranks retiring a rampart) and ` +
+                `${r.search.spentOnMoves} took a relocated shallow slot, leaving ${r.search.left}: ` +
+                `${r.search.spentOnAdds} + ${r.search.spentOnMoves} + ${r.search.left} = ` +
+                `${r.search.freeDeepRoadFaced}. `
               : "") +
             (r.search.left === 0 && r.search.paveLeft === 0
               ? `NONE of either class were left by the time the ${r.shallowNow} remaining shallow ` +

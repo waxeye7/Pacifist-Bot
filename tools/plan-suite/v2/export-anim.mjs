@@ -20,6 +20,7 @@
  */
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
 import {
   D4,
   OUT_V2,
@@ -572,6 +573,81 @@ const RAMPART_FACET_ORDER = [
   "unclassified",
   "none",
 ];
+/**
+ * MF3 (round 27) — the two shapes an `emptyBecause` row can take, both rendered
+ * from a census a reader can rebuild from the artifact and the terrain.
+ *
+ * `renderFacetAbsence` is a pure function of the FACET and the room's census:
+ *   {ramparts, onCut[], containers[], containersOutside[], containersInside[],
+ *    inDenial[], otherOccupied[], bare[], cutTiles, denialTiles}
+ * where every array is a roster of "x,y" keys over this room's own ramparts.
+ * Each sentence walks the facet's own conjuncts in the classifier's order and
+ * says which one the room has none of — with the tiles that got as far as the
+ * next conjunct, because "no container is outside" is a claim about the
+ * containers and they are what makes it checkable.
+ */
+export function renderFacetAbsence(facet, c) {
+  const list = (ks) => ks.join(" ");
+  switch (facet) {
+    case "crossing":
+      return (
+        `this room ships ${c.ramparts} rampart(s) and publishes ${c.cutTiles} cut tile(s), and no ` +
+        `rampart of its own stands on any of them`
+      );
+    case "seat.outside":
+      return c.containers.length
+        ? `${c.containers.length} of this room's ${c.ramparts} rampart(s) carry a container ` +
+            `(${list(c.containers)}), and all ${c.containersInside.length} of them stand INSIDE the ` +
+            `frozen enclosure (${list(c.containersInside)}), so none is covered out beyond the wall`
+        : `none of this room's ${c.ramparts} rampart(s) carries a container at all, out beyond the ` +
+            `wall or inside it`;
+    case "seat.inside":
+      return c.containers.length
+        ? `${c.containers.length} of this room's ${c.ramparts} rampart(s) carry a container ` +
+            `(${list(c.containers)}), and all ${c.containersOutside.length} of them stand OUTSIDE the ` +
+            `frozen enclosure (${list(c.containersOutside)}), so none is renting cover inside the wall`
+        : `none of this room's ${c.ramparts} rampart(s) carries a container at all, inside the wall ` +
+            `or out beyond it`;
+    case "ring":
+      return c.denialTiles
+        ? `this room publishes ${c.denialTiles} controller stand-denial tile(s) and ships ` +
+            `${c.ramparts} rampart(s), and no rampart of its own stands on any of them`
+        : `this room publishes no controller stand-denial ring at all, so there is no ring tile of ` +
+            `its own for one of its ${c.ramparts} rampart(s) to stand on`;
+    case "cover":
+      return (
+        `${c.containers.length} of this room's ${c.ramparts} rampart(s) carry a structure of ours and ` +
+        `every one of those is a container` +
+        (c.containers.length ? ` (${list(c.containers)})` : ``) +
+        `, so no structure of any other kind is renting a rampart of this room's own`
+      );
+    case "unclassified":
+      return (
+        `every one of this room's ${c.ramparts} rampart(s) is accounted for by an earlier class — ` +
+        `${c.onCut.length} on the cut, ${c.containers.length} under a container, ` +
+        `${c.inDenial.length} on the stand-denial ring and ${c.otherOccupied.length} under some other ` +
+        `structure of ours — so ${c.bare.length} are left over, which is what this class exists to ` +
+        `demonstrate`
+      );
+    case "none":
+      return (
+        `this facet is never painted: the stage sweeps this room's ${c.ramparts} rampart(s), so every ` +
+        `tile it paints carries one`
+      );
+    default:
+      throw new Error(`renderFacetAbsence: no sentence for facet "${facet}"`);
+  }
+}
+/** the other shape: the facet's own test DOES match, and an earlier facet took the tiles */
+export function renderFacetAbsorbed(groups) {
+  const n = groups.reduce((s, g) => s + g.tiles.length, 0);
+  return (
+    `${n} tile(s) of this room DO match this facet's own test and are counted under an ` +
+    `earlier facet instead — the classifier tests in one order and the first test a tile fits wins: ` +
+    `${groups.map((g) => `${g.tiles.join(" ")} as \`${g.facet}\``).join("; ")}`
+  );
+}
+
 function rampartFacets(plan, terrain) {
   const cls = rampartClassifier(plan);
   // ------------------------------------------------------------------
@@ -656,50 +732,45 @@ function rampartFacets(plan, terrain) {
     // pass-7 caption, which asks about ORIGIN tiles
     none: () => false,
   };
-  const seatCount = ramparts.filter(isContainer).length;
-  const denialCount = (plan.shell?.standDenial || plan.meta?.shell?.standDenial || []).length;
-  const cutCount = (plan.shell?.cut || plan.meta?.shell?.cut || []).length;
-  /** the sentence a zero PROVES when nothing in the room matches the facet's own test */
-  const ABSENT = {
-    crossing: () =>
-      `this room publishes ${cutCount} cut tile(s) and no rampart of its own stands on any of them`,
-    "seat.outside": () =>
-      seatCount
-        ? `all ${seatCount} of this room's ramparted containers stand INSIDE the frozen enclosure, so none is covered out beyond the wall`
-        : `this room ships no rampart over a container at all, out beyond the wall or inside it`,
-    "seat.inside": () =>
-      seatCount
-        ? `all ${seatCount} of this room's ramparted containers stand OUTSIDE the frozen enclosure, so none is renting cover inside the wall`
-        : `this room ships no rampart over a container at all, inside the wall or out beyond it`,
-    ring: () =>
-      denialCount
-        ? `this room publishes ${denialCount} controller stand-denial tile(s) and no rampart of its own stands on any of them`
-        : `this room publishes no controller stand-denial ring, so there is no ring tile to rampart`,
-    cover: () =>
-      `no structure of this room other than a container stands on a rampart of this room's own`,
-    unclassified: () =>
-      `every rampart this room ships is on its cut, under a container, on its stand-denial ring or under some other structure of ours — which is what this class exists to demonstrate`,
-    none: () =>
-      `this facet is never painted: the stage sweeps the rampart list, so every tile it paints carries one`,
+  // ------------------------------------------------------------------
+  // MF3 (round 27) — THE ABSENCE BRANCH IS RENDERED FROM THE CENSUS TOO.
+  //
+  // Round 26 derived the ABSORBED branch exactly (29 rows) and left the other
+  // 526 as sentences carrying a count or two — checkable only for "is a string,
+  // is 20 characters, names no tile", so one invented sentence replaced all 526
+  // fleet-wide with the validator's whole output byte-identical. The reason IS
+  // derivable: a facet's intrinsic test is a conjunction over the room's own
+  // rampart set, and a zero proves something specific about the conjuncts. So
+  // the census below runs every conjunct separately, the absence sentence
+  // quotes it with the tiles, and the renderer is exported so a reader who
+  // re-runs the classifier re-renders the whole string.
+  // ------------------------------------------------------------------
+  const census = {
+    ramparts: ramparts.length,
+    onCut: ramparts.filter((k) => cls.onCut(k)),
+    containers: ramparts.filter(isContainer),
+    inDenial: ramparts.filter((k) => cls.inDenial(k)),
+    otherOccupied: ramparts.filter((k) => cls.occupant.has(k) && !isContainer(k)),
+    bare: ramparts.filter((k) => !cls.onCut(k) && !cls.occupant.has(k) && !cls.inDenial(k)),
+    cutTiles: (plan.shell?.cut || plan.meta?.shell?.cut || []).length,
+    denialTiles: (plan.shell?.standDenial || plan.meta?.shell?.standDenial || []).length,
   };
+  census.containersOutside = census.containers.filter(outside);
+  census.containersInside = census.containers.filter((k) => !outside(k));
   /** why facet `f` took no tile in THIS room — absorption or absence, measured */
   const emptyBecause = (f) => {
     const mine = ramparts.filter((k) => INTRINSIC[f](k));
-    if (!mine.length) return ABSENT[f]();
+    if (!mine.length) return renderFacetAbsence(f, census);
     const by = new Map();
     for (const k of mine) {
       const g = facetOf(k);
       if (!by.has(g)) by.set(g, []);
       by.get(g).push(k);
     }
-    const parts = [...by]
+    const groups = [...by]
       .sort((a, b) => RAMPART_FACET_ORDER.indexOf(a[0]) - RAMPART_FACET_ORDER.indexOf(b[0]))
-      .map(([g, ks]) => `${ks.join(" ")} as \`${g}\``);
-    return (
-      `${mine.length} tile(s) of this room DO match this facet's own test and are counted under an ` +
-      `earlier facet instead — the classifier tests in one order and the first test a tile fits wins: ` +
-      `${parts.join("; ")}`
-    );
+      .map(([g, ks]) => ({ facet: g, tiles: ks }));
+    return renderFacetAbsorbed(groups);
   };
   return {
     classOf: cls.classOf,
@@ -1673,4 +1744,12 @@ async function main() {
   if (failed.length) console.log("skipped:", failed.join(" | "));
 }
 
-main();
+// MF3 (round 27): this file OWNS the rampart-census prose, and a gate that
+// string-compares it has to be able to import the renderers. Importing a module
+// that exports a film run is not a thing a validator can do, so the run is
+// behind the usual CLI guard: `node export-anim.mjs ...` still runs it, and
+// `import { renderFacetAbsence } from "./export-anim.mjs"` gets the renderer and
+// nothing else.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main();
+}

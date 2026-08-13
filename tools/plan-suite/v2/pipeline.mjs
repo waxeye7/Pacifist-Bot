@@ -21,7 +21,7 @@ import { planHub, distField } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, interiorWalk, planShell, RADII_WIDE } from "./layer-shell.mjs";
 import { CLUMP_NOTE, MAX_REFILL, MIN_SAT, REFILL_NOTE, planTowers } from "./layer-towers.mjs";
 import { planLabs } from "./layer-labs.mjs";
-import { planMisc } from "./layer-misc.mjs";
+import { mineralSeatCensus, planMisc, renderMineralOffNetworkWhy } from "./layer-misc.mjs";
 import { planExtensions } from "./layer-ext.mjs";
 import { finalizeRoom, planWallRoads } from "./layer-walls.mjs";
 import { renderDecl } from "./declprose.mjs";
@@ -132,6 +132,14 @@ export function composePlan(d, shellOpts = {}) {
   // never moves its cut publishes `[]` and not `undefined` — "no drift" and "no
   // record of drift" are the two answers this record exists to tell apart.
   plan.meta.shell.cutDrift = [];
+  // ...AND WHICH PASSES RAN AT ALL, WHETHER OR NOT THEY MOVED A TILE (MF1,
+  // round 27). An empty `cutDrift` is two different rooms: one whose layer-7
+  // passes looked and found nothing to do, and one whose evidence was deleted
+  // and whose tiles were absorbed into the anchor. The markers tell them apart —
+  // four entries per room, one per invocation, each carrying its own add/remove
+  // counters taken off the cut list — so "this pass moved N tiles" is a claim
+  // the drift rows must satisfy rather than a silence anyone can produce.
+  plan.meta.shell.cutPasses = [];
   // a wall segment the interior cannot walk to is the room beating the planner,
   // the same way a far lobe no tower can cover is — same channel, same rules
   plan.meta.shortfalls.push(...(shell.shortfalls || []));
@@ -326,6 +334,13 @@ export function composePlan(d, shellOpts = {}) {
               freeDeepOnePave: rf.search.freeDeepOnePave,
               paveTaken: rf.search.paveTaken,
               paveLeft: rf.search.paveLeft,
+              // OM2 (round 27) — the opening one-pave class followed forward,
+              // so the note's worked example is a tile of THIS room's that
+              // really did leave the class untaken. The parenthetical used to
+              // name E12S6's 35,13, which the same paragraph lists as MOVED.
+              openingTaken: rf.search.openingTaken,
+              openingStill: rf.search.openingStill,
+              openingExited: rf.search.openingExited,
               refusedCount: rf.search.refusedCount,
               refusedExaminations: rf.search.refusedExaminations,
               spentOnAdds: rf.search.spentOnAdds,
@@ -758,15 +773,75 @@ function remeasureMineralNetwork(plan) {
     const k = `${seat.x + dx},${seat.y + dy}`;
     if (net.has(k)) touching.push(k);
   }
+  // ------------------------------------------------------------------
+  // OL5 (round 27) — THE FIELD NAMED FOR AN OUTCOME WAS HOLDING AN INTENT.
+  //
+  // `meta.mineralSeat` is described, in the validator's own REQUIRED_META
+  // table, as "the mineral container's seat", and its value was layer 1's
+  // RESERVATION: the ring tile that layer picked on approach breadth and held
+  // for the miner, before layers 2-7 existed. Layer 5 PREFERS that tile
+  // (a -100 bias) and is allowed to place elsewhere, so the two can differ —
+  // in E12S7 the reservation says 25,33 and the container ships at 25,32, with
+  // `mineralApproach` at 24,34 pointing at the approach to a tile nothing
+  // stands on, two steps from the seat that exists. Nothing broke, because
+  // every gate and every sentence in the suite derives the seat from the
+  // CONTAINER; the field was simply false, which is criticism 27's class — an
+  // intent wearing an outcome's label.
+  //
+  // So the outcome-named pair names the outcome, and layer 1's decision keeps
+  // its own name beside it, the same shape as `enclosedAtNegotiation`,
+  // `refillDistsAtPlacement` and `ctrlParksAtSeatSearch`. THE APPROACH FOLLOWS
+  // THE SEAT, and it is held to a property rather than to a provenance: it must
+  // be a walkable D8 neighbour of the shipped seat that carries no obstacle on
+  // the board this room ships. Layer 1's tile is kept wherever it satisfies
+  // that (it does in 171/172), and re-derived from the shipped board where it
+  // does not — widest approach first, then reading order, both stated here and
+  // both re-derivable by a reader holding the artifact and the terrain.
+  // ------------------------------------------------------------------
+  {
+    const res = plan.meta.mineralSeat || null;
+    plan.meta.mineralSeatAtReservation = res ? { x: res.x, y: res.y } : null;
+    plan.meta.mineralApproachAtReservation = plan.meta.mineralApproach
+      ? { x: plan.meta.mineralApproach.x, y: plan.meta.mineralApproach.y }
+      : null;
+    plan.meta.mineralSeat = { x: seat.x, y: seat.y };
+    const terrain = plan.terrain;
+    const blocked = new Set(plan.objectTiles || []);
+    for (const t of BUILT_OBSTACLES) {
+      for (const p of plan.structures[t] || []) blocked.add(`${p.x},${p.y}`);
+    }
+    const standable = (x, y) =>
+      x >= 0 && y >= 0 && x <= 49 && y <= 49 && walkable(terrain, x, y) && !blocked.has(`${x},${y}`);
+    const appr = plan.meta.mineralApproach;
+    const adjacent =
+      appr && Math.max(Math.abs(appr.x - seat.x), Math.abs(appr.y - seat.y)) === 1;
+    if (!adjacent || !standable(appr.x, appr.y)) {
+      const cmp = (a, b) => {
+        for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] - b[i];
+        return 0;
+      };
+      let best = null;
+      for (const [dx, dy] of D8) {
+        const x = seat.x + dx,
+          y = seat.y + dy;
+        if (!standable(x, y)) continue;
+        let nbrs = 0;
+        for (const [ex, ey] of D8) if (standable(x + ex, y + ey)) nbrs++;
+        const sc = [-nbrs, y, x];
+        if (!best || cmp(sc, best.sc) < 0) best = { x, y, sc };
+      }
+      plan.meta.mineralApproach = best ? { x: best.x, y: best.y } : null;
+    }
+  }
   misc.mineralSeatNetTiles = touching;
   misc.mineralOffNetwork = touching.length === 0;
-  misc.mineralOffNetworkWhy = touching.length
-    ? `the seat at ${seat.x},${seat.y} DOES touch the shipped road network (${touching.join(" ")}) — no ` +
-      `road was grown to it, but a corridor another layer laid runs past it, so it is serviced like any ` +
-      `other container. Re-derived over the finished road set, not layer 5's.`
-    : `no road by design — mineral hauling is one trickle deposit on a long cooldown, and permanent road ` +
-      `decay to reach it costs more than the walk it saves. Re-derived over the finished road set: no ` +
-      `tile D8 of the seat carries road or container.`;
+  // MF5 (round 27) — the verdict is rendered from the seat's own ring census.
+  // See renderMineralOffNetworkWhy: 133 rooms shipped one constant sentence
+  // about a measurement none of them printed.
+  misc.mineralOffNetworkWhy = renderMineralOffNetworkWhy({
+    ...mineralSeatCensus(plan.structures, seat, net),
+    when: "the FINISHED road set, not layer 5's",
+  });
   // ------------------------------------------------------------------
   // ...AND AN EXEMPTION THAT LIVES ONLY IN THE CHECKER IS NOT AN EXEMPTION.
   //

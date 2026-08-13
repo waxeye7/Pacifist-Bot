@@ -3140,30 +3140,57 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   // declaration whose numbers drift from the search they describe is the whole
   // defect being closed here.
   // ------------------------------------------------------------------
+  // OM2 (round 27) — THE MEMBERSHIP TEST, WITH THE CLAUSE THAT DECIDED IT.
+  //
+  // The scan below used to be a wall of `continue`s, and the note that reads it
+  // asserted — with a hardcoded tile from another room — that a candidate can
+  // leave this class without being taken. That is TRUE and it was never
+  // measured: nothing recorded which clause threw a tile out. So the test is
+  // one function that returns the first failing clause, the scan is that
+  // function, and "why is this tile no longer one pave from the network" is an
+  // answer this room derives about its own tiles instead of a parenthetical
+  // about E12S6's.
+  const onePaveMiss = (x, y, k, skipKeys) => {
+    if (skipKeys && skipKeys.has(k)) return "an extension of this room's stands on it";
+    if (forbidSeats.has(k)) return "it is a seat this room withdrew";
+    if (occupiedTile.has(k)) {
+      // the informative case, and the one the note is about: the tile itself was
+      // paved, so a neighbour bought it as ITS face and this candidate is gone
+      if (roadKeysNow.has(k)) {
+        return newRoads.some((r) => r.x === x && r.y === y)
+          ? "a road THIS PASS laid stands on it — a neighbour took the tile as its own pave"
+          : "a road stands on it";
+      }
+      return "a structure of ours stands on it";
+    }
+    if (objectTiles.has(k)) return "a room object stands on it";
+    if (reservedK.has(k)) return "it is a tile this room has reserved";
+    if (!mGuardR.ok({ x, y }, baseBlocked)) return "the mineral guard refuses it";
+    const i = idxOf(x, y);
+    if (exterior[i]) return "it is outside the wall";
+    if (isWall(terrain, x, y)) return "it is terrain wall";
+    if (depth[i] < DEPTH_SAFE) return `its depth is ${depth[i]}, under the ${DEPTH_SAFE} this class needs`;
+    if (!engineBuildable(terrain, x, y, "extension")) return "the engine refuses an extension there";
+    if (!baseWalk[i]) return "no builder of ours can reach it";
+    for (const [dx, dy] of D4) {
+      const fk = key(x + dx, y + dy);
+      if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
+        return (
+          `a road stands on its face at ${fk} now, so it is ROAD-FACED and is no longer ` +
+          `one pave from the network`
+        );
+      }
+    }
+    if (!paveableFor({ x, y })) return "no tile that could pave its face is free any more";
+    return null;
+  };
   const scanOnePave = (skipKeys) => {
     const out = [];
     for (let y = 1; y <= 48; y++) {
       for (let x = 1; x <= 48; x++) {
         const k = key(x, y);
-        if (skipKeys && skipKeys.has(k)) continue;
-        if (forbidSeats.has(k)) continue; // O3 — the withdrawn seat(s)
-        if (occupiedTile.has(k) || objectTiles.has(k) || reservedK.has(k)) continue;
-        if (!mGuardR.ok({ x, y }, baseBlocked)) continue;
-        const i = idxOf(x, y);
-        if (exterior[i] || isWall(terrain, x, y) || depth[i] < DEPTH_SAFE) continue;
-        if (!engineBuildable(terrain, x, y, "extension")) continue;
-        if (!baseWalk[i]) continue;
-        let isFaced = false;
-        for (const [dx, dy] of D4) {
-          const fk = key(x + dx, y + dy);
-          if (roadKeysNow.has(fk) && !baseBlocked.has(fk)) {
-            isFaced = true;
-            break;
-          }
-        }
-        if (isFaced) continue; // that is the road-faced class, counted separately
-        if (!paveableFor({ x, y })) continue;
-        out.push({ x, y, k, depth: depth[i] });
+        if (onePaveMiss(x, y, k, skipKeys)) continue;
+        out.push({ x, y, k, depth: depth[idxOf(x, y)] });
       }
     }
     return out;
@@ -4005,8 +4032,37 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
   const spentOnAdds = added.filter((a) => freeKeys0.has(key(a.x, a.y))).length;
   const spentOnMoves = movedLog.filter((m) => freeKeys0.has(key(m.to.x, m.to.y))).length;
   const facedLeft = Math.max(0, freeDeepFaced - spentOnAdds - spentOnMoves);
-  const paveLeft = scanOnePave(taken).length;
+  const paveLeftTiles = scanOnePave(taken);
+  const paveLeft = paveLeftTiles.length;
   const paveTaken = added.filter((a) => a.paved).length + movedLog.filter((m) => m.paved).length;
+  // ------------------------------------------------------------------
+  // OM2 (round 27) — WHERE THE OPENING ONE-PAVE CANDIDATES ACTUALLY WENT.
+  //
+  // The note beside this record has said since round 12 that "a candidate can
+  // leave the one-pave class without anybody taking it, and the commonest way
+  // is that a neighbour took it as ITS pave", and it named E12S6's 35,13 as the
+  // worked example — a tile that was TAKEN, in the same paragraph that lists
+  // the move onto it. The claim is right and the exemplar refuted it, because
+  // the room had no way to name a true one: nothing measured this.
+  //
+  // The opening census is now PARTITIONED against the shipped board, so the
+  // arithmetic closes and the exemplar is derived rather than typed:
+  //     freeDeepOnePave === openingTaken + openingStill + openingExited
+  // `openingStill` is not `paveLeft`: a tile that was NOT in the opening class
+  // can enter it later (the prune hands back floor, a pave arrives next door),
+  // so `paveLeft` is the class re-scanned and this is the opening class
+  // followed forward. Both are published, and where they differ the room says
+  // so instead of a subtraction pretending to be a search.
+  // ------------------------------------------------------------------
+  const stillKeys = new Set(paveLeftTiles.map((c) => c.k));
+  const openingTaken = [];
+  const openingStill = [];
+  const openingExited = [];
+  for (const c of onePave0) {
+    if (taken.has(c.k)) openingTaken.push({ x: c.x, y: c.y });
+    else if (stillKeys.has(c.k)) openingStill.push({ x: c.x, y: c.y });
+    else openingExited.push({ x: c.x, y: c.y, why: onePaveMiss(c.x, c.y, c.k, taken) || "unknown" });
+  }
 
   const shallowSurvivors = extensions.filter(shallowOf);
   const shallowRefused = [];
@@ -4216,6 +4272,13 @@ export function reflowExtensions(terrain, plan, liveRoadKeys) {
       // as its neighbour's pave).
       paveTaken,
       paveLeft,
+      // ...and the OPENING one-pave class followed forward, tile by tile, so
+      // "left the class without being taken" is a roster of this room's own
+      // tiles with the clause that ejected each one. See the partition above:
+      // freeDeepOnePave === openingTaken + openingStill + openingExited.
+      openingTaken,
+      openingStill,
+      openingExited,
       // when 2+ surviving shallow slots quote the same cheapest legal target,
       // the tile they are all queueing for — see the header above the pick
       sharedTarget,

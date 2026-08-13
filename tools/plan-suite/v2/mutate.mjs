@@ -3264,7 +3264,7 @@ run("r13/F8-untriggered-gate", R, (p) => {
   run("r16/OF11-refusal-why-rewritten",
     withDecl16("extensions", "shallow", (d) => (d.shallowExt?.search?.refused || []).length),
     planted16("extensions", "shallow", (d) => { d.shallowExt.search.refused[0].why = "the tile was fine, we simply did not want it"; }),
-    "not the sentence this row generates");
+    "not the sentence this row generates|0 of the 5 sentence classes");
   run("r16/OF11-refusal-names-an-off-grid-tile",
     withDecl16("extensions", "shallow", (d) => (d.shallowExt?.search?.refused || []).length),
     planted16("extensions", "shallow", (d) => { d.shallowExt.search.refused[0].k = "-9,-9"; }),
@@ -8203,6 +8203,187 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     }),
     (p) => { p.meta.walls.mobility.maxDetour = p.meta.walls.mobility.maxDetour > 4 ? 0 : 40; },
     ML6_MSG);
+}
+
+// ===========================================================================
+// ROUND 27. The class of defect this round closed is UNREAD PROSE and UNCLASSED
+// LEAVES: eleven *Basis/*Why fields (1550 strings) replaced with one invented
+// sentence; cutDrift pass/why as length-gated free text; the film note's tail;
+// the absence branch of emptyBecause; enclosure claims in the flattering
+// direction; and 105 identifier names that appeared nowhere in this file.
+// ===========================================================================
+{
+  const any27 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  const runFile = (name, room, file, transform, expect) => {
+    if (ONLY && !new RegExp(ONLY, "i").test(name)) {
+      skipped++;
+      return;
+    }
+    if (!room) {
+      results.push({ name, room: "-", caught: false, matched: false, fails: ["NO ROOM WITH THE REQUIRED PROPERTY"] });
+      return;
+    }
+    const d = T(room);
+    if (!d) {
+      results.push({ name, room, caught: false, matched: false, fails: ["no terrain in mongo"] });
+      return;
+    }
+    if (!fs.existsSync(file)) {
+      results.push({ name, room, caught: false, matched: false, fails: [`the file this case forges is not there (${file})`] });
+      return;
+    }
+    const orig = fs.readFileSync(file);
+    let res;
+    let threw = null;
+    try {
+      const next = transform(orig.toString("utf8"), byName.get(room));
+      if (next === null || next === undefined || next === orig.toString("utf8")) {
+        results.push({ name, room, caught: false, matched: false, fails: ["THE FORGERY CHANGED NOTHING — the case is not testing what it names"] });
+        return;
+      }
+      fs.writeFileSync(file, next);
+      resetOutputCaches();
+      res = checkRoom(clone(room), d.terrain, d.objects, FLEET);
+    } catch (e) {
+      threw = e;
+    } finally {
+      fs.writeFileSync(file, orig);
+      resetOutputCaches();
+    }
+    if (fs.readFileSync(file).toString("binary") !== orig.toString("binary")) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THE FILE WAS NOT RESTORED — fix this before reading any other result"] });
+      return;
+    }
+    if (threw) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THREW: " + threw.message] });
+      return;
+    }
+    const caught = res.fails.length > 0;
+    results.push({ name, room, caught, matched: expect ? res.fails.some((f) => new RegExp(expect, "i").test(f)) : caught, expect, fails: res.fails.slice(0, 3) });
+  };
+  const LIE27 =
+    "THE REVIEWER WROTE THIS BASIS. This room ships no wall, no ramparts and no structures at all.";
+
+  run("r27/MF5-X-enclosureBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.shell?.enclosureBasis === "string"),
+    (p) => { p.meta.shell.enclosureBasis = LIE27; },
+    "enclosureBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-refillBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.towers?.refillBasis === "string"),
+    (p) => { p.meta.towers.refillBasis = LIE27; },
+    "refillBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-prunedBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.walls?.prunedBasis === "string"),
+    (p) => { p.meta.walls.prunedBasis = LIE27; },
+    "prunedBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-counterfactualBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.sealedFloor?.counterfactualBasis === "string"),
+    (p) => { p.meta.sealedFloor.counterfactualBasis = LIE27; },
+    "counterfactualBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-mineralOffNetworkWhy-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.misc?.mineralOffNetworkWhy === "string"),
+    (p) => { p.meta.misc.mineralOffNetworkWhy = LIE27; },
+    "mineralOffNetworkWhy|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-deepTilesBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.shell?.deepTilesBasis === "string"),
+    (p) => { p.meta.shell.deepTilesBasis = LIE27; },
+    "deepTilesBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-noteObligationBasis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.noteObligationBasis === "string"),
+    (p) => { p.meta.noteObligationBasis = LIE27; },
+    "noteObligationBasis|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-towerSwapOffer-basis-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.towers?.towerSwapOffer?.basis === "string"),
+    (p) => { p.meta.towers.towerSwapOffer.basis = LIE27; },
+    "towerSwapOffer|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-remeasured-replaced-with-one-invented-sentence",
+    any27((p) => typeof p.meta?.shell?.remeasured === "string"),
+    (p) => { p.meta.shell.remeasured = LIE27; },
+    "remeasured|WHOLE-VALUE|invented sentence");
+  run("r27/MF5-X-an-unregistered-Why-field-planted",
+    any27((p) => p.meta && p.meta.shell),
+    (p) => { p.meta.shell.reviewerWhy = LIE27; },
+    "not in the round-27 inventory|reviewerWhy");
+  run("r27/MF2-X-cutDrift-why-replaced-with-one-invented-sentence",
+    any27((p) => (p.meta?.shell?.cutDrift || []).some((e) => e && e.why)),
+    (p) => { for (const e of p.meta.shell.cutDrift) e.why = LIE27; },
+    "cutDrift|WHOLE-VALUE|generator|invented");
+  run("r27/MF2-X-cutDrift-pass-relabelled-to-an-imaginary-pass",
+    any27((p) => (p.meta?.shell?.cutDrift || []).some((e) => e && e.pass)),
+    (p) => { for (const e of p.meta.shell.cutDrift) e.pass = "layer9-unicornPrune"; },
+    "cutDrift|closed enum|not one of the two");
+  run("r27/MF1-X-the-anchor-repointed-at-the-shipped-cut-and-the-drift-emptied",
+    any27((p) => Array.isArray(p.meta?.shell?.cutDrift) && p.meta.shell.cutDrift.length > 0 && Array.isArray(p.meta.shell.cutAtFreeze)),
+    (p) => {
+      p.meta.shell.cutAtFreeze = (p.meta.shell.cut || []).map((t) => ({ x: t.x, y: t.y }));
+      p.meta.shell.cutDrift = [];
+      if (Array.isArray(p.meta.shell.cutPasses)) {
+        for (const mk of p.meta.shell.cutPasses) {
+          mk.adds = 0;
+          mk.removes = 0;
+        }
+      }
+    },
+    "MINIMAL|minimal sealing|cutAtFreeze|cutPasses|cutDrift");
+  run("r27/MF6-X-enclosedController-flipped-to-the-flattering-true",
+    any27((p) => p.meta?.shell?.enclosedController === false),
+    (p) => { p.meta.shell.enclosedController = true; },
+    "enclosedController");
+  run("r27/MF6-X-battlementFloor-moved-off-ceil-cut-over-3",
+    any27((p) => typeof p.meta?.shell?.battlementFloor === "number"),
+    (p) => { p.meta.shell.battlementFloor += 3; },
+    "battlementFloor");
+  run("r27/MF6-X-an-unregistered-leaf-name-planted",
+    any27((p) => p.meta && p.meta.misc),
+    (p) => { p.meta.misc.reviewerDarkLeaf = 1; },
+    "not in the round-27 closed inventory|reviewerDarkLeaf");
+  run("r27/OL5-X-mineralSeat-moved-off-the-container",
+    any27((p) => p.meta?.mineralSeat && Number.isInteger(p.meta.mineralSeat.x)),
+    (p) => { p.meta.mineralSeat = { x: 1, y: 1 }; },
+    "mineralSeat|mineral container");
+  run("r27/OL4-X-closer-doubled-on-every-relocation",
+    any27((p) => (p.meta?.extensions?.relocated || []).some((r) => typeof r.closer === "number" && r.closer !== 0)),
+    (p) => { for (const r of p.meta.extensions.relocated) r.closer = r.closer * 2 + 8; },
+    "closer|hub walk|relocated");
+  run("r27/OM2-X-openingExited-names-a-taken-tile",
+    any27((p) => (p.meta?.noteRecords || []).some((nr) => (nr?.rec?.search?.openingTaken || []).length && (nr.rec.search.openingExited || []).length >= 0)),
+    (p) => {
+      const nr = (p.meta.noteRecords || []).find((n) => n?.rec?.search && Array.isArray(n.rec.search.openingTaken) && n.rec.search.openingTaken.length);
+      const t = nr.rec.search.openingTaken[0];
+      nr.rec.search.openingExited = [...(nr.rec.search.openingExited || []), { x: t.x, y: t.y, why: "left untaken" }];
+    },
+    "openingExited|UNTAKEN|extension");
+  const film27 = any27((p) => true);
+  runFile("r27/MF3-X-every-absence-reason-replaced-with-one-invented-sentence",
+    film27,
+    path.join(OUT_V2, "anim", `${film27}.json`),
+    (src) => {
+      const j = JSON.parse(src);
+      let n = 0;
+      for (const row of j.rampartCensus || []) {
+        if (row && row.emptyBecause && !/absorbed|claimed them first/i.test(row.emptyBecause)) {
+          row.emptyBecause = LIE27 + " THIS ROOM IS PERFECT AND SHIPS NO WALL OF ANY KIND.";
+          n++;
+        }
+      }
+      return n ? JSON.stringify(j) : null;
+    },
+    "emptyBecause|ABSENCE|renderFacetAbsence|WHOLE-VALUE");
+  runFile("r27/MF4-X-a-clause-appended-after-the-film-note-close-marker",
+    film27,
+    path.join(OUT_V2, `${film27}.html`),
+    (src) => {
+      const at = src.indexOf("\n  var NOTES = ");
+      if (at < 0) return null;
+      const end = src.indexOf("\n", at + 15);
+      const line = src.slice(at + 15, end);
+      let notes;
+      try { notes = JSON.parse(line.replace(/;\s*$/, "")); } catch { return null; }
+      if (!notes || typeof notes.ramparts !== "string") return null;
+      notes.ramparts += ", and every one of this room's 14 cut tiles is redundant so the wall could be deleted for free";
+      return src.slice(0, at) + "\n  var NOTES = " + JSON.stringify(notes) + ";" + src.slice(end);
+    },
+    "film note|NOTES.ramparts|last character|WHOLE");
 }
 
 // ===========================================================================

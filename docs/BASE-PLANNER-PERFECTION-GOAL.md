@@ -2880,6 +2880,37 @@ constants · the numeral audit 183/122/61 → **192 claims over 5 recognised sha
 / 131 re-derived / 61 waived at 37 distinct sites / 0 unowned / 0 WRONG**, exit
 0, now reading SPELLED-OUT numerals as well as digits and publishing the 95
 occurrences of them it can see · and the mutation suite 1200 → **1237**.
+**Round 27 moves NOTHING either.** Mechanical 4 MAJOR / 2 MINOR / 1 LOW;
+owner-voice 0 BLOCKING / 2 MEDIUM / 4 LOW. The boards, the 300 declarations
+and the 236 notes are the ones round 26 shipped. **Unchanged in round 27:
+every physical figure in this block** — ramparts 8208 · roads 14,100 ·
+extensions 60/60 in 172/172 (10,320) · declarations 300 in 157 rooms ·
+`declared-shortfall 122` · shallow extensions 25 in the same three rooms ·
+planner notes 236 · `validate.mjs` at `pass 172/172 · fail 0 ·
+declared-shortfall 122` with every physical total 0. Artifact md5
+`239f4e43331181cf4484d462003ff6b5` (two byte-identical rebuilds; baseline
+`d7e82af74326da3a7aad7caabca17be4`). **Moved in round 27: nothing on any
+board, and the reader channel this document had been losing to.** `cutDrift.why`
+is generated from `(op, pass)` · `meta.shell.cutPasses` is 4 markers per room
+(688 fleet-wide) bound to the drift rows · eleven unread `*Basis`/`*Why`
+fields carry this room's census (enclosure 172/172 distinct, refill 172,
+pruned 172, mineral 172, swap 172, deepTiles 172, noteObligation 64,
+counterfactual 58) · the film census's ABSENCE branch is rendered (526 rows,
+367 distinct; the whole channel 396) · `meta.mineralSeat` is the shipped
+container (E12S7 25,33 → 25,32) · the opening one-pave class is followed
+forward (`openingTaken` / `openingStill` / `openingExited`, 39/39) ·
+`cutAtFreeze` is a minimal sealing set, both directions, 0 of 7,246 frozen
+cut tiles droppable · every `*Basis`/`*Why` string is in a closed inventory
+and every identifier leaf name in `meta` is in a 816-name snapshot (the 105
+that appeared nowhere in `validate.mjs` classed, the cheap ones derived) ·
+the mutation suite 1237 → **1258**. **THE RULING (criticism 134(b)):** the
+34 layer-7 cut adoptions stay UNDECLARED; 300 unmoved. A board event owes a
+DECLARATION when the room is asking the reader to accept something, and a
+RECORD when it is only reporting what it did — and a record standing in for
+a declaration is held to the standard the declaration would have been.
+**And one fact this document had wrong:** the 34 adoptions span **27 rooms**,
+not 29 (E15S1 and E5S6 carry removes only — the two rooms whose shipped cut
+does not seal).
 **And one thing the gates gained that no channel shows:** all four
 `exteriorContract` consumers are re-derived from terrain now rather than one,
 and the frozen anchor they are derived against is bound three ways — the flood
@@ -9700,6 +9731,86 @@ it says so in the entry rather than in a comment.
    argument: the ladder rung trail, the pre-take sealed floor and the pre-shrink
    lane run are all layer-6/7 boards, and `cutAtFreeze` is a LAYER-2 snapshot, so
    nothing round 25 or round 26 published reaches any of the three.
+   **134(b) ANSWERED IN ROUND 27, AS A RULING, NOT AS A DECLARATION.** The 34
+   adoptions stay a record. The record is now held to the standard the
+   declaration would have been: `pass` a closed enum, `why` generated from
+   `(op, pass)` whole-value, each row bound to its pass's own evidence (removes
+   → `inertPruned`, adds → the single-removal seal test, 34/34), no net-zero
+   churn, and `cutPasses` so a pass that ran and moved nothing is distinguishable
+   from a pass whose row was deleted. The room count in (b) was wrong: **27
+   rooms adopt, 29 drift**.
+135. **MAJOR: THE ANCHOR'S THREE BINDINGS ALL WENT QUIET THE MOMENT THE TWO
+   CUTS AGREED.** (MF1) Every round-26 leg on `cutAtFreeze` was conditioned on
+   the snapshot differing from the shipped cut. Re-point the snapshot at the
+   shipped cut, empty `cutDrift`, re-derive the four withheld rosters: **pass
+   172/172**, output byte-identical, 31 of 34 adoptions and 40 of 46 prunes
+   gone from the published record, four rooms' withheld readings moved down.
+   Absorbing any one of the 34 adoptions into the snapshot broke minimality in
+   34/34. The unconditional leg is: the anchor is a MINIMAL SEALING SET — it
+   seals the core, and every tile of it is load-bearing (0 of 7,246 frozen cut
+   tiles droppable on this fleet; growing it by any adoption makes a neighbour
+   droppable). `cutPasses` binds the four invocations per room to the drift
+   rows so "this pass adopted nothing" and "this room deleted the row" are
+   different artifacts. 11 mutations.
+136. **MEDIUM + MINOR: `cutDrift`'S `pass`/`why` WERE LENGTH-GATED FREE TEXT,
+   AND THE FILM NOTE STILL HAD A TAIL.** (MF2 / OM1 / MF4) Six owner forgeries
+   plus a mechanical invented-pass/churn pair all passed 172/172, including
+   re-attributing E13S5's adoption to the layer-7b pass — inverting the fact
+   criticism 134(b) is about. `pass` is the producer's closed enum, `op` is a
+   function of `pass`, `why === cutDriftWhy(op, pass)` whole-value, a tile
+   moves once. Separately: round 26 claimed the film window left nowhere for a
+   clause. The markers framed the ANSWER; everything after the close marker
+   (cut size, upkeep, enclosure claims) was unread. The whole `NOTES.ramparts`
+   string is compared against the note this room's record generates. 8
+   mutations.
+137. **MAJOR: 526 OF 555 `emptyBecause` REASONS WERE STILL FREE TEXT.** (MF3)
+   Round 26 derived the ABSORBED branch (29 rows) and held the other 95% to
+   "is a string, is 20 characters, names no tile". One invented sentence
+   replaced all 526 fleet-wide, output byte-identical. The absence reason is
+   the facet's intrinsic test over this room's census; the producer renders it
+   and this file re-renders it. 526 absence rows, 367 distinct (the channel
+   396). 1 mutation.
+138. **MAJOR: ELEVEN `*Basis`/`*Why` FIELDS WERE UNREAD, SEVEN OF THEM
+   BYTE-IDENTICAL IN 172/172.** (MF5) 1,550 strings replaced with one invented
+   sentence, output byte-identical — the constant-basis defect this suite had
+   closed twice on two other fields, shipped beside them. The class fix is a
+   load-time inventory: every string field matching `/Basis$|Why$/` is
+   registered (rendered / gated / prose / waived); unregistered is a fail.
+   The eleven are rendered from this room's census, or parsed against their
+   own leaves plus the exported constant suffix. 10 mutations.
+139. **MAJOR: THE SHELL'S OWN ENCLOSURE CLAIMS FLIPPED TO FLATTERING FOR FREE,
+   AND 105 IDENTIFIER NAMES APPEARED NOWHERE IN THE VALIDATOR.** (MF6)
+   `enclosedController` false→true in 80 rooms; source enclosure raised to 2/2
+   in 109; `ctrlEncloseRefused` cleared in 53; `battlementUnreachable` zeroed
+   in 12 — all 172/172, output byte-identical. The four enclosure claims are
+   derived from the two floods (layer 2's for the controller, shipped for the
+   sources). The class fix is a closed snapshot of every identifier leaf name
+   in `meta` (816); a new name is a fail. The 105 that were in no file are
+   classed (derived / rendered / twin / presence-with-reason); `battlementFloor
+   === ceil(cut/3)` and the shipped-shell-damage twins are derived. 4
+   mutations.
+140. **MEDIUM + LOW: A HARDCODED EXEMPLAR THE SAME NOTE REFUTED, A SENTENCE
+   ABOUT THE WRONG SET, AN UNBOUNDED `closer`, A DRIFTED MINERAL SEAT, AND A
+   REGISTRY THAT KNEW ONE OF FIVE REFUSALS.** (OM2 / OL3 / OL4 / OL5 / OL6)
+   E12S6's shallow note named 35,13 as the worked example of a one-pave
+   candidate that left the class untaken; the same note lists that tile as
+   taken. The opening class is followed forward per room and a named tile has
+   the property the sentence gives it. "Of those" now names the road-faced
+   set it is about. `relocated[].closer` is banded to a terrain-only hub walk
+   by 2 (the measured worst). `meta.mineralSeat` is the shipped container;
+   layer 1's reservation keeps its own name. All five of `scanFreeDeep`'s
+   refusal sentences are registered; the border-rule one is decided on the
+   terrain. 3 mutations.
+141. **STILL OPEN AFTER ROUND 27.** (a) 134(a)'s theorem-shaped hole remains
+   a property of this fleet: a room that shipped a redundant frozen cut tile
+   would let a forger shrink the anchor, log a matching add, and inflate
+   withholding. Minimality closes it on these 172. (b) 134(c), 134(d), 134(e)
+   / 88 / 93 / 98 are unchanged. (c) `nukerHubDist` / `observerHubDist` and
+   most of the 105 are presence-with-reason — layer-earlier walks this file
+   does not re-take. (d) three mineral-why rooms disagree with the official
+   census on whether a road on the seat or its ring is "ours"; they are held
+   to the constant suffix and the seat, not to whole-value. (e) the dropped
+   `seed` field is still unre-derivable in 46 rooms.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 
@@ -9776,8 +9887,8 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
-- Mutations: `.../mutate.mjs` (**1237/1237 bite** against a clean 172/172
-  baseline; `--only r26/` for one round's block; honours `PLANS_FILE` and never
+- Mutations: `.../mutate.mjs` (**1258/1258 bite** against a clean 172/172
+  baseline; `--only r27/` for one round's block; honours `PLANS_FILE` and never
   writes the artifact). Four of round 25's controls were NOT in that count and say
   so at criticism 128(a): the film, page and chip forgeries live in `out-v2/` and
   this harness mutates plans. **Round 26 pulled that class inside** — `runFile`

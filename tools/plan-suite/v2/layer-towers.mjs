@@ -1600,6 +1600,10 @@ export function planTowers(terrain, plan, opts = {}) {
     l3.forgone = l3.reachable - l3.held;
   }
 
+  // MF5 (round 27): the offer's `basis` was one constant sentence in 172/172
+  // rooms — the census the sentence describes was published beside it and the
+  // sentence quoted none of it. See renderSwapOfferBasis at the foot of this
+  // file: the room's own scan counters first, the rule text as the suffix.
   // ------------------------------------------------------------------
   // THE SWAP THIS LAYER CAN SEE AND CANNOT PRICE -- OFFERED, NOT TAKEN (OF6).
   //
@@ -1683,15 +1687,17 @@ export function planTowers(terrain, plan, opts = {}) {
       // find nothing -- which is now a claim about all three statistics, over
       // every legal deep seat in the room rather than over the thinned list
       best: pick,
-      basis:
-        `single-slot scan over every legal deep seat this room has (seats), with the D8 prior ` +
-        `respected; the weakest cut-tile face and its saturation held EXACTLY; the whole-mass 5x5, ` +
-        `the tower-only 5x5, the self-blocked refill walk and interior serviceability each proved ` +
-        `non-worsening on the trial; and a strict improvement required on ` +
-        `[window5x5, towerWindow5x5, clumpCheb2] read lexicographically. before/after are that ` +
-        `tuple. NOT taken here -- the as-built refill walk and the shipped nuke window are not ` +
-        `measurable from layer 3, so pipeline.mjs re-composes the room with the swap and re-reads ` +
-        `every as-built instrument on the board that ships before anything is kept.`,
+      basis: renderSwapOfferBasis({
+        seats: seatsUnthinned.length,
+        searchedSeats: C,
+        towers: baseTiles.length,
+        scanned,
+        faceAndSatHeld: held,
+        priceProven: priced,
+        face: baseFace,
+        before: base,
+        best: pick,
+      }),
     };
   })();
 
@@ -2352,4 +2358,45 @@ function quadSeeds(cands, sitter) {
     out.push(cands.indexOf(pick));
   }
   return out;
+}
+
+/**
+ * ---------------------------------------------------------------------------
+ * MF5 (round 27) — `towerSwapOffer.basis`, RENDERED FROM THE SCAN IT DESCRIBES.
+ * ---------------------------------------------------------------------------
+ * The field shipped byte-identical in 172/172 rooms: a constant rule sentence
+ * wearing the word "basis", which is the defect closed twice on other fields
+ * while this one shipped beside them. The rule text below is genuinely constant
+ * and is exported so a reader can `endsWith` it; the room's own scan census goes
+ * in front of it, which is the standard `exteriorContractBasis` set.
+ */
+export const SWAP_OFFER_BASIS =
+  `single-slot scan over every legal deep seat this room has (seats), with the D8 prior ` +
+  `respected; the weakest cut-tile face and its saturation held EXACTLY; the whole-mass 5x5, ` +
+  `the tower-only 5x5, the self-blocked refill walk and interior serviceability each proved ` +
+  `non-worsening on the trial; and a strict improvement required on ` +
+  `[window5x5, towerWindow5x5, clumpCheb2] read lexicographically. before/after are that ` +
+  `tuple. NOT taken here -- the as-built refill walk and the shipped nuke window are not ` +
+  `measurable from layer 3, so pipeline.mjs re-composes the room with the swap and re-reads ` +
+  `every as-built instrument on the board that ships before anything is kept.`;
+/**
+ * @param c {{seats:number, searchedSeats:number, towers:number, scanned:number,
+ *           faceAndSatHeld:number, priceProven:number, face:{min:number,sat:number},
+ *           before:number[], best:{from,to,after}|null}}
+ */
+export function renderSwapOfferBasis(c) {
+  return (
+    `ON THIS ROOM: ${c.seats} legal deep seat(s) exist (the search itself ran on the ${c.searchedSeats} ` +
+    `left after the 2x2 thinning), and swapping one of the ${c.towers} shipped tower(s) onto one of ` +
+    `them gives ${c.scanned} trial(s) the D8 prior allows. ${c.faceAndSatHeld} of those hold the ` +
+    `weakest cut-tile face at ${c.face.min} and its saturation at ${c.face.sat} EXACTLY, and ` +
+    `${c.priceProven} of those also price out on every instrument this layer can read. Against a ` +
+    `standing [${c.before.join(", ")}] the offer is ` +
+    (c.best
+      ? `${c.best.from.x},${c.best.from.y} -> ${c.best.to.x},${c.best.to.y} at ` +
+        `[${c.best.after.join(", ")}]`
+      : `nothing: no trial in this room improves the tuple strictly`) +
+    `. ` +
+    SWAP_OFFER_BASIS
+  );
 }

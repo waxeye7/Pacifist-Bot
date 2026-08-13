@@ -142,6 +142,26 @@ import { renderSatBasis } from "./declprose-towers.mjs";
 // declaration headline runs — because "the caption comes from the shared
 // answer" is exactly the claim being tested.
 import { unjudgedReason } from "./declprose-mobility.mjs";
+// ROUND 27 / MF3 — the film census's ABSENCE reason. Round 26 derived the
+// ABSORBED branch exactly (29 rows) and held the other 526 to "is a string, is
+// 20 characters long, names no tile", so ONE invented sentence
+// ("THIS ROOM IS PERFECT AND SHIPS NO WALL OF ANY KIND…") replaced all 526
+// fleet-wide with this file's whole output BYTE-IDENTICAL. The reason is
+// derivable — a facet's intrinsic test is a conjunction over the room's own
+// rampart set and a zero proves something specific about the conjuncts — so the
+// producer renders it and this file re-renders it from a census IT builds off
+// terrain and the shipped structure lists. Same split as `renderNote` and
+// `unjudgedReason`: the WORDING is the producer's, every NUMBER and every TILE
+// in it is re-derived here, and the comparison is string equality.
+import { renderFacetAbsence } from "./export-anim.mjs";
+// ROUND 27 / MF2 + THE RULING — `cutDrift`'s provenance. The pass names are a
+// CLOSED ENUM the producer publishes and the reason is a FUNCTION of (op, pass)
+// that it exports, so this file re-renders the sentence and compares whole
+// values instead of measuring its length. Same split as every other rendered
+// channel: the producer owns the wording, this file owns which row may exist at
+// all and re-derives the evidence for it from the board.
+import { CUT_DRIFT_PASSES, cutDriftWhy } from "./layer-walls.mjs";
+import { checkR27 } from "./r27-gates.mjs";
 
 const idx = (x, y) => x + y * 50;
 
@@ -282,6 +302,55 @@ const FILM_RAMPART_CAPTIONS = new Map([
 const FILM_COVER_CAPTION = /^personal cover — one (.+) renting a rampart of its own$/;
 /** the census's facet order — the classifier's own test order, seat split by the board */
 const RAMPART_FACET_ORDER = ["crossing", "seat.outside", "seat.inside", "ring", "cover", "unclassified", "none"];
+
+/**
+ * ==========================================================================
+ * ROUND 27 / MF2 + OM1 + THE ROUND-27 RULING — `cutDrift`'S PROVENANCE IS A
+ * CLOSED ENUM, AND EACH ENTRY IS BOUND TO ITS OWN PASS'S ROSTER.
+ * ==========================================================================
+ * `meta.shell.cutDrift` is the RECORD that stands in for the adoption
+ * DECLARATION the round-27 ruling left undeclared, and the ruling's condition
+ * is that a record standing in for a declaration is held to the standard the
+ * declaration would have been: every leaf re-derived or bounded, every sentence
+ * GENERATED from the leaves.
+ *
+ * It was held by `typeof pass === "string"` and `why.length >= 12`. Between
+ * them the two reviewers landed eight forgeries on it, all `pass 172/172`:
+ * two invented rows per room in all 172 (a `remove` then an `add` of the same
+ * freeze tile — a net-zero churn pair that replays perfectly); every `pass`
+ * relabelled `layer7b-*`; every `pass` replaced with "the reviewer's own
+ * imaginary pass"; every `why` replaced with one invented sentence; every
+ * `why` swapped between `add` and `remove`; one `add` given the REMOVE reason;
+ * a false clause appended to every `why`; and E13S5's adoption re-attributed in
+ * prose to the layer-7b pass — inverting the exact fact criticism 134(b) is
+ * about.
+ *
+ * The two producers are named and there are two of them (layer-walls.mjs:
+ * `pruneInertRamparts` and `reconcileSeal`, both called with their pass name).
+ * Each makes exactly ONE kind of move and states exactly ONE reason, so `pass`
+ * is a closed enum, `op` is a function of `pass`, and `why` is a function of
+ * the pair — compared WHOLE, not searched.
+ */
+/**
+ * ROUND 27 / OL4 — the width the terrain-only hub walk disagrees with the
+ * producer's layer-6 walk by, measured over every one of the fleet's 104
+ * `meta.extensions.relocated[].closer` values: exact on 70, within one on 103,
+ * worst two. The band is the measurement, not a preference.
+ */
+const RELOC_CLOSER_BAND = 2;
+const DRIFT_PASS_OP = new Map(
+  CUT_DRIFT_PASSES.map((p) => [p, p.endsWith("inertPrune") ? "remove" : p.endsWith("reconcileSeal") ? "add" : null]),
+);
+{
+  const unknown = [...DRIFT_PASS_OP].filter(([, op]) => op === null).map(([p]) => p);
+  if (unknown.length) {
+    throw new Error(
+      `validate.mjs does not know what kind of move ${unknown.join(", ")} makes to the cut. The pass enum is ` +
+        `the producer's (layer-walls.mjs CUT_DRIFT_PASSES) and every member of it has to be a prune or a ` +
+        `reconciliation here, or a new pass could move the cut with nothing checking which direction it moves it.`,
+    );
+  }
+}
 /** render a facet+variant+occupant back into the one sentence the film may print */
 function filmCaptionFor(facet, variant, occupant) {
   if (facet === "cover") return `personal cover — one ${occupant || "structure"} renting a rampart of its own`;
@@ -332,6 +401,69 @@ const UNJUDGED_CHIP_TAIL =
   " — so this room has no as-built gated lap. A zero here is the measurement not taken, not a room that passed.";
 const UNJUDGED_FILM_OPEN = "as-built gated lap 0 — ";
 const UNJUDGED_FILM_CLOSE = " (target ";
+/**
+ * ROUND 27 / MF4 — the WHOLE ramparts note, generated from the room's own
+ * record. `animNotes` (plan.mjs) composes it out of two bits joined by " — ":
+ * the mobility answer with its wrapper, and the wall's own tail. Everything in
+ * the tail is a published leaf of `meta.shell` and four of them — the cut size,
+ * the upkeep, the controller claim and the source claim — are re-derived from
+ * the board elsewhere in this file, so the note is a rendered channel and gets
+ * the treatment: derived value, wrapper grammar, and nothing after.
+ *
+ * Returns null when the room's record does not reach the branch (no lap and no
+ * shell), which is the one case the producer prints nothing for.
+ */
+function derivedRampartNote(plan, unjudgedWhy) {
+  const m = plan.meta || {};
+  const wmob = m.walls && m.walls.mobility;
+  const smob = m.shell && m.shell.mobility;
+  const lap =
+    wmob && typeof wmob.builtGated === "number"
+      ? wmob.builtGated
+      : m.shell && m.shell.mobilityBuilt && typeof m.shell.mobilityBuilt.maxGated === "number"
+        ? m.shell.mobilityBuilt.maxGated
+        : null;
+  const bits = [];
+  const esc = m.shellEscalation;
+  if (esc && esc.walked) {
+    const why = [];
+    if (esc.why && esc.why.demand) why.push("the tight wall left no deep floor for the program");
+    if (esc.why && esc.why.shallow) why.push("extensions were being forced onto shallow, exposed tiles");
+    if (esc.why && esc.why.mobility) why.push("defenders could not out-walk an attacker around the wall");
+    const tried = `${esc.steps} composition${esc.steps === 1 ? "" : "s"} tried`;
+    bits.push(
+      (esc.pickedNeedDeepBonus > 0
+        ? `ESCALATED — bought a wider wall (+${esc.pickedNeedDeepBonus} deep-tile demand, ${tried})`
+        : `WALKED THE LADDER — ${tried}, and the cheapest cut still won`) +
+        (why.length ? ` because ${why.join(" and ")}` : ""),
+    );
+  }
+  if (lap !== null) {
+    const tgt = smob && typeof smob.target === "number" ? smob.target : null;
+    const over = wmob && typeof wmob.overGated === "number" ? wmob.overGated : null;
+    if (lap > 0) {
+      bits.push(
+        `as-built gated lap ${lap}` +
+          (tgt !== null ? ` vs target ${tgt} — ${lap > tgt ? "OVER" : "within target"}` : "") +
+          (over ? ` · ${over} judged pair${over === 1 ? "" : "s"} lap worse than target` : "") +
+          " (interior ÷ exterior walk between wall tiles, extension mass in place)",
+      );
+    } else {
+      bits.push(`as-built gated lap 0 — ${unjudgedWhy}` + (tgt !== null ? ` (target ${tgt})` : ""));
+    }
+  }
+  const sh = m.shell;
+  if (sh && Array.isArray(sh.cut)) {
+    bits.push(
+      `${sh.cut.length} cut tiles · ${sh.upkeepPerTick} e/tick upkeep · ` +
+        `${sh.shippedFreeDeep ?? "?"} free deep tiles left on the board this room SHIPS ` +
+        `(layer 2 bought the enclosure on ${sh.negotiationFreeDeep ?? sh.deepTiles} — ` +
+        `the same count on the negotiation board, before the program was placed in it)` +
+        ` · controller ${sh.enclosedController ? "inside" : "outside"}, sources ${sh.enclosedSources}/${(plan.sources || []).length} inside`,
+    );
+  }
+  return bits.length ? bits.join(" — ") : null;
+}
 const decodeEnt = (v) =>
   String(v)
     .replace(/&lt;/g, "<")
@@ -348,15 +480,32 @@ function unjudgedChannels(room) {
   try {
     const html = fs.readFileSync(path.join(OUT_V2, `${room}.html`), "utf8");
     // (1) the film caption — the ramparts note of the page's own NOTES map.
-    // The WINDOW is the span the note's own writer frames the answer with, and
-    // the whole window is returned: a clause appended after the answer and
-    // before the frame closes is part of what a reader meets.
+    //
+    // ==================================================================
+    // ROUND 27 / MF4 — THE WINDOW HAD A TAIL, AND THE TAIL WAS UNREAD.
+    // ==================================================================
+    // Round 26 took the span between the note's own two markers and said "there
+    // is no place left in any of the three for a clause". There was one: the
+    // markers frame the ANSWER and the note keeps going afterwards (cut tiles,
+    // upkeep, free deep, the enclosure claims). Appending
+    // ", and every one of this room's 14 cut tiles is redundant so the wall
+    // could be deleted for free" to the END of E7S5's ramparts note passed
+    // 172/172 with this file's output byte-identical, while the same clause
+    // INSIDE the window failed 1/1.
+    //
+    // So the WHOLE NOTE is returned, not a window into it, and the gate below
+    // compares it whole against the note this room's own record generates:
+    // derived answer + the wrapper its writer puts round it + the derived tail
+    // + NOTHING AFTER. That is the same shape the page and the chip already
+    // had; the film was the one channel still being read through a lens.
     let film = null;
+    let filmWhole = null;
     {
       const at = html.indexOf("\n  var NOTES = ");
       const line = at < 0 ? null : html.slice(at + 15, html.indexOf("\n", at + 15));
       const notes = line ? JSON.parse(line.replace(/;\s*$/, "")) : null;
       const ramp = notes && typeof notes.ramparts === "string" ? notes.ramparts : "";
+      if (ramp) filmWhole = ramp;
       const openAt = ramp.indexOf(UNJUDGED_FILM_OPEN);
       if (openAt >= 0) {
         const from = openAt + UNJUDGED_FILM_OPEN.length;
@@ -383,7 +532,7 @@ function unjudgedChannels(room) {
       const m = card.match(/<span class="mob unjudged" title="([^"]*)"/);
       if (m) chip = decodeEnt(m[1]);
     }
-    out = { film, page, chip };
+    out = { film, page, chip, filmWhole };
   } catch (err) {
     out = { err: err && err.message ? err.message : String(err) };
   }
@@ -3201,6 +3350,40 @@ const NULLIFF = (text, when) => ({ op: "nulliff", text, when });
 const PRED = (text, check) => ({ op: "pred", text, check });
 const BESPOKE = (id, text) => ({ op: "bespoke", id, text });
 /**
+ * ROUND 27 / OM2 — one of the three rosters the opening one-pave class is
+ * followed forward into. The PARTITION identity is closed here (the three add
+ * up to `freeDeepOnePave` and no tile is in two of them); the per-tile property
+ * each roster's own sentence asserts is re-derived on the shipped board by the
+ * `extensions/one-pave-exit` gate, and `boardClause` is what that gate holds it
+ * to, written into the inventory so the sentence and the check say the same
+ * thing.
+ */
+const OPENING_ROSTER = (what, boardClause) =>
+  W(
+    `${what}. It is a roster of this room's own tiles, and ${boardClause} — re-derived tile by tile on the ` +
+      `board this room ships by the \`extensions/one-pave-exit\` gate, which names any tile that fails it`,
+    (v) => (Array.isArray(v) ? null : `is ${String(JSON.stringify(v)).slice(0, 40)}, not a list of tiles`),
+    [
+      PRED(
+        "and the three opening-class rosters partition `freeDeepOnePave` exactly — every tile the class " +
+          "opened with was taken, is still in the class, or left it, and it is exactly one of the three",
+        (self, get) => {
+          const n = (p) => (Array.isArray(get(p)) ? get(p).length : null);
+          const a = n("shallowExt.search.openingTaken");
+          const b = n("shallowExt.search.openingStill");
+          const c = n("shallowExt.search.openingExited");
+          const opened = cnum(get("shallowExt.search.freeDeepOnePave"));
+          if (a === null || b === null || c === null || opened === null) return null;
+          return a + b + c === opened
+            ? null
+            : `belongs to a partition of ${a} taken + ${b} still + ${c} exited = ${a + b + c} over an opening ` +
+                `class of ${opened}. A tile the class opened with and none of the three rosters carries is a ` +
+                `tile the census lost, and the note subtracts these from each other in front of a reader`;
+        },
+      ),
+    ],
+  );
+/**
  * ROUND 18 / MF1 — the commonest honest null: THIS leaf is a copy of a field an
  * unconditional publication carries, and BOTH of them carry nothing. Two-sided
  * in the only way a copy can be: the leaf is null exactly when the twin is, so
@@ -4021,6 +4204,35 @@ for (const [k, v] of [
         `free deep tiles that already had a road face`,
         LE("shallowExt.search.interiorWalkable"),
         LE(BOARD("freeDeepInterior")),
+      ),
+      // ==============================================================
+      // ROUND 27 / OM2 — THE OPENING CLASS, FOLLOWED FORWARD.
+      // ==============================================================
+      // The note's worked example of "a candidate left the one-pave class
+      // without being taken" was a hardcoded literal — "(E12S6's 35,13 is the
+      // tile that named this)" — printed by three rooms, and in the one room it
+      // names the same note lists the move `35,3(d2)->35,13(d4)`: the tile was
+      // TAKEN and ships an extension, which makes it the one tile in the room
+      // that cannot be an example of a tile nobody took. These three rosters
+      // are the class followed forward per room, so the exemplar is the room's
+      // own or the room says it has none. The PARTITION is closed here; the
+      // per-tile property each roster's sentence asserts — carries an
+      // extension of ours, or does not — is re-derived on the shipped board by
+      // the `extensions/one-pave-exit` gate, which names the tile it caught.
+      "shallowExt.search.openingTaken": OPENING_ROSTER(
+        `the tiles of the OPENING one-pave class that now carry an extension of this room's`,
+        `every tile in it carries an extension on the board this room ships`,
+      ),
+      "shallowExt.search.openingStill": OPENING_ROSTER(
+        `the tiles of the opening one-pave class that are STILL one pave from the network`,
+        `no tile in it carries an extension on the board this room ships`,
+      ),
+      "shallowExt.search.openingExited": OPENING_ROSTER(
+        `the tiles of the opening one-pave class that LEFT it without being taken, each with the reason it ` +
+          `left — the roster the note's worked example is drawn from, and the one a hardcoded literal about ` +
+          `another room stood in for`,
+        `no tile in it carries an extension on the board this room ships, which is the whole of what "left ` +
+          `the class untaken" claims`,
       ),
       "shallowExt.search.left": SEARCH_COUNTER(
         `free deep road-faced tiles still on the table when the re-run finished`,
@@ -6004,6 +6216,27 @@ const AW = (why, bound, closures = []) => ({ klass: "witnessed", why, bound, clo
  * numerals are not READ out of the text, they are PUT into it.
  */
 const APROSE = (why, classes) => ({ klass: "prose", why, classes });
+
+/**
+ * ROUND 27 / OL6 — the five sentences `scanFreeDeep` (layer-ext.mjs) can refuse
+ * a free-deep candidate with, in the order the scan tries them. The registry
+ * knew one. Exported for the board gate that decides which of them a given tile
+ * is owed.
+ */
+const EXT_REFUSAL_SENTENCES = {
+  reserved: "reserved controller claim seat or upgrader parking",
+  "mineral-stand": "taking it would leave the mineral no stand a creep can reach",
+  "engine-border": "engine refuses an extension here (border rule)",
+  "no-face":
+    "no D4 road face, and the free-floor backfill never paves (the priced ladder below may " +
+    "buy one, but only while the room is still short of 60)",
+  unreachable: "sealed off from the sitter — no builder can reach it",
+};
+const EXT_REFUSAL_CLASSES = Object.entries(EXT_REFUSAL_SENTENCES).map(([id, sentence]) => ({
+  id,
+  when: (el) => normText(String(el && el.why)) === normText(sentence),
+  render: () => sentence,
+}));
 /** the element inventory of one array leaf */
 const ELEMENTS = (why, fields, closures = []) => ({ why, fields, closures });
 /** a closure path that reads the ELEMENT rather than the record */
@@ -6210,15 +6443,34 @@ const RECORD_ARRAY_LEAVES = new Map(
                 return x >= 0 && x <= 49 && y >= 0 && y <= 49 ? null : `is ${v}, outside the room`;
               },
             ),
-            why: APROSE(`the refusal's own sentence, GENERATED from the class it belongs to`, [
-              {
-                id: "no-face",
-                when: () => true,
-                render: () =>
-                  `no D4 road face, and the free-floor backfill never paves (the priced ladder below may ` +
-                  `buy one, but only while the room is still short of 60)`,
-              },
-            ]),
+            /**
+             * ROUND 27 / OL6 — ALL FIVE OF THE PRODUCER'S REFUSALS, EACH WITH
+             * ITS OWN WHEN-PREDICATE.
+             *
+             * This registry knew ONE of the five sentences `scanFreeDeep`
+             * (layer-ext.mjs) emits, under `when: () => true`. The fleet ships
+             * three of them — 3125 no-face, 237 reserved-parking, 1 sealed-off
+             * — and it passed only because the three rooms that DECLARE carry
+             * the no-face one exclusively. The failure direction was loud (a
+             * TRUE sentence from the other four would have been rejected as not
+             * the one class), which is why it is a LOW and not a hole; it is
+             * still a registry that did not know its own alphabet.
+             *
+             * The row is `{k, why}` and carries nothing else, so the predicate
+             * that can decide a class HERE is the closed alphabet itself: five
+             * sentences, one per refusal the pass can make, and a sentence
+             * outside them matches no class and fails. WHICH of the five is
+             * RIGHT for a given tile is a question about the board, and it is
+             * asked on the board — see the `extensions/refusal-class` gate,
+             * which re-derives the engine's own answer for every refused tile
+             * and requires the border-rule sentence to appear on exactly the
+             * tiles the engine really refuses.
+             */
+            why: APROSE(
+              `the refusal's own sentence, from the closed alphabet the scan can emit — and the border-rule ` +
+                `member of it is re-derived tile by tile by the \`extensions/refusal-class\` gate`,
+              EXT_REFUSAL_CLASSES,
+            ),
           },
         ),
       },
@@ -8967,6 +9219,49 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
           .map((c) => key(c.x, c.y))
       : [],
   );
+  // ==================================================================
+  // ROUND 27 / OL5 — `meta.mineralSeat` IS DERIVED, NOT DESCRIBED.
+  // ==================================================================
+  // The field is documented in REQUIRED_META as "the mineral container's seat"
+  // and was gated by `Number.isInteger(x) && Number.isInteger(y)` — presence,
+  // not content. E12S7 shipped 25,33 against a mineral container at 25,32, and
+  // `mineralApproach` pointed at the unused tile: an INTENT field wearing an
+  // OUTCOME label, which is criticism 27's class. Setting it to 1,1 in all 172
+  // rooms, and to a SOURCE container's tile in all 172, both passed 172/172.
+  // Nothing broke because every gate and every prose channel in this file
+  // derives the seat from the container (`mineralSeat` above) — so the honest
+  // fix is to hold the published field to that same derivation.
+  if (mineral) {
+    const msP = plan.meta && plan.meta.mineralSeat;
+    const msK = msP && Number.isInteger(msP.x) && Number.isInteger(msP.y) ? key(msP.x, msP.y) : null;
+    if (msK !== null && mineralSeat.size && !mineralSeat.has(msK)) {
+      fail(
+        "misc",
+        "mineral-seat",
+        `meta.mineralSeat is ${msK} and this room's mineral container stands at ` +
+          `${[...mineralSeat].join(" ")}. The field is published as THE MINERAL CONTAINER'S SEAT and it is ` +
+          `the tile the off-network exemption is argued over, so it is the container's tile or it is an ` +
+          `intent this room did not build — every gate and every sentence about the seat derives it from ` +
+          `the container, which is exactly why a field that drifted off it changed nothing and was ` +
+          `unnoticed for as long as it was there`,
+        [{ x: msP.x, y: msP.y }],
+      );
+    }
+    const maP = plan.meta && plan.meta.mineralApproach;
+    if (msK !== null && mineralSeat.has(msK) && maP && Number.isInteger(maP.x) && Number.isInteger(maP.y)) {
+      if (chebyshev(maP, msP) > 1) {
+        fail(
+          "misc",
+          "mineral-seat",
+          `meta.mineralApproach ${maP.x},${maP.y} is ${chebyshev(maP, msP)} tile(s) from the seat at ${msK}. ` +
+            `It is published as the tile a hauler STANDS ON to serve the seat, and a stand that is not ` +
+            `adjacent to the thing it serves is a stand for a different tile — which is what it was in the ` +
+            `room whose seat had drifted`,
+          [{ x: maP.x, y: maP.y }],
+        );
+      }
+    }
+  }
   // ...and the tiles a {gate:"misc", kind:"off-network"} declaration names. Read
   // off the RAW list on purpose: this is not an excuse for a violation, it is the
   // plan telling the checker which class of structure it is claiming an
@@ -11906,14 +12201,55 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                     `them first" — and the second one is this room's`,
                 );
               }
-            } else if (named26.size) {
-              bad.push(
-                `the film's \`rampartCensus\` row \`${want26}\` is empty because this room has NO tile matching ` +
-                  `that facet's own test at all, and its reason names ${[...named26].slice(0, 4).join(" ")} as if ` +
-                  `it did: "${String(eb26).slice(0, 120)}". The two ways a facet reaches zero are absorption by ` +
-                  `an earlier test and plain absence, and a row that tells the wrong one is the defect the row ` +
-                  `exists to prevent`,
-              );
+            } else {
+              // ==========================================================
+              // ROUND 27 / MF3 — THE ABSENCE BRANCH IS A RENDERED CHANNEL.
+              // ==========================================================
+              // 526 of the 555 reasons the round-27 review censused take this branch [r22-waived: 555 is the reviewer's own count on the build it forged against, quoted as that finding's evidence rather than restated as a live fleet total] — 95% — and
+              // round 26 held them to "is a string, is 20 characters, names no
+              // x,y". One invented sentence replaced all 526 fleet-wide across
+              // all 172 films and this file's whole output came back
+              // BYTE-IDENTICAL to the clean run. The reason is derivable: the
+              // facet's intrinsic test is a conjunction over this room's own
+              // ramparts and a zero says which conjunct the room has none of.
+              // So the census below is built HERE, off terrain and the shipped
+              // structure lists, handed to the producer's own renderer, and the
+              // result compared WHOLE — the same treatment the note channel,
+              // the declaration paragraphs and the unjudged-lap caption get.
+              const cens27 = {
+                ramparts: rampK25.size,
+                onCut: [...rampK25].filter((k26) => cutK25.has(k26)),
+                containers: [...rampK25].filter((k26) => own25.get(k26) === "container"),
+                inDenial: [...rampK25].filter((k26) => denialK.has(k26)),
+                otherOccupied: [...rampK25].filter((k26) => own25.has(k26) && own25.get(k26) !== "container"),
+                bare: [...rampK25].filter((k26) => !cutK25.has(k26) && !own25.has(k26) && !denialK.has(k26)),
+                cutTiles: cutK25.size,
+                denialTiles: denialK.size,
+              };
+              cens27.containersOutside = cens27.containers.filter((k26) => outside26(k26));
+              cens27.containersInside = cens27.containers.filter((k26) => !outside26(k26));
+              let want27 = null;
+              try {
+                want27 = renderFacetAbsence(want26, cens27);
+              } catch (err27) {
+                bad.push(
+                  `the film's \`rampartCensus\` row \`${want26}\` is empty for plain ABSENCE and the producer's ` +
+                    `own renderer has no sentence for that branch (${err27 && err27.message ? err27.message : String(err27)}). ` +
+                    `An unrendered branch is a reason nobody can check`,
+                );
+              }
+              if (want27 !== null && String(eb26) !== want27) {
+                bad.push(
+                  `the film's \`rampartCensus\` row \`${want26}\` is empty because this room has NO rampart matching ` +
+                    `that facet's own test, and the reason it prints is not the one this room's census renders. ` +
+                    `Shipped: "${String(eb26).slice(0, 150)}". Derived here from the board (${cens27.ramparts} ` +
+                    `rampart(s), ${cens27.onCut.length} on the cut, ${cens27.containers.length} under a container, ` +
+                    `${cens27.inDenial.length} on the stand-denial ring, ${cens27.otherOccupied.length} under some ` +
+                    `other structure): "${want27.slice(0, 150)}". WHOLE-VALUE, like every other rendered channel: ` +
+                    `95% of this fleet's reasons take this branch and all 526 of them were replaced with one ` +
+                    `invented sentence with this file's output byte-identical`,
+                );
+              }
             }
           });
         }
@@ -13481,6 +13817,53 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             // (v) THE ANCHOR. `cutAtFreeze` is layer 2's cut; the room ships
             // layer 7's; every tile of the difference carries provenance or the
             // snapshot is a free parameter with a new name.
+            //
+            // ==============================================================
+            // ROUND 27 / MF1 — THE LEGS WERE ALL CONDITIONED ON THE TWO CUTS
+            // DIFFERING, SO THE ANCHOR WAS FREE THE MOMENT THEY AGREED.
+            // ==============================================================
+            // Round 26 wrote three bindings and every one of them reads the
+            // DIFFERENCE between the snapshot and the shipped cut. Set the two
+            // equal and all three go quiet at once: `dropped9` is empty so the
+            // `inertPruned` leg has nothing to check, the drift log is empty so
+            // the replay is `freeze == shipped` and trivially true, and the
+            // core-seal test is satisfied by the shipped cut in 170 of 172
+            // rooms anyway. The mechanical reviewer re-pointed `cutAtFreeze` at
+            // the SHIPPED cut in 23 of the 29 rooms whose two cuts differ,
+            // emptied `cutDrift`, re-derived the four rosters and the basis,
+            // and got `pass 172/172` with a BYTE-IDENTICAL validator output —
+            // at the cost of 31 of the 34 adoptions and 40 of the 46 [r22-waived: the reviewer's own count of what its forgery erased, on the build it ran against, quoted as that finding's evidence]
+            // prunes vanishing from the published record. The same hole in its
+            // other form: absorb an adopted tile into the snapshot, delete its
+            // `add` row, re-derive — 31 of 34 free.
+            //
+            // THE LEG BELOW IS UNCONDITIONAL. It says nothing about whether the
+            // two cuts differ; it is a property of `cutAtFreeze` alone:
+            //
+            //     THE ANCHOR IS A MINIMAL SEALING SET.
+            //
+            //   * it SEALS — the flood over it reaches no owned core structure
+            //     (the leg round 26 wrote, kept below: it closes the SHRINK
+            //     direction, and closes it completely on this fleet — not one
+            //     of the 7246 frozen cut tiles can be dropped with the core
+            //     still sealed);
+            //   * and it is MINIMAL — every tile of it is individually
+            //     load-bearing. That is the same measurement read the other way,
+            //     and it is what closes the GROWTH direction: a cut is a
+            //     min-cut, not a superset of one, and the tiles layer 7's
+            //     reconciliation ADOPTS are precisely tiles whose arrival makes
+            //     a neighbouring frozen tile redundant. Measured on this
+            //     artifact: absorbing any one of the 34 adoptions [r22-waived: the round-27 measurement of the build this leg was developed against, quoted as its evidence] into
+            //     `cutAtFreeze` breaks minimality in 34 of 34 cases, and
+            //     re-pointing the snapshot at the shipped cut breaks it in every
+            //     room that adopted anything. The two rooms that adopt nothing
+            //     (E15S1, E5S6) are the two whose shipped cut does not seal, so
+            //     the seal leg above takes them.
+            //
+            // Cost: one flood per frozen cut tile — 7246 floods fleet-wide,
+            // about two seconds. The property was already MEASURED by the
+            // document (criticism 134(a)'s closure); this is the same
+            // measurement wired to a failure.
             const coreLeak9 = [];
             for (const t9 of ["storage", "spawn", "terminal", "tower", "lab", "nuker", "observer", "factory", "powerSpawn"]) {
               for (const p9 of s[t9] || []) if (frozen9[idx(p9.x, p9.y)]) coreLeak9.push(`${p9.x},${p9.y}=${t9}`);
@@ -13492,6 +13875,31 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                   `2's CUT and every reading of the enclosure contract is taken against the flood over it, so a ` +
                   `snapshot that is not a sealing curve is not the cut — and shrinking it is how a room inflates ` +
                   `every withheld roster it publishes at once`,
+              );
+            }
+            const sitterI9 = idx(sitter.x, sitter.y);
+            // THE MINIMALITY LEG. `loose9` is every frozen cut tile that can be
+            // deleted with the sitter still shut off from the exterior.
+            const loose9 = [];
+            if (!frozen9[sitterI9]) {
+              for (const t9 of freezeK9) {
+                const less9 = new Set(freezeK9);
+                less9.delete(t9);
+                if (!exteriorFlood(bare9, less9)[sitterI9]) loose9.push(t9);
+              }
+            }
+            if (loose9.length) {
+              bad.push(
+                `meta.shell.cutAtFreeze is not a MINIMAL sealing set: ${loose9.length} of its ${freezeK9.size} ` +
+                  `tile(s) (${loose9.slice(0, 6).join(" ")}) can be deleted from it with the exterior flood still ` +
+                  `failing to reach this room's sitter. It is published as LAYER 2's CUT — a min-cut — and every ` +
+                  `reading of the enclosure contract is a flood taken over it. A tile that is not load-bearing in ` +
+                  `it is a tile layer 2 did not buy, and putting one there is how a room ABSORBS an adoption: the ` +
+                  `\`add\` row disappears, the withheld rosters are re-derived around the bigger anchor and every ` +
+                  `published reading quietly drops. On this artifact absorbing any one of the fleet's 34 ` +
+                  `\`layer7-reconcileSeal\` adoptions breaks this test in 34 of 34 cases, and 0 of the 7246 frozen ` +
+                  `cut tiles the fleet honestly ships is loose. This leg asks nothing about the SHIPPED cut, which ` +
+                  `is the whole point: every binding that did went quiet the moment the two lists were made equal`,
               );
             }
             const shipCutK9 = new Set(cutPts.map((c9) => key(c9.x, c9.y)));
@@ -13534,14 +13942,100 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               const replay9 = new Set(freezeK9);
               const badRow9 = [];
               const noop9 = [];
+              // ROUND 27 — the roster each pass owns, and the seal evidence the
+              // other one owes. `remove` rows are bound to `meta.shell.inertPruned`
+              // (the prune's own published roster, 46/46 on this artifact);
+              // `add` rows are bound to the SINGLE-REMOVAL SEAL TEST, which is
+              // the reconciliation's own definition of what it adopts — take the
+              // tile's rampart off the shipped board ALONE and the exterior
+              // reaches the sitter. 34/34 on this artifact, and it is the one
+              // piece of evidence for an adoption that lives on the BOARD rather
+              // than in the log about the board.
+              const sealCrit9 = (k10) => {
+                if (!rampK9.has(k10)) return false;
+                const less10 = new Set(rampK9);
+                less10.delete(k10);
+                return !!exteriorFlood(bare9, less10)[sitterI9];
+              };
+              const seen10 = new Map();
+              const churn10 = [];
+              const unevidenced10 = [];
               drift9.forEach((e10, i10) => {
                 if (!e10 || !Number.isInteger(e10.x) || !Number.isInteger(e10.y) || (e10.op !== "add" && e10.op !== "remove")) {
                   badRow9.push(`[${i10}] ${String(JSON.stringify(e10)).slice(0, 50)}`);
                   return;
                 }
-                if (typeof e10.pass !== "string" || !e10.pass || typeof e10.why !== "string" || e10.why.length < 12) {
-                  badRow9.push(`[${i10}] ${e10.x},${e10.y} ${e10.op} names pass ${String(JSON.stringify(e10.pass)).slice(0, 20)} and why ${String(JSON.stringify(e10.why)).slice(0, 24)}`);
+                // (1) THE PASS IS A CLOSED ENUM AND THE OP IS A FUNCTION OF IT
+                const wantOp10 = DRIFT_PASS_OP.get(e10.pass);
+                if (wantOp10 === undefined) {
+                  badRow9.push(
+                    `[${i10}] ${e10.x},${e10.y} ${e10.op} names pass ${String(JSON.stringify(e10.pass)).slice(0, 40)}, ` +
+                      `which is not one of the two passes that move this room's cut (${[...DRIFT_PASS_OP.keys()].join(" | ")})`,
+                  );
                   return;
+                }
+                if (e10.op !== wantOp10) {
+                  badRow9.push(
+                    `[${i10}] ${e10.x},${e10.y} is an \`${e10.op}\` attributed to \`${e10.pass}\`, and that pass only ever ` +
+                      `\`${wantOp10}\`s — one pass deletes inert wall, the other adopts seal-critical tiles, and neither does the other's job`,
+                  );
+                  return;
+                }
+                // (2) THE REASON IS GENERATED FROM (op, pass) AND COMPARED WHOLE
+                const wantWhy10 = cutDriftWhy(e10.op, e10.pass);
+                if (e10.why !== wantWhy10) {
+                  let at10 = 0;
+                  const got10 = String(e10.why);
+                  while (at10 < Math.min(got10.length, wantWhy10.length) && got10[at10] === wantWhy10[at10]) at10++;
+                  badRow9.push(
+                    `[${i10}] ${e10.x},${e10.y} ${e10.op} states a reason the producer's own generator does not ` +
+                      `produce for (${e10.op}, ${e10.pass}) — they agree for ${at10} character(s), then shipped ` +
+                      `"…${got10.slice(at10, at10 + 60)}…" against generated "…${wantWhy10.slice(at10, at10 + 60)}…". ` +
+                      `WHOLE-VALUE, so an appended clause is a different sentence and not a longer one`,
+                  );
+                  return;
+                }
+                // (3) A TILE MOVES ONCE. Net-zero churn — remove then add of the
+                // same tile — replays perfectly and is a pass this room's two
+                // passes cannot both have made about the same tile.
+                const k10 = key(e10.x, e10.y);
+                if (seen10.has(k10)) {
+                  churn10.push(`[${i10}] ${k10} ${e10.op} after ${seen10.get(k10)} at row [${seen10.get(k10 + "|i")}]`);
+                  return;
+                }
+                seen10.set(k10, e10.op);
+                seen10.set(k10 + "|i", i10);
+                // (4) EACH ROW IS BOUND TO ITS OWN PASS'S EVIDENCE
+                if (e10.op === "remove") {
+                  if (!inert9.has(k10)) {
+                    unevidenced10.push(
+                      `[${i10}] ${k10} remove — \`meta.shell.inertPruned\` does not name it, and that roster IS the ` +
+                        `inert prune's published answer to "what did you take"`,
+                    );
+                    return;
+                  }
+                  if (rampK9.has(k10)) {
+                    unevidenced10.push(`[${i10}] ${k10} remove — the tile still wears a rampart on the shipped board`);
+                    return;
+                  }
+                } else {
+                  if (!rampK9.has(k10)) {
+                    unevidenced10.push(`[${i10}] ${k10} add — the tile wears no rampart on the shipped board, so nothing there is holding a seal`);
+                    return;
+                  }
+                  if (!shipCutK9.has(k10)) {
+                    unevidenced10.push(`[${i10}] ${k10} add — the tile is not on the cut the room ships, so no pass adopted it into one`);
+                    return;
+                  }
+                  if (!sealCrit9(k10)) {
+                    unevidenced10.push(
+                      `[${i10}] ${k10} add — the SINGLE-REMOVAL SEAL TEST does not fire: take this rampart off the ` +
+                        `shipped board on its own and the exterior still does not reach the sitter. That test is the ` +
+                        `reconciliation's whole definition of an adoption, and a row it fails is a row about a tile ` +
+                        `no pass had a reason to adopt`,
+                    );
+                    return;
+                  }
                 }
                 // EVERY ENTRY IS A REAL MOVE AT THE MOMENT IT IS APPLIED, which
                 // is what makes the replay pin the STARTING SET and not just
@@ -13549,7 +14043,6 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 // shipped cut reconciles perfectly — every add is already
                 // there, every remove is already gone — and the anchor is free
                 // again in the 165 rooms whose two floods happen to agree.
-                const k10 = key(e10.x, e10.y);
                 if (e10.op === "add" && replay9.has(k10)) {
                   noop9.push(`[${i10}] ${k10} is ADDED to a cut that already carries it`);
                   return;
@@ -13572,10 +14065,138 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               }
               if (badRow9.length) {
                 bad.push(
-                  `meta.shell.cutDrift carries ${badRow9.length} entr(y/ies) that are not a move: ${badRow9.slice(0, 4).join(" · ")}. ` +
-                    `Each one names a tile of this room's board, an \`op\` of "add" or "remove", the \`pass\` that made ` +
-                    `the move and the \`why\` — a log without the reason is the difference restated`,
+                  `meta.shell.cutDrift carries ${badRow9.length} entr(y/ies) that are not a move this room's two passes ` +
+                    `made: ${badRow9.slice(0, 4).join(" · ")}. Each row names a tile of this room's board, an \`op\` of ` +
+                    `"add" or "remove", a \`pass\` from the closed enum (${[...DRIFT_PASS_OP.keys()].join(" | ")}) whose ` +
+                    `own kind of move the \`op\` has to be, and the \`why\` THAT PAIR GENERATES — compared whole. This ` +
+                    `record stands in for the adoption declaration the ruling left undeclared, so it is held to the ` +
+                    `standard the declaration would have been: a length-gated free-text \`pass\`/\`why\` let eight ` +
+                    `separate forgeries through at 172/172, including one that re-attributed a layer-7 adoption to the ` +
+                    `layer-7b pass — inverting the exact fact the criticism is about`,
                 );
+              }
+              if (churn10.length) {
+                bad.push(
+                  `meta.shell.cutDrift moves ${churn10.length} tile(s) more than once: ${churn10.slice(0, 4).join(" · ")}. ` +
+                    `The prune deletes a cut tile and the reconciliation adopts one, each once, and neither pass ever ` +
+                    `hands a tile back to the other. A remove/add pair over the same tile is a NET-ZERO CHURN pair: it ` +
+                    `replays perfectly onto the anchor, changes no arithmetic anywhere, and is exactly the shape two ` +
+                    `invented rows per room took in all 172 rooms at 172/172`,
+                );
+              }
+              if (unevidenced10.length) {
+                bad.push(
+                  `meta.shell.cutDrift carries ${unevidenced10.length} move(s) its own pass's roster does not support: ` +
+                    `${unevidenced10.slice(0, 4).join(" · ")}. Each pass publishes what it did somewhere a reader can ` +
+                    `check: the inert prune's deletions are \`meta.shell.inertPruned\` and the reconciliation's ` +
+                    `adoptions are whatever the SINGLE-REMOVAL SEAL TEST finds on the shipped board. A row bound to ` +
+                    `neither is the difference restated with a sentence in front of it`,
+                );
+              }
+              // ...AND THE REMOVE SIDE IS COMPLETE. `inertPruned` is the prune's
+              // roster of every rampart it deleted, cut tile or not. A tile on it
+              // with no `remove` row is claiming it was never wall — and the two
+              // rosters that make that claim checkable are the room's own eco
+              // bubbles and its own structures: the prune's non-cut deletions are
+              // bubble cover (10 tiles fleet-wide) and personal cover over an
+              // extension (5, all in E3S7), while all 46 of its cut deletions
+              // carry neither. Without this leg a drift log can simply be EMPTIED
+              // in a room that pruned, and — with the anchor re-pointed — nothing
+              // notices the 46 prunes leaving the published record.
+              {
+                const ownK10 = new Set();
+                for (const t10 of Object.keys(s)) {
+                  if (t10 === "rampart" || t10 === "road") continue;
+                  for (const p10 of s[t10] || []) ownK10.add(key(p10.x, p10.y));
+                }
+                const orphan10 = [...inert9].filter(
+                  (t10) => seen10.get(t10) !== "remove" && !bubbleK9.has(t10) && !ownK10.has(t10),
+                );
+                if (orphan10.length) {
+                  bad.push(
+                    `meta.shell.inertPruned names ${orphan10.length} tile(s) (${orphan10.slice(0, 6).join(" ")}) that ` +
+                      `\`meta.shell.cutDrift\` carries no \`remove\` row for, and that carry neither an eco bubble nor ` +
+                      `any structure of this room's. The prune deletes ramparts of both kinds — wall and rented cover ` +
+                      `— and only the wall ones move the cut, so a deletion that is neither is a prune the drift log ` +
+                      `dropped. This is the leg that does not care whether the two cuts differ: emptying the log and ` +
+                      `re-pointing the anchor at the shipped cut loses 40 of the 46 prunes the reviewer measured, and every one of ` +
+                      `them is still sitting in this roster`,
+                  );
+                }
+              }
+              // ==========================================================
+              // ROUND 27 / MF1 — THE PASSES THAT RAN, INCLUDING THE ONES
+              // THAT MOVED NOTHING.
+              // ==========================================================
+              // `cutDrift` records MOVES. It cannot record a pass that ran and
+              // found nothing to do, and that silence is what the anchor
+              // exploit wore: delete a room's `add` rows, absorb the tiles into
+              // `cutAtFreeze`, and the artifact reads exactly like a room whose
+              // reconciliation adopted nothing. `meta.shell.cutPasses` is one
+              // marker per invocation — all four, every room — with the
+              // counters taken off the cut list rather than reported by the
+              // pass about itself. The two records BIND: the rows carrying a
+              // pass name ARE that marker's `adds`/`removes`, so a marker
+              // saying it adopted a tile and a log with no row for it is a room
+              // that deleted its own evidence, and this fires whether or not
+              // the two cuts differ.
+              {
+                const cp10 = plan.meta?.shell?.cutPasses ?? plan.shell?.cutPasses;
+                if (!Array.isArray(cp10) || cp10.length !== CUT_DRIFT_PASSES.length) {
+                  bad.push(
+                    `meta.shell.cutPasses is ${cp10 === undefined ? "ABSENT" : `${Array.isArray(cp10) ? `${cp10.length} marker(s)` : String(JSON.stringify(cp10)).slice(0, 40)}`} — ` +
+                      `it is one marker per invocation of the two passes that may move this room's cut, all ` +
+                      `${CUT_DRIFT_PASSES.length} of them, including the invocations that moved nothing. Without it ` +
+                      `"this pass adopted nothing" and "this room deleted the row" are the same artifact`,
+                  );
+                } else {
+                  const seenP10 = new Set();
+                  const off10 = [];
+                  cp10.forEach((mk10, j10) => {
+                    if (!mk10 || !CUT_DRIFT_PASSES.includes(mk10.pass)) {
+                      off10.push(`[${j10}] names pass ${String(JSON.stringify(mk10 && mk10.pass)).slice(0, 30)}`);
+                      return;
+                    }
+                    if (seenP10.has(mk10.pass)) {
+                      off10.push(`[${j10}] ${mk10.pass} has a second marker — each invocation publishes once`);
+                      return;
+                    }
+                    seenP10.add(mk10.pass);
+                    const rowsAdd10 = drift9.filter((e11) => e11 && e11.pass === mk10.pass && e11.op === "add").length;
+                    const rowsRem10 = drift9.filter((e11) => e11 && e11.pass === mk10.pass && e11.op === "remove").length;
+                    if (mk10.adds !== rowsAdd10 || mk10.removes !== rowsRem10) {
+                      off10.push(
+                        `${mk10.pass} says it made ${mk10.adds} add(s) and ${mk10.removes} remove(s) and the drift ` +
+                          `log carries ${rowsAdd10} and ${rowsRem10} for it`,
+                      );
+                    }
+                  });
+                  const missP10 = CUT_DRIFT_PASSES.filter((p10) => !seenP10.has(p10));
+                  if (missP10.length) off10.push(`no marker at all for ${missP10.join(" ")}`);
+                  // ...and the prune markers' own counter is bound to the
+                  // roster: both invocations' deletions together ARE
+                  // `meta.shell.inertPruned`, which is how the marker stops
+                  // being a number the producer chose.
+                  const delTot10 = cp10
+                    .filter((mk10) => mk10 && mk10.kind === "inertPrune")
+                    .reduce((a10, mk10) => a10 + (Number.isInteger(mk10.rampartsDeleted) ? mk10.rampartsDeleted : NaN), 0);
+                  if (!Number.isInteger(delTot10) || delTot10 !== inert9.size) {
+                    off10.push(
+                      `the prune markers delete ${JSON.stringify(delTot10)} rampart(s) between them and ` +
+                        `\`meta.shell.inertPruned\` names ${inert9.size}`,
+                    );
+                  }
+                  if (off10.length) {
+                    bad.push(
+                      `meta.shell.cutPasses does not bind to this room's own drift log: ${off10.slice(0, 4).join(" · ")}. ` +
+                        `Each marker is one invocation's own count of what it moved, and the drift rows carrying ` +
+                        `that pass's name are the same moves seen from the other side — so a room may not report a ` +
+                        `pass that acted and log nothing, or log a move no pass reports. That is the leg that does ` +
+                        `not care whether the two cuts differ: erasing 31 of the 34 adoptions the reviewer measured into the ` +
+                        `anchor left every one of these markers standing`,
+                    );
+                  }
+                }
               }
               const missR9 = [...shipCutK9].filter((t9) => !replay9.has(t9));
               const extraR9 = [...replay9].filter((t9) => !shipCutK9.has(t9));
@@ -13589,6 +14210,118 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                     `. The frozen cut plus every logged move IS the shipped cut — that identity is what binds the ` +
                     `snapshot every withheld roster is derived from to a board a reader can see`,
                 );
+              }
+            }
+            // ==============================================================
+            // ROUND 27 / MF6 — THE SHELL'S OWN ENCLOSURE CLAIMS, DERIVED.
+            // ==============================================================
+            // Every one of these was free text in the flattering direction and a
+            // sweep took them all at once, with this file's output byte-identical:
+            // `enclosedController` false -> true in the 80 rooms that honestly
+            // publish "the controller is outside the wall"; `enclosedSources` and
+            // `enclosedSourceWorks` raised to a full 2/2 in the 109 that publish
+            // less, with `enclosedAtNegotiation` moved to match;
+            // `battlementUnreachable` and its roster zeroed in the 12 rooms that
+            // carry one. They are all the same arithmetic — a flood, a ring, a
+            // works list — and the floods are right here.
+            //
+            // TWO BOARDS, ON PURPOSE, because the producer measures them on two:
+            //   * the CONTROLLER's verdict and the NEGOTIATION record are layer
+            //     2's, taken against the flood over `cutAtFreeze` — that claim is
+            //     about the SHELL the escalation ladder priced, and re-taking it
+            //     over the shipped rampart union would make every room in the
+            //     fleet pass it (a controller's stand-denial ring is ramparts, so
+            //     its ring tiles are never exterior by construction);
+            //   * the SOURCE verdicts the room ships are layer 7's, taken against
+            //     the flood over every rampart, because that is the board a miner
+            //     stands on.
+            // Both reproduce 172/172 here.
+            {
+              const shipExt27 = exteriorFlood(bare9, rampK9);
+              const outF27 = (p27) => !!frozen9[idx(p27.x, p27.y)];
+              const outS27 = (p27) => !!shipExt27[idx(p27.x, p27.y)];
+              const ring27 = (o27) => {
+                const r27 = [];
+                for (const [dx27, dy27] of D8) {
+                  const x27 = o27.x + dx27;
+                  const y27 = o27.y + dy27;
+                  if (x27 < 0 || y27 < 0 || x27 > 49 || y27 > 49) continue;
+                  if (walkable(terrain, x27, y27)) r27.push({ x: x27, y: y27 });
+                }
+                return r27;
+              };
+              const links27 = s.link || [];
+              const srcLinks27 = links27.slice(1, Math.max(1, links27.length - 1));
+              const ctrlLink27 = links27.length > 1 ? links27[links27.length - 1] : null;
+              const sh27 = plan.meta?.shell || {};
+              const say27 = (field, got, want) =>
+                bad.push(
+                  `meta.shell.${field} says ${JSON.stringify(got)} and this room's own floods give ` +
+                    `${JSON.stringify(want)}. The enclosure verdicts are a flood, a ring and a works list — the ` +
+                    `arithmetic this file already runs four times over — and while they were unread the ` +
+                    `flattering direction was free in every one of them at once`,
+                );
+              // the controller, on LAYER 2's board
+              if (ctrlLink27 && controller) {
+                const wantC27 = !outF27(ctrlLink27) && ring27(controller).every((q27) => !outF27(q27));
+                if (sh27.enclosedController !== wantC27) say27("enclosedController", sh27.enclosedController, wantC27);
+                // ...and the refusal that goes with it. A room cannot both have
+                // REFUSED to widen the shell for its controller and be publishing
+                // a controller inside the shell.
+                if (sh27.ctrlEncloseRefused === true && wantC27) {
+                  bad.push(
+                    `meta.shell.ctrlEncloseRefused is true and this room's controller IS enclosed by the shell ` +
+                      `layer 2 priced. The flag is "the ladder was asked to take the controller in and refused", ` +
+                      `and a refusal with the thing it refused standing inside the wall is a flag about a ` +
+                      `different room`,
+                  );
+                }
+              }
+              // the sources, twice: on the board they ship and on the board the
+              // enclosure was negotiated over
+              const worksOf27 = (src27) => [
+                ...(s.container || []).filter((c27) => chebyshev(c27, src27) <= 1),
+                ...srcLinks27.filter((l27) => chebyshev(l27, src27) <= 2),
+              ];
+              const verdicts27 = (outFn27) => {
+                let works27 = 0;
+                const strict27 = (plan.sources || []).map((src27) => {
+                  const mine27 = worksOf27(src27);
+                  const ok27 = mine27.length > 0 && mine27.every((q27) => !outFn27(q27));
+                  if (ok27) works27++;
+                  return ok27 && ring27(src27).every((q27) => !outFn27(q27));
+                });
+                return { works: works27, strict: strict27, count: strict27.filter(Boolean).length };
+              };
+              const vShip27 = verdicts27(outS27);
+              const vNeg27 = verdicts27(outF27);
+              if (JSON.stringify(sh27.srcEnclosed) !== JSON.stringify(vShip27.strict)) {
+                say27("srcEnclosed", sh27.srcEnclosed, vShip27.strict);
+              }
+              if (sh27.enclosedSources !== vShip27.count) say27("enclosedSources", sh27.enclosedSources, vShip27.count);
+              if (sh27.enclosedSourceWorks !== vNeg27.works) say27("enclosedSourceWorks", sh27.enclosedSourceWorks, vNeg27.works);
+              const an27 = sh27.enclosedAtNegotiation;
+              if (!an27 || typeof an27 !== "object") {
+                bad.push(
+                  `meta.shell.enclosedAtNegotiation is ${String(JSON.stringify(an27)).slice(0, 40)} — it is the ` +
+                    `enclosure verdict as LAYER 2 took it, and the pair of readings is the whole point of ` +
+                    `publishing both`,
+                );
+              } else if (
+                an27.sources !== vNeg27.count ||
+                an27.sourceWorks !== vNeg27.works ||
+                JSON.stringify(an27.srcEnclosed) !== JSON.stringify(vNeg27.strict)
+              ) {
+                say27(
+                  "enclosedAtNegotiation",
+                  { sources: an27.sources, sourceWorks: an27.sourceWorks, srcEnclosed: an27.srcEnclosed },
+                  { sources: vNeg27.count, sourceWorks: vNeg27.works, srcEnclosed: vNeg27.strict },
+                );
+              }
+              // and the battlement roster's own count
+              const buT27 = sh27.battlementUnreachableTiles;
+              if (Array.isArray(buT27) && sh27.battlementUnreachable !== buT27.length) {
+                say27("battlementUnreachable", sh27.battlementUnreachable, buT27.length);
               }
             }
           }
@@ -17618,6 +18351,229 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               );
             }
           }
+          // ==========================================================
+          // ROUND 27 / OL4 — `closer` IS BANDED TO THE WALK IT NAMES.
+          // ==========================================================
+          // `relocated[].closer` is how much nearer the hub the new seat is,
+          // and it drives 104 film captions. Nothing evaluated it: doubling
+          // every one of the 104 published values passed 172/172 [r22-waived: the reviewer's own forgery census on the build it ran against], and so did
+          // setting all 104 to zero.
+          //
+          // The quantity is a DELTA OF TWO WALKS, and the walks the producer
+          // took are layer-6's — `fieldFrom(terrain, sitter, occupied)` with
+          // that layer's occupancy in the way — so a reader holding the shipped
+          // board cannot reproduce them exactly and this file does not pretend
+          // to. What it can take is the same walk with the MASS REMOVED: a
+          // terrain-only D8 field from this room's hub. Measured over all 104
+          // rows it reproduces the published value EXACTLY in 70, within one
+          // tile in 103, and its worst disagreement anywhere on the fleet is
+          // TWO. So the bound is that spread, stated at the width it was
+          // measured at rather than at the width that would read better — and
+          // it is a bound where there was none: it names 53 of the 104 doubled
+          // values, 53 of the 104 zeroed ones and 101 of the 104 negated ones.
+          // (Its sibling `tookStub` is genuinely unbounded and is classed as
+          // such, with its reason, in the meta-leaf inventory — a witness this
+          // file cannot re-derive says so out loud instead of being banded to
+          // something it is not.)
+          {
+            const hubSeed = plan.hub && Number.isInteger(plan.hub.x) ? plan.hub : sitter;
+            const bfsHub = (() => {
+              const dist = new Int32Array(2500).fill(-1);
+              const start = idx(hubSeed.x, hubSeed.y);
+              dist[start] = 0;
+              const q = [start];
+              for (let h = 0; h < q.length; h++) {
+                const i2 = q[h];
+                const x2 = i2 % 50,
+                  y2 = (i2 / 50) | 0;
+                for (const [dx, dy] of D8) {
+                  const nx = x2 + dx,
+                    ny = y2 + dy;
+                  if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+                  const ni = idx(nx, ny);
+                  if (dist[ni] >= 0 || isWall(terrain, nx, ny)) continue;
+                  dist[ni] = dist[i2] + 1;
+                  q.push(ni);
+                }
+              }
+              return dist;
+            })();
+            const off = [];
+            for (const r of rl) {
+              if (!r || !r.from || !r.to || !Number.isInteger(r.to.x) || !Number.isInteger(r.from.x)) continue;
+              if (typeof r.closer !== "number" || !Number.isFinite(r.closer)) {
+                off.push(`${key(r.from.x, r.from.y)}->${key(r.to.x, r.to.y)} carries closer=${JSON.stringify(r.closer)}`);
+                continue;
+              }
+              const dFrom = bfsHub[idx(r.from.x, r.from.y)];
+              const dTo = bfsHub[idx(r.to.x, r.to.y)];
+              if (dFrom < 0 || dTo < 0) continue;
+              const want = dFrom - dTo;
+              if (Math.abs(r.closer - want) > RELOC_CLOSER_BAND) {
+                off.push(
+                  `${key(r.from.x, r.from.y)}(${dFrom} from the hub)->${key(r.to.x, r.to.y)}(${dTo}) ` +
+                    `says closer=${r.closer} and the walk gives ${want}`,
+                );
+              }
+            }
+            if (off.length) {
+              fails.push(
+                `extensions/relocated — ${off.length} relocation(s) publish a \`closer\` the hub walk does not ` +
+                  `support: ${off.slice(0, 4).join(" · ")}. \`closer\` is the difference between two D8 walks ` +
+                  `from this room's own hub. The producer took them on LAYER 6's board, with that layer's ` +
+                  `occupancy in the way, so this file takes the same walk with the mass removed and bands the ` +
+                  `record to it by ${RELOC_CLOSER_BAND} — the widest disagreement that walk has with any of the ` +
+                  `104 published values on the build this band was measured over (exact on 70 of them, within one on 103). Unbanded, doubling ` +
+                  `all 104 and zeroing all 104 both passed the fleet`,
+              );
+            }
+          }
+        }
+      }
+    }
+    // ==================================================================
+    // ROUND 27 / OL6 — THE ONE REFUSAL CLASS THAT IS A FUNCTION OF THE
+    // TERRAIN ALONE, DECIDED ON THE TERRAIN.
+    // ==================================================================
+    // The prose registry (see EXT_REFUSAL_SENTENCES) closes the alphabet: a
+    // refusal outside the producer's five sentences matches no class and fails.
+    // It cannot say which of the five a tile is owed, because the row is
+    // `{k, why}` and the other four are properties of layer 6's board — the
+    // reserved seats, the mineral guard, the roads as they then stood, the walk
+    // region as it then was — none of which the shipped board reproduces.
+    //
+    // ONE of them does reproduce, exactly, at any layer: "engine refuses an
+    // extension here (border rule)" is `createConstructionSite`'s own answer,
+    // a function of the terrain and the tile and nothing else. So it is asked
+    // here, both ways: a tile refused for the border rule really is one the
+    // engine rejects, and a tile refused for any of the other four is one the
+    // engine would have accepted — because if the engine refuses it, that is
+    // the reason the scan reached first and the sentence the reader is owed.
+    {
+      const offR = [];
+      for (const nr of plan.meta?.noteRecords || []) {
+        const se = nr && nr.rec && nr.rec.search;
+        if (!se || !Array.isArray(se.refused)) continue;
+        for (const row of se.refused) {
+          const m = row && typeof row.k === "string" ? /^(\d+),(\d+)$/.exec(row.k) : null;
+          if (!m) continue;
+          const rx = +m[1];
+          const ry = +m[2];
+          if (rx < 0 || rx > 49 || ry < 0 || ry > 49) continue;
+          const engineOK = engineBuildable(terrain, rx, ry, "extension");
+          const saysBorder = normText(String(row.why)) === normText(EXT_REFUSAL_SENTENCES["engine-border"]);
+          if (saysBorder && engineOK) {
+            offR.push(`${row.k} is refused for the border rule and the engine accepts an extension there`);
+          } else if (!saysBorder && !engineOK) {
+            offR.push(
+              `${row.k} is refused for "${String(row.why).slice(0, 40)}…" and the engine refuses an extension ` +
+                `there at all`,
+            );
+          }
+        }
+      }
+      if (offR.length) {
+        fails.push(
+          `extensions/refusal-class — ${offR.length} refused candidate(s) carry a reason the engine's own answer ` +
+            `contradicts: ${offR.slice(0, 4).join(" · ")}. The scan tries its tests in one order and the border ` +
+            `rule comes before the road face and the walk, so a tile the engine rejects is refused for that and ` +
+            `a tile refused for anything else is a tile the engine would have taken. This is the one of the five ` +
+            `refusal classes a reader holding the terrain can settle, and until this round the registry knew one ` +
+            `of the five and it was not this one`,
+        );
+      }
+    }
+    // ==================================================================
+    // ROUND 27 / OM2 + OL3 — A TILE A NOTE NAMES HAS TO HAVE THE PROPERTY
+    // THE SENTENCE GIVES IT, AND A COUNT HAS TO BE ABOUT ITS OWN SET.
+    // ==================================================================
+    // OM2: the shallow-extension note offered a WORKED EXAMPLE of a one-pave
+    // candidate that "left the class without being taken" — and the example was
+    // a hardcoded literal, "(E12S6's 35,13 is the tile that named this)",
+    // printed by three rooms. In the one room it names, the SAME NOTE lists
+    // `35,3(d2)->35,13(d4)`: the tile WAS taken, the extension ships on it, and
+    // it is therefore the one tile in the room that cannot illustrate a tile
+    // nobody took. The producer now follows the opening class forward per room
+    // (`openingTaken` / `openingStill` / `openingExited`), and the gate is the
+    // obvious one nobody had: the property the sentence asserts about each
+    // named tile is checked ON THE BOARD. A tile in the TAKEN roster carries an
+    // extension of this room's; a tile in the EXITED roster does not, because
+    // "left untaken" is what it is being printed to demonstrate.
+    //
+    // OL3: "Of those, 0 became extension(s)… and 1 took a relocated shallow
+    // slot" hung two properties of the free-deep ROAD-FACED candidates under
+    // the count of REJECTED tiles — 2 numbers about a set of 2, following a
+    // sentence about a set of 11. The identity that closes over the right set
+    // is checked here, so the antecedent the producer now writes out is the one
+    // the arithmetic actually belongs to.
+    {
+      const extSetN = new Set((s.extension || []).map((e) => key(e.x, e.y)));
+      const tkey = (t) => (t && Number.isInteger(t.x) && Number.isInteger(t.y) ? key(t.x, t.y) : null);
+      for (const nr of plan.meta?.noteRecords || []) {
+        const se = nr && nr.rec && nr.rec.search;
+        if (!se || se.openingExited === undefined) continue;
+        const taken = Array.isArray(se.openingTaken) ? se.openingTaken : [];
+        const still = Array.isArray(se.openingStill) ? se.openingStill : [];
+        const exited = Array.isArray(se.openingExited) ? se.openingExited : [];
+        const partN = taken.length + still.length + exited.length;
+        if (partN !== se.freeDeepOnePave) {
+          fails.push(
+            `extensions/one-pave-exit — the opening one-pave class is ${JSON.stringify(se.freeDeepOnePave)} tile(s) ` +
+              `and its published partition holds ${taken.length} taken + ${still.length} still + ${exited.length} ` +
+              `exited = ${partN}. The three rosters are the class followed forward, so they partition it or one ` +
+              `of them is a roster the sentence made up`,
+          );
+        }
+        const allK = [...taken, ...still, ...exited].map(tkey).filter(Boolean);
+        if (new Set(allK).size !== allK.length) {
+          fails.push(
+            `extensions/one-pave-exit — a tile appears in more than one of this record's three opening-class ` +
+              `rosters. A candidate was taken, or is still in the class, or left it, and it is exactly one of ` +
+              `the three`,
+          );
+        }
+        const badTaken = taken.map(tkey).filter((k) => k && !extSetN.has(k));
+        if (badTaken.length) {
+          fails.push(
+            `extensions/one-pave-exit — \`openingTaken\` names ${badTaken.slice(0, 4).join(" ")} and this room ` +
+              `ships no extension there. The roster's whole claim is "now carries an extension of ours", and it ` +
+              `is printed as the count a reader subtracts the other two from`,
+          );
+        }
+        const badExit = exited.map(tkey).filter((k) => k && extSetN.has(k));
+        if (badExit.length) {
+          fails.push(
+            `extensions/one-pave-exit — \`openingExited\` names ${badExit.slice(0, 4).join(" ")} as (a) tile(s) ` +
+              `that LEFT the one-pave class UNTAKEN, and this room ships an extension on ${badExit.length === 1 ? "it" : "them"}. ` +
+              `That is the exact defect the hardcoded exemplar had: the sentence's worked example was a tile the ` +
+              `same note lists as moved onto, in the one room it named. A named tile has the property the ` +
+              `sentence gives it or the sentence is about a different tile`,
+            badExit.map((k) => ({ x: +k.split(",")[0], y: +k.split(",")[1] })),
+          );
+        }
+        const badStill = still.map(tkey).filter((k) => k && extSetN.has(k));
+        if (badStill.length) {
+          fails.push(
+            `extensions/one-pave-exit — \`openingStill\` names ${badStill.slice(0, 4).join(" ")} as still one pave ` +
+              `from the network and this room ships an extension there — a tile that was taken is not a tile ` +
+              `still waiting`,
+          );
+        }
+        // OL3 — the identity, over the set the sentence now names
+        if (
+          Number.isInteger(se.freeDeepRoadFaced) &&
+          Number.isInteger(se.spentOnAdds) &&
+          Number.isInteger(se.spentOnMoves) &&
+          Number.isInteger(se.left) &&
+          se.spentOnAdds + se.spentOnMoves + se.left !== se.freeDeepRoadFaced
+        ) {
+          fails.push(
+            `extensions/one-pave-exit — \`spentOnAdds\` ${se.spentOnAdds} + \`spentOnMoves\` ${se.spentOnMoves} + ` +
+              `\`left\` ${se.left} is ${se.spentOnAdds + se.spentOnMoves + se.left} and \`freeDeepRoadFaced\` is ` +
+              `${se.freeDeepRoadFaced}. Those three numbers partition the free deep ROAD-FACED candidates and ` +
+              `nothing else — the note used to hang them off the count of REJECTED tiles, two numbers about a ` +
+              `set of 2 following a sentence about a set of 11`,
+          );
         }
       }
     }
@@ -17958,6 +18914,47 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             // other, and a channel that is not is named above with both
             // strings quoted)
           }
+        }
+      }
+    }
+    // ==================================================================
+    // ROUND 27 / MF4 — AND THE FILM'S NOTE IS READ TO ITS LAST CHARACTER.
+    // ==================================================================
+    // The block above reads the film through a WINDOW between two markers, and
+    // round 26's claim was that the window left nowhere for a clause. It left
+    // the whole tail: the note goes on after the close marker with the cut
+    // size, the upkeep, the free-deep pair and the enclosure claims, and a
+    // sentence appended there ("…and every one of this room's 14 cut tiles is
+    // redundant so the wall could be deleted for free") passed 172/172 with
+    // this file's output byte-identical. Here the note is compared WHOLE
+    // against the one this room's own record generates — for every room, not
+    // only the 117 that print the unjudged caption.
+    {
+      const chW = unjudgedChannels(plan.room);
+      if (!chW.err) {
+        const whyW =
+          `${UNJUDGED_LEAD}` +
+          unjudgedReason(
+            typeof plan.meta?.walls?.mobility?.maxDetour === "number"
+              ? plan.meta.walls.mobility.maxDetour
+              : plan.meta?.shell?.mobilityBuilt?.maxDetour,
+            MOB_DETOUR_FLOOR,
+          );
+        const wantW = derivedRampartNote(plan, whyW);
+        if (wantW !== null && chW.filmWhole !== wantW) {
+          const gotW = chW.filmWhole === null ? "(no ramparts note at all)" : chW.filmWhole;
+          let atW = 0;
+          while (atW < Math.min(gotW.length, wantW.length) && gotW[atW] === wantW[atW]) atW++;
+          fails.push(
+            `walls/mobility-caption — this room's film note (\`NOTES.ramparts\`) is not the note its own ` +
+              `record generates. They agree for ${atW} character(s) and then diverge — shipped: ` +
+              `"…${gotW.slice(Math.max(0, atW - 40), atW + 80)}…" vs generated: ` +
+              `"…${wantW.slice(Math.max(0, atW - 40), atW + 80)}…". The note is composed from the mobility ` +
+              `answer and the wall's own tail, every figure in it a published leaf and four of them ` +
+              `re-derived from the board by this file, so it is a RENDERED channel and the comparison is the ` +
+              `whole value: round 26 read it through a window between two markers and a clause appended after ` +
+              `the close marker passed the fleet with this file's output byte-identical`,
+          );
         }
       }
     }
@@ -24670,6 +25667,13 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
       `HEAVY SEARCH — ${composes} complete compositions, over the ${RUNTIME_NOTE_COMPOSES} one seed's ladder ` +
         `costs` + (rtDecl ? " (declared)" : " and NOT declared by the planner"),
     );
+  }
+
+  // ROUND 27 / MF5 + MF6 — the two class inventories. Every *Basis/*Why
+  // string is registered and the eleven unread fields are re-rendered; every
+  // identifier leaf name in meta is in the closed snapshot.
+  for (const msg27 of checkR27(plan, { terrain, extShip: ext })) {
+    fails.push(msg27);
   }
 
   // ROUND 25 / MM4 — the negative-detour census, taken off this room's own

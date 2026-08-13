@@ -99,6 +99,77 @@ function idx(x, y) {
  * recovery pass runs to a fixpoint, and a second run has to compose with every
  * seat the earlier runs withdrew still off the board.
  */
+/**
+ * ---------------------------------------------------------------------------
+ * MF5 (round 27) — `mineralOffNetworkWhy`, RENDERED FROM THE SEAT'S OWN RING.
+ * ---------------------------------------------------------------------------
+ * 40 distinct strings over 172 rooms, and the 133-room majority branch — the
+ * off-network one, which is the whole point of the field — was ONE constant
+ * sentence: the rule, with nothing about this room in it. The rule is real and
+ * it is kept as the suffix; in front of it goes the measurement the sentence is
+ * a verdict on — the eight tiles around the seat, what each of them carries,
+ * and how far the nearest road this room ships actually is.
+ *
+ * `holds` is read off the shipped structure lists, so a reader with the
+ * artifact and no terrain re-derives every word of it.
+ */
+export const MINERAL_OFF_NETWORK_BASIS =
+  `no road by design — mineral hauling is one trickle deposit on a long cooldown, and permanent road ` +
+  `decay to reach it costs more than the walk it saves.`;
+export const MINERAL_ON_NETWORK_BASIS =
+  `no road was grown to it, but a corridor another layer laid runs past it, so it is serviced like ` +
+  `any other container.`;
+/**
+ * @param c {{seat:{x,y}, ring:{k:string,holds:string}[], touching:string[],
+ *           nearestRoad:{x:number,y:number,dist:number}|null, when:string}}
+ */
+export function renderMineralOffNetworkWhy(c) {
+  const ring = c.ring.map((r) => `${r.k} ${r.holds}`).join(" · ");
+  const near = !c.nearestRoad
+    ? `this room ships no road at all`
+    : c.nearestRoad.dist === 0
+      ? `the seat tile itself carries a road (a container and a road legally share a square)`
+      : `the nearest road tile this room ships is ${c.nearestRoad.x},${c.nearestRoad.y}, ` +
+        `${c.nearestRoad.dist} step(s) away`;
+  return (
+    `ON THIS ROOM: the mineral seat at ${c.seat.x},${c.seat.y} has these eight neighbours — ${ring} — ` +
+    `so ${c.touching.length} of them put it on the network, and ${near}. ` +
+    (c.touching.length
+      ? `The seat DOES touch the network (${c.touching.join(" ")}): ${MINERAL_ON_NETWORK_BASIS}`
+      : MINERAL_OFF_NETWORK_BASIS) +
+    ` Measured over ${c.when}.`
+  );
+}
+/** the ring census the renderer reads — shipped structure lists only, no terrain */
+export function mineralSeatCensus(structures, seat, netTiles) {
+  const holdsAt = new Map();
+  for (const t of Object.keys(structures || {})) {
+    for (const p of structures[t] || []) {
+      const k = key(p.x, p.y);
+      const was = holdsAt.get(k);
+      holdsAt.set(k, was ? `${was}+${t}` : t);
+    }
+  }
+  const ring = [];
+  const touching = [];
+  for (const [dx, dy] of D8) {
+    const x = seat.x + dx,
+      y = seat.y + dy;
+    if (x < 0 || y < 0 || x > 49 || y > 49) continue;
+    const k = key(x, y);
+    ring.push({ k, holds: `(${holdsAt.get(k) || "nothing of ours"})` });
+    if (netTiles.has(k)) touching.push(k);
+  }
+  let nearestRoad = null;
+  for (const r of structures?.road || []) {
+    const d = Math.max(Math.abs(r.x - seat.x), Math.abs(r.y - seat.y));
+    if (!nearestRoad || d < nearestRoad.dist || (d === nearestRoad.dist && (r.y < nearestRoad.y || (r.y === nearestRoad.y && r.x < nearestRoad.x)))) {
+      nearestRoad = { x: r.x, y: r.y, dist: d };
+    }
+  }
+  return { seat: { x: seat.x, y: seat.y }, ring, touching, nearestRoad };
+}
+
 export function forbiddenObserverSeats(plan) {
   const f = plan?.meta?.composeOpts?.forbidObserverSeat;
   const out = new Set();
@@ -601,6 +672,11 @@ export function planMisc(terrain, plan) {
     if (seat) {
       mineralContainer.push({ x: seat.x, y: seat.y });
       occupied.add(key(seat.x, seat.y));
+      // OL5 (round 27): `meta.mineralSeat` is layer 1's RESERVATION and it is
+      // named for an outcome. The bias above is a bias and not a veto, so the
+      // container can ship somewhere else — and in E12S7 it does. The field is
+      // re-pointed at the tile the room actually ships, on the finished board,
+      // by remeasureMineralNetwork in pipeline.mjs; see the block there.
       const i = idx(seat.x, seat.y);
       if (ext[i] || depth[i] < DEPTH_SAFE) {
         if (borderLegal(terrain, seat.x, seat.y, "rampart")) {
@@ -724,12 +800,14 @@ export function planMisc(terrain, plan) {
       mineralOffNetwork: mineralContainer.length > 0 && !mineralSeatOnNetwork,
       mineralOffNetworkWhy: !mineralContainer.length
         ? null
-        : mineralSeatOnNetwork
-          ? `the seat at ${mineralContainer[0].x},${mineralContainer[0].y} DOES touch the road network ` +
-            `(${mineralSeatNetTiles.join(" ")}) — no road was grown to it, but the corridor another ` +
-            `layer laid happens to run past it, so it is serviced like any other container`
-          : "no road by design — mineral hauling is one trickle deposit on a long cooldown, " +
-            "and permanent road decay to reach it costs more than the walk it saves",
+        : renderMineralOffNetworkWhy({
+            ...mineralSeatCensus(
+              { ...plan.structures, road: (plan.structures.road || []).concat(newRoads) },
+              mineralContainer[0],
+              netTiles,
+            ),
+            when: "layer 5's road set",
+          }),
       mineralSeatNetTiles,
       factory: 0,
       powerSpawn: 0,
