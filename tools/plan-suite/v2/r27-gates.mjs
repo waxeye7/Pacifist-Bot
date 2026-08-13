@@ -103,7 +103,7 @@ export const META_DARK = {
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
   mobilityShipped: { klass: "derived" },
   mobilityShippedFree: { klass: "presence", why: "the same lap with mass removed; as-built is the gated one" },
-  newRoads: { klass: "presence", why: "layer-3 laid-road event count; later prune may delete them; the shipped road list is gated" },
+  newRoads: { klass: "derived" },
   noAlternative: { klass: "presence", why: "a search-refusal witness" },
   nukerHubDist: { klass: "derived" },
   nukerInWindow: { klass: "presence", why: "nukeWindow.nukerInWindow sibling; the window is re-derived" },
@@ -769,6 +769,20 @@ export function checkR27(plan, ctx = {}) {
       fails.push(
         `meta.walls.spurred is ${w.spurred} and laidByKind.spur is ${laidSpur}. A cluster was served ` +
           `iff the spur pass laid a tile — zeroing the event while the laid book still names tiles used to pass`,
+      );
+    }
+  }
+
+  if (typeof tw.newRoads === "number") {
+    let want = 0;
+    for (const v of Object.values(plan.meta?.roadLayer || {})) {
+      if (v === 3) want++;
+    }
+    if (tw.newRoads !== want) {
+      fails.push(
+        `meta.towers.newRoads is ${tw.newRoads} and this room's roadLayer has ${want} layer-3 tag(s), ` +
+          `including tags whose tiles the prune later deleted. It is that event count, not a comment — ` +
+          `zeroing it while the tags still name the roads used to pass`,
       );
     }
   }

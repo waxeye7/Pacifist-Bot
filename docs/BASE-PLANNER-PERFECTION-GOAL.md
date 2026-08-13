@@ -9818,7 +9818,9 @@ it says so in the entry rather than in a comment.
    roster to the interior walk. p4 derived the cheap MF6 presence names a
    fleet-wide flattering flip used to walk past: hub walks, unblocked refill,
    protectRadius enum, priceyWall = baseCut > MAX_CUT, mineralBubble, swampPaved,
-   spurred. `newRoads` stays presence. p1/p2: shipped shell damage, refill
+   spurred. p5 named ghosts vs pruned on the film prune caption. p6:
+   `newRoads` is the count of `roadLayer` layer-3 tags, ghosts included.
+   p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
    `NOTES.roadsPrune` led with the ghost count — roadLayer tags with no shipped

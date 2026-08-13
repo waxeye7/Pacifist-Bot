@@ -8479,6 +8479,10 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.walls?.spurred || 0) > 0 && (p.meta?.walls?.laidByKind?.spur || 0) > 0),
     (p) => { p.meta.walls.spurred = 0; },
     "spurred");
+  run("r28/MF6-X-newRoads-zeroed",
+    any28((p) => (p.meta?.towers?.newRoads || 0) > 0),
+    (p) => { p.meta.towers.newRoads = 0; },
+    "newRoads");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {
