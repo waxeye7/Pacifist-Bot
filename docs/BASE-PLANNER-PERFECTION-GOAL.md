@@ -581,7 +581,7 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **1300/1300 caught** (1237/1237 at round 26, 1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
+  The mutation suite is at **1304/1304 caught** (1237/1237 at round 26, 1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
   round 17, 603/603 at
   round 16, 465/465 at
   round 15, 338/338 at
@@ -2957,8 +2957,14 @@ shrink is a proper tile prefix of that board; a kept 60/0 walk's
 r29p5: criticism 93 — taken-room `fixedHolders` keep identity (type+xy of a
 shipped unmovable) and drop `recovers`/`recoversDeep` (a log of a board that
 left). Artifact md5 `86d38bdd2b2aef39a79cb8aa134f9b06`. Mutate 1299 →
-**1300**. Still open: 98 invent-extra-tiles · 88 other fake cuts · remaining
-presence · exact pick · 141(e) seedScore · 134(a,c,d).
+**1300**. r29p6: reserved tiles are this room's walkable interior (cheb≤2 of
+the reserved set or the cut). r29p7: criticism 88 — a last discarded rung
+is weighed like every other. Swapping it for the shipped cut and setting
+`ramparts` down to that cut BITES (cheaper-and-not-longer). Residue: a
+prettier last-rung lap that keeps *more* ramparts when `shippedLap` is
+under the buy floor. Mutate 1303 → **1304**. Still open: 98 D8-neighbor
+extra · 88 prettier-dearer last rung · remaining presence · exact pick ·
+141(e) seedScore · 134(a,c,d).
 **And one thing the gates gained that no channel shows:** all four
 `exteriorContract` consumers are re-derived from terrain now rather than one,
 and the frozen anchor they are derived against is bound three ways — the flood
@@ -9918,9 +9924,12 @@ it says so in the entry rather than in a comment.
    141(e) `plan.seed` is required; `NOTES.seed` is generated from it. r29p5:
    criticism 93 — taken-room `fixedHolders` drop `recovers`/`recoversDeep`.
    Identity (type+xy of a shipped unmovable) stays. Planting the numbers back
-   bites. Mutate 1299 → **1300**. Still open: 98 invent-extra-tiles, 88 other
-   fake cuts that walk the claimed lap, remaining META_DARK presence, exact
-   pick, 141(e) seedScore, 134(a,c,d).
+   bites. r29p6: reserved tiles bound to this room's floor. r29p7: last
+   discarded rung is weighed — cheaper-and-not-longer on the last fat rung
+   BITES. Residue: prettier last-rung lap that keeps more ramparts under the
+   buy floor. Mutate 1303 → **1304**. Still open: 98 D8-neighbor extra, 88
+   prettier-dearer last rung, remaining META_DARK presence, exact pick,
+   141(e) seedScore, 134(a,c,d).
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
@@ -10008,7 +10017,7 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
-- Mutations: `.../mutate.mjs` (**1300/1300 bite** against a clean 172/172
+- Mutations: `.../mutate.mjs` (**1304/1304 bite** against a clean 172/172
   baseline; `--only r28/` for one round's block; honours `PLANS_FILE` and never
   writes the artifact). Four of round 25's controls were NOT in that count and say
   so at criticism 128(a): the film, page and chip forgeries live in `out-v2/` and

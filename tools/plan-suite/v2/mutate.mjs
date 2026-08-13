@@ -8739,6 +8739,40 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "fatter discarded|winner's cut|swapping");
+  run("r30/88-X-last-fat-rung-shipped-cut-and-ramparts-to-cutlen",
+    any28((p) => {
+      const shipped = (p.structures?.rampart || []).length;
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const rungs = sf?.ladder?.rungs || [];
+      const last = rungs[rungs.length - 1];
+      return !!(last && last.complete && last.ramparts > shipped && Array.isArray(last.cutTiles) && last.cutTiles.length !== shipped);
+    }),
+    (p) => {
+      const shippedCut = (p.meta.shell.cut || []).map((t) => ({ x: t.x, y: t.y }));
+      const shipped = (p.structures.rampart || []).length;
+      const sf = (p.meta.shortfalls || []).find((s) => s && s.ladder);
+      const winner = sf?.ladder?.rungs?.find((r) => r && r.ramparts === shipped);
+      const lap = winner && typeof winner.mobility === "number" ? winner.mobility : 1.56;
+      const lastBonus = sf.ladder.rungs[sf.ladder.rungs.length - 1].needDeepBonus;
+      for (const row of sf.ladder.rungs) {
+        if (row && row.needDeepBonus === lastBonus) {
+          row.cutTiles = shippedCut.map((t) => ({ x: t.x, y: t.y }));
+          row.mobility = lap;
+          row.ramparts = shippedCut.length;
+        }
+      }
+      sf.detail = renderDecl(sf);
+      if (p.meta.shellEscalation?.rungs) {
+        for (const row of p.meta.shellEscalation.rungs) {
+          if (row && row.needDeepBonus === lastBonus) {
+            row.cutTiles = shippedCut.map((t) => ({ x: t.x, y: t.y }));
+            row.mobility = lap;
+            row.ramparts = shippedCut.length;
+          }
+        }
+      }
+    },
+    "would have|cheaper|upkeep|first objective");
   run("r29/MF6-X-extractorOffNetwork-flipped-alone",
     any28((p) => typeof p.meta?.misc?.extractorOffNetwork === "boolean" && typeof p.meta?.misc?.mineralOffNetwork === "boolean"),
     (p) => { p.meta.misc.extractorOffNetwork = !p.meta.misc.extractorOffNetwork; },

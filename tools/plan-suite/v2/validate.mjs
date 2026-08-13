@@ -24999,11 +24999,15 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               // A RUNG THE WALK ACTUALLY WEIGHED. The loop pushes the rung to
               // the trail and THEN breaks on an eco-budget overrun, so the
               // LAST rung of a table is the one rung that may have been
-              // composed without ever being compared. Every earlier rung was
-              // compared (a break ends the walk), and so is the last one in a
-              // room that has no eco cap to break on.
-              const ecoCapped = plan.meta?.ecoBudget ? plan.meta.ecoBudget.cap !== null : true;
-              const weighed = (i2) => i2 < rungs.length - 1 || !ecoCapped;
+              // composed without ever being compared. That is a fact about
+              // the walk, not a licence to publish a last discarded enclosure
+              // the walk's own rule would have taken — cheaper-and-not-longer,
+              // or shorter-and-no-dearer. This fleet's last rungs are all
+              // worse/dearer (0 of 37 last fat rungs trip the rule). r30's
+              // named 88 residue swapped the last fat cut for the shipped
+              // wall, set ramparts down to that cut, and escaped because
+              // ecoCapped skipped the last index.
+              const weighed = () => true;
               for (let ri = 0; ri < rungs.length; ri++) {
                 const r = rungs[ri];
                 if (!r || r === picked || !r.complete) continue;
