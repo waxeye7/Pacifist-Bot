@@ -11,7 +11,7 @@
  *      appeared nowhere in validate.mjs carry an explicit klass + reason;
  *      the cheap ones are derived here.
  */
-import { D8, buildable, chebyshev, walkable } from "./shared.mjs";
+import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, RADII_WIDE } from "./layer-shell.mjs";
 import {
@@ -971,6 +971,11 @@ export function checkR27(plan, ctx = {}) {
   // and still invent a priced shrink. Reserved tiles are this room's
   // walkable interior floor — a walk (cheb≤2 of the reserved set or the
   // cut; road gaps the greedy skipped), not a COORD bag.
+  //
+  // ROUND 29 tenth / the unread suffix: a D8 neighbour of the kept prefix
+  // (E11S1 19,27) is this room's floor and still invents a longer walk.
+  // Shrink fullRun.reserved / byRound are the kept prefix (=== lane.reserved).
+  // The refused tail is wanted − tiles, a count, not a COORD list.
   {
     const lane = meta.extensions?.laneMeta || w.mobility?.lanes;
     if (lane && typeof lane === "object") {
@@ -1024,10 +1029,11 @@ export function checkR27(plan, ctx = {}) {
                 `is one number`,
             );
           }
-          if (lane.shrunk.wanted !== fr.tiles) {
+          if (!(lane.shrunk.wanted > (fr.tiles || 0))) {
             fails.push(
-              `shrunk.wanted is ${lane.shrunk.wanted} and the cap-10 walk reserved ${fr.tiles} tile(s). ` +
-                `wanted is that walk, not a free larger number`,
+              `shrunk.wanted is ${lane.shrunk.wanted} and fullRun.tiles is ${fr.tiles}. ` +
+                `wanted > tiles is the refused extra as a count; reserved is the kept prefix, ` +
+                `the suffix is not a tile list`,
             );
           }
           if (fr.to === 0 || fr.to === fr.used) {
@@ -1178,19 +1184,16 @@ export function checkR27(plan, ctx = {}) {
               }
             } else if (shrunk) {
               const to = lane.shrunk && typeof lane.shrunk.to === "number" ? lane.shrunk.to : -1;
-              const prefix = (byRound || []).slice(0, to).flat().map(String);
-              if (sortJ(prefix) !== sortJ(laneRes)) {
+              if (sortJ(reserved) !== sortJ(laneRes)) {
                 fails.push(
-                  `the first ${to} round(s) of fullRun.byRound are [${prefix.slice(0, 6).join(" ")}] ` +
-                    `and lane.reserved is [${laneRes.slice(0, 6).join(" ")}]. A shrink is that prefix, ` +
-                    `tile for tile`,
+                  `fullRun.reserved and lane.reserved disagree and this room SHRANK. ` +
+                    `reserved is the kept prefix; the refused suffix is not a tile list`,
                 );
               }
-              if (reserved.length <= laneRes.length) {
+              if (!byRound || byRound.length !== to) {
                 fails.push(
-                  `fullRun.reserved has ${reserved.length} tile(s) and the shipped reservation has ` +
-                    `${laneRes.length}. A shrink is a proper tile prefix, not the same board with a ` +
-                    `new integer in front of it`,
+                  `fullRun.byRound has ${byRound ? byRound.length : 0} round(s) and shrunk.to is ${to}. ` +
+                    `byRound is the kept prefix, not the refused tail as a tile list`,
                 );
               }
             } else if (dropped) {
@@ -1255,6 +1258,22 @@ export function checkR27(plan, ctx = {}) {
       if (!row) return false;
       if (esc && pickedBonus !== null) return row.needDeepBonus !== pickedBonus;
       return typeof row.ramparts === "number" && row.ramparts !== shippedRamp;
+    };
+    // r29p10 / 88 — a complete discarded cut is a composed enclosure. A
+    // one-tile nudge (E11S2 20,9→19,9) walks its own lap and still leaks
+    // the sitter. Incomplete rungs skip. Better-lap-always is not required
+    // (eco-capped last rungs).
+    const discardedCutSeals = (row, cuts, where) => {
+      if (!isDiscarded(row) || row.complete !== true || !cuts || !cuts.length) return;
+      if (!ctx.terrain || !plan.sitter) return;
+      const ext = exteriorFlood(ctx.terrain, new Set(cuts.map(K)));
+      if (ext[plan.sitter.x + plan.sitter.y * 50]) {
+        fails.push(
+          `${where} needDeep+${row.needDeepBonus} discarded cut leaks the sitter. ` +
+            `A complete discarded enclosure is not a composed enclosure if the exterior ` +
+            `flood from the room border reaches the garrison`,
+        );
+      }
     };
     // r29p8 / 88 — judge the published cut, not the free ramparts integer.
     // cheaper-and-not-longer on row.ramparts misses an 8-tile box at lap 0
@@ -1321,6 +1340,7 @@ export function checkR27(plan, ctx = {}) {
           );
         }
         judgeDiscardedPublishedCut(row, cuts, "ladder.rungs");
+        discardedCutSeals(row, cuts, "ladder.rungs");
         // r29 / 88 residue — a fatter discarded cut replaced with the shipped
         // cut, mobility set to the winner's lap, regen, escaped. enclosureMobility
         // of a free list is an agreement test. A wider enclosure is not the
@@ -1372,6 +1392,7 @@ export function checkR27(plan, ctx = {}) {
           );
         }
         judgeDiscardedPublishedCut(row, row.cutTiles, "meta.shellEscalation.rungs");
+        discardedCutSeals(row, row.cutTiles, "meta.shellEscalation.rungs");
         const twin = declRungs.find((r) => r && r.needDeepBonus === row.needDeepBonus);
         if (twin && typeof twin.mobility === "number" && typeof want === "number" && Math.abs(twin.mobility - want) > 1e-6) {
           fails.push(
