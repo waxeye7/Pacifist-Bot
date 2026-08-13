@@ -8979,6 +8979,26 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => p.meta?.walls?.mobility?.coveredDetourDeclared === true),
     (p) => { p.meta.walls.mobility.coveredDetourDeclared = false; },
     "coveredDetourDeclared|covered-detour");
+  run("r32/MF6-X-stitched-zeroed",
+    any28((p) => (p.meta?.walls?.stitched || 0) > 0 && (p.meta?.walls?.laidByKind?.stitch || 0) > 0),
+    (p) => { p.meta.walls.stitched = 0; },
+    "stitched|laidByKind.stitch|laid a tile");
+  run("r32/MF6-X-stitchTiles-zeroed",
+    any28((p) => (p.meta?.walls?.stitchTiles || 0) > 0),
+    (p) => { p.meta.walls.stitchTiles = 0; },
+    "stitchTiles|laidByKind.stitch");
+  run("r32/MF6-X-roadsEaten-zeroed",
+    any28((p) => (p.meta?.labs?.roadsEaten || 0) > 0),
+    (p) => { p.meta.labs.roadsEaten = 0; },
+    "roadsEaten|lab-road-eat|shipped lab");
+  run("r32/MF6-X-towerOnly-flattered",
+    any28((p) => typeof p.meta?.towers?.nukeWindow?.towerOnly === "number" && p.meta.towers.nukeWindow.towerOnly !== 1),
+    (p) => { p.meta.towers.nukeWindow.towerOnly = 1; },
+    "towerOnly|spawn/storage/terminal/tower|layer 3");
+  run("r32/MF6-X-stubRoads-zeroed",
+    any28((p) => (p.meta?.extensions?.stubRoads || 0) > 0),
+    (p) => { p.meta.extensions.stubRoads = 0; },
+    "stubRoads|roadLayer|layer-6");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },

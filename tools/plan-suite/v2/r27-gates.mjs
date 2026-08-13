@@ -159,7 +159,7 @@ export const META_DARK = {
   rescueSpent: { klass: "presence", why: "layer-6 rescue spend" },
   rescuedLap: { klass: "presence", why: "layer-6 rescue witness" },
   rescuedTo: { klass: "presence", why: "layer-6 rescue destination" },
-  roadsEaten: { klass: "presence", why: "lab-stamp road-eat count; the network is re-derived" },
+  roadsEaten: { klass: "derived" },
   rolledBackFrom: { klass: "presence", why: "layer-7b rollback origin" },
   searchedSeats: { klass: "presence", why: "towerSwapOffer leaf" },
   servedExts: { klass: "presence", why: "layer-7 service census" },
@@ -173,16 +173,16 @@ export const META_DARK = {
   shippedWeakTiles: { klass: "derived" },
   shippedWeakest: { klass: "derived" },
   spurred: { klass: "derived" },
-  stitchTiles: { klass: "presence", why: "layer-7 stitch roster" },
-  stitched: { klass: "presence", why: "layer-7 stitch count" },
+  stitchTiles: { klass: "derived" },
+  stitched: { klass: "derived" },
   strandedFirst: { klass: "presence", why: "conduct-bridge witness" },
   stubCap: { klass: "presence", why: "layer-6 stub cap" },
   stubExhausted: { klass: "presence", why: "layer-6 stub exhaustion" },
-  stubRoads: { klass: "presence", why: "layer-6 stub roster" },
+  stubRoads: { klass: "derived" },
   swampPaved: { klass: "derived" },
   takeTowerSwap: { klass: "presence", why: "composeOpts input from a re-composition; the shipped battery is gated" },
   tourRule: { klass: "presence", why: "sealed-recovery tour ceiling (OF6)" },
-  towerOnly: { klass: "presence", why: "nuke-window's layer-3 sibling" },
+  towerOnly: { klass: "derived" },
   towerSwapOffer: { klass: "presence", why: "the offer record; its basis is rendered" },
   tradeCost: { klass: "presence", why: "a priced-refusal witness" },
   unreachableExts: { klass: "presence", why: "layer-7 unreachable-extension census" },
@@ -263,6 +263,29 @@ function netTilesOf(plan) {
 function mineralSeatOf(plan) {
   if (!plan.mineral) return null;
   return (plan.structures?.container || []).find((c) => chebyshev(c, plan.mineral) <= 1) || null;
+}
+
+/** fullest 5x5 count over spawn/storage/terminal/tower — layer 3's set, no nuker. */
+function towerOnlyWindowOf(plan) {
+  const pts = [];
+  for (const t of ["spawn", "storage", "terminal", "tower"]) {
+    for (const q of plan.structures?.[t] || []) pts.push({ x: q.x, y: q.y });
+  }
+  if (!pts.length) return null;
+  let mx = 0;
+  for (const a of pts) {
+    for (let ox = -2; ox <= 2; ox++) {
+      for (let oy = -2; oy <= 2; oy++) {
+        const cx = a.x + ox;
+        const cy = a.y + oy;
+        if (cx < 0 || cy < 0 || cx > 49 || cy > 49) continue;
+        let n = 0;
+        for (const b of pts) if (Math.abs(b.x - cx) <= 2 && Math.abs(b.y - cy) <= 2) n++;
+        if (n > mx) mx = n;
+      }
+    }
+  }
+  return mx;
 }
 
 /** fullest 5x5 over spawn/storage/terminal/nuker/tower; tie-break is north-then-west. */
@@ -841,6 +864,25 @@ export function checkR27(plan, ctx = {}) {
       );
     }
   }
+  if (typeof w.stitched === "number") {
+    const laidStitch = laid.stitch || 0;
+    if ((w.stitched === 0) !== (laidStitch === 0)) {
+      fails.push(
+        `meta.walls.stitched is ${w.stitched} and laidByKind.stitch is ${laidStitch}. A stranded fragment ` +
+          `was joined iff the stitch pass laid a tile — zeroing the event while the laid book still names ` +
+          `tiles used to pass`,
+      );
+    }
+  }
+  if (typeof w.stitchTiles === "number") {
+    const want = laid.stitch || 0;
+    if (w.stitchTiles !== want) {
+      fails.push(
+        `meta.walls.stitchTiles is ${w.stitchTiles} and laidByKind.stitch is ${want}. It is that laid ` +
+          `count, not a comment — zeroing it while the book still names the tiles used to pass`,
+      );
+    }
+  }
 
   // r29 / META_DARK — cheap presence the review flipped fleet-wide.
   if (typeof misc.extractorOffNetwork === "boolean" && typeof misc.mineralOffNetwork === "boolean") {
@@ -922,6 +964,22 @@ export function checkR27(plan, ctx = {}) {
           `meta.towers.nukeWindow.center is ${nw.center.x},${nw.center.y} and the fullest 5x5 over ` +
             `spawn/storage/terminal/nuker/tower is ${want ? `${want.x},${want.y}` : "uncomputable"}. ` +
             `It is already published on nukeWindow.center — moving it used to pass`,
+        );
+      }
+    }
+    if (nw && typeof nw.towerOnly === "number") {
+      const want = towerOnlyWindowOf(plan);
+      const after = tw.towerDispersion && typeof tw.towerDispersion.after === "number" ? tw.towerDispersion.after : null;
+      if (want !== null && nw.towerOnly !== want) {
+        fails.push(
+          `meta.towers.nukeWindow.towerOnly is ${nw.towerOnly} and the fullest 5x5 over ` +
+            `spawn/storage/terminal/tower is ${want}. It is layer 3's own window on the shipped kit, ` +
+            `not a comment — flattening it used to pass`,
+        );
+      } else if (after !== null && nw.towerOnly !== after) {
+        fails.push(
+          `meta.towers.nukeWindow.towerOnly is ${nw.towerOnly} and towerDispersion.after is ${after}. ` +
+            `They are one reading — the nuke-window field is layer 3's sibling, not a free integer`,
         );
       }
     }
@@ -1227,6 +1285,36 @@ export function checkR27(plan, ctx = {}) {
           `including tags whose tiles the prune later deleted. It is that event count, not a comment — ` +
           `zeroing it while the tags still name the roads used to pass`,
       );
+    }
+  }
+  {
+    const stub = meta.extensions?.stubRoads;
+    if (typeof stub === "number") {
+      let want = 0;
+      for (const v of Object.values(plan.meta?.roadLayer || {})) {
+        if (v === 6) want++;
+      }
+      if (stub !== want) {
+        fails.push(
+          `meta.extensions.stubRoads is ${stub} and this room's roadLayer has ${want} layer-6 tag(s), ` +
+            `including tags whose tiles the prune later deleted. It is that event count, not a comment — ` +
+            `zeroing it while the tags still name the roads used to pass`,
+        );
+      }
+    }
+  }
+  {
+    const eaten = meta.labs?.roadsEaten;
+    if (typeof eaten === "number") {
+      const eat = (meta.shortfalls || []).find((s) => s && s.kind === "lab-road-eat");
+      const labSet = new Set((plan.structures?.lab || []).map(K));
+      const want = (eat?.tiles || []).filter((t) => t && Number.isInteger(t.x) && labSet.has(K(t))).length;
+      if (eaten !== want) {
+        fails.push(
+          `meta.labs.roadsEaten is ${eaten} and ${want} lab-road-eat tile(s) sit on a shipped lab. ` +
+            `The diamond ate those roads — zeroing the count while the tiles still name labs used to pass`,
+        );
+      }
     }
   }
 
