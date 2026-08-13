@@ -41,6 +41,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 let result = creep.withdraw(storage, RESOURCE_ENERGY);
                 if(result == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(storage,1);
+                    return;
                 }
                 else if(result === 0) {
                     creep.memory.fill = false;
@@ -49,7 +50,9 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             else {
                 creep.memory.fill = false;
             }
+            if(creep.memory.fill) return;
         }
+        return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
     if(creep.memory.fleeing) {

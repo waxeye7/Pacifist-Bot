@@ -2642,7 +2642,12 @@ function add_creeps_to_spawn_list(room, spawn) {
                 Game.rooms[target_colonise].controller.my
             ) {
                 let newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(getBody([WORK, CARRY, CARRY, CARRY, MOVE], room, 50), newName, {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name}});
+                // Off-road 1:1, capped at 8 [W,C,M]. Mother RCL8 getBody on
+                // [W,C,C,C,M] used to emit a 50-part 3000e creep that walked
+                // 2–4 ticks/tile to the colony. Spawn is 15k; 8 WORK is 375
+                // ticks of build once they arrive, and they arrive walking.
+                room.memory.spawn_list.push(getBody([WORK, CARRY, MOVE], room, 24), newName,
+                    {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name, fill: true}});
                 console.log('Adding ContainerBuilder to Spawn List: ' + newName);
             }
 
