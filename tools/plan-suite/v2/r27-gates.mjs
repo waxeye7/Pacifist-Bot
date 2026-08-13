@@ -165,7 +165,7 @@ export const META_DARK = {
   lapVeto: { klass: "presence", why: "layer-3/4 lap veto record; the as-built lap is gated" },
   massAdds: { klass: "derived" },
   maxDist: { klass: "derived" },
-  maxHubDist: { klass: "presence", why: "layer-1 seed scoring witness" },
+  maxHubDist: { klass: "derived" },
   minDmgArray: { klass: "derived" },
   minDmgPicked: { klass: "derived" },
   mineralApproachAtReservation: { klass: "derived" },
@@ -578,6 +578,50 @@ function wantComposeRadii(opts) {
   if (bonus === 85) return ESCALATION_RADII_LATE;
   if (bonus === 25 || bonus === 55) return RADII_WIDE;
   return null;
+}
+
+/** fieldFrom's unreachable sentinel (same INF as layer-hub). */
+const HUB_FIELD_INF = 999;
+
+/**
+ * End-of-layer-6 extension seats: the shipped mass, minus 7b backfill, with
+ * each 7b move wound back to its origin. maxHubDist is measured on that set.
+ */
+function l6ExtensionSeats(plan) {
+  const rf = plan.meta?.extensions?.reflow || plan.meta?.walls?.reflow || {};
+  const added = new Set();
+  for (const a of rf.added || []) {
+    if (a && Number.isInteger(a.x) && Number.isInteger(a.y)) added.add(K(a));
+  }
+  const seats = new Map();
+  for (const e of plan.structures?.extension || []) {
+    if (!e || !Number.isInteger(e.x) || !Number.isInteger(e.y)) continue;
+    const k = K(e);
+    if (added.has(k)) continue;
+    seats.set(k, { x: e.x, y: e.y });
+  }
+  for (const m of rf.moved || []) {
+    if (!m?.from || !m?.to || !Number.isInteger(m.from.x) || !Number.isInteger(m.to.x)) continue;
+    const tk = K(m.to);
+    if (!seats.has(tk)) continue;
+    seats.delete(tk);
+    seats.set(K(m.from), { x: m.from.x, y: m.from.y });
+  }
+  return [...seats.values()];
+}
+
+/** layer 6's hub-field max over the seats it stood, before the 7b reflow. */
+function wantMaxHubDist(terrain, plan) {
+  if (!plan.sitter) return null;
+  const seats = l6ExtensionSeats(plan);
+  if (!seats.length) return 0;
+  const hf = fieldFrom(terrain, plan.sitter, l6Occupied(plan));
+  let mx = 0;
+  for (const e of seats) {
+    const v = hf[idx(e.x, e.y)];
+    if (v < HUB_FIELD_INF && v > mx) mx = v;
+  }
+  return mx;
 }
 
 /** layer 3's pre-mass refill field: hub-kit blockers only. Containers are walkable. */
@@ -1922,6 +1966,27 @@ export function checkR27(plan, ctx = {}) {
             `sits there. The take vacated that seat — leaving it on a live tower used to pass`,
         );
       }
+      if (
+        sw.from &&
+        Number.isInteger(sw.from.x) &&
+        Number.isInteger(sw.from.y) &&
+        chebyshev(sw.from, sw.to) !== 1
+      ) {
+        fails.push(
+          `meta.composeOpts.takeTowerSwap.from is ${sw.from.x},${sw.from.y} and to is ${sw.to.x},${sw.to.y}. ` +
+            `The take vacated a D8 neighbour of the destination — moving it off that ring used to pass`,
+        );
+      }
+    }
+  }
+  if (ctx.terrain && plan.sitter && typeof meta.extensions?.maxHubDist === "number") {
+    const want = wantMaxHubDist(ctx.terrain, plan);
+    if (want != null && meta.extensions.maxHubDist !== want) {
+      fails.push(
+        `meta.extensions.maxHubDist is ${meta.extensions.maxHubDist} and the layer-6 hub-field max of ` +
+          `the extensions this room stood before the 7b reflow is ${want}. It is that walk, not a ` +
+          `comment — flattening it used to pass`,
+      );
     }
   }
 
