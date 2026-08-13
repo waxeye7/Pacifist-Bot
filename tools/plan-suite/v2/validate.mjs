@@ -14170,6 +14170,38 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                           `log carries ${rowsAdd10} and ${rowsRem10} for it`,
                       );
                     }
+                    // ROUND 28 / M1 — kind is a function of the pass, and the
+                    // per-invocation counters are bounded by the board. sealCritical
+                    // += 999, ramparts := 0, and a kind rewrite that kept the
+                    // deleted-sum filter happy all passed 172/172.
+                    const wantKind10 = mk10.pass.endsWith("inertPrune")
+                      ? "inertPrune"
+                      : mk10.pass.endsWith("reconcileSeal")
+                        ? "reconcileSeal"
+                        : null;
+                    if (wantKind10 && mk10.kind !== wantKind10) {
+                      off10.push(`${mk10.pass} is kind ${JSON.stringify(mk10.kind)} and that pass is a ${wantKind10}`);
+                    }
+                    if (wantKind10 === "inertPrune") {
+                      if (!Number.isInteger(mk10.ramparts) || !Number.isInteger(mk10.rampartsDeleted)) {
+                        off10.push(`${mk10.pass} is missing integer ramparts/rampartsDeleted`);
+                      } else if (mk10.rampartsDeleted > mk10.ramparts) {
+                        off10.push(`${mk10.pass} deleted ${mk10.rampartsDeleted} of ${mk10.ramparts} rampart(s)`);
+                      } else if (mk10.removes > mk10.rampartsDeleted) {
+                        off10.push(`${mk10.pass} removed ${mk10.removes} cut tile(s) and deleted only ${mk10.rampartsDeleted} rampart(s)`);
+                      }
+                    }
+                    if (wantKind10 === "reconcileSeal") {
+                      if (mk10.sealCritical !== null && !Number.isInteger(mk10.sealCritical)) {
+                        off10.push(`${mk10.pass} sealCritical is ${JSON.stringify(mk10.sealCritical)}`);
+                      } else if (Number.isInteger(mk10.sealCritical) && mk10.sealCritical > rampK9.size) {
+                        off10.push(`${mk10.pass} names ${mk10.sealCritical} seal-critical tile(s) over ${rampK9.size} rampart(s)`);
+                      } else if (Number.isInteger(mk10.sealCritical) && mk10.adds > mk10.sealCritical) {
+                        off10.push(`${mk10.pass} adopted ${mk10.adds} and names only ${mk10.sealCritical} seal-critical`);
+                      } else if (mk10.adds > 0 && mk10.sealCritical === null) {
+                        off10.push(`${mk10.pass} adopted ${mk10.adds} and sealCritical is null — the test that stood down cannot have adopted`);
+                      }
+                    }
                   });
                   const missP10 = CUT_DRIFT_PASSES.filter((p10) => !seenP10.has(p10));
                   if (missP10.length) off10.push(`no marker at all for ${missP10.join(" ")}`);

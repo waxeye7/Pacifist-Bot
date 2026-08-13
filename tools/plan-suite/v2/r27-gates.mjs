@@ -500,11 +500,11 @@ export function checkR27(plan, ctx = {}) {
             }
           }
         }
-        const nearHit = /nearest road tile this room ships is (\d+),(\d+)/.exec(misc.mineralOffNetworkWhy);
+        const nearHit = /nearest road tile this room ships is (\d+),(\d+), (\d+) step/.exec(misc.mineralOffNetworkWhy);
         const seatRoad = /the seat tile itself carries a road/.test(misc.mineralOffNetworkWhy);
         const named =
           nearest &&
-          ((nearHit && +nearHit[1] === nearest.x && +nearHit[2] === nearest.y) ||
+          ((nearHit && +nearHit[1] === nearest.x && +nearHit[2] === nearest.y && +nearHit[3] === nearest.dist) ||
             (seatRoad && nearest.dist === 0));
         if (!named) {
           say(fails, "misc.mineralOffNetworkWhy", misc.mineralOffNetworkWhy, want);

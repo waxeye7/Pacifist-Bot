@@ -8417,6 +8417,23 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       );
     },
     "mineralOffNetworkWhy|WHOLE-VALUE");
+  run("r28/MF5-X-mineralWhy-residue-step-count-rewritten",
+    any28((p) => p.room === "E2S5" && /nearest road tile this room ships is \d+,\d+, \d+ step/.test(p.meta?.misc?.mineralOffNetworkWhy || "")),
+    (p) => {
+      p.meta.misc.mineralOffNetworkWhy = p.meta.misc.mineralOffNetworkWhy.replace(
+        /(nearest road tile this room ships is \d+,\d+), \d+ step/,
+        "$1, 99 step",
+      );
+    },
+    "mineralOffNetworkWhy|WHOLE-VALUE");
+  run("r28/M1-X-cutPasses-sealCritical-inflated",
+    any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical))),
+    (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical += 999; },
+    "cutPasses|sealCritical");
+  run("r28/M1-X-cutPasses-prune-ramparts-zeroed",
+    any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "inertPrune" && m.rampartsDeleted > 0)),
+    (p) => { for (const m of p.meta.shell.cutPasses) if (m && m.kind === "inertPrune") m.ramparts = 0; },
+    "cutPasses|ramparts");
 }
 
 // ===========================================================================
