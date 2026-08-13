@@ -9885,6 +9885,10 @@ it says so in the entry rather than in a comment.
    `fullRun` (ran is a function of that walk). Residue: forge the whole
    `fullRun` then invent a consistent shrink. p10: taken-room `fixedHolders`
    must be shipped unmovable tiles; recovers still pre-take.
+   **ROUND 29 is not clean.** Owner: `cutPasses` leaves still bounded.
+   Mech: 98 forge-`fullRun`, 88 swap discarded cut for shipped cut, 93 recovers,
+   presence class, exact pick, 141(e). r29p1: `cutAdopted` === layer-7b adds
+   (planting a real add bites); a fatter discarded cut is not `cutAtFreeze`.
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
