@@ -1273,11 +1273,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         || room.controller.level <= 3;
     switch(room.controller.level) {
         case 1:
-            if((fillers < spawnrules[1].filler_creep.amount || fillers < spawnrules[1].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[1].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[1].filler_creep.body, name, {memory: {role: 'filler'}});
-                console.log('Adding filler to Spawn List: ' + name);
-            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[1].filler_creep.amount, spawnrules[1].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if(EnergyMiners < 1) {
@@ -1301,11 +1297,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 2:
-            if((fillers < spawnrules[2].filler_creep.amount || fillers < spawnrules[2].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[2].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[2].filler_creep.body, name, {memory: {role: 'filler'}});
-                console.log('Adding filler to Spawn List: ' + name);
-            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[2].filler_creep.amount, spawnrules[2].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if(repairers < spawnrules[2].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger && room.controller.progress > 4500) {
@@ -1331,11 +1323,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 3:
-            if((fillers < spawnrules[3].filler_creep.amount || fillers < spawnrules[3].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[3].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[3].filler_creep.body, name, {memory: {role: 'filler'}});
-                console.log('Adding filler to Spawn List: ' + name);
-            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[3].filler_creep.amount, spawnrules[3].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if(repairers < spawnrules[3].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger) {
@@ -1396,11 +1384,8 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 4:
-            if((fillers < spawnrules[4].filler_creep.amount || fillers < spawnrules[4].filler_creep.amount + 1 && (activeRemotes.length > 1 || room.memory.danger && room.energyAvailable < room.energyCapacityAvailable/1.5) || fillers < spawnrules[4].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[4].filler_creep.body, name, {memory: {role: 'filler'}});
-                console.log('Adding filler to Spawn List: ' + name);
-            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[4].filler_creep.amount, spawnrules[4].filler_creep.body, activeRemotes.length,
+                !!(room.memory.danger && room.energyAvailable < room.energyCapacityAvailable/1.5));
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if((repairers < spawnrules[4].repair_creep.amount + 6 && room.energyAvailable > room.energyCapacityAvailable / 1.3 || room.memory.danger && repairers < spawnrules[4].repair_creep.amount + 10) && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[4].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 20000 && repairers < spawnrules[4].repair_creep.amount ||  (storage.store[RESOURCE_ENERGY] > 15000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 5000) && (rampartsInRoom.filter(function(s) {return s.hits < 60000}).length || room.memory.danger_timer > 50))) {
@@ -1462,11 +1447,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if((fillers < spawnrules[5].filler_creep.amount || fillers < spawnrules[5].filler_creep.amount + 1 && activeRemotes.length > 1 || fillers < spawnrules[5].filler_creep.amount + 2 && activeRemotes.length > 2) && storage) {
-                let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.unshift(spawnrules[5].filler_creep.body, name, {memory: {role: 'filler'}});
-                console.log('Adding filler to Spawn List: ' + name);
-            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[5].filler_creep.amount, spawnrules[5].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             if(repairers < spawnrules[5].repair_creep.amount + 2 && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
@@ -3414,6 +3395,42 @@ function onlyRoadSites(sites): boolean {
         if(sites[i].structureType !== STRUCTURE_ROAD) return false;
     }
     return true;
+}
+
+/**
+ * When a dedicated filler pays for itself.
+ *
+ * Fillers withdraw from `storage` (real bank, or the hub-container fallback)
+ * and stuff spawn/extensions. An empty bank means they unshift a 300e body,
+ * sit on a 0 withdraw, and HOL-block the miners/upgraders. One load (200e
+ * for the RCL4 4-carry body) is the floor; a second filler waits until the
+ * bank is a real buffer.
+ */
+function fillersWanted(room, storage, base: number): number {
+    if(!storage || !storage.store) return 0;
+    const energy = storage.store[RESOURCE_ENERGY] || 0;
+    const hungry = room.energyAvailable < room.energyCapacityAvailable;
+    if(storage.structureType === STRUCTURE_STORAGE) {
+        if(energy < 200) return 0;
+        if(!hungry && energy < 1000) return 0;
+        if(energy < 2000) return 1;
+        return Math.max(1, base);
+    }
+    if(energy < 100 || !hungry) return 0;
+    return 1;
+}
+
+function queueEarlyFiller(room, storage, fillers: number, base: number, body, remotes: number, extraDanger?: boolean): void {
+    let want = fillersWanted(room, storage, base);
+    if(want === 0) return;
+    if(want >= base) {
+        if(remotes > 1 || extraDanger) want = base + 1;
+        if(remotes > 2) want = base + 2;
+    }
+    if(fillers >= want) return;
+    let name = 'Filler-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+    room.memory.spawn_list.unshift(body, name, {memory: {role: 'filler'}});
+    console.log('Adding filler to Spawn List: ' + name);
 }
 
 function queueBuilder(room, rules, sites, builders:number, miners:number,
