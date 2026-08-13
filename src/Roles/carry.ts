@@ -149,7 +149,17 @@ function depotSink(creep: any): any {
     if(!depot) return null;
     const near = creep.pos.isNearTo(depot);
     if(depot.store.getFreeCapacity(RESOURCE_ENERGY) < (near ? 50 : DEPOT_MIN_FREE)) return null;
-    if(!baseIsFed(room)) return null;
+    if(!baseIsFed(room)) {
+        // RCL3 parked 4W only pay if the depot has energy. Leftover
+        // extensions keep baseIsFed false for the rest of the 135k climb.
+        // Hold a 550e spawn floor so a 5W miner still hatches; the rest
+        // goes up. RCL2 has no depot; RCL4 keeps the old full-fed rule.
+        if(ctrl.level !== 3) return null;
+        if(room.energyAvailable < Math.min(550, room.energyCapacityAvailable)) return null;
+        if(room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
+            b.structureType == STRUCTURE_TOWER &&
+            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length > 0) return null;
+    }
     return depot;
 }
 
