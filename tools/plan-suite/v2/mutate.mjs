@@ -8999,6 +8999,22 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.extensions?.stubRoads || 0) > 0),
     (p) => { p.meta.extensions.stubRoads = 0; },
     "stubRoads|roadLayer|layer-6");
+  run("r34/MF6-X-stitched-set-to-2",
+    any28((p) => (p.meta?.walls?.laidByKind?.stitch || 0) > 0 && typeof p.meta?.walls?.stitched === "number"),
+    (p) => { p.meta.walls.stitched = 2; },
+    "stitched|laidByKind.stitch|flag");
+  run("r34/MF6-X-mineralContainer-zeroed",
+    any28((p) => (p.meta?.misc?.mineralContainer || 0) > 0),
+    (p) => { p.meta.misc.mineralContainer = 0; },
+    "mineralContainer|chebyshev-1|seat count");
+  run("r34/MF6-X-minDmgPicked-zeroed",
+    any28((p) => typeof p.meta?.towers?.rcl5Pair?.minDmgPicked === "number" && p.meta.towers.rcl5Pair.minDmgPicked !== 0),
+    (p) => { p.meta.towers.rcl5Pair.minDmgPicked = 0; },
+    "minDmgPicked|freeze cut|pair");
+  run("r34/MF6-X-servedFree-zeroed",
+    any28((p) => (p.meta?.walls?.servedFree || 0) > 0),
+    (p) => { p.meta.walls.servedFree = 0; },
+    "servedFree|pre-layer-7|already-served");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },

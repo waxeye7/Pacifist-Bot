@@ -129,10 +129,10 @@ export const META_DARK = {
   maxDist: { klass: "presence", why: "a search's own max-distance counter" },
   maxHubDist: { klass: "presence", why: "layer-1 seed scoring witness" },
   minDmgArray: { klass: "presence", why: "layer-3 hill-climb witness" },
-  minDmgPicked: { klass: "presence", why: "layer-3 hill-climb witness" },
+  minDmgPicked: { klass: "derived" },
   mineralApproachAtReservation: { klass: "presence", why: "layer-1's approach, kept beside the shipped one (OL5)" },
   mineralBubble: { klass: "derived" },
-  mineralContainer: { klass: "presence", why: "layer-5's own seat pick; the shipped container is gated" },
+  mineralContainer: { klass: "derived" },
   mineralOffNetworkWhy: { klass: "rendered" },
   mineralSeatAtReservation: { klass: "presence", why: "layer-1's reserved seat, kept beside the shipped one (OL5)" },
   mineralSeatNetTiles: { klass: "derived" },
@@ -163,7 +163,7 @@ export const META_DARK = {
   rolledBackFrom: { klass: "presence", why: "layer-7b rollback origin" },
   searchedSeats: { klass: "presence", why: "towerSwapOffer leaf" },
   servedExts: { klass: "presence", why: "layer-7 service census" },
-  servedFree: { klass: "presence", why: "layer-7 service census" },
+  servedFree: { klass: "derived" },
   shallowCost: { klass: "presence", why: "lab-stamp shallow-lab cost" },
   shallowNow: { klass: "presence", why: "reflow's own remaining-shallow count; the board's shallow set is gated" },
   shallowRamparts: { klass: "presence", why: "personal-rampart count at a layer; the board's ramparts are gated" },
@@ -263,6 +263,68 @@ function netTilesOf(plan) {
 function mineralSeatOf(plan) {
   if (!plan.mineral) return null;
   return (plan.structures?.container || []).find((c) => chebyshev(c, plan.mineral) <= 1) || null;
+}
+
+/** chebyshev tower damage — same steps as layer-towers.mjs towerDmg. */
+function towerDmgAt(a, b) {
+  const r = Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+  if (r <= 5) return 600;
+  if (r >= 20) return 150;
+  return 600 - (r - 5) * 30;
+}
+
+/** weakest freeze-cut tile under a two-tower pair. */
+function towerPairMinDmg(t0, t1, cut) {
+  let mn = Infinity;
+  for (const c of cut || []) {
+    if (!c || !Number.isInteger(c.x)) continue;
+    const d = towerDmgAt(t0, c) + towerDmgAt(t1, c);
+    if (d < mn) mn = d;
+  }
+  return Number.isFinite(mn) ? mn : 0;
+}
+
+/** shipped-cut clusters that already D8-touch a pre-layer-7 road. */
+function servedFreeOf(cut, roadLayer) {
+  const cutSet = new Set();
+  const tiles = [];
+  for (const c of cut || []) {
+    if (!c || !Number.isInteger(c.x)) continue;
+    cutSet.add(K(c));
+    tiles.push(c);
+  }
+  const pre = new Set();
+  for (const [k, v] of Object.entries(roadLayer || {})) {
+    if (v < 7) pre.add(k);
+  }
+  const seen = new Set();
+  let n = 0;
+  for (const c of tiles) {
+    const k0 = K(c);
+    if (seen.has(k0)) continue;
+    seen.add(k0);
+    const cl = [c];
+    for (let i = 0; i < cl.length; i++) {
+      for (const [dx, dy] of D8) {
+        const k = `${cl[i].x + dx},${cl[i].y + dy}`;
+        if (seen.has(k) || !cutSet.has(k)) continue;
+        seen.add(k);
+        cl.push({ x: cl[i].x + dx, y: cl[i].y + dy });
+      }
+    }
+    let already = false;
+    for (const t of cl) {
+      for (const [dx, dy] of D8) {
+        if (pre.has(`${t.x + dx},${t.y + dy}`)) {
+          already = true;
+          break;
+        }
+      }
+      if (already) break;
+    }
+    if (already) n++;
+  }
+  return n;
 }
 
 /** fullest 5x5 count over spawn/storage/terminal/tower — layer 3's set, no nuker. */
@@ -843,6 +905,15 @@ export function checkR27(plan, ctx = {}) {
       );
     }
   }
+  if (typeof misc.mineralContainer === "number") {
+    const want = plan.mineral ? (plan.structures?.container || []).filter((c) => chebyshev(c, plan.mineral) <= 1).length : 0;
+    if (misc.mineralContainer !== want) {
+      fails.push(
+        `meta.misc.mineralContainer is ${misc.mineralContainer} and this room has ${want} container(s) ` +
+          `chebyshev-1 of the mineral. It is that seat count, not a comment — zeroing it used to pass`,
+      );
+    }
+  }
 
   const laid = w.laidByKind || {};
   const restored = w.restoredByKind || {};
@@ -866,11 +937,14 @@ export function checkR27(plan, ctx = {}) {
   }
   if (typeof w.stitched === "number") {
     const laidStitch = laid.stitch || 0;
-    if ((w.stitched === 0) !== (laidStitch === 0)) {
+    // producer increments once per joined fragment, not per tile, so this
+    // artifact ships the 0/1 flag. Do not rewrite boards to make it the count.
+    const want = laidStitch > 0 ? 1 : 0;
+    if (w.stitched !== want) {
       fails.push(
-        `meta.walls.stitched is ${w.stitched} and laidByKind.stitch is ${laidStitch}. A stranded fragment ` +
-          `was joined iff the stitch pass laid a tile — zeroing the event while the laid book still names ` +
-          `tiles used to pass`,
+        `meta.walls.stitched is ${w.stitched} and laidByKind.stitch is ${laidStitch}. It is 1 iff the ` +
+          `stitch pass laid a tile, 0 otherwise — this artifact ships that flag, not the laid count. ` +
+          `Setting it to any other integer used to pass`,
       );
     }
   }
@@ -980,6 +1054,21 @@ export function checkR27(plan, ctx = {}) {
         fails.push(
           `meta.towers.nukeWindow.towerOnly is ${nw.towerOnly} and towerDispersion.after is ${after}. ` +
             `They are one reading — the nuke-window field is layer 3's sibling, not a free integer`,
+        );
+      }
+    }
+  }
+  {
+    const pair = tw.rcl5Pair;
+    const towers = plan.structures?.tower || [];
+    const freeze = Array.isArray(sh.cutAtFreeze) && sh.cutAtFreeze.length ? sh.cutAtFreeze : sh.cut;
+    if (pair && typeof pair.minDmgPicked === "number" && towers.length >= 2 && freeze && freeze.length) {
+      const want = towerPairMinDmg(towers[0], towers[1], freeze);
+      if (pair.minDmgPicked !== want) {
+        fails.push(
+          `meta.towers.rcl5Pair.minDmgPicked is ${pair.minDmgPicked} and towers[0]+towers[1] cover the ` +
+            `freeze cut's weakest tile at ${want}. It is that pair's min on the freeze wall, not a ` +
+            `comment — flattening it used to pass`,
         );
       }
     }
@@ -1315,6 +1404,15 @@ export function checkR27(plan, ctx = {}) {
             `The diamond ate those roads — zeroing the count while the tiles still name labs used to pass`,
         );
       }
+    }
+  }
+  if (typeof w.servedFree === "number") {
+    const want = servedFreeOf(sh.cut, meta.roadLayer);
+    if (w.servedFree !== want) {
+      fails.push(
+        `meta.walls.servedFree is ${w.servedFree} and ${want} shipped-cut cluster(s) already D8-touch a ` +
+          `pre-layer-7 road. It is that already-served count, not a comment — zeroing it used to pass`,
+      );
     }
   }
 
