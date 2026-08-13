@@ -3597,7 +3597,8 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
 
     if(carriersInRoom.length == 0 && !storage) {
-        return [CARRY,CARRY,MOVE];
+        // RCL1 leftover after the [W,C,M] miner is 100, not 150.
+        return isRcl1Bootstrap(room) ? [CARRY,MOVE] : [CARRY,CARRY,MOVE];
     }
 
 
@@ -3763,6 +3764,9 @@ const MAX_HOME_CARRIERS_PER_SOURCE = 3;
  * make the jam worse (see drainPressure).
  */
 function homeCarriersWanted(room, values, body, sourceId): number {
+    // One 50-carry hauler is the RCL1 bootstrap. A [C,M] body would otherwise
+    // demand 3-4 copies and steal the spawn from the 2W replacement miner.
+    if(isRcl1Bootstrap(room)) return 1;
     const L = values && values.pathLength ? values.pathLength : 15;
     let carry = 0;
     let move = 0;
@@ -3914,6 +3918,49 @@ function remoteCarrierDemand(room, targetRoomName, values) {
     return { capacityNeeded, roaded, roundTrip, reserved, headroom };
 }
 
+/**
+ * First-100-ticks window: RCL1, spawn still 300 energy, no extensions.
+ *
+ * The opening 300 must buy both a miner and a hauler or the spawn sits on
+ * regen (1 e/t) until it can afford a 150-energy [C,C,M]. A 200-energy
+ * [W,C,M] leaves 100 — enough for [C,M] the tick the miner starts.
+ */
+function isRcl1Bootstrap(room): boolean {
+    return !!(room.controller && room.controller.level <= 1 && room.energyCapacityAvailable <= 300);
+}
+
+/** A home EnergyMiner already live, hatching, or queued. */
+function homeHasMiner(room): boolean {
+    if(_.some(Game.creeps, (c:any) =>
+        c.memory.role == 'EnergyMiner' &&
+        (c.memory.targetRoom == room.name ||
+            (!c.memory.targetRoom && c.memory.homeRoom == room.name)))) {
+        return true;
+    }
+    const q = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < q.length; i += 3) {
+        if(typeof q[i] !== 'string' || q[i].indexOf('EnergyMiner') !== 0) continue;
+        const mem = q[i + 1] && q[i + 1].memory;
+        if(mem && (!mem.targetRoom || mem.targetRoom == room.name)) return true;
+    }
+    return false;
+}
+
+/** Any home hauler live or queued — stops the RCL1 sweeper from stacking. */
+function roomHasHauler(room): boolean {
+    if(_.some(Game.creeps, (c:any) =>
+        (c.memory.role == 'carry' || c.memory.role == 'FakeFiller' || c.memory.role == 'sweeper') &&
+        (c.memory.homeRoom == room.name || c.room.name == room.name))) {
+        return true;
+    }
+    const q = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < q.length; i += 3) {
+        if(typeof q[i] !== 'string') continue;
+        if(q[i].indexOf('Carrier') === 0 || q[i].indexOf('Sweeper') === 0) return true;
+    }
+    return false;
+}
+
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
     let storage = Game.getObjectById(room.memory.Structures?.storage) || room.findStorage();
 
@@ -3932,7 +3979,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                     return;
                 }
 
-                if(index == 1 && room.controller.progress == 0 && room.controller.level == 1 && room.memory.data.DOB <= 60) {
+                if(index == 1 && room.controller.progress == 0 && room.controller.level == 1 && room.memory.data.DOB <= 60 && !roomHasHauler(room)) {
                     let newName = 'Sweeper-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push([CARRY,MOVE], newName, {memory: {role: 'sweeper'}});
                     console.log('Adding Sweeper to Spawn List: ' + newName);
@@ -4073,6 +4120,10 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             if(room.controller.level >= 5) {
                                 body = [WORK,WORK,CARRY,MOVE];
                             }
+                            else if(isRcl1Bootstrap(room) && !homeHasMiner(room)) {
+                                // 200e leaves 100 in the spawn for the [C,M] hauler.
+                                body = [WORK,CARRY,MOVE];
+                            }
                             else {
                                 body = [WORK,WORK,MOVE];
                             }
@@ -4082,7 +4133,12 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             console.log('Adding Energy Miner to Spawn List: ' + newName);
 
                             let sourceObj:any = Game.getObjectById(sourceId);
-                            if(sourceObj && sourceObj.pos.getOpenPositions().length > 0) {
+                            if(body.length === 3 && body.indexOf(CARRY) !== -1) {
+                                // Re-arm so a 2W replacement queues ~100 ticks later
+                                // instead of waiting the usual ~1050.
+                                values.lastSpawn = Game.time - (CREEP_LIFE_TIME - 100);
+                            }
+                            else if(sourceObj && sourceObj.pos.getOpenPositions().length > 0) {
                                 values.lastSpawn = Game.time + Math.floor(Math.random() * (20 - -20) -20) + -450;
                             }
                             else {

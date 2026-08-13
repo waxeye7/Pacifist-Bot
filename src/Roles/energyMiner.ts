@@ -159,6 +159,61 @@ export function forwardToControllerLink(room:any):void {
     donors[0].transferEnergy(ctrlLink);
 }
 
+/** Spawn / extension / tower / container in range 1 with room for energy. */
+function adjacentEnergySink(creep: any): any {
+    const spawnish = creep.pos.findInRange(FIND_MY_STRUCTURES, 1, {filter: (s: any) =>
+        (s.structureType == STRUCTURE_SPAWN ||
+            s.structureType == STRUCTURE_EXTENSION ||
+            s.structureType == STRUCTURE_TOWER) &&
+        s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+    if(spawnish.length) return spawnish[0];
+    const boxes = creep.pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) =>
+        s.structureType == STRUCTURE_CONTAINER &&
+        s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+    return boxes.length ? boxes[0] : null;
+}
+
+function transferAdjacentSink(creep: any): boolean {
+    const sink = adjacentEnergySink(creep);
+    if(!sink) return false;
+    return creep.transfer(sink, RESOURCE_ENERGY) == 0;
+}
+
+/**
+ * Empty a full CARRY miner. Adjacent sink first (harvest-to-spawn when the
+ * source sits on the hub). If no hauler exists yet and the spawn is within 8,
+ * walk the load in. Otherwise drop for the hauler — do not sit ERR_FULL.
+ */
+function dumpMinerEnergy(creep: any): void {
+    if(transferAdjacentSink(creep)) return;
+
+    const room = creep.room;
+    const home = !creep.memory.targetRoom || creep.memory.targetRoom == room.name;
+    if(home && room.controller && room.controller.level <= 2 &&
+        room.energyAvailable < room.energyCapacityAvailable) {
+        const hasHauler = _.some(Game.creeps, (c: any) =>
+            (c.memory.role == 'carry' || c.memory.role == 'FakeFiller' || c.memory.role == 'sweeper') &&
+            (c.memory.homeRoom == room.name || c.room.name == room.name) &&
+            !c.spawning);
+        if(!hasHauler) {
+            const sink = creep.pos.findClosestByRange(FIND_MY_STRUCTURES, {filter: (s: any) =>
+                (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION) &&
+                s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+            if(sink && creep.pos.getRangeTo(sink) <= 8) {
+                if(creep.pos.isNearTo(sink)) {
+                    creep.transfer(sink, RESOURCE_ENERGY);
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(sink, 1);
+                }
+                return;
+            }
+        }
+    }
+
+    creep.drop(RESOURCE_ENERGY);
+}
+
 const run = function (creep) {
     creep.memory.moving = false;
 	if(creep.evacuate()) {
@@ -255,26 +310,38 @@ const run = function (creep) {
             creep.memory.checkAmIOnRampart = true;
         }
 
-        let result = creep.harvestEnergy();
-        if(result == 0) {
-            creep.memory.harvested = true;
+        // A CARRY miner does not drop-mine. Harvest fills the store and then
+        // ERR_FULL stops the source. Dump before harvesting when full so the
+        // first-100-ticks [W,C,M] (and any later carry miner on this path)
+        // keeps the source working.
+        if(creep.getActiveBodyparts(CARRY) > 0 && creep.store.getFreeCapacity() == 0) {
+            dumpMinerEnergy(creep);
         }
-        if(creep.memory.harvested) {
-            let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
-            let source:any = Game.getObjectById(creep.memory.source);
-            if(!creep.memory.allGood) {
-                let lookForStructures = creep.pos.lookFor(LOOK_STRUCTURES);
-                if(lookForStructures.length > 0) {
-                    for(let building of lookForStructures) {
-                        if(building.structureType == STRUCTURE_CONTAINER) {
-                            creep.memory.allGood = true;
+        else {
+            let result = creep.harvestEnergy();
+            if(result == 0) {
+                creep.memory.harvested = true;
+            }
+            else if(creep.getActiveBodyparts(CARRY) > 0 && creep.store[RESOURCE_ENERGY] > 0) {
+                transferAdjacentSink(creep);
+            }
+            if(creep.memory.harvested) {
+                let containerNearby = creep.room.find(FIND_STRUCTURES, {filter: building => building.structureType == STRUCTURE_CONTAINER && creep.pos.getRangeTo(building) <= 2});
+                let source:any = Game.getObjectById(creep.memory.source);
+                if(!creep.memory.allGood) {
+                    let lookForStructures = creep.pos.lookFor(LOOK_STRUCTURES);
+                    if(lookForStructures.length > 0) {
+                        for(let building of lookForStructures) {
+                            if(building.structureType == STRUCTURE_CONTAINER) {
+                                creep.memory.allGood = true;
+                            }
                         }
                     }
                 }
-            }
 
-            if(!creep.memory.allGood && containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0 && source && creep.pos.getRangeTo(source) <= 2) {
-                creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
+                if(!creep.memory.allGood && containerNearby.length > 0 && !containerNearby[0].pos.isEqualTo(creep) && containerNearby[0].pos.lookFor(LOOK_CREEPS).length == 0 && source && creep.pos.getRangeTo(source) <= 2) {
+                    creep.MoveCostMatrixRoadPrio(containerNearby[0], 0)
+                }
             }
         }
     }
