@@ -581,7 +581,7 @@ per room. Rise to the bar; do not lower it.
 - No structure on source/controller/mineral tiles (extractor on mineral exempt),
   no illegal stacking, no out-of-bounds, full CONTROLLER_STRUCTURES cap compliance —
   and the validator itself must catch injected mutations of every class it checks.
-  The mutation suite is at **1299/1299 caught** (1237/1237 at round 26, 1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
+  The mutation suite is at **1300/1300 caught** (1237/1237 at round 26, 1200/1200 at round 25, 1168/1168 at round 24, 1124/1124 at round 23, 1085/1085 at round 22, 996/996 at round 21, 904/904 at round 20, 854/854 at round 19, 767/767 at round 18, 672/672 at
   round 17, 603/603 at
   round 16, 465/465 at
   round 15, 338/338 at
@@ -2952,9 +2952,13 @@ cap-10 reserved-tile board (`fullRun.reserved` / `fullRun.byRound`); a
 shrink is a proper tile prefix of that board; a kept 60/0 walk's
 `fullRun.ext`/`shallow` are the shipped board. Artifact md5
 `7eed9e2c02f0641ec4fc80b4c8a0b496`. Mutate 1295 → **1299**. Residue of
-98: invent extra reserved tiles that still prefix-match. Still open: 88
-other fake cuts · 93 recovers · remaining presence · exact pick · 141(e)
-· 134(a,c,d).
+98: invent extra reserved tiles that still prefix-match. a700e42: 141(e)
+`plan.seed` is back on the artifact; the film caption is generated from it.
+r29p5: criticism 93 — taken-room `fixedHolders` keep identity (type+xy of a
+shipped unmovable) and drop `recovers`/`recoversDeep` (a log of a board that
+left). Artifact md5 `86d38bdd2b2aef39a79cb8aa134f9b06`. Mutate 1299 →
+**1300**. Still open: 98 invent-extra-tiles · 88 other fake cuts · remaining
+presence · exact pick · 141(e) seedScore · 134(a,c,d).
 **And one thing the gates gained that no channel shows:** all four
 `exteriorContract` consumers are re-derived from terrain now rather than one,
 and the frozen anchor they are derived against is bound three ways — the flood
@@ -9910,9 +9914,13 @@ it says so in the entry rather than in a comment.
    first `shrunk.to` rounds flatten to `lane.reserved`). A kept 60/0 walk cannot
    publish a costly `fullRun.ext`/`shallow`. Forging the whole count-log then
    inventing shrink BITES; deleting the reserved board on a real shrink BITES.
-   Residue: invent extra reserved tiles that still prefix-match. Mutate 1295 →
-   **1299**. Still open: 88 other fake cuts that walk the claimed lap, 93
-   recovers, remaining META_DARK presence, exact pick, 141(e), 134(a,c,d).
+   Residue: invent extra reserved tiles that still prefix-match. a700e42:
+   141(e) `plan.seed` is required; `NOTES.seed` is generated from it. r29p5:
+   criticism 93 — taken-room `fixedHolders` drop `recovers`/`recoversDeep`.
+   Identity (type+xy of a shipped unmovable) stays. Planting the numbers back
+   bites. Mutate 1299 → **1300**. Still open: 98 invent-extra-tiles, 88 other
+   fake cuts that walk the claimed lap, remaining META_DARK presence, exact
+   pick, 141(e) seedScore, 134(a,c,d).
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
@@ -10000,7 +10008,7 @@ The owner's words: "keep going for ages … until nothing left to improve."
 - Suite: `fnm exec --using 22 node tools/plan-suite/v2/plan.mjs --all-claimable`
 - Validator: `.../validate.mjs` (extend it whenever a reviewer finds an unchecked class
   — then mutation-test the new check)
-- Mutations: `.../mutate.mjs` (**1299/1299 bite** against a clean 172/172
+- Mutations: `.../mutate.mjs` (**1300/1300 bite** against a clean 172/172
   baseline; `--only r28/` for one round's block; honours `PLANS_FILE` and never
   writes the artifact). Four of round 25's controls were NOT in that count and say
   so at criticism 128(a): the film, page and chip forgeries live in `out-v2/` and

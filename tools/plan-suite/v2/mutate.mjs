@@ -8616,6 +8616,27 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       R.fixedHolders = [...(R.fixedHolders || []), { type: "lab", x: 1, y: 1, recovers: 99, recoversDeep: 99 }];
     },
     "fixedHolders|ships nothing|inventing a tile");
+  run("r29/93-X-taken-room-recovers-kept-as-a-log",
+    any28((p) =>
+      p.meta?.sealedRecovery?.outcome === "taken" &&
+      (p.meta.sealedRecovery.fixedHolders || []).some((h) => h && !("recovers" in h)),
+    ),
+    (p) => {
+      const rec = p.meta.sealedRecovery;
+      const cap = (rec.pockets || []).reduce((n, pk) => n + (pk.tiles || 0), 0) || 1;
+      for (const h of rec.fixedHolders || []) {
+        h.recovers = cap;
+        h.recoversDeep = cap;
+      }
+      for (const nr of p.meta.noteRecords || []) {
+        if (nr.cls !== "sealedRecovery" || !nr.rec?.fixedHolders) continue;
+        for (const h of nr.rec.fixedHolders) {
+          h.recovers = cap;
+          h.recoversDeep = cap;
+        }
+      }
+    },
+    "log of a board that left");
   run("r29/M5-X-cutAdopted-planted-a-real-cutDrift-add",
     any28((p) => (p.meta?.shell?.cutDrift || []).some((e) => e && e.op === "add") && Array.isArray(p.meta?.shell?.cutAdopted)),
     (p) => {

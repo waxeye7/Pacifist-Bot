@@ -3934,6 +3934,12 @@ function runSealedRecovery(d, plan, pass) {
   // that is exactly the sentence the room owes its reader.
   const withoutRule = accepted.slice().sort((a, b) => admissionCmp(a, b) || pricedCmp(a, b))[0];
   record.outcome = "taken";
+  // criticism 93 — the take re-seated the mass. recovers/recoversDeep on
+  // fixedHolders are a log of the pre-take flood. Identity stays (type+xy of
+  // a shipped unmovable); the numbers do not.
+  if (Array.isArray(record.fixedHolders)) {
+    record.fixedHolders = record.fixedHolders.map((h) => ({ type: h.type, x: h.x, y: h.y }));
+  }
   record.accepted = accepted.length;
   // WHICH POCKETS ACTUALLY OPENED, MEASURED ON THE TWO BOARDS (O1, round 19).
   // The record used to name ONE pocket — the one the admission filter had

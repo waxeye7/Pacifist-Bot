@@ -21106,13 +21106,16 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
             // ROUND 28 / criticism 93 — TAKEN rooms cannot re-derive recovers
             // (the mass moved). They can still refuse a holder that is not a
             // shipped unmovable. A take re-seats extensions, not labs.
+            //
+            // ROUND 29 / the residue: recovers in [1, cap] is a free integer
+            // on a board that left. Identity stays. The numbers do not —
+            // a taken-room fixedHolder that still carries recovers is a log.
             if (!onShipped && Array.isArray(R.fixedHolders)) {
               const shipAt = new Map();
               for (const t of Object.keys(s || {})) {
                 if (t === "road" || t === "rampart" || t === "container") continue;
                 for (const q of s[t] || []) shipAt.set(key(q.x, q.y), t);
               }
-              const cap = (R.pockets || []).reduce((n, pk) => n + (N2(pk && pk.tiles) || 0), 0);
               for (const f of R.fixedHolders) {
                 const k3 = K2(f);
                 if (kinds.includes(f && f.type)) {
@@ -21130,17 +21133,11 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                       `does not carry used to pass on a taken room`,
                   );
                 }
-                const rec = N2(f && f.recovers);
-                const recD = N2(f && f.recoversDeep);
-                if (rec === null || rec < 1 || (cap > 0 && rec > cap)) {
+                if (N2(f && f.recovers) !== null || N2(f && f.recoversDeep) !== null) {
                   bad6.push(
-                    `${f6("fixedHolders")} at ${k3} recovers ${JSON.stringify(f && f.recovers)} and this ` +
-                      `room's pre-take pockets hold ${cap} tile(s)`,
-                  );
-                } else if (recD === null || recD < 0 || recD > rec) {
-                  bad6.push(
-                    `${f6("fixedHolders")} at ${k3} recoversDeep ${JSON.stringify(f && f.recoversDeep)} ` +
-                      `against recovers ${rec}`,
+                    `${f6("fixedHolders")} at ${k3} still carries recovers=${JSON.stringify(f && f.recovers)} ` +
+                      `/ recoversDeep=${JSON.stringify(f && f.recoversDeep)}. A take re-seated the mass; ` +
+                      `those numbers are a log of a board that left`,
                   );
                 }
               }
