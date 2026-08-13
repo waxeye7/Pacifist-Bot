@@ -20939,6 +20939,48 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 }
               }
             }
+            // ROUND 28 / criticism 93 — TAKEN rooms cannot re-derive recovers
+            // (the mass moved). They can still refuse a holder that is not a
+            // shipped unmovable. A take re-seats extensions, not labs.
+            if (!onShipped && Array.isArray(R.fixedHolders)) {
+              const shipAt = new Map();
+              for (const t of Object.keys(s || {})) {
+                if (t === "road" || t === "rampart" || t === "container") continue;
+                for (const q of s[t] || []) shipAt.set(key(q.x, q.y), t);
+              }
+              const cap = (R.pockets || []).reduce((n, pk) => n + (N2(pk && pk.tiles) || 0), 0);
+              for (const f of R.fixedHolders) {
+                const k3 = K2(f);
+                if (kinds.includes(f && f.type)) {
+                  bad6.push(
+                    `${f6("fixedHolders")} names a ${f.type} at ${k3} and that is a kind this pass may ` +
+                      `move. Fixed holders are the unmovable ones — a take re-seats the rest`,
+                  );
+                  continue;
+                }
+                const got = shipAt.get(k3);
+                if (got !== f.type) {
+                  bad6.push(
+                    `${f6("fixedHolders")} names a ${f && f.type} at ${k3} and this room ` +
+                      `${got ? `ships a ${got}` : "ships nothing"} there. Inventing a tile the board ` +
+                      `does not carry used to pass on a taken room`,
+                  );
+                }
+                const rec = N2(f && f.recovers);
+                const recD = N2(f && f.recoversDeep);
+                if (rec === null || rec < 1 || (cap > 0 && rec > cap)) {
+                  bad6.push(
+                    `${f6("fixedHolders")} at ${k3} recovers ${JSON.stringify(f && f.recovers)} and this ` +
+                      `room's pre-take pockets hold ${cap} tile(s)`,
+                  );
+                } else if (recD === null || recD < 0 || recD > rec) {
+                  bad6.push(
+                    `${f6("fixedHolders")} at ${k3} recoversDeep ${JSON.stringify(f && f.recoversDeep)} ` +
+                      `against recovers ${rec}`,
+                  );
+                }
+              }
+            }
             // ROUND 20 — THE TOUR THE WHOLE PRICING IS DONE IN. A record that
             // composed anything walked the extension tour on the board it read
             // and published it; every candidate's `extTourDelta` is measured

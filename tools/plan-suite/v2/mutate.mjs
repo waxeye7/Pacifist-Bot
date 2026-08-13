@@ -8555,6 +8555,13 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       if (p.meta.walls?.mobility?.lanes) delete p.meta.walls.mobility.lanes.fullRun;
     },
     "fullRun is missing");
+  run("r28/93-X-taken-room-fixedHolder-invented-off-the-board",
+    any28((p) => p.meta?.sealedRecovery?.outcome === "taken"),
+    (p) => {
+      const R = p.meta.sealedRecovery;
+      R.fixedHolders = [...(R.fixedHolders || []), { type: "lab", x: 1, y: 1, recovers: 99, recoversDeep: 99 }];
+    },
+    "fixedHolders|ships nothing|inventing a tile");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {

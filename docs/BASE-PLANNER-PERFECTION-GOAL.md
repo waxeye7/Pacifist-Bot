@@ -9823,7 +9823,10 @@ it says so in the entry rather than in a comment.
    p7/p8: criticism 88 — discarded-rung laps re-walked from published
    `cutTiles` (shellEscalation trail, then the declaration itself so the three
    sealed-recovery rooms that ship a ladder and no shellEscalation cannot keep
-   a free number). 93 and 98 still need unpublished mid-pipeline boards.
+   a free number). p9: shrink is a proper prefix of the published cap-10
+   `fullRun` (ran is a function of that walk). Residue: forge the whole
+   `fullRun` then invent a consistent shrink. p10: taken-room `fixedHolders`
+   must be shipped unmovable tiles; recovers still pre-take.
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
