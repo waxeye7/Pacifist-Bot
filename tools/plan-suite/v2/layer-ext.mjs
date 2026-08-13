@@ -2270,6 +2270,30 @@ export function planExtensions(terrain, plan) {
     return out;
   };
   let out = walkLadder(LANE_ROUNDS);
+  // criticism 98 — the cap-10 walk EVERY room composes first, before shrink
+  // or drop. A plain room's invent-shrink looks like a real shrink on the
+  // shipped board (both 60/0 with tiles). This census is the walk that
+  // decides whether a shrink was even considered: ran iff the full
+  // reservation cost an extension or a personal rampart.
+  const snapFull = (run) => {
+    const L = run.extMeta.laneMeta || {};
+    return {
+      tiles: L.tiles || 0,
+      rounds: L.rounds || 0,
+      shallow: run.extMeta.shallow || 0,
+      ext: (run.extension || []).length,
+      builtLap: L.builtLap ?? null,
+      stranded: L.stranded || 0,
+      ran: !!(L.tiles && (run.extension.length < TARGET || run.extMeta.shallow > 0)),
+      used: L.rounds || 0,
+      to: L.rounds || 0,
+    };
+  };
+  const fullRun = snapFull(out);
+  const stampFull = (run, to) => {
+    fullRun.to = to;
+    run.extMeta.laneMeta.fullRun = { ...fullRun };
+  };
   /**
    * THE RESERVATION HAS TO BE FREE, AND THE ONLY WAY TO KNOW IS TO ASK.
    *
@@ -2405,6 +2429,7 @@ export function planExtensions(terrain, plan) {
         if (pick.r !== used) {
           pick.run.extMeta.laneMeta.shrunk = { from: LANE_ROUNDS, to: pick.r, wanted: lm.tiles, premium };
         }
+        stampFull(pick.run, pick.r);
         return pick.run;
       }
     }
@@ -2471,6 +2496,11 @@ export function planExtensions(terrain, plan) {
   if (out.extMeta.shallow > 0 && out.extMeta.stubExhausted) {
     const alt = attempt(out.extMeta.hubDistCap, out.extMeta.laneMeta?.rounds || 0, EXT_RESCUE_ROADS);
     if (betterRun(alt, out)) out = alt;
+  }
+  {
+    const L = out.extMeta.laneMeta || {};
+    const to = L.dropped ? 0 : L.shrunk && typeof L.shrunk === "object" ? L.shrunk.to : fullRun.used;
+    stampFull(out, to);
   }
   return out;
 }

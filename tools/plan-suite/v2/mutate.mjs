@@ -8518,6 +8518,43 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "ladder.rungs|enclosureMobility|invented lap|recovery");
+  run("r28/98-X-invent-shrink-on-a-plain-room",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.fullRun && !L.fullRun.ran && !L.shrunk && !L.dropped && typeof L.rounds === "number");
+    }),
+    (p) => {
+      const L = p.meta.extensions.laneMeta;
+      const W = p.meta.walls.mobility.lanes;
+      const shrunk = { from: 10, to: L.rounds, wanted: (L.tiles || 0) + 9, premium: 0 };
+      L.shrunk = shrunk;
+      L.roundCap = L.rounds;
+      if (W && W !== L) {
+        W.shrunk = { ...shrunk };
+        W.roundCap = L.rounds;
+      }
+    },
+    "invent|shrink|fullRun|never entered");
+  run("r28/98-X-erase-a-real-shrink",
+    any28((p) => p.meta?.extensions?.laneMeta?.shrunk && p.meta.extensions.laneMeta.fullRun),
+    (p) => {
+      const L = p.meta.extensions.laneMeta;
+      const W = p.meta.walls.mobility.lanes;
+      delete L.shrunk;
+      L.roundCap = 10;
+      if (W && W !== L) {
+        delete W.shrunk;
+        W.roundCap = 10;
+      }
+    },
+    "fullRun.to|used|neither shrink nor drop");
+  run("r28/98-X-fullRun-deleted",
+    any28((p) => p.meta?.extensions?.laneMeta?.fullRun),
+    (p) => {
+      delete p.meta.extensions.laneMeta.fullRun;
+      if (p.meta.walls?.mobility?.lanes) delete p.meta.walls.mobility.lanes.fullRun;
+    },
+    "fullRun is missing");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {

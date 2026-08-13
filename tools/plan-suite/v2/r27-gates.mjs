@@ -773,6 +773,87 @@ export function checkR27(plan, ctx = {}) {
     }
   }
 
+  // ROUND 28 / criticism 98 — inventing a shrink on a plain room. The
+  // shipped board of a real shrink is 60/0 with tiles, same as a kept-free
+  // reservation. fullRun is the cap-10 walk that decided whether shrink
+  // was considered. ran is a function of that walk, not of `shrunk`.
+  {
+    const lane = meta.extensions?.laneMeta || w.mobility?.lanes;
+    if (lane && typeof lane === "object") {
+      const fr = lane.fullRun;
+      const shrunk = lane.shrunk && typeof lane.shrunk === "object" && !Array.isArray(lane.shrunk);
+      const dropped = lane.dropped === true;
+      if (!fr || typeof fr !== "object") {
+        fails.push(
+          `meta.extensions.laneMeta.fullRun is missing. It is the cap-10 walk every room composes ` +
+            `before shrink, and without it a plain room can publish a priced shrink that never ran`,
+        );
+      } else {
+        const ran = !!(fr.tiles && (fr.ext < 60 || fr.shallow > 0));
+        if (!!fr.ran !== ran) {
+          fails.push(
+            `meta.extensions.laneMeta.fullRun.ran is ${fr.ran} and the cap-10 walk is tiles=${fr.tiles} ` +
+              `ext=${fr.ext} shallow=${fr.shallow}. ran is that predicate, not a flag`,
+          );
+        }
+        if (!ran) {
+          if (shrunk || dropped) {
+            fails.push(
+              `this room publishes a ${shrunk ? "SHRINK" : "DROP"} and its cap-10 walk was free ` +
+                `(ext=${fr.ext}, shallow=${fr.shallow}, tiles=${fr.tiles}). That is the invent direction ` +
+                `of criticism 98 — a priced refusal of a search that never ran`,
+            );
+          }
+          if (fr.to !== fr.used) {
+            fails.push(
+              `fullRun.to is ${fr.to} and fullRun.used is ${fr.used}. A room that never entered shrink ` +
+                `kept the cap-10 walk; to and used are one number`,
+            );
+          }
+          if ((lane.tiles || 0) !== (fr.tiles || 0) || (lane.rounds || 0) !== (fr.rounds || 0)) {
+            fails.push(
+              `fullRun tiles/rounds ${fr.tiles}/${fr.rounds} and the shipped reservation is ` +
+                `${lane.tiles}/${lane.rounds}. They are the same walk when shrink never ran`,
+            );
+          }
+        } else if (dropped) {
+          if (fr.to !== 0) {
+            fails.push(`fullRun.to is ${fr.to} and this room DROPPED the reservation. to is 0`);
+          }
+          if (shrunk) {
+            fails.push(`the lane census records a DROP and a SHRINK. They are two outcomes of one search`);
+          }
+        } else if (shrunk) {
+          if (fr.to !== lane.shrunk.to) {
+            fails.push(
+              `fullRun.to is ${fr.to} and shrunk.to is ${lane.shrunk.to}. The prefix the search kept ` +
+                `is one number`,
+            );
+          }
+          if (lane.shrunk.wanted !== fr.tiles) {
+            fails.push(
+              `shrunk.wanted is ${lane.shrunk.wanted} and the cap-10 walk reserved ${fr.tiles} tile(s). ` +
+                `wanted is that walk, not a free larger number`,
+            );
+          }
+          if (fr.to === 0 || fr.to === fr.used) {
+            fails.push(
+              `fullRun.to is ${fr.to} (used=${fr.used}) and the room publishes a shrink. A shrink is a ` +
+                `proper prefix, not the drop and not the full walk`,
+            );
+          }
+        } else {
+          if (fr.to !== fr.used) {
+            fails.push(
+              `fullRun.to is ${fr.to} and used is ${fr.used} and the room publishes neither shrink nor ` +
+                `drop. The search kept the cap-10 walk`,
+            );
+          }
+        }
+      }
+    }
+  }
+
   if (typeof tw.newRoads === "number") {
     let want = 0;
     for (const v of Object.values(plan.meta?.roadLayer || {})) {
