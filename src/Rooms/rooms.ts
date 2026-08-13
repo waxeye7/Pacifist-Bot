@@ -375,7 +375,7 @@ function rooms() {
       if (
         Game.time % 500 == 0 &&
         bucket > 5000 &&
-        room.controller.level >= 3 &&
+        room.controller.level >= 4 &&
         getCpuPolicy().allowRemotes
       ) {
         const start = Game.cpu.getUsed();

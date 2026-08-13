@@ -1315,7 +1315,7 @@ Creep.prototype.harvestEnergy = function harvestEnergy() {
         this.memory.targetRoom !== this.memory.homeRoom
     ) {
         const home = Game.rooms[this.memory.homeRoom];
-        if (home && home.controller && home.controller.my && home.controller.level < 3) {
+        if (home && home.controller && home.controller.my && home.controller.level < 4) {
             this.memory.targetRoom = this.memory.homeRoom;
             delete this.memory.exit;
             delete this.memory.route;

@@ -2366,7 +2366,7 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
 
 function Build_Remote_Roads(room) {
     // Early RCL / no remotes: do not lay road sites to room edges
-    if (!room.controller || room.controller.level < 3) return;
+    if (!room.controller || room.controller.level < 4) return;
     if(room.memory.danger) {
         return;
     }

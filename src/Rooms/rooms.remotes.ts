@@ -220,20 +220,19 @@ export function manageRemotes(room: any): void {
         return;
     }
 
-    // Below RCL3 a commune has no business running remotes at all. scout.ts
-    // writes `active = true` the moment it decides a room is minable, with no
-    // RCL awareness, so an RCL1-2 room could sit with active remotes and trickle
-    // creeps at them. Observed on pacifist2's E19S7 (RCL2): three "active"
-    // remotes returning 0.13 e/tick for 0.65 e/tick of spawn. Clear them here
-    // rather than only forcing them off inside the spawn loop, so the flag and
-    // the behaviour cannot disagree.
-    if (room.controller.level < 3) {
+    // Below RCL4 remotes do not pay. Reservers are RCL5+ (1 CLAIM is net-zero),
+    // so an RCL3 remote is an unreserved 5 e/t after a 50–80 tile walk, and
+    // its miner/carrier steal spawn from the 135k climb. scout.ts still writes
+    // `active = true` with no RCL awareness — close them here so the flag and
+    // the behaviour cannot disagree. Measured shape: E19S7 at RCL2 returned
+    // 0.13 e/tick for 0.65 e/tick of spawn; RCL3 is the same body, longer walk.
+    if (room.controller.level < 4) {
         const r = room.memory.resources;
         if (r) {
             for (const n in r) {
                 if (n !== room.name && r[n] && r[n].active) {
                     r[n].active = false;
-                    console.log(`[remotes] ${room.name} close ${n} (RCL${room.controller.level} < 3)`);
+                    console.log(`[remotes] ${room.name} close ${n} (RCL${room.controller.level} < 4)`);
                 }
             }
         }

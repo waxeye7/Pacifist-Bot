@@ -261,10 +261,10 @@ export function applySpeedrunSpawnHints(room: Room): void {
   if (!room.controller || !room.controller.my) return;
   const rcl = room.controller.level;
 
-  // Close remotes before spawn (hints run first). RCL1–2 always; any RCL
+  // Close remotes before spawn (hints run first). RCL1–3 always; any RCL
   // when Memory.speedrun.disableRemotes is set. manageRemotes also closes
   // every tick on that flag so already-open remotes cannot stay active.
-  if ((rcl <= 2 || remotesDisabled()) && room.memory.resources) {
+  if ((rcl <= 3 || remotesDisabled()) && room.memory.resources) {
     for (const rn of Object.keys(room.memory.resources)) {
       if (rn !== room.name && room.memory.resources[rn]) {
         room.memory.resources[rn].active = false;

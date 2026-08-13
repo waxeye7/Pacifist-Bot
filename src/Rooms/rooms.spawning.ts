@@ -1177,18 +1177,12 @@ function add_creeps_to_spawn_list(room, spawn) {
     const roomResources = room.memory.resources || {};
     let roomsToRemote = Object.keys(roomResources);
     let activeRemotes = [];
-    // Home room always counts. Remotes open at RCL3 (reserver bodies and the
-    // remote-road budget both exist from there).
-    //
-    // This used to also require `!Memory.features.speedrun` — and speedrun
-    // defaults to TRUE, so this branch silently reset every remote's `active`
-    // flag every tick on every room, which is why no remote ever started
-    // regardless of how much CPU was free. Speedrun now only suppresses
-    // remotes below RCL3 (see utils/Speedrun.applySpeedrunSpawnHints).
+    // Home room always counts. Remotes open at RCL4 (storage + the 135k climb
+    // is done). Reservers are RCL5+; an RCL3 remote is unreserved 5 e/t.
     // Memory.speedrun.disableRemotes is the explicit campaign off-switch.
     const remotesAllowed =
         room.controller &&
-        room.controller.level >= 3 &&
+        room.controller.level >= 4 &&
         !remotesDisabled();
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
@@ -1197,7 +1191,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             if (remotesAllowed) {
                 activeRemotes.push(remoteRoom);
             } else {
-                // force off until RCL3+
+                // force off until RCL4+
                 roomResources[remoteRoom].active = false;
             }
         }
