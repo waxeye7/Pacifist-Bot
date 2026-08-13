@@ -12,7 +12,7 @@
  *      the cheap ones are derived here.
  */
 import { D8, buildable, chebyshev, walkable, exteriorFlood } from "./shared.mjs";
-import { fieldFrom } from "./layer-hub.mjs";
+import { fieldFrom, winningSeedScore } from "./layer-hub.mjs";
 import { arriveAt, bfsField, BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, pickBattlements, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
@@ -1697,6 +1697,15 @@ export function checkR27(plan, ctx = {}) {
       fails.push(
         `meta.extensions.stubCap is ${ext.stubCap} and the layer-6 paving ceiling is ${STUB_CAP_POOR} ` +
           `or ${STUB_CAP_RICH}. Flattening it used to pass`,
+      );
+    }
+  }
+  if (ctx.terrain && plan.sources?.length && plan.controller && typeof meta.seedScore === "number") {
+    const want = winningSeedScore(ctx.terrain, plan.sources, plan.controller, plan.mineral || null);
+    if (want != null && meta.seedScore !== want) {
+      fails.push(
+        `meta.seedScore is ${meta.seedScore} and the fullest confluence score in the seed window is ` +
+          `${want}. It is that walk, not a comment — flattening it used to pass`,
       );
     }
   }

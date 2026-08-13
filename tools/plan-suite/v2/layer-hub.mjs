@@ -176,7 +176,7 @@ const ENCLOSE_RANGE = 9;
  * anchor), the pocket is deep (DT), and we're not crushed on the edge.
  * Cheap filter — the expensive space-budget gate runs on the top few only.
  */
-function seedScore(terrain, dt, x, y, fields, objectTiles) {
+export function seedScore(terrain, dt, x, y, fields, objectTiles) {
   if (!buildable(terrain, x, y)) return -Infinity;
   if (objectTiles.has(key(x, y))) return -Infinity;
   const d = dt[idx(x, y)];
@@ -1282,6 +1282,26 @@ function checkRoadConnectivity(sitter, structures) {
     }
   }
   return { connected: orphanRoads.length === 0 && orphanStructs.length === 0, orphanRoads: orphanRoads.length, orphanStructs };
+}
+
+/** fullest confluence score in the seed window — the number `meta.seedScore` publishes. */
+export function winningSeedScore(terrain, sources, controller, mineral) {
+  if (!controller || !sources?.length) return null;
+  const objectTiles = new Set([
+    ...sources.map((s) => key(s.x, s.y)),
+    key(controller.x, controller.y),
+    ...(mineral ? [key(mineral.x, mineral.y)] : []),
+  ]);
+  const fields = [...sources, controller].map((a) => distField(terrain, [a]));
+  const dt = distanceTransform(terrain);
+  let mx = -Infinity;
+  for (let x = MIN_EDGE; x <= 49 - MIN_EDGE; x++) {
+    for (let y = MIN_EDGE; y <= 49 - MIN_EDGE; y++) {
+      const sc = seedScore(terrain, dt, x, y, fields, objectTiles);
+      if (sc > mx) mx = sc;
+    }
+  }
+  return Number.isFinite(mx) ? Math.round(mx * 10) / 10 : null;
 }
 
 export function planHub(terrain, objects, opts = {}) {

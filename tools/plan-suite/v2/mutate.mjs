@@ -9095,6 +9095,10 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => p.meta?.mineralApproachAtReservation && Number.isInteger(p.meta.mineralApproachAtReservation.x)),
     (p) => { p.meta.mineralApproachAtReservation = { x: 1, y: 1 }; },
     "mineralApproachAtReservation|D8 neighbour");
+  run("r36/141e-X-seedScore-zeroed",
+    any28((p) => typeof p.meta?.seedScore === "number" && p.meta.seedScore !== 0),
+    (p) => { p.meta.seedScore = 0; },
+    "seedScore|confluence");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
