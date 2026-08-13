@@ -128,6 +128,7 @@ export const META_LEAF_NAMES = new Set(idents.all);
 export const META_DARK = {
   arrayPartner: { klass: "derived" },
   baseCut: { klass: "presence", why: "layer-2's pick size before expand/useless-prune; priceyWall is the derived consequence (baseCut > MAX_CUT); the exact pick is a search witness" },
+  baseLap: { klass: "derived" },
   baseOverGated: { klass: "derived" },
   battlementFloor: { klass: "derived" },
   battlementGap: { klass: "derived" },
@@ -703,7 +704,7 @@ function wantUnreachableExts(plan) {
 
 /**
  * Layer-5 mobility-veto board: freeze cut, extension mass / nuker / observer
- * lifted. baseOverGated is that walk's overGated; wasLap is its maxGated.
+ * lifted. baseOverGated is that walk's overGated; baseLap / wasLap are its maxGated.
  */
 function wantLayer5VetoMobility(terrain, plan) {
   const cut = freezeCutOf(plan);
@@ -2134,8 +2135,8 @@ export function checkR27(plan, ctx = {}) {
       );
     }
   }
-  // r29p20 — leftover presence: freeze-cut walk with the mass / nuker / observer
-  // lifted. Zeroing them used to pass.
+  // r29p20 / r29p21 — leftover presence: freeze-cut walk with the mass / nuker /
+  // observer lifted. Zeroing them used to pass.
   if (ctx.terrain && plan.sitter) {
     const wantMob = wantLayer5VetoMobility(ctx.terrain, plan);
     if (wantMob) {
@@ -2146,6 +2147,19 @@ export function checkR27(plan, ctx = {}) {
             `mass, nuker and observer lifted has ${wantMob.overGated} gated over-target pair(s). It is ` +
             `that walk, not a comment — flattening it used to pass`,
         );
+      }
+      const copies = [
+        ["misc.mobilityVeto.baseLap", meta.misc?.mobilityVeto?.baseLap],
+        ["labs.lapVeto.baseLap", meta.labs?.lapVeto?.baseLap],
+      ];
+      for (const [path, got] of copies) {
+        if (typeof got === "number" && Math.abs(got - wantMob.maxGated) > 1e-9) {
+          fails.push(
+            `meta.${path} is ${got} and the freeze-cut gated lap with the extension mass, nuker and ` +
+              `observer lifted is ${wantMob.maxGated}. It is that walk, not a comment — flattening it ` +
+              `used to pass`,
+          );
+        }
       }
       const refused = meta.misc?.mobilityVeto?.refused;
       if (Array.isArray(refused)) {

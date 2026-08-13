@@ -9199,6 +9199,18 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "wasLap|freeze-cut|gated lap");
+  run("r42/MF6-X-baseLap-flattered",
+    any28((p) => typeof p.meta?.misc?.mobilityVeto?.baseLap === "number" && p.meta.misc.mobilityVeto.baseLap !== 0),
+    (p) => { p.meta.misc.mobilityVeto.baseLap = 0; },
+    "baseLap|freeze-cut|gated lap");
+  run("r42/MF6-X-baseLap-plus-1",
+    any28((p) => typeof p.meta?.misc?.mobilityVeto?.baseLap === "number"),
+    (p) => { p.meta.misc.mobilityVeto.baseLap += 1; },
+    "baseLap|freeze-cut|gated lap");
+  run("r42/MF6-X-labs-baseLap-flattered",
+    any28((p) => typeof p.meta?.labs?.lapVeto?.baseLap === "number" && p.meta.labs.lapVeto.baseLap !== 0),
+    (p) => { p.meta.labs.lapVeto.baseLap = 0; },
+    "baseLap|freeze-cut|gated lap");
   run("r29/MF6-X-mobilityShippedFree-zeroed",
     any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
     (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
