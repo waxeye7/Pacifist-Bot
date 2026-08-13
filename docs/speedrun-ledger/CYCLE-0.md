@@ -73,7 +73,7 @@ RCL1–3 builder and RCL2/3 repair gates in `src/Rooms/rooms.spawning.ts` no lon
 
 Home carriers no longer price haul off a phantom 6 WORK / 12 e/t. `getCarrierBody` (home sources only) and `homeCarriersWanted` size to `2 *` live EnergyMiner WORK on that `memory.sourceId` (floor 4 if none hatched yet — one 2W about to exist — cap 10). First hauler stays `[CARRY,CARRY,MOVE]`. Hypothesis: RCL1–3 rooms stop queuing 150e carriers that steal the spawn from upgraders. A/B still pending.
 
-`getBody` now sizes segments from `energyCapacityAvailable` and will not emit above capacity (stack clamped to 85% of cap; one oversize segment ships only if it fits, else a prefix or skip). RCL1 queues 2 upgraders of `[W,C,C,M]` (250), not 6. RCL2 at 550 cap ships a fixed `[4W,C,M]` (500, 4 WORK) instead of one 300-energy `[2W,C,M]` leftover-sized segment. RCL3 uses `[4W,C,M]` until cap hits 800, then `getBody([W,W,C,M])` → 4W2C2M. Hypothesis: RCL2 upgrades at 4 e/t, not 2. A/B still pending.
+`getBody` now sizes segments from `energyCapacityAvailable` and will not emit above capacity (stack clamped to 85% of cap; one oversize segment ships only if it fits, else a prefix or skip). RCL1 queues 1 upgrader of `[W,C,C,M]` (250). RCL3 uses `[4W,C,M]` until cap hits 800, then `getBody([W,W,C,M])` → 4W2C2M. A/B still pending.
 
 RCL1–3 `spawnFirstInLine` interleaves the next affordable queue entry after 10 consecutive `ERR_NOT_ENOUGH_ENERGY` (was 40); RCL4+ stays at 40.
 
@@ -100,3 +100,5 @@ Remotes open at RCL4, not RCL3. An RCL3 remote is unreserved 5 e/t (reservers ar
 Pre-road home carriers are 1:1 CARRY:MOVE (same rule remotes already use). The old loop added MOVE every other CARRY at every RCL, so a loaded hauler was 2 ticks/tile on dirt through the 135k climb — RCL2 has no roads, RCL3 only sites arterials and we stopped paving them first. RCL4+ with real storage stays 2:1. First RCL1 hauler is still `[C,M]`. Hypothesis: home haul matches the walk, so fewer bodies cover the same e/t. A/B still pending.
 
 RCL3 no longer queues the 800e maintainer. Arterials hit 2000 hits after ≈3000 ticks of decay, which is mid-135k-climb, and the body stole a spawn from a 500e 4W upgrader. Ramparts are RCL4+; the existing `[W,C,M]` repairer covers roads. RCL4+ maintainers unchanged. Hypothesis: the climb is not paying 800e to nurse a 300-hit road. A/B still pending.
+
+RCL2 upgraders are `[2W,2C,2M]` (450), not `[4W,C,M]`. The controller container is RCL3, so RCL2 is a source↔controller shuttle: `[4W,C,M]` is 3 ticks/tile and a 50-energy tank (~0.5 e/t delivered on a 15-tile walk, not 4). The 2W/2C/2M body walks and holds 100. RCL3 still parks the 4W on the depot. Hypothesis: RCL2 actually delivers ~1 e/t per upgrader. A/B still pending.

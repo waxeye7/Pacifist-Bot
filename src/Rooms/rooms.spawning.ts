@@ -801,9 +801,13 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 4,
+                // No controller depot until RCL3. [4W,C,M] is 3 ticks/tile
+                // (5 non-MOVE / 1 MOVE) and a 50-energy tank — ~0.5 e/t
+                // delivered on a 15-tile shuttle, not 4. [2W,2C,2M] walks
+                // and holds 100, ~1 e/t each. RCL3 keeps the parked 4W.
                 body:   room.energyCapacityAvailable >= 550
-                    ? [WORK,WORK,WORK,WORK,CARRY,MOVE]
-                    : getBody([WORK,WORK,CARRY,MOVE], room),
+                    ? [WORK,WORK,CARRY,CARRY,MOVE,MOVE]
+                    : getBody([WORK,CARRY,MOVE], room),
 
             },
 
