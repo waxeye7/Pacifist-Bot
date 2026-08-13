@@ -8609,6 +8609,69 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       if (W && W !== L && W.fullRun) W.fullRun = { ...W.fullRun, shallow: 2, ran: true };
     },
     "ships 60/0|forging those two integers");
+  const twinLane98 = (p, fn) => {
+    fn(p.meta.extensions.laneMeta);
+    const W = p.meta.walls?.mobility?.lanes;
+    if (W && W !== p.meta.extensions.laneMeta) fn(W);
+  };
+  run("r30/98-X-extra-reserved-99-99",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.shrunk && Array.isArray(L.fullRun?.reserved) && Array.isArray(L.fullRun?.byRound));
+    }),
+    (p) => {
+      twinLane98(p, (L) => {
+        const extra = "99,99";
+        L.fullRun.reserved = [...L.fullRun.reserved.map(String), extra];
+        L.fullRun.byRound = [...L.fullRun.byRound.map((r) => r.slice()), [extra]];
+        L.fullRun.tiles = L.fullRun.reserved.length;
+        L.fullRun.rounds = L.fullRun.byRound.length;
+        L.fullRun.used = L.fullRun.rounds;
+        L.shrunk.wanted = L.fullRun.tiles;
+      });
+    },
+    "walkable interior floor|COORD bag");
+  run("r30/98-X-invent-shrink-with-extra-round",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.fullRun && !L.fullRun.ran && !L.shrunk && !L.dropped &&
+        Array.isArray(L.fullRun.reserved) && Array.isArray(L.fullRun.byRound));
+    }),
+    (p) => {
+      twinLane98(p, (L) => {
+        const extra = "1,1";
+        const keptTo = L.fullRun.rounds || L.fullRun.byRound.length;
+        L.fullRun.reserved = [...L.fullRun.reserved.map(String), extra];
+        L.fullRun.byRound = [...L.fullRun.byRound.map((r) => r.slice()), [extra]];
+        L.fullRun.tiles = L.fullRun.reserved.length;
+        L.fullRun.rounds = L.fullRun.byRound.length;
+        L.fullRun.ext = 58;
+        L.fullRun.shallow = 2;
+        L.fullRun.ran = true;
+        L.fullRun.used = L.fullRun.rounds;
+        L.fullRun.to = keptTo;
+        L.shrunk = { from: 10, to: keptTo, wanted: L.fullRun.tiles, premium: 0 };
+        L.roundCap = keptTo;
+      });
+    },
+    "walkable interior floor|COORD bag");
+  run("r30/98-X-extra-reserved-border-0-0",
+    any28((p) => {
+      const L = p.meta?.extensions?.laneMeta;
+      return !!(L && L.shrunk && Array.isArray(L.fullRun?.reserved) && Array.isArray(L.fullRun?.byRound));
+    }),
+    (p) => {
+      twinLane98(p, (L) => {
+        const extra = "0,0";
+        L.fullRun.reserved = [...L.fullRun.reserved.map(String), extra];
+        L.fullRun.byRound = [...L.fullRun.byRound.map((r) => r.slice()), [extra]];
+        L.fullRun.tiles = L.fullRun.reserved.length;
+        L.fullRun.rounds = L.fullRun.byRound.length;
+        L.fullRun.used = L.fullRun.rounds;
+        L.shrunk.wanted = L.fullRun.tiles;
+      });
+    },
+    "walkable interior floor|COORD bag");
   run("r28/93-X-taken-room-fixedHolder-invented-off-the-board",
     any28((p) => p.meta?.sealedRecovery?.outcome === "taken"),
     (p) => {

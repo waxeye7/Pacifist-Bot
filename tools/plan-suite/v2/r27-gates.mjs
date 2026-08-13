@@ -11,7 +11,7 @@
  *      appeared nowhere in validate.mjs carry an explicit klass + reason;
  *      the cheap ones are derived here.
  */
-import { D8, chebyshev, walkable } from "./shared.mjs";
+import { D8, buildable, chebyshev, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
 import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, RADII_WIDE } from "./layer-shell.mjs";
 import {
@@ -37,6 +37,42 @@ import idents from "./_r27-idents.json" with { type: "json" };
 const K = (t) => `${t.x},${t.y}`;
 const idx = (x, y) => x + y * 50;
 const COORD = /^\d{1,2},\d{1,2}$/;
+/** 99,99 matches COORD. The floor bind parses any integer pair. */
+function parseCoord(k) {
+  const m = /^(-?\d+),(-?\d+)$/.exec(String(k));
+  if (!m) return null;
+  return { x: +m[1], y: +m[2] };
+}
+/**
+ * Chebyshev interpolation. Intermediates are the roads the greedy skipped —
+ * a reserved tile may sit a few walkable steps off the rest of the walk.
+ */
+function walkableChebGap(terrain, a, b) {
+  let x = a.x;
+  let y = a.y;
+  while (x !== b.x || y !== b.y) {
+    if (x !== b.x) x += Math.sign(b.x - x);
+    if (y !== b.y) y += Math.sign(b.y - y);
+    if (x === b.x && y === b.y) break;
+    if (!walkable(terrain, x, y)) return false;
+  }
+  return true;
+}
+/** cheb≤2 of another reserved/cut, or a walkable gap of cheb≤5 (skipped roads). */
+function reservedTouchesWalk(pt, pts, cutPts, terrain) {
+  for (const q of pts) {
+    if (q === pt) continue;
+    const d = chebyshev(pt, q);
+    if (d <= 2) return true;
+    if (d <= 5 && walkableChebGap(terrain, pt, q)) return true;
+  }
+  for (const c of cutPts) {
+    const d = chebyshev(pt, c);
+    if (d <= 2) return true;
+    if (d <= 5 && walkableChebGap(terrain, pt, c)) return true;
+  }
+  return false;
+}
 const BASIS_WHY_NAME = /Basis$|Why$/i;
 const IDENT = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
@@ -841,6 +877,11 @@ export function checkR27(plan, ctx = {}) {
   // reserved tiles are the board. A shrink is a proper prefix of that
   // board; a kept walk's fullRun.ext/shallow on a 60/0 room is the
   // shipped board, not a pair of free integers.
+  //
+  // ROUND 29 sixth / the COORD bag: 99,99 and 1,1 pass /^\d{1,2},\d{1,2}$/
+  // and still invent a priced shrink. Reserved tiles are this room's
+  // walkable interior floor — a walk (cheb≤2 of the reserved set or the
+  // cut; road gaps the greedy skipped), not a COORD bag.
   {
     const lane = meta.extensions?.laneMeta || w.mobility?.lanes;
     if (lane && typeof lane === "object") {
@@ -934,6 +975,49 @@ export function checkR27(plan, ctx = {}) {
             fails.push(
               `fullRun.reserved has ${bad} duplicate or off-board key(s). It is a set of tiles, not a bag`,
             );
+          }
+          // COORD matches 99,99. Bind reserved tiles to this room's floor.
+          if (ctx.terrain) {
+            const objectKeys = new Set();
+            if (plan.sitter) objectKeys.add(K(plan.sitter));
+            for (const src of plan.sources || []) objectKeys.add(K(src));
+            if (plan.controller) objectKeys.add(K(plan.controller));
+            if (plan.mineral) objectKeys.add(K(plan.mineral));
+            const cutPts = [];
+            for (const t of sh.cut || []) {
+              if (t && Number.isInteger(t.x) && Number.isInteger(t.y)) cutPts.push({ x: t.x, y: t.y });
+            }
+            const bindReservedFloor = (keys, label) => {
+              const pts = [];
+              let off = 0;
+              for (const k of keys) {
+                const t = parseCoord(k);
+                if (!t) continue;
+                if (!buildable(ctx.terrain, t.x, t.y) || objectKeys.has(`${t.x},${t.y}`)) {
+                  off++;
+                  continue;
+                }
+                pts.push(t);
+              }
+              if (off) {
+                fails.push(
+                  `${label} has ${off} key(s) that are not this room's walkable interior floor. ` +
+                    `It is a walk on this room, not a COORD bag`,
+                );
+              }
+              let isolated = 0;
+              for (const t of pts) {
+                if (!reservedTouchesWalk(t, pts, cutPts, ctx.terrain)) isolated++;
+              }
+              if (isolated) {
+                fails.push(
+                  `${label} has ${isolated} isolated tile(s) off the reserved walk. ` +
+                    `Every reserved tile is walkable interior floor on that walk or the cut, not a COORD bag`,
+                );
+              }
+            };
+            bindReservedFloor(reserved, "fullRun.reserved");
+            if (laneRes) bindReservedFloor(laneRes, "lane.reserved");
           }
           if (reserved.length !== (fr.tiles || 0)) {
             fails.push(
