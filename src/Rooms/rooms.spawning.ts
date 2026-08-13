@@ -1353,28 +1353,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
             }
-            if(maintainers < spawnrules[3].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
-                if(spawnMaintainer) {
-                    let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(spawnrules[3].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
-                    console.log('Adding Maintainer to Spawn List: ' + name);
-                }
-                else {
-                    if(room.memory.keepTheseRoads.length > 0) {
-                        for(let roadID of room.memory.keepTheseRoads) {
-                            let road:any = Game.getObjectById(roadID);
-                            if(road && road.hits <= 2000) {
-                                let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                                room.memory.spawn_list.push(spawnrules[3].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
-                                console.log('Adding Maintainer to Spawn List: ' + name);
-                                break;
-                            }
-                        }
-                    }
-                }
-
-
-            }
+            // No RCL3 maintainer. The 800e [4W,2M,4C] used to queue the moment
+            // an arterial hit 2000 (≈3000 ticks of decay) and HOL-block the
+            // 135k climb. Ramparts are RCL4+; the cheap repairer covers roads.
             break;
 
         case 4:
