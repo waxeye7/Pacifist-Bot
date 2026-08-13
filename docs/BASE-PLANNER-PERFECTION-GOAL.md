@@ -9885,10 +9885,17 @@ it says so in the entry rather than in a comment.
    `fullRun` (ran is a function of that walk). Residue: forge the whole
    `fullRun` then invent a consistent shrink. p10: taken-room `fixedHolders`
    must be shipped unmovable tiles; recovers still pre-take.
-   **ROUND 29 is not clean.** Owner: `cutPasses` leaves still bounded.
-   Mech: 98 forge-`fullRun`, 88 swap discarded cut for shipped cut, 93 recovers,
-   presence class, exact pick, 141(e). r29p1: `cutAdopted` === layer-7b adds
+   **ROUND 29 is not clean.** r29p1: `cutAdopted` === layer-7b adds
    (planting a real add bites); a fatter discarded cut is not `cutAtFreeze`.
+   r29p2: the three leftover `cutPasses` leaves are derived, not bounded.
+   `sealCritical` is the single-removal count on that invocation's rampart set
+   (layer 7 = shipped ∪ reflow-retired − reflow-added; layer 7b = shipped).
+   Last prune's `ramparts` is shipped + its own deletions; first prune's is the
+   reconstructed start (a +1 slack only on the three rooms whose pre-reflow
+   array had a duplicate slot). A sum-preserving `rampartsDeleted` swap bites.
+   Mutate 1287 → **1292**. Still open: 98 forge-`fullRun`, 88 other fake cuts
+   that walk the claimed lap, 93 recovers, META_DARK presence, exact pick,
+   141(e), 134(a,c,d).
    p1/p2: shipped shell damage, refill
    blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
 142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)

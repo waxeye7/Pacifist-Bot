@@ -1101,6 +1101,66 @@ function depthFromExterior(ext) {
   return depth;
 }
 
+/**
+ * Garrison side of a seal: walkable un-ramparted tiles the sitter reaches
+ * without crossing a rampart. Paired with exteriorFlood this is the two-flood
+ * form of "take this rampart off and the room opens" (layer-walls
+ * `sealCriticalSet`).
+ */
+function insideFloodFromSitter(terrain, rampartSet, sitter) {
+  const inside = new Uint8Array(2500);
+  if (!sitter || !walkable(terrain, sitter.x, sitter.y) || rampartSet.has(key(sitter.x, sitter.y))) return inside;
+  const si = idx(sitter.x, sitter.y);
+  inside[si] = 1;
+  const q = [si];
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50,
+      y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      if (!walkable(terrain, nx, ny) || rampartSet.has(key(nx, ny))) continue;
+      const ni = nx + ny * 50;
+      if (inside[ni]) continue;
+      inside[ni] = 1;
+      q.push(ni);
+    }
+  }
+  return inside;
+}
+
+/**
+ * How many ramparts are singly seal-critical on this set. `null` when the
+ * test stands down (no ramparts, or the sitter is already exterior) — the
+ * same two answers `reconcileSeal` publishes as `sealCritical: null`.
+ */
+function sealCriticalCountOf(terrain, rampartSet, sitter) {
+  if (!rampartSet.size) return null;
+  const ext = exteriorFlood(passableFn(terrain, new Set()), rampartSet);
+  if (ext[idx(sitter.x, sitter.y)]) return null;
+  const inside = insideFloodFromSitter(terrain, rampartSet, sitter);
+  let n = 0;
+  for (const k of rampartSet) {
+    const [x, y] = k.split(",").map(Number);
+    if (!walkable(terrain, x, y)) continue;
+    let touchIn = false,
+      touchOut = false;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx,
+        ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (inside[ni]) touchIn = true;
+      else if (ext[ni]) touchOut = true;
+      if (touchIn && touchOut) break;
+    }
+    if (touchIn && touchOut) n++;
+  }
+  return n;
+}
+
 /** interior walk component containing the sitter (D8; roads/ramparts pass) */
 function interiorComponent(passable, ext, blocked, sitter) {
   const seen = new Uint8Array(2500);
@@ -14163,6 +14223,44 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                 } else {
                   const seenP10 = new Set();
                   const off10 = [];
+                  // ROUND 29 / M1 — reconstruct each invocation's rampart set
+                  // from the shipped wall plus the two rosters that name tiles
+                  // the wall used to have: inertPruned (the prune deleted them)
+                  // and reflow.rampartsRetired (layer 7b moved a shallow
+                  // extension off its personal cover). Reflow can also ADD
+                  // cover (`added` / `shallowRamparts`); those tiles are on
+                  // the shipped wall and were not there when layer 7 ran.
+                  const rf10 = plan.meta?.walls?.reflow || {};
+                  const retired10 = new Set();
+                  for (const t10 of rf10.rampartsRetired || []) {
+                    if (t10 && Number.isInteger(t10.x) && Number.isInteger(t10.y)) retired10.add(key(t10.x, t10.y));
+                  }
+                  const reflowAdd10 = new Set();
+                  for (const t10 of [...(rf10.added || []), ...(rf10.shallowRamparts || [])]) {
+                    if (t10 && Number.isInteger(t10.x) && Number.isInteger(t10.y)) reflowAdd10.add(key(t10.x, t10.y));
+                  }
+                  const movedFrom10 = new Set();
+                  for (const m10 of rf10.moved || []) {
+                    if (m10 && m10.from && Number.isInteger(m10.from.x) && Number.isInteger(m10.from.y)) {
+                      movedFrom10.add(key(m10.from.x, m10.from.y));
+                    }
+                  }
+                  const orphanRet10 = [...retired10].filter((k10) => !movedFrom10.has(k10) || rampK9.has(k10));
+                  if (orphanRet10.length) {
+                    off10.push(
+                      `reflow.rampartsRetired names ${orphanRet10.slice(0, 4).join(" ")} that reflow.moved did not ` +
+                        `vacate (or that still wear a rampart)`,
+                    );
+                  }
+                  const startRamp10 = new Set(rampK9);
+                  for (const k10 of inert9) startRamp10.add(k10);
+                  for (const k10 of retired10) startRamp10.add(k10);
+                  for (const k10 of reflowAdd10) startRamp10.delete(k10);
+                  const rsetAtL7 = new Set(rampK9);
+                  for (const k10 of retired10) rsetAtL7.add(k10);
+                  for (const k10 of reflowAdd10) rsetAtL7.delete(k10);
+                  const scAtL7 = sealCriticalCountOf(terrain, rsetAtL7, sitter);
+                  const scAtL7b = sealCriticalCountOf(terrain, rampK9, sitter);
                   cp10.forEach((mk10, j10) => {
                     if (!mk10 || !CUT_DRIFT_PASSES.includes(mk10.pass)) {
                       off10.push(`[${j10}] names pass ${String(JSON.stringify(mk10 && mk10.pass)).slice(0, 30)}`);
@@ -14181,10 +14279,15 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                           `log carries ${rowsAdd10} and ${rowsRem10} for it`,
                       );
                     }
-                    // ROUND 28 / M1 — kind is a function of the pass, and the
-                    // per-invocation counters are bounded by the board. sealCritical
-                    // += 999, ramparts := 0, and a kind rewrite that kept the
-                    // deleted-sum filter happy all passed 172/172.
+                    // ROUND 29 / M1 — the three leftover leaves are DERIVED, not
+                    // bounded. Round 28 closed += 999 / ramparts := 0 / kind
+                    // rewrite. The r29 owner then walked sealCritical += 1
+                    // inside [adds, rampN], sealCritical := adds, := rampN,
+                    // prune ramparts += 8, and a sum-preserving rampartsDeleted
+                    // swap through at 172/172. A record standing in for the
+                    // adoption declaration is held to the standard the
+                    // declaration would have been: the exact integer, from the
+                    // board.
                     const wantKind10 = mk10.pass.endsWith("inertPrune")
                       ? "inertPrune"
                       : mk10.pass.endsWith("reconcileSeal")
@@ -14200,17 +14303,55 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
                         off10.push(`${mk10.pass} deleted ${mk10.rampartsDeleted} of ${mk10.ramparts} rampart(s)`);
                       } else if (mk10.removes > mk10.rampartsDeleted) {
                         off10.push(`${mk10.pass} removed ${mk10.removes} cut tile(s) and deleted only ${mk10.rampartsDeleted} rampart(s)`);
+                      } else if (mk10.pass === "layer7b-inertPrune") {
+                        // last prune: no rampart is added after it, so
+                        // ramparts-before IS the shipped wall plus what this
+                        // invocation itself deleted.
+                        const wantR10 = (s.rampart || []).length + mk10.rampartsDeleted;
+                        if (mk10.ramparts !== wantR10) {
+                          off10.push(
+                            `${mk10.pass} names ${mk10.ramparts} rampart(s) before it ran and the shipped wall plus ` +
+                              `its own deletions reconstruct ${wantR10}`,
+                          );
+                        }
+                      } else if (mk10.pass === "layer7-inertPrune") {
+                        // first prune: shipped ∪ inert ∪ reflow-retired, minus
+                        // ramparts reflow added. Three rooms ship a duplicate
+                        // slot in the pre-reflow array (length = unique + 1,
+                        // no tile missing from the set); that is the only
+                        // slack, and only in that exact shape.
+                        const wantR10 = startRamp10.size;
+                        const slack10 =
+                          mk10.ramparts === wantR10 + 1 &&
+                          wantR10 === rampK9.size &&
+                          inert9.size === 0 &&
+                          retired10.size === 0 &&
+                          reflowAdd10.size === 0;
+                        if (mk10.ramparts !== wantR10 && !slack10) {
+                          off10.push(
+                            `${mk10.pass} names ${mk10.ramparts} rampart(s) before it ran and the shipped wall plus ` +
+                              `this room's own later deletions reconstruct ${wantR10}`,
+                          );
+                        }
                       }
                     }
                     if (wantKind10 === "reconcileSeal") {
                       if (mk10.sealCritical !== null && !Number.isInteger(mk10.sealCritical)) {
                         off10.push(`${mk10.pass} sealCritical is ${JSON.stringify(mk10.sealCritical)}`);
-                      } else if (Number.isInteger(mk10.sealCritical) && mk10.sealCritical > rampK9.size) {
+                      } else if (Number.isInteger(mk10.sealCritical) && mk10.sealCritical > rampK9.size + retired10.size) {
                         off10.push(`${mk10.pass} names ${mk10.sealCritical} seal-critical tile(s) over ${rampK9.size} rampart(s)`);
                       } else if (Number.isInteger(mk10.sealCritical) && mk10.adds > mk10.sealCritical) {
                         off10.push(`${mk10.pass} adopted ${mk10.adds} and names only ${mk10.sealCritical} seal-critical`);
                       } else if (mk10.adds > 0 && mk10.sealCritical === null) {
                         off10.push(`${mk10.pass} adopted ${mk10.adds} and sealCritical is null — the test that stood down cannot have adopted`);
+                      } else {
+                        const wantSC10 = mk10.pass === "layer7-reconcileSeal" ? scAtL7 : scAtL7b;
+                        if (mk10.sealCritical !== wantSC10) {
+                          off10.push(
+                            `${mk10.pass} names ${JSON.stringify(mk10.sealCritical)} seal-critical tile(s) and the ` +
+                              `single-removal test on the ramparts that invocation saw finds ${JSON.stringify(wantSC10)}`,
+                          );
+                        }
                       }
                     }
                   });

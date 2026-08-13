@@ -8601,6 +8601,42 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "fatter discarded|winner's cut|swapping");
+  run("r29/M1-X-cutPasses-sealCritical-plus-1-inside-the-old-bound",
+    any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical))),
+    (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical += 1; },
+    "seal-critical|single-removal");
+  run("r29/M1-X-cutPasses-sealCritical-set-to-adds",
+    any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical) && m.sealCritical !== (m.adds || 0))),
+    (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical = m.adds || 0; },
+    "seal-critical|single-removal");
+  run("r29/M1-X-cutPasses-sealCritical-set-to-rampN",
+    any28((p) => {
+      const n = (p.structures?.rampart || []).length;
+      return (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical) && m.sealCritical !== n);
+    }),
+    (p) => {
+      const n = (p.structures.rampart || []).length;
+      for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical = n;
+    },
+    "seal-critical|single-removal");
+  run("r29/M1-X-cutPasses-prune-ramparts-plus-8",
+    any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "inertPrune" && Number.isInteger(m.ramparts))),
+    (p) => { for (const m of p.meta.shell.cutPasses) if (m && m.kind === "inertPrune") m.ramparts += 8; },
+    "rampart\\(s\\) before it ran|reconstruct");
+  run("r29/M1-X-cutPasses-swap-prune-rampartsDeleted",
+    any28((p) => {
+      const a = (p.meta?.shell?.cutPasses || []).find((m) => m && m.pass === "layer7-inertPrune");
+      const b = (p.meta?.shell?.cutPasses || []).find((m) => m && m.pass === "layer7b-inertPrune");
+      return !!(a && b && a.rampartsDeleted !== b.rampartsDeleted && a.rampartsDeleted >= (b.removes || 0) && b.rampartsDeleted >= (a.removes || 0));
+    }),
+    (p) => {
+      const a = p.meta.shell.cutPasses.find((m) => m.pass === "layer7-inertPrune");
+      const b = p.meta.shell.cutPasses.find((m) => m.pass === "layer7b-inertPrune");
+      const t = a.rampartsDeleted;
+      a.rampartsDeleted = b.rampartsDeleted;
+      b.rampartsDeleted = t;
+    },
+    "rampart\\(s\\) before it ran|reconstruct");
 
   const runFile28 = (name, room, file, transform, expect) => {
     if (ONLY && !new RegExp(ONLY, "i").test(name)) {
