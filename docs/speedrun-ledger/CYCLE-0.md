@@ -78,3 +78,5 @@ Home carriers no longer price haul off a phantom 6 WORK / 12 e/t. `getCarrierBod
 RCL1–3 `spawnFirstInLine` interleaves the next affordable queue entry after 10 consecutive `ERR_NOT_ENOUGH_ENERGY` (was 40); RCL4+ stays at 40.
 
 RCL3 `roadsForRcl` now keeps only hub↔source/controller chains (D8 of those containers plus the first-tower spur). `plan.rs` still stages the whole arterial at 3 — extension faces, unused hub filler, later tower spurs — so the bot filters that set geometrically rather than restaging. RCL2 still has no roads; RCL4+ still gets the full array. Monotone prefix. Hypothesis: the 135k climb is not spent paving extension flanks. A/B still pending.
+
+Five extensions plus the nearest source buffer. Second source and controller containers stay on the plan at RCL3. Monotone prefix. A/B still pending.

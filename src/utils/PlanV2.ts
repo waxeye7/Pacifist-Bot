@@ -808,10 +808,10 @@ const EXTRACTOR_RCL = 6;
  * container is placed exactly once in a single fixed order — everything that
  * exists from RCL2 first, in plan order, and the extractor-deferred mineral
  * seat LAST — and `plannedTilesFor` then hands every level a PREFIX of that one
- * order whose length is non-decreasing in the level (`early` below RCL6, the
- * whole order from RCL6, clamped by a CONTROLLER_STRUCTURES cap that is itself
- * non-decreasing). Nested prefixes cannot un-build. That is the whole proof,
- * and it does not depend on how many containers a plan carries.
+ * order whose length is non-decreasing: one source seat at RCL2, `early` from
+ * RCL3 through RCL5, the whole order from RCL6 (clamped by a CONTROLLER_STRUCTURES
+ * cap that is itself non-decreasing). Nested prefixes cannot un-build. That is
+ * the whole proof, and it does not depend on how many containers a plan carries.
  *
  * The cap moves INTO plannedTilesFor for the same reason: with the cap applied
  * to the staging order, every caller's own `Math.min(cap, planned.length)` is a
@@ -824,13 +824,11 @@ const EXTRACTOR_RCL = 6;
  * Taking the last match keeps that room's controller container in the early set
  * where it belongs.
  *
- * NO-OP ON EVERY PLAN THE FLEET CURRENTLY SHIPS, deliberately. With n <= 5
- * containers and the mineral seat last (n = 4 in 172/172 rooms), the order IS
- * plan order, `early` is n-1, the cap of 5 never binds, and the prefix is the
- * first n-1 below RCL6 and all n from RCL6 — tile for tile what the old
- * slice+concat returned. Plan order is preserved in the result too, because the
- * prefix only decides WHICH tiles are in the set (that is where monotonicity
- * lives) and the array is rebuilt by index.
+ * Order is plan order on every plan the fleet ships (n = 4, mineral last, in
+ * 172/172 rooms). The prefix is 1 at RCL2 (first source seat), n-1 from RCL3
+ * through RCL5, and all n from RCL6. Plan order is preserved in the result
+ * too, because the prefix only decides WHICH tiles are in the set (that is
+ * where monotonicity lives) and the array is rebuilt by index.
  * ---------------------------------------------------------------------------
  */
 function containerStageOrder(plan: PackedPlan): { order: number[]; early: number } {
@@ -853,7 +851,8 @@ function containerStageOrder(plan: PackedPlan): { order: number[]; early: number
   for (let i = 0; i < planned.length; i++) if (i !== deferred) order.push(i);
   if (deferred >= 0) order.push(deferred);
   // how many of that order exist BEFORE the extractor does — the prefix length
-  // RCL2..RCL5 takes. From EXTRACTOR_RCL the prefix is the whole order.
+  // RCL3..RCL5 takes (RCL2 takes one of this prefix; see plannedTilesFor).
+  // From EXTRACTOR_RCL the prefix is the whole order.
   return { order: order, early: deferred >= 0 ? order.length - 1 : order.length };
 }
 
@@ -863,7 +862,11 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] 
   const staged = containerStageOrder(plan);
   const caps = (CONTROLLER_STRUCTURES as any)[type];
   const cap = caps ? caps[lvl] || 0 : planned.length;
-  const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? staged.order.length : staged.early);
+  // RCL2: first source container only (plan-order prefix of the early set).
+  // Second source + controller stay on the same order at RCL3; mineral at RCL6.
+  // Nested prefixes: 1 ⊂ early ⊂ all. Never reorder — migrate is FREE_REPLACE.
+  const beforeExtractor = lvl < 3 ? Math.min(1, staged.early) : staged.early;
+  const take = Math.min(cap, lvl >= EXTRACTOR_RCL ? staged.order.length : beforeExtractor);
   // the whole order — return the plan's own array, unallocated and unchanged
   if (take >= planned.length) return planned;
   if (take <= 0) return [];
@@ -883,8 +886,9 @@ function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] 
  * callers wrote `for (const p of plan.t.container || [])` inline and thereby
  * asserted two things they had not checked: that container is the only walkable
  * planned structure (true, and worth stating), and that every planned container
- * exists at every RCL (false — plannedTilesFor above defers the mineral one to
- * RCL6, and typeAllowedAtRcl allows none at all below RCL2).
+ * exists at every RCL (false — plannedTilesFor above defers all but the first
+ * source seat below RCL3 and the mineral one to RCL6, and typeAllowedAtRcl
+ * allows none at all below RCL2).
  *
  * The rules are composed rather than restated, so a new deferral in
  * plannedTilesFor or a new gate in typeAllowedAtRcl is picked up here for free.
@@ -983,19 +987,14 @@ const PLACE_ORDER = [
  * RCL2 BUILDS EXTENSIONS BEFORE IT BUILDS REMOTE CONTAINERS.
  *
  * `container` sits ahead of `extension` in PLACE_ORDER and containers unlock at
- * RCL2, so a fresh room spent its ENTIRE four-site budget on the three eco
- * containers (two source, one controller) before siting a single extension —
- * containers up to 27 walk from the hub, over ground with no road on it,
- * because roads are RCL3. The room therefore runs RCL2 on 300 energy of spawn
- * capacity while a lone builder walks half the room, and the five extensions
- * that would let it spawn a real body wait behind three construction sites the
- * economy cannot service yet.
- *
- * The containers are not wrong, they are early. At RCL2 the extensions are the
- * whole point: five of them is +250 capacity on the tick they finish, and they
- * sit next to the hub where the same builder is already standing. So RCL2 — and
- * only RCL2 — swaps the two. From RCL3 the room has roads and the original order
- * (containers first, so the miners drop into a buffer) is right again.
+ * RCL2, so a fresh room used to spend its ENTIRE four-site budget on the three
+ * eco containers (two source, one controller) before siting a single extension.
+ * plannedTilesFor now only hands RCL2 the first source seat, but even that one
+ * is up to 27 walk from the hub over ground with no road on it (roads are RCL3).
+ * The five extensions are +250 capacity on the tick they finish and sit next
+ * to the hub where the same builder is already standing. So RCL2 — and only
+ * RCL2 — still sites extensions first. From RCL3 leftover containers (second
+ * source + controller) go down before leftover extensions and roads.
  *
  * Everything else about PLACE_ORDER is unchanged, including "spawn" opening it.
  * ---------------------------------------------------------------------------
