@@ -12,7 +12,7 @@
  *      the cheap ones are derived here.
  */
 import { D8, chebyshev, key, walkable } from "./shared.mjs";
-import { BUILT_OBSTACLES } from "./layer-shell.mjs";
+import { BUILT_OBSTACLES, interiorWalk } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -30,12 +30,7 @@ import {
   renderNoteObligationBasis,
 } from "./layer-walls.mjs";
 import { MIN_SAT, SWAP_OFFER_BASIS, renderSwapOfferBasis, shellDamage } from "./layer-towers.mjs";
-import {
-  MINERAL_OFF_NETWORK_BASIS,
-  MINERAL_ON_NETWORK_BASIS,
-  renderMineralOffNetworkWhy,
-  mineralSeatCensus,
-} from "./layer-misc.mjs";
+import { renderMineralOffNetworkWhy, mineralSeatCensus } from "./layer-misc.mjs";
 import idents from "./_r27-idents.json" with { type: "json" };
 
 const K = (t) => `${t.x},${t.y}`;
@@ -468,48 +463,7 @@ export function checkR27(plan, ctx = {}) {
         ...mineralSeatCensus(plan.structures, seat, net),
         when: "the FINISHED road set, not layer 5's",
       });
-      const suffixOk =
-        misc.mineralOffNetworkWhy.endsWith(MINERAL_OFF_NETWORK_BASIS) ||
-        misc.mineralOffNetworkWhy.endsWith(MINERAL_ON_NETWORK_BASIS) ||
-        misc.mineralOffNetworkWhy.includes(MINERAL_OFF_NETWORK_BASIS) ||
-        misc.mineralOffNetworkWhy.includes(MINERAL_ON_NETWORK_BASIS);
-      if (misc.mineralOffNetworkWhy === want) {
-        /* exact */
-      } else if (
-        suffixOk &&
-        misc.mineralOffNetworkWhy.includes(`the mineral seat at ${seat.x},${seat.y}`)
-      ) {
-        // Three rooms (E2S5, E5S1, E5S3) disagree with the official census on
-        // whether a road on the seat or its ring is "ours". The suffix and the
-        // seat are not enough — round 28 rewrote the nearest-road clause on
-        // E2S5 and passed. Bind the nearest road (excluding the seat tile)
-        // and the touching count from the finished network.
-        const raw = mineralSeatCensus(plan.structures, seat, net);
-        let nearest = raw.nearestRoad;
-        if (nearest && nearest.dist === 0) {
-          nearest = null;
-          for (const r of plan.structures?.road || []) {
-            if (r.x === seat.x && r.y === seat.y) continue;
-            const d = Math.max(Math.abs(r.x - seat.x), Math.abs(r.y - seat.y));
-            if (
-              !nearest ||
-              d < nearest.dist ||
-              (d === nearest.dist && (r.y < nearest.y || (r.y === nearest.y && r.x < nearest.x)))
-            ) {
-              nearest = { x: r.x, y: r.y, dist: d };
-            }
-          }
-        }
-        const nearHit = /nearest road tile this room ships is (\d+),(\d+), (\d+) step/.exec(misc.mineralOffNetworkWhy);
-        const seatRoad = /the seat tile itself carries a road/.test(misc.mineralOffNetworkWhy);
-        const named =
-          nearest &&
-          ((nearHit && +nearHit[1] === nearest.x && +nearHit[2] === nearest.y && +nearHit[3] === nearest.dist) ||
-            (seatRoad && nearest.dist === 0));
-        if (!named) {
-          say(fails, "misc.mineralOffNetworkWhy", misc.mineralOffNetworkWhy, want);
-        }
-      } else {
+      if (misc.mineralOffNetworkWhy !== want) {
         say(fails, "misc.mineralOffNetworkWhy", misc.mineralOffNetworkWhy, want);
       }
     }
@@ -537,20 +491,33 @@ export function checkR27(plan, ctx = {}) {
 
   const off = tw.towerSwapOffer;
   if (off && typeof off.basis === "string") {
-    const faceHit = /face at (\d+) and its saturation at (\d+)/.exec(off.basis);
-    const mn = faceHit ? +faceHit[1] : tw.minShellDmg;
-    const sat = faceHit ? +faceHit[2] : mn < MIN_SAT ? mn : MIN_SAT;
-    const want = renderSwapOfferBasis({
-      seats: off.seats,
-      searchedSeats: off.searchedSeats,
-      towers: (plan.structures?.tower || []).length,
-      scanned: off.scanned,
-      faceAndSatHeld: off.faceAndSatHeld,
-      priceProven: off.priceProven,
-      face: { min: mn, sat },
-      before: off.before,
-      best: off.best,
-    });
+    const faceOf = (mn) => ({ min: mn, sat: mn < MIN_SAT ? mn : MIN_SAT });
+    const pack = (face) =>
+      renderSwapOfferBasis({
+        seats: off.seats,
+        searchedSeats: off.searchedSeats,
+        towers: (plan.structures?.tower || []).length,
+        scanned: off.scanned,
+        faceAndSatHeld: off.faceAndSatHeld,
+        priceProven: off.priceProven,
+        face,
+        before: off.before,
+        best: off.best,
+      });
+    const mn = typeof tw.minShellDmg === "number" ? tw.minShellDmg : 0;
+    // E4S3's offer face is one 30-point damage step off minShellDmg (the
+    // grain tower damage lands in). Forged 999 is not a step.
+    const candidates = [mn, mn + 30, mn - 30].filter((v) => typeof v === "number" && v >= 0);
+    let want = pack(faceOf(mn));
+    if (off.basis !== want) {
+      for (const m of candidates) {
+        const w = pack(faceOf(m));
+        if (off.basis === w) {
+          want = w;
+          break;
+        }
+      }
+    }
     if (!off.basis.endsWith(SWAP_OFFER_BASIS) || off.basis !== want) {
       say(fails, "towers.towerSwapOffer.basis", off.basis, want);
     }
@@ -580,13 +547,14 @@ export function checkR27(plan, ctx = {}) {
     }
   }
 
-  if (Array.isArray(sh.cutAdopted) && sh.cutAdopted.length) {
-    const ramp = new Set((plan.structures?.rampart || []).map(K));
-    const stray = sh.cutAdopted.filter((t) => t && Number.isInteger(t.x) && !ramp.has(K(t)));
+  if (Array.isArray(sh.cutAdopted)) {
+    const addK = new Set((sh.cutDrift || []).filter((e) => e && e.op === "add").map((e) => K(e)));
+    const stray = sh.cutAdopted.filter((t) => t && Number.isInteger(t.x) && !addK.has(K(t)));
     if (stray.length) {
       fails.push(
-        `meta.shell.cutAdopted names ${stray.length} tile(s) that wear no rampart (${stray.slice(0, 4).map(K).join(" ")}). ` +
-          `An adoption without a rampart is a log about a different board`,
+        `meta.shell.cutAdopted names ${stray.length} tile(s) (${stray.slice(0, 4).map(K).join(" ")}) that ` +
+          `cutDrift does not adopt. The list is empty in this fleet (layer-7b overwrite); a planted rampart ` +
+          `tile is not an adoption`,
       );
     }
   }
@@ -624,6 +592,30 @@ export function checkR27(plan, ctx = {}) {
     }
     if (typeof tw.shippedWeakTiles === "number" && tw.shippedWeakTiles !== wantDmg.weak) {
       fails.push(`meta.towers.shippedWeakTiles is ${tw.shippedWeakTiles} and the shipped wall has ${wantDmg.weak} tile(s) under the floor`);
+    }
+  }
+
+  // battlementUnreachable tiles are the shipped cut tiles the interior walk
+  // never reaches. Comparing the count to the roster length only is a twin:
+  // zeroing both escaped.
+  if (ctx.terrain && ctx.extShip && plan.sitter && Array.isArray(sh.cut)) {
+    const rset = new Set((plan.structures?.rampart || []).map(K));
+    const blocked = new Set();
+    for (const src of plan.sources || []) blocked.add(K(src));
+    if (plan.controller) blocked.add(K(plan.controller));
+    if (plan.mineral) blocked.add(K(plan.mineral));
+    for (const t of BUILT_OBSTACLES) {
+      for (const q of plan.structures?.[t] || []) blocked.add(K(q));
+    }
+    const walk = interiorWalk(ctx.terrain, rset, ctx.extShip, blocked, plan.sitter);
+    const wantTiles = sh.cut.filter((c) => c && Number.isInteger(c.x) && !walk.has(K(c))).map(K).sort();
+    const gotTiles = (sh.battlementUnreachableTiles || []).map((t) => (t && Number.isInteger(t.x) ? K(t) : String(t))).sort();
+    if (wantTiles.join(" ") !== gotTiles.join(" ") || sh.battlementUnreachable !== wantTiles.length) {
+      fails.push(
+        `meta.shell.battlementUnreachable is ${sh.battlementUnreachable} / [${gotTiles.join(" ")}] and the ` +
+          `interior walk from the sitter misses ${wantTiles.length} cut tile(s) [${wantTiles.join(" ")}]. ` +
+          `The count and the roster are one walk, not two leaves that agree`,
+      );
     }
   }
 

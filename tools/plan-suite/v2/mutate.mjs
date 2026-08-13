@@ -8408,24 +8408,6 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       p.meta.towers.refillBasis = p.meta.towers.refillBasis.replace(/with \d+ tile\(s\) blocked/, "with 1 tile(s) blocked");
     },
     "refillBasis|WHOLE-VALUE");
-  run("r28/MF5-X-mineralWhy-residue-nearest-rewritten",
-    any28((p) => p.room === "E2S5" && typeof p.meta?.misc?.mineralOffNetworkWhy === "string"),
-    (p) => {
-      p.meta.misc.mineralOffNetworkWhy = p.meta.misc.mineralOffNetworkWhy.replace(
-        /nearest road tile this room ships is \d+,\d+/,
-        "nearest road tile this room ships is 1,1",
-      );
-    },
-    "mineralOffNetworkWhy|WHOLE-VALUE");
-  run("r28/MF5-X-mineralWhy-residue-step-count-rewritten",
-    any28((p) => p.room === "E2S5" && /nearest road tile this room ships is \d+,\d+, \d+ step/.test(p.meta?.misc?.mineralOffNetworkWhy || "")),
-    (p) => {
-      p.meta.misc.mineralOffNetworkWhy = p.meta.misc.mineralOffNetworkWhy.replace(
-        /(nearest road tile this room ships is \d+,\d+), \d+ step/,
-        "$1, 99 step",
-      );
-    },
-    "mineralOffNetworkWhy|WHOLE-VALUE");
   run("r28/M1-X-cutPasses-sealCritical-inflated",
     any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical))),
     (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical += 999; },
@@ -8434,6 +8416,33 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "inertPrune" && m.rampartsDeleted > 0)),
     (p) => { for (const m of p.meta.shell.cutPasses) if (m && m.kind === "inertPrune") m.ramparts = 0; },
     "cutPasses|ramparts");
+  run("r28/MF5-X-mineralWhy-append-after-last-character",
+    any28((p) => typeof p.meta?.misc?.mineralOffNetworkWhy === "string"),
+    (p) => { p.meta.misc.mineralOffNetworkWhy += " THE WALL IS FREE."; },
+    "mineralOffNetworkWhy|WHOLE-VALUE");
+  run("r28/MF5-X-swap-offer-face-parsed-from-its-own-sentence",
+    any28((p) => typeof p.meta?.towers?.towerSwapOffer?.basis === "string" && /face at \d+/.test(p.meta.towers.towerSwapOffer.basis)),
+    (p) => {
+      p.meta.towers.towerSwapOffer.basis = p.meta.towers.towerSwapOffer.basis.replace(
+        /face at \d+ and its saturation at \d+/,
+        "face at 999 and its saturation at 999",
+      );
+    },
+    "towerSwapOffer|WHOLE-VALUE");
+  run("r28/MF6-X-cutAdopted-planted-rampart-tile",
+    any28((p) => Array.isArray(p.meta?.shell?.cutAdopted) && (p.structures?.rampart || []).length),
+    (p) => {
+      const r = p.structures.rampart[0];
+      p.meta.shell.cutAdopted = [{ x: r.x, y: r.y }];
+    },
+    "cutAdopted");
+  run("r28/MF6-X-battlement-count-and-tiles-zeroed-together",
+    any28((p) => Array.isArray(p.meta?.shell?.battlementUnreachableTiles) && p.meta.shell.battlementUnreachable > 0),
+    (p) => {
+      p.meta.shell.battlementUnreachable = 0;
+      p.meta.shell.battlementUnreachableTiles = [];
+    },
+    "battlementUnreachable");
 }
 
 // ===========================================================================
