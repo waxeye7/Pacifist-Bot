@@ -8601,6 +8601,18 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "fatter discarded|winner's cut|swapping");
+  run("r29/MF6-X-extractorOffNetwork-flipped-alone",
+    any28((p) => typeof p.meta?.misc?.extractorOffNetwork === "boolean" && typeof p.meta?.misc?.mineralOffNetwork === "boolean"),
+    (p) => { p.meta.misc.extractorOffNetwork = !p.meta.misc.extractorOffNetwork; },
+    "extractorOffNetwork|mineralOffNetwork|one measurement");
+  run("r29/MF6-X-extractorSeatNetTiles-cleared",
+    any28((p) => Array.isArray(p.meta?.misc?.extractorSeatNetTiles)),
+    (p) => { p.meta.misc.extractorSeatNetTiles = ["1,1"]; },
+    "extractorSeatNetTiles|finished network");
+  run("r29/MF6-X-mobilityShippedFree-zeroed",
+    any28((p) => typeof p.meta?.shell?.mobilityShippedFree?.maxGated === "number" && p.meta.shell.mobilityShippedFree.maxGated !== 0),
+    (p) => { p.meta.shell.mobilityShippedFree.maxGated = 0; },
+    "mobilityShippedFree|mass-free");
   run("r29/M1-X-cutPasses-sealCritical-plus-1-inside-the-old-bound",
     any28((p) => (p.meta?.shell?.cutPasses || []).some((m) => m && m.kind === "reconcileSeal" && Number.isInteger(m.sealCritical))),
     (p) => { for (const m of p.meta.shell.cutPasses) if (m && Number.isInteger(m.sealCritical)) m.sealCritical += 1; },

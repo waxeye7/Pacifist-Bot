@@ -13,7 +13,7 @@
  */
 import { D8, chebyshev, walkable } from "./shared.mjs";
 import { fieldFrom } from "./layer-hub.mjs";
-import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, MAX_CUT, RADII_WIDE } from "./layer-shell.mjs";
+import { BUILT_OBSTACLES, enclosureMobility, interiorWalk, maskFromKeys, MAX_CUT, mobilityStats, RADII_WIDE } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -74,8 +74,8 @@ export const META_DARK = {
   deepReach: { klass: "presence", why: "layer-6 reach witness" },
   digRoads: { klass: "presence", why: "layer-5 road-on-wall tunnel count; the road+rampart taxonomy is gated" },
   enclosureBasis: { klass: "rendered" },
-  extractorOffNetwork: { klass: "presence", why: "true iff the extractor's only network neighbour is the mineral seat (or none); the seat itself is the off-network declaration" },
-  extractorSeatNetTiles: { klass: "presence", why: "the extractor's D8 network neighbours excluding the mineral seat; sibling of extractorOffNetwork" },
+  extractorOffNetwork: { klass: "derived" },
+  extractorSeatNetTiles: { klass: "derived" },
   faceAndSatHeld: { klass: "presence", why: "towerSwapOffer leaf; the offer basis is rendered from it" },
   fillerTiles: { klass: "presence", why: "layer-7 filler-tile census; roads are gated by the network check" },
   floorGated: { klass: "presence", why: "mobility floor on a declaration record" },
@@ -102,7 +102,7 @@ export const META_DARK = {
   mineralSeatNetTiles: { klass: "presence", why: "D8 neighbours of the mineral seat on the network as finalize measured it; the off-network declaration is gated" },
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
   mobilityShipped: { klass: "derived" },
-  mobilityShippedFree: { klass: "presence", why: "the same lap with mass removed; as-built is the gated one" },
+  mobilityShippedFree: { klass: "derived" },
   newRoads: { klass: "derived" },
   noAlternative: { klass: "presence", why: "a search-refusal witness" },
   nukerHubDist: { klass: "derived" },
@@ -776,6 +776,57 @@ export function checkR27(plan, ctx = {}) {
       fails.push(
         `meta.walls.spurred is ${w.spurred} and laidByKind.spur is ${laidSpur}. A cluster was served ` +
           `iff the spur pass laid a tile — zeroing the event while the laid book still names tiles used to pass`,
+      );
+    }
+  }
+
+  // r29 / META_DARK — cheap presence the review flipped fleet-wide.
+  if (typeof misc.extractorOffNetwork === "boolean" && typeof misc.mineralOffNetwork === "boolean") {
+    if (misc.extractorOffNetwork !== misc.mineralOffNetwork) {
+      fails.push(
+        `meta.misc.extractorOffNetwork is ${misc.extractorOffNetwork} and mineralOffNetwork is ` +
+          `${misc.mineralOffNetwork}. They are one measurement — the extractor is off iff the seat is`,
+      );
+    }
+  }
+  {
+    const ext = (plan.structures?.extractor || [])[0];
+    const seat = mineralSeatOf(plan);
+    if (ext && seat && Array.isArray(misc.extractorSeatNetTiles)) {
+      const net = new Set();
+      for (const r of plan.structures?.road || []) net.add(K(r));
+      for (const c of plan.structures?.container || []) net.add(K(c));
+      const want = [];
+      for (const [dx, dy] of D8) {
+        const k = `${ext.x + dx},${ext.y + dy}`;
+        if (net.has(k) && k !== K(seat)) want.push(k);
+      }
+      want.sort();
+      const got = misc.extractorSeatNetTiles.map(String).sort();
+      if (got.join("|") !== want.join("|")) {
+        fails.push(
+          `meta.misc.extractorSeatNetTiles is [${got.join(" ")}] and the finished network's D8 of the ` +
+            `extractor excluding the seat is [${want.join(" ")}]. Clearing it used to pass`,
+        );
+      }
+    }
+  }
+  if (ctx.terrain && ctx.extShip && plan.sitter && Array.isArray(sh.cut) && sh.mobilityShippedFree && typeof sh.mobilityShippedFree.maxGated === "number") {
+    const rset = new Set((plan.structures?.rampart || []).map(K));
+    const occ = new Set();
+    for (const t of ["storage", "terminal", "spawn", "link"]) {
+      for (const q of plan.structures?.[t] || []) occ.add(K(q));
+    }
+    if (plan.sitter) occ.add(K(plan.sitter));
+    for (const src of plan.sources || []) occ.add(K(src));
+    if (plan.controller) occ.add(K(plan.controller));
+    if (plan.mineral) occ.add(K(plan.mineral));
+    const walk = interiorWalk(ctx.terrain, rset, ctx.extShip, occ, plan.sitter);
+    const want = mobilityStats(sh.cut, ctx.extShip, maskFromKeys(walk)).maxGated;
+    if (typeof want === "number" && Math.abs(sh.mobilityShippedFree.maxGated - want) > 1e-6) {
+      fails.push(
+        `meta.shell.mobilityShippedFree.maxGated is ${sh.mobilityShippedFree.maxGated} and the mass-free ` +
+          `walk on the shipped wall is ${want}. It is layer 2's own measurement of this wall, not a comment`,
       );
     }
   }
