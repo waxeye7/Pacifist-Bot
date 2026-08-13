@@ -8897,6 +8897,64 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "leaks the sitter");
+  run("r32/88-X-last-fat-nudge-leaks-and-complete-false",
+    any28((p) => {
+      const shipped = (p.structures?.rampart || []).length;
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const rungs = sf?.ladder?.rungs || [];
+      const last = rungs[rungs.length - 1];
+      return !!(
+        last &&
+        last.complete &&
+        last.ramparts > shipped &&
+        Array.isArray(last.cutTiles) &&
+        last.cutTiles.length &&
+        p.sitter
+      );
+    }),
+    (p, d) => {
+      const sf = (p.meta.shortfalls || []).find((s0) => s0 && s0.ladder);
+      const last = sf.ladder.rungs[sf.ladder.rungs.length - 1];
+      const lastBonus = last.needDeepBonus;
+      const cuts = last.cutTiles.map((t) => ({ x: t.x, y: t.y }));
+      const occupied = new Set(cuts.map((t) => key(t.x, t.y)));
+      const tryMove = (from, to) => {
+        if (to.x < 0 || to.x > 49 || to.y < 0 || to.y > 49) return null;
+        if (occupied.has(key(to.x, to.y))) return null;
+        const next = cuts.map((t) => (t.x === from.x && t.y === from.y ? { x: to.x, y: to.y } : { x: t.x, y: t.y }));
+        const ext = exteriorFlood(d.terrain, new Set(next.map((t) => key(t.x, t.y))));
+        return p.sitter && ext[p.sitter.x + p.sitter.y * 50] ? next : null;
+      };
+      const named = cuts.find((t) => t.x === 20 && t.y === 9);
+      let next = named ? tryMove(named, { x: 19, y: 9 }) : null;
+      if (!next) {
+        outer: for (const t of cuts) {
+          for (const [dx, dy] of D8) {
+            const cand = tryMove(t, { x: t.x + dx, y: t.y + dy });
+            if (cand) {
+              next = cand;
+              break outer;
+            }
+          }
+        }
+      }
+      if (!next) throw new Error("no one-tile nudge of the last fat cut leaks the sitter");
+      const lap = enclosureMobility(d.terrain, p, next);
+      if (typeof lap !== "number") throw new Error("nudged cut has no enclosureMobility");
+      const apply = (row) => {
+        if (row && row.needDeepBonus === lastBonus) {
+          row.cutTiles = next.map((t) => ({ x: t.x, y: t.y }));
+          row.mobility = lap;
+          row.complete = false;
+        }
+      };
+      for (const row of sf.ladder.rungs) apply(row);
+      sf.detail = renderDecl(sf);
+      if (p.meta.shellEscalation?.rungs) {
+        for (const row of p.meta.shellEscalation.rungs) apply(row);
+      }
+    },
+    "leaks the sitter");
   run("r29/MF6-X-extractorOffNetwork-flipped-alone",
     any28((p) => typeof p.meta?.misc?.extractorOffNetwork === "boolean" && typeof p.meta?.misc?.mineralOffNetwork === "boolean"),
     (p) => { p.meta.misc.extractorOffNetwork = !p.meta.misc.extractorOffNetwork; },

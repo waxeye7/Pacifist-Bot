@@ -1259,19 +1259,20 @@ export function checkR27(plan, ctx = {}) {
       if (esc && pickedBonus !== null) return row.needDeepBonus !== pickedBonus;
       return typeof row.ramparts === "number" && row.ramparts !== shippedRamp;
     };
-    // r29p10 / 88 — a complete discarded cut is a composed enclosure. A
-    // one-tile nudge (E11S2 20,9→19,9) walks its own lap and still leaks
-    // the sitter. Incomplete rungs skip. Better-lap-always is not required
-    // (eco-capped last rungs).
+    // r29p11 / 88 — a discarded cut with tiles is a composed enclosure,
+    // complete or not. A one-tile nudge (E11S2 20,9→19,9) plus
+    // complete=false used to skip the seal. Fleet has 0 incomplete
+    // discarded rungs; a leak bites either way. Better-lap-always is
+    // not required (eco-capped last rungs).
     const discardedCutSeals = (row, cuts, where) => {
-      if (!isDiscarded(row) || row.complete !== true || !cuts || !cuts.length) return;
+      if (!isDiscarded(row) || !cuts || !cuts.length) return;
       if (!ctx.terrain || !plan.sitter) return;
       const ext = exteriorFlood(ctx.terrain, new Set(cuts.map(K)));
       if (ext[plan.sitter.x + plan.sitter.y * 50]) {
         fails.push(
           `${where} needDeep+${row.needDeepBonus} discarded cut leaks the sitter. ` +
-            `A complete discarded enclosure is not a composed enclosure if the exterior ` +
-            `flood from the room border reaches the garrison`,
+            `A discarded enclosure is not a composed enclosure if the exterior ` +
+            `flood from the room border reaches the garrison, complete or not`,
         );
       }
     };
