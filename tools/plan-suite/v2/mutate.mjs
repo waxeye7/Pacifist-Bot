@@ -8386,6 +8386,39 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     "film note|NOTES.ramparts|last character|WHOLE");
 }
 
+{
+  const any28 = (pred) => plans.find((p) => { try { return pred(p); } catch { return false; } })?.room || null;
+  run("r28/MF6-X-shippedShellDmg-inflated-with-its-twins",
+    any28((p) => p.meta?.shell?.shippedShellDmg && typeof p.meta.shell.shippedShellDmg.min === "number"),
+    (p) => {
+      p.meta.shell.shippedShellDmg.min = 9999;
+      p.meta.shell.shippedShellDmg.worst = { x: 1, y: 1 };
+      p.meta.shell.shippedShellDmg.avg = 9999;
+      p.meta.towers.shippedWeakest = { x: 1, y: 1 };
+      p.meta.towers.shippedAvgShellDmg = 9999;
+    },
+    "shippedShellDmg|does not re-derive");
+  run("r28/MF6-X-mobilityShipped-zeroed-alone",
+    any28((p) => p.meta?.shell?.mobilityShipped && typeof p.meta.shell.mobilityShipped.maxGated === "number" && p.meta.shell.mobilityShipped.maxGated !== 0),
+    (p) => { p.meta.shell.mobilityShipped.maxGated = 0; },
+    "mobilityShipped");
+  run("r28/MF5-X-refillBasis-blocked-count-forged-in-the-sentence",
+    any28((p) => typeof p.meta?.towers?.refillBasis === "string" && /with \d+ tile\(s\) blocked/.test(p.meta.towers.refillBasis)),
+    (p) => {
+      p.meta.towers.refillBasis = p.meta.towers.refillBasis.replace(/with \d+ tile\(s\) blocked/, "with 1 tile(s) blocked");
+    },
+    "refillBasis|WHOLE-VALUE");
+  run("r28/MF5-X-mineralWhy-residue-nearest-rewritten",
+    any28((p) => p.room === "E2S5" && typeof p.meta?.misc?.mineralOffNetworkWhy === "string"),
+    (p) => {
+      p.meta.misc.mineralOffNetworkWhy = p.meta.misc.mineralOffNetworkWhy.replace(
+        /nearest road tile this room ships is \d+,\d+/,
+        "nearest road tile this room ships is 1,1",
+      );
+    },
+    "mineralOffNetworkWhy|WHOLE-VALUE");
+}
+
 // ===========================================================================
 // 2b. THE NUMERAL GATE'S OWN MUTATIONS.
 // ===========================================================================

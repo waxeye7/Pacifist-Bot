@@ -12,6 +12,7 @@
  *      the cheap ones are derived here.
  */
 import { D8, chebyshev, key, walkable } from "./shared.mjs";
+import { BUILT_OBSTACLES } from "./layer-shell.mjs";
 import {
   ENCLOSURE_BASIS,
   REMEASURE_BASIS,
@@ -28,7 +29,7 @@ import {
   renderDeepTilesBasis,
   renderNoteObligationBasis,
 } from "./layer-walls.mjs";
-import { MIN_SAT, SWAP_OFFER_BASIS, renderSwapOfferBasis } from "./layer-towers.mjs";
+import { MIN_SAT, SWAP_OFFER_BASIS, renderSwapOfferBasis, shellDamage } from "./layer-towers.mjs";
 import {
   MINERAL_OFF_NETWORK_BASIS,
   MINERAL_ON_NETWORK_BASIS,
@@ -104,8 +105,8 @@ export const META_DARK = {
   mineralSeatAtReservation: { klass: "presence", why: "layer-1's reserved seat, kept beside the shipped one (OL5)" },
   mineralSeatNetTiles: { klass: "presence", why: "D8 neighbours of the mineral seat on the network as finalize measured it; the off-network declaration is gated" },
   mobilityRepair: { klass: "presence", why: "layer-6 repair-attempt record" },
-  mobilityShipped: { klass: "presence", why: "layer-7 remeasure of the negotiated lap; as-built is gated" },
-  mobilityShippedFree: { klass: "presence", why: "the same lap with mass removed" },
+  mobilityShipped: { klass: "derived" },
+  mobilityShippedFree: { klass: "presence", why: "the same lap with mass removed; as-built is the gated one" },
   newRoads: { klass: "presence", why: "roads a layer laid; the shipped road list is gated" },
   noAlternative: { klass: "presence", why: "a search-refusal witness" },
   nukerHubDist: { klass: "presence", why: "layer-5 walk from the hub on that layer's board, not chebyshev" },
@@ -135,10 +136,10 @@ export const META_DARK = {
   shallowNow: { klass: "presence", why: "reflow's own remaining-shallow count; the board's shallow set is gated" },
   shallowRamparts: { klass: "presence", why: "personal-rampart count at a layer; the board's ramparts are gated" },
   shallowRefused: { klass: "presence", why: "reflow refusal roster; OL6 registers the sentences" },
-  shippedAvgShellDmg: { klass: "twin", of: "shell.shippedShellDmg.avg" },
-  shippedShellDmg: { klass: "presence", why: "the shipped wall's damage record; weakest/avg/weak tiles twin it" },
-  shippedWeakTiles: { klass: "twin", of: "shell.shippedShellDmg.weak" },
-  shippedWeakest: { klass: "twin", of: "shell.shippedShellDmg.worst" },
+  shippedAvgShellDmg: { klass: "derived" },
+  shippedShellDmg: { klass: "derived" },
+  shippedWeakTiles: { klass: "derived" },
+  shippedWeakest: { klass: "derived" },
   spurred: { klass: "presence", why: "layer-7 spur count; roadKind taxonomy is gated" },
   stitchTiles: { klass: "presence", why: "layer-7 stitch roster" },
   stitched: { klass: "presence", why: "layer-7 stitch count" },
@@ -400,14 +401,19 @@ export function checkR27(plan, ctx = {}) {
     const towers = plan.structures?.tower || [];
     const atP = tw.refillDistsAtPlacement || [];
     const now = tw.refillDists;
-    const blockedMatch = /with (\d+) tile\(s\) blocked/.exec(tw.refillBasis);
-    const blocked = blockedMatch ? +blockedMatch[1] : NaN;
+    const blocked = new Set();
+    for (const src of plan.sources || []) blocked.add(K(src));
+    if (plan.controller) blocked.add(K(plan.controller));
+    if (plan.mineral) blocked.add(K(plan.mineral));
+    for (const t of BUILT_OBSTACLES) {
+      for (const q of plan.structures?.[t] || []) blocked.add(K(q));
+    }
     const want = renderRefillBasis({
       towers: towers.map((t, i) => ({ at: { x: t.x, y: t.y }, was: atP[i] ?? 9999, now: now[i] })),
       maxWas: atP.length ? Math.max(...atP) : 9999,
       maxNow: tw.maxRefill,
       unreachable: tw.refillUnreachable,
-      blocked,
+      blocked: blocked.size,
     });
     if (!tw.refillBasis.endsWith(REFILL_BASIS) || tw.refillBasis !== want) {
       say(fails, "towers.refillBasis", tw.refillBasis, want);
@@ -473,10 +479,36 @@ export function checkR27(plan, ctx = {}) {
         suffixOk &&
         misc.mineralOffNetworkWhy.includes(`the mineral seat at ${seat.x},${seat.y}`)
       ) {
-        // 3 rooms on this fleet (E2S5, E5S1, E5S3 and the residue the official
-        // census disagrees with on whether a road on the seat or its ring is
-        // "ours"): the suffix and the seat are the claim; the ring wording is
-        // the producer's and is not re-spelled here.
+        // Three rooms (E2S5, E5S1, E5S3) disagree with the official census on
+        // whether a road on the seat or its ring is "ours". The suffix and the
+        // seat are not enough — round 28 rewrote the nearest-road clause on
+        // E2S5 and passed. Bind the nearest road (excluding the seat tile)
+        // and the touching count from the finished network.
+        const raw = mineralSeatCensus(plan.structures, seat, net);
+        let nearest = raw.nearestRoad;
+        if (nearest && nearest.dist === 0) {
+          nearest = null;
+          for (const r of plan.structures?.road || []) {
+            if (r.x === seat.x && r.y === seat.y) continue;
+            const d = Math.max(Math.abs(r.x - seat.x), Math.abs(r.y - seat.y));
+            if (
+              !nearest ||
+              d < nearest.dist ||
+              (d === nearest.dist && (r.y < nearest.y || (r.y === nearest.y && r.x < nearest.x)))
+            ) {
+              nearest = { x: r.x, y: r.y, dist: d };
+            }
+          }
+        }
+        const nearHit = /nearest road tile this room ships is (\d+),(\d+)/.exec(misc.mineralOffNetworkWhy);
+        const seatRoad = /the seat tile itself carries a road/.test(misc.mineralOffNetworkWhy);
+        const named =
+          nearest &&
+          ((nearHit && +nearHit[1] === nearest.x && +nearHit[2] === nearest.y) ||
+            (seatRoad && nearest.dist === 0));
+        if (!named) {
+          say(fails, "misc.mineralOffNetworkWhy", misc.mineralOffNetworkWhy, want);
+        }
       } else {
         say(fails, "misc.mineralOffNetworkWhy", misc.mineralOffNetworkWhy, want);
       }
@@ -559,19 +591,50 @@ export function checkR27(plan, ctx = {}) {
     }
   }
 
-  const dmg = sh.shippedShellDmg;
-  if (dmg && typeof dmg === "object") {
-    if (typeof tw.shippedWeakest === "number" && tw.shippedWeakest !== dmg.worst && tw.shippedWeakest !== dmg.min) {
+  // ROUND 28 — shippedShellDmg is a function of the shipped towers and the
+  // shipped cut, not of its own twins. Co-forging min/avg/worst together
+  // passed 172/172 under the twin check.
+  {
+    const wantDmg = shellDamage(plan.structures?.tower || [], sh.cut || []);
+    const dmg = sh.shippedShellDmg;
+    if (dmg && typeof dmg === "object") {
+      const off = [];
+      if (dmg.min !== wantDmg.min) off.push(`min ${dmg.min} vs ${wantDmg.min}`);
+      if (dmg.avg !== wantDmg.avg) off.push(`avg ${dmg.avg} vs ${wantDmg.avg}`);
+      if (dmg.weak !== wantDmg.weak) off.push(`weak ${dmg.weak} vs ${wantDmg.weak}`);
+      if (dmg.tiles !== wantDmg.tiles) off.push(`tiles ${dmg.tiles} vs ${wantDmg.tiles}`);
+      if (!dmg.worst || !wantDmg.worst || dmg.worst.x !== wantDmg.worst.x || dmg.worst.y !== wantDmg.worst.y) {
+        off.push(`worst ${JSON.stringify(dmg.worst)} vs ${JSON.stringify(wantDmg.worst)}`);
+      }
+      if (off.length) {
+        fails.push(
+          `meta.shell.shippedShellDmg does not re-derive from this room's towers and cut: ${off.slice(0, 4).join(" · ")}. ` +
+            `It is layer 7's own re-measure of the wall the room ships, and the twins beside it are copies of it — ` +
+            `holding the copies to each other left the number free`,
+        );
+      }
+    }
+    if (tw.shippedWeakest && wantDmg.worst && (tw.shippedWeakest.x !== wantDmg.worst.x || tw.shippedWeakest.y !== wantDmg.worst.y)) {
       fails.push(
-        `meta.towers.shippedWeakest is ${tw.shippedWeakest} and meta.shell.shippedShellDmg.worst/min is ` +
-          `${dmg.worst}/${dmg.min}`,
+        `meta.towers.shippedWeakest is ${tw.shippedWeakest.x},${tw.shippedWeakest.y} and the shipped wall's weakest tile is ${wantDmg.worst.x},${wantDmg.worst.y}`,
       );
     }
-    if (typeof tw.shippedAvgShellDmg === "number" && tw.shippedAvgShellDmg !== dmg.avg) {
-      fails.push(`meta.towers.shippedAvgShellDmg is ${tw.shippedAvgShellDmg} and shippedShellDmg.avg is ${dmg.avg}`);
+    if (typeof tw.shippedAvgShellDmg === "number" && tw.shippedAvgShellDmg !== wantDmg.avg) {
+      fails.push(`meta.towers.shippedAvgShellDmg is ${tw.shippedAvgShellDmg} and the shipped wall's mean is ${wantDmg.avg}`);
     }
-    if (typeof tw.shippedWeakTiles === "number" && tw.shippedWeakTiles !== dmg.weak) {
-      fails.push(`meta.towers.shippedWeakTiles is ${tw.shippedWeakTiles} and shippedShellDmg.weak is ${dmg.weak}`);
+    if (typeof tw.shippedWeakTiles === "number" && tw.shippedWeakTiles !== wantDmg.weak) {
+      fails.push(`meta.towers.shippedWeakTiles is ${tw.shippedWeakTiles} and the shipped wall has ${wantDmg.weak} tile(s) under the floor`);
+    }
+  }
+
+  const builtLap = meta.walls?.mobility?.builtGated ?? sh.mobilityBuilt?.maxGated;
+  if (sh.mobilityShipped && typeof sh.mobilityShipped.maxGated === "number" && typeof builtLap === "number") {
+    if (Math.abs(sh.mobilityShipped.maxGated - builtLap) > 1e-9) {
+      fails.push(
+        `meta.shell.mobilityShipped.maxGated is ${sh.mobilityShipped.maxGated} and the as-built gated lap ` +
+          `(walls.mobility.builtGated) is ${builtLap}. They are the same walk on the same shipped wall — ` +
+          `zeroing the shipped copy alone used to pass`,
+      );
     }
   }
 
