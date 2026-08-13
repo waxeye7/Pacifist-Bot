@@ -9811,6 +9811,24 @@ it says so in the entry rather than in a comment.
    census on whether a road on the seat or its ring is "ours"; they are held
    to the constant suffix and the seat, not to whole-value. (e) the dropped
    `seed` field is still unre-derivable in 46 rooms.
+   **ROUND 28 CLOSED (c) AND (d) AND L1, AND DID NOT TOUCH (a)/(b)/(e).**
+   p3: mineral-why is whole-value against the official census (the 3-room
+   residue is a named ring disagreement, not a suffix+seat door). p3 also
+   bound the swap-offer face to `minShellDmg` / `MIN_SAT` and the battlement
+   roster to the interior walk. p4 derived the cheap MF6 presence names a
+   fleet-wide flattering flip used to walk past: hub walks, unblocked refill,
+   protectRadius enum, priceyWall = baseCut > MAX_CUT, mineralBubble, swampPaved,
+   spurred. `newRoads` stays presence. p1/p2: shipped shell damage, refill
+   blocked count, `cutPasses` leaves, `cutAdopted ⊆ cutDrift` adds.
+142. **LOW: THE FILM'S `roadsPrune` CAPTION JAMMED TWO DIFFERENT COUNTS.** (L1)
+   `NOTES.roadsPrune` led with the ghost count — roadLayer tags with no shipped
+   road, the set the stage erases — and then quoted `meta.walls.pruned` as if
+   they were the same set. They are not. `pruned` also includes transients laid
+   and deleted inside layer 7, which no layer tagged and the film never drew.
+   Rooms with a transient printed both numbers in one clause. The note now
+   names both identities, every gallery page is compared whole against the
+   renderer, and jamming them (or appending after the last character) bites.
+   2 mutations.
 
 ## Environment bootstrap (context gets compacted — everything you need)
 

@@ -2267,6 +2267,33 @@ export const PRUNED_BASIS =
   `and deleted inside layer 7 itself, so no layer ever tagged them and the film never drew them; ` +
   `every one of those is in this room's laidTilesByKind AND lostByKind. ` +
   `pruned === prunedGhosts + prunedTransient.`;
+
+/**
+ * Film `NOTES.roadsPrune`. The stage erases roadLayer tags that carry no
+ * shipped road (ghosts). `pruned` is the larger set: those ghosts plus
+ * transients laid and deleted inside layer 7, which no layer tagged and the
+ * film never drew. Naming both is the whole point — a sentence that leads
+ * with ghosts and then quotes `pruned` as if they were one count is the
+ * caption lie the gallery used to ship.
+ */
+export function roadLayerGhosts(plan) {
+  const alive = new Set((plan.structures?.road || []).map((r) => `${r.x},${r.y}`));
+  let n = 0;
+  for (const k of Object.keys(plan.meta?.roadLayer || {})) {
+    if (!alive.has(k)) n++;
+  }
+  return n;
+}
+/** @param c {{ghosts:number, pruned:number, transient:number}} */
+export function renderRoadsPruneNote(c) {
+  return (
+    `${c.ghosts} tile${c.ghosts === 1 ? "" : "s"} erased — roadLayer tags with no shipped road, the set this stage deletes` +
+    ` · ${c.pruned} tile${c.pruned === 1 ? "" : "s"} ship no road` +
+    ` (${c.ghosts} ghost${c.ghosts === 1 ? "" : "s"} this film erases + ${c.transient} transient, ` +
+    `laid and deleted inside layer 7 so no layer tagged them)`
+  );
+}
+
 /** @param c {{atPass:number, pruned:tile[], relaid:tile[], ghosts:number, transient:number}} */
 export function renderPrunedBasis(c) {
   return (

@@ -160,7 +160,7 @@ import { renderFacetAbsence } from "./export-anim.mjs";
 // values instead of measuring its length. Same split as every other rendered
 // channel: the producer owns the wording, this file owns which row may exist at
 // all and re-derives the evidence for it from the board.
-import { CUT_DRIFT_PASSES, cutDriftWhy } from "./layer-walls.mjs";
+import { CUT_DRIFT_PASSES, cutDriftWhy, renderRoadsPruneNote, roadLayerGhosts } from "./layer-walls.mjs";
 import { checkR27 } from "./r27-gates.mjs";
 
 const idx = (x, y) => x + y * 50;
@@ -500,12 +500,14 @@ function unjudgedChannels(room) {
     // had; the film was the one channel still being read through a lens.
     let film = null;
     let filmWhole = null;
+    let roadsPrune = null;
     {
       const at = html.indexOf("\n  var NOTES = ");
       const line = at < 0 ? null : html.slice(at + 15, html.indexOf("\n", at + 15));
       const notes = line ? JSON.parse(line.replace(/;\s*$/, "")) : null;
       const ramp = notes && typeof notes.ramparts === "string" ? notes.ramparts : "";
       if (ramp) filmWhole = ramp;
+      if (notes && typeof notes.roadsPrune === "string") roadsPrune = notes.roadsPrune;
       const openAt = ramp.indexOf(UNJUDGED_FILM_OPEN);
       if (openAt >= 0) {
         const from = openAt + UNJUDGED_FILM_OPEN.length;
@@ -532,7 +534,7 @@ function unjudgedChannels(room) {
       const m = card.match(/<span class="mob unjudged" title="([^"]*)"/);
       if (m) chip = decodeEnt(m[1]);
     }
-    out = { film, page, chip, filmWhole };
+    out = { film, page, chip, filmWhole, roadsPrune };
   } catch (err) {
     out = { err: err && err.message ? err.message : String(err) };
   }
@@ -18986,6 +18988,42 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
               `re-derived from the board by this file, so it is a RENDERED channel and the comparison is the ` +
               `whole value: round 26 read it through a window between two markers and a clause appended after ` +
               `the close marker passed the fleet with this file's output byte-identical`,
+          );
+        }
+      }
+    }
+    // ==================================================================
+    // ROUND 28 / L1 — THE PRUNE CAPTION NAMES BOTH IDENTITIES.
+    // ==================================================================
+    // The film's roadsPrune stage erases roadLayer tags with no shipped road
+    // (ghosts). meta.walls.pruned is the tiles that ship no road, which also
+    // includes transients laid and deleted inside layer 7 — no layer tagged
+    // them, the film never drew them. The caption used to lead with ghosts
+    // and then quote `pruned` as if they were one count. Both numbers are
+    // true of different sets. The sentence has to say so.
+    {
+      const chP = unjudgedChannels(plan.room);
+      if (!chP.err) {
+        const ghosts = roadLayerGhosts(plan);
+        const w = plan.meta && plan.meta.walls;
+        if (ghosts > 0 && w && typeof w.pruned === "number") {
+          const wantP = renderRoadsPruneNote({
+            ghosts,
+            pruned: w.pruned,
+            transient: typeof w.prunedTransient === "number" ? w.prunedTransient : 0,
+          });
+          if (chP.roadsPrune !== wantP) {
+            const gotP = chP.roadsPrune == null ? "(no roadsPrune note at all)" : chP.roadsPrune;
+            fails.push(
+              `film note — NOTES.roadsPrune is not the note this room's own roadLayer ghosts and ` +
+                `pruned leaves generate. The film erases ${ghosts} ghost(s); pruned=${w.pruned} ` +
+                `transient=${w.prunedTransient}. shipped: "${gotP}" vs generated: "${wantP}". ` +
+                `Jamming the two counts into one clause used to pass`,
+            );
+          }
+        } else if (chP.roadsPrune) {
+          fails.push(
+            `film note — NOTES.roadsPrune is set but this room has 0 roadLayer tags without a shipped road`,
           );
         }
       }

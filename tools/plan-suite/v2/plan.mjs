@@ -29,7 +29,7 @@ import {
   RAMPART_PAINT,
 } from "./render.mjs";
 import { EXT_TARGET, planRoom, redeclareEcoTax, setFleetMedians } from "./pipeline.mjs";
-import { LATE_KINDS, LATE_ORDER, lateRoadDecomp } from "./layer-walls.mjs";
+import { LATE_KINDS, LATE_ORDER, lateRoadDecomp, renderRoadsPruneNote } from "./layer-walls.mjs";
 // the unjudged-lap sentence, written once — see mobilityUnjudgedWhy below
 import { unjudgedReason } from "./declprose-mobility.mjs";
 
@@ -204,9 +204,13 @@ function animNotes(plan) {
       (d.tally.spur && m.walls ? ` · ${m.walls.spurred}/${m.walls.clusters} wall clusters served` : "");
   }
   if (ghosts) {
-    n.roadsPrune =
-      `${ghosts} tiles deleted — laid by an earlier layer, dead ends once every layer was in` +
-      (m.walls ? ` · meta.walls.pruned = ${m.walls.pruned}` : "");
+    // The film erases GHOSTS (roadLayer tags with no shipped road). pruned
+    // also counts transients the film never drew. Name both; do not jam them.
+    n.roadsPrune = renderRoadsPruneNote({
+      ghosts,
+      pruned: m.walls && typeof m.walls.pruned === "number" ? m.walls.pruned : ghosts,
+      transient: m.walls && typeof m.walls.prunedTransient === "number" ? m.walls.prunedTransient : 0,
+    });
   }
 
   const bits = [];

@@ -8479,6 +8479,87 @@ const MF5_MSG = "re-derived under the refusal's own definition";
     any28((p) => (p.meta?.walls?.spurred || 0) > 0 && (p.meta?.walls?.laidByKind?.spur || 0) > 0),
     (p) => { p.meta.walls.spurred = 0; },
     "spurred");
+
+  const runFile28 = (name, room, file, transform, expect) => {
+    if (ONLY && !new RegExp(ONLY, "i").test(name)) {
+      skipped++;
+      return;
+    }
+    if (!room) {
+      results.push({ name, room: "-", caught: false, matched: false, fails: ["NO ROOM WITH THE REQUIRED PROPERTY"] });
+      return;
+    }
+    const d = T(room);
+    if (!d) {
+      results.push({ name, room, caught: false, matched: false, fails: ["no terrain in mongo"] });
+      return;
+    }
+    if (!fs.existsSync(file)) {
+      results.push({ name, room, caught: false, matched: false, fails: [`the file this case forges is not there (${file})`] });
+      return;
+    }
+    const orig = fs.readFileSync(file);
+    let res;
+    let threw = null;
+    try {
+      const next = transform(orig.toString("utf8"), byName.get(room));
+      if (next === null || next === undefined || next === orig.toString("utf8")) {
+        results.push({ name, room, caught: false, matched: false, fails: ["THE FORGERY CHANGED NOTHING — the case is not testing what it names"] });
+        return;
+      }
+      fs.writeFileSync(file, next);
+      resetOutputCaches();
+      res = checkRoom(clone(room), d.terrain, d.objects, FLEET);
+    } catch (e) {
+      threw = e;
+    } finally {
+      fs.writeFileSync(file, orig);
+      resetOutputCaches();
+    }
+    if (fs.readFileSync(file).toString("binary") !== orig.toString("binary")) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THE FILE WAS NOT RESTORED — fix this before reading any other result"] });
+      return;
+    }
+    if (threw) {
+      results.push({ name, room, caught: false, matched: false, fails: ["THREW: " + threw.message] });
+      return;
+    }
+    const caught = res.fails.length > 0;
+    results.push({ name, room, caught, matched: expect ? res.fails.some((f) => new RegExp(expect, "i").test(f)) : caught, expect, fails: res.fails.slice(0, 3) });
+  };
+  const pruneCaptionRoom = any28((p) => (p.meta?.walls?.prunedTransient || 0) > 0 && (p.meta?.walls?.prunedGhosts || 0) > 0);
+  runFile28("r28/L1-X-roadsPrune-jams-ghosts-and-pruned",
+    pruneCaptionRoom,
+    path.join(OUT_V2, `${pruneCaptionRoom}.html`),
+    (src, p) => {
+      const at = src.indexOf("\n  var NOTES = ");
+      if (at < 0) return null;
+      const end = src.indexOf("\n", at + 15);
+      let notes;
+      try { notes = JSON.parse(src.slice(at + 15, end).replace(/;\s*$/, "")); } catch { return null; }
+      if (!notes || typeof notes.roadsPrune !== "string") return null;
+      const ghosts = p.meta.walls.prunedGhosts;
+      const pruned = p.meta.walls.pruned;
+      notes.roadsPrune =
+        `${ghosts} tiles deleted — laid by an earlier layer, dead ends once every layer was in` +
+        ` · meta.walls.pruned = ${pruned}`;
+      return src.slice(0, at) + "\n  var NOTES = " + JSON.stringify(notes) + ";" + src.slice(end);
+    },
+    "NOTES.roadsPrune|jamming|ghost");
+  runFile28("r28/L1-X-roadsPrune-clause-appended",
+    pruneCaptionRoom,
+    path.join(OUT_V2, `${pruneCaptionRoom}.html`),
+    (src) => {
+      const at = src.indexOf("\n  var NOTES = ");
+      if (at < 0) return null;
+      const end = src.indexOf("\n", at + 15);
+      let notes;
+      try { notes = JSON.parse(src.slice(at + 15, end).replace(/;\s*$/, "")); } catch { return null; }
+      if (!notes || typeof notes.roadsPrune !== "string") return null;
+      notes.roadsPrune += " AND THE PRUNE DELETED NOTHING THAT MATTERED.";
+      return src.slice(0, at) + "\n  var NOTES = " + JSON.stringify(notes) + ";" + src.slice(end);
+    },
+    "NOTES.roadsPrune|last character|appended|generated");
 }
 
 // ===========================================================================
