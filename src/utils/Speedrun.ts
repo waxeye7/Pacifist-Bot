@@ -11,6 +11,7 @@
  *   resetSpeedrun()  — clears global + all owned room clocks
  *   resetSpeedrun("E5S1")  — clears that room + rebinds the global primary
  *   enableSpeedrun() / disableSpeedrun()
+ *   disableRemotes() / enableRemotes()  — campaign remotes-off A/B
  */
 
 import { logAlways } from "utils/Logger";
@@ -23,6 +24,12 @@ export interface SpeedrunState {
   rclTimes: { [level: number]: number };
   lastRcl: number;
   roomName?: string;
+  /**
+   * Explicit remotes-off guardrail. Default unset/false: RCL3+ remotes
+   * still open as today. True: manageRemotes closes every remote every tick
+   * and spawn will not queue remote miners/carriers/reservists.
+   */
+  disableRemotes?: boolean;
 }
 
 /** Clock fields on room.memory.speedrun (reuses the existing policy object). */
@@ -129,13 +136,49 @@ function resetRoomClockByName(roomName: string): void {
   mem.speedrun.lastRcl = 0;
 }
 
+/** Campaign remotes-off A/B. Unset/false keeps current RCL3+ remotes. */
+export function remotesDisabled(): boolean {
+  return !!(Memory.speedrun && Memory.speedrun.disableRemotes);
+}
+
+function closeOwnedRemotes(): void {
+  for (const name in Game.rooms) {
+    const room = Game.rooms[name];
+    if (!room.controller || !room.controller.my || !room.memory.resources) continue;
+    for (const rn of Object.keys(room.memory.resources)) {
+      if (rn !== room.name && room.memory.resources[rn]) {
+        room.memory.resources[rn].active = false;
+      }
+    }
+  }
+}
+
+export function disableRemotes(): string {
+  const s = ensure();
+  s.disableRemotes = true;
+  closeOwnedRemotes();
+  const msg = "disableRemotes ON — remotes closed every tick, remote spawn blocked";
+  logAlways(msg);
+  return msg;
+}
+
+export function enableRemotes(): string {
+  const s = ensure();
+  s.disableRemotes = false;
+  const msg = "disableRemotes OFF — RCL3+ remotes allowed (current default)";
+  logAlways(msg);
+  return msg;
+}
+
 export function resetSpeedrun(roomName?: string): string {
+  const keepOff = remotesDisabled();
   Memory.speedrun = {
     startTick: Game.time,
     rclTimes: {},
     lastRcl: 0,
     roomName: roomName || undefined,
   };
+  if (keepOff) Memory.speedrun.disableRemotes = true;
   if (roomName) {
     resetRoomClockByName(roomName);
   } else {
@@ -175,7 +218,9 @@ export function speedrunStatus(): string {
   const g = ensure();
   const f = getFeatures();
   const lines: string[] = [];
-  lines.push(`speedrun=${f.speedrun} disablePower=${f.disablePower} now=${Game.time}`);
+  lines.push(
+    `speedrun=${f.speedrun} disablePower=${f.disablePower} disableRemotes=${remotesDisabled()} now=${Game.time}`,
+  );
 
   const owned: Room[] = [];
   for (const name in Game.rooms) {
@@ -215,23 +260,22 @@ export function speedrunStatus(): string {
 export function applySpeedrunSpawnHints(room: Room): void {
   if (!room.controller || !room.controller.my) return;
   const rcl = room.controller.level;
-  if (rcl >= 5) return; // hand back to full bot later
 
-  // mark mode on room for other systems
-  if (!room.memory.speedrun) room.memory.speedrun = {};
-  room.memory.speedrun.active = true;
-  room.memory.speedrun.rcl = rcl;
-
-  // Ensure remotes off while speedrunning early RCL — RCL1-2 only.
-  // From RCL3 the commune can afford a reserver + remote miners, and the
-  // owner wants remotes running there; forcing `active = false` for the
-  // whole RCL1-4 window (the old behaviour) fought manageRemotes() every
-  // tick and was one of the reasons no remote ever opened.
-  if (rcl <= 2 && room.memory.resources) {
+  // Close remotes before spawn (hints run first). RCL1–2 always; any RCL
+  // when Memory.speedrun.disableRemotes is set. manageRemotes also closes
+  // every tick on that flag so already-open remotes cannot stay active.
+  if ((rcl <= 2 || remotesDisabled()) && room.memory.resources) {
     for (const rn of Object.keys(room.memory.resources)) {
       if (rn !== room.name && room.memory.resources[rn]) {
         room.memory.resources[rn].active = false;
       }
     }
   }
+
+  if (rcl >= 5) return; // hand back to full bot later
+
+  // mark mode on room for other systems
+  if (!room.memory.speedrun) room.memory.speedrun = {};
+  room.memory.speedrun.active = true;
+  room.memory.speedrun.rcl = rcl;
 }

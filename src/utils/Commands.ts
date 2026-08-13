@@ -11,7 +11,12 @@ import {
   getOpts,
 } from "utils/Bench";
 import { getFeatures } from "utils/Features";
-import { resetSpeedrun, speedrunStatus } from "utils/Speedrun";
+import {
+  resetSpeedrun,
+  speedrunStatus,
+  disableRemotes,
+  enableRemotes,
+} from "utils/Speedrun";
 import { replanRoom, getBasePlan, visualizeBasePlan } from "utils/BasePlan";
 import { getPerimeterTiles } from "utils/Perimeter";
 import { animPlan, animStop } from "utils/PlanAnimator";
@@ -141,6 +146,16 @@ g.disableSpeedrun = function (): string {
   const msg = "speedrun OFF";
   logAlways(msg);
   return msg;
+};
+
+/** Console: disableRemotes() — campaign remotes-off A/B (closes every tick) */
+g.disableRemotes = function (): string {
+  return disableRemotes();
+};
+
+/** Console: enableRemotes() — restore current RCL3+ remotes */
+g.enableRemotes = function (): string {
+  return enableRemotes();
 };
 
 /** Power stays OFF by default — never enable power mode (enemy PC exposure) */

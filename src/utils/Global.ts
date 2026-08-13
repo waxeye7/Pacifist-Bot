@@ -59,6 +59,8 @@ declare global {
         rclTimes: { [level: number]: number };
         lastRcl: number;
         roomName?: string;
+        /** Campaign remotes-off A/B. Unset/false = current RCL3+ remotes. */
+        disableRemotes?: boolean;
       };
       AvoidRooms: any;
       AvoidRoomsTemp: { [key: string]: number };

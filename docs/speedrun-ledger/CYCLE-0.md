@@ -80,3 +80,5 @@ RCL1–3 `spawnFirstInLine` interleaves the next affordable queue entry after 10
 RCL3 `roadsForRcl` now keeps only hub↔source/controller chains (D8 of those containers plus the first-tower spur). `plan.rs` still stages the whole arterial at 3 — extension faces, unused hub filler, later tower spurs — so the bot filters that set geometrically rather than restaging. RCL2 still has no roads; RCL4+ still gets the full array. Monotone prefix. Hypothesis: the 135k climb is not spent paving extension flanks. A/B still pending.
 
 Five extensions plus the nearest source buffer. Second source and controller containers stay on the plan at RCL3. Monotone prefix. A/B still pending.
+
+`Memory.speedrun.disableRemotes` is the remotes-off guardrail the remotes-disabled A/B needed. Default unset: speedrun ON still opens RCL3+ remotes. When set, `manageRemotes` closes every remote every tick (it used to `return` on `!allowRemotes` and leave them running) and spawn will not queue remote miners, carriers, or reservists. Console: `disableRemotes()` / `enableRemotes()`. A/B still pending.

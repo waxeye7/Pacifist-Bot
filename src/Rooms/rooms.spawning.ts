@@ -1,5 +1,6 @@
 import construction from "./rooms.construction";
 import { remoteIsHot, markRemoteHot } from "./rooms.remotes";
+import { remotesDisabled } from "utils/Speedrun";
 function spawning(room: any) {
     if(Game.cpu.bucket < 1000) return;
 
@@ -18,6 +19,23 @@ function spawning(room: any) {
 
     if(!room.memory.spawn_list) {
         room.memory.spawn_list = [];
+    }
+
+    // Remotes-off A/B: drop already-queued remote miners/carriers/reservists
+    // so the flag stops spawn this tick, not after leftover queue hatches.
+    if(remotesDisabled() && room.memory.spawn_list.length) {
+        const q = room.memory.spawn_list;
+        const next = [];
+        for(let i = 0; i + 2 < q.length; i += 3) {
+            const mem = q[i + 2] && q[i + 2].memory;
+            const role = mem && mem.role;
+            const tgt = mem && mem.targetRoom;
+            if(tgt && tgt !== room.name && (role === "EnergyMiner" || role === "carry" || role === "reserve")) {
+                continue;
+            }
+            next.push(q[i], q[i + 1], q[i + 2]);
+        }
+        if(next.length !== q.length) room.memory.spawn_list = next;
     }
 
     if(!room.memory.lastTimeSpawnUsed || room.memory.lastTimeSpawnUsed == 0) {
@@ -1167,9 +1185,11 @@ function add_creeps_to_spawn_list(room, spawn) {
     // flag every tick on every room, which is why no remote ever started
     // regardless of how much CPU was free. Speedrun now only suppresses
     // remotes below RCL3 (see utils/Speedrun.applySpeedrunSpawnHints).
+    // Memory.speedrun.disableRemotes is the explicit campaign off-switch.
     const remotesAllowed =
         room.controller &&
-        room.controller.level >= 3;
+        room.controller.level >= 3 &&
+        !remotesDisabled();
     for(let remoteRoom of roomsToRemote) {
         if(remoteRoom == room.name) {
             activeRemotes.push(remoteRoom);

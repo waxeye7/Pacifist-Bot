@@ -1,4 +1,5 @@
 import { getCpuPolicy } from "utils/CpuPolicy";
+import { remotesDisabled } from "utils/Speedrun";
 
 function remotes(room) {
     if (!room.memory.resources) {
@@ -202,6 +203,22 @@ const HARD_CAP = 2;
 
 export function manageRemotes(room: any): void {
     if (!room.controller || !room.controller.my) return;
+
+    // Campaign remotes-off A/B. Must close every tick (not just skip opening)
+    // and must not wait for MANAGE_EVERY / allowRemotes — those early-returns
+    // left already-active remotes running.
+    if (remotesDisabled()) {
+        const r = room.memory.resources;
+        if (r) {
+            for (const n in r) {
+                if (n !== room.name && r[n] && r[n].active) {
+                    r[n].active = false;
+                    console.log(`[remotes] ${room.name} close ${n} (disableRemotes)`);
+                }
+            }
+        }
+        return;
+    }
 
     // Below RCL3 a commune has no business running remotes at all. scout.ts
     // writes `active = true` the moment it decides a room is minable, with no
