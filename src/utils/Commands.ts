@@ -1632,6 +1632,17 @@ global.SQR = function (roomName, targetRoomName, boost = false): any {
 
 }
 
+// tell a traveling quad to split into two duos for the rest of the journey; they
+// regroup one room short of the target and reassemble into the quad on arrival
+global.QSPLIT = function (roomName): any {
+    const room = Game.rooms[roomName];
+    if (!room) return "no visibility on " + roomName;
+    const leader: any = room.find(FIND_MY_CREEPS, { filter: (c: any) => c.memory.role == "SquadCreepA" })[0];
+    if (!leader) return "no quad leader in " + roomName;
+    leader.memory.splitTravel = true;
+    return "quad in " + roomName + " will split into duos";
+}
+
 // 2-creep strike team for RCL 6/7: ranged leader + healer that chases it.
 // boostLabIds: optional array of lab ids preloaded with boost minerals — passed
 // straight to memory.boostlabs so the pair boosts before leaving (T3 recommended:

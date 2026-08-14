@@ -143,6 +143,34 @@ const healLogic = function (creep: any, self: any, partner: any, enemiesNearby: 
 };
 
 
+// morph a traveling quad into two duos (A+B and Y+Z). The four creeps keep their
+// names and squad ids; only memory.role changes, so the per-tick ROLES dispatch
+// swaps their behavior instantly. They regroup in stagingRoom and rejoin.
+const splitQuadToDuos = function (a: any, b: any, y: any, z: any, stagingRoom: string) {
+    const finalTarget = a.memory.targetPosition;
+    for (const member of [a, b, y, z]) {
+        member.memory.quadRole = member.memory.role;
+        member.memory.rejoinAt = stagingRoom;
+        member.memory.go = false;
+        member.memory.route = undefined;
+        member.memory.direction = false;
+        member.memory.pathIncompleteCount = 0;
+        delete member.memory.splitTravel;
+    }
+    a.memory.finalTarget = finalTarget;
+    a.memory.role = "DuoCreepA";
+    a.memory.targetPosition = new RoomPosition(23, 25, stagingRoom);
+    a.memory.duo = {partner: b.id};
+    b.memory.role = "DuoCreepB";
+    b.memory.duo = {partner: a.id};
+    y.memory.role = "DuoCreepA";
+    y.memory.targetPosition = new RoomPosition(27, 25, stagingRoom);
+    y.memory.duo = {partner: z.id};
+    z.memory.role = "DuoCreepB";
+    z.memory.duo = {partner: y.id};
+};
+
+
 const runLeader = function (creep: any) {
     creep.memory.moving = false;
 
@@ -159,6 +187,31 @@ const runLeader = function (creep: any) {
     const targetPos = creep.memory.targetPosition;
     if (!targetPos) {
         return;
+    }
+
+    // rejoin: this duo came from a split quad — once all four ex-members stand in
+    // the staging room, hand them back to their quad roles. The quad's normal
+    // gathering logic (go=false -> move to slots -> go) reassembles the 2x2.
+    if (creep.memory.rejoinAt && creep.room.name === creep.memory.rejoinAt) {
+        const exQuad = creep.room.find(FIND_MY_CREEPS, {
+            filter: function (c: any) { return c.memory.quadRole && c.memory.rejoinAt === creep.memory.rejoinAt; }
+        });
+        if (exQuad.length >= 4) {
+            for (const member of exQuad) {
+                member.memory.role = member.memory.quadRole;
+                delete member.memory.quadRole;
+                delete member.memory.duo;
+                delete member.memory.rejoinAt;
+                member.memory.go = false;
+                member.memory.route = undefined;
+                member.memory.direction = false;
+                if (member.memory.finalTarget) {
+                    member.memory.targetPosition = member.memory.finalTarget;
+                    delete member.memory.finalTarget;
+                }
+            }
+            return;
+        }
     }
     const inTargetRoom = creep.room.name === targetPos.roomName;
 
@@ -282,4 +335,4 @@ const runFollower = function (creep: any) {
 const roleDuoCreepA = {run: runLeader};
 const roleDuoCreepB = {run: runFollower};
 
-export {roleDuoCreepA, roleDuoCreepB};
+export {roleDuoCreepA, roleDuoCreepB, splitQuadToDuos};

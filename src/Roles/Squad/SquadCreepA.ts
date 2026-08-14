@@ -1,4 +1,5 @@
 import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
+import {splitQuadToDuos} from "./SquadDuo";
 
 // tiles (relative to the leader) the 2x2 quad additionally needs clear to step one square in each direction
 const QUAD_CLEARANCE:any = {
@@ -441,6 +442,20 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
         y = squad[2];
         z = squad[3];
 
+        // split travel: morph into two duos when flagged (QSPLIT) or when the quad
+        // path came back incomplete twice in a row (terrain the 2x2 cannot cross).
+        // The duos regroup one room short of the target and rejoin into the quad.
+        if(a && b && y && z && creep.memory.targetPosition && creep.room.name != creep.memory.targetPosition.roomName &&
+           (creep.memory.splitTravel || (creep.memory.pathIncompleteCount || 0) >= 2) &&
+           a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) {
+            let staging = creep.room.name;
+            if(creep.memory.route && creep.memory.route.length >= 2) {
+                staging = creep.memory.route[creep.memory.route.length - 2].room;
+            }
+            splitQuadToDuos(a, b, y, z, staging);
+            return;
+        }
+
 
         let aliveCreeps = [];
 
@@ -660,6 +675,12 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
             });
             if(Memory.verbose) {
                 console.log(path.incomplete)
+            }
+            if(path.incomplete && creep.room.name != creep.memory.targetPosition.roomName) {
+                creep.memory.pathIncompleteCount = (creep.memory.pathIncompleteCount || 0) + 1;
+            }
+            else {
+                creep.memory.pathIncompleteCount = 0;
             }
             let pos = path.path[0];
             let direction = pos ? creep.pos.getDirectionTo(pos) : undefined;

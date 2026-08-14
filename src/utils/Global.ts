@@ -242,6 +242,7 @@ declare global {
           SS: any;
           SQR: any;
           DUO: any;
+          QSPLIT: any;
           SRDP: any;
           SQM: any;
           SQD: any;
