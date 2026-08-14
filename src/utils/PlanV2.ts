@@ -257,6 +257,52 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   return `dropped planV2 for ${roomName} (legacy construction resumes)`;
 };
 
+/** Console: park/unpark the gradual migration of one room (adoption + placement continue). */
+(global as any).migratePause = function (roomName: string) {
+  const room = Game.rooms[roomName];
+  if (!room) return `no visibility on ${roomName}`;
+  (room.memory as any).planMigratePaused = true;
+  return `migration paused for ${roomName} — migrateResume("${roomName}") to continue`;
+};
+
+(global as any).migrateResume = function (roomName: string) {
+  const room = Game.rooms[roomName];
+  if (!room) return `no visibility on ${roomName}`;
+  delete (room.memory as any).planMigratePaused;
+  return `migration resumed for ${roomName}`;
+};
+
+/** Console: migrateStatus() — one line per planV2 room: off-plan census + engine state. */
+(global as any).migrateStatus = function () {
+  const lines: string[] = [];
+  for (const roomName in Game.rooms) {
+    const room = Game.rooms[roomName];
+    if (!room.controller || !room.controller.my) continue;
+    const plan: any = room.memory.planV2;
+    if (!plan || !plan.t) continue;
+    const planned: { [type: string]: Set<number> } = {};
+    for (const type of Object.keys(plan.t)) {
+      if (type === "shellCut" || type === "labInput") continue;
+      planned[type] = new Set(plan.t[type]);
+    }
+    const offPlan: { [type: string]: number } = {};
+    for (const s of room.find(FIND_MY_STRUCTURES).concat(room.find(FIND_STRUCTURES, {
+      filter: (x: any) => x.structureType === STRUCTURE_ROAD || x.structureType === STRUCTURE_CONTAINER,
+    }) as any)) {
+      const type = (s as any).structureType;
+      if (type === STRUCTURE_CONTROLLER || type === STRUCTURE_RAMPART) continue;
+      const set = planned[type];
+      if (set && !set.has(s.pos.x + s.pos.y * 50)) offPlan[type] = (offPlan[type] || 0) + 1;
+    }
+    const census = Object.keys(offPlan).map((k) => `${k}:${offPlan[k]}`).join(" ") || "none";
+    const paused = (room.memory as any).planMigratePaused ? " PAUSED" : "";
+    const danger = room.memory.danger ? " DANGER" : "";
+    const down = room.controller.ticksToDowngrade < 10000 ? " DOWNGRADE-RISK" : "";
+    lines.push(`${roomName} plan ${plan.h} rcl ${room.controller.level} off-plan: ${census}${paused}${danger}${down}`);
+  }
+  return lines.length ? lines.join("\n") : "no planV2 rooms visible";
+};
+
 /**
  * Turn a planner payload (push-plan.mjs segment 88, or one entry of the
  * auto-expand pack in segments 80-85) into the packed room.memory.planV2
@@ -1600,6 +1646,13 @@ function runMigration(
   // either energy capacity or a tower, and a room under siege needs both to
   // spawn and man its defence. Migration is a tidy-up; it can wait.
   if (room.memory.danger) return;
+  // nor while the controller is at downgrade risk — migration must never
+  // out-prioritize the upgrader economy that keeps the room's RCL
+  if (room.controller && room.controller.ticksToDowngrade < 10000) return;
+  // nor on an empty CPU bucket: a migrating room is a running room first
+  if (Game.cpu.bucket < 3000) return;
+  // console kill switch: migratePause("W1N1") parks the engine indefinitely
+  if ((room.memory as any).planMigratePaused) return;
   for (const cls of MIGRATE_CLASSES) migrateClass(room, plan, lvl, cls, structures, have);
   migrateSpawns(room, plan, lvl, structures);
   migrateHub(room, plan, lvl, structures);

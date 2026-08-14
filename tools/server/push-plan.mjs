@@ -94,8 +94,13 @@ function tokenForUser(username) {
  * Terrain for one room, as the planner wants it: the 2,500-char encoded string,
  * index y*50+x, '1' = wall / '2' = swamp. Public endpoint, no auth needed.
  */
+/** query-string suffix for sharded servers (screeps.com); empty elsewhere */
+function shardQS(cfg) {
+  return cfg.shard ? `&shard=${cfg.shard}` : "";
+}
+
 async function fetchTerrain(cfg, room) {
-  const res = await fetch(`${cfg.base}/api/game/room-terrain?room=${room}&encoded=1`);
+  const res = await fetch(`${cfg.base}/api/game/room-terrain?room=${room}&encoded=1${shardQS(cfg)}`);
   const json = await res.json().catch(() => ({}));
   const entry = json && json.ok === 1 && (json.terrain || [])[0];
   if (!entry || typeof entry.terrain !== "string" || entry.terrain.length !== 2500) {
@@ -118,7 +123,7 @@ const PLAN_TYPES = new Set(["source", "controller", "mineral"]);
  * Servers that don't expose it fall through to the websocket snapshot below.
  */
 async function fetchRoomObjectsRest(cfg, room) {
-  const res = await fetch(`${cfg.base}/api/game/room-objects?room=${room}`, {
+  const res = await fetch(`${cfg.base}/api/game/room-objects?room=${room}${shardQS(cfg)}`, {
     headers: { "X-Token": cfg.token, "X-Username": cfg.token },
   });
   if (!res.ok) throw new Error(`room-objects ${room}: HTTP ${res.status}`);
@@ -1489,6 +1494,13 @@ async function main() {
   }
   const dest = args.includes("--dest") ? args[args.indexOf("--dest") + 1] : "pserver";
   const cfg = loadConfig(dest);
+  // screeps.com is sharded; local/VPS servers are not. --shard overrides,
+  // dest "main" defaults to this bot's shard.
+  cfg.shard = args.includes("--shard")
+    ? args[args.indexOf("--shard") + 1]
+    : dest === "main"
+      ? "shard3"
+      : undefined;
   // --user mints/looks up a token in the LOCAL redis; --token is the remote
   // equivalent for a server this machine only has HTTP to (the VPS).
   if (args.includes("--user")) {
@@ -1579,8 +1591,8 @@ async function main() {
     );
     return;
   }
-  await api(cfg, "POST", "/api/user/memory-segment", { segment: SEGMENT, data });
-  const back = await api(cfg, "GET", `/api/user/memory-segment?segment=${SEGMENT}`);
+  await api(cfg, "POST", "/api/user/memory-segment", { segment: SEGMENT, data, ...(cfg.shard ? { shard: cfg.shard } : {}) });
+  const back = await api(cfg, "GET", `/api/user/memory-segment?segment=${SEGMENT}${shardQS(cfg)}`);
   if (!back.data || JSON.parse(back.data).room !== room) throw new Error("segment verify failed");
   const arterials = roadStage.filter((s) => s <= ARTERIAL_RCL).length;
   console.log(
@@ -1593,7 +1605,7 @@ async function main() {
   );
 
   if (args.includes("--adopt")) {
-    await api(cfg, "POST", "/api/user/console", { expression: `adoptPlan("${room}")` });
+    await api(cfg, "POST", "/api/user/console", { expression: `adoptPlan("${room}")`, ...(cfg.shard ? { shard: cfg.shard } : {}) });
     console.log(`sent: adoptPlan("${room}")`);
   } else {
     console.log(`in the game console run: adoptPlan("${room}")`);
