@@ -280,6 +280,12 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   const mode = young ? "auto" : "gradual";
   (room.memory as any).planMigration = { mode: mode, since: Game.time, by: "operator" };
   delete (room.memory as any).planMigratePaused;
+  // stall bookkeeping from an earlier arm cycle would instantly re-trigger the
+  // frozen state AND suppress its note — a fresh arm starts with fresh timers
+  const timers: any = room.memory.planMigrate || {};
+  const noteLog: any = room.memory.planMigrateLog || {};
+  for (const k of Object.keys(timers)) if (k.indexOf("sites:") === 0) delete timers[k];
+  for (const k of Object.keys(noteLog)) if (k.indexOf("sites-stalled:") === 0) delete noteLog[k];
   const hold = mode === "gradual" && lvl < 4 ? ` (holds until RCL4 — economy safety)` : "";
   return `${mode} migration ARMED for ${roomName}${hold} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
 };
@@ -512,18 +518,19 @@ export function runPlanV2Adoption(): void {
     // arming: a young room (fresh colony) auto-arms so bootstrap squatters get
     // cleared; an established room adopts placement-only and demolition waits
     // for the operator's explicit migratePlan()
-    // a re-adopted CHANGED plan demotes a heuristic auto-arm: the operator
-    // must consciously re-arm for the new layout (an explicit gradual arm is
-    // an operator decision and survives)
+    // young = genuinely nothing to lose: BOTH low level AND few structures
+    // (an OR armed downgraded-but-fully-built rooms — gauntlet r2 finding #1)
+    const young = room.controller.level < 4 && room.find(FIND_MY_STRUCTURES).length < 15;
+    // a re-adopted CHANGED plan demotes a heuristic auto-arm on an ESTABLISHED
+    // room: the operator must consciously re-arm for the new layout. A still-
+    // young room re-arms by policy anyway, so demoting it would only emit two
+    // contradictory log lines in one tick (gauntlet r4) — keep its arm as-is.
     const armedPrev = (room.memory as any).planMigration;
-    if (prev && prev.h && data.planHash && prev.h !== data.planHash && armedPrev && armedPrev.mode === "auto") {
+    if (prev && prev.h && data.planHash && prev.h !== data.planHash && armedPrev && armedPrev.mode === "auto" && !young) {
       delete (room.memory as any).planMigration;
       logAlways(`planV2: ${adopt.room} auto-arm dropped on layout change — migratePlan to re-arm`);
     }
     const armed = (room.memory as any).planMigration;
-    // young = genuinely nothing to lose: BOTH low level AND few structures
-    // (an OR armed downgraded-but-fully-built rooms — gauntlet r2 finding #1)
-    const young = room.controller.level < 4 && room.find(FIND_MY_STRUCTURES).length < 15;
     if (!armed && young) {
       (room.memory as any).planMigration = { mode: "auto", since: Game.time };
     }
@@ -1555,15 +1562,14 @@ function migrateClass(
   let wanted = 0;
   for (let i = 0; i < wantLimit; i++) if (!placed[planned[i]]) wanted++;
 
-  const ranked = rankOffPlan(room, type, planTile, plan, structures);
-  if (!ranked.off.length) return;
-
   // REBUILD-CONFIRMED batching (spec I3): a construction site is a promise,
   // not a rebuild. While any site of this class is pending, the previous
   // batch has not been paid back and no further batch may be destroyed —
   // otherwise a starved builder economy lets capacity ratchet down 3 per
   // minute with nothing coming back. Roads exempt: they are cheap, their
   // sites linger by design, and stalling on them would freeze the class.
+  // Runs BEFORE the off-plan ranking so the stall bookkeeping is also
+  // CLEANED even on passes with nothing left to destroy (gauntlet r4).
   if (!isRoad) {
     const pendingSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
       filter: (site) => site.structureType === type,
@@ -1593,6 +1599,9 @@ function migrateClass(
     delete timers[stallKey];
     delete (room.memory.planMigrateLog || {})[`sites-stalled:${type}`];
   }
+
+  const ranked = rankOffPlan(room, type, planTile, plan, structures);
+  if (!ranked.off.length) return;
 
   const rich = migrationEnergy(room) > MIGRATE_ENERGY;
   let candidates = ranked.off;
