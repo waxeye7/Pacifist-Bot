@@ -47,13 +47,13 @@ function market(room):any {
 
             console.log(resourceToSell, "buy orders found:", orders.length);
             orders.sort(function(a,b){return b.price - a.price;});
-            if(orders[0] != undefined) {
-                let orderQuantity = 500;
-                let result = Game.market.deal(orders[0].id, orderQuantity, room.name);
+            for(let order of orders) {
+                if(!order.amount) continue;
+                let orderQuantity = Math.min(500, order.amount);
+                let result = Game.market.deal(order.id, orderQuantity, room.name);
                 if(result == 0) {
-                    console.log("Successful sell on", resourceToSell, "at the price of", orders[0].price, "and quantity of", orderQuantity);
+                    console.log("Successful sell on", resourceToSell, "at the price of", order.price, "and quantity of", orderQuantity);
                     return;
-
                 }
             }
         }
@@ -364,7 +364,7 @@ function market(room):any {
             if(orders.length > 0) {
                 orders.sort((a,b) => a.price - b.price);
                 let orderID = orders[0].id;
-                let newOrderAmount = orders[0].amount;
+                let newOrderAmount = Math.min(OrderAmount, orders[0].amount);
                 console.log(JSON.stringify(orders[0]))
                 console.log(Game.market.calcTransactionCost(newOrderAmount, room.name, orders[0].roomName));
 
@@ -902,7 +902,15 @@ function market(room):any {
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
 
 
-    if(t % 1000 === 0 && storage && storage.store[RESOURCE_ENERGY] > 430000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
+    if(t % 1000 === 0 && storage && room.terminal && storage.store[RESOURCE_ENERGY] > 430000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
+        // This block is outside the main t%10 market gate, so rooms that never
+        // entered it have no market.sellOrders and threw here.
+        if(!room.memory.market) {
+            room.memory.market = {};
+        }
+        if(!room.memory.market.sellOrders) {
+            room.memory.market.sellOrders = {};
+        }
         if(!room.memory.market.sellOrders.energy) {
             room.memory.market.sellOrders.energy = {};
         }

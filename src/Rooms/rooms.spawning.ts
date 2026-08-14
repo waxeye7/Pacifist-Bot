@@ -79,20 +79,24 @@ function spawning(room: any) {
                         }
                     }
                     if(allSpawnsDisrupted) {
-                        let myRooms = _.filter(Game.rooms, (r) => r.controller && r.controller.my && r.controller.level === 8);
-                        // find closest room
-                        let closestRoom = myRooms[0];
-                        let closestRoomDistance = Game.map.getRoomLinearDistance(room.name, closestRoom.name);
-                        for(let myRoom of myRooms) {
-                            let distance = Game.map.getRoomLinearDistance(room.name, myRoom.name);
-                            if(distance < closestRoomDistance) {
-                                closestRoom = myRoom;
-                                closestRoomDistance = distance;
+                        // Exclude self: an RCL8 under disrupt is in myRooms at
+                        // distance 0 and would SDB itself. No other RCL8 → leave
+                        // ram_coming unset so we retry when one exists.
+                        let myRooms = _.filter(Game.rooms, (r) => r.controller && r.controller.my && r.controller.level === 8 && r.name !== room.name);
+                        if(myRooms.length) {
+                            let closestRoom = myRooms[0];
+                            let closestRoomDistance = Game.map.getRoomLinearDistance(room.name, closestRoom.name);
+                            for(let myRoom of myRooms) {
+                                let distance = Game.map.getRoomLinearDistance(room.name, myRoom.name);
+                                if(distance < closestRoomDistance) {
+                                    closestRoom = myRoom;
+                                    closestRoomDistance = distance;
+                                }
                             }
+                            global.SDB(closestRoom.name, room.name, true);
+                            room.memory.ram_coming = true;
+                            return;
                         }
-                        global.SDB(closestRoom.name, room.name, true);
-                        room.memory.ram_coming = true;
-                        return;
                     }
                 }
             }
@@ -1774,32 +1778,10 @@ function add_creeps_to_spawn_list(room, spawn) {
             else if(room.energyCapacityAvailable < 5000) {
                 spawnrules[8].build_creep.amount += 1;
             }
-            if(builders < spawnrules[8].build_creep.amount  && sites.length > 0 && (EnergyMinersInRoom > 1 || room.memory.danger) && (storage && storage.store[RESOURCE_ENERGY] > 50000 || !storage)) {
-                let allowSpawn = true;
-                let spawnSmall = false;
-                for(let site of sites) {
-                    if(site.structureType == STRUCTURE_RAMPART) {
-                        allowSpawn = false;
-                        spawnSmall = true;
-                    }
-                    else {
-                        allowSpawn = true;
-                        spawnSmall = false;
-                        break;
-                    }
-                }
-
-                if(allowSpawn) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(spawnrules[8].build_creep.body, name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
-                else if(!allowSpawn && spawnSmall && builders < 1) {
-                    let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
-                    console.log('Adding Builder to Spawn List: ' + name);
-                }
-            }
+            // Same gate as RCL6/7: EnergyMinersInRoom > 1 is impossible in a
+            // 1-source room, so this rung never fired there. queueBuilder uses
+            // miners > 0 || bankCanBuild and the thin-bank / rampart split.
+            queueBuilder(room, spawnrules[8], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 50000);
             if(upgraders < spawnrules[8].upgrade_creep.amount && room.controller.ticksToDowngrade < 125000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 110000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[8].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
@@ -1973,7 +1955,7 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if(Signers < 1 && room.controller.level >= 5 && !room.memory.danger && room.memory.danger_timer == 0 && room.controller.sign && room.controller.sign.text !== "check out my YT channel - marlyman123") {
+    if(Signers < 1 && room.controller.level >= 5 && !room.memory.danger && room.memory.danger_timer == 0 && (!room.controller.sign || room.controller.sign.text !== "check out my YT channel - marlyman123")) {
         let newName = 'Signer' + "-" + room.name;
         room.memory.spawn_list.push([MOVE], newName, {memory: {role: 'Sign', homeRoom: room.name}});
         console.log('Adding Signer to Spawn List: ' + newName);
@@ -1994,53 +1976,65 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(attackCreeps.length > 0 || rangedAttackCreeps.length > 0) {
                 if(attackCreeps.length) {
                     let newName = 'Clearer-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(
-                      [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
-                      newName,
-                      { memory: { role: 'clearer', boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3,room.memory.labs.outputLab7], boosted:true }}
-                    );
-                    console.log('Adding Clearer to Spawn List: ' + newName);
-
-                    if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
+                    // Boosted body used to be queued before this check: missing
+                    // labs threw, and empty labs parked the creep for ~400 ticks
+                    // during the attack it was meant for.
+                    let canBoost = storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
                         storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 &&
-                        room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab7) {
-                           if(room.memory.labs.status && !room.memory.labs.status.boost) {
-                               room.memory.labs.status.boost = {};
-                           }
+                        room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab7;
+                    if(canBoost) {
+                        room.memory.spawn_list.push(
+                          [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
+                          newName,
+                          { memory: { role: 'clearer', boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3,room.memory.labs.outputLab7], boosted:true }}
+                        );
+                        console.log('Adding Clearer to Spawn List: ' + newName);
 
-                           if(room.memory.labs.status.boost) {
-                               // utrium acid
-                               if(room.memory.labs.status.boost.lab3) {
-                                   room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 900;
-                                   room.memory.labs.status.boost.lab3.use += 1;
-                               }
-                               else {
-                                   room.memory.labs.status.boost.lab3 = {};
-                                   room.memory.labs.status.boost.lab3.amount = 900;
-                                   room.memory.labs.status.boost.lab3.use = 1;
-                               }
-                               // zyn alk
-                               if(room.memory.labs.status.boost.lab2) {
-                                   room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
-                                   room.memory.labs.status.boost.lab2.use += 1;
-                               }
-                               else {
-                                   room.memory.labs.status.boost.lab2 = {};
-                                   room.memory.labs.status.boost.lab2.amount = 300;
-                                   room.memory.labs.status.boost.lab2.use = 1;
-                               }
-                               // gho alk
-                               if(room.memory.labs.status.boost.lab7) {
-                                   room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 300;
-                                   room.memory.labs.status.boost.lab7.use += 1;
-                               }
-                               else {
-                                   room.memory.labs.status.boost.lab7 = {};
-                                   room.memory.labs.status.boost.lab7.amount = 300;
-                                   room.memory.labs.status.boost.lab7.use = 1;
-                               }
-                           }
+                        if(room.memory.labs.status && !room.memory.labs.status.boost) {
+                            room.memory.labs.status.boost = {};
                         }
+
+                        if(room.memory.labs.status.boost) {
+                            // utrium acid
+                            if(room.memory.labs.status.boost.lab3) {
+                                room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 900;
+                                room.memory.labs.status.boost.lab3.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab3 = {};
+                                room.memory.labs.status.boost.lab3.amount = 900;
+                                room.memory.labs.status.boost.lab3.use = 1;
+                            }
+                            // zyn alk
+                            if(room.memory.labs.status.boost.lab2) {
+                                room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
+                                room.memory.labs.status.boost.lab2.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab2 = {};
+                                room.memory.labs.status.boost.lab2.amount = 300;
+                                room.memory.labs.status.boost.lab2.use = 1;
+                            }
+                            // gho alk
+                            if(room.memory.labs.status.boost.lab7) {
+                                room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 300;
+                                room.memory.labs.status.boost.lab7.use += 1;
+                            }
+                            else {
+                                room.memory.labs.status.boost.lab7 = {};
+                                room.memory.labs.status.boost.lab7.amount = 300;
+                                room.memory.labs.status.boost.lab7.use = 1;
+                            }
+                        }
+                    }
+                    else {
+                        room.memory.spawn_list.push(
+                          [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
+                          newName,
+                          { memory: { role: 'clearer' }}
+                        );
+                        console.log('Adding Clearer to Spawn List: ' + newName);
+                    }
                 }
             }
             else {
@@ -4078,10 +4072,18 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
             if(room.controller.level <= 5) {
                 containerBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer' && creep.memory.targetRoom == room.name);
             }
+            // BEHAVIOR CHANGE: any live CB targeting this room used to abort
+            // miner spawning for EVERY source at RCL<=4, so a colony with a CB
+            // up never queued miners. Hold only HOME miners, and only while the
+            // room still has no container (spawn already exists if we got here).
+            let holdHomeMinersForContainer = false;
+            if(room.controller.level <= 4 && containerBuilders.length && targetRoomName == room.name) {
+                holdHomeMinersForContainer = room.find(FIND_STRUCTURES, {filter: (s:any) => s.structureType == STRUCTURE_CONTAINER}).length == 0;
+            }
             _.forEach(data.energy, function(values, sourceId:any) {
 
 
-                if(room.controller.level <= 4 && containerBuilders.length) {
+                if(holdHomeMinersForContainer) {
                     return;
                 }
 
@@ -4434,6 +4436,21 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
 }
 
 function spawn_remote_repairer(resourceData, room, activeRemotes) {
+    // One per REMOTE, not per source. Live-creep check alone still queued one
+    // per source in the same pass (stamp is per-source, queue was not scanned).
+    const covered: { [roomName: string]: boolean } = {};
+    _.forEach(Game.creeps, function(c: any) {
+        if(c.memory.role == 'RemoteRepair' && c.memory.homeRoom == room.name && c.memory.targetRoom) {
+            covered[c.memory.targetRoom] = true;
+        }
+    });
+    const queue = room.memory.spawn_list || [];
+    for(let i = 1; i < queue.length; i += 3) {
+        if(typeof queue[i] === 'string' && queue[i].indexOf('RemoteRepairer-') === 0) {
+            const opts = queue[i + 1];
+            if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
+        }
+    }
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
             /*
@@ -4445,6 +4462,7 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
              * Gate on there being actual work, and allow one per REMOTE.
              */
             if(targetRoomName != room.name) {
+                if(covered[targetRoomName]) return;
                 if(remoteIsHot(room, targetRoomName)) return;
                 const rr = Game.rooms[targetRoomName];
                 if(!rr) return;
@@ -4454,11 +4472,15 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
                         (s.structureType == STRUCTURE_ROAD || s.structureType == STRUCTURE_CONTAINER) &&
                         s.hits < s.hitsMax * 0.75}).length > 0;
                 if(!hasWork) return;
-                if(_.some(Game.creeps, (c:any) =>
-                    c.memory.role == 'RemoteRepair' && c.memory.homeRoom == room.name &&
-                    c.memory.targetRoom == targetRoomName)) return;
             }
+            const markSpawned = function(stamp) {
+                covered[targetRoomName] = true;
+                _.forEach(data.energy, function(v: any) { v.lastSpawnRemoteRepairer = stamp; });
+            };
             _.forEach(data.energy, function(values, sourceId) {
+                if(covered[targetRoomName]) {
+                    return;
+                }
                 if(Game.time - (values.lastSpawnRemoteRepairer || 0) > CREEP_LIFE_TIME * 1.5) {
                     let newName = 'RemoteRepairer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     if(targetRoomName != room.name && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].memory.roomData && !Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps) {
@@ -4472,10 +4494,10 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
                             if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                values.lastSpawnRemoteRepairer = Game.time - 100;
+                                markSpawned(Game.time - 100);
                             }
                             else {
-                                values.lastSpawnRemoteRepairer = Game.time + 50;
+                                markSpawned(Game.time + 50);
                             }
                         }
 
@@ -4484,10 +4506,10 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
                             if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                values.lastSpawnRemoteRepairer = Game.time - 300;
+                                markSpawned(Game.time - 300);
                             }
                             else {
-                                values.lastSpawnRemoteRepairer = Game.time + 200;
+                                markSpawned(Game.time + 200);
                             }
                         }
 
@@ -4496,17 +4518,17 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
                             if(Game.rooms[targetRoomName].find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
-                                values.lastSpawnRemoteRepairer = Game.time - 400;
+                                markSpawned(Game.time - 400);
                             }
                             else {
-                                values.lastSpawnRemoteRepairer = Game.time + 100;
+                                markSpawned(Game.time + 100);
                             }
                         }
                         else {
                             room.memory.spawn_list.push([WORK,CARRY,MOVE], newName,
                                 {memory: {role: 'RemoteRepair', targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding RemoteRepairer to Spawn List: ' + newName);
-                            values.lastSpawnRemoteRepairer = Game.time-600;
+                            markSpawned(Game.time-600);
                         }
                     }
                 }
@@ -4700,7 +4722,10 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                             : room.controller.level == 7 ? 7 : 8;
                         const reserverCost = reserverPairs * (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]);
                         const reserverFloor = Math.max(2000, reserverCost * 3);
-                        if(room.memory.danger || (storage && storage.store[RESOURCE_ENERGY] < reserverFloor)) {
+                        // Floor is 3900–5850; the hub-container fallback caps
+                        // at 2000, so remoting off a container never reserved.
+                        // Same rule as hasRealBank: only apply when storage exists.
+                        if(room.memory.danger || (room.storage && room.storage.store[RESOURCE_ENERGY] < reserverFloor)) {
                             return;
                         }
 

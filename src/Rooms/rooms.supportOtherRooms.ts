@@ -24,7 +24,7 @@ function supportOtherRooms(room) {
 
         &&
         (
-            Game.rooms[Memory.target_colonise.room].memory.Structures.spawn && Game.getObjectById(Game.rooms[Memory.target_colonise.room].memory.Structures.spawn) && (Game.rooms[Memory.target_colonise.room].controller.level <= 6 && !Game.rooms[Memory.target_colonise.room].terminal && Game.rooms[Memory.target_colonise.room].controller.level >= 3 && (Game.cpu.bucket > 8000 || Game.cpu.bucket > 4000 && Game.rooms[Memory.target_colonise.room].storage && Game.rooms[Memory.target_colonise.room].storage.store[RESOURCE_ENERGY] <= 100000) ||
+            Game.rooms[Memory.target_colonise.room].memory.Structures && Game.rooms[Memory.target_colonise.room].memory.Structures.spawn && Game.getObjectById(Game.rooms[Memory.target_colonise.room].memory.Structures.spawn) && (Game.rooms[Memory.target_colonise.room].controller.level <= 6 && !Game.rooms[Memory.target_colonise.room].terminal && Game.rooms[Memory.target_colonise.room].controller.level >= 3 && (Game.cpu.bucket > 8000 || Game.cpu.bucket > 4000 && Game.rooms[Memory.target_colonise.room].storage && Game.rooms[Memory.target_colonise.room].storage.store[RESOURCE_ENERGY] <= 100000) ||
             Game.rooms[Memory.target_colonise.room].controller.level == 2 &&
             Game.rooms[Memory.target_colonise.room].memory.Structures &&
             Game.rooms[Memory.target_colonise.room].memory.Structures.bin &&

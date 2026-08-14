@@ -47,7 +47,10 @@ function roomDefence(room) {
         room.memory.defence.towerShotsInRow = 0;
     }
 
-    if(room.memory.danger && (room.memory.danger_timer >= 11000 || room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
+    // rooms.ts increments then resets danger_timer at >10000 before this runs,
+    // so >=11000 never fired. 9500 still means a long siege that has not
+    // already tripped the damaged-rampart arm.
+    if(room.memory.danger && (room.memory.danger_timer >= 9500 || room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length >= 2) {
             for(let eCreep of enemyCreepsInRoom) {
@@ -76,7 +79,9 @@ function roomDefence(room) {
             // no perimeter yet: skip specialized repair
         } else {
             for(let tower of towers) {
-                if(rampartToRepair.hits < 2500000 || tower.pos.getRangeTo(rampartToRepair) <= 8 || tower.store[RESOURCE_ENERGY] >= 800) {
+                // findDamagedPerimeterRamparts already filtered hits < 2500000,
+                // so `||` made every tower repair regardless of range or energy.
+                if(rampartToRepair.hits < 2500000 && tower.pos.getRangeTo(rampartToRepair) <= 8 && tower.store[RESOURCE_ENERGY] >= 800) {
                     tower.repair(rampartToRepair);
                 }
             }
@@ -159,10 +164,14 @@ function roomDefence(room) {
         // let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
 
         let canWeShoot = 0;
+        let liveTowerCount = 0;
         room.memory.Structures.towers.forEach(towerID => {
             let towerTest:any = Game.getObjectById(towerID);
-            if(towerTest && towerTest.store[RESOURCE_ENERGY] > 400) {
-                canWeShoot ++;
+            if(towerTest) {
+                liveTowerCount++;
+                if(towerTest.store[RESOURCE_ENERGY] > 400) {
+                    canWeShoot ++;
+                }
             }
         });
 
@@ -196,7 +205,10 @@ function roomDefence(room) {
                     }
                 }
 
-                if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == room.memory.Structures.towers.length && Game.cpu.bucket > 250) {
+                // Cache rebuilds only %100; a destroyed tower left a stale id
+                // so canWeShoot never equalled the raw list length and the
+                // whole volley went silent.
+                if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == liveTowerCount && Game.cpu.bucket > 250) {
 
 
                     let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
@@ -209,8 +221,10 @@ function roomDefence(room) {
                         room.memory.defence.towerShotsInRow += 1;
                         let attackTarget = room.memory.attack_target;
                         let target = Game.getObjectById(attackTarget);
-                        if(rampart && rampart.pos.getRangeTo(target) < 2 && (target && Game.time % 17 == 0 || target && Game.time % 17 == 1 || target && Game.time % 17 == 2 || target && Game.time % 17 == 3 || target && Game.time % 17 == 4
-                            || target && Game.time % 17 == 5 || target && Game.time % 17 == 6 || target && Game.time % 17 == 7 || target && Game.time % 17 == 8)) {
+                        // attack_target is never written; getRangeTo(null) first
+                        // made this arm dead. Guard target like the sibling below.
+                        if(target && rampart && rampart.pos.getRangeTo(target) < 2 && (Game.time % 17 == 0 || Game.time % 17 == 1 || Game.time % 17 == 2 || Game.time % 17 == 3 || Game.time % 17 == 4
+                            || Game.time % 17 == 5 || Game.time % 17 == 6 || Game.time % 17 == 7 || Game.time % 17 == 8)) {
                             tower.attack(target);
                             return;
                         }
@@ -220,7 +234,9 @@ function roomDefence(room) {
                                     tower.attack(closestHostile);
                                 }
                             }
-
+                            // One intent per tower; the %12 heal below overwrites
+                            // the shot if we fall through.
+                            return;
                         }
                         else if(HostileCreeps.length > 1 && target && rampart && rampart.pos.getRangeTo(target) < 2 ){
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
@@ -237,7 +253,7 @@ function roomDefence(room) {
                                     tower.attack(closestHostile);
                                 }
                             }
-
+                            return;
                         }
                         else {
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
@@ -245,7 +261,7 @@ function roomDefence(room) {
                                     tower.attack(closestHostile);
                                 }
                             }
-
+                            return;
                         }
                     }
                 }
@@ -280,12 +296,13 @@ function roomDefence(room) {
             let hostilePowerCreeps = room.find(FIND_HOSTILE_POWER_CREEPS);
             if (hostilePowerCreeps.length) {
                 for (let hostilePowerCreep of hostilePowerCreeps) {
-                    hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES);
                     if (hostilePowerCreep.pos.lookFor(LOOK_STRUCTURES).length === 0) {
                         if (room.memory.Structures.towers && room.memory.Structures.towers.length > 0) {
                             room.roomTowersAttackEnemy(hostilePowerCreep);
                         }
-                        return;
+                        // Do not return: a PC on bare ground used to abort the
+                        // rest of roomDefence, so rampartToMan was never set.
+                        break;
                     }
                 }
             }
@@ -332,7 +349,9 @@ function roomDefence(room) {
                         }
                     }
                 }
-                else if(room.controller.safeMode && nonRangedMeleeCreeps.length > 0) {
+                // Ranged twin at :321/:326 uses !safeMode. Un-negated, workers
+                // only fled while invulnerable and dropped energy for nothing.
+                else if(!room.controller.safeMode && nonRangedMeleeCreeps.length > 0) {
                     for(let creep of myCreeps) {
                         let closestHostileToCreep = creep.pos.findClosestByRange(nonRangedMeleeCreeps);
                         if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},

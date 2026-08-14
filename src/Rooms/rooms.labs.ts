@@ -303,8 +303,8 @@ function labs(room) {
             }
         }
         if(!found) {
-            if(room.memory.spawn_list.length == 0) {
-                if(room.memory.labs.status.boost && (!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
+            if(!room.memory.spawn_list || room.memory.spawn_list.length == 0) {
+                if(room.memory.labs.status && room.memory.labs.status.boost && (!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
                     (!room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0) &&
                     (!room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0) &&
                     (!room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0) &&
@@ -694,14 +694,16 @@ function labs(room) {
             lab2Input = RESOURCE_KEANIUM_ALKALIDE;
             currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
         }
-        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 35000 &&
+        // 50K top-up: these two used <35000, which is already satisfied by the
+        // <40000 branches above, so the rungs were dead. Same band as XZHO2.
+        else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 50000 &&
             terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_ZYNTHIUM_ACID] + storage.store[RESOURCE_ZYNTHIUM_ACID] >= 1000) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_ZYNTHIUM_ACID;
             currentOutput = RESOURCE_CATALYZED_ZYNTHIUM_ACID;
         }
 
-        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 35000 &&
+        else if(storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] < 50000 &&
             terminal.store[RESOURCE_GHODIUM_ALKALIDE] + storage.store[RESOURCE_GHODIUM_ALKALIDE] >= 1000 && terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000) {
             lab1Input = RESOURCE_GHODIUM_ALKALIDE;
             lab2Input = RESOURCE_CATALYST;
@@ -840,7 +842,9 @@ function labs(room) {
 
 
     if(Game.cpu.bucket > 4500) {
-        if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity() != 0) {
+        // Lab stores are restricted: argless getFreeCapacity() is null, so
+        // `!= 0` was always true and runReaction fired into a full output lab.
+        if(outputLab1 && outputLab1.cooldown == 0 && outputLab1.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab1 && room.memory.labs.status.boost.lab1.use == 0 && (!room.memory.labs.status.boost.lab1.amount || room.memory.labs.status.boost.lab1.amount == 0)) {
                     const pausedLab1 = room.memory.labs.paused?.find((lab) => lab.id === outputLab1.id && lab.timer > 0);
@@ -852,7 +856,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity() != 0) {
+        if(outputLab2 && outputLab2.cooldown == 0 && outputLab2.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab2 && room.memory.labs.status.boost.lab2.use == 0 && (!room.memory.labs.status.boost.lab2.amount || room.memory.labs.status.boost.lab2.amount == 0)) {
                     const pausedLab2 = room.memory.labs.paused?.find((lab) => lab.id === outputLab2.id && lab.timer > 0);
@@ -864,7 +868,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity() != 0) {
+        if(outputLab3 && outputLab3.cooldown == 0 && outputLab3.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab3 && room.memory.labs.status.boost.lab3.use == 0 && (!room.memory.labs.status.boost.lab3.amount || room.memory.labs.status.boost.lab3.amount == 0)) {
                     const pausedLab3 = room.memory.labs.paused?.find((lab) => lab.id === outputLab3.id && lab.timer > 0);
@@ -876,7 +880,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity() != 0) {
+        if(outputLab4 && outputLab4.cooldown == 0 && outputLab4.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab4 && room.memory.labs.status.boost.lab4.use == 0 && (!room.memory.labs.status.boost.lab4.amount || room.memory.labs.status.boost.lab4.amount == 0)) {
                     const pausedLab4 = room.memory.labs.paused?.find((lab) => lab.id === outputLab4.id && lab.timer > 0);
@@ -888,7 +892,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity() != 0) {
+        if(outputLab5 && outputLab5.cooldown == 0 && outputLab5.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab5 && !room.memory.labs.status.boost.lab5.use && (!room.memory.labs.status.boost.lab5.amount || room.memory.labs.status.boost.lab5.amount == 0)) {
                     const pausedLab5 = room.memory.labs.paused?.find((lab) => lab.id === outputLab5.id && lab.timer > 0);
@@ -900,7 +904,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity() != 0) {
+        if(outputLab6 && outputLab6.cooldown == 0 && outputLab6.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab6 && room.memory.labs.status.boost.lab6.use == 0 && (!room.memory.labs.status.boost.lab6.amount || room.memory.labs.status.boost.lab6.amount == 0)) {
                     const pausedLab6 = room.memory.labs.paused?.find((lab) => lab.id === outputLab6.id && lab.timer > 0);
@@ -912,7 +916,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity() != 0) {
+        if(outputLab7 && outputLab7.cooldown == 0 && outputLab7.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab7 && room.memory.labs.status.boost.lab7.use == 0 && (!room.memory.labs.status.boost.lab7.amount || room.memory.labs.status.boost.lab7.amount == 0)) {
                     const pausedLab7 = room.memory.labs.paused?.find((lab) => lab.id === outputLab7.id && lab.timer > 0);
@@ -926,7 +930,7 @@ function labs(room) {
                 }
             }
         }
-        if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity() != 0) {
+        if(outputLab8 && outputLab8.cooldown == 0 && outputLab8.store.getFreeCapacity(currentOutput) > 0) {
             if(inputLab1 && inputLab1.store[lab1Input] >= 5 && inputLab2 && inputLab2.store[lab2Input] >= 5) {
                 if(room.memory.labs.status.boost && room.memory.labs.status.boost.lab8 && room.memory.labs.status.boost.lab8.use == 0 && (!room.memory.labs.status.boost.lab8.amount || room.memory.labs.status.boost.lab8.amount == 0)) {
                     const pausedLab8 = room.memory.labs.paused?.find((lab) => lab.id === outputLab8.id && lab.timer > 0);

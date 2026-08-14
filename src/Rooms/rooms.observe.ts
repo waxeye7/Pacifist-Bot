@@ -147,7 +147,6 @@ function observe(room) {
                   Game.rooms[adj] &&
                   room.name !== adj &&
                   Game.rooms[adj].controller &&
-                  (!Game.rooms[adj].controller.owner || Game.rooms[adj].controller.owner) &&
                   !Game.rooms[adj].controller.my &&
                   Game.rooms[adj].controller.owner?.username !== "An1via" &&
                   Game.rooms[adj].controller.owner?.username !== "nanachi" &&
@@ -188,7 +187,10 @@ function observe(room) {
 
                         let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
                         for (let roomName of nameOfRoomsWithExits) {
-                          const exitDirection: any = Game.map.findExit(room.name, roomName);
+                          // Exits were enumerated from adj; findExit(home, neighbor-of-adj)
+                          // is non-adjacent → ERR_NO_PATH → canReachController stayed true
+                          // and we spawned a WallClearer instead of the dismantler.
+                          const exitDirection: any = Game.map.findExit(adj, roomName);
                           const exit: any = Game.rooms[adj].controller.pos.findClosestByRange(exitDirection);
                           if (exit) {
                             if (
@@ -201,7 +203,7 @@ function observe(room) {
                                   swampCost: 1,
                                   roomCallback: function (roomName): any {
                                     let thisRoom = Game.rooms[roomName];
-                                    if (!room) return;
+                                    if (!thisRoom) return;
                                     let costs = new PathFinder.CostMatrix();
 
                                     thisRoom.find(FIND_STRUCTURES).forEach(function (struct) {
@@ -330,7 +332,14 @@ function observe(room) {
                           }
                         }
                       }
-                    } else if (openControllerPositions && openControllerPositions.length == 0) {
+                    } else if (
+                      // Same claim-eligibility gates as the open-tile arm;
+                      // otherwise we spend ~4500e dismantling rooms we cannot claim.
+                      openControllerPositions &&
+                      openControllerPositions.length == 0 &&
+                      !Game.rooms[adj].controller.reservation &&
+                      Memory.CanClaimRemote >= 1
+                    ) {
                       let found = false;
 
                       for (let creepName in Game.creeps) {
@@ -632,7 +641,7 @@ function observe(room) {
                       let armedHostileCreeps = hostileCreeps.filter(
                         c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
                       );
-                      if (!armedHostileCreeps) {
+                      if (!armedHostileCreeps.length) {
                         global.SGD(room.name, adj, [
                           MOVE,
                           MOVE,
@@ -761,7 +770,7 @@ function observe(room) {
                       let armedHostileCreeps = hostileCreeps.filter(
                         c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
                       );
-                      if (!armedHostileCreeps) {
+                      if (!armedHostileCreeps.length) {
                         global.SGD(room.name, adj, [
                           MOVE,
                           MOVE,
@@ -806,7 +815,9 @@ function observe(room) {
                         } else if (rand < 0.5) {
                             global.SQR(room.name, adj, true);
                         } else if (rand < 0.75) {
-                            global.SS(room.name, adj, true);
+                            // SS third arg is backupTR (a room name), not a boost
+                            // flag; `true` made Solomon pathfind to room "true".
+                            global.SS(room.name, adj);
                         } else {
                             global.SQM(room.name, adj, true);
                         }
@@ -815,7 +826,7 @@ function observe(room) {
                         if (Math.random() < 0.5) {
                             global.SDB(room.name, adj, true);
                         } else {
-                            global.SS(room.name, adj, true);
+                            global.SS(room.name, adj);
                         }
                       }
                     } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
@@ -902,15 +913,16 @@ function observe(room) {
                   }
                 }
                 else {
-                  // filter out adj room name in Memory.AvoidRooms so Memory.AvoidRooms is up to date
+                  // Observe is %64==0, this process tick is %64==1. Without
+                  // vision we used to drop adj from AvoidRooms, so towered
+                  // rooms became walkable after a missed observe.
+                  if (Game.rooms[adj]) {
+                    if(!Memory.AvoidRooms) {
+                      Memory.AvoidRooms = [];
+                    }
 
-                  if(!Memory.AvoidRooms) {
-                    Memory.AvoidRooms = [];
+                    Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
                   }
-
-                  Memory.AvoidRooms = Memory.AvoidRooms.filter(room => room !== adj);
-
-
                 }
             }
 
