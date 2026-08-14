@@ -181,10 +181,13 @@ function clearMovement(creep: any): void {
  * would leave the two of them exactly where they are. Shoving is what the rest
  * of the movement layer does in this situation too (SwapPositionWithCreep).
  */
-function randomSidestep(creep: any): void {
+/** occupied-only shoves of the same partner this many times → blame the target */
+const OSC_SHOVE_REPEATS = 3;
+
+function randomSidestep(creep: any): boolean {
   const terrain = creep.room.getTerrain();
   const free: number[] = [];
-  const occupied: number[] = [];
+  const occupied: { dir: number; id: string }[] = [];
   for (let dx = -1; dx <= 1; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
       if (!dx && !dy) continue;
@@ -201,16 +204,34 @@ function randomSidestep(creep: any): void {
       }
       if (blocked) continue;
       const dir = creep.pos.getDirectionTo(new RoomPosition(x, y, creep.room.name));
-      if (creep.room.lookForAt(LOOK_CREEPS, x, y).length > 0) occupied.push(dir);
+      const there = creep.room.lookForAt(LOOK_CREEPS, x, y);
+      if (there.length > 0) occupied.push({ dir: dir, id: there[0].id });
       else free.push(dir);
     }
   }
-  const options = free.length ? free : occupied;
-  if (!options.length) return;
-  const dir = options[Math.floor(Math.random() * options.length)] as DirectionConstant;
-  if (!free.length) creep.SwapPositionWithCreep(dir);
-  creep.move(dir);
+  if (free.length) {
+    const dir = free[Math.floor(Math.random() * free.length)] as DirectionConstant;
+    delete creep.memory._oscP;
+    delete creep.memory._oscRep;
+    creep.move(dir);
+    creep.memory.moving = true;
+    return true;
+  }
+  if (!occupied.length) return false;
+  // 2-tile pocket: shoving the same partner just continues the A-B swap.
+  // Prefer a different neighbour; if there is none, count repeats so preRun
+  // can blacklist the contended target after OSC_SHOVE_REPEATS.
+  const last = creep.memory._oscP;
+  const others = last ? occupied.filter((o) => o.id !== last) : occupied;
+  const pickFrom = others.length ? others : occupied;
+  const pick = pickFrom[Math.floor(Math.random() * pickFrom.length)];
+  if (pick.id === last) creep.memory._oscRep = (creep.memory._oscRep || 0) + 1;
+  else creep.memory._oscRep = 1;
+  creep.memory._oscP = pick.id;
+  creep.SwapPositionWithCreep(pick.dir);
+  creep.move(pick.dir);
   creep.memory.moving = true;
+  return true;
 }
 
 /**
@@ -278,7 +299,8 @@ function preRun(creep: any): boolean {
   const strict = isStrictPingPong(ph);
   if (onBorder) {
     if (!strict) return false;
-    m._oscT = Game.time;
+    // _oscT is stamped only after the post-role sidestep actually issues —
+    // a fatigued creep would otherwise burn the cooldown and keep swapping.
     m._ph = [];
     clearMovement(creep);
     return true;
@@ -286,26 +308,27 @@ function preRun(creep: any): boolean {
   if (!isOscillating(ph)) return false;
 
   const targetId = currentTargetId(creep);
-  const target: any = targetId ? Game.getObjectById(targetId) : null;
-  // A target in ANOTHER room says nothing about this creep's local shuffle,
-  // and getRangeTo() across rooms is a huge number that would misclassify it
-  // as "far from target, blame the target". Let the travel layer own it.
-  if (target && target.pos && target.pos.roomName !== creep.room.name) return false;
+  const targetObj: any = targetId ? Game.getObjectById(targetId) : null;
+  // Cross-room locked/t is not a local approach fight. Treating it as a
+  // real target used to early-return (no sidestep for the whole trip);
+  // treat as no-target so we still damp, and never blacklist the far object.
+  const crossRoom = !!(targetObj && targetObj.pos && targetObj.pos.roomName !== creep.room.name);
+  const target = crossRoom ? null : targetObj;
   // A creep already next to what it wants AND not trying to travel is
   // working, not livelocked — shuttling beside a container is legitimate.
   if (target && target.pos && creep.pos.isNearTo(target) && !m.moving) return false;
 
-  m._oscT = Game.time;
   m._ph = [];
 
   const contention =
     !target || !target.pos || creep.pos.getRangeTo(target) <= OSC_CONTENTION_RANGE;
+  const shoveRepeats = m._oscRep || 0;
   // Only a PURE two-tile shuffle is evidence about the target. The
   // interloper-tolerant test also matches a creep that shuffled for a few ticks
   // and then walked on, and writing that room's storage/controller off on that
   // basis is far worse than the oscillation — such a creep gets the repath and
   // the sidestep, never the blacklist.
-  if (targetId && strict && !contention && blacklistFillTarget(creep.room, targetId)) {
+  if (targetId && !crossRoom && strict && (!contention || shoveRepeats >= OSC_SHOVE_REPEATS) && blacklistFillTarget(creep.room, targetId)) {
     // far from the target and going nowhere: the target is the problem.
     // blacklistFillTarget() vetoes the room backbone, and when it does there
     // is nothing to retarget to either — leave the creep its storage.
@@ -365,7 +388,9 @@ function RunCreepManager(name) {
         // executes, so this overrides whatever failing step the role queued
         // and guarantees the two-tile cycle is broken.
         if (sidestep && Game.creeps[name] && !creep.fatigue) {
-            randomSidestep(creep);
+            if (randomSidestep(creep)) {
+                creep.memory._oscT = Game.time;
+            }
         }
     } catch (error: any) {
         // include the top stack frames — a bare message ("Invalid arguments in

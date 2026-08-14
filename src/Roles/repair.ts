@@ -20,11 +20,29 @@ function stepIfWalkable(creep, dir) {
     return true;
 }
 
+const WALL_HITS_CAP = 50050000;
+const NUKE_SAFE_REMAINDER = 175000;
+
+function nukeRemainder(rampart, nukes) {
+    let hits = rampart.hits;
+    for(let i = 0; i < nukes.length; i++) {
+        const nuke = nukes[i];
+        if(nuke.pos.x == rampart.pos.x && nuke.pos.y == rampart.pos.y) hits -= 10000000;
+        else if(nuke.pos.getRangeTo(rampart) <= 2) hits -= 5000000;
+    }
+    return hits;
+}
+
 function findLocked(creep, storage) {
     let nukes = creep.room.find(FIND_NUKES);
     let nukeBOOL = false;
     if(nukes.length > 0) {
         nukeBOOL = true;
+    }
+    else if(creep.room.memory.NukeRepair) {
+        // Latch lived past the last land: findLocked only wrote false
+        // inside nukes.length > 0, so spawning kept 4 repairers forever.
+        creep.room.memory.NukeRepair = false;
     }
 
     let buildingsToRepair300mil;
@@ -35,10 +53,10 @@ function findLocked(creep, storage) {
         // }
         // else {
             if(creep.room.name === "E41N58") {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 50050000 && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.pos.getRangeTo(storage) > 15 || building.pos.getRangeTo(storage) < 10) && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
             else {
-                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= 50050000 && !creep.room.memory.danger)});
+                buildingsToRepair300mil = creep.room.find(FIND_STRUCTURES, {filter: building => building.hits < building.hitsMax && building.hits < 300000000 && building.structureType !== STRUCTURE_ROAD && building.structureType !== STRUCTURE_CONTAINER && storage && (building.structureType !== STRUCTURE_WALL || building.structureType == STRUCTURE_WALL && building.hits <= WALL_HITS_CAP && !creep.room.memory.danger)});
             }
 
         // }
@@ -91,13 +109,21 @@ function findLocked(creep, storage) {
                 }
             }
 
+            // First-match in FIND order piled every repairer on one spawn
+            // rampart while a storage/terminal tile went to 0.
+            let worst = null;
+            let worstRemainder = Infinity;
             for(let data of important_structures_data) {
-                if(data[1] < 175000) {
-                    creep.say("🎯", true);
-                    creep.memory.locked = data[0].id;
-                    creep.room.memory.NukeRepair = true;
-                    return data[0].id;
+                if(data[1] < NUKE_SAFE_REMAINDER && data[1] < worstRemainder) {
+                    worst = data;
+                    worstRemainder = data[1];
                 }
+            }
+            if(worst) {
+                creep.say("🎯", true);
+                creep.memory.locked = worst[0].id;
+                creep.room.memory.NukeRepair = true;
+                return worst[0].id;
             }
 
 
@@ -146,6 +172,9 @@ function findLocked(creep, storage) {
  const run = function (creep) {
     creep.memory.moving = false;
 
+    if(creep.room.memory.NukeRepair && creep.room.find(FIND_NUKES).length == 0) {
+        creep.room.memory.NukeRepair = false;
+    }
     if(Game.cpu.bucket < 100 && !creep.memory.boosted)return;
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
@@ -266,9 +295,11 @@ function findLocked(creep, storage) {
 
     if(creep.memory.repairing && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.repairing = false;
-        if(creep.room.memory.danger || creep.room.memory.defence.nuke && Game.time % 7 === 0) {
-            creep.memory.locked = false;
-        }
+    }
+    // Adjacent-to-storage top-up never hits energy==0, so a peacetime
+    // wall lock used to ride through a raid until TTL%250 at the bank.
+    if((creep.room.memory.danger || (creep.room.memory.defence && creep.room.memory.defence.nuke)) && Game.time % 7 === 0) {
+        creep.memory.locked = false;
     }
     if(!creep.memory.repairing && creep.store.getFreeCapacity() == 0) {
         creep.memory.repairing = true;
@@ -289,7 +320,19 @@ function findLocked(creep, storage) {
         if(!repairTarget) {
             creep.memory.locked = findLocked(creep, storage);
         }
-        else if(repairTarget && repairTarget.hits == repairTarget.hitsMax) {
+        else if(repairTarget.hits == repairTarget.hitsMax) {
+            creep.memory.locked = findLocked(creep, storage);
+        }
+        else if(repairTarget.structureType == STRUCTURE_WALL && repairTarget.hits > WALL_HITS_CAP) {
+            creep.memory.locked = findLocked(creep, storage);
+        }
+        else if(repairTarget.structureType == STRUCTURE_RAMPART) {
+            const liveNukes = creep.room.find(FIND_NUKES);
+            if(liveNukes.length > 0 && nukeRemainder(repairTarget, liveNukes) >= NUKE_SAFE_REMAINDER) {
+                creep.memory.locked = findLocked(creep, storage);
+            }
+        }
+        if(creep.memory.locked && creep.ticksToLive % 250 == 0) {
             creep.memory.locked = findLocked(creep, storage);
         }
 
@@ -365,7 +408,7 @@ function findLocked(creep, storage) {
                     creep.MoveCostMatrixRoadPrio(closestTower, 1)
                 }
             }
-            if(creep.pos.getRangeTo(storage) > creep.pos.getRangeTo(closestTower)) {
+            if(storage && creep.pos.getRangeTo(storage) > creep.pos.getRangeTo(closestTower)) {
                 return;
             }
         }
@@ -432,12 +475,11 @@ function findLocked(creep, storage) {
 		}
     }
 
-    if(creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) >= creep.store[RESOURCE_ENERGY])  {
+    if(storage && creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) >= creep.store[RESOURCE_ENERGY])  {
         if(creep.ticksToLive > 3) {
-            if(creep.ticksToLive % 250 == 0) {
-                creep.memory.locked = false;
-            }
-            creep.withdraw(storage, RESOURCE_ENERGY);
+            // withdrawStorage owns the floor/cap. A second bare withdraw
+            // last-won and emptied the bank the first call had reserved.
+            creep.withdrawStorage(storage);
         }
         if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x && creep.pos.y == storage.pos.y + 1) {
             // move() returns OK when the intent is accepted, not when the tile

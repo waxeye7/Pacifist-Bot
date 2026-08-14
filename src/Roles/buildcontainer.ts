@@ -46,6 +46,11 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                 else if(result === 0) {
                     creep.memory.fill = false;
                 }
+                else if(result == ERR_NOT_ENOUGH_RESOURCES) {
+                    // Empty home bank: leave without a full load. Holding
+                    // fill parked the CB at storage and capped the roster.
+                    creep.memory.fill = false;
+                }
             }
             else {
                 creep.memory.fill = false;

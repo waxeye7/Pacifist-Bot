@@ -4,6 +4,21 @@
 import { isUndeliverable } from "utils/Reachability";
 import { remoteIsHot } from "Rooms/rooms.remotes";
 
+/** Drop a lock that is gone, full, or undeliverable — same as FakeFiller. */
+function lockStillOpen(creep) {
+    if(!creep.memory.locked) return false;
+    if(isUndeliverable(creep.room, creep.memory.locked)) {
+        creep.memory.locked = false;
+        return false;
+    }
+    const t: any = Game.getObjectById(creep.memory.locked);
+    if(!t || !t.store || t.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
+        creep.memory.locked = false;
+        return false;
+    }
+    return true;
+}
+
 function findLocked(creep) {
     let terminal = creep.room.terminal;
     if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
@@ -176,7 +191,10 @@ function depotSink(creep: any): any {
         creep.recycle();
         return;
     }
-    if(creep.fleeHomeIfInDanger() == "timeOut") {
+    // timeOut is only a hard abort while still IN the flagged remote.
+    // After the exit the helper still returns "timeOut" for 25t with no
+    // work move — a full hauler sat just inside home instead of unloading.
+    if(creep.room.name === creep.memory.targetRoom && creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }
 
@@ -293,7 +311,7 @@ function depotSink(creep: any): any {
                 }
             }
             else {
-                if(!creep.memory.locked) {
+                if(!lockStillOpen(creep)) {
                     let target = findLocked(creep);
 
                     if(!target) {
@@ -359,6 +377,10 @@ function depotSink(creep: any): any {
                 creep.memory.targetRoom = creep.memory.homeRoom;
                 delete creep.memory.exit;
                 delete creep.memory.route;
+                // liveCarriersForSource still counts this body by sourceId;
+                // pathLength stays the remote 2L recycle clock.
+                delete creep.memory.sourceId;
+                delete creep.memory.pathLength;
             }
         }
         // Remote abandoned for threat reasons -> reassign to home instead of
@@ -374,6 +396,8 @@ function depotSink(creep: any): any {
             creep.memory.targetRoom = creep.memory.homeRoom;
             delete creep.memory.exit;
             delete creep.memory.route;
+            delete creep.memory.sourceId;
+            delete creep.memory.pathLength;
         }
         if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
@@ -403,7 +427,7 @@ function depotSink(creep: any): any {
                 }
             }
             else {
-                if(!creep.memory.locked) {
+                if(!lockStillOpen(creep)) {
                     let target = findLocked(creep);
 
                     if(!target) {

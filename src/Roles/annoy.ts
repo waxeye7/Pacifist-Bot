@@ -17,25 +17,27 @@
     // walk forever. Fight only once we have arrived.
     if(enemyCreeps.length > 0 && creep.room.name == creep.memory.targetRoom) {
         let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
+            let onEdge = closestEnemyCreep.pos.x == 0 || closestEnemyCreep.pos.x == 49 || closestEnemyCreep.pos.y == 0 || closestEnemyCreep.pos.y == 49;
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.attack(closestEnemyCreep);
             }
-            else {
-                if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
-                    creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
-                }
+            else if(!onEdge) {
+                creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
             }
 
             if(creep.attack(closestEnemyCreep) == 0) {
-                if(closestEnemyCreep.pos.x != 0 && closestEnemyCreep.pos.x != 49 && closestEnemyCreep.pos.y != 0 && closestEnemyCreep.pos.y != 49) {
+                if(!onEdge) {
                     creep.moveTo(closestEnemyCreep, {swampCost:2, reusePath:25, visualizePathStyle: {stroke: '#ffffff'}});
                 }
                 return;
             }
-            return;
+            // edge-tile hostiles we will not chase: fall through to structures
+            if(!onEdge) {
+                return;
+            }
         }
 
-    else if(Structures.length > 0) {
+    if(Structures.length > 0) {
         let closestStructure = creep.pos.findClosestByRange(Structures)
         if(creep.pos.isNearTo(closestStructure)) {
             creep.attack(closestStructure)

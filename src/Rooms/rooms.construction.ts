@@ -1007,7 +1007,10 @@ function construction(room) {
 
 
         if(storage) {
-            let binLocation = new RoomPosition(storage.pos.x, storage.pos.y + 1, room.name);
+            // storage.y+1 is out of 0..49 when the hub sits on y=49 (legacy
+            // spawn can be y=48). RoomPosition would throw and abort the room loop.
+            let binLocation = safePos(storage.pos.x, storage.pos.y + 1, room.name);
+            if(binLocation) {
             let lookForExistingStructuresOnBinLocation = binLocation.lookFor(LOOK_STRUCTURES);
             if(lookForExistingStructuresOnBinLocation.length > 0) {
                 for(let existingStructure of lookForExistingStructuresOnBinLocation) {
@@ -1031,6 +1034,7 @@ function construction(room) {
             if(room.controller.level > 4 && lookForExistingStructuresOnBinLocation.length == 1 && lookForExistingStructuresOnBinLocation[0].structureType == STRUCTURE_CONTAINER) {
                 binLocation.createConstructionSite(STRUCTURE_ROAD);
             }
+            }
         }
 
 
@@ -1046,7 +1050,13 @@ function construction(room) {
             filter: (s: any) =>
                 s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(spawn) <= 4
         });
-        if ((room.controller.level == 2 || room.controller.level == 3) && hubContainers.length == 0) {
+        // placeFromBasePlan's hub site is invisible to FIND_STRUCTURES; count
+        // it or we drop a second sink next to spawn.
+        const hubContainerSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
+            filter: (s: any) =>
+                s.structureType == STRUCTURE_CONTAINER && s.pos.getRangeTo(spawn) <= 4
+        });
+        if ((room.controller.level == 2 || room.controller.level == 3) && hubContainers.length == 0 && hubContainerSites.length == 0) {
             // Preferred hub container is spawn.y-2 (legacy layout). If that tile is blocked
             // (controller, wall, other structure), try nearby offsets instead of stalling forever.
             const containerOffsets = [
@@ -1072,10 +1082,13 @@ function construction(room) {
                     break;
                 }
                 const sites = storageLocation.lookFor(LOOK_CONSTRUCTION_SITES);
-                if (sites.length > 0) {
+                // A road/extension site is not a hub. Breaking here skipped
+                // later offsets and either dual-sited or placed nothing.
+                if (sites.some(function (s) { return s.structureType == STRUCTURE_CONTAINER; })) {
                     placedOrPresent = true;
                     break;
                 }
+                if (sites.length > 0) continue;
                 // Don't destroy critical structures; only skip occupied tiles.
                 const blocking = lookForExistingStructures.filter(function (s) {
                     return s.structureType != STRUCTURE_ROAD && s.structureType != STRUCTURE_RAMPART;
@@ -1093,26 +1106,26 @@ function construction(room) {
         let storageLocation = safePos(spawn.pos.x, spawn.pos.y -2, room.name);
         if(storageLocation) {
             let lookForExistingStructures = storageLocation.lookFor(LOOK_STRUCTURES);
-            if(room.controller.level >= 4 && !storage || room.controller.level == 4 && storage.structureType == STRUCTURE_CONTAINER) {
-                if(lookForExistingStructures.length > 0) {
-                    if(lookForExistingStructures.length == 1 && lookForExistingStructures[0].structureType == STRUCTURE_RAMPART) {
+            // placeFromBasePlan already queued storage at the hub; a second
+            // site at spawn.y-2 dual-stamps and lookFor[0] is often the road.
+            const storageAlreadyQueued = room.find(FIND_MY_CONSTRUCTION_SITES, {
+                filter: (s: any) => s.structureType == STRUCTURE_STORAGE
+            }).length > 0;
+            if(!storageAlreadyQueued && (room.controller.level >= 4 && !storage || room.controller.level == 4 && storage.structureType == STRUCTURE_CONTAINER)) {
+                let destroyedContainer = false;
+                for(let building of lookForExistingStructures) {
+                    if(building.structureType == STRUCTURE_CONTAINER) {
+                        building.destroy();
+                        destroyedContainer = true;
+                    }
+                }
+                if(!destroyedContainer) {
+                    const blocking = lookForExistingStructures.filter(function(s) {
+                        return s.structureType != STRUCTURE_ROAD && s.structureType != STRUCTURE_RAMPART;
+                    });
+                    if(blocking.length == 0) {
                         room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
                     }
-                    else {
-                        for(let building of lookForExistingStructures) {
-                            if(building.structureType == STRUCTURE_CONTAINER) {
-                                building.destroy();
-                            }
-                        }
-                        // for(let building of lookForExistingStructures) {
-                        //     if(building.)
-                        // }
-                        lookForExistingStructures[0].destroy();
-                    }
-
-                }
-                else {
-                    room.createConstructionSite(spawn.pos.x, spawn.pos.y -2, STRUCTURE_STORAGE);
                 }
             }
         }
@@ -1123,9 +1136,19 @@ function construction(room) {
             if(storage) {
                 let container1;
                 if(sources.length > 0) {
+                    // Re-pathing every pass moves the seat when the matrix
+                    // changes; pin to an existing source container/site first.
+                    const pinned1 = sources[0].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER});
+                    const pinned1Site = sources[0].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER});
+                    if(pinned1.length > 0) {
+                        container1 = pinned1[0].pos;
+                    } else if(pinned1Site.length > 0) {
+                        container1 = pinned1Site[0].pos;
+                    } else {
                     let pathFromStorageToSource1 = PathFinder.search(storage.pos, {pos:sources[0].pos, range:1}, {plainCost: 1, swampCost: 3, maxRooms:1, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
                     // empty path when storage is already adjacent to the source
                     container1 = pathFromStorageToSource1.path.length > 0 ? pathFromStorageToSource1.path[pathFromStorageToSource1.path.length - 1] : undefined;
+                    }
                     // if(room.controller.level >= 6) {
                     //     pathFromStorageToSource1.path.pop();
                     // }
@@ -1138,8 +1161,16 @@ function construction(room) {
                 // aborts the rest of construction() plus later rooms that tick.
                 let container2;
                 if(sources.length > 1) {
+                    const pinned2 = sources[1].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER});
+                    const pinned2Site = sources[1].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER});
+                    if(pinned2.length > 0) {
+                        container2 = pinned2[0].pos;
+                    } else if(pinned2Site.length > 0) {
+                        container2 = pinned2Site[0].pos;
+                    } else {
                     let pathFromStorageToSource2 = PathFinder.search(storage.pos, {pos:sources[1].pos, range:1}, {plainCost: 1, swampCost: 3, maxRooms:1, roomCallback: (roomName) => makeStructuresCostMatrix(roomName)});
                     container2 = pathFromStorageToSource2.path.length > 0 ? pathFromStorageToSource2.path[pathFromStorageToSource2.path.length - 1] : undefined;
+                    }
                     // if(room.controller.level >= 6) {
                     //     pathFromStorageToSource2.path.pop();
                     // }
@@ -1162,19 +1193,28 @@ function construction(room) {
                 let mySpawns = room.find(FIND_MY_SPAWNS);
 
                 if(linkLocation && room.controller.level <= 6 && room.controller.level >= 2) {
-                    let lookStructs = linkLocation.lookFor(LOOK_STRUCTURES);
-                    let foundContainer = false;
-
-                    for(let building of lookStructs) {
-                        if(building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_EXTENSION) {
-                            building.destroy();
+                    // Path flip sites a second controller depot; keep one
+                    // within 3 that is not a source container.
+                    const nearbyCtrlBox = room.controller.pos.findInRange(FIND_STRUCTURES, 3, {
+                        filter: (s: any) => s.structureType == STRUCTURE_CONTAINER && s.pos.findInRange(FIND_SOURCES, 1).length == 0
+                    });
+                    const nearbyCtrlBoxSite = room.controller.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 3, {
+                        filter: (s: any) => s.structureType == STRUCTURE_CONTAINER
+                    });
+                    if(nearbyCtrlBox.length == 0 && nearbyCtrlBoxSite.length == 0) {
+                        let lookStructs = linkLocation.lookFor(LOOK_STRUCTURES);
+                        let foundContainer = false;
+                        for(let building of lookStructs) {
+                            if(building.structureType == STRUCTURE_TOWER || building.structureType == STRUCTURE_EXTENSION) {
+                                building.destroy();
+                            }
+                            else if(building.structureType == STRUCTURE_CONTAINER) {
+                                foundContainer = true;
+                            }
                         }
-                        else if(building.structureType == STRUCTURE_CONTAINER) {
-                            foundContainer = true;
+                        if(!foundContainer) {
+                            linkLocation.createConstructionSite(STRUCTURE_CONTAINER);
                         }
-                    }
-                    if(!foundContainer) {
-                        linkLocation.createConstructionSite(STRUCTURE_CONTAINER);
                     }
                 }
                 if(room.controller.level >= 7) {
@@ -1296,11 +1336,23 @@ function construction(room) {
 
 
                 if(room.controller.level < 6 && container1) {
-                    Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);
+                    const already1 = sources.length > 0 && (
+                        sources[0].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0 ||
+                        sources[0].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0
+                    );
+                    if(!already1) {
+                        Game.rooms[container1.roomName].createConstructionSite(container1.x, container1.y, STRUCTURE_CONTAINER);
+                    }
                 }
 
                 if(room.controller.level < 6 && container2) {
-                    Game.rooms[container2.roomName].createConstructionSite(container2.x, container2.y, STRUCTURE_CONTAINER);
+                    const already2 = sources.length > 1 && (
+                        sources[1].pos.findInRange(FIND_STRUCTURES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0 ||
+                        sources[1].pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 1, {filter: (s: any) => s.structureType == STRUCTURE_CONTAINER}).length > 0
+                    );
+                    if(!already2) {
+                        Game.rooms[container2.roomName].createConstructionSite(container2.x, container2.y, STRUCTURE_CONTAINER);
+                    }
                 }
 
                 // THE ROAD LINES. Re-searched on makeRoadCostMatrix rather than
@@ -1525,12 +1577,19 @@ function construction(room) {
 // IMPORTNAT DO NOT DELETE
         let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
 
-        if(room.controller.level >= 5) {
+        // storage is null for the whole storage-build window (hub container
+        // already destroyed). Unguarded storage.pos throws and aborts later rooms.
+        if(room.controller.level >= 5 && storage) {
             let sources = room.find(FIND_SOURCES);
             if(sources.length > 0) {
             sources.forEach(source => {
                 let sourceLinks = source.pos.findInRange(links, 2);
-                if(sourceLinks.length == 0) {
+                // A link SITE is invisible to FIND_MY_STRUCTURES; the next
+                // pass walks open[2+] and one source eats both RCL5 slots.
+                const sourceLinkSites = source.pos.findInRange(FIND_MY_CONSTRUCTION_SITES, 2, {
+                    filter: (s: any) => s.structureType == STRUCTURE_LINK
+                });
+                if(sourceLinks.length == 0 && sourceLinkSites.length == 0) {
                     let open = source.pos.getOpenPositionsIgnoreCreeps();
                     findTwoOpenSpotsForLink(open, storage, room);
                 }
@@ -1545,7 +1604,9 @@ function construction(room) {
 
         if(room.controller.level >= 6) {
             if(storage) {
-                let storageLinkPosition = new RoomPosition(storage.pos.x-2, storage.pos.y, room.name);
+                // storage.x-2 is -1 when the hub sits on x=1.
+                let storageLinkPosition = safePos(storage.pos.x-2, storage.pos.y, room.name);
+                if(storageLinkPosition) {
                 let buildingsHere = storageLinkPosition.lookFor(LOOK_STRUCTURES);
                 let found = false;
                 for(let building of buildingsHere) {
@@ -1559,6 +1620,7 @@ function construction(room) {
                     positionsList.push(storageLinkPosition);
 
                     DestroyAndBuild(room, positionsList, STRUCTURE_LINK);
+                }
                 }
 
                 if(!room.terminal) {
@@ -1617,35 +1679,36 @@ function construction(room) {
                     }
                 }
                 let tower_locations_to_shuffle = [];
-                if(storage) {
-                    let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
-                    if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
-                        for(let location of tower_locations_to_filter) {
-                            let closestRampartToLocation = location.getRangeTo(location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve));
-                            if(closestRampartToLocation == 3) {
-                                tower_locations_to_shuffle.push(location);
-                            }
+                // Exact range==3 missed min-cut shells; the !storage else sat
+                // inside if(storage) and never ran. Relax to <=4 and fall back
+                // to the raw ring-7 list when nothing matches.
+                let myRampartsRangeGreaterThanSixAndLessThanTwelve = room.find(FIND_MY_STRUCTURES).filter(function(s) {return s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) < 12 && s.pos.getRangeTo(storage) > 6;});
+                if(myRampartsRangeGreaterThanSixAndLessThanTwelve.length > 0) {
+                    for(let location of tower_locations_to_filter) {
+                        let closestRampart = location.findClosestByRange(myRampartsRangeGreaterThanSixAndLessThanTwelve);
+                        if(!closestRampart) continue;
+                        let closestRampartToLocation = location.getRangeTo(closestRampart);
+                        if(closestRampartToLocation <= 4) {
+                            tower_locations_to_shuffle.push(location);
                         }
-
-                        const shuffle = arr => {
-                            for (let i = arr.length - 1; i > 0; i--) {
-                              const j = Math.floor(Math.random() * (i + 1));
-                              const temp = arr[i];
-                              arr[i] = arr[j];
-                              arr[j] = temp;
-                            }
-                            return arr;
-                        }
-                        let shuffled_tower_locations = shuffle(tower_locations_to_shuffle)
-                        console.log(shuffled_tower_locations);
-
-                        BuildIfICan(shuffled_tower_locations, STRUCTURE_TOWER);
                     }
+                }
 
+                const shuffle = arr => {
+                    for (let i = arr.length - 1; i > 0; i--) {
+                      const j = Math.floor(Math.random() * (i + 1));
+                      const temp = arr[i];
+                      arr[i] = arr[j];
+                      arr[j] = temp;
+                    }
+                    return arr;
                 }
-                else {
-                    BuildIfICan(tower_locations_to_filter, STRUCTURE_TOWER);
-                }
+                let towerCandidates = tower_locations_to_shuffle.length > 0
+                    ? shuffle(tower_locations_to_shuffle)
+                    : tower_locations_to_filter;
+                console.log(towerCandidates);
+
+                BuildIfICan(towerCandidates, STRUCTURE_TOWER);
 
             }
         }
@@ -1656,14 +1719,20 @@ function construction(room) {
 function DestroyAndBuild(room, LocationsList, StructureType:string) {
     for(let location of LocationsList) {
         let lookForExistingStructures = location.lookFor(LOOK_STRUCTURES);
-        if(lookForExistingStructures.length > 0) {
-            for(let existingstructure of lookForExistingStructures) {
-                if(existingstructure.structureType !== StructureType && existingstructure.structureType !== STRUCTURE_RAMPART) {
-                    existingstructure.destroy();
-                }
+        // Road+structure is a legal overlay. Destroying the road here
+        // deleted paving under labs/terminal/factory and re-destroyed
+        // roads already sitting under a finished structure every pass.
+        let hasTarget = false;
+        let blocking = false;
+        for(let existingstructure of lookForExistingStructures) {
+            if(existingstructure.structureType === StructureType) {
+                hasTarget = true;
+            } else if(existingstructure.structureType !== STRUCTURE_RAMPART && existingstructure.structureType !== STRUCTURE_ROAD) {
+                existingstructure.destroy();
+                blocking = true;
             }
         }
-        else {
+        if(!hasTarget && !blocking) {
             room.createConstructionSite(location, StructureType);
         }
     }
@@ -1683,7 +1752,7 @@ function BuildIfICan(LocationsList, StructureType:string) {
             continue;
         }
 
-        if(ramparts.length > 0) {
+        if(ramparts && ramparts.length > 0) {
             if(location.getRangeTo(location.findClosestByRange(ramparts)) > 4) {
                 continue;
             }
@@ -1706,6 +1775,13 @@ function BuildIfICan(LocationsList, StructureType:string) {
                 vizCircle(location.roomName, location.x, location.y, {fill: 'full', radius: 0.25, stroke: 'black'});
                 location.createConstructionSite(StructureType);
             }
+        }
+        else {
+            // Bare terrain never sited: createConstructionSite lived only
+            // inside the existing-structure branch. Ring-7 tiles with no
+            // road/rampart never got a tower.
+            vizCircle(location.roomName, location.x, location.y, {fill: 'full', radius: 0.25, stroke: 'black'});
+            location.createConstructionSite(StructureType);
         }
     }
 }
@@ -1742,7 +1818,11 @@ function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
     }
 }
 
-function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, origin, source) {
+function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, origin, source, depth?) {
+    if(depth == null) depth = 0;
+    // 1-access sources recurse A → source-tile → A and overflow the
+    // uncaught room loop. Cap depth and never step onto the source.
+    if(depth > 8 || !open || open.length == 0) return;
     if(open.length > 1) {
         open.sort((a,b) => a.findPathTo(storage, {ignoreCreeps:true}).length - b.findPathTo(storage, {ignoreCreeps:true}).length)
         open = open.filter(position => position.findPathTo(storage.pos, {ignoreCreeps:true}).length < open[0].findPathTo(storage.pos, {ignoreCreeps:true}).length + 3);
@@ -1800,13 +1880,19 @@ function findOpenSpotsForExtensions(open:Array<RoomPosition>, storage, room, ori
 
         }
         else {
-            let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-            findOpenSpotsForExtensions(NewOpen, storage, room, open[0], source)
+            if(!open[0]) return;
+            let NewOpen = open[0].getOpenPositionsIgnoreCreeps().filter(function(p) {
+                return !p.isEqualTo(source.pos) && !(origin && p.isEqualTo(origin));
+            });
+            findOpenSpotsForExtensions(NewOpen, storage, room, origin, source, depth + 1)
         }
     }
     else {
-        let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-        findOpenSpotsForExtensions(NewOpen, storage, room, open[0], source)
+        if(!open[0]) return;
+        let NewOpen = open[0].getOpenPositionsIgnoreCreeps().filter(function(p) {
+            return !p.isEqualTo(source.pos) && !(origin && p.isEqualTo(origin));
+        });
+        findOpenSpotsForExtensions(NewOpen, storage, room, origin, source, depth + 1)
     }
 }
 
@@ -2370,11 +2456,12 @@ const GLOBAL_SITE_CEILING = 70;
  * the whole in-room budget with placeFromPlanV2 and stops the remote line from
  * dual-stamping the base.
  */
-function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: boolean }): void {
+function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: boolean }, budget: { homeSites: number, remoteSites: { [roomName: string]: number } }): void {
+    // 2/4 is a per-source drip. Site COUNTS live on `budget` so a second
+    // source this pass sees the first source's sites (ceilings overshot
+    // when each call snapshotted homeSites and reset the maps).
     let remoteBudget = 4;
     let homeBudget = 2;
-    const homeSites = homeRoom.find(FIND_MY_CONSTRUCTION_SITES).length;
-    const remoteSites: { [roomName: string]: number } = {};
 
     for (const pos of path) {
         if (remoteBudget <= 0 && homeBudget <= 0) break;
@@ -2385,14 +2472,14 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
         const inHome = pos.roomName === homeRoom.name;
         if (inHome) {
             if (homeBudget <= 0) continue;
-            if (homeSites >= HOME_SITE_CEILING) continue;
+            if (budget.homeSites >= HOME_SITE_CEILING) continue;
             if (!planRoads[pos.x + pos.y * 50]) continue; // off-plan -> don't pave
         } else {
             if (remoteBudget <= 0) continue;
-            if (remoteSites[pos.roomName] === undefined) {
-                remoteSites[pos.roomName] = targetRoom.find(FIND_MY_CONSTRUCTION_SITES).length;
+            if (budget.remoteSites[pos.roomName] === undefined) {
+                budget.remoteSites[pos.roomName] = targetRoom.find(FIND_MY_CONSTRUCTION_SITES).length;
             }
-            if (remoteSites[pos.roomName] >= REMOTE_SITE_CEILING) continue;
+            if (budget.remoteSites[pos.roomName] >= REMOTE_SITE_CEILING) continue;
         }
 
         const terrainHere = targetRoom.getTerrain().get(pos.x, pos.y);
@@ -2400,7 +2487,20 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
 
         let blocked = false;
         for (const s of pos.lookFor(LOOK_STRUCTURES)) {
-            if (s.structureType === STRUCTURE_ROAD) { blocked = true; break; }
+            if (s.structureType === STRUCTURE_ROAD) {
+                // rooms.ts wipe empties keepTheseRoads; legacy pathBuilder
+                // re-pushed built ids. Without this, RemoteRepair ignores
+                // planV2 remote roads and they decay to 0.
+                if (!targetRoom.memory.keepTheseRoads) targetRoom.memory.keepTheseRoads = [];
+                if (!_.includes(targetRoom.memory.keepTheseRoads, s.id, 0)) {
+                    targetRoom.memory.keepTheseRoads.push(s.id);
+                }
+                blocked = true;
+                break;
+            }
+            // Harvest-seat container is a legal road overlay; treating it
+            // as blocked left the drop tile unpaved once the box finished.
+            if (s.structureType === STRUCTURE_CONTAINER) continue;
             if (s.structureType !== STRUCTURE_RAMPART) { blocked = true; break; }
         }
         if (blocked) continue;
@@ -2409,9 +2509,10 @@ function placeClippedRemoteRoads(homeRoom, path, planRoads: { [packed: number]: 
         if (targetRoom.createConstructionSite(pos.x, pos.y, STRUCTURE_ROAD) === OK) {
             if (inHome) {
                 homeBudget--;
+                budget.homeSites++;
             } else {
                 remoteBudget--;
-                remoteSites[pos.roomName]++;
+                budget.remoteSites[pos.roomName]++;
             }
         }
     }
@@ -2439,6 +2540,10 @@ function Build_Remote_Roads(room) {
     // pathBuilder: pathBuilder paves the WHOLE path, which drops up to 12
     // in-room road sites and starves placeFromPlanV2's 4-site budget.
     const planRoads = planRoadSet(room);
+    const clipBudget = {
+        homeSites: room.find(FIND_MY_CONSTRUCTION_SITES).length,
+        remoteSites: {} as { [roomName: string]: number }
+    };
 
     let resourceData = _.get(room.memory, ['resources']);
 
@@ -2483,7 +2588,7 @@ function Build_Remote_Roads(room) {
             Game.rooms[containerSpot.roomName].createConstructionSite(containerSpot.x, containerSpot.y, STRUCTURE_CONTAINER);
             console.log(`Building road from ${room.name} storage to remote source in ${targetRoomName} (${values.pathLength} tiles)`);
             if (planRoads) {
-                placeClippedRemoteRoads(room, pathFromStorageToRemoteSource.path, planRoads);
+                placeClippedRemoteRoads(room, pathFromStorageToRemoteSource.path, planRoads, clipBudget);
             } else {
                 pathBuilder(pathFromStorageToRemoteSource, STRUCTURE_ROAD, room);
             }
@@ -2492,14 +2597,16 @@ function Build_Remote_Roads(room) {
 }
 
 function Situational_Building(room) {
+    // planV2 rooms own the hub via placeFromPlanV2. This two-tick
+    // spawn.y-2 smash dual-stamps storage and throws when y<2 or no spawn.
+    if(room.memory.planV2) return;
     if(room.controller.level == 4 && room.memory.data && room.memory.data.DOBug && (room.memory.data.DOBug == 3 || room.memory.data.DOBug == 4)) {
         if(room.memory.data.DOBug == 3) {
             let spawns = room.find(FIND_MY_SPAWNS);
-            let spawn;
-            if(spawns.length > 0) {
-                spawn = spawns[0];
-            }
-            let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, room.name);
+            if(spawns.length == 0) return;
+            let spawn = spawns[0];
+            let storagePosition = safePos(spawn.pos.x, spawn.pos.y - 2, room.name);
+            if(!storagePosition) return;
             let lookForStoragePositionBuildings = storagePosition.lookFor(LOOK_STRUCTURES);
             for(let building of lookForStoragePositionBuildings) {
                 if(building.structureType == STRUCTURE_CONTAINER) {
@@ -2509,16 +2616,13 @@ function Situational_Building(room) {
         }
         if(room.memory.data.DOBug == 4) {
             let spawns = room.find(FIND_MY_SPAWNS);
-            let spawn;
-            if(spawns.length > 0) {
-                spawn = spawns[0];
-            }
-            let storagePosition = new RoomPosition(spawn.pos.x, spawn.pos.y - 2, room.name);
+            if(spawns.length == 0) return;
+            let spawn = spawns[0];
+            let storagePosition = safePos(spawn.pos.x, spawn.pos.y - 2, room.name);
+            if(!storagePosition) return;
             storagePosition.createConstructionSite(STRUCTURE_STORAGE);
         }
     }
-
-
 }
 
 

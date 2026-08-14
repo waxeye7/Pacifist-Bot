@@ -36,7 +36,9 @@ const run = function (creep) {
         else {
             if(!controller.upgradeBlocked && !controller.my && controller.level > 0) {
                 let myControllerKillers = _.filter(Game.creeps, (c) => c.memory.role == "CCK" && c.memory.targetRoom == creep.room.name && Math.abs(c.ticksToLive - creep.ticksToLive) < 200);
-                if(myControllerKillers.length > 1 && creep.ticksToLive > 1 && !creep.room.find(FIND_HOSTILE_CREEPS, {
+                // every CCK used to wait; lowest name is designated attacker
+                let designated = myControllerKillers.length ? myControllerKillers.slice().sort((a,b) => a.name < b.name ? -1 : 1)[0] : creep;
+                if(myControllerKillers.length > 1 && creep.name !== designated.name && creep.ticksToLive > 1 && !creep.room.find(FIND_HOSTILE_CREEPS, {
                     filter: c => (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0) && creep.pos.getRangeTo(c) <= 3
                 }).length) {
                     // wait

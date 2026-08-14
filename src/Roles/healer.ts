@@ -5,7 +5,8 @@
 
  const run = function (creep) {
 
-    if(creep.hits < creep.hitsMax) {
+    let selfHeal = creep.hits < creep.hitsMax;
+    if(selfHeal) {
         creep.heal(creep);
     }
 
@@ -36,10 +37,14 @@
     if(damagedCreepsInRoom.length > 0) {
         damagedCreepsInRoom.sort((a,b) => (a.hits / a.hitsMax) - (b.hits / b.hitsMax) || creep.pos.getRangeTo(a) - creep.pos.getRangeTo(b));
         let healTarget = damagedCreepsInRoom[0];
-        if (creep.heal(healTarget) == 0) {
+        if(selfHeal) {
+            // later heal/rangedHeal would overwrite self-heal
+            if(healTarget.id !== creep.id) creep.moveTo(healTarget);
+        }
+        else if (creep.heal(healTarget) == 0) {
             creep.moveTo(healTarget);
         }
-        if(creep.heal(healTarget) == ERR_NOT_IN_RANGE) {
+        else if(creep.heal(healTarget) == ERR_NOT_IN_RANGE) {
             creep.moveTo(healTarget);
             creep.rangedHeal(healTarget);
         }

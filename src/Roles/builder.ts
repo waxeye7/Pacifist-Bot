@@ -159,7 +159,9 @@ else if(!creep.memory.danger) {
 	let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
 	if(storage && creep.pos.isNearTo(storage) && creep.getActiveBodyparts(WORK) * 5 >= creep.store[RESOURCE_ENERGY]) {
-		creep.withdraw(storage, RESOURCE_ENERGY);
+		// withdrawStorage owns the floor/cap. A bare withdraw drained
+		// the filler cushion on a thin bank.
+		creep.withdrawStorage(storage);
 	}
 
     if(creep.memory.building && creep.store[RESOURCE_ENERGY] == 0) {

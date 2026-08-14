@@ -14,6 +14,24 @@ function key(x: number, y: number): string {
 
 /** Load perimeter tile set from plan memory. */
 export function getPerimeterTiles(room: Room): PerimeterTile[] {
+  // Prefer the adopted v2 min-cut. basePlan.perimeter is a 100t mirror and
+  // stays on the previous wall after replan/adopt, so towers/RDs manned the
+  // old ring. Interior already reads shellCut first; match that here.
+  const v2: any = (room.memory as any).planV2;
+  if (v2 && v2.t && v2.t.shellCut && v2.t.shellCut.length) {
+    const seen = new Set<string>();
+    const out: PerimeterTile[] = [];
+    for (const p of v2.t.shellCut) {
+      const x = p % 50;
+      const y = Math.floor(p / 50);
+      const k = key(x, y);
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push({ x: x, y: y });
+      }
+    }
+    return out;
+  }
   const plan = room.memory.basePlan;
   if (plan && plan.perimeter && plan.perimeter.length) {
     // ramp openings get a rampart too: own creeps walk through own ramparts, so

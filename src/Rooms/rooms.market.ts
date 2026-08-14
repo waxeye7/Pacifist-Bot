@@ -184,11 +184,22 @@ function market(room):any {
                 "X":[]
             }
         }
-        if(Memory.my_goods[Mineral.mineralType].length == 0 || !Memory.my_goods[Mineral.mineralType].includes(room.name, 0)) {
-            Memory.my_goods[Mineral.mineralType].push(room.name);
+        if(t % 10000 == 0) {
+            // A lone `= false` wiped the empire list and this room had
+            // already passed its push, so every other room bought from
+            // market until they next entered. Rebuild from live rooms.
+            const goods: any = { "H":[], "O":[], "U":[], "K":[], "L":[], "Z":[], "X":[] };
+            for (const name in Game.rooms) {
+                const r: any = Game.rooms[name];
+                if (!r.controller || !r.controller.my) continue;
+                const mineral: any = (r.memory.mineral && Game.getObjectById(r.memory.mineral)) || (r.findMineral && r.findMineral());
+                const mt = mineral && mineral.mineralType;
+                if (mt && goods[mt] && goods[mt].indexOf(name) < 0) goods[mt].push(name);
+            }
+            Memory.my_goods = goods;
         }
-        else if(t % 10000 == 0) {
-            Memory.my_goods = false;
+        if(Memory.my_goods[Mineral.mineralType] && (Memory.my_goods[Mineral.mineralType].length == 0 || !Memory.my_goods[Mineral.mineralType].includes(room.name, 0))) {
+            Memory.my_goods[Mineral.mineralType].push(room.name);
         }
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
@@ -314,6 +325,15 @@ function market(room):any {
                 if(resource === RESOURCE_OPS && room.terminal.store[resource] < 35000) {
                     continue;
                 }
+                if(resource === RESOURCE_KEANIUM_ACID) {
+                    // Hold KA while XKH2O is still under its 10k target —
+                    // selling the feedstock made the catalyze rung unreachable.
+                    const st = room.storage;
+                    const term = room.terminal;
+                    const xkh = ((st && st.store[RESOURCE_CATALYZED_KEANIUM_ACID]) || 0) + (term.store[RESOURCE_CATALYZED_KEANIUM_ACID] || 0);
+                    const ka = ((st && st.store[RESOURCE_KEANIUM_ACID]) || 0) + (term.store[RESOURCE_KEANIUM_ACID] || 0);
+                    if (xkh < 10000 && ka < 3000) continue;
+                }
 
                 if(room.terminal.store[resource] >= 1000) {
                     let result = sell_resource(resource, 2, 1000);
@@ -364,7 +384,9 @@ function market(room):any {
         }
 
         function buy_resource(resource:ResourceConstant, OrderPrice:number=5, OrderAmount=1000):any | void {
-            let OrderMaxEnergy = OrderAmount * 4;
+            // amount*4 is far above the 2000 energy floor; a distant power
+            // deal would pass the filter and then fail (or drain) the terminal.
+            let OrderMaxEnergy = Math.min(OrderAmount * 4, room.terminal.store[RESOURCE_ENERGY]);
             let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
             orders = _.filter(orders, (order) => Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
             if(orders.length > 0) {
@@ -431,7 +453,9 @@ function market(room):any {
 
             let OrderPrice = 20;
             let OrderAmount = 5000;
-            let OrderMaxEnergy = OrderAmount / 2;
+            // Fee is paid from terminal energy, not a fixed 2500 budget —
+            // an empty terminal would accept a deal it cannot pay for.
+            let OrderMaxEnergy = Math.min(OrderAmount / 2, room.terminal.store[RESOURCE_ENERGY]);
             let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: RESOURCE_ENERGY});
             orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
             if(orders.length > 0) {
@@ -914,7 +938,8 @@ function market(room):any {
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000 && Game.rooms[targetRampRoom].memory.Structures.spawn && Game.getObjectById(Game.rooms[targetRampRoom].memory.Structures.spawn) && Game.rooms[targetRampRoom].storage) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
-            if(theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && (storage.store[RESOURCE_ENERGY] > 200000 && Memory.CPU.reduce && theirStorage.store[RESOURCE_ENERGY] < 300000 || storage.store[RESOURCE_ENERGY] > 290000 && !Memory.CPU.reduce)) {
+            // This send sits outside the main cooldown==0 market gate.
+            if(room.terminal.cooldown == 0 && theirStorage && theirStorage.store[RESOURCE_ENERGY] < 455000 && room.terminal.store[RESOURCE_ENERGY] >= 40000 && storage && (storage.store[RESOURCE_ENERGY] > 200000 && Memory.CPU.reduce && theirStorage.store[RESOURCE_ENERGY] < 300000 || storage.store[RESOURCE_ENERGY] > 290000 && !Memory.CPU.reduce)) {
                 room.terminal.send(RESOURCE_ENERGY, 10000, targetRampRoom, "enjoy this energy, other room!");
                 console.log("sending room", targetRampRoom, "10000 energy")
             }

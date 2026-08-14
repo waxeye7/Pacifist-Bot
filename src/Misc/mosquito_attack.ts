@@ -108,7 +108,6 @@ function mosquito_attack() {
 
 
       let myHealPotential = mosquito.getActiveBodyparts(HEAL) * 48;
-      let myActiveToughParts = mosquito.getActiveBodyparts(TOUGH);
 
       let enemyCreepsInRange5 = mosquito.pos.findInRange(enemyCreeps, 5);
       let enemyCreepsInRange3 = mosquito.pos.findInRange(enemyCreepsInRange5, 3);
@@ -132,7 +131,9 @@ function mosquito_attack() {
 
       let hostileDamagePotentialThisTick = calc_incoming_damage(mosquito.pos, towers, enemyCreepsInRange3);
 
-      let myDamageWithstandPotential = myHealPotential + myActiveToughParts * 233.33333;
+      // T3 tough is 100/0.3 = 333.33 incoming, not 233.33 (that dropped the
+      // part's own HP). Unboosted GO-line must not use the T3 constant.
+      let myDamageWithstandPotential = myHealPotential + toughWithstand(mosquito);
 
       console.log(
         mosquito.name,
@@ -145,6 +146,7 @@ function mosquito_attack() {
       );
 
       // heal part
+      let usedRangedHeal = false;
       if (mosquito.hits === mosquito.hitsMax) {
         let mosquitosInRange3 = mosquito.pos.findInRange(mosquitos, 3);
         mosquitosInRange3 = mosquitosInRange3.filter(u => u.id !== mosquito.id && u.hits < u.hitsMax);
@@ -160,6 +162,7 @@ function mosquito_attack() {
             let range = mosquito.pos.getRangeTo(lowestHitsmosquito);
             if (range > 1) {
               mosquito.rangedHeal(lowestHitsmosquito);
+              usedRangedHeal = true;
             } else {
               mosquito.heal(lowestHitsmosquito);
             }
@@ -175,6 +178,7 @@ function mosquito_attack() {
           let lowestHitsNonMosquito = nonMosquitosInRange3WithHits.reduce((p, c) => (p.hits < c.hits ? p : c));
           if (lowestHitsNonMosquito) {
             mosquito.rangedHeal(lowestHitsNonMosquito);
+            usedRangedHeal = true;
           }
         }
         else {
@@ -185,6 +189,7 @@ function mosquito_attack() {
       }
 
       // move part
+      let moved = false;
       if (mosquito.fatigue === 0) {
 
         if(nukes.length > 0) {
@@ -199,6 +204,7 @@ function mosquito_attack() {
                     // even the late-evac step
                     const exitPos = new RoomPosition(closestexit.x, closestexit.y, mosquito.room.name);
                     mosquito.moveTo(exitPos, {range: 0, visualizePathStyle: { stroke: "#ffffff" } });
+                    moved = true;
                     continue;
                   }
 
@@ -224,7 +230,8 @@ function mosquito_attack() {
           let closestHostileCreep = mosquito.pos.findClosestByRange(enemyCreepsInRange3WithArms);
           if (closestHostileCreep) {
             targetPos = closestHostileCreep.pos;
-            range = 6;
+            // flee already set range 25; do not clobber it down to kite-6
+            if (!flee) range = 6;
           }
           let path: Array<RoomPosition> | null = null;
           let targetMemory = mosquito.memory.target;
@@ -282,8 +289,11 @@ function mosquito_attack() {
               );
               if (potentialDamageAtNextPos < myDamageWithstandPotential * 1.25 && advance) {
                 mosquito.moveByPath(path);
+                moved = true;
                 console.log(mosquito.name, "is moving to", nextPos.x, nextPos.y, "because not too much damage");
               } else {
+                // hold: last move wins, so chase must not override this
+                moved = true;
                 console.log(
                   mosquito.name,
                   "wants to stand still, because it would take too much damage at the next position"
@@ -291,13 +301,19 @@ function mosquito_attack() {
               }
             } else {
               mosquito.moveByPath(path);
+              moved = true;
               console.log(mosquito.name, "is fleeing to", path[0].x, path[0].y);
             }
+          } else if (flee) {
+            moved = true;
           }
         }
         }
 
       }
+
+      // rangedHeal and rangedAttack share the ranged slot; last intent wins
+      if (usedRangedHeal) continue;
 
       // attack part
       let exposedCreeps = find_exposed_creeps(mosquito.pos, enemyCreepsInRange3);
@@ -310,6 +326,7 @@ function mosquito_attack() {
           mosquito.rangedAttack(exposedCreeps[0]);
         }
         if (
+          !moved &&
           closestExposedCreep &&
           mosquito.hits === mosquito.hitsMax &&
           hostileDamagePotentialNextTick < myDamageWithstandPotential * 1.25 &&
@@ -433,6 +450,18 @@ function mosquito_attack() {
   }
 }
 
+function toughWithstand(creep: Creep): number {
+  const TOUGH_FACTOR = { GO: 0.7, GHO2: 0.5, XGHO2: 0.3 };
+  let total = 0;
+  for (let i = 0; i < creep.body.length; i++) {
+    const part = creep.body[i];
+    if (part.type !== TOUGH || part.hits <= 0) continue;
+    const factor = (part.boost && TOUGH_FACTOR[part.boost]) || 1;
+    total += 100 / factor;
+  }
+  return total;
+}
+
 export default mosquito_attack;
 
 const goToTheClosestSpawnWrapper = (
@@ -528,12 +557,15 @@ const GoToTheClosestSpawn = (
   }
 
   _.forEach(combinedStructures, function (struct: any) {
-    if (costs.get(struct.pos.x, struct.pos.y) >= 100) return;
     if (struct.structureType === STRUCTURE_ROAD || struct.structureType === STRUCTURE_CONTAINER) {
       return;
     } else if (struct.structureType === STRUCTURE_RAMPART && struct.my) {
       return;
+    } else if (struct.structureType === STRUCTURE_WALL || (struct.structureType === STRUCTURE_RAMPART && !struct.my)) {
+      // 50-175 left walls/enemy ramparts walkable; the wave stalled on the shell
+      costs.set(struct.pos.x, struct.pos.y, 255);
     } else {
+    if (costs.get(struct.pos.x, struct.pos.y) >= 100) return;
       if (struct.hits >= 5000000) {
         costs.set(struct.pos.x, struct.pos.y, 175);
       } else if (struct.hits >= 2500000) {

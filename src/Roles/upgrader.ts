@@ -50,7 +50,13 @@ function controllerDepot(creep: any): any {
 	// controller — held a full 800 energy that nobody would ever draw. Keep it
 	// as a candidate and let the stocked-first ranking below decide.
 	const fromRoom: any = Game.getObjectById(S.controllerLink);
-	if (fromRoom && !_.some(candidates, (c: any) => c.id === fromRoom.id)) {
+	// The room key is only appended when the filter rejected it, so an
+	// unfiltered push can adopt a source container and HOL the source.
+	if (fromRoom && !_.some(candidates, (c: any) => c.id === fromRoom.id) &&
+		(fromRoom.structureType == STRUCTURE_CONTAINER || (fromRoom.structureType == STRUCTURE_LINK && fromRoom.my)) &&
+		fromRoom.id !== S.bin && fromRoom.id !== S.storage && fromRoom.id !== S.StorageLink &&
+		fromRoom.pos.getRangeTo(ctrl) <= 4 &&
+		fromRoom.pos.findInRange(sources, 1).length == 0) {
 		candidates.push(fromRoom);
 	}
 
@@ -63,7 +69,10 @@ function controllerDepot(creep: any): any {
 	// out-rank a full link, otherwise the upgrader parks on a dry depot and
 	// falls through to the storage path in a room whose storage is also dry.
 	// Among equally-stocked candidates, closest to the controller wins.
-	const stocked = _.filter(candidates, (c: any) => c.store && c.store[RESOURCE_ENERGY] > 0);
+	// Walkers treat a depot as dry below 50; ranking on energy>0 let a
+	// leftover of 1-49 hide a full farther link for the 100t cache.
+	const minStock = Math.min(50, creep.store.getCapacity(RESOURCE_ENERGY) || 50);
+	const stocked = _.filter(candidates, (c: any) => c.store && c.store[RESOURCE_ENERGY] >= minStock);
 	const pool: any[] = stocked.length ? stocked : candidates;
 
 	// Only fall back to the cached pick when it is still in the winning pool —
@@ -168,6 +177,24 @@ function roomHasNoBuilder(room: any): boolean {
 
 const run = function (creep) {
 	creep.memory.moving = false;
+
+	// Honor defence's flee step (roomDefence runs before creeps; a move here
+	// would overwrite it and walk straight back into range). Same gate as
+	// builder/carry - this role was one of the three that never read it.
+	if(creep.memory.fleeing) {
+		let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+		let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0);
+		let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0);
+		if(rangedHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(rangedHostiles)) <= 8) {
+			return;
+		}
+		else if(meleeHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(meleeHostiles)) <= 6) {
+			return;
+		}
+	}
+	else if(!creep.room.memory.danger) {
+		creep.memory.fleeing = false;
+	}
 	if(creep.evacuate()) {
 		return;
 	}

@@ -70,6 +70,8 @@ type InteriorCache = {
   ok: boolean;
   /** interior tile count, for the console report */
   inside: number;
+  /** plan hash / shell signature this fill was built from */
+  sig: string;
 };
 
 /** heap only — 2500 bytes/room of derived data has no business in Memory */
@@ -93,7 +95,23 @@ function shellTiles(room: Room): number[] {
   }
   const bp: any = room.memory.basePlan;
   if (bp && bp.perimeter && bp.perimeter.length) {
-    return bp.perimeter.map((p: any) => packOf(p.x, p.y));
+    // v1 min-cut subtracts ramp openings from perimeter. Flooding only the
+    // wall tiles leaves those holes open, the hub is marked exterior, and
+    // Interior fail-opens forever. Treat ramps as shell too (they get a
+    // rampart and are where defenders stand).
+    const tiles = bp.perimeter.map((p: any) => packOf(p.x, p.y));
+    if (bp.ramps && bp.ramps.length) {
+      const seen: { [p: number]: boolean } = {};
+      for (const p of tiles) seen[p] = true;
+      for (const r of bp.ramps) {
+        const pk = packOf(r.x, r.y);
+        if (!seen[pk]) {
+          seen[pk] = true;
+          tiles.push(pk);
+        }
+      }
+    }
+    return tiles;
   }
   const def: any = room.memory.defence;
   if (def && def.perimeter && def.perimeter.length) {
@@ -129,6 +147,7 @@ function build(room: Room): InteriorCache {
     isGate: new Uint8Array(2500),
     ok: false,
     inside: 0,
+    sig: "",
   };
   const shell = shellTiles(room);
   if (shell.length < MIN_SHELL) return dead;
@@ -221,14 +240,30 @@ function build(room: Room): InteriorCache {
     isGate: isGate,
     ok: true,
     inside: inside,
+    sig: "",
   };
+}
+
+/** planV2.h when adopted; otherwise a cheap perimeter fingerprint. */
+function shellSig(room: Room): string {
+  const plan: any = room.memory.planV2;
+  if (plan && plan.h) return "h:" + plan.h;
+  const tiles = shellTiles(room);
+  if (!tiles.length) return "empty";
+  return tiles.length + ":" + tiles[0] + ":" + tiles[tiles.length - 1];
 }
 
 function getCache(room: Room): InteriorCache | null {
   if (!room) return null;
+  const sig = shellSig(room);
   const cur = cache[room.name];
-  if (cur && Game.time - cur.t < CACHE_TTL) return cur.ok ? cur : null;
+  // Failures used to sit in the heap for the full 100t TTL, so a room
+  // whose plan had just been adopted / whose wall had just closed stayed
+  // fail-open for a long time. Retry misses quickly; successes keep 100t.
+  const ttl = cur && cur.ok ? CACHE_TTL : 15;
+  if (cur && cur.sig === sig && Game.time - cur.t < ttl) return cur.ok ? cur : null;
   const built = build(room);
+  built.sig = sig;
   cache[room.name] = built;
   return built.ok ? built : null;
 }

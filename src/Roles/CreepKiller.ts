@@ -13,8 +13,10 @@ const run = function (creep) {
     if(!creep.memory.ticksToGetHere && creep.room.name == creep.memory.targetRoom) {
         creep.memory.ticksToGetHere = 1500 - creep.ticksToLive;
     }
-    if(creep.memory.ticksToGetHere && creep.ticksToLive == creep.memory.ticksToGetHere + (creep.body.length * 3) && creep.room.controller && creep.room.controller.level > 0) {
+    // == missed once travel+spawn > remaining TTL (~735 on a 10-part); latch so <= does not restack
+    if(creep.memory.ticksToGetHere && !creep.memory.sckCalled && creep.ticksToLive <= creep.memory.ticksToGetHere + (creep.body.length * 3) && creep.room.controller && creep.room.controller.level > 0) {
         global.SCK(creep.memory.homeRoom, creep.memory.targetRoom);
+        creep.memory.sckCalled = true;
     }
 
     let hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);

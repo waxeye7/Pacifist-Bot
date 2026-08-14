@@ -97,17 +97,15 @@ function calc_incoming_damage_potential_next_tick(
   let totalTowerDamage = 0;
 
   hostileCreeps.forEach(Hostile => {
+    // Chebyshev is combat range. findPathTo.length is walk steps and made
+    // a walled RA-3 look like 6+. Fatigue only blocks MELEE closing —
+    // a fatigued RA still fires at 2-3. && binds tighter than || so the
+    // old `range===3 && ... && meleeWorthy || range===5` never took the
+    // range-3 arm (meleeWorthy is still false in that else-if).
     let range = pos.getRangeTo(Hostile);
-    let pathRange = Hostile.pos.findPathTo(pos, { ignoreCreeps: true, ignoreRoads: true, swampCost: 1 }).length;
-    if(pathRange > range) {
-      range = pathRange;
-    }
-    // the || after range===5 was unbound, so any fatigued hostile was dropped
-    // even when adjacent — they still hit without moving, skip only at range>=2
     if (
       range > 5 ||
       (range === 5 && Hostile.fatigue === 0 && fatigue !== 0) ||
-      (range >= 2 && Hostile.fatigue !== 0 && fatigue === 0) ||
       (range === 4 && Hostile.fatigue !== 0 && fatigue !== 0) ||
       Hostile.ticksToLive === 1
     )
@@ -116,7 +114,10 @@ function calc_incoming_damage_potential_next_tick(
     if (range === 1 || (range === 2 && (Hostile.fatigue === 0 || fatigue === 0))) {
       meleeWorthy = true;
     }
-    else if(range === 3 && Hostile.fatigue === 0 && fatigue === 0 && meleeWorthy || range === 5 && Hostile.fatigue === 0 && fatigue === 0 && mosquitosNearby < 3 && Game.time % 5 < 3) {
+    else if (
+      (range === 3 && Hostile.fatigue === 0 && fatigue === 0) ||
+      (range === 5 && Hostile.fatigue === 0 && fatigue === 0 && mosquitosNearby < 3 && Game.time % 5 < 3)
+    ) {
       if (mosquitosNearby < 2) advance = false;
     }
     for (let part of Hostile.body) {

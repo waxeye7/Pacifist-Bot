@@ -24,6 +24,157 @@ function planShellRamparts(room: any): any[] {
     });
 }
 
+function isShellDefender(c: any): boolean {
+    return c.memory && (c.memory.role == "RampartDefender" || c.memory.role == "RRD");
+}
+
+function clearCivilianFleeing(room: any) {
+    const creeps = room.find(FIND_MY_CREEPS);
+    for (const c of creeps) {
+        if (c.memory && c.memory.fleeing) c.memory.fleeing = false;
+    }
+}
+
+/**
+ * One unique shell tile per live RD/RRD. A single room.rampartToMan made
+ * every extra defender path onto the same seat (peer-255, then walker-veto
+ * held the volley). Occupancy is a SECOND pass so last-tick's occupant
+ * cannot pin in_position before this tick's seats are chosen.
+ */
+function assignDefenderTiles(room: any, MyRamparts: any[], HostileCreeps: any[], myCreeps: any[]): any[] {
+    const defenders = myCreeps.filter((c: any) => isShellDefender(c) && !c.spawning);
+    const mannable: any[] = [];
+    for (const rampart of MyRamparts) {
+        const occupant = rampart.pos.lookFor(LOOK_CREEPS)[0];
+        // Friendly-only skip used to assign a tile a hostile already stands on.
+        if (occupant && !occupant.my) continue;
+        mannable.push(rampart);
+    }
+    const mannableIds: any = {};
+    for (const r of mannable) mannableIds[r.id] = true;
+    const taken: any = {};
+    const assigned: any[] = [];
+
+    // Already-on-shell first so a parked defender keeps its legal seat
+    // before a walker claims it.
+    defenders.sort((a: any, b: any) => {
+        const aOn = a.pos.lookFor(LOOK_STRUCTURES).some((s: any) => s.structureType == STRUCTURE_RAMPART) ? 0 : 1;
+        const bOn = b.pos.lookFor(LOOK_STRUCTURES).some((s: any) => s.structureType == STRUCTURE_RAMPART) ? 0 : 1;
+        if (aOn !== bOn) return aOn - bOn;
+        const ah = a.pos.findClosestByRange(HostileCreeps);
+        const bh = b.pos.findClosestByRange(HostileCreeps);
+        return (ah ? a.pos.getRangeTo(ah) : 99) - (bh ? b.pos.getRangeTo(bh) : 99);
+    });
+
+    for (const d of defenders) {
+        const hostile = d.pos.findClosestByRange(HostileCreeps);
+        if (!hostile) continue;
+
+        const current: any = d.memory.myRampartToMan && Game.getObjectById(d.memory.myRampartToMan);
+        const currentOk = current && mannableIds[current.id] && !taken[current.id];
+        const currentRange = currentOk ? current.pos.getRangeTo(hostile) : 99;
+        const standing = currentOk && d.pos.isEqualTo(current);
+
+        // Nearest free shell tile within 3 of this hostile.
+        let best: any = currentRange <= 3 ? current : null;
+        let bestH = currentRange <= 3 ? currentRange : 99;
+        let bestD = best ? d.pos.getRangeTo(best) : 99;
+        for (const r of mannable) {
+            if (taken[r.id]) continue;
+            const rh = r.pos.getRangeTo(hostile);
+            if (rh > 3) continue;
+            const rd = d.pos.getRangeTo(r);
+            if (rh < bestH || (rh === bestH && rd < bestD)) {
+                best = r;
+                bestH = rh;
+                bestD = rd;
+            }
+        }
+        if (!best) {
+            bestH = 99;
+            bestD = 99;
+            for (const r of mannable) {
+                if (taken[r.id]) continue;
+                const rh = r.pos.getRangeTo(hostile);
+                const rd = d.pos.getRangeTo(r);
+                if (rh < bestH || (rh === bestH && rd < bestD)) {
+                    best = r;
+                    bestH = rh;
+                    bestD = rd;
+                }
+            }
+        }
+
+        // Fire-hold: a defender already on a legal 3-band tile does not hop.
+        // Walkers adopt the closer seat (small slides, no %20 gate).
+        if (standing && currentRange <= 3 && currentRange <= bestH) {
+            d.memory.myRampartToMan = current.id;
+            taken[current.id] = true;
+            assigned.push(d);
+            continue;
+        }
+        if (best) {
+            d.memory.myRampartToMan = best.id;
+            taken[best.id] = true;
+            assigned.push(d);
+        }
+    }
+
+    // Towers / leftover readers still want one primary (closest assigned,
+    // else closest mannable). Keep the melee-stick so the volley does not
+    // retarget mid-swing.
+    let primary: any = null;
+    let primaryRange = 99;
+    for (const d of assigned) {
+        const r: any = Game.getObjectById(d.memory.myRampartToMan);
+        if (!r) continue;
+        const h = r.pos.findClosestByRange(HostileCreeps);
+        if (!h) continue;
+        const rng = r.pos.getRangeTo(h);
+        if (rng < primaryRange) {
+            primaryRange = rng;
+            primary = r;
+        }
+    }
+    if (!primary) {
+        for (const r of mannable) {
+            const h = r.pos.findClosestByRange(HostileCreeps);
+            if (!h) continue;
+            const rng = r.pos.getRangeTo(h);
+            if (rng < primaryRange) {
+                primaryRange = rng;
+                primary = r;
+            }
+        }
+    }
+    if (primary) {
+        const prev: any = room.memory.rampartToMan && Game.getObjectById(room.memory.rampartToMan);
+        if (!(prev && prev.pos.findInRange(HostileCreeps, 1).length > 0)) {
+            room.memory.rampartToMan = primary.id;
+        }
+    }
+    return assigned;
+}
+
+function updateInPosition(room: any, assigned: any[]) {
+    // Only assigned defenders veto the volley. An extra RD with no seat
+    // (4th body, all tiles taken) used to keep in_position false forever.
+    if (!assigned.length) {
+        room.memory.in_position = false;
+        return;
+    }
+    let ready = true;
+    for (const d of assigned) {
+        const tile: any = Game.getObjectById(d.memory.myRampartToMan);
+        const onRampart = d.pos.lookFor(LOOK_STRUCTURES).some((s: any) => s.structureType == STRUCTURE_RAMPART);
+        if (!onRampart || (tile && d.pos.getRangeTo(tile) > 2)) {
+            ready = false;
+            break;
+        }
+    }
+    room.memory.in_position = ready;
+}
+
 function roomDefence(room) {
     if(!room.memory.defence) {
         room.memory.defence = {
@@ -53,13 +204,17 @@ function roomDefence(room) {
     // breaches are covered by the damaged-rampart arm below; a camp that
     // breaks nothing gets no safemode - matching the battle-tested live
     // behavior from before the dead arm was "fixed".
-    if(room.memory.danger && (room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
+    // Spawn conjunct no-op'd the tick the last spawn died — the one tick
+    // safemode is supposed to fire. Failed activate still reset the timer,
+    // which reopened remotes and blocked CPU.reduce for the rest of the raid.
+    if(room.memory.danger && room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name)) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length >= 2) {
             for(let eCreep of enemyCreepsInRoom) {
                 if(eCreep.owner.username !== "Invader") {
-                    room.controller.activateSafeMode();
-                    room.memory.danger_timer = 1
+                    if(room.controller.activateSafeMode() === OK) {
+                        room.memory.danger_timer = 1;
+                    }
                 }
             }
         }
@@ -99,7 +254,11 @@ function roomDefence(room) {
         if (!room) {
           return false;
         }
-        const minimumHits = 750000;
+        // Peacetime tower cap is 5k / 150k. A flat 750k floor made every
+        // RCL4-5 shell look "breached" and burned safemode on a camp that
+        // never damaged anything.
+        const rcl = room.controller && room.controller.level || 0;
+        const minimumHits = rcl < 4 ? 5000 : rcl <= 5 ? 150000 : 750000;
         return findDamagedPerimeterRamparts(room, minimumHits).length > 0;
       }
 
@@ -169,18 +328,6 @@ function roomDefence(room) {
         let towerCount = -1;
         // let currentTickModTowers = Game.time % room.memory.Structures.towers.length;
 
-        let canWeShoot = 0;
-        let liveTowerCount = 0;
-        room.memory.Structures.towers.forEach(towerID => {
-            let towerTest:any = Game.getObjectById(towerID);
-            if(towerTest) {
-                liveTowerCount++;
-                if(towerTest.store[RESOURCE_ENERGY] > 400) {
-                    canWeShoot ++;
-                }
-            }
-        });
-
         _.forEach(room.memory.Structures.towers, function(towerID) {
             let tower:any = Game.getObjectById(towerID);
             if(tower) {
@@ -211,10 +358,10 @@ function roomDefence(room) {
                     }
                 }
 
-                // Cache rebuilds only %100; a destroyed tower left a stale id
-                // so canWeShoot never equalled the raw list length and the
-                // whole volley went silent.
-                if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && canWeShoot == liveTowerCount && Game.cpu.bucket > 250) {
+                // Per-tower reserve. Requiring EVERY live tower >400 left a
+                // solo tower at 400 dark and a newborn/empty id silenced the
+                // whole battery.
+                if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && Game.cpu.bucket > 250) {
 
 
                     let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
@@ -330,11 +477,21 @@ function roomDefence(room) {
             let myCreeps = room.find(FIND_MY_CREEPS);
 
             if(room.controller.level <= 5) {
-                let nonRangedMeleeCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) == 0 && c.getActiveBodyparts(ATTACK) > 0});
-                let rangedCreeps = HostileCreeps.filter(function(c) {return c.getActiveBodyparts(RANGED_ATTACK) > 0});
-                if(rangedCreeps.length > 0) {
+                // Any RA hostile used to own the whole civilian loop, so the
+                // melee arm never ran and the ranged else-clause CLEARED
+                // fleeing next to a melee. Each civilian uses its nearest
+                // armed hostile of either type.
+                const armedHostiles = HostileCreeps.filter(function(c) {
+                    return c.getActiveBodyparts(RANGED_ATTACK) > 0 || c.getActiveBodyparts(ATTACK) > 0;
+                });
+                if(armedHostiles.length > 0 && !room.controller.safeMode) {
                     for(let creep of myCreeps) {
                         if(creep.memory.role === "RampartDefender" || creep.memory.role === "RRD" || creep.memory.role === "ram") {
+                            continue;
+                        }
+                        let closestHostileToCreep = creep.pos.findClosestByRange(armedHostiles);
+                        if(!closestHostileToCreep) {
+                            creep.memory.fleeing = false;
                             continue;
                         }
                         let creepOnRampart = false;
@@ -345,28 +502,18 @@ function roomDefence(room) {
                                 break;
                             }
                         }
-
-                        let closestHostileToCreep = creep.pos.findClosestByRange(rangedCreeps);
-                        if(creep.room.controller && !creep.room.controller.safeMode && creep.room.controller.level <= 3 && creep.pos.getRangeTo(closestHostileToCreep) <= 5 && !creepOnRampart) {
+                        const range = creep.pos.getRangeTo(closestHostileToCreep);
+                        const isRanged = closestHostileToCreep.getActiveBodyparts(RANGED_ATTACK) > 0;
+                        if(isRanged && room.controller.level <= 3 && range <= 5 && !creepOnRampart) {
                             creep.drop(RESOURCE_ENERGY);
                             creep.fleeFromRanged(closestHostileToCreep);
                             creep.memory.fleeing = true;
                         }
-                        else if(!creep.room.controller.safeMode && creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !creepOnRampart) {
+                        else if(isRanged && range <= 3 && !creepOnRampart) {
                             creep.fleeFromRanged(closestHostileToCreep);
                             creep.memory.fleeing = true;
                         }
-                        else {
-                            creep.memory.fleeing = false;
-                        }
-                    }
-                }
-                // Ranged twin at :321/:326 uses !safeMode. Un-negated, workers
-                // only fled while invulnerable and dropped energy for nothing.
-                else if(!room.controller.safeMode && nonRangedMeleeCreeps.length > 0) {
-                    for(let creep of myCreeps) {
-                        let closestHostileToCreep = creep.pos.findClosestByRange(nonRangedMeleeCreeps);
-                        if(creep.pos.getRangeTo(closestHostileToCreep) <= 3 && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
+                        else if(!isRanged && range <= 3 && !creepOnRampart && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
                             {
                                 maxOps: 150,
                                 maxRooms: 1,
@@ -376,7 +523,13 @@ function roomDefence(room) {
                             creep.fleeFromMelee(closestHostileToCreep);
                             creep.memory.fleeing = true;
                         }
+                        else {
+                            creep.memory.fleeing = false;
+                        }
                     }
+                }
+                else {
+                    clearCivilianFleeing(room);
                 }
             }
 
@@ -394,79 +547,15 @@ function roomDefence(room) {
 
 
 
-            let currentLowestRange = 100;
-            let currentRampart;
-
-            let found_creep = false;
-            _.forEach(MyRamparts, function(rampart) {
-                // Hostile on a shell tile has no .memory — unguarded .role
-                // threw and aborted rampartToMan/in_position for the room.
-                // in_position is the assigned-tile fire-hold; any-perimeter
-                // occupancy let towers volley while the defender walked.
-                let occupant = rampart.pos.lookFor(LOOK_CREEPS)[0];
-                if(occupant && occupant.my && occupant.memory && (occupant.memory.role == "RampartDefender" || occupant.memory.role == "RRD")) {
-                    // Assigned tile OR a shell tile within 2 of it. Strict
-                    // assigned-only deadlocked against the defenders' own
-                    // hysteresis (they refuse to hop tiles while closer to the
-                    // hostile than the new assignment), so towers never
-                    // volleyed once the hostile slid along the wall. A creep
-                    // WALKING is not standing on a rampart, so the original
-                    // "don't volley while the defender walks" intent holds.
-                    let manned:any = room.memory.rampartToMan && Game.getObjectById(room.memory.rampartToMan);
-                    if(rampart.id == room.memory.rampartToMan || manned && rampart.pos.getRangeTo(manned) <= 2) {
-                        room.memory.in_position = true;
-                        found_creep = true;
-                    }
-                    return;
-                }
-                let myRampartDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender" || c.memory.role === "RRD";});
-                if(myRampartDefenders.length > 0) {
-                    let closestRampartDefender = rampart.pos.findClosestByRange(myRampartDefenders);
-                    if(rampart.pos.getRangeTo(closestRampartDefender) <= 1) {
-                        return;
-                    }
-                }
-                let closestHostileToRampart = rampart.pos.findClosestByRange(HostileCreeps);
-                let rangeToEnemy = rampart.pos.getRangeTo(closestHostileToRampart)
-                if(currentLowestRange > rangeToEnemy) {
-                    currentLowestRange = rangeToEnemy;
-                    currentRampart = rampart;
-                    if(room.memory.rampartToMan) {
-                        let rampartBefore:any = Game.getObjectById(room.memory.rampartToMan);
-                        if(rampartBefore && rampartBefore.pos.findInRange(HostileCreeps, 1).length > 0) {
-                            // do nothing
-                        }
-                        else {
-                            room.memory.rampartToMan = currentRampart.id;
-                        }
-                    }
-                    else {
-                        room.memory.rampartToMan = currentRampart.id;
-                    }
-                }
-            });
-            if(found_creep == false) {
-                room.memory.in_position = false;
-            }
-            // Walker veto: the range-2 acceptance above can be satisfied by a
-            // parked defender while a SECOND RD/RRD is still crossing open
-            // ground from the spawn - and the volley it authorizes gets that
-            // walker shot at. Hold fire until every live defender stands on a
-            // rampart.
-            if(room.memory.in_position) {
-                let allDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender" || c.memory.role == "RRD";});
-                for(let d of allDefenders) {
-                    let onRampart = d.pos.lookFor(LOOK_STRUCTURES).some(function(s:any) {return s.structureType == STRUCTURE_RAMPART;});
-                    if(!onRampart) {
-                        room.memory.in_position = false;
-                        break;
-                    }
-                }
-            }
+            const assignedDefenders = assignDefenderTiles(room, MyRamparts, HostileCreeps, myCreeps);
+            updateInPosition(room, assignedDefenders);
         }
         else {
             room.memory.danger = false;
-            room.memory.rampartToMan = false
+            room.memory.rampartToMan = false;
+            // Melee flee never cleared, and a leftover flag freezes any
+            // role that early-returns on memory.fleeing after the raid.
+            clearCivilianFleeing(room);
 
             /*
              * RELEASE THE DISTRESS LATCH.
@@ -498,6 +587,10 @@ function roomDefence(room) {
         room.memory.danger = false;
         room.memory.blown_fuse = false;
         room.memory.danger_timer = 0;
+        room.memory.rampartToMan = false;
+        // Safemode lasts ~20k ticks; a leftover fleeing flag would park
+        // civilians for the whole duration.
+        clearCivilianFleeing(room);
 
     }
 }

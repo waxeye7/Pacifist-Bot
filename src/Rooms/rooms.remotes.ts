@@ -1,5 +1,6 @@
 import { getCpuPolicy } from "utils/CpuPolicy";
 import { remotesDisabled } from "utils/Speedrun";
+import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 
 function remotes(room) {
     if (!room.memory.resources) {
@@ -111,6 +112,13 @@ const LEGACY_RECHECK = 200;
 /** how long a remote stays abandoned after the last hostile sighting */
 const HOT_COOLDOWN = 600;
 
+/** Drop vision-only caches so a re-open cannot inherit a stale reserved/roaded verdict. */
+function clearRemoteVisionFlags(e: any): void {
+    delete e.reserved;
+    delete e.roaded;
+    delete e.containers;
+}
+
 function resFor(homeRoomName: string): any {
     const mem = Memory.rooms && Memory.rooms[homeRoomName];
     return mem && (mem as any).resources;
@@ -135,8 +143,17 @@ export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
         // with vision and re-marks the room immediately ("leave fast"), so the
         // worst case is one probe creep, not a permanent loss of the remote.
         const rr = Game.rooms[remoteName];
-        if (rr && rr.find(FIND_HOSTILE_CREEPS).length > 0) {
-            return true; // still hot; scanRemoteThreats will push the timer out
+        if (rr) {
+            if (rr.find(FIND_HOSTILE_CREEPS).length > 0) {
+                return true; // still hot; scanRemoteThreats will push the timer out
+            }
+            // Cores outlive the creep wave; ignoring them reopened a cored
+            // remote every HOT_COOLDOWN and we fed miners into the core.
+            if (rr.find(FIND_HOSTILE_STRUCTURES, {
+                filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
+            }).length > 0) {
+                return true;
+            }
         }
         delete e.hot;
         console.log(`[remotes] ${name} ${remoteName} cooled down, re-opening`);
@@ -163,6 +180,9 @@ export function markRemoteHot(homeRoomName: string, remoteName: string, why: str
  */
 export function scanRemoteThreats(room: any): void {
     if (!room.controller || !room.controller.my) return;
+    // Readers never call findStorageLink while the cached id is live;
+    // this 5-tick pass is what actually drops a stale RCL5 source-link hub.
+    invalidateStaleStorageLink(room);
     const res = room.memory.resources;
     if (!res) return;
     for (const remote in res) {
@@ -300,6 +320,7 @@ export function manageRemotes(room: any): void {
                 e.active = false;
                 e.energy = {};                       // someone lives here...
                 e.retryAt = Game.time + RESCOUT_AFTER; // ...for now
+                clearRemoteVisionFlags(e);
                 continue;
             }
             const rsv = seen.controller.reservation;
@@ -316,6 +337,7 @@ export function manageRemotes(room: any): void {
                     e.active = false;
                     console.log(`[remotes] ${room.name} close ${name} (reserved by ${rsv.username} for ${rsv.ticksToEnd}t)`);
                 }
+                clearRemoteVisionFlags(e);
                 continue;
             }
             if (e.foreignUntil) delete e.foreignUntil; // visibly free again
@@ -353,6 +375,7 @@ export function manageRemotes(room: any): void {
                 delete e.energy;
                 delete e.retryAt;
                 delete e.hot;
+                clearRemoteVisionFlags(e);
                 console.log(`[remotes] ${room.name} re-opening ${name} for another look`);
                 unscouted.push(name);
                 continue;
@@ -374,14 +397,20 @@ export function manageRemotes(room: any): void {
                 e.active = false;
                 console.log(`[remotes] ${room.name} close ${name} (hot)`);
             }
+            clearRemoteVisionFlags(e);
             continue;
         }
 
         // Build_Remote_Roads stores pathLength per source; use the closest.
-        let best = 90;
+        // Init at Infinity (not 90): a missing pathLength used to score as 90
+        // and OPEN, and best<90 skipped the roaded/reserved cache entirely.
+        let best = Infinity;
         for (const id of sourceIds) {
             const pl = e.energy[id] && e.energy[id].pathLength;
             if (typeof pl === "number" && pl < best) best = pl;
+        }
+        if (!isFinite(best)) {
+            continue;
         }
 
         // Refresh the cached road verdict while we have vision. Cached (rather
@@ -389,7 +418,7 @@ export function manageRemotes(room: any): void {
         // per remote per MANAGE_EVERY ticks instead of once per source per
         // producer pass.
         const vis = Game.rooms[name];
-        if (vis && best < 90) {
+        if (vis) {
             let roads = 0;
             let conts = 0;
             for (const s of vis.find(FIND_STRUCTURES)) {
@@ -454,6 +483,7 @@ export function manageRemotes(room: any): void {
                 e.active = false;
                 console.log(`[remotes] ${room.name} close ${name} (path ${best} > ${maxPath} for RCL${room.controller.level})`);
             }
+            clearRemoteVisionFlags(e);
             continue;
         }
 

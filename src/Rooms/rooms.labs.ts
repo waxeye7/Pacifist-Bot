@@ -122,17 +122,18 @@ function assignLegacyLabs(room, storage, LabsInRoom) {
     if(!layout) {
         return false;
     }
-    let slots = ["inputLab1", "inputLab2", "outputLab1"];
-    if(room.controller.level >= 7 && LabsInRoom.length >= 6) {
-        slots.push("outputLab2", "outputLab3", "outputLab4");
-    }
-    if(room.controller.level == 8 && LabsInRoom.length == 10) {
-        slots.push("outputLab5", "outputLab6", "outputLab7", "outputLab8");
-    }
+    // Assign every built layout slot immediately. Waiting for the full
+    // RCL7/8 rung (6/10) left half the strip unused, and a destroyed lab
+    // kept its dead id forever so reactions/boosts targeted a ghost.
+    let slots = ["inputLab1", "inputLab2", "outputLab1", "outputLab2", "outputLab3", "outputLab4", "outputLab5", "outputLab6", "outputLab7", "outputLab8"];
     for(let slot of slots) {
+        if(!layout[slot]) continue;
         let lab = labAt(room, layout[slot].x, layout[slot].y);
         if(lab) {
             room.memory.labs[slot] = lab.id;
+        }
+        else {
+            delete room.memory.labs[slot];
         }
     }
     return room.memory.labs.inputLab1 != undefined && room.memory.labs.inputLab2 != undefined;
@@ -356,6 +357,7 @@ function labs(room) {
         }
 
         let terminal = room.terminal;
+        const storeOf = (res) => (storage && storage.store[res] || 0) + (terminal.store[res] || 0);
 
         if((storage && storage.store[RESOURCE_HYDROXIDE] < 1000 && currentOutput != RESOURCE_HYDROXIDE ||
             storage && storage.store[RESOURCE_HYDROXIDE] < 10000 && currentOutput == RESOURCE_HYDROXIDE) &&
@@ -562,8 +564,11 @@ function labs(room) {
         // input gate checks the HYDRIDE feedstock (mirrors the LA twin above),
         // not the acid itself - demanding 1000 KA to start making KA was
         // unsatisfiable from any cold start.
-        else if((storage && storage.store[RESOURCE_KEANIUM_ACID] < 1000 && currentOutput != RESOURCE_KEANIUM_ACID ||
-            storage && storage.store[RESOURCE_KEANIUM_ACID] < 3000 && currentOutput == RESOURCE_KEANIUM_ACID) &&
+        // Combined store: EM dumps KA to the terminal and market sells it, so
+        // a storage-only <1000 guard kept producing KA forever and never
+        // reached the XKH2O rung.
+        else if((storage && storeOf(RESOURCE_KEANIUM_ACID) < 1000 && currentOutput != RESOURCE_KEANIUM_ACID ||
+            storage && storeOf(RESOURCE_KEANIUM_ACID) < 3000 && currentOutput == RESOURCE_KEANIUM_ACID) &&
             terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_KEANIUM_HYDRIDE] + storage.store[RESOURCE_KEANIUM_HYDRIDE] >= 1000) {
                 lab1Input = RESOURCE_HYDROXIDE
                 lab2Input = RESOURCE_KEANIUM_HYDRIDE;
@@ -638,6 +643,12 @@ function labs(room) {
             lab1Input = RESOURCE_CATALYST;
             lab2Input = RESOURCE_KEANIUM_ALKALIDE;
             currentOutput = RESOURCE_CATALYZED_KEANIUM_ALKALIDE;
+        }
+        else if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ACID] < 40000 &&
+            terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_KEANIUM_ACID] + storage.store[RESOURCE_KEANIUM_ACID] >= 1000) {
+            lab1Input = RESOURCE_CATALYST;
+            lab2Input = RESOURCE_KEANIUM_ACID;
+            currentOutput = RESOURCE_CATALYZED_KEANIUM_ACID;
         }
         else if(storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] < 40000 &&
             terminal.store[RESOURCE_CATALYST] + storage.store[RESOURCE_CATALYST] >= 1000 && terminal.store[RESOURCE_ZYNTHIUM_ACID] + storage.store[RESOURCE_ZYNTHIUM_ACID] >= 1000) {

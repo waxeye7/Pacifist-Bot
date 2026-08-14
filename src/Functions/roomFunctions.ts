@@ -1,18 +1,22 @@
 // import {Room} from "../utils/Types";
-interface Room {
-    findStorage:() => object;
-    findExtractor:() => object | void;
-    findSpawn:() => object | void;
-    findStorageContainer:() => object | void;
-    findContainers:(capacity:number) => object | void;
-    findMineral:() => object | void;
-    findBin:(storage) => object | void;
-    findStorageLink:() => object | void;
-    findObserver:() => object | void;
-    findNuker:() => object | void;
-    roomTowersHealMe:any;
-    roomTowersAttackEnemy:any;
-    roomTowersRepairTarget:any;
+// declare global is required now that this file has an export (it became a
+// module, so a bare `interface Room` stopped merging with the global type).
+declare global {
+    interface Room {
+        findStorage:() => object;
+        findExtractor:() => object | void;
+        findSpawn:() => object | void;
+        findStorageContainer:() => object | void;
+        findContainers:(capacity:number) => object | void;
+        findMineral:() => object | void;
+        findBin:(storage) => object | void;
+        findStorageLink:() => object | void;
+        findObserver:() => object | void;
+        findNuker:() => object | void;
+        roomTowersHealMe:any;
+        roomTowersAttackEnemy:any;
+        roomTowersRepairTarget:any;
+    }
 }
 
 
@@ -60,12 +64,9 @@ Room.prototype.roomTowersAttackEnemy = function(enemyCreep) {
             }
         }
         for (let tower of towerObjs) {
-            if (tower.store[RESOURCE_ENERGY] < 100) return;
-        }
-        if (towerObjs.length > 0) {
-            for (let tower of towerObjs) {
-                tower.attack(enemyCreep);
-            }
+            // One empty tower used to `return` and silence the whole battery.
+            if (tower.store[RESOURCE_ENERGY] < 100) continue;
+            tower.attack(enemyCreep);
         }
     }
 };
@@ -119,7 +120,40 @@ Room.prototype.findObserver = function(): object | void {
 }
 
 
+/**
+ * StorageLink is first-live-wins at every reader (`getObjectById || find`).
+ * An RCL5 source link in the storage ring sticks after the real hub is
+ * built. Drop the cache on RCL change, or when a closer my-link sits
+ * adjacent to storage.
+ */
+export function invalidateStaleStorageLink(room: any): void {
+    if (!room || !room.memory || !room.memory.Structures || !room.storage) return;
+    const rcl = room.controller ? room.controller.level : 0;
+    if (room.memory.Structures._slRcl !== rcl) {
+        delete room.memory.Structures.StorageLink;
+        room.memory.Structures._slRcl = rcl;
+        return;
+    }
+    const cur: any = Game.getObjectById(room.memory.Structures.StorageLink);
+    if (!cur || room.storage.pos.getRangeTo(cur) <= 1) return;
+    for (let dx = -1; dx <= 1; dx++) {
+        for (let dy = -1; dy <= 1; dy++) {
+            if (!dx && !dy) continue;
+            const x = room.storage.pos.x + dx;
+            const y = room.storage.pos.y + dy;
+            if (x < 0 || x > 49 || y < 0 || y > 49) continue;
+            for (const s of room.lookForAt(LOOK_STRUCTURES, x, y)) {
+                if (s.structureType === STRUCTURE_LINK && s.my && s.id !== cur.id) {
+                    delete room.memory.Structures.StorageLink;
+                    return;
+                }
+            }
+        }
+    }
+}
+
 Room.prototype.findStorageLink = function(): object | void {
+    invalidateStaleStorageLink(this);
     let links = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
     if(links.length > 0) {
         let storage = Game.getObjectById(this.memory.Structures.storage) || this.findStorage();
@@ -168,6 +202,7 @@ Room.prototype.findStorage = function() {
             delete this.memory.Structures.bin;
             delete this.memory.Structures.StorageLink;
         }
+        invalidateStaleStorageLink(this);
         return this.storage;
     }
     let storage = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_STORAGE);}});

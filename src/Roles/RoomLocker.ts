@@ -27,6 +27,18 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
       return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
   }
   else if(creep.room.name != creep.memory.targetRoom && creep.memory.full && creep.memory.line) {
+    // Escort owns party pathing as a one-shot; if it dies we never move
+    let escortAlive = false;
+    for(let name in Game.creeps) {
+      let c = Game.creeps[name];
+      if(c.memory.role === "Escort" && c.memory.targetRoom === creep.memory.targetRoom) {
+        escortAlive = true;
+        break;
+      }
+    }
+    if(!escortAlive) {
+      return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+    }
     return;
   }
 

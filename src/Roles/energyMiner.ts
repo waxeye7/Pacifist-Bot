@@ -7,37 +7,32 @@ import { remoteIsHot } from "Rooms/rooms.remotes";
 
 
 /**
- * Does this room's link network actually END at storage?
+ * Same predicate as sourceLinkHaulWorks() in rooms.spawning.ts: a link
+ * within 2 of THIS source and a hub within 2 of storage. "3+ links exist"
+ * is the wrong bar — a 1-source RCL6 room maxes at source+hub, carriers
+ * already stop, and the miner stayed on drop-mine with nobody hauling.
  *
- * The miner's link path only makes sense if something drains the far end.
- * "3 or more links exist" does not establish that: a HYBRID room (legacy
- * structures + a v2 plan) can own its full link quota with the hub link parked
- * three tiles from storage, where no creep hands it over. The miner then fills
- * the source link to 800, the source link has nowhere to forward to, and the
- * miner - which only ever unloads into that link - sits at the source FULL and
- * stops harvesting. Live E11S2: 1600 energy frozen in two full links, storage
- * 0, extensions 0, controller progress pinned at 34742.
- *
- * Range 2 to storage is the same bar sourceLinkHaulWorks() in
- * Rooms/rooms.spawning.ts uses to decide whether links have really replaced
- * hauling; a link that far out still has a tile adjacent to both itself and
- * storage, so a creep can move the energy across. Below that bar the room mines
- * into its container like an RCL5 room and the carriers do the hauling, which
- * is slower than links but is not zero.
- *
- * Cached per room for 500 ticks - link layouts change on the timescale of
- * construction, and this is called by every miner every tick.
+ * Cached per source for 500 ticks — layouts change on a construction
+ * timescale, and every miner asks every tick.
  */
-function linkNetworkDelivers(room):boolean {
+function linkNetworkDelivers(room, sourceId?):boolean {
     if(!room.storage) return false;
-    if(room.memory.linkHaulWorks !== undefined && Game.time - (room.memory.linkHaulWorksAt || 0) < 500) {
-        return room.memory.linkHaulWorks;
+    const srcKey = sourceId || "*";
+    if(!room.memory.linkHaulBySource) room.memory.linkHaulBySource = {};
+    const rec = room.memory.linkHaulBySource[srcKey];
+    if(rec && Game.time - (rec.t || 0) < 500) {
+        return rec.v;
     }
     const links = room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK});
-    const works = links.length >= 3
-        && _.some(links, (l:any) => l.pos.inRangeTo(room.storage.pos, 2));
-    room.memory.linkHaulWorks = works;
-    room.memory.linkHaulWorksAt = Game.time;
+    const hub = _.some(links, (l:any) => l.pos.inRangeTo(room.storage.pos, 2));
+    let works = false;
+    if(hub) {
+        const source:any = sourceId ? Game.getObjectById(sourceId) : null;
+        works = source
+            ? _.some(links, (l:any) => l.pos.inRangeTo(source.pos, 2))
+            : links.length >= 2;
+    }
+    room.memory.linkHaulBySource[srcKey] = {v: works, t: Game.time};
     return works;
 }
 
@@ -292,7 +287,7 @@ const run = function (creep) {
         return creep.recycle();
     }
 
-    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.getActiveBodyparts(CARRY) == 0 || !linkNetworkDelivers(creep.room)) {
+    if(creep.room.controller && creep.room.controller.level < 6 || creep.memory.targetRoom != creep.memory.homeRoom || creep.getActiveBodyparts(CARRY) == 0 || !linkNetworkDelivers(creep.room, creep.memory.sourceId)) {
         // if(creep.roadCheck()) {
         //     creep.moveAwayIfNeedTo();
         // }
@@ -364,12 +359,15 @@ const run = function (creep) {
 
 
         if(!creep.memory.potential) {
-            if(creep.memory.boosted) {
-                creep.memory.potential = creep.getActiveBodyparts(WORK) * 6;
-            }
-            else {
-                creep.memory.potential = creep.getActiveBodyparts(WORK) * 2;
-            }
+            // Dump iff free < potential, harvest iff >=. A boosted shrink to
+            // 1 CARRY has capacity 50 < WORK*6, so empty already looks "full"
+            // and harvest is unreachable for the whole life.
+            let potential = creep.memory.boosted
+                ? creep.getActiveBodyparts(WORK) * 6
+                : creep.getActiveBodyparts(WORK) * 2;
+            const cap = creep.store.getCapacity();
+            if(cap > 0) potential = Math.min(potential, cap);
+            creep.memory.potential = potential;
         }
 
         // NOTE: forwardToControllerLink() is driven from Rooms/rooms.ts, not
@@ -406,11 +404,22 @@ const run = function (creep) {
             }
 
             if(creep.memory.NearbyExtensions && creep.memory.NearbyExtensions.length > 0) {
-                for(let extensionID of creep.memory.NearbyExtensions) {
+                for(let i = creep.memory.NearbyExtensions.length - 1; i >= 0; i--) {
+                    let extensionID = creep.memory.NearbyExtensions[i];
                     let extension:any = Game.getObjectById(extensionID);
-                    if(extension && extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
-                        creep.transfer(extension, RESOURCE_ENERGY);
-                        return;
+                    if(!extension) {
+                        creep.memory.NearbyExtensions.splice(i, 1);
+                        continue;
+                    }
+                    if(extension.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+                        let r = creep.transfer(extension, RESOURCE_ENERGY);
+                        if(r == 0) return;
+                        // Cached while adjacent to the source; a later walk
+                        // to the link leaves these out of range. Returning
+                        // on the failed transfer skipped link deposit forever.
+                        if(r == ERR_NOT_IN_RANGE) {
+                            creep.memory.NearbyExtensions.splice(i, 1);
+                        }
                     }
                 }
             }
@@ -518,6 +527,12 @@ const run = function (creep) {
                 else {
                     creep.MoveCostMatrixRoadPrio(closestLink, 1);
                 }
+            }
+            else {
+                // Room-wide haul can be true because a sibling source is
+                // linked. This source then has nowhere to unload and harvest
+                // stalls at ERR_FULL — dump to container / tile instead.
+                dumpMinerEnergy(creep);
             }
         }
 

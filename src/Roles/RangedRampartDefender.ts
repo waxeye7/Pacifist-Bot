@@ -1,10 +1,12 @@
+import { interiorMove } from "utils/Interior";
+import { finishBoostOrGiveUp } from "Roles/RampartDefender";
+
 const run = function (creep:Creep) {
 
     creep.memory.moving = false;
 
-    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
-        let result = creep.Boost();
-        if(!result) {
+    if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0 && creep.room.memory.danger) {
+        if(!finishBoostOrGiveUp(creep)) {
             return;
         }
     }
@@ -21,26 +23,12 @@ const run = function (creep:Creep) {
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
-            if(!creep.memory.myRampartToMan || creep.ticksToLive % 5 == 0) {
-                let roomRampartTarget:any = Game.getObjectById(creep.room.memory.rampartToMan);
-
-                let rangeFromCreepToCreep;
-                let rangeFromRampartToCreep;
-                let storage = creep.room.storage;
-                if(roomRampartTarget) {
-                    let closestEnemyCreepToRoomRampart = roomRampartTarget.pos.findClosestByRange(enemyCreeps);
-                    if(closestEnemyCreepToRoomRampart) {
-                        rangeFromRampartToCreep = roomRampartTarget.pos.getRangeTo(closestEnemyCreepToRoomRampart);
-                        rangeFromCreepToCreep = creep.pos.getRangeTo(closestEnemyCreep);
-                    }
-                }
-                if(rangeFromCreepToCreep && rangeFromRampartToCreep) {
-                    if (rangeFromCreepToCreep > rangeFromRampartToCreep && storage && (closestEnemyCreep.pos.getRangeTo(storage) === 11 || rangeFromCreepToCreep > 4)) {
-                        creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
-                    }
-
-                }
-                else {
+            // Defence assigns a unique tile. The storage===11 OR-clause
+            // adopted every tick at the common shell band and defeated
+            // hysteresis; copying the shared room tile stacked every RRD
+            // on one seat. Fall back only when our id is missing or dead.
+            if(!creep.memory.myRampartToMan || !Game.getObjectById(creep.memory.myRampartToMan)) {
+                if(creep.room.memory.rampartToMan) {
                     creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
                 }
             }
@@ -96,16 +84,27 @@ const run = function (creep:Creep) {
 
             if(rampart) {
                 if(!creep.pos.isEqualTo(rampart)) {
-                    creep.moveToSafePositionToRepairRampart(rampart, 0);
+                    // The RRD cost matrix paints a 255 ring at range 11-13
+                    // from storage, which is exactly where min-cut shells
+                    // sit. interiorMove reaches the seat; the old mover is
+                    // only the fail-open fallback.
+                    if (!interiorMove(creep, rampart, 0)) {
+                        creep.moveToSafePositionToRepairRampart(rampart, 0);
+                    }
                 }
             }
         }
     }
-    else if(!creep.room.memory.danger && creep.ticksToLive < 50) {
-        if(creep.memory.targetRoom) {
-            creep.memory.homeRoom = creep.memory.targetRoom;
+    else {
+        if(creep.memory.myRampartToMan) {
+            delete creep.memory.myRampartToMan;
         }
-        creep.recycle();
+        if(creep.ticksToLive < 50) {
+            if(creep.memory.targetRoom) {
+                creep.memory.homeRoom = creep.memory.targetRoom;
+            }
+            creep.recycle();
+        }
     }
 }
 

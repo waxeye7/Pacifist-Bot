@@ -14,16 +14,16 @@ import { planSitter } from "utils/PlanV2";
  * and once for the look-ahead it walks to next - so with a few fillers alive the
  * reserve list covers every extension in the room within a handful of ticks.
  * From then on findFillerTarget() returns FALSE for every filler at once and
- * they all sit on full stores doing nothing until the 40-tick reset below wipes
- * the list. Live E14S9: 4 fillers, 34k banked in storage, room energy
- * 119/1300, extensions climbing +1 a tick off spawn regeneration alone.
+ * they all sit on full stores doing nothing. Live E14S9: 4 fillers, 34k
+ * banked in storage, room energy 119/1300, extensions climbing +1 a tick off
+ * spawn regeneration alone.
  *
  * This function ignores reservations entirely and is the delivery guarantee:
  * while anything in the room still wants energy, a carrying filler has
  * somewhere to go. Priority is the one the room actually needs - spawn and
  * extensions first (they are what blocks spawning), then any tower below half.
  */
-function fillNeed(creep, excludeId?) {
+function fillNeed(creep, excludeId?, spawnOnly?) {
     // isUndeliverable(): an extension with no walkable approach is hungry
     // FOREVER, which makes it permanently the nearest hungry structure to a
     // filler standing in the hub. Without this filter the whole fill layer
@@ -35,6 +35,9 @@ function fillNeed(creep, excludeId?) {
         && s.id !== excludeId
         && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0
         && !isUndeliverable(creep.room, s.id)});
+    if(targets.length == 0 && spawnOnly) {
+        return null;
+    }
     if(targets.length == 0) {
         targets = creep.room.find(FIND_MY_STRUCTURES, {filter: (s) =>
             s.structureType == STRUCTURE_TOWER
@@ -85,6 +88,27 @@ function fillNeed(creep, excludeId?) {
  * the only approach tile, a door that only opens when someone dies).
  */
 const APPROACH_GIVE_UP = 50;
+
+/** Same TTL/shape as creepFunctions.liveReserveFill — do not blanket-wipe. */
+const RESERVE_FILL_TTL = 25;
+
+function pruneReserveFill(room) {
+    let list = room.memory.reserveFill;
+    if(!Array.isArray(list)) {
+        room.memory.reserveFill = [];
+        return;
+    }
+    let kept = [];
+    for(let entry of list) {
+        if(!entry || typeof entry !== "object" || !entry.id || !entry.creep) continue;
+        if(!Game.creeps[entry.creep]) continue;
+        if(Game.time - (entry.t || 0) >= RESERVE_FILL_TTL) continue;
+        kept.push(entry);
+    }
+    if(kept.length !== list.length) {
+        room.memory.reserveFill = kept;
+    }
+}
 
 function advanceTo(creep, target, swampPrio = false) {
     if(creep.pos.isNearTo(target)) {
@@ -242,24 +266,36 @@ function advanceTo(creep, target, swampPrio = false) {
 
 const run = function (creep) {
     creep.memory.moving = false;
-    if(creep.ticksToLive == 1499 || Game.time % 40 == 0 || !creep.room.memory.reserveFill) {
+    // Attributed reserveFill is pruned, never wiped: a %40 / spawn wipe
+    // deleted other fillers' live claims and left sticky walkers unreserved.
+    if(!creep.room.memory.reserveFill) {
         creep.room.memory.reserveFill = [];
+    }
+    else {
+        pruneReserveFill(creep.room);
     }
     if(creep.evacuate()) {
 		return;
 	}
-    if(creep.ticksToLive == 22 && creep.memory.storage && creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "filler")}}).length == 1) {
+    // Last-filler handoff. This role never writes memory.storage (withdraw
+    // uses room.storage), and ==22 is shorter than RCL7/8 hatch (27/36).
+    // Fire once when TTL first covers body.length*3 plus a short queue slack.
+    const lastFiller = creep.room.find(FIND_MY_CREEPS, {filter: (c) => c.memory.role == "filler"}).length == 1;
+    if(!creep.memory._fillerQueued && lastFiller &&
+       creep.ticksToLive <= creep.body.length * 3 + 3 &&
+       creep.room.memory.spawn_list) {
+        creep.memory._fillerQueued = true;
         let newName = 'filler-'+ Math.floor(Math.random() * Game.time) + "-" + creep.room.name;
-        if(creep.room.controller.level <= 3 && creep.room.memory.spawn_list) {
+        if(creep.room.controller.level <= 3) {
             creep.room.memory.spawn_list.unshift([CARRY,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6 && creep.room.memory.spawn_list) {
+        else if(creep.room.controller.level >= 4 && creep.room.controller.level <= 6) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level == 7 && creep.room.memory.spawn_list) {
+        else if(creep.room.controller.level == 7) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
-        else if(creep.room.controller.level == 8 && creep.room.memory.spawn_list) {
+        else if(creep.room.controller.level == 8) {
             creep.room.memory.spawn_list.unshift([CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'filler'}});
         }
         console.log("added filler to spawn queue", creep.room.name)
@@ -396,7 +432,16 @@ const run = function (creep) {
             target = null;
         }
         if(!target) {
-            target = creep.findFillerTarget();
+            // Spawn/extensions first. findFillerTarget ranks output labs
+            // above them once labs exist, so the only filler spends trips
+            // topping a lab while spawning HOL-blocks.
+            target = fillNeed(creep, undefined, true);
+            if(target) {
+                creep.memory.t = target.id;
+            }
+            else {
+                target = creep.findFillerTarget();
+            }
         }
         if(target && target.store.getFreeCapacity(RESOURCE_ENERGY) == 0) {
             target = creep.findFillerTarget();

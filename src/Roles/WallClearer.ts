@@ -15,7 +15,8 @@ const run = function (creep) {
         openControllerPositions = controller.pos.getOpenPositionsIgnoreCreepsCheckStructs();
     }
 
-    let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
+    // INVADER_CORE cannot be destroyed; counting it as leftover never unclaims
+    let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.structureType !== STRUCTURE_INVADER_CORE && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
 
     // ticksToDowngrade > 19900 is unreachable on a fresh claim (timer
     // starts at 1000), so the claim was never unwound. Destroy then
@@ -42,7 +43,7 @@ const run = function (creep) {
     }
 
 
-    if(creep.room.name !== creep.memory.homeRoom && controller && controller.level == 0 && !controller.reservation && buildings.length > 0 && openControllerPositions.length > 0) {
+    if(creep.room.name == creep.memory.targetRoom && controller && controller.level == 0 && !controller.reservation && buildings.length > 0 && openControllerPositions.length > 0) {
         if(creep.pos.isNearTo(controller)) {
             creep.claimController(controller);
             creep.signController(creep.room.controller, "check out my YT channel - marlyman123")

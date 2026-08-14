@@ -545,15 +545,16 @@ global.showBoosts = function () {
 
 global.lock_room = function (homeRoom, targetRoom) {
     let room = Game.rooms[homeRoom];
+    if(!room) return;
     let storage = room.storage
-    if(room && room.controller.level === 8 && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 1000 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2000  && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1000) {
+    if(room.controller && room.controller.level === 8 && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 1000 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2000  && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1000) {
 
-
-        let newName3 = 'Escort' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName3, {memory: {role: 'Escort', targetRoom: targetRoom, homeRoom:room.name, line:1, boostlabs:[room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; }) }});
-        console.log('Adding Escort to Spawn List: ' + newName3);
-
-        if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
+        // Guard labs like mosquito/SMDP: missing labs/status used to throw
+        // after the Escort was queued, so the claimer/locker never spawned.
+        let escortBoostLabs = [];
+        if(room.memory.labs && room.memory.labs.status) {
+            escortBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
+        if(!room.memory.labs.status.boost) {
             room.memory.labs.status.boost = {};
         }
         if(room.memory.labs.status.boost) {
@@ -594,6 +595,11 @@ global.lock_room = function (homeRoom, targetRoom) {
                 room.memory.labs.status.boost.lab7.use = 1;
             }
         }
+        }
+
+        let newName3 = 'Escort' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName3, {memory: {role: 'Escort', targetRoom: targetRoom, homeRoom:room.name, line:1, boostlabs:escortBoostLabs }});
+        console.log('Adding Escort to Spawn List: ' + newName3);
 
         let newName4 = 'Claimer' + Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.push([CLAIM, MOVE], newName4, {memory: {role: 'claimer', targetRoom: targetRoom, homeRoom:room.name}});
@@ -633,6 +639,18 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         let huntingBoostLabs = [];
         let huntingClaimBoostLabs = [];
         if(room.memory.labs && room.memory.labs.status) {
+        // CLAIM parts cannot be boosted; Boost() never drops those labs, so
+        // the party parks forever on an empty T3 reservation. Refuse to
+        // queue unless storage can actually fund the charge amounts.
+        let huntingStore: any = room.storage;
+        if (!huntingStore ||
+            (huntingStore.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] || 0) < amountZYN_ALK ||
+            (huntingStore.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] || 0) < amountGHO_ALK ||
+            (huntingStore.store[RESOURCE_CATALYZED_UTRIUM_ACID] || 0) < 300 ||
+            (huntingStore.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] || 0) < 1200 ||
+            (huntingStore.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] || 0) < 600) {
+            return;
+        }
         huntingBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab3, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
         huntingClaimBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
         if(!room.memory.labs.status.boost) {
@@ -764,9 +782,11 @@ global.SMDP = function (roomName, targetRoomName) {
         let storage: any = Game.getObjectById(room.memory.Structures.storage);
         if (storage && Game.rooms[targetRoomName].controller.my &&
             Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode &&
+            // This body is 40A+10M — no TOUGH — so outputLab7 (XGHO2) is not
+            // a boost slot and must not veto the spawn.
             (!labsReady || (storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 1200 &&
             storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
-            room.memory.labs.outputLab3 && room.memory.labs.outputLab2 && room.memory.labs.outputLab7))) {
+            room.memory.labs.outputLab3 && room.memory.labs.outputLab2))) {
 
             let body = [
                 ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK, ATTACK,
@@ -2195,9 +2215,12 @@ global.SRD = function (roomName, targetRoomName) {
 }
 
 global.SC = function (targetRoomName, x, y) {
-    if(typeof targetRoomName !== 'string' || typeof x !== 'number' || typeof y !== 'number' || 
-       x < 0 || x > 49 || y < 0 || y > 49) {
-        return "Invalid parameters: x and y must be numbers between 0-49, targetRoomName must be a string";
+    // Spawn tile must be interior (1..48). Exit-band 0/49 is illegal for a
+    // spawn. AutoExpand may still overwrite this entry (R6.126 deferred);
+    // this helper only validates the console args.
+    if(typeof targetRoomName !== 'string' || typeof x !== 'number' || typeof y !== 'number' ||
+       x < 1 || x > 48 || y < 1 || y > 48) {
+        return "Invalid parameters: x and y must be numbers between 1-48, targetRoomName must be a string";
     }
     if(!Memory.target_colonise) {
         Memory.target_colonise = {};

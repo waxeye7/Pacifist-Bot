@@ -1,12 +1,41 @@
 import { interiorMove } from "utils/Interior";
 
+/**
+ * Boost() only drops a lab when mineral<30 AND TTL<1100; a wrong mineral
+ * >=30 parks the defender for the whole raid. Drop unusable labs, and
+ * give up after 50 ticks so a raid-spawned body still reaches the wall.
+ * Returns false when the caller must keep waiting at the lab.
+ */
+export function finishBoostOrGiveUp(creep: any): boolean {
+    if (!creep.memory.boostlabs || creep.memory.boostlabs.length == 0) return true;
+
+    creep.memory.boostlabs = creep.memory.boostlabs.filter(function (id: string) {
+        const lab: any = Game.getObjectById(id);
+        if (!lab) return false;
+        if (!lab.mineralType || lab.mineralAmount < 30) return true;
+        for (const part of creep.body) {
+            if (!part.boost && BOOSTS[part.type] && BOOSTS[part.type][lab.mineralType]) {
+                return true;
+            }
+        }
+        return false;
+    });
+    if (creep.memory.boostlabs.length == 0) return true;
+
+    creep.memory.boostWait = (creep.memory.boostWait || 0) + 1;
+    if (creep.memory.boostWait > 50) {
+        creep.memory.boostlabs = [];
+        return true;
+    }
+    return !!creep.Boost();
+}
+
 const run = function (creep:any) {
 
     creep.memory.moving = false;
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0 && creep.room.memory.danger) {
-        let result = creep.Boost();
-        if(!result) {
+        if(!finishBoostOrGiveUp(creep)) {
             return;
         }
     }
@@ -67,32 +96,13 @@ const run = function (creep:any) {
 
 
 
-            if(!creep.memory.myRampartToMan || (creep.ticksToLive % 3 == 0 && enemyCreeps.length == 1 || creep.ticksToLive % 20 == 0 && enemyCreeps.length > 1)) {
-
-                let roomRampartTarget:any = Game.getObjectById(creep.room.memory.rampartToMan);
-
-                let rangeFromCreepToCreep;
-                let rangeFromRampartToCreep;
-                let storage = creep.room.storage;
-                if(roomRampartTarget) {
-                    let closestEnemyCreepToRoomRampart = roomRampartTarget.pos.findClosestByRange(enemyCreeps);
-                    if(closestEnemyCreepToRoomRampart) {
-                        rangeFromRampartToCreep = roomRampartTarget.pos.getRangeTo(closestEnemyCreepToRoomRampart);
-                        rangeFromCreepToCreep = creep.pos.getRangeTo(closestEnemyCreep);
-                    }
-                }
-                if(rangeFromCreepToCreep && rangeFromRampartToCreep) {
-                    // Switch if assigned shell rampart is closer to the fight than we are
-                    if (rangeFromCreepToCreep > rangeFromRampartToCreep && rangeFromCreepToCreep > 4) {
-                        creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
-                    }
-
-                }
-                else {
+            // Defence writes a unique myRampartToMan per defender. Copying
+            // the shared room tile here re-collapsed everyone onto one seat.
+            // Fall back only when our id is missing or dead.
+            if(!creep.memory.myRampartToMan || !Game.getObjectById(creep.memory.myRampartToMan)) {
+                if(creep.room.memory.rampartToMan) {
                     creep.memory.myRampartToMan = creep.room.memory.rampartToMan;
                 }
-
-
             }
 
 
@@ -145,8 +155,15 @@ const run = function (creep:any) {
             }
         }
     }
-    else if(!creep.room.memory.danger && creep.ticksToLive < 50) {
-        creep.recycle();
+    else {
+        // Stale seat survived peacetime and made the next raid start on
+        // last fight's tile (often the wrong side of the shell).
+        if(creep.memory.myRampartToMan) {
+            delete creep.memory.myRampartToMan;
+        }
+        if(creep.ticksToLive < 50) {
+            creep.recycle();
+        }
     }
 }
 

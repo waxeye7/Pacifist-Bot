@@ -9,6 +9,23 @@ const run = function (creep) {
     ;
     creep.memory.moving = false;
 
+    // Honor defence's flee step (issued before creeps run; moving here would
+    // overwrite it). Same gate as builder/carry.
+    if(creep.memory.fleeing) {
+        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
+        let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0);
+        let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0);
+        if(rangedHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(rangedHostiles)) <= 8) {
+            return;
+        }
+        else if(meleeHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(meleeHostiles)) <= 6) {
+            return;
+        }
+    }
+    else if(!creep.room.memory.danger) {
+        creep.memory.fleeing = false;
+    }
+
     if(creep.memory.suicide) {
         creep.recycle();
         return;
@@ -100,7 +117,11 @@ const run = function (creep) {
             }
         }
 
-        if(creep.room.memory.danger_timer > 0 && storage) {
+        // Clip to the hub only while hostiles are actually here. danger_timer
+        // decays for many ticks after the raid; sit-tight is keyed off
+        // dangerNow, so a trailing clip emptied the list and they suicided
+        // instead of going back to outpost roads.
+        if(dangerNow(creep.room) && storage) {
             buildingsToRepair = buildingsToRepair.filter(function(b) {return storage.pos.getRangeTo(b) <= 10;});
         }
 
@@ -143,7 +164,9 @@ const run = function (creep) {
     }
     else if(storage) {
         if(creep.pos.isNearTo(storage)) {
-            creep.withdraw(storage, RESOURCE_ENERGY);
+            // withdrawStorage owns the floor/cap. A bare withdraw emptied
+            // the bank reserved for fillers.
+            creep.withdrawStorage(storage);
         }
         else {
             if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)

@@ -19,26 +19,30 @@ import { isUndeliverable } from "utils/Reachability";
  * Containers and storage are the sinks that always exist. Order is by value:
  * anything that keeps the energy usable beats anything that just parks it.
  */
+function canDumpAt(room, s) {
+    return s && s.store && s.store.getFreeCapacity() > 0 && !isUndeliverable(room, s.id);
+}
+
 function findLocked(creep) {
     creep.memory.locked = false;
 
     // 1) real storage — never full in practice
     const storage = creep.room.storage;
-    if (storage && storage.my && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+    if (storage && storage.my && canDumpAt(creep.room, storage)) {
         creep.memory.locked = storage.id;
         return storage;
     }
 
     // 2) terminal below its working level
     let terminal = creep.room.terminal;
-    if (terminal && terminal.store[RESOURCE_ENERGY] < 10000) {
+    if (terminal && terminal.store[RESOURCE_ENERGY] < 10000 && canDumpAt(creep.room, terminal)) {
         creep.memory.locked = terminal.id;
         return terminal;
     }
 
     // 3) hungry towers first when the room is otherwise fed
     if(creep.room.energyCapacityAvailable /1.5 < creep.room.energyAvailable) {
-        let towers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200)});
+        let towers = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store[RESOURCE_ENERGY] < 200 && canDumpAt(creep.room, building))});
         if(towers.length > 0) {
             let closestTower = creep.pos.findClosestByRange(towers);
             creep.memory.locked = closestTower.id;
@@ -58,7 +62,7 @@ function findLocked(creep) {
     const structures = creep.room.memory.Structures || {};
     for (const key of ["bin", "storage", "container", "controllerLink"]) {
         const s: any = structures[key] ? Game.getObjectById(structures[key]) : null;
-        if (s && s.store && s.structureType == STRUCTURE_CONTAINER && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
+        if (s && s.structureType == STRUCTURE_CONTAINER && canDumpAt(creep.room, s)) {
             creep.memory.locked = s.id;
             return s;
         }
@@ -67,7 +71,7 @@ function findLocked(creep) {
     // 6) ANY container with room, closest first. This is what makes the fleet's
     //    floor energy recoverable at all below RCL4.
     const containers = creep.room.find(FIND_STRUCTURES, {filter: (b: any) =>
-        b.structureType == STRUCTURE_CONTAINER && b.store.getFreeCapacity(RESOURCE_ENERGY) > 0});
+        b.structureType == STRUCTURE_CONTAINER && canDumpAt(creep.room, b)});
     if (containers.length > 0) {
         const closest = creep.pos.findClosestByRange(containers);
         creep.memory.locked = closest.id;
@@ -75,7 +79,7 @@ function findLocked(creep) {
     }
 
     // 7) last resort: a tower, even a full-ish one
-    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && building.store.getFreeCapacity(RESOURCE_ENERGY) > 0)});
+    let towers2 = creep.room.find(FIND_MY_STRUCTURES, {filter: building => (building.structureType == STRUCTURE_TOWER && canDumpAt(creep.room, building))});
     if(towers2.length > 0) {
         let closestTower = creep.pos.findClosestByRange(towers2);
         creep.memory.locked = closestTower.id;
@@ -190,9 +194,15 @@ function giveToNeighbour(creep): boolean {
 
             if(target) {
                 if(creep.pos.isNearTo(target)) {
-                    creep.transfer(target, RESOURCE_ENERGY);
-                    if(creep.store[RESOURCE_ENERGY] == 0) {
+                    // Sweep picks up minerals; energy-only transfer left a
+                    // mineral-full sweeper parked on a spawn transferring nothing.
+                    const resource = Object.keys(creep.store)[0];
+                    const r = resource ? creep.transfer(target, resource) : ERR_NOT_ENOUGH_RESOURCES;
+                    if(creep.store.getUsedCapacity() == 0) {
                         creep.memory.full = false;
+                    }
+                    else if(r !== 0) {
+                        creep.memory.locked = false;
                     }
                     else {
                         const next: any = findLocked(creep);

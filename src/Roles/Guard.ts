@@ -48,12 +48,14 @@ const run = function (creep) {
     if(creep.memory.again && !creep.memory.ttgh) {
         creep.memory.ttgh = 1500 - creep.ticksToLive;
     }
-    if(creep.memory.again && (creep.memory.ttgh && creep.ticksToLive === creep.memory.ttgh + 150 || creep.hits < creep.hitsMax / 2 && enemyCreeps && enemyCreeps.length && creep.pos.findInRange(enemyCreeps, 3).length)) {
-        global.SMDP(creep.memory.homeRoom, creep.memory.targetRoom);
-    }
-
     if(!enemyCreeps) {
         enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
+    }
+    // HP arm used enemyCreeps before the target-room find (always undefined).
+    // Latch: otherwise the now-live HP check restacks SMDP every tick.
+    if(creep.memory.again && !creep.memory.smdpCalled && (creep.memory.ttgh && creep.ticksToLive <= creep.memory.ttgh + 150 || creep.hits < creep.hitsMax / 2 && enemyCreeps.length && creep.pos.findInRange(enemyCreeps, 3).length)) {
+        global.SMDP(creep.memory.homeRoom, creep.memory.targetRoom);
+        creep.memory.smdpCalled = true;
     }
 
     if(enemyCreeps.length > 0) {
@@ -204,11 +206,6 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
         }
     }
 
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        costs.set(eCreep.pos.x, eCreep.pos.y, 255);
-    }
-
     room.find(FIND_MY_CONSTRUCTION_SITES).forEach(function(site) {
         if(site.structureType !== STRUCTURE_CONTAINER && site.structureType !== STRUCTURE_ROAD && site.structureType !== STRUCTURE_RAMPART) {
             costs.set(site.pos.x, site.pos.y, 255);
@@ -230,6 +227,9 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
         else if(struct.structureType == STRUCTURE_RAMPART && struct.my) {
             return;
         }
+        else if(struct.structureType == STRUCTURE_WALL || (struct.structureType == STRUCTURE_RAMPART && !struct.my)) {
+            costs.set(struct.pos.x, struct.pos.y, 255);
+        }
         else {
             if(struct.hits >= 5000000) {
                 costs.set(struct.pos.x, struct.pos.y, 175);
@@ -249,6 +249,12 @@ const GoToTheController = (roomName: string): boolean | CostMatrix => {
 
         }
     });
+
+    // hostiles after roads so a road tile does not un-block a 255 occupant
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        costs.set(eCreep.pos.x, eCreep.pos.y, 255);
+    }
     return costs;
 }
 

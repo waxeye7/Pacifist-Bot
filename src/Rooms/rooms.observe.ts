@@ -1,3 +1,60 @@
+/** True when a claimer is already committed to `adj` (live or queued, any home). */
+function claimTargetBusy(adj: string): boolean {
+    if (Memory.target_colonise && Memory.target_colonise.room === adj) return true;
+    for (const name in Game.creeps) {
+        const c = Game.creeps[name];
+        if (!c || !c.memory || c.memory.targetRoom !== adj) continue;
+        if (c.memory.role === "claimer" || c.memory.role === "Claimer") return true;
+    }
+    for (const rName in Game.rooms) {
+        const r = Game.rooms[rName];
+        if (!r.controller || !r.controller.my || !r.memory.spawn_list) continue;
+        const list = r.memory.spawn_list;
+        // flat [body, name, opts] triples - the memory lives on the opts slot
+        for (let i = 0; i + 2 < list.length; i += 3) {
+            const opts: any = list[i + 2];
+            const mem = opts && opts.memory;
+            if (mem && (mem.role === "claimer" || mem.role === "Claimer") && mem.targetRoom === adj) return true;
+        }
+    }
+    return false;
+}
+
+/** True when a combat wave is already live or queued for this target. */
+function observeWaveInFlight(homeRoom: any, targetRoom: string): boolean {
+    for (const name in Game.creeps) {
+        const c = Game.creeps[name];
+        if (!c || !c.memory || c.memory.targetRoom !== targetRoom) continue;
+        const role = c.memory.role;
+        if (
+            role === "Guard" ||
+            role === "CCK" ||
+            role === "CCKparty" ||
+            role === "Solomon" ||
+            role === "ram" ||
+            role === "signifer" ||
+            role === "mosquito" ||
+            (typeof role === "string" && role.indexOf("SquadCreep") === 0)
+        ) {
+            return true;
+        }
+    }
+    const cmds = Memory.commandsToExecute;
+    if (cmds) {
+        for (const cmd of cmds) {
+            if (cmd && cmd.targetRoom === targetRoom) return true;
+        }
+    }
+    const list = homeRoom.memory && homeRoom.memory.spawn_list;
+    if (list) {
+        for (let i = 0; i < list.length; i++) {
+            const mem = list[i] && list[i].memory;
+            if (mem && mem.targetRoom === targetRoom) return true;
+        }
+    }
+    return false;
+}
+
 function observe(room) {
     let interval = 64;
     let twoTimesInterval = interval*2
@@ -182,7 +239,7 @@ function observe(room) {
                       buildings.length > 0 &&
                       !Game.rooms[adj].controller.reservation
                     ) {
-                      if (Memory.CanClaimRemote >= 1) {
+                      if (Memory.CanClaimRemote >= 1 && !claimTargetBusy(adj)) {
                         let canReachController = true;
 
                         let nameOfRoomsWithExits = Object.values(Game.map.describeExits(adj));
@@ -338,7 +395,8 @@ function observe(room) {
                       openControllerPositions &&
                       openControllerPositions.length == 0 &&
                       !Game.rooms[adj].controller.reservation &&
-                      Memory.CanClaimRemote >= 1
+                      Memory.CanClaimRemote >= 1 &&
+                      !claimTargetBusy(adj)
                     ) {
                       let found = false;
 
@@ -415,7 +473,7 @@ function observe(room) {
                         console.log("Adding DismantleControllerWalls to Spawn List: " + newName);
                       }
                     }
-                  } else if (Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode) {
+                  } else if (Game.rooms[adj].controller.level == 2 && !Game.rooms[adj].controller.safeMode && !observeWaveInFlight(room, adj)) {
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                     let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                     if (hostileSpawns.length > 0 && hostileCreeps.length > 0) {
@@ -528,13 +586,16 @@ function observe(room) {
                     }
                   } else if (
                     (Game.rooms[adj].controller.level == 3 || Game.rooms[adj].controller.level == 4) &&
-                    !Game.rooms[adj].controller.safeMode
+                    !Game.rooms[adj].controller.safeMode &&
+                    !observeWaveInFlight(room, adj)
                   ) {
                     let controllerFreePositions = Game.rooms[adj].controller.pos.getOpenPositionsIgnoreCreeps().length;
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                     let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
+                    // Charge is not a presence test: an empty tower still
+                    // refills and would otherwise draw a melee Guard.
                     let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                      filter: s => s.structureType == STRUCTURE_TOWER
                     });
                     if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
                       // if(controllerFreePositions > 1 && room.storage && room.storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 2000 && room.storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 3000 && room.storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 1000 && room.storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 2000) {
@@ -666,11 +727,11 @@ function observe(room) {
                         targetRoom: adj
                       });
                     }
-                  } else if (Game.rooms[adj].controller.level == 5 && !Game.rooms[adj].controller.safeMode) {
+                  } else if (Game.rooms[adj].controller.level == 5 && !Game.rooms[adj].controller.safeMode && !observeWaveInFlight(room, adj)) {
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                     let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                     let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                      filter: s => s.structureType == STRUCTURE_TOWER
                     });
                     if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
                       global.SD(room.name, adj, true);
@@ -799,12 +860,13 @@ function observe(room) {
                   //   !Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType === STRUCTURE_LAB}).length
                   else if (
                     (Game.rooms[adj].controller.level == 6 || Game.rooms[adj].controller.level == 7 || Game.rooms[adj].controller.level == 8) &&
-                    !Game.rooms[adj].controller.safeMode
+                    !Game.rooms[adj].controller.safeMode &&
+                    !observeWaveInFlight(room, adj)
                   ) {
                     let hostileSpawns = Game.rooms[adj].find(FIND_HOSTILE_SPAWNS);
                     let hostileCreeps = Game.rooms[adj].find(FIND_HOSTILE_CREEPS);
                     let hostileTowers = Game.rooms[adj].find(FIND_HOSTILE_STRUCTURES, {
-                      filter: s => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] > 9
+                      filter: s => s.structureType == STRUCTURE_TOWER
                     });
                     if (hostileSpawns.length > 0 && hostileTowers.length > 0) {
                       if (Game.cpu.bucket >= 8000) {
@@ -828,6 +890,24 @@ function observe(room) {
                         } else {
                             global.SS(room.name, adj);
                         }
+                      } else {
+                        // Boosted-only arms left this empty below 5k bucket,
+                        // so a charged tower room got no response at all.
+                        Memory.commandsToExecute.push({
+                          delay: 1,
+                          bucketNeeded: 7000,
+                          formation: "RangedQuad",
+                          homeRoom: room.name,
+                          Boosted: false,
+                          targetRoom: adj
+                        });
+                        Memory.commandsToExecute.push({
+                          delay: 500,
+                          bucketNeeded: 8000,
+                          formation: "CCK",
+                          homeRoom: room.name,
+                          targetRoom: adj
+                        });
                       }
                     } else if (hostileSpawns.length > 0 && hostileCreeps.length > 0 && hostileTowers.length === 0) {
                       global.SGD(room.name, adj, [
@@ -904,6 +984,35 @@ function observe(room) {
                       ]);
                       Memory.commandsToExecute.push({
                         delay: 1000,
+                        bucketNeeded: 8000,
+                        formation: "CCK",
+                        homeRoom: room.name,
+                        targetRoom: adj
+                      });
+                    } else if (hostileCreeps.length && !hostileSpawns.length && !hostileTowers.length) {
+                      // RCL3-5 have this leftover-creep cleanup; without it
+                      // a dead RCL6-8 spawn left armed creeps unanswered.
+                      let armedHostileCreeps = hostileCreeps.filter(
+                        c => c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
+                      );
+                      if (!armedHostileCreeps.length) {
+                        global.SGD(room.name, adj, [
+                          MOVE,
+                          MOVE,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          ATTACK,
+                          MOVE,
+                          MOVE,
+                          MOVE
+                        ]);
+                      } else {
+                        global.SD(room.name, adj, false);
+                      }
+                      Memory.commandsToExecute.push({
+                        delay: 200,
                         bucketNeeded: 8000,
                         formation: "CCK",
                         homeRoom: room.name,

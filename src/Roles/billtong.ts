@@ -6,8 +6,13 @@
     creep.memory.moving = false;
 
     if(creep.memory.suicide) {
-        creep.recycle();
-        return;
+        if(creep.store.getUsedCapacity() > 0) {
+            creep.memory.full = true;
+        }
+        else {
+            creep.recycle();
+            return;
+        }
     }
 
     if(!creep.memory.MaxStorage) {
@@ -231,18 +236,24 @@
                 if(creep.room.name !== creep.memory.targetRoom) {
                     creep.memory.targetRoom = creep.room.name;
                 }
-                if(creep.pos.isNearTo(deposit)) {
+                // flee on the walk in, not only once adjacent — otherwise we
+                // close onto the hostile, home, dump, walk back (yo-yo)
+                if(creep.room.memory.roomData && creep.room.memory.roomData.has_hostile_creeps) {
+                    if(creep.store.getUsedCapacity() > 0) {
+                        creep.memory.full = true;
+                    }
+                    else {
+                        delete creep.memory.deposit;
+                        delete creep.memory.targetRoom;
+                    }
+                }
+                else if(creep.pos.isNearTo(deposit)) {
                     if(!creep.memory.timeToGetHome) {
                         creep.memory.timeToGetHome = 1500 - creep.ticksToLive + 10;
                     }
                     if(deposit.cooldown == 0) {
                         creep.harvest(deposit);
                     }
-
-                    if(creep.room.memory.roomData && creep.room.memory.roomData.has_hostile_creeps) {
-                        creep.memory.full = true;
-                    }
-
 
                     if(Game.time % 10 == 0) {
                         let droppedResources = creep.room.find(FIND_DROPPED_RESOURCES, {filter: r => r.pos.getRangeTo(creep) <= 3 && (r.resourceType == RESOURCE_METAL || r.resourceType == RESOURCE_BIOMASS || r.resourceType == RESOURCE_SILICON || r.resourceType == RESOURCE_MIST)});
@@ -261,13 +272,14 @@
                 else {
                     creep.moveTo(deposit);
                 }
-                creep.moveTo(deposit);
             }
 
-            // two-tick equality can be skipped; once TTL is inside the
-            // return window, haul home
+            // dump at home before recycle — suicide used to skip the cargo
             if(creep.memory.timeToGetHome && creep.ticksToLive <= creep.memory.timeToGetHome) {
                 creep.memory.suicide = true;
+                if(creep.store.getUsedCapacity() > 0) {
+                    creep.memory.full = true;
+                }
             }
         }
 

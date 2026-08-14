@@ -7,20 +7,6 @@ const run = function (creep) {
 
 
     if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
-        let enemyCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-
-        if(enemyCreeps.length > 0) {
-            let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
-
-            if(creep.attack(closestEnemyCreep) == ERR_NOT_IN_RANGE) {
-                creep.moveTo(closestEnemyCreep);
-                return;
-            }
-            if(creep.attack(closestEnemyCreep) == 0) {
-                creep.moveTo(closestEnemyCreep);
-                return;
-            }
-        }
         return creep.moveToRoom(creep.memory.targetRoom);
     }
     else {
@@ -40,18 +26,6 @@ const run = function (creep) {
                 filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR});
         }
 
-        if(lowHitWalls.length > 0) {
-            let closestLowHitWall = creep.pos.findClosestByRange(lowHitWalls);
-            if(creep.pos.isNearTo(closestLowHitWall)) {
-                creep.attack(closestLowHitWall);
-            }
-            else{
-                creep.moveTo(closestLowHitWall);
-            }
-            return;
-        }
-
-
         if(enemyCreeps.length > 0) {
             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
 
@@ -63,6 +37,18 @@ const run = function (creep) {
                 creep.moveTo(closestEnemyCreep);
                 return;
             }
+        }
+
+        // walls after creeps; skip while recycling so this return cannot eat the recycle tail
+        if(lowHitWalls.length > 0 && creep.memory.targetRoom && !creep.memory.suicide) {
+            let closestLowHitWall = creep.pos.findClosestByRange(lowHitWalls);
+            if(creep.pos.isNearTo(closestLowHitWall)) {
+                creep.attack(closestLowHitWall);
+            }
+            else{
+                creep.moveTo(closestLowHitWall);
+            }
+            return;
         }
 
         if(Structures.length > 0) {

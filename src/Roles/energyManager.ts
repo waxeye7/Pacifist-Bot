@@ -6,6 +6,37 @@
 // Decrement the boost ledger only after a successful withdraw, and only as
 // much as the lab can hold. Decrement-before-withdraw left amount at 0 while
 // the compound bounced storage <-> creep and the lab stayed under-filled.
+const REACTION_STOCK_MIN = 1000;
+
+function storeAmt(s, res) {
+    return (s && s.store && s.store[res]) || 0;
+}
+
+/** Feed an input lab from whichever store actually holds the reagent. */
+function refillInputLab(creep, lab, resource, storage, terminal, MaxStorage) {
+    if(!lab || !resource) return false;
+    const needs = lab.mineralType == undefined ||
+        (lab.mineralType == resource && lab.store[resource] < MaxStorage - 20);
+    if(!needs) return false;
+    const combined = storeAmt(storage, resource) + storeAmt(terminal, resource);
+    // labs.ts starts the reaction at combined >= 1000. Demanding MaxStorage
+    // (800 at RCL8) in ONE store leaves a 500+500 pile unfed forever.
+    if(combined < REACTION_STOCK_MIN && lab.mineralType != resource) return false;
+    const from = storeAmt(storage, resource) > 0 ? storage
+        : (storeAmt(terminal, resource) > 0 ? terminal : null);
+    if(!from) return false;
+    if(creep.pos.isNearTo(from)) {
+        const want = Math.min(MaxStorage, creep.store.getFreeCapacity(), storeAmt(from, resource));
+        if(want > 0) {
+            creep.withdraw(from, resource, want);
+            creep.memory.target = lab.id;
+        }
+        return true;
+    }
+    creep.MoveCostMatrixRoadPrio(from, 1);
+    return true;
+}
+
 function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
     if(!outputLab || !boost || !storage) return false;
     let labFree = outputLab.store.getFreeCapacity(resource);
@@ -89,10 +120,19 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
             creep.memory.target = false;
         }
         else if(creep.pos.isNearTo(target)) {
-            for(let resource in creep.store) {
-                if(creep.transfer(target, resource) !== 0) {
+            // One resource per tick. Clearing on any non-OK (ERR_FULL, or
+            // ERR_BUSY from a second type) dropped leftover cargo into the
+            // next withdraw — leftover G sat until death; leftover energy
+            // walked into input labs.
+            const resource = Object.keys(creep.store)[0];
+            if(resource) {
+                const r = creep.transfer(target, resource);
+                if(r == ERR_FULL || r == ERR_INVALID_TARGET || r == ERR_NOT_OWNER || r == ERR_INVALID_ARGS) {
                     creep.memory.target = false;
                 }
+            }
+            if(creep.store.getUsedCapacity() == 0) {
+                creep.memory.target = false;
             }
         }
         else {
@@ -106,8 +146,19 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
         let closestLink = Game.getObjectById(creep.memory.closestLink) || creep.findClosestLinkToStorage();
         let bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
 
-        if(creep.store.getFreeCapacity() == 0) {
-            creep.memory.target = storage.id;
+        // Partial cargo dumps to storage before any new withdraw. Full-only
+        // used to skip this and pick a lab/factory/nuker with leftover G.
+        if(creep.store.getUsedCapacity() > 0) {
+            if(storage) {
+                creep.memory.target = storage.id;
+                if(creep.pos.isNearTo(storage)) {
+                    const resource = Object.keys(creep.store)[0];
+                    if(resource) creep.transfer(storage, resource);
+                }
+                else {
+                    creep.MoveCostMatrixRoadPrio(storage, 1);
+                }
+            }
             return;
         }
 
@@ -199,7 +250,9 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab1.amount) {
+                        // takeBoostFromStorage already min(amount, carry, labFree);
+                        // requiring storage >= amount skipped every partial fill.
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab1, RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
                                 return;
                             }
@@ -224,7 +277,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab2.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab2, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE)) {
                                 return;
                             }
@@ -247,7 +300,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_UTRIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= creep.room.memory.labs.status.boost.lab3.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_UTRIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab3, RESOURCE_CATALYZED_UTRIUM_ACID)) {
                                 return;
                             }
@@ -271,7 +324,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab4.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab4, RESOURCE_CATALYZED_KEANIUM_ALKALIDE)) {
                                 return;
                             }
@@ -295,7 +348,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab5.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab5, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE)) {
                                 return;
                             }
@@ -318,7 +371,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] >= creep.room.memory.labs.status.boost.lab6.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab6, RESOURCE_CATALYZED_ZYNTHIUM_ACID)) {
                                 return;
                             }
@@ -341,7 +394,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab7.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab7, RESOURCE_CATALYZED_GHODIUM_ALKALIDE)) {
                                 return;
                             }
@@ -368,7 +421,7 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                             }
                             return;
                         }
-                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == resource) && storage && storage.store[resource] >= creep.room.memory.labs.status.boost.lab8.amount) {
+                        else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == resource) && storage && storage.store[resource] > 0) {
                             if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab8, resource)) {
                                 return;
                             }
@@ -391,51 +444,10 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
 
             }
 
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < MaxStorage-20) &&
-            storage && storage.store[lab1Input] >= MaxStorage) {
-                if(creep.pos.isNearTo(storage)) {
-                    creep.withdraw(storage, lab1Input);
-                    creep.memory.target = inputLab1.id;
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(storage, 1);
-                }
+            if(refillInputLab(creep, inputLab1, lab1Input, storage, terminal, MaxStorage)) {
                 return;
             }
-
-            if((inputLab1 && inputLab1.mineralType == undefined || inputLab1 && inputLab1.mineralType == lab1Input && inputLab1.store[inputLab1.mineralType] < MaxStorage-20) &&
-            terminal && terminal.store[lab1Input] >= MaxStorage) {
-                if(creep.pos.isNearTo(terminal)) {
-                    creep.withdraw(terminal, lab1Input);
-                    creep.memory.target = inputLab1.id;
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(terminal, 1);
-                }
-                return;
-            }
-
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < MaxStorage-20) &&
-            storage && storage.store[lab2Input] >= MaxStorage) {
-                if(creep.pos.isNearTo(storage)) {
-                    creep.withdraw(storage, lab2Input);
-                    creep.memory.target = inputLab2.id;
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(storage, 1);
-                }
-                return;
-            }
-
-            if((inputLab2 && inputLab2.mineralType == undefined || inputLab2 && inputLab2.mineralType == lab2Input && inputLab2.store[inputLab2.mineralType] < MaxStorage-20) &&
-            terminal && terminal.store[lab2Input] >= MaxStorage) {
-                if(creep.pos.isNearTo(terminal)) {
-                    creep.withdraw(terminal, lab2Input);
-                    creep.memory.target = inputLab2.id;
-                }
-                else {
-                    creep.MoveCostMatrixRoadPrio(terminal, 1);
-                }
+            if(refillInputLab(creep, inputLab2, lab2Input, storage, terminal, MaxStorage)) {
                 return;
             }
         }

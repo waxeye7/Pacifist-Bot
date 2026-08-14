@@ -18,7 +18,7 @@ const run = function (creep) {
         role: "claimer",
         targetRoom: creep.memory.targetRoom,
         homeRoom: room.name,
-        boostlabs: [room.memory.labs.outputLab5, room.memory.labs.outputLab7],
+        boostlabs: ((room.memory.labs && [room.memory.labs.outputLab5, room.memory.labs.outputLab7]) || []).filter(function (id) { return !!id; }),
         line: 2
       }
     });
@@ -27,7 +27,7 @@ const run = function (creep) {
     if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
       room.memory.labs.status.boost = {};
   }
-  if(room.memory.labs.status.boost) {
+  if(room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost) {
       if(room.memory.labs.status.boost.lab5) {
           room.memory.labs.status.boost.lab5.amount += 60;
           room.memory.labs.status.boost.lab5.use += 1;

@@ -20,13 +20,29 @@
         return;
     }
 
-    if(!creep.memory.myhealer || creep.room.name === creep.memory.homeRoom && creep.ticksToLive < 1400 && Game.time % 100 === 0) {
-        let creepsInRoom = creep.room.find(FIND_MY_CREEPS, {filter: (c) => {return (c.memory.role == "signifer");}});
+    // 1:1 pair via mutual back-pointers. Longest-TTL + %100 rebind let
+    // two rams steal one signifer and strand the rest.
+    if(creep.memory.myhealer) {
+        let bound:any = Game.getObjectById(creep.memory.myhealer);
+        if(bound && bound.memory.healtarget && bound.memory.healtarget !== creep.id && Game.getObjectById(bound.memory.healtarget)) {
+            delete creep.memory.myhealer;
+        }
+        else if(bound && !bound.memory.healtarget) {
+            bound.memory.healtarget = creep.id;
+        }
+    }
+    if(!creep.memory.myhealer) {
+        let creepsInRoom = creep.room.find(FIND_MY_CREEPS, {filter: (c) => {
+            if(c.memory.role != "signifer") return false;
+            if(!c.memory.healtarget || c.memory.healtarget === creep.id) return true;
+            return !Game.getObjectById(c.memory.healtarget);
+        }});
         if(creepsInRoom.length > 0) {
             creepsInRoom.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.myhealer = creepsInRoom[0].id;
+            creepsInRoom[0].memory.healtarget = creep.id;
         }
-        else if(!creep.memory.myhealer && creep.room.name !== creep.memory.homeRoom) {
+        else if(creep.room.name !== creep.memory.homeRoom) {
             creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
         }
     }
@@ -241,7 +257,9 @@
                     creep.moveTo(myhealer);
 
                 }
-                else if(myhealer && creep.pos.getRangeTo(enemycreep) <= 4 && enemyCreepExposed && !PathFinder.search(creep.pos, {pos:enemycreep.pos, range:1},
+                // last move wins: chasing while the healer is detached
+                // overwrites the adjacency wait the pair pathing uses
+                else if(myhealer && myhealer.pos.isNearTo(creep) && creep.pos.getRangeTo(enemycreep) <= 4 && enemyCreepExposed && !PathFinder.search(creep.pos, {pos:enemycreep.pos, range:1},
                     {
                         maxOps: 400,
                         maxRooms: 1,
