@@ -254,7 +254,6 @@ function giveToNeighbour(creep): boolean {
         }
 
     }
-    creep.memory.moving = false;
 
 
 }

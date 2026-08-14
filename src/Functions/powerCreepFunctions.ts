@@ -296,6 +296,14 @@ PowerCreep.prototype.MoveCostMatrixRoadPrio = function MoveCostMatrixRoadPrio(ta
                 }
                 );
 
+            if(!path || !path.path || path.path.length == 0) {
+                this.memory.path = false;
+                delete this.memory.MoveTargetId;
+                this.moveTo(target, {range: range, reusePath: 5});
+                this.memory.moving = true;
+                return;
+            }
+
             let pos = path.path[0];
             let direction = this.pos.getDirectionTo(pos);
 

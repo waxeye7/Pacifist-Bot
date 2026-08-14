@@ -43,6 +43,7 @@ function findLocked(creep) {
 
 
 const run = function (creep) {
+    creep.memory.moving = false;
 
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;

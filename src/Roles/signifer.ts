@@ -27,6 +27,9 @@
             creep.memory.healtarget = creepsInRoom[0].id;
             if(!creep.memory.healtarget)return;
         }
+        else if(creep.room.name !== creep.memory.homeRoom) {
+            creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        }
     }
 
     let hostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
@@ -101,7 +104,8 @@
                 }
             }
 
-            if(creep.hits == creep.hitsMax && (creep.room.name === creep.memory.targetRoom || target.hits !== target.hitsMax && creep.hits < target.hits || hostilesInRangeFour.length)) {
+            // signifer hitsMax is always >= ram; creep.hits < target.hits can never be true while we are full
+            if(creep.hits == creep.hitsMax && (creep.room.name === creep.memory.targetRoom || target.hits < target.hitsMax || hostilesInRangeFour.length)) {
                 creep.heal(target);
             }
             else if(creep.room.name === creep.memory.targetRoom || creep.hits !== creep.hitsMax || hostilesInRangeThree.length) {
@@ -109,7 +113,11 @@
             }
         }
         else {
+            delete creep.memory.healtarget;
             creep.heal(creep);
+            if(creep.room.name !== creep.memory.homeRoom) {
+                creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
         }
     }
     else if(creep.hits !== creep.hitsMax || hostilesInRangeThree.length) {

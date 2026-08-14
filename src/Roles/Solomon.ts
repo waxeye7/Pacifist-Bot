@@ -116,7 +116,8 @@ const run = function (creep:Creep) {
 
     let hostilesInRangeThree = null;
     if(hostilesInRoom.length > 0) {
-        hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3 && creep.getActiveBodyparts(HEAL) < 3;});
+        // own HEAL count is 10-20, so `< 3` made this list always empty and the structure volley overwrote the hostile shot
+        hostilesInRangeThree = hostilesInRoom.filter(function(eC) {return creep.pos.getRangeTo(eC) <= 3;});
         if(hostilesInRangeThree.length > 0) {
 
             let hostilesInRangeThreeNotUnderRampart = [];

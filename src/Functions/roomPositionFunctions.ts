@@ -58,7 +58,14 @@ RoomPosition.prototype.getOpenPositionsIgnoreCreepsCheckStructs = function getOp
 
     let freePositions = _.filter(walkablePositions, function(pos) {
         let lookStructures = pos.lookFor(LOOK_STRUCTURES)
-        return lookStructures.length == 0 || lookStructures.length == 1 && (lookStructures[0].structureType == STRUCTURE_ROAD || lookStructures[0].structureType == STRUCTURE_CONTAINER);});
+        // every structure must be walkable: road+container / road+rampart
+        // stacks used to fail the length==1 test and block claimers/priests
+        return lookStructures.every(function(s) {
+            return s.structureType == STRUCTURE_ROAD
+                || s.structureType == STRUCTURE_CONTAINER
+                || (s.structureType == STRUCTURE_RAMPART && (s.my || s.isPublic));
+        });
+    });
 
     return freePositions;
 }

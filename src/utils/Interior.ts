@@ -469,11 +469,13 @@ export function interiorMove(creep: Creep, target: any, range: number): boolean 
   const tpos: RoomPosition = target.pos || target;
   if (!tpos || typeof tpos.x !== "number") return false;
   if (tpos.roomName && tpos.roomName !== room.name) return false;
-  if (creep.pos.getRangeTo(tpos.x, tpos.y) <= range) return true;
 
   const mem: any = creep.memory;
   const danger = dangerNow(room);
   const outside = c.ext[packOf(creep.pos.x, creep.pos.y)] === 1;
+  // Rule 2 first: already-in-range must not keep an exterior creep under fire
+  // standing on the work target. Run for a gate instead.
+  if (!(danger && outside) && creep.pos.getRangeTo(tpos.x, tpos.y) <= range) return true;
 
   let mode = "p";
   let goal = tpos;
@@ -515,9 +517,10 @@ export function interiorMove(creep: Creep, target: any, range: number): boolean 
 
   const key = mode + packOf(goal.x, goal.y) + "." + goalRange;
   if (creep.fatigue > 0) {
-    // hold the plan but do not let the cache think we stepped
-    mem._imk = key;
-    mem._imt = Game.time;
+    // hold the plan but do not let the cache think we stepped.
+    // stamping a new key onto the old _ip would replay the previous
+    // destination once fatigue drops
+    if (mem._imk === key) mem._imt = Game.time;
     return true;
   }
 

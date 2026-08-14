@@ -416,9 +416,12 @@ const run = function (creep) {
             if(creep.pos.isNearTo(target)) {
                 let result = creep.transfer(target, RESOURCE_ENERGY);
                 if(result == 0) {
-                    let indexOfTargetId = creep.room.memory.reserveFill.indexOf(target.id);
-                    if(indexOfTargetId !== -1) {
-                        creep.room.memory.reserveFill.splice(indexOfTargetId, 1);
+                    let reserveFill = creep.room.memory.reserveFill;
+                    if(reserveFill && reserveFill.length) {
+                        let indexOfTargetId = reserveFill.findIndex(e => e && e.id === target.id);
+                        if(indexOfTargetId !== -1) {
+                            reserveFill.splice(indexOfTargetId, 1);
+                        }
                     }
                 }
                 if(creep.store[RESOURCE_ENERGY] > target.store.getFreeCapacity(RESOURCE_ENERGY)) {

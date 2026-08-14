@@ -26,10 +26,21 @@
             creepsInRoom.sort((a,b) => b.ticksToLive - a.ticksToLive);
             creep.memory.myhealer = creepsInRoom[0].id;
         }
+        else if(!creep.memory.myhealer && creep.room.name !== creep.memory.homeRoom) {
+            creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+        }
     }
 
     if(creep.memory.myhealer) {
         let myhealer:any = Game.getObjectById(creep.memory.myhealer);
+        if(!myhealer) {
+            // partner died; stale id would skip all movement until the homeRoom %100 refresh
+            delete creep.memory.myhealer;
+            if(creep.room.name !== creep.memory.homeRoom) {
+                creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
+            return;
+        }
 
         if(creep.room.name != creep.memory.targetRoom && creep.fatigue == 0 && ((myhealer && myhealer.fatigue == 0 && creep.pos.isNearTo(myhealer)) || creep.pos.x == 0 || creep.pos.y == 0 || creep.pos.x == 49 || creep.pos.y == 49)) {
             creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
@@ -187,9 +198,11 @@
                     new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
                 });
                 console.log(path.incomplete)
-                let pos = path.path[0];
-                let direction = creep.pos.getDirectionTo(pos);
-                creep.move(direction);
+                if(path.path.length > 0) {
+                    let pos = path.path[0];
+                    let direction = creep.pos.getDirectionTo(pos);
+                    creep.move(direction);
+                }
             }
 
         }

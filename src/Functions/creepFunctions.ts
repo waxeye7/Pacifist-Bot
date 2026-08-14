@@ -986,6 +986,27 @@ Creep.prototype.goTo = function goTo(target: any, opts: GoToOpts = {}) {
 
     // multi-room fallback (never visualize — paths-to-edge spam + CPU)
     if (dest.roomName !== this.pos.roomName) {
+        // avoidHostiles is otherwise dropped here: native moveTo walks the
+        // default exit, so a creep leaving mid-raid steps through melee.
+        // Walk the in-room exit on the avoid matrix; once on the border,
+        // native finishes the room change.
+        if (style === "avoidHostiles") {
+            let exitDir: any = Game.map.findExit(this.pos.roomName, dest.roomName);
+            if (!(typeof exitDir === "number" && exitDir > 0)) {
+                const route: any = Game.map.findRoute(this.pos.roomName, dest.roomName);
+                if (route && route !== -2 && route.length > 0) {
+                    exitDir = route[0].exit;
+                }
+            }
+            if (typeof exitDir === "number" && exitDir > 0) {
+                const exit = this.pos.findClosestByRange(exitDir);
+                if (exit && this.pos.getRangeTo(exit) > 0) {
+                    const exitRange = this.pos.getRangeTo(exit) <= 1 ? 0 : 1;
+                    this.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch(exit, exitRange);
+                    return OK;
+                }
+            }
+        }
         return _nativeMoveTo.call(this, dest, {
             range,
             reusePath: opts.reusePath != null ? opts.reusePath : 80,
@@ -1167,7 +1188,9 @@ Creep.prototype.moveToRoomAvoidEnemyRooms = function (targetRoom) {
 
     if (!this.memory.route || this.memory.route === -2 || this.memory.route && this.memory.route.length === 0 || (this.memory.route.length === 1 && this.memory.route[0].room === this.room.name) || (this.memory.route && this.memory.route.length > 0 && this.memory.route[this.memory.route.length - 1].room !== targetRoom)) {
         this.memory.route = Game.map.findRoute(this.room.name, targetRoom, {
-            routeCallback(roomName, fromRoomName) {
+            // arrow keeps `this` as the creep. A shorthand method binds `this`
+            // to the options object, so the highway/SK weights never ran.
+            routeCallback: (roomName, fromRoomName) => {
                 if (Game.map.getRoomStatus(roomName).status !== "normal") {
                     return Infinity;
                 }
@@ -2158,6 +2181,9 @@ Creep.prototype.recycle = function recycle() {
 
 Creep.prototype.RangedAttackFleeFromMelee = function RangedAttackFleeFromMelee(fleeTarget) {
     let FleePath = PathFinder.search(this.pos,{pos:fleeTarget.pos, range:3}, {flee:true});
+    if(!FleePath.path || FleePath.path.length == 0) {
+        return;
+    }
     let FirstPathGuy = FleePath.path[0];
     this.move(this.pos.getDirectionTo(FirstPathGuy));
     return;
@@ -2209,6 +2235,10 @@ Creep.prototype.fleeFromMelee = function(fleeTarget) {
 
     // Use PathFinder with the custom cost matrix and flee set to true
     const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 5 }, { flee: true, roomCallback: (roomName) => costMatrix });
+
+    if(!FleePath.path || FleePath.path.length == 0) {
+        return;
+    }
 
     // Get the next position to move to
     const FirstPathGuy = FleePath.path[0];
@@ -2262,6 +2292,10 @@ Creep.prototype.fleeFromRanged = function(fleeTarget) {
 
     // Use PathFinder with the custom cost matrix and flee set to true
     const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 7 }, { flee: true, roomCallback: (roomName) => costMatrix });
+
+    if(!FleePath.path || FleePath.path.length == 0) {
+        return;
+    }
 
     // Get the next position to move to
     const FirstPathGuy = FleePath.path[0];
@@ -2702,6 +2736,23 @@ const roomCallbackRoadPrio = (roomName: string, role:string|null=null): boolean 
             else if(role !== "EnergyMiner" && creep.memory.role == "EnergyMiner") {
                 costs.set(creep.pos.x, creep.pos.y, 12);
             }
+            // special roles were falling through to 7 (or the moving default)
+            // on later-in-tick cached searches; defenders got shoved off ramparts
+            else if(creep.memory.role == "RampartDefender" || creep.memory.role == "RRD") {
+                costs.set(creep.pos.x, creep.pos.y, 255);
+            }
+            else if(creep.memory.role == "ram" || creep.memory.role == "signifer" || creep.name.startsWith("SquadCreep")) {
+                costs.set(creep.pos.x, creep.pos.y, 100);
+            }
+            else if(creep.memory.role == "CCK" && creep.room.name === creep.memory.targetRoom) {
+                costs.set(creep.pos.x, creep.pos.y, 60);
+            }
+            else if(creep.memory.role == "CCKparty" && creep.room.name === creep.memory.homeRoom) {
+                costs.set(creep.pos.x, creep.pos.y, 60);
+            }
+            else if(creep.memory.role == "SpecialRepair") {
+                costs.set(creep.pos.x, creep.pos.y, 10);
+            }
             else if(creep.memory.role == "filler" || creep.memory.role == "EnergyManager" || creep.memory.moving) {
                 // leave default
             }
@@ -2971,24 +3022,17 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
                 // upper y bound tests `+ o`, not the literal `+ 0`: CostMatrix.set is
                 // unchecked (_bits[x*50+y]), so a y of 50..56 wrote onto column x+1.
                 if(eCreep && eCreep.pos.x + i >= 1 && eCreep.pos.x + i <= 48 && eCreep.pos.y + o >= 1 && eCreep.pos.y + o <= 48) {
-                    if((i >= -4 && i <= 4) || (o >= -4 && o <= 4)) {
-                        if(costs.get(eCreep.pos.x + i, eCreep.pos.y + o) == 5) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 125);
-                        }
-                        else {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 25);
-                        }
-                    }
-                    else {
-                        if(costs.get(eCreep.pos.x + i, eCreep.pos.y + o) == 5) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 120);
-                        }
-                        else {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 24);
+                    // plains here are 3 (5 is never written). `== 5` was dead, and
+                    // the else wrote 24/25 over 255 walls. Band only raises cost.
+                    let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                    if(current < 255) {
+                        let inner = (i >= -4 && i <= 4) || (o >= -4 && o <= 4);
+                        let plains = current == 3 || current == 5;
+                        let band = inner ? (plains ? 125 : 25) : (plains ? 120 : 24);
+                        if(current < band) {
+                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, band);
                         }
                     }
-
-
                 }
             }
         }
@@ -3119,7 +3163,9 @@ Creep.prototype.roomCallbackRoadPrioUpgraderInPosition = function moveRoadPrioUp
         let direction = this.pos.getDirectionTo(pos);
 
         this.move(direction);
-        // this.memory.moving = true;
+        // SwapPositionWithCreep only shoves neighbours that are not moving;
+        // without this flag an in-position upgrader is shoved mid-step.
+        this.memory.moving = true;
         this.memory.path.shift();
         // this.moveByPath(this.memory.path);
      }
@@ -3186,8 +3232,8 @@ const roomCallbackRoadPrioUpgraderInPosition = (roomName: string): boolean | Cos
     _.forEach(room.find(FIND_STRUCTURES, {filter: s => s.id == room.memory.Structures.controllerLink}), function(struct:any) {
         for(let i = -1; i<=1; i++) {
             for(let o = -1; o<=1; o++) {
-                if(costs.get(struct.pos.i, struct.pos.o) !== 255) {
-                    costs.set(struct.pos.i, struct.pos.o, 1);
+                if(struct.pos.x + i >= 0 && struct.pos.x + i <= 49 && struct.pos.y + o >= 0 && struct.pos.y + o <= 49 && costs.get(struct.pos.x + i, struct.pos.y + o) !== 255) {
+                    costs.set(struct.pos.x + i, struct.pos.y + o, 1);
                 }
             }
         }
@@ -3637,7 +3683,12 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            // aura may only raise cost; writing 30 over 255 punched
+                            // walkable holes through walls/buildings into the bunker
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
                         }
                     }
                 }
@@ -3646,7 +3697,10 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
                         }
                     }
                 }
@@ -3656,8 +3710,10 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
         else{
             costs.set(eCreep.pos.x, eCreep.pos.y, 255);
         }
+    }
 
-
+    // seal exits even with zero hostiles; this used to live inside the
+    // hostile loop, so a lingering memory.fleeing creep walked into the next room
     for(let y = 0; y < 50; y++) {
         for(let x = 0; x < 50; x++) {
             if(x == 0 || x == 49 || y == 0 || y == 49) {
@@ -3666,7 +3722,6 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
         }
     }
 
-    }
     return costs;
 }
 
@@ -3679,7 +3734,9 @@ Creep.prototype.MoveCostMatrixRoadPrioAvoidEnemyCreepsMuch = function MoveCostMa
         if(this.memory.path && this.memory.path.length > 0 && (Math.abs(this.pos.x - this.memory.path[0].x) > 1 || Math.abs(this.pos.y - this.memory.path[0].y) > 1)) {
             this.memory.path = false;
         }
-        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target) || target.roomName !== this.room.name) {
+        // roomName lives on .pos (or the RoomPosition itself); target.roomName
+        // is undefined and forced a repath every tick during alarms
+        if(!this.memory.path || this.memory.path.length == 0 || !this.memory.MoveTargetId || this.memory.MoveTargetId != moveKeyOf(target) || ((target.pos && target.pos.roomName) || target.roomName) !== this.room.name) {
             let costMatrix;
             if(this.memory.role == "carry" && this.memory.full == true || this.memory.suicide == true || this.memory.role == "EnergyMiner") {
                 costMatrix = roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull;
@@ -3737,35 +3794,6 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean 
 
     let costs = new PathFinder.CostMatrix;
 
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
-                for(let i=-5; i<5; i++) {
-                    for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-            else {
-                for(let i=-3; i<3; i++) {
-                    for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-
-        }
-        else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
-        }
-
-    }
-
     const terrain = new Room.Terrain(roomName);
 
     for(let y = 0; y <= 49; y++) {
@@ -3799,6 +3827,43 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean 
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+    // terrain+structures first (was: aura then a full-room terrain overwrite
+    // that erased every hostile cost). Aura only raises, never punches 255.
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
+        }
+
+    }
 
 
 
@@ -3845,35 +3910,6 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
 
     let costs = new PathFinder.CostMatrix;
 
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
-                for(let i=-5; i<5; i++) {
-                    for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-            else {
-                for(let i=-3; i<3; i++) {
-                    for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
-                        }
-                    }
-                }
-            }
-
-        }
-        else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
-        }
-
-    }
-
     const terrain = new Room.Terrain(roomName);
 
     for(let y = 0; y <= 49; y++) {
@@ -3907,6 +3943,43 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+    // terrain+structures first so the hostile aura is not wiped by the
+    // full-room terrain loop. Aura only raises, never punches 255.
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 30) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            costs.set(eCreep.pos.x, eCreep.pos.y, 255);
+        }
+
+    }
 
 
 
@@ -3957,36 +4030,6 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
 
     let costs = new PathFinder.CostMatrix;
 
-
-    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
-    for(let eCreep of EnemyCreeps) {
-        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
-            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
-                for(let i=-5; i<5; i++) {
-                    for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
-                        }
-                    }
-                }
-            }
-            else {
-                for(let i=-3; i<3; i++) {
-                    for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
-                        }
-                    }
-                }
-            }
-
-        }
-        else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
-        }
-
-    }
-
     const terrain = new Room.Terrain(roomName);
 
     for(let y = 0; y <= 49; y++) {
@@ -4017,6 +4060,46 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
             costs.set(struct.pos.x, struct.pos.y, 255);
         }
     });
+
+    // terrain+structures first so the hostile aura is not wiped by the
+    // full-room terrain loop. Aura only raises, never punches 255.
+    let EnemyCreeps = room.find(FIND_HOSTILE_CREEPS);
+    for(let eCreep of EnemyCreeps) {
+        if(eCreep.getActiveBodyparts(ATTACK)>0 || eCreep.getActiveBodyparts(RANGED_ATTACK)>0){
+            if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
+                for(let i=-5; i<5; i++) {
+                    for(let o=-5; o<5; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 100) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                for(let i=-3; i<3; i++) {
+                    for(let o=-3; o<3; o++) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 100) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            }
+                        }
+                    }
+                }
+            }
+
+        }
+        else{
+            let current = costs.get(eCreep.pos.x, eCreep.pos.y);
+            if(current < 255 && current < 100) {
+                costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+            }
+        }
+
+    }
 
 
 
@@ -4105,7 +4188,10 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 100) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            }
                         }
                     }
                 }
@@ -4114,7 +4200,10 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
                         if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
-                            costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            let current = costs.get(eCreep.pos.x + i, eCreep.pos.y + o);
+                            if(current < 255 && current < 100) {
+                                costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
+                            }
                         }
                     }
                 }
@@ -4122,7 +4211,10 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
 
         }
         else{
-            costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+            let current = costs.get(eCreep.pos.x, eCreep.pos.y);
+            if(current < 255 && current < 100) {
+                costs.set(eCreep.pos.x, eCreep.pos.y, 100);
+            }
         }
 
     }
@@ -4436,8 +4528,10 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
                 for (let dy = -3; dy <= 3; dy++) {
                     if(c.pos.x + dx > 0 && c.pos.x + dx < 49 && c.pos.y + dy > 0 && c.pos.y + dy < 49) {
                         let cost = costs.get(c.pos.x + dx, c.pos.y + dy);
-                        if(cost - 25 <= 255) {
-                            costs.set(c.pos.x + dx, c.pos.y + dy, cost + 25);
+                        // `cost - 25 <= 255` is always true; 255+25 wraps to 24
+                        // and RRD walks through walls in the 7x7
+                        if(cost < 255) {
+                            costs.set(c.pos.x + dx, c.pos.y + dy, Math.min(254, cost + 25));
                         }
                     }
 

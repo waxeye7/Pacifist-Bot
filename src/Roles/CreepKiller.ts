@@ -104,6 +104,10 @@ const run = function (creep) {
             if(!creep.pos.isNearTo(closestSpawn))  {
                 creep.MoveCostMatrixRoadPrio(closestSpawn, 1);
             }
+            else {
+                // ramparted spawns never enter the exposed list; attack hits the rampart if present
+                creep.attack(closestSpawn);
+            }
         }
 
     }

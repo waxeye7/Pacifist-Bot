@@ -22,11 +22,24 @@ import { interiorMove } from "utils/Interior";
     }
     if(!creep.memory.full) {
         let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
-        if(creep.pos.isNearTo(storage)) {
-            creep.withdraw(storage, RESOURCE_ENERGY);
+        // Spawned at RCL4 with no storage; findStorage then only looks for
+        // STRUCTURE_STORAGE, so this was isNearTo(null) every tick.
+        if(!storage) {
+            const S = creep.room.memory.Structures || {};
+            storage = Game.getObjectById(S.bin) || Game.getObjectById(S.storage);
         }
-        else {
-            if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)
+        if(!storage) {
+            const boxes = creep.room.find(FIND_STRUCTURES, {filter: (s:any) =>
+                s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 0});
+            if(boxes.length) storage = creep.pos.findClosestByRange(boxes);
+        }
+        if(storage) {
+            if(creep.pos.isNearTo(storage)) {
+                creep.withdraw(storage, RESOURCE_ENERGY);
+            }
+            else {
+                if (!interiorMove(creep, storage, 1)) creep.MoveCostMatrixRoadPrio(storage, 1)
+            }
         }
     }
     if(creep.memory.full) {
@@ -53,14 +66,30 @@ import { interiorMove } from "utils/Interior";
                 creep.room.memory.construction && creep.room.memory.construction.rampartLocations;
             if(creep.memory.rampartLocations && creep.memory.rampartLocations.length > 0 &&
                roomRampartLocations && roomRampartLocations.length > 0) {
-                let nextTarget = roomRampartLocations.pop();
-                if(nextTarget && nextTarget.length >= 2 && typeof nextTarget[0] === 'number' && typeof nextTarget[1] === 'number' && nextTarget[0] >= 0 && nextTarget[0] <= 49 && nextTarget[1] >= 0 && nextTarget[1] <= 49) {
-                    let position = new RoomPosition(nextTarget[0], nextTarget[1], creep.room.name)
-                    position.createConstructionSite(STRUCTURE_RAMPART);
-                    creep.memory.locked = position;
+                // Use-time only accepts 2..47. Popping 0..49 locked a border
+                // tile, the next tick discarded it, and the coord was gone.
+                // Skip those; only suicide once the list is empty. On a failed
+                // createConstructionSite, do not keep the lock — push the coord
+                // back if the room is at the site cap.
+                while(roomRampartLocations.length > 0 && !creep.memory.locked) {
+                    let nextTarget = roomRampartLocations.pop();
+                    if(!(nextTarget && nextTarget.length >= 2 && typeof nextTarget[0] === 'number' && typeof nextTarget[1] === 'number' && nextTarget[0] >= 2 && nextTarget[0] <= 47 && nextTarget[1] >= 2 && nextTarget[1] <= 47)) {
+                        continue;
+                    }
+                    let position = new RoomPosition(nextTarget[0], nextTarget[1], creep.room.name);
+                    let result = position.createConstructionSite(STRUCTURE_RAMPART);
+                    if(result == 0 || position.lookFor(LOOK_CONSTRUCTION_SITES).length > 0) {
+                        creep.memory.locked = position;
+                    }
+                    else if(result == ERR_FULL) {
+                        roomRampartLocations.push(nextTarget);
+                        break;
+                    }
+                }
+                if(creep.memory.locked) {
                     return;
                 }
-                else {
+                if(roomRampartLocations.length == 0) {
                     creep.memory.suicide = true;
                 }
             }

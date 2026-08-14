@@ -4,6 +4,22 @@
  **/
 import { interiorMove, filterOutposts, outpostDeferred } from "utils/Interior";
 
+const STEP_DX = [0, 0, 1, 1, 1, 0, -1, -1, -1];
+const STEP_DY = [0, -1, -1, 0, 1, 1, 1, 0, -1];
+
+function stepIfWalkable(creep, dir) {
+    const x = creep.pos.x + STEP_DX[dir];
+    const y = creep.pos.y + STEP_DY[dir];
+    if(x < 1 || x > 48 || y < 1 || y > 48) return false;
+    if(creep.room.getTerrain().get(x, y) === TERRAIN_MASK_WALL) return false;
+    const structs = creep.room.lookForAt(LOOK_STRUCTURES, x, y);
+    for(let i = 0; i < structs.length; i++) {
+        if(OBSTACLE_OBJECT_TYPES.indexOf(structs[i].structureType) !== -1) return false;
+    }
+    creep.move(dir);
+    return true;
+}
+
 function findLocked(creep, storage) {
     let nukes = creep.room.find(FIND_NUKES);
     let nukeBOOL = false;
@@ -277,13 +293,9 @@ function findLocked(creep, storage) {
             creep.memory.locked = findLocked(creep, storage);
         }
 
-        if(!creep.memory.locked) {
-            let rampart = creep.room.memory.rampart;
-            let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-            if(rampart && HostileCreeps.length > 0 && rampart.pos.getRangeTo(rampart.pos.findClosestByRange(HostileCreeps)) <= 2) {
-                creep.memory.locked = findLocked(creep, storage);
-            }
-        }
+        // room.memory.rampart is never written (the live key is rampartToMan).
+        // Re-calling findLocked here after it already returned nothing is a
+        // no-op even if a rampart object existed, so the siege re-lock is gone.
 
 
         if(creep.memory.locked) {
@@ -428,18 +440,14 @@ function findLocked(creep, storage) {
             creep.withdraw(storage, RESOURCE_ENERGY);
         }
         if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x && creep.pos.y == storage.pos.y + 1) {
-            if(creep.move(RIGHT) == 0) {
-                return;
-            }
-            else if(creep.move(TOP_RIGHT) == 0) {
-                return;
-            }
-            else if(creep.move(TOP_LEFT) == 0) {
+            // move() returns OK when the intent is accepted, not when the tile
+            // is free, so the later directions never ran. Walkability first.
+            if(stepIfWalkable(creep, RIGHT) || stepIfWalkable(creep, TOP_RIGHT) || stepIfWalkable(creep, TOP_LEFT)) {
                 return;
             }
         }
         else if(creep.getActiveBodyparts(WORK) == 45 && creep.pos.x == storage.pos.x - 1 && creep.pos.y == storage.pos.y + 1) {
-            if(creep.move(TOP) == 0) {
+            if(stepIfWalkable(creep, TOP)) {
                 return;
             }
         }

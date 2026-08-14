@@ -102,7 +102,27 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
 
     let closestTarget = creep.pos.findClosestByRange(targets);
     if(closestTarget && closestTarget.structureType === STRUCTURE_SPAWN && creep.pos.isEqualTo(closestTarget.pos)) {
-        creep.move(TOP);creep.move(BOTTOM);creep.move(LEFT);creep.move(RIGHT);
+        // One move intent per tick — the last call wins — so pick a single
+        // walkable in-bounds tile instead of overwriting TOP/BOTTOM/LEFT with RIGHT.
+        const terrain = creep.room.getTerrain();
+        const steps = [[0, -1, TOP], [0, 1, BOTTOM], [-1, 0, LEFT], [1, 0, RIGHT]];
+        for(let i = 0; i < steps.length; i++) {
+            const x = creep.pos.x + steps[i][0];
+            const y = creep.pos.y + steps[i][1];
+            if(x < 1 || x > 48 || y < 1 || y > 48) continue;
+            if(terrain.get(x, y) === TERRAIN_MASK_WALL) continue;
+            let blocked = false;
+            const structs = creep.room.lookForAt(LOOK_STRUCTURES, x, y);
+            for(let j = 0; j < structs.length; j++) {
+                if(OBSTACLE_OBJECT_TYPES.indexOf(structs[j].structureType) !== -1) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if(blocked) continue;
+            creep.move(steps[i][2]);
+            break;
+        }
     }
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
 
@@ -238,7 +258,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
             if(buildingsToRepair.length > 0) {
                 let closestBuildingToRepair = creep.pos.findClosestByRange(buildingsToRepair);
                 if(creep.repair(closestBuildingToRepair) == ERR_NOT_IN_RANGE) {
-                    creep.MoveCostMatrixRoadPrio(closestTarget, 3);
+                    creep.MoveCostMatrixRoadPrio(closestBuildingToRepair, 3);
                 }
                 return;
             }

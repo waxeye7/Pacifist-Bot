@@ -28,6 +28,15 @@ const run = function (creep) {
     }
 
     let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+    if(!storage) {
+        const S = creep.room.memory.Structures || {};
+        storage = Game.getObjectById(S.bin) || Game.getObjectById(S.storage);
+    }
+    if(!storage) {
+        const boxes = creep.room.find(FIND_STRUCTURES, {filter: (s:any) =>
+            s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] > 0});
+        if(boxes.length) storage = creep.pos.findClosestByRange(boxes);
+    }
 
 
     if(creep.memory.repairing) {
@@ -123,7 +132,7 @@ const run = function (creep) {
         }
 
     }
-    else {
+    else if(storage) {
         if(creep.pos.isNearTo(storage)) {
             creep.withdraw(storage, RESOURCE_ENERGY);
         }

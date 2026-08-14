@@ -79,6 +79,7 @@ const run = function (creep) {
     let allGood = true;
     for (let partyMember of party) {
       if (partyMember.memory.line === 3 && partyMember.memory.full) {
+        if (!party[1]) continue;
         if (partyMember.room.name === party[1].room.name && !partyMember.pos.isNearTo(party[1])) {
           allGood = false;
           partyMember.MoveCostMatrixRoadPrio(party[1], 1);
@@ -86,6 +87,7 @@ const run = function (creep) {
           partyMember.moveTo(party[1]);
         }
       } else if (partyMember.memory.line === 2 && !partyMember.memory.boostlabs.length) {
+        if (!party[2]) continue;
         if (partyMember.room.name === party[2].room.name && !partyMember.pos.isNearTo(party[2])) {
           allGood = false;
           partyMember.MoveCostMatrixRoadPrio(party[2], 1);

@@ -34,12 +34,14 @@
     let damagedCreepsInRoom = _.filter(Game.creeps, (damagedCreep) => damagedCreep.hits < damagedCreep.hitsMax && damagedCreep.room.name == creep.room.name);
 
     if(damagedCreepsInRoom.length > 0) {
-        if (creep.heal(damagedCreepsInRoom[0]) == 0) {
-            creep.moveTo(damagedCreepsInRoom[0]);
+        damagedCreepsInRoom.sort((a,b) => (a.hits / a.hitsMax) - (b.hits / b.hitsMax) || creep.pos.getRangeTo(a) - creep.pos.getRangeTo(b));
+        let healTarget = damagedCreepsInRoom[0];
+        if (creep.heal(healTarget) == 0) {
+            creep.moveTo(healTarget);
         }
-        if(creep.heal(damagedCreepsInRoom[0]) == ERR_NOT_IN_RANGE) {
-            creep.moveTo(damagedCreepsInRoom[0]);
-            creep.rangedHeal(damagedCreepsInRoom[0]);
+        if(creep.heal(healTarget) == ERR_NOT_IN_RANGE) {
+            creep.moveTo(healTarget);
+            creep.rangedHeal(healTarget);
         }
     }
 

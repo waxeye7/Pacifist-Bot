@@ -8,12 +8,20 @@
 
 
 
-    if(!creep.memory.deposit) {
+    // Store the mineral id, not the Mineral object. After a Memory reparse the
+    // blob is `{}` (truthy, no .id) and getObjectById(undefined) throws.
+    let depositId = typeof creep.memory.deposit === "string"
+        ? creep.memory.deposit
+        : (creep.memory.deposit && creep.memory.deposit.id);
+    let deposit:any = depositId ? Game.getObjectById(depositId) : null;
+    if(!deposit) {
         let found_deposit = creep.room.find(FIND_MINERALS);
-        creep.memory.deposit = found_deposit[0];
+        if(!found_deposit.length) {
+            return;
+        }
+        deposit = found_deposit[0];
     }
-
-    let deposit:any = Game.getObjectById(creep.memory.deposit.id);
+    creep.memory.deposit = deposit.id;
     if(deposit.mineralAmount == 0) {
         creep.memory.suicide = true;
     }

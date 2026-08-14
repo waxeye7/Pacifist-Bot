@@ -60,7 +60,7 @@ const run = function (creep) {
         // Guard defending a room spent the fight chewing through its own base.
         let structs = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTROLLER});
         let closestStruct = creep.pos.findClosestByRange(structs);
-        if(creep.pos.isNearTo(closestStruct)) {
+        if(closestStruct && creep.pos.isNearTo(closestStruct)) {
             creep.attack(closestStruct);
         }
     }

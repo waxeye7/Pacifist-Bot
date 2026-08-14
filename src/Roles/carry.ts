@@ -219,7 +219,10 @@ function depotSink(creep: any): any {
         creep.memory.full = false;
     }
 
-    if(!creep.memory.full && creep.memory.pathLength && creep.ticksToLive + 3 == creep.memory.pathLength * 2) {
+    // Exact equality is a one-tick window and is skipped by earlier returns;
+    // the hauler then fills at the remote and dies on the way home. Recycle
+    // once remaining life no longer covers the round trip.
+    if(!creep.memory.full && creep.memory.pathLength && creep.ticksToLive + 3 <= creep.memory.pathLength * 2) {
         creep.memory.suicide = true;
     }
 
@@ -381,7 +384,7 @@ function depotSink(creep: any): any {
             let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
             if(creep.memory.homeRoom && creep.memory.homeRoom !== creep.room.name) {
                 if(creep.memory.storage) {
-                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
+                    return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
                     // return creep.moveToRoom(creep.memory.homeRoom, storage.pos.x, storage.pos.y, false, 5, 2);
                 }
                 else {

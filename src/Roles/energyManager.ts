@@ -2,6 +2,32 @@
  * A little description of this function
  * @param {Creep} creep
  **/
+
+// Decrement the boost ledger only after a successful withdraw, and only as
+// much as the lab can hold. Decrement-before-withdraw left amount at 0 while
+// the compound bounced storage <-> creep and the lab stayed under-filled.
+function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
+    if(!outputLab || !boost || !storage) return false;
+    let labFree = outputLab.store.getFreeCapacity(resource);
+    if(!(labFree > 0)) return false;
+    if(creep.pos.isNearTo(storage)) {
+        let want = Math.min(boost.amount, creep.store.getFreeCapacity(), labFree);
+        if(want > 0) {
+            if(creep.withdraw(storage, resource, want) == 0) {
+                boost.amount -= want;
+                if(boost.amount < 0) boost.amount = 0;
+                creep.memory.target = outputLab.id;
+            }
+        }
+        else if(creep.store[resource] > 0) {
+            creep.memory.target = outputLab.id;
+        }
+        return true;
+    }
+    creep.MoveCostMatrixRoadPrio(storage, 1);
+    return true;
+}
+
  const run = function (creep) {
     creep.memory.moving = false;
     if(creep.evacuate()) {
@@ -59,7 +85,10 @@
 
     if(creep.memory.target) {
         let target = Game.getObjectById(creep.memory.target);
-        if(creep.pos.isNearTo(target)) {
+        if(!target) {
+            creep.memory.target = false;
+        }
+        else if(creep.pos.isNearTo(target)) {
             for(let resource in creep.store) {
                 if(creep.transfer(target, resource) !== 0) {
                     creep.memory.target = false;
@@ -171,21 +200,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= creep.room.memory.labs.status.boost.lab1.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab1.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab1.amount -= MaxStorage;
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ACID, creep.room.memory.labs.status.boost.lab1.amount);
-                                    creep.room.memory.labs.status.boost.lab1.amount = 0;
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab1, RESOURCE_CATALYZED_LEMERGIUM_ACID)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
 
                     }
@@ -208,23 +225,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab2.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab2.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab2.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE, creep.room.memory.labs.status.boost.lab2.amount);
-                                    creep.room.memory.labs.status.boost.lab2.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab2, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -245,23 +248,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_UTRIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= creep.room.memory.labs.status.boost.lab3.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab3.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab3.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_UTRIUM_ACID);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_UTRIUM_ACID, creep.room.memory.labs.status.boost.lab3.amount);
-                                    creep.room.memory.labs.status.boost.lab3.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab3, RESOURCE_CATALYZED_UTRIUM_ACID)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -283,23 +272,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_KEANIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab4.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab4.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab4.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_KEANIUM_ALKALIDE);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_KEANIUM_ALKALIDE, creep.room.memory.labs.status.boost.lab4.amount);
-                                    creep.room.memory.labs.status.boost.lab4.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab4, RESOURCE_CATALYZED_KEANIUM_ALKALIDE)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -321,23 +296,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab5.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab5.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab5.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE, creep.room.memory.labs.status.boost.lab5.amount);
-                                    creep.room.memory.labs.status.boost.lab5.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab5, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -358,23 +319,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_ZYNTHIUM_ACID) && storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] >= creep.room.memory.labs.status.boost.lab6.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab6.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab6.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ACID);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_ZYNTHIUM_ACID, creep.room.memory.labs.status.boost.lab6.amount);
-                                    creep.room.memory.labs.status.boost.lab6.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab6, RESOURCE_CATALYZED_ZYNTHIUM_ACID)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -395,23 +342,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == RESOURCE_CATALYZED_GHODIUM_ALKALIDE) && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= creep.room.memory.labs.status.boost.lab7.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab7.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab7.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_GHODIUM_ALKALIDE);
-                                }
-                                else {
-                                    creep.withdraw(storage, RESOURCE_CATALYZED_GHODIUM_ALKALIDE, creep.room.memory.labs.status.boost.lab7.amount);
-                                    creep.room.memory.labs.status.boost.lab7.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab7, RESOURCE_CATALYZED_GHODIUM_ALKALIDE)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -436,23 +369,9 @@
                             return;
                         }
                         else if(outputLab && (outputLab.mineralType == undefined || outputLab.mineralType == resource) && storage && storage.store[resource] >= creep.room.memory.labs.status.boost.lab8.amount) {
-                            if(creep.pos.isNearTo(storage)) {
-                                if(creep.room.memory.labs.status.boost.lab8.amount >= MaxStorage) {
-                                    creep.room.memory.labs.status.boost.lab8.amount -= MaxStorage;
-
-                                    creep.withdraw(storage, resource);
-                                }
-                                else {
-                                    creep.withdraw(storage, resource, creep.room.memory.labs.status.boost.lab8.amount);
-                                    creep.room.memory.labs.status.boost.lab8.amount = 0;
-
-                                }
-                                creep.memory.target = outputLab.id;
+                            if(takeBoostFromStorage(creep, storage, outputLab, creep.room.memory.labs.status.boost.lab8, resource)) {
+                                return;
                             }
-                            else {
-                                creep.MoveCostMatrixRoadPrio(storage, 1);
-                            }
-                            return;
                         }
                     }
                 }
@@ -603,7 +522,9 @@
         }
 
 
-        if(Game.time % 50 <= 50) {
+        // `% 50 <= 50` is always true, so this block ran every tick. Intended
+        // cadence is once per 50 ticks — compounds still move, just not every tick.
+        if(Game.time % 50 == 0) {
 
 
         let listOfResourcesToTerminal1:any = [

@@ -47,8 +47,8 @@ const run = function (creep) {
         let bin;
         let storage;
         if(creep.room.memory.Structures) {
-            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
             storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
+            bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
         }
         if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {

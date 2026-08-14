@@ -12,7 +12,7 @@ const run = function (creep) {
         }
     }
 
-    if(creep.hits !== creep.hitsMax || creep.room.name === creep.memory.targetRoom) creep.heal();
+    if(creep.hits !== creep.hitsMax || creep.room.name === creep.memory.targetRoom) creep.heal(creep);
 
     if (creep.room.name !== creep.memory.targetRoom) {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);

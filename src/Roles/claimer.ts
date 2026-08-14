@@ -30,7 +30,13 @@ import { getBody } from "Rooms/rooms.spawning";
 
     let controller = creep.room.controller;
 
-    if(controller && controller.level == 0 && !controller.reservation) {
+    // claimController works on an unreserved controller and on OUR reservation.
+    // attackController is invalid against our own reservation and parked the
+    // claimer for 600 ticks with the room never claimed.
+    const reservedByOther = controller && controller.reservation &&
+        controller.reservation.username !== creep.owner.username;
+
+    if(controller && controller.level == 0 && !reservedByOther) {
 
         if(creep.claimController(controller) == 0) {
             creep.suicide();
@@ -54,7 +60,7 @@ import { getBody } from "Rooms/rooms.spawning";
         }
     }
 
-    else if(controller && controller.level == 0 && controller.reservation && controller.reservation.ticksToEnd > 0) {
+    else if(controller && controller.level == 0 && reservedByOther) {
         if(creep.pos.isNearTo(controller)) {
             creep.attackController(controller);
         }

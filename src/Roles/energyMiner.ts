@@ -139,8 +139,11 @@ export function forwardToControllerLink(room:any):void {
         // every tick.
         const hub:any = Game.getObjectById(S.StorageLink);
         if(!hub || hub.id === ctrlLink.id || hub.structureType !== STRUCTURE_LINK) return;
-        if(hub.store.getFreeCapacity(RESOURCE_ENERGY) <= 0) return;
-        ctrlLink.transferEnergy(hub);
+        const hubFree = hub.store.getFreeCapacity(RESOURCE_ENERGY);
+        if(hubFree <= 0) return;
+        // transferEnergy with no amount is all-or-nothing and ERR_FULL moves nothing.
+        const drain = Math.min(held, hubFree);
+        if(drain > 0) ctrlLink.transferEnergy(hub, drain);
         return;
     }
 
@@ -156,7 +159,8 @@ export function forwardToControllerLink(room:any):void {
         s.store[RESOURCE_ENERGY] >= 400});
     if(!donors.length) return;
     donors.sort((a:any, b:any) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
-    donors[0].transferEnergy(ctrlLink);
+    const topUp = Math.min(donors[0].store[RESOURCE_ENERGY], ctrlLink.store.getFreeCapacity(RESOURCE_ENERGY));
+    if(topUp > 0) donors[0].transferEnergy(ctrlLink, topUp);
 }
 
 /** Spawn / extension / tower / container in range 1 with room for energy. */
@@ -497,7 +501,16 @@ const run = function (creep) {
 
 
 
-            let closestLink = Game.getObjectById(creep.memory.sourceLink) || source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_LINK && creep.pos.getRangeTo(s) < 5}));
+            let closestLink:any = Game.getObjectById(creep.memory.sourceLink);
+            // memory.sourceLink was never written, so this was a room-wide FIND
+            // every tick and could lock a hub/controller link within 5 of the creep.
+            if(!closestLink || closestLink.structureType !== STRUCTURE_LINK ||
+               !source || source.pos.getRangeTo(closestLink) >= 5) {
+                closestLink = source
+                    ? source.pos.findClosestByRange(creep.room.find(FIND_MY_STRUCTURES, {filter: (s:any) => s.structureType == STRUCTURE_LINK && source.pos.getRangeTo(s) < 5}))
+                    : null;
+                creep.memory.sourceLink = closestLink ? closestLink.id : false;
+            }
             if(closestLink && closestLink.store[RESOURCE_ENERGY] < 800) {
                 if(creep.pos.isNearTo(closestLink)) {
                     creep.transfer(closestLink, RESOURCE_ENERGY);
@@ -628,12 +641,23 @@ const run = function (creep) {
             // upgrader this rung is what fills a controller link to 800 and
             // leaves it there — see forwardToControllerLink() above for the
             // measurements. Same test both places, so the two never disagree.
+            //
+            // transferEnergy with no amount is all-or-nothing (ERR_FULL moves
+            // nothing). Controller/extra used to sit in front of the hub send
+            // in an if/else, so a failed controller send never drained to storage.
+            let forwarded = false;
             if(roomFeedsController(creep.room) && closestLink && closestLink.store[RESOURCE_ENERGY] >= 400 && closestLinkToController && closestLinkToController.store[RESOURCE_ENERGY] <= 400) {
-                closestLink.transferEnergy(closestLinkToController);
+                const send = Math.min(closestLink.store[RESOURCE_ENERGY], closestLinkToController.store.getFreeCapacity(RESOURCE_ENERGY));
+                if(send > 0 && closestLink.transferEnergy(closestLinkToController, send) == 0) {
+                    forwarded = true;
+                }
             }
 
-            else if(closestLink && closestLink.store[RESOURCE_ENERGY] >= 200 && extraLink && extraLink.store[RESOURCE_ENERGY] <= 200) {
-                closestLink.transferEnergy(extraLink);
+            if(!forwarded && closestLink && closestLink.store[RESOURCE_ENERGY] >= 200 && extraLink && extraLink.store[RESOURCE_ENERGY] <= 200) {
+                const send = Math.min(closestLink.store[RESOURCE_ENERGY], extraLink.store.getFreeCapacity(RESOURCE_ENERGY));
+                if(send > 0 && closestLink.transferEnergy(extraLink, send) == 0) {
+                    forwarded = true;
+                }
             }
 
             /*
@@ -651,7 +675,7 @@ const run = function (creep) {
              * all of it, which is the other half of why the old test had to be
              * so strict; naming the amount removes the need.
              */
-            else if(closestLink && targetLink && closestLink.id !== targetLink.id && closestLink.store[RESOURCE_ENERGY] >= 400) {
+            if(!forwarded && closestLink && targetLink && closestLink.id !== targetLink.id && closestLink.store[RESOURCE_ENERGY] >= 400) {
                 const room = targetLink.store.getFreeCapacity(RESOURCE_ENERGY);
                 const send = Math.min(closestLink.store[RESOURCE_ENERGY], room);
                 if(send >= 100) {
