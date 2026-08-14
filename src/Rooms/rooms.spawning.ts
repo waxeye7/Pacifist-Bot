@@ -2803,6 +2803,20 @@ function add_creeps_to_spawn_list(room, spawn) {
                         let myNeededHeal = Math.floor((attackAmount + rangedAttackAmount) / 12) - 2;
                         let myNeededRangedAttack = Math.floor(healAmount / 10) + 5;
 
+                        // Cap at a legal 50-part body (h + r + equal MOVE =>
+                        // h + r <= 25), keeping the heal:ranged ratio. The old
+                        // `if(body.length <= 50)` guard below just skipped the
+                        // spawn when boosted-TOUGH inflated the counts - and
+                        // the state clears live INSIDE that guard, so the
+                        // branch re-fired (and logged the whole body array)
+                        // every tick forever.
+                        if(myNeededHeal < 0) myNeededHeal = 0;
+                        const totalNeeded = myNeededHeal + myNeededRangedAttack;
+                        if(totalNeeded > 25) {
+                            myNeededHeal = Math.floor(myNeededHeal * 25 / totalNeeded);
+                            myNeededRangedAttack = 25 - myNeededHeal;
+                        }
+
                         let healArray = [];
                         let rangedAttackArray = [];
                         let moveArray = [];

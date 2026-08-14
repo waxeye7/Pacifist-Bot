@@ -218,6 +218,19 @@ function randomSidestep(creep: any): void {
 function preRun(creep: any): boolean {
   const m = creep.memory;
 
+  // `danger` is written exactly once, at spawn time, for EnergyMiners only -
+  // a snapshot of the HOME room's alarm - but it is read all over (the
+  // flee-reset in energyMiner.ts, repair.ts, creepFunctions) as if it were
+  // live. A miner spawned during a raid therefore stayed "in danger" for its
+  // whole life: pinned in the expensive avoidHostiles mover and never able to
+  // reset memory.fleeing. Refresh it from the home room each tick. Scoped to
+  // creeps that already HAVE the field so the dormant danger branches in
+  // roles that never set it stay dormant.
+  if (m.danger !== undefined) {
+    const home = Game.rooms[m.homeRoom];
+    m.danger = !!(home && home.memory.danger);
+  }
+
   // Sticky-target sanity. memory.locked and memory.t survive for the creep's
   // whole life in most roles (carry, sweeper, FakeFiller, filler), so a target
   // that became undeliverable AFTER it was picked is otherwise held forever.

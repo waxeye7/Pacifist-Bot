@@ -2623,7 +2623,13 @@ const movePathFallback = (creep:any, target:any, range:number):void => {
         return;
     }
 
-    creep.moveTo(targetPos, {range: range, reusePath: 5});
+    // MUST be the NATIVE moveTo. creep.moveTo is soft-replaced by goTo (see
+    // ~:1016), which routes straight back into the same cost matrix and the
+    // same maxOps-1000 search that just failed - so this "escape hatch"
+    // re-entered itself up to ~9 deep in a single tick (one level per
+    // pfStuckFor increment until PF_WEDGED_AFTER fired), and the intended
+    // cross-tick 8-tick hysteresis collapsed into one tick of 9 searches.
+    _nativeMoveTo.call(creep, targetPos, {range: range, reusePath: 5});
     creep.memory.moving = true;
 }
 

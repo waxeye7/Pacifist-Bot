@@ -582,7 +582,12 @@ function establishMemory(room) {
             } else if (part.type == HEAL) {
               healParts += boostMultiplier;
             } else if (part.type == TOUGH) {
-              rangedAttackParts += toughMultiplier;
+              // Boosted TOUGH absorbs OUR damage - like enemy healing, it
+              // raises how much RANGED_ATTACK we need. It was being added to
+              // rangedAttackParts, i.e. counted as enemy OFFENSE, which
+              // inflated our heal requirement instead and blew the defender
+              // body past 50 parts.
+              healParts += toughMultiplier;
             }
           }
         });

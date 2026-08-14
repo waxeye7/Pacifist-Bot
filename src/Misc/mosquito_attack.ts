@@ -320,15 +320,6 @@ function mosquito_attack() {
         continue;
       }
 
-      let exposedNeutralStructs = find_exposed_structs(mosquito.pos, neutralStructuresInRange3);
-      // filter out walls
-      let exposedNeutralStructsNoWalls = exposedNeutralStructs.filter(s => s.structureType !== STRUCTURE_WALL);
-      if (exposedNeutralStructsNoWalls.length) {
-        exposedNeutralStructsNoWalls.sort((a, b) => b.pos.getRangeTo(mosquito) - a.pos.getRangeTo(mosquito));
-        mosquito.rangedAttack(exposedNeutralStructsNoWalls[0]);
-        continue;
-      }
-
       let exposedEnemyStructs = find_exposed_structs(mosquito.pos, enemyStructuresInRange3);
       if (exposedEnemyStructs.length) {
         let rangeOne = exposedEnemyStructs.filter(s => s.pos.getRangeTo(mosquito) === 1);
@@ -399,6 +390,19 @@ function mosquito_attack() {
           }
         }
 
+        continue;
+      }
+
+      // Roads and other neutral clutter are legal filler targets, but only
+      // AFTER owned enemy structures. This block used to run FIRST and
+      // `continue` - a mosquito inside a roaded base with no exposed creeps
+      // plinked pavement forever and never engaged the spawn or towers. The
+      // old sort was also descending, i.e. it picked the FARTHEST road.
+      let exposedNeutralStructs = find_exposed_structs(mosquito.pos, neutralStructuresInRange3);
+      let exposedNeutralStructsNoWalls = exposedNeutralStructs.filter(s => s.structureType !== STRUCTURE_WALL);
+      if (exposedNeutralStructsNoWalls.length) {
+        exposedNeutralStructsNoWalls.sort((a, b) => a.pos.getRangeTo(mosquito) - b.pos.getRangeTo(mosquito));
+        mosquito.rangedAttack(exposedNeutralStructsNoWalls[0]);
         continue;
       }
     }

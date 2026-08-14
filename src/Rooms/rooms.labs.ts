@@ -553,12 +553,18 @@ function labs(room) {
             terminal.store[RESOURCE_HYDROGEN] + storage.store[RESOURCE_HYDROGEN] >= 1000 && terminal.store[RESOURCE_KEANIUM] + storage.store[RESOURCE_KEANIUM] >= 1000) {
                 lab1Input = RESOURCE_HYDROGEN;
                 lab2Input = RESOURCE_KEANIUM;
-                currentOutput = RESOURCE_KEANIUM_ACID;
+                // H + K react to KH - this said KEANIUM_ACID, so the guard
+                // above (which watches the KH stock) never saw the product it
+                // was accumulating and the whole XKH2O chain was unreachable.
+                currentOutput = RESOURCE_KEANIUM_HYDRIDE;
             }
 
+        // input gate checks the HYDRIDE feedstock (mirrors the LA twin above),
+        // not the acid itself - demanding 1000 KA to start making KA was
+        // unsatisfiable from any cold start.
         else if((storage && storage.store[RESOURCE_KEANIUM_ACID] < 1000 && currentOutput != RESOURCE_KEANIUM_ACID ||
             storage && storage.store[RESOURCE_KEANIUM_ACID] < 3000 && currentOutput == RESOURCE_KEANIUM_ACID) &&
-            terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_KEANIUM_ACID] + storage.store[RESOURCE_KEANIUM_ACID] >= 1000) {
+            terminal.store[RESOURCE_HYDROXIDE] + storage.store[RESOURCE_HYDROXIDE] >= 1000 && terminal.store[RESOURCE_KEANIUM_HYDRIDE] + storage.store[RESOURCE_KEANIUM_HYDRIDE] >= 1000) {
                 lab1Input = RESOURCE_HYDROXIDE
                 lab2Input = RESOURCE_KEANIUM_HYDRIDE;
                 currentOutput = RESOURCE_KEANIUM_ACID;
