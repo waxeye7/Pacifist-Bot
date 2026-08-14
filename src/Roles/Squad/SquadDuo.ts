@@ -21,23 +21,58 @@ const bodyTypeOf = function (creep: any) {
     return Object.keys(counts).reduce(function (a, b) { return counts[a] > counts[b] ? a : b; });
 };
 
+const pairDuo = function (creep: any, partner: any) {
+    if (!creep.memory.duo) {
+        creep.memory.duo = {};
+    }
+    if (!partner.memory.duo) {
+        partner.memory.duo = {};
+    }
+    creep.memory.duo.partner = partner.id;
+    creep.memory.duo.partnerName = partner.name;
+    partner.memory.duo.partner = creep.id;
+    partner.memory.duo.partnerName = creep.name;
+};
+
 const findDuoPartner = function (creep: any, partnerRole: string) {
     if (!creep.memory.duo) {
         creep.memory.duo = {};
     }
-    let partner: any = creep.memory.duo.partner ? Game.getObjectById(creep.memory.duo.partner) : null;
+    // Game.creeps[name] works with no vision; getObjectById does not. Only
+    // treat the partner as dead when they are absent from Game.creeps.
+    let partner: any = null;
+    if (creep.memory.duo.partnerName) {
+        partner = Game.creeps[creep.memory.duo.partnerName] || null;
+        if (!partner) {
+            delete creep.memory.duo.partnerName;
+            delete creep.memory.duo.partner;
+        }
+    }
+    if (!partner && creep.memory.duo.partner) {
+        partner = Game.getObjectById(creep.memory.duo.partner);
+        if (!partner) {
+            for (const name in Game.creeps) {
+                if (Game.creeps[name].id === creep.memory.duo.partner) {
+                    partner = Game.creeps[name];
+                    break;
+                }
+            }
+        }
+        if (partner) {
+            creep.memory.duo.partnerName = partner.name;
+        }
+        else {
+            delete creep.memory.duo.partner;
+        }
+    }
     if (!partner) {
         const candidates = creep.room.find(FIND_MY_CREEPS, {
-            filter: function (c: any) { return c.memory.role === partnerRole && (!c.memory.duo || !c.memory.duo.partner || c.memory.duo.partner === creep.id); }
+            filter: function (c: any) { return c.memory.role === partnerRole && (!c.memory.duo || !c.memory.duo.partner || c.memory.duo.partner === creep.id || c.memory.duo.partnerName === creep.name); }
         });
         if (candidates.length > 0) {
             candidates.sort(function (a: any, b: any) { return b.ticksToLive - a.ticksToLive; });
             partner = candidates[0];
-            creep.memory.duo.partner = partner.id;
-            if (!partner.memory.duo) {
-                partner.memory.duo = {};
-            }
-            partner.memory.duo.partner = creep.id;
+            pairDuo(creep, partner);
         }
     }
     return partner;
@@ -148,6 +183,8 @@ const healLogic = function (creep: any, self: any, partner: any, enemiesNearby: 
 // swaps their behavior instantly. They regroup in stagingRoom and rejoin.
 const splitQuadToDuos = function (a: any, b: any, y: any, z: any, stagingRoom: string) {
     const finalTarget = a.memory.targetPosition;
+    // same-room staging would rejoin next tick; lock rejoin so the duos can leave
+    const splitHere = stagingRoom === a.room.name;
     for (const member of [a, b, y, z]) {
         member.memory.quadRole = member.memory.role;
         member.memory.rejoinAt = stagingRoom;
@@ -157,18 +194,51 @@ const splitQuadToDuos = function (a: any, b: any, y: any, z: any, stagingRoom: s
         member.memory.pathIncompleteCount = 0;
         member.memory.swampyPathCount = 0;
         delete member.memory.splitTravel;
+        if (splitHere) {
+            member.memory.rejoinLockUntil = Game.time + 30;
+        }
+        else {
+            delete member.memory.rejoinLockUntil;
+        }
     }
     a.memory.finalTarget = finalTarget;
     a.memory.role = "DuoCreepA";
     a.memory.targetPosition = new RoomPosition(23, 25, stagingRoom);
-    a.memory.duo = {partner: b.id};
+    a.memory.duo = {partner: b.id, partnerName: b.name};
     b.memory.role = "DuoCreepB";
-    b.memory.duo = {partner: a.id};
+    b.memory.duo = {partner: a.id, partnerName: a.name};
     y.memory.role = "DuoCreepA";
     y.memory.targetPosition = new RoomPosition(27, 25, stagingRoom);
-    y.memory.duo = {partner: z.id};
+    y.memory.duo = {partner: z.id, partnerName: z.name};
     z.memory.role = "DuoCreepB";
-    z.memory.duo = {partner: y.id};
+    z.memory.duo = {partner: y.id, partnerName: y.name};
+};
+
+// two survivors of a quad: keep traveling as a duo instead of freezing
+const degradeQuadToDuo = function (first: any, second: any) {
+    const atk = function (c: any) {
+        const t = c.memory.bodyType || bodyTypeOf(c);
+        return t === "ranged_attack" || t === "attack" || t === "work";
+    };
+    let leader = first;
+    let follower = second;
+    if (first.memory.role !== "SquadCreepA" && (second.memory.role === "SquadCreepA" || (!atk(first) && atk(second)))) {
+        leader = second;
+        follower = first;
+    }
+    const target = leader.memory.targetPosition || follower.memory.targetPosition ||
+        (leader.memory.homeRoom ? new RoomPosition(25, 25, leader.memory.homeRoom) : new RoomPosition(25, 25, leader.room.name));
+    leader.memory.role = "DuoCreepA";
+    follower.memory.role = "DuoCreepB";
+    leader.memory.duo = {partner: follower.id, partnerName: follower.name};
+    follower.memory.duo = {partner: leader.id, partnerName: leader.name};
+    leader.memory.targetPosition = target;
+    leader.memory.go = false;
+    follower.memory.go = false;
+    leader.memory.direction = false;
+    follower.memory.direction = false;
+    delete leader.memory.squad;
+    delete follower.memory.squad;
 };
 
 
@@ -193,7 +263,9 @@ const runLeader = function (creep: any) {
     // rejoin: this duo came from a split quad — once all four ex-members stand in
     // the staging room, hand them back to their quad roles. The quad's normal
     // gathering logic (go=false -> move to slots -> go) reassembles the 2x2.
-    if (creep.memory.rejoinAt && creep.room.name === creep.memory.rejoinAt) {
+    // rejoinLockUntil blocks the same-tick/same-room split->rejoin loop.
+    if (creep.memory.rejoinAt && creep.room.name === creep.memory.rejoinAt &&
+        (!creep.memory.rejoinLockUntil || Game.time >= creep.memory.rejoinLockUntil)) {
         const exQuad = creep.room.find(FIND_MY_CREEPS, {
             filter: function (c: any) { return c.memory.quadRole && c.memory.rejoinAt === creep.memory.rejoinAt; }
         });
@@ -203,6 +275,7 @@ const runLeader = function (creep: any) {
                 delete member.memory.quadRole;
                 delete member.memory.duo;
                 delete member.memory.rejoinAt;
+                delete member.memory.rejoinLockUntil;
                 member.memory.go = false;
                 member.memory.route = undefined;
                 member.memory.direction = false;
@@ -260,13 +333,23 @@ const runLeader = function (creep: any) {
         }
     }
 
-    // leader waits for its healer (except on exit tiles, where waiting bounces)
+    // wait for the healer (incl. across rooms). On an exit tile, step inward
+    // first — staying there bounces rooms — then wait until they catch up.
     const onExit = creep.pos.x === 0 || creep.pos.x === 49 || creep.pos.y === 0 || creep.pos.y === 49;
-    if (partner && !onExit && (partner.room.name !== creep.room.name || creep.pos.getRangeTo(partner) > 1)) {
-        return;
-    }
-    if (partner && partner.fatigue > 0 && !onExit) {
-        return;
+    if (partner) {
+        const partnerHere = partner.room.name === creep.room.name;
+        const adjacent = partnerHere && creep.pos.getRangeTo(partner) <= 1;
+        if (!adjacent) {
+            if (onExit) {
+                const inwardX = creep.pos.x === 0 ? 1 : creep.pos.x === 49 ? 48 : creep.pos.x;
+                const inwardY = creep.pos.y === 0 ? 1 : creep.pos.y === 49 ? 48 : creep.pos.y;
+                creep.move(creep.pos.getDirectionTo(new RoomPosition(inwardX, inwardY, creep.room.name)));
+            }
+            return;
+        }
+        if (partner.fatigue > 0) {
+            return;
+        }
     }
 
     if (!inTargetRoom) {
@@ -315,7 +398,7 @@ const runFollower = function (creep: any) {
     }
 
     if (!leader) {
-        // partner dead: retreat home and recycle via the normal spawn flow
+        // partner gone from Game.creeps (actually dead, not just unseen)
         if (creep.memory.homeRoom && creep.room.name !== creep.memory.homeRoom) {
             travelToRoom(creep, creep.memory.homeRoom);
         }
@@ -336,4 +419,4 @@ const runFollower = function (creep: any) {
 const roleDuoCreepA = {run: runLeader};
 const roleDuoCreepB = {run: runFollower};
 
-export {roleDuoCreepA, roleDuoCreepB, splitQuadToDuos};
+export {roleDuoCreepA, roleDuoCreepB, splitQuadToDuos, degradeQuadToDuo};

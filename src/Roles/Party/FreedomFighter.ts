@@ -25,14 +25,29 @@ const run = function (creep) {
     if(creep.memory.party) {
       let party = creep.memory.party.map(id => Game.getObjectById(id));
       party = party.filter(c => c !== null);
+      if(party.length === 0) {
+        return;
+      }
       party.reverse();
-      if(creep.room.name === creep.memory.targetRoom && creep.pos.x > 4 && creep.pos.x < 45 &&creep.pos.y > 4 && creep.pos.y) party.push(party.shift());
+      // close ranks on the live array; lineLength indices throw after a death
+      if(creep.room.name === creep.memory.targetRoom && creep.pos.x > 4 && creep.pos.x < 45 && creep.pos.y > 4 && creep.pos.y < 45) party.push(party.shift());
 
 
       let allGood = true;
       let readyToAttackController = true;
       let lowestHealthInParty = party.reduce((lowest, creep) => creep.hits < lowest.hits && creep.hits !== creep.hitsMax ? creep : lowest, party[party.length-1]);
-      for(let partyMember of party) {
+      for(let i = 0; i < party.length; i++) {
+        let partyMember = party[i];
+        if(!partyMember) {
+          continue;
+        }
+        let followTarget = partyMember.memory.line !== 1 ? party[i + 1] : null;
+        if(partyMember.memory.line !== 1 && !followTarget) {
+          // after a death the tail of the reversed array may be a non-leader; close ranks toward the front
+          const towardFront = party.slice().sort((a, b) => a.memory.line - b.memory.line);
+          const fi = towardFront.indexOf(partyMember);
+          followTarget = fi > 0 ? towardFront[fi - 1] : null;
+        }
         let overrideMove = false;
 
         if(partyMember.memory.role === "FreedomFighter") {
@@ -73,7 +88,8 @@ const run = function (creep) {
         else if(partyMember.memory.role === "CCKparty") {
           if(partyMember.room.name === partyMember.memory.targetRoom) {
             let controller = partyMember.room.controller;
-            if(controller && party[party.length -1].pos.getRangeTo(controller) <= 8 && !partyMember.pos.isNearTo(controller)) {
+            let head = party[party.length - 1];
+            if(controller && head && head.pos.getRangeTo(controller) <= 8 && !partyMember.pos.isNearTo(controller)) {
               partyMember.moveTo(controller, {reusePath:0});
               readyToAttackController = false;
               overrideMove = true;
@@ -85,36 +101,22 @@ const run = function (creep) {
           }
         }
 
-        if(partyMember.memory.line === creep.memory.lineLength) {
+        if(followTarget) {
           if(overrideMove) {
             continue;
           }
-          if(partyMember.room.name === party[1].room.name && !partyMember.pos.isNearTo(party[1])) {
+          if(partyMember.room.name === followTarget.room.name && !partyMember.pos.isNearTo(followTarget)) {
             allGood = false;
           }
-          if(partyMember.room.name !== party[1].room.name || partyMember.pos.isNearTo(party[1])) {
-            partyMember.moveTo(party[1]);
+          if(partyMember.room.name !== followTarget.room.name || partyMember.pos.getRangeTo(followTarget) === 1) {
+            partyMember.moveTo(followTarget);
           }
           else {
-            partyMember.MoveCostMatrixRoadPrio(party[1], 1);
-          }
-        }
-        else if(partyMember.memory.line > 1) {
-          if(partyMember.memory.role === "CCKparty" && overrideMove) {
-            continue;
-          }
-          if(partyMember.room.name === party[creep.memory.lineLength - (partyMember.memory.line - 1)].room.name && !partyMember.pos.isNearTo(party[creep.memory.lineLength - (partyMember.memory.line - 1)])) {
-            allGood = false;
-          }
-          if(partyMember.room.name !== party[creep.memory.lineLength - (partyMember.memory.line - 1)].room.name || partyMember.pos.getRangeTo(party[creep.memory.lineLength - (partyMember.memory.line - 1)]) === 1) {
-            partyMember.moveTo(party[creep.memory.lineLength - (partyMember.memory.line - 1)]);
-          }
-          else {
-            partyMember.MoveCostMatrixRoadPrio(party[creep.memory.lineLength - (partyMember.memory.line - 1)], 1);
+            partyMember.MoveCostMatrixRoadPrio(followTarget, 1);
             allGood = false;
           }
         }
-        else if(allGood || (creep.room.name === creep.memory.targetRoom  && (creep.pos.x < 45 || creep.pos.x > 5 || creep.pos.y < 45 || creep.pos.y > 5))) {
+        else if(partyMember.memory.line === 1 && (allGood || (creep.room.name === creep.memory.targetRoom && (creep.pos.x < 45 && creep.pos.x > 5 && creep.pos.y < 45 && creep.pos.y > 5)))) {
           if(creep.room.name === creep.memory.targetRoom) {
             let controller = creep.room.controller;
             if(controller && creep.pos.getRangeTo(controller) > 4) {
@@ -125,28 +127,40 @@ const run = function (creep) {
             creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
           }
         }
-        else if(creep.room.name === creep.memory.homeRoom && (creep.pos.x < 47 && creep.pos.x > 2 && creep.pos.y < 47 && creep.pos.y > 2)) {
+        else if(partyMember.memory.line === 1 && creep.room.name === creep.memory.homeRoom && (creep.pos.x < 47 && creep.pos.x > 2 && creep.pos.y < 47 && creep.pos.y > 2)) {
           creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
       }
       if(readyToAttackController) {
+        let upgradeBlocked = false;
         for(let partyMember of party) {
           if(partyMember.memory.role === "CCKparty") {
             let controller = partyMember.room.controller;
             if(controller) {
               partyMember.attackController(controller);
               if(controller.upgradeBlocked > 0) {
-                partyMember.suicide();
-                party[0].memory.role = "Solomon";
-                party[party.length-1].memory.role = "Solomon";
-
-                if(creep.room.controller) {
-                  Memory.commandsToExecute.push({delay:360, bucketNeeded:5000, formation:"CCKparty", homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name,controllerFreePositions:creep.room.controller.pos.getOpenPositionsIgnoreCreeps().length})
-                }
-                return;
+                upgradeBlocked = true;
               }
             }
           }
+        }
+        if(upgradeBlocked) {
+          // suicide every CCK — extras have no driver once line 1 is Solomon
+          for(let partyMember of party) {
+            if(partyMember.memory.role === "CCKparty") {
+              partyMember.suicide();
+            }
+          }
+          for(let partyMember of party) {
+            if(partyMember.memory.role === "FreedomFighter") {
+              partyMember.memory.role = "Solomon";
+            }
+          }
+
+          if(creep.room.controller) {
+            Memory.commandsToExecute.push({delay:360, bucketNeeded:5000, formation:"CCKparty", homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name,controllerFreePositions:creep.room.controller.pos.getOpenPositionsIgnoreCreeps().length})
+          }
+          return;
         }
       }
     }

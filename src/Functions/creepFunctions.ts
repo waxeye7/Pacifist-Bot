@@ -553,6 +553,7 @@ Creep.prototype.Boost = function Boost():any {
         return true;
     }
 
+    // Timestamp, not a counter. RD/RRD must not increment this.
     if(!this.memory.boostWait) this.memory.boostWait = Game.time;
 
     const dropThisLab = () => {
@@ -4672,9 +4673,18 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
                         let x = storage.pos.x + i;
                         let y = storage.pos.y + o;
                         if(x < 0 || x > 49 || y < 0 || y > 49) continue;
-                        // leave the actual shell walkable
+                        // leave the actual shell walkable. Hostile aura raises
+                        // bare ramparts from 4 to 29, so cost===4 missed them.
                         if(shellKeys[x + "," + y]) continue;
-                        if(costs.get(x, y) === 4) continue;
+                        const structs = room.lookForAt(LOOK_STRUCTURES, x, y);
+                        let hasRampart = false;
+                        for(let s of structs) {
+                            if(s.structureType === STRUCTURE_RAMPART) {
+                                hasRampart = true;
+                                break;
+                            }
+                        }
+                        if(hasRampart) continue;
                         costs.set(x, y, 255);
                     }
                 }

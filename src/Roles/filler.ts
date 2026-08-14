@@ -89,8 +89,8 @@ function fillNeed(creep, excludeId?, spawnOnly?) {
  */
 const APPROACH_GIVE_UP = 50;
 
-/** Same TTL/shape as creepFunctions.liveReserveFill — do not blanket-wipe. */
-const RESERVE_FILL_TTL = 25;
+/** Same TTL/refresh as creepFunctions.liveReserveFill — do not blanket-wipe. */
+const RESERVE_FILL_TTL = 55;
 
 function pruneReserveFill(room) {
     let list = room.memory.reserveFill;
@@ -102,7 +102,16 @@ function pruneReserveFill(room) {
     for(let entry of list) {
         if(!entry || typeof entry !== "object" || !entry.id || !entry.creep) continue;
         if(!Game.creeps[entry.creep]) continue;
-        if(Game.time - (entry.t || 0) >= RESERVE_FILL_TTL) continue;
+        if(Game.time - (entry.t || 0) >= RESERVE_FILL_TTL) {
+            // sticky filler never re-calls findFillerTarget; refresh while
+            // the owner is still walking this id so TTL cannot free it.
+            let owner: any = Game.creeps[entry.creep];
+            if(owner && owner.memory && owner.memory.t === entry.id) {
+                entry.t = Game.time;
+                kept.push(entry);
+            }
+            continue;
+        }
         kept.push(entry);
     }
     if(kept.length !== list.length) {

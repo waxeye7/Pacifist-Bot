@@ -5,6 +5,7 @@ const run = function (creep:Creep) {
 
     creep.memory.moving = false;
 
+    // Same helper as RampartDefender: Boost() owns boostWait; helper refunds drops.
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0 && creep.room.memory.danger) {
         if(!finishBoostOrGiveUp(creep)) {
             return;

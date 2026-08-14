@@ -1,30 +1,41 @@
 import { interiorMove } from "utils/Interior";
+import { consumeBoostOwner, labKeyForId, refundBoostOwner } from "Rooms/rooms.labs";
 
 /**
- * Boost() only drops a lab when mineral<30 AND TTL<1100; a wrong mineral
- * >=30 parks the defender for the whole raid. Drop unusable labs, and
- * give up after 50 ticks so a raid-spawned body still reaches the wall.
+ * Boost() is the sole owner of boostWait (Game.time stamp, 80-tick drop).
+ * This helper only filters dead/wrong-mineral labs — refunding each drop —
+ * then defers to Boost(). Empty labs stay so EM can fill them.
  * Returns false when the caller must keep waiting at the lab.
  */
 export function finishBoostOrGiveUp(creep: any): boolean {
     if (!creep.memory.boostlabs || creep.memory.boostlabs.length == 0) return true;
 
-    creep.memory.boostlabs = creep.memory.boostlabs.filter(function (id: string) {
+    const kept: string[] = [];
+    for (const id of creep.memory.boostlabs) {
         const lab: any = Game.getObjectById(id);
-        if (!lab) return false;
-        if (!lab.mineralType || lab.mineralAmount < 30) return true;
-        for (const part of creep.body) {
-            if (!part.boost && BOOSTS[part.type] && BOOSTS[part.type][lab.mineralType]) {
-                return true;
+        let keep = false;
+        if (lab) {
+            if (!lab.mineralType || lab.mineralAmount < 30) {
+                keep = true;
+            } else {
+                for (const part of creep.body) {
+                    if (!part.boost && BOOSTS[part.type] && BOOSTS[part.type][lab.mineralType]) {
+                        keep = true;
+                        break;
+                    }
+                }
             }
         }
-        return false;
-    });
-    if (creep.memory.boostlabs.length == 0) return true;
-
-    creep.memory.boostWait = (creep.memory.boostWait || 0) + 1;
-    if (creep.memory.boostWait > 50) {
-        creep.memory.boostlabs = [];
+        if (keep) {
+            kept.push(id);
+        } else {
+            const key = labKeyForId(creep.room, id);
+            if (key) consumeBoostOwner(creep.room, key, creep.name);
+        }
+    }
+    creep.memory.boostlabs = kept;
+    if (creep.memory.boostlabs.length == 0) {
+        refundBoostOwner(creep.room, creep.name);
         return true;
     }
     return !!creep.Boost();

@@ -1,5 +1,5 @@
-import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
-import {splitQuadToDuos} from "./SquadDuo";
+import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, bindSquadSlot} from "./SquadHelperFunctions";
+import {splitQuadToDuos, degradeQuadToDuo} from "./SquadDuo";
 
 // tiles (relative to the leader) the 2x2 quad additionally needs clear to step one square in each direction
 const QUAD_CLEARANCE:any = {
@@ -51,10 +51,48 @@ const quadClearanceFree = function (creep:any, direction:any) {
     });
 };
 
+// room on the other side of the nearest exit, or the prior hop from home->target
+const roomBehind = function (creep:any): any {
+    const exits:any = Game.map.describeExits(creep.room.name);
+    if(exits) {
+        if(creep.pos.x <= 1 && exits[FIND_EXIT_LEFT]) {
+            return exits[FIND_EXIT_LEFT];
+        }
+        if(creep.pos.x >= 48 && exits[FIND_EXIT_RIGHT]) {
+            return exits[FIND_EXIT_RIGHT];
+        }
+        if(creep.pos.y <= 1 && exits[FIND_EXIT_TOP]) {
+            return exits[FIND_EXIT_TOP];
+        }
+        if(creep.pos.y >= 48 && exits[FIND_EXIT_BOTTOM]) {
+            return exits[FIND_EXIT_BOTTOM];
+        }
+    }
+    const home = creep.memory.homeRoom;
+    const dest = creep.memory.targetPosition && creep.memory.targetPosition.roomName;
+    if(home && dest && home !== creep.room.name) {
+        const route:any = Game.map.findRoute(home, dest);
+        if(route && route !== -2) {
+            let prev = home;
+            for(const step of route) {
+                if(step.room === creep.room.name) {
+                    return prev;
+                }
+                prev = step.room;
+            }
+        }
+    }
+    return null;
+};
+
 // swap the given slot pairs: every member's squad id-map is updated, then the paired
 // creeps exchange whole memory objects (identity, incl. role, stays with the slot,
 // only the bodies trade places), then the paired creeps physically swap positions
 const rotateSquad = function (a:any, b:any, y:any, z:any, pairs:any, moves:any) {
+    // swap identity only if every body can issue its move (incl. the tower-melee path)
+    if(!a || !b || !y || !z || a.fatigue > 0 || b.fatigue > 0 || y.fatigue > 0 || z.fatigue > 0) {
+        return;
+    }
     const members:any = {a: a, b: b, y: y, z: z};
     const memories:any = {a: a.memory, b: b.memory, y: y.memory, z: z.memory};
 
@@ -371,76 +409,36 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
     if(!creep.memory.squad) {
         creep.memory.squad = {};
     }
-    let squad = [];
-    if(!creep.memory.squad.a) {
-        let squadcreepa = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepA");}});
-        if(squadcreepa.length > 0) {
-            squadcreepa.sort((a,b) => b.ticksToLive - a.ticksToLive);
-            creep.memory.squad.a = squadcreepa[0].id;
-        }
-    }
-    if(!creep.memory.squad.b) {
-        let squadcreepb = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepB");}});
-        if(squadcreepb.length > 0) {
-            squadcreepb.sort((a,b) => b.ticksToLive - a.ticksToLive);
-            creep.memory.squad.b = squadcreepb[0].id;
-        }
-    }
-    if(!creep.memory.squad.y) {
-        let squadcreepy = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepY");}});
-        if(squadcreepy.length > 0) {
-            squadcreepy.sort((a,b) => b.ticksToLive - a.ticksToLive);
-            creep.memory.squad.y = squadcreepy[0].id;
-        }
-    }
-    if(!creep.memory.squad.z) {
-        let squadcreepz = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepZ");}});
-        if(squadcreepz.length > 0) {
-            squadcreepz.sort((a,b) => b.ticksToLive - a.ticksToLive);
-            creep.memory.squad.z = squadcreepz[0].id;
-        }
-    }
-
-    if(creep.memory.squad.a) {
-        squad.push(Game.getObjectById(creep.memory.squad.a));
-    }
-    if(creep.memory.squad.b) {
-        squad.push(Game.getObjectById(creep.memory.squad.b));
-    }
-    if(creep.memory.squad.y) {
-        squad.push(Game.getObjectById(creep.memory.squad.y));
-    }
-    if(creep.memory.squad.z) {
-        squad.push(Game.getObjectById(creep.memory.squad.z));
-    }
+    // live objects only — dead ids are cleared so rematch can run; no-vision
+    // members still resolve via Game.creeps
+    let a = bindSquadSlot(creep, "a", "SquadCreepA");
+    let b = bindSquadSlot(creep, "b", "SquadCreepB");
+    let y = bindSquadSlot(creep, "y", "SquadCreepY");
+    let z = bindSquadSlot(creep, "z", "SquadCreepZ");
 
 
-    if(squad[0] && squad[1] && squad[2] && squad[3] && squad[1].pos.x == squad[0].pos.x + 1 && squad[1].pos.y == squad[0].pos.y &&
-    squad[2].pos.x == squad[0].pos.x && squad[2].pos.y == squad[0].pos.y + 1 &&
-    squad[3].pos.x == squad[0].pos.x + 1 && squad[3].pos.y == squad[0].pos.y + 1)
+    if(a && b && y && z && b.pos.x == a.pos.x + 1 && b.pos.y == a.pos.y &&
+    y.pos.x == a.pos.x && y.pos.y == a.pos.y + 1 &&
+    z.pos.x == a.pos.x + 1 && z.pos.y == a.pos.y + 1)
     {
-    squad[0].memory.go = true;
-    squad[1].memory.go = true;
-    squad[2].memory.go = true;
-    squad[3].memory.go = true;
+    a.memory.go = true;
+    b.memory.go = true;
+    y.memory.go = true;
+    z.memory.go = true;
     }
-
-
-
-    let a;
-    let b;
-    let y;
-    let z;
 
     if(creep.room.name == creep.memory.targetPosition.roomName && creep.room.controller && !creep.room.controller.my && creep.room.controller.safeMode > 0) {
         creep.memory.targetPosition = new RoomPosition(25,25,creep.memory.homeRoom);
     }
 
-    if(squad.length == 4 && creep.memory.go) {
-        a = squad[0];
-        b = squad[1];
-        y = squad[2];
-        z = squad[3];
+    const liveNow = [a, b, y, z].filter(function(c) { return !!c; });
+    // two left: drop the 2x2 and keep traveling as a duo
+    if(creep.memory.go && liveNow.length == 2) {
+        degradeQuadToDuo(liveNow[0], liveNow[1]);
+        return;
+    }
+
+    if(creep.memory.go && liveNow.length >= 3) {
 
         // split travel: morph into two duos when flagged (QSPLIT) or when the quad
         // path came back incomplete twice in a row (terrain the 2x2 cannot cross).
@@ -449,10 +447,23 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
            (creep.memory.splitTravel || (creep.memory.pathIncompleteCount || 0) >= 2 || (creep.memory.swampyPathCount || 0) >= 3) &&
            a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) {
             let staging = creep.room.name;
-            if(creep.memory.route && creep.memory.route.length >= 2) {
+            const lastHop = !(creep.memory.route && creep.memory.route.length >= 2);
+            if(!lastHop) {
                 staging = creep.memory.route[creep.memory.route.length - 2].room;
             }
+            else {
+                // last hop: staging in this room rejoins instantly. Use the
+                // previous room, and send the duos at the real target.
+                staging = roomBehind(creep) || creep.room.name;
+            }
+            const finalTarget = a.memory.targetPosition;
             splitQuadToDuos(a, b, y, z, staging);
+            if(lastHop && finalTarget) {
+                a.memory.targetPosition = finalTarget;
+                y.memory.targetPosition = finalTarget;
+                a.memory.finalTarget = finalTarget;
+                y.memory.finalTarget = finalTarget;
+            }
             return;
         }
 
@@ -624,7 +635,11 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
         }
 
 
-        if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
+        const liveForMove = [a, b, y, z].filter(function(c) { return !!c; });
+        const fullQuad = !!(a && b && y && z);
+        const allFresh = liveForMove.length > 0 && liveForMove.every(function(c) { return c.fatigue == 0; });
+
+        if(allFresh && (fullQuad || liveForMove.length >= 3)) {
 
 
             // if(a.pos.findInRange(enemyCreeps, 2).length > 0 || b.pos.findInRange(enemyCreeps, 2).length > 0 || y.pos.findInRange(enemyCreeps, 2).length > 0 || z.pos.findInRange(enemyCreeps, 2).length > 0) {
@@ -696,7 +711,7 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
             let direction = pos ? creep.pos.getDirectionTo(pos) : undefined;
             // && a.room.name == y.room.name && a.room.name == z.room.name) || (a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) || (a.room.name == y.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(b))
             if(
-                pos &&
+                fullQuad && pos &&
 
                 ((a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) ||
 
@@ -1277,6 +1292,11 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
 
                 }
 
+            }
+            else if(!fullQuad && pos && direction) {
+                // 3-creep: no 2x2 lockstep, leader steps and survivors copy direction
+                creep.memory.direction = direction;
+                creep.move(direction);
             }
             else {
                 creep.memory.direction = false;

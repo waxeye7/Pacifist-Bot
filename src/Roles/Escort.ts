@@ -1,3 +1,5 @@
+import { chargeBoostSlot } from "Rooms/rooms.labs";
+
 const run = function (creep) {
   creep.memory.moving = false;
   if(creep.room.name === creep.memory.targetRoom) {
@@ -24,29 +26,8 @@ const run = function (creep) {
     });
     console.log("Adding Claimer to Spawn List: " + newName);
 
-    if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
-      room.memory.labs.status.boost = {};
-  }
-  if(room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost) {
-      if(room.memory.labs.status.boost.lab5) {
-          room.memory.labs.status.boost.lab5.amount += 60;
-          room.memory.labs.status.boost.lab5.use += 1;
-      }
-      else {
-          room.memory.labs.status.boost.lab5 = {};
-          room.memory.labs.status.boost.lab5.amount = 60;
-          room.memory.labs.status.boost.lab5.use = 1;
-      }
-      if(room.memory.labs.status.boost.lab7) {
-          room.memory.labs.status.boost.lab7.amount += 30;
-          room.memory.labs.status.boost.lab7.use += 1;
-      }
-      else {
-          room.memory.labs.status.boost.lab7 = {};
-          room.memory.labs.status.boost.lab7.amount = 30;
-          room.memory.labs.status.boost.lab7.use = 1;
-      }
-  }
+    if(room.memory.labs && room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 60, newName);
+    if(room.memory.labs && room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName);
 
   }
   if (creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {

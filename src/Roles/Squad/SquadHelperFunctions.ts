@@ -14,10 +14,13 @@
  *  - creepCost: GetReady blocks creep tiles outright, combat softens to 10 when
  *    the surrounding footprint is cheap (creep likely to move)
  **/
-const buildQuadCostMatrix = function (roomName: string, opts: any): boolean | CostMatrix {
+const buildQuadCostMatrix = function (roomName: string, opts: any): boolean | CostMatrix | undefined {
     let room = Game.rooms[roomName];
     if (!room) {
-        return false;
+        // no vision: `false` forbids the room and makes every inter-room path
+        // incomplete (auto-split fired on fog, never on swamp). undefined lets
+        // PathFinder use terrain so a completed swampy path can still split.
+        return undefined;
     }
 
     const single = opts.footprint == "single";
@@ -166,19 +169,59 @@ const buildQuadCostMatrix = function (roomName: string, opts: any): boolean | Co
 };
 
 
-const roomCallbackSquadA = (roomName: string): boolean | CostMatrix =>
+const roomCallbackSquadA = (roomName: string): boolean | CostMatrix | undefined =>
     buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true});
 
-const roomCallbackSquadASwampCostSame = (roomName: string): boolean | CostMatrix =>
+const roomCallbackSquadASwampCostSame = (roomName: string): boolean | CostMatrix | undefined =>
     buildQuadCostMatrix(roomName, {swampCost: 1, edgeCost: 3, structuresFirst: true, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: false});
 
-const roomCallbackSquadGetReady = (roomName: string): boolean | CostMatrix =>
+const roomCallbackSquadGetReady = (roomName: string): boolean | CostMatrix | undefined =>
     buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 15, structuresFirst: true, skipContainers: false, myStructCost: 100, hostileStructCost: 100, controllerHits: false, creepCost: 255});
 
 // single-tile footprint for the 2-creep duo (the healer chases, so the leader
 // paths like a lone creep but still prices hostile structures for kiting)
-const roomCallbackDuo = (roomName: string): boolean | CostMatrix =>
+const roomCallbackDuo = (roomName: string): boolean | CostMatrix | undefined =>
     buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true, footprint: "single"});
 
+// Game.getObjectById is null without vision; Game.creeps still has our creeps.
+const resolveMyCreep = function (id: string): any {
+    if (!id) {
+        return null;
+    }
+    const byId = Game.getObjectById(id);
+    if (byId) {
+        return byId;
+    }
+    for (const name in Game.creeps) {
+        if (Game.creeps[name].id === id) {
+            return Game.creeps[name];
+        }
+    }
+    return null;
+};
 
-export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, roomCallbackDuo};
+// resolve a squad slot; drop the id when the creep is actually dead so rematch can run
+const bindSquadSlot = function (creep: any, slot: string, role: string): any {
+    if (!creep.memory.squad) {
+        creep.memory.squad = {};
+    }
+    if (creep.memory.squad[slot]) {
+        const live = resolveMyCreep(creep.memory.squad[slot]);
+        if (live) {
+            return live;
+        }
+        delete creep.memory.squad[slot];
+    }
+    const found = creep.room.find(FIND_MY_CREEPS, {
+        filter: function (c: any) { return c.memory.role == role; }
+    });
+    if (found.length > 0) {
+        found.sort(function (a: any, b: any) { return b.ticksToLive - a.ticksToLive; });
+        creep.memory.squad[slot] = found[0].id;
+        return found[0];
+    }
+    return null;
+};
+
+
+export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, roomCallbackDuo, resolveMyCreep, bindSquadSlot};

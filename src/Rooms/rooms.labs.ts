@@ -300,6 +300,10 @@ export function consumeBoostOwner(room, labKey: string, ownerName: string): void
     const slot = boost[labKey];
     if(!slot) return;
     if(slot.owners && ownerName && slot.owners[ownerName]) {
+        const rec = slot.owners[ownerName];
+        // Same amount unwind as refundBoostOwner — leaving rec.amount on the
+        // slot kept EM filling a lab nobody will drink from.
+        slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
         delete slot.owners[ownerName];
     }
     if((slot.use || 0) > 0) slot.use -= 1;

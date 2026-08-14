@@ -2967,6 +2967,9 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("SquadCreepZ")
 
                 && !room.memory.spawn_list[1].startsWith("Ram-")
+                // Ram- does not cover RampartDefender-/RampartErector-; RRD is listed below.
+                && !room.memory.spawn_list[1].startsWith("RampartDefender")
+                && !room.memory.spawn_list[1].startsWith("RampartErector")
                 && !room.memory.spawn_list[1].startsWith("Signifer")
 
                 // A reserver is [CLAIM,MOVE] x N, so from RCL5 up its body is

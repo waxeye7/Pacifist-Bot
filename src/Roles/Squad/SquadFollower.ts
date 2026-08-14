@@ -1,3 +1,6 @@
+import {bindSquadSlot, resolveMyCreep} from "./SquadHelperFunctions";
+import {degradeQuadToDuo} from "./SquadDuo";
+
 /**
  * Shared follower logic for SquadCreepB/Y/Z. The three roles are identical
  * apart from their slot in the 2x2 formation relative to the leader (A):
@@ -18,9 +21,9 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
 
 
         if(!creep.memory.go && creep.memory.squad && creep.memory.squad.a) {
-            let a:any = Game.getObjectById(creep.memory.squad.a);
-            if(a) {
-                creep.moveTo(new RoomPosition(a.pos.x + dx, a.pos.y + dy, a.room.name));
+            let gatherA:any = resolveMyCreep(creep.memory.squad.a);
+            if(gatherA) {
+                creep.moveTo(new RoomPosition(gatherA.pos.x + dx, gatherA.pos.y + dy, gatherA.room.name));
             }
         }
 
@@ -103,61 +106,28 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
         if(!creep.memory.squad) {
             creep.memory.squad = {};
         }
-        let squad = [];
-        if(!creep.memory.squad.a) {
-            let squadcreepa = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepA");}});
-            if(squadcreepa.length > 0) {
-                squadcreepa.sort((a,b) => b.ticksToLive - a.ticksToLive);
-                creep.memory.squad.a = squadcreepa[0].id;
+        let a = bindSquadSlot(creep, "a", "SquadCreepA");
+        let b = bindSquadSlot(creep, "b", "SquadCreepB");
+        let y = bindSquadSlot(creep, "y", "SquadCreepY");
+        let z = bindSquadSlot(creep, "z", "SquadCreepZ");
+
+
+
+        if(creep.memory.go) {
+            const liveNow = [a, b, y, z].filter(function(c) { return !!c; });
+            if(liveNow.length == 2) {
+                degradeQuadToDuo(liveNow[0], liveNow[1]);
+                return;
             }
-        }
-        if(!creep.memory.squad.b) {
-            let squadcreepb = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepB");}});
-            if(squadcreepb.length > 0) {
-                squadcreepb.sort((a,b) => b.ticksToLive - a.ticksToLive);
-                creep.memory.squad.b = squadcreepb[0].id;
+            if(!a && liveNow.length >= 3) {
+                // A died: promote a survivor so the 3-creep formation still has a leader
+                const promo = liveNow[0];
+                promo.memory.role = "SquadCreepA";
+                if(!promo.memory.targetPosition) {
+                    promo.memory.targetPosition = new RoomPosition(25, 25, promo.memory.homeRoom || promo.room.name);
+                }
+                return;
             }
-        }
-        if(!creep.memory.squad.y) {
-            let squadcreepy = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepY");}});
-            if(squadcreepy.length > 0) {
-                squadcreepy.sort((a,b) => b.ticksToLive - a.ticksToLive);
-                creep.memory.squad.y = squadcreepy[0].id;
-            }
-        }
-        if(!creep.memory.squad.z) {
-            let squadcreepz = creep.room.find(FIND_MY_CREEPS, {filter: (myCreep) => {return (myCreep.memory.role == "SquadCreepZ");}});
-            if(squadcreepz.length > 0) {
-                squadcreepz.sort((a,b) => b.ticksToLive - a.ticksToLive);
-                creep.memory.squad.z = squadcreepz[0].id;
-            }
-        }
-
-        if(creep.memory.squad.a) {
-            squad.push(Game.getObjectById(creep.memory.squad.a));
-        }
-        if(creep.memory.squad.b) {
-            squad.push(Game.getObjectById(creep.memory.squad.b));
-        }
-        if(creep.memory.squad.y) {
-            squad.push(Game.getObjectById(creep.memory.squad.y));
-        }
-        if(creep.memory.squad.z) {
-            squad.push(Game.getObjectById(creep.memory.squad.z));
-        }
-
-        let a;
-        let b;
-        let y;
-        let z;
-
-
-
-        if(squad.length == 4 && creep.memory.go) {
-            a = squad[0];
-            b = squad[1];
-            y = squad[2];
-            z = squad[3];
 
 
             let aliveCreeps = [];
@@ -258,8 +228,7 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
             }
 
 
-            if(a&&b&&y&&z && a.fatigue == 0 && b.fatigue == 0 && y.fatigue == 0 && z.fatigue == 0) {
-                if(a.memory.direction) {
+            if(liveNow.length >= 2 && liveNow.every(function(c) { return c.fatigue == 0; }) && a && a.memory.direction) {
                     if(a.memory.direction == 1) {
                         creep.move(TOP)
                     }
@@ -288,9 +257,6 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
                     else if(a.memory.direction == "join") {
                         creep.moveTo(new RoomPosition(a.pos.x + dx, a.pos.y + dy, a.room.name));
                     }
-                }
-
-
             }
         }
     };
