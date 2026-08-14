@@ -198,6 +198,145 @@ function roomDefence(room) {
         room.memory.defence.towerShotsInRow = 0;
     }
 
+    // Hostile scan first. Towers and the %3 shell-repair used to read
+    // last-tick danger / in_position / rampartToMan, so a 2+ wave got
+    // three free ticks (no danger, then fire-hold, then another fire-hold)
+    // before the first volley. Power-creep last-intent stays after the
+    // tower loop so it still overwrites a volley/repair the same way.
+    {
+        let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
+        if(HostileCreeps.length > 0) {
+            room.memory.danger = true;
+
+            // Man-able shell = planned perimeter (min-cut), not "range <= 10 from storage"
+            let MyRamparts: any[] = findPerimeterRamparts(room);
+            if (!MyRamparts.length) {
+                MyRamparts = room.find(FIND_MY_STRUCTURES, {
+                    filter: (structure) => structure.structureType == STRUCTURE_RAMPART,
+                });
+            }
+            let myCreeps = room.find(FIND_MY_CREEPS);
+
+            if(room.controller.level <= 5) {
+                // Any RA hostile used to own the whole civilian loop, so the
+                // melee arm never ran and the ranged else-clause CLEARED
+                // fleeing next to a melee. Each civilian uses its nearest
+                // armed hostile of either type.
+                const armedHostiles = HostileCreeps.filter(function(c) {
+                    return c.getActiveBodyparts(RANGED_ATTACK) > 0 || c.getActiveBodyparts(ATTACK) > 0;
+                });
+                if(armedHostiles.length > 0 && !room.controller.safeMode) {
+                    for(let creep of myCreeps) {
+                        if(creep.memory.role === "RampartDefender" || creep.memory.role === "RRD" || creep.memory.role === "ram") {
+                            continue;
+                        }
+                        let closestHostileToCreep = creep.pos.findClosestByRange(armedHostiles);
+                        if(!closestHostileToCreep) {
+                            creep.memory.fleeing = false;
+                            continue;
+                        }
+                        let creepOnRampart = false;
+                        let structsOnCreep = creep.pos.lookFor(LOOK_STRUCTURES);
+                        for(let structOnCreep of structsOnCreep) {
+                            if(structOnCreep.structureType == STRUCTURE_RAMPART) {
+                                creepOnRampart = true;
+                                break;
+                            }
+                        }
+                        const range = creep.pos.getRangeTo(closestHostileToCreep);
+                        const isRanged = closestHostileToCreep.getActiveBodyparts(RANGED_ATTACK) > 0;
+                        if(isRanged && room.controller.level <= 3 && range <= 5 && !creepOnRampart) {
+                            creep.drop(RESOURCE_ENERGY);
+                            creep.fleeFromRanged(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
+                        else if(isRanged && range <= 3 && !creepOnRampart) {
+                            creep.fleeFromRanged(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
+                        else if(!isRanged && range <= 3 && !creepOnRampart && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
+                            {
+                                maxOps: 150,
+                                maxRooms: 1,
+                                roomCallback: (roomName) => pathAroundMyRampartsAndStructuresAndTerrain(roomName)
+                            }).incomplete) {
+                            creep.drop(RESOURCE_ENERGY);
+                            creep.fleeFromMelee(closestHostileToCreep);
+                            creep.memory.fleeing = true;
+                        }
+                        else {
+                            creep.memory.fleeing = false;
+                        }
+                    }
+                }
+                else {
+                    clearCivilianFleeing(room);
+                }
+            }
+
+
+
+
+            if(HostileCreeps.length > 1 && room.memory.danger && myCreeps.length > 1) {
+                if(!Memory.DistressSignals) {
+                    Memory.DistressSignals = {};
+                }
+                if(!Memory.DistressSignals.reinforce_me) {
+                    Memory.DistressSignals.reinforce_me = room.name;
+                }
+            }
+
+
+
+            const assignedDefenders = assignDefenderTiles(room, MyRamparts, HostileCreeps, myCreeps);
+            updateInPosition(room, assignedDefenders);
+        }
+        else {
+            room.memory.danger = false;
+            room.memory.rampartToMan = false;
+            // Melee flee never cleared, and a leftover flag freezes any
+            // role that early-returns on memory.fleeing after the raid.
+            clearCivilianFleeing(room);
+
+            /*
+             * RELEASE THE DISTRESS LATCH.
+             *
+             * `reinforce_me` is raised above (HostileCreeps.length > 1 && danger)
+             * and this — the only clear — was commented out, so it was a
+             * write-once flag: whichever room called for help first kept calling
+             * forever. Live W1N1 held `Memory.DistressSignals.reinforce_me =
+             * "W1N1"` with `danger:false`, `danger_timer:0`, no hostiles in the
+             * room and ramparts at 4.2-7.5M hits.
+             *
+             * This branch is the no-hostiles branch, and we have just written
+             * danger = false, so the signal has nothing left to describe. Drop it
+             * and let the next real raid raise it again.
+             */
+            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me == room.name) {
+                delete Memory.DistressSignals.reinforce_me;
+            }
+        }
+        if(HostileCreeps.length > 0) {
+            room.memory.blown_fuse = true;
+        }
+        else {
+            room.memory.blown_fuse = false;
+        }
+
+    }
+    if(room.controller.safeMode) {
+        room.memory.danger = false;
+        room.memory.blown_fuse = false;
+        room.memory.danger_timer = 0;
+        room.memory.rampartToMan = false;
+        // Safemode lasts ~20k ticks; a leftover fleeing flag would park
+        // civilians for the whole duration. Cleared here so the tower loop
+        // and %3 shell-repair still see peacetime, same as when this ran
+        // after the (old) post-loop scan.
+        clearCivilianFleeing(room);
+
+    }
+
     // No duration-only trigger. The >=11000 arm was dead (rooms.ts wraps the
     // timer at >10000), and making it reachable meant a long-range CAMP that
     // never damaged the shell burned a safemode every timer wrap. Real
@@ -443,15 +582,12 @@ function roomDefence(room) {
     }
 
 
-    // Hostile scan every tick. The %5 gate left a 4-tick first-contact
-    // window; towers already fire on last-tick danger, so a late latch
-    // costs another salvo.
+    // Power-creep last-intent: stays after the tower loop so a PC on
+    // bare ground still overwrites a volley/repair, same as when this
+    // lived at the bottom of the (old) post-loop scan.
     {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-        let storage:any = Game.getObjectById(room.memory.Structures.storage);
         if(HostileCreeps.length > 0) {
-            room.memory.danger = true;
-
             let hostilePowerCreeps = room.find(FIND_HOSTILE_POWER_CREEPS);
             if (hostilePowerCreeps.length) {
                 for (let hostilePowerCreep of hostilePowerCreeps) {
@@ -465,133 +601,7 @@ function roomDefence(room) {
                     }
                 }
             }
-
-
-            // Man-able shell = planned perimeter (min-cut), not "range <= 10 from storage"
-            let MyRamparts: any[] = findPerimeterRamparts(room);
-            if (!MyRamparts.length) {
-                MyRamparts = room.find(FIND_MY_STRUCTURES, {
-                    filter: (structure) => structure.structureType == STRUCTURE_RAMPART,
-                });
-            }
-            let myCreeps = room.find(FIND_MY_CREEPS);
-
-            if(room.controller.level <= 5) {
-                // Any RA hostile used to own the whole civilian loop, so the
-                // melee arm never ran and the ranged else-clause CLEARED
-                // fleeing next to a melee. Each civilian uses its nearest
-                // armed hostile of either type.
-                const armedHostiles = HostileCreeps.filter(function(c) {
-                    return c.getActiveBodyparts(RANGED_ATTACK) > 0 || c.getActiveBodyparts(ATTACK) > 0;
-                });
-                if(armedHostiles.length > 0 && !room.controller.safeMode) {
-                    for(let creep of myCreeps) {
-                        if(creep.memory.role === "RampartDefender" || creep.memory.role === "RRD" || creep.memory.role === "ram") {
-                            continue;
-                        }
-                        let closestHostileToCreep = creep.pos.findClosestByRange(armedHostiles);
-                        if(!closestHostileToCreep) {
-                            creep.memory.fleeing = false;
-                            continue;
-                        }
-                        let creepOnRampart = false;
-                        let structsOnCreep = creep.pos.lookFor(LOOK_STRUCTURES);
-                        for(let structOnCreep of structsOnCreep) {
-                            if(structOnCreep.structureType == STRUCTURE_RAMPART) {
-                                creepOnRampart = true;
-                                break;
-                            }
-                        }
-                        const range = creep.pos.getRangeTo(closestHostileToCreep);
-                        const isRanged = closestHostileToCreep.getActiveBodyparts(RANGED_ATTACK) > 0;
-                        if(isRanged && room.controller.level <= 3 && range <= 5 && !creepOnRampart) {
-                            creep.drop(RESOURCE_ENERGY);
-                            creep.fleeFromRanged(closestHostileToCreep);
-                            creep.memory.fleeing = true;
-                        }
-                        else if(isRanged && range <= 3 && !creepOnRampart) {
-                            creep.fleeFromRanged(closestHostileToCreep);
-                            creep.memory.fleeing = true;
-                        }
-                        else if(!isRanged && range <= 3 && !creepOnRampart && !PathFinder.search(creep.pos, {pos:closestHostileToCreep.pos, range:1},
-                            {
-                                maxOps: 150,
-                                maxRooms: 1,
-                                roomCallback: (roomName) => pathAroundMyRampartsAndStructuresAndTerrain(roomName)
-                            }).incomplete) {
-                            creep.drop(RESOURCE_ENERGY);
-                            creep.fleeFromMelee(closestHostileToCreep);
-                            creep.memory.fleeing = true;
-                        }
-                        else {
-                            creep.memory.fleeing = false;
-                        }
-                    }
-                }
-                else {
-                    clearCivilianFleeing(room);
-                }
-            }
-
-
-
-
-            if(HostileCreeps.length > 1 && room.memory.danger && myCreeps.length > 1) {
-                if(!Memory.DistressSignals) {
-                    Memory.DistressSignals = {};
-                }
-                if(!Memory.DistressSignals.reinforce_me) {
-                    Memory.DistressSignals.reinforce_me = room.name;
-                }
-            }
-
-
-
-            const assignedDefenders = assignDefenderTiles(room, MyRamparts, HostileCreeps, myCreeps);
-            updateInPosition(room, assignedDefenders);
         }
-        else {
-            room.memory.danger = false;
-            room.memory.rampartToMan = false;
-            // Melee flee never cleared, and a leftover flag freezes any
-            // role that early-returns on memory.fleeing after the raid.
-            clearCivilianFleeing(room);
-
-            /*
-             * RELEASE THE DISTRESS LATCH.
-             *
-             * `reinforce_me` is raised above (HostileCreeps.length > 1 && danger)
-             * and this — the only clear — was commented out, so it was a
-             * write-once flag: whichever room called for help first kept calling
-             * forever. Live W1N1 held `Memory.DistressSignals.reinforce_me =
-             * "W1N1"` with `danger:false`, `danger_timer:0`, no hostiles in the
-             * room and ramparts at 4.2-7.5M hits.
-             *
-             * This branch is the no-hostiles branch, and we have just written
-             * danger = false, so the signal has nothing left to describe. Drop it
-             * and let the next real raid raise it again.
-             */
-            if(Memory.DistressSignals && Memory.DistressSignals.reinforce_me == room.name) {
-                delete Memory.DistressSignals.reinforce_me;
-            }
-        }
-        if(HostileCreeps.length > 0) {
-            room.memory.blown_fuse = true;
-        }
-        else {
-            room.memory.blown_fuse = false;
-        }
-
-    }
-    if(room.controller.safeMode) {
-        room.memory.danger = false;
-        room.memory.blown_fuse = false;
-        room.memory.danger_timer = 0;
-        room.memory.rampartToMan = false;
-        // Safemode lasts ~20k ticks; a leftover fleeing flag would park
-        // civilians for the whole duration.
-        clearCivilianFleeing(room);
-
     }
 }
 export default roomDefence;

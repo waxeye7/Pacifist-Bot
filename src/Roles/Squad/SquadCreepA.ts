@@ -1,4 +1,4 @@
-import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, bindSquadSlot} from "./SquadHelperFunctions";
+import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, bindSquadSlot, shareSquadTargetPosition} from "./SquadHelperFunctions";
 import {splitQuadToDuos, degradeQuadToDuo} from "./SquadDuo";
 
 // tiles (relative to the leader) the 2x2 quad additionally needs clear to step one square in each direction
@@ -51,23 +51,9 @@ const quadClearanceFree = function (creep:any, direction:any) {
     });
 };
 
-// room on the other side of the nearest exit, or the prior hop from home->target
+// predecessor on home->target. Never the facing exit — that is the next room
+// (and on a last hop / corner tile, often the dest we just failed to enter).
 const roomBehind = function (creep:any): any {
-    const exits:any = Game.map.describeExits(creep.room.name);
-    if(exits) {
-        if(creep.pos.x <= 1 && exits[FIND_EXIT_LEFT]) {
-            return exits[FIND_EXIT_LEFT];
-        }
-        if(creep.pos.x >= 48 && exits[FIND_EXIT_RIGHT]) {
-            return exits[FIND_EXIT_RIGHT];
-        }
-        if(creep.pos.y <= 1 && exits[FIND_EXIT_TOP]) {
-            return exits[FIND_EXIT_TOP];
-        }
-        if(creep.pos.y >= 48 && exits[FIND_EXIT_BOTTOM]) {
-            return exits[FIND_EXIT_BOTTOM];
-        }
-    }
     const home = creep.memory.homeRoom;
     const dest = creep.memory.targetPosition && creep.memory.targetPosition.roomName;
     if(home && dest && home !== creep.room.name) {
@@ -415,6 +401,7 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
     let b = bindSquadSlot(creep, "b", "SquadCreepB");
     let y = bindSquadSlot(creep, "y", "SquadCreepY");
     let z = bindSquadSlot(creep, "z", "SquadCreepZ");
+    shareSquadTargetPosition([a, b, y, z]);
 
 
     if(a && b && y && z && b.pos.x == a.pos.x + 1 && b.pos.y == a.pos.y &&
@@ -437,6 +424,21 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
         degradeQuadToDuo(liveNow[0], liveNow[1]);
         return;
     }
+    // last member: no formation left — walk the attack room and keep fighting
+    if(creep.memory.go && liveNow.length == 1) {
+        if(creep.hits < creep.hitsMax) {
+            creep.heal(creep);
+        }
+        if(creep.memory.targetPosition && creep.room.name != creep.memory.targetPosition.roomName) {
+            if(creep.memory.route && creep.memory.route !== -2 && creep.memory.route.length > 0) {
+                creep.moveTo(new RoomPosition(25, 25, creep.memory.route[0].room), {range: 20, reusePath: 20});
+            }
+        }
+        else if(move_location) {
+            creep.moveTo(move_location);
+        }
+        return;
+    }
 
     if(creep.memory.go && liveNow.length >= 3) {
 
@@ -452,12 +454,18 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
                 staging = creep.memory.route[creep.memory.route.length - 2].room;
             }
             else {
-                // last hop: staging in this room rejoins instantly. Use the
-                // previous room, and send the duos at the real target.
+                // last hop: never stage through the facing exit. No predecessor
+                // (first room of the route / home==current) stays here; lock
+                // so the four cannot instantly rejoin as a 2x2.
                 staging = roomBehind(creep) || creep.room.name;
             }
             const finalTarget = a.memory.targetPosition;
             splitQuadToDuos(a, b, y, z, staging);
+            if(staging === creep.room.name) {
+                for(const member of [a, b, y, z]) {
+                    member.memory.rejoinLockUntil = Game.time + 10;
+                }
+            }
             if(lastHop && finalTarget) {
                 a.memory.targetPosition = finalTarget;
                 y.memory.targetPosition = finalTarget;

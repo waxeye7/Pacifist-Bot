@@ -123,8 +123,8 @@ Room.prototype.findObserver = function(): object | void {
 /**
  * StorageLink is first-live-wins at every reader (`getObjectById || find`).
  * An RCL5 source link in the storage ring sticks after the real hub is
- * built. Drop the cache on RCL change, or when a closer my-link sits
- * adjacent to storage.
+ * built. Drop the cache on RCL change, or when a better hub sits in the
+ * chebyshev-2 ring (adjacent, or the legacy storage.x-2 tile).
  */
 export function invalidateStaleStorageLink(room: any): void {
     if (!room || !room.memory || !room.memory.Structures || !room.storage) return;
@@ -136,14 +136,29 @@ export function invalidateStaleStorageLink(room: any): void {
     }
     const cur: any = Game.getObjectById(room.memory.Structures.StorageLink);
     if (!cur || room.storage.pos.getRangeTo(cur) <= 1) return;
-    for (let dx = -1; dx <= 1; dx++) {
-        for (let dy = -1; dy <= 1; dy++) {
+    // Pin is range 2 (or farther). Adjacent-only missed the legacy hub at
+    // storage.x-2, so an RCL5 source-ring pin stuck after the real hub
+    // finished. Walk the full chebyshev-2 ring. Only drop the pin when
+    // the other link is a better hub (closer, or the legacy x-2 tile, or
+    // not source-adjacent while the pin is) — deleting on "any other
+    // range-2 link" would flap every 5 ticks.
+    const hubX = room.storage.pos.x - 2;
+    const hubY = room.storage.pos.y;
+    const curIsLegacyHub = cur.pos.x === hubX && cur.pos.y === hubY;
+    const curNextToSource = cur.pos.findInRange(FIND_SOURCES, 1).length > 0;
+    for (let dx = -2; dx <= 2; dx++) {
+        for (let dy = -2; dy <= 2; dy++) {
             if (!dx && !dy) continue;
             const x = room.storage.pos.x + dx;
             const y = room.storage.pos.y + dy;
             if (x < 0 || x > 49 || y < 0 || y > 49) continue;
+            const ringRange = Math.max(Math.abs(dx), Math.abs(dy));
             for (const s of room.lookForAt(LOOK_STRUCTURES, x, y)) {
-                if (s.structureType === STRUCTURE_LINK && s.my && s.id !== cur.id) {
+                if (s.structureType !== STRUCTURE_LINK || !s.my || s.id === cur.id) continue;
+                const betterCloser = ringRange <= 1;
+                const betterLegacy = !curIsLegacyHub && s.pos.x === hubX && s.pos.y === hubY;
+                const betterNotSource = curNextToSource && s.pos.findInRange(FIND_SOURCES, 1).length === 0;
+                if (betterCloser || betterLegacy || betterNotSource) {
                     delete room.memory.Structures.StorageLink;
                     return;
                 }
@@ -165,7 +180,19 @@ Room.prototype.findStorageLink = function(): object | void {
         // resolves at 2.
         let nearby = links.filter(function(link) {return storage.pos.getRangeTo(link) <= 2;});
         if(nearby.length > 0) {
-            nearby.sort((a, b) => storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b));
+            const hubX = storage.pos.x - 2;
+            const hubY = storage.pos.y;
+            nearby.sort((a, b) => {
+                const d = storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b);
+                if (d !== 0) return d;
+                // Equal range: legacy x-2 hub, then a non-source-adjacent
+                // tile, so a source link in the storage ring does not win
+                // the first-live-wins pin after invalidate drops it.
+                const aHub = a.pos.x === hubX && a.pos.y === hubY ? 0 : 1;
+                const bHub = b.pos.x === hubX && b.pos.y === hubY ? 0 : 1;
+                if (aHub !== bHub) return aHub - bHub;
+                return a.pos.findInRange(FIND_SOURCES, 1).length - b.pos.findInRange(FIND_SOURCES, 1).length;
+            });
             this.memory.Structures.StorageLink = nearby[0].id;
             return nearby[0];
         }

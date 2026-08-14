@@ -87,7 +87,10 @@ function findLockedBuild(creep) {
         creep.recycle();
         return;
     }
-    if(creep.fleeHomeIfInDanger() == "timeOut") {
+    // timeOut is only a hard abort while still IN the flagged remote.
+    // After the exit the helper still returns "timeOut" for 25t with no
+    // work move — a repairer sat in the corridor / just inside home.
+    if(creep.room.name === creep.memory.targetRoom && creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }
 

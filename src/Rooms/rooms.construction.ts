@@ -1227,14 +1227,24 @@ function construction(room) {
                         }
 
                         let links = room.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_LINK);}});
-                        // Place when no existing link is within 3 of the controller
-                        // (the original commented check). links.length == 3 skipped
-                        // 1-source rooms (source+storage = 2) and the Structure
-                        // object was compared to the string STRUCTURE_CONTAINER.
-                        let closestLinkToController = room.controller.pos.findClosestByRange(links);
+                        // Place when no existing CONTROLLER link is within 3.
+                        // A hub or source-adjacent link inside that radius is
+                        // not a depot (same filters as upgrader controllerDepot);
+                        // treating them as "already exists" skipped the real
+                        // controller link in compact rooms.
+                        const sourcesNearCtrl = room.find(FIND_SOURCES);
+                        const storageLinkId = room.memory.Structures && room.memory.Structures.StorageLink;
+                        const ctrlDepotLinks = links.filter(function(l: any) {
+                            return l.id !== storageLinkId && l.pos.findInRange(sourcesNearCtrl, 1).length == 0;
+                        });
+                        let closestLinkToController = room.controller.pos.findClosestByRange(ctrlDepotLinks);
                         if(!closestLinkToController || room.controller.pos.getRangeTo(closestLinkToController) > 3) {
                             let currentControllerLink:any = Game.getObjectById(room.memory.Structures.controllerLink);
-                            if(currentControllerLink && currentControllerLink.structureType == STRUCTURE_CONTAINER || !currentControllerLink) {
+                            const keyIsRealCtrlLink = currentControllerLink &&
+                                currentControllerLink.structureType == STRUCTURE_LINK &&
+                                currentControllerLink.id !== storageLinkId &&
+                                currentControllerLink.pos.findInRange(sourcesNearCtrl, 1).length == 0;
+                            if(!keyIsRealCtrlLink) {
                                 room.createConstructionSite(linkLocation.x, linkLocation.y, STRUCTURE_LINK);
                             }
                         }
@@ -1591,7 +1601,7 @@ function construction(room) {
                 });
                 if(sourceLinks.length == 0 && sourceLinkSites.length == 0) {
                     let open = source.pos.getOpenPositionsIgnoreCreeps();
-                    findTwoOpenSpotsForLink(open, storage, room);
+                    findTwoOpenSpotsForLink(open, storage, room, source);
                 }
                 for(let link of sourceLinks) {
                     if(storage.pos.getRangeTo(link) > 7) {
@@ -1787,14 +1797,23 @@ function BuildIfICan(LocationsList, StructureType:string) {
 }
 
 
-function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
+function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room, source?, depth?) {
+    if(depth == null) depth = 0;
+    // 1-access sources recurse A → source-tile → A and overflow the
+    // uncaught room loop — same hole the extension walker already had.
+    // Cap depth, refuse an empty ring, never step onto the source.
+    if(depth > 8 || !open || open.length == 0) return;
+    const notSource = function(p: RoomPosition) {
+        return !source || !p.isEqualTo(source.pos);
+    };
     if(open.length > 1) {
         open.sort((a,b) => a.findPathTo(storage, {ignoreCreeps:true}).length - b.findPathTo(storage, {ignoreCreeps:true}).length)
         open = open.filter(position => position.findPathTo(storage.pos, {ignoreCreeps:true}).length < open[0].findPathTo(storage.pos, {ignoreCreeps:true}).length + 3);
         if(open.length > 1) {
             if(open.length == 2 && open[0].getRangeTo(open[1]) > 1) {
-                let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-                findTwoOpenSpotsForLink(NewOpen, storage, room)
+                if(!open[0]) return;
+                let NewOpen = open[0].getOpenPositionsIgnoreCreeps().filter(notSource);
+                findTwoOpenSpotsForLink(NewOpen, storage, room, source, depth + 1)
             }
             else {
             // let closestOpen = storage.pos.findClosestByRange(open);
@@ -1808,13 +1827,15 @@ function findTwoOpenSpotsForLink(open:Array<RoomPosition>, storage, room) {
             }
         }
         else {
-            let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-            findTwoOpenSpotsForLink(NewOpen, storage, room)
+            if(!open[0]) return;
+            let NewOpen = open[0].getOpenPositionsIgnoreCreeps().filter(notSource);
+            findTwoOpenSpotsForLink(NewOpen, storage, room, source, depth + 1)
         }
     }
     else {
-        let NewOpen = open[0].getOpenPositionsIgnoreCreeps();
-        findTwoOpenSpotsForLink(NewOpen, storage, room)
+        if(!open[0]) return;
+        let NewOpen = open[0].getOpenPositionsIgnoreCreeps().filter(notSource);
+        findTwoOpenSpotsForLink(NewOpen, storage, room, source, depth + 1)
     }
 }
 

@@ -195,7 +195,7 @@ const splitQuadToDuos = function (a: any, b: any, y: any, z: any, stagingRoom: s
         member.memory.swampyPathCount = 0;
         delete member.memory.splitTravel;
         if (splitHere) {
-            member.memory.rejoinLockUntil = Game.time + 30;
+            member.memory.rejoinLockUntil = Game.time + 10;
         }
         else {
             delete member.memory.rejoinLockUntil;
@@ -226,6 +226,7 @@ const degradeQuadToDuo = function (first: any, second: any) {
         leader = second;
         follower = first;
     }
+    // bind-time share copies A's attack room onto both; home is last resort
     const target = leader.memory.targetPosition || follower.memory.targetPosition ||
         (leader.memory.homeRoom ? new RoomPosition(25, 25, leader.memory.homeRoom) : new RoomPosition(25, 25, leader.room.name));
     leader.memory.role = "DuoCreepA";
@@ -419,4 +420,4 @@ const runFollower = function (creep: any) {
 const roleDuoCreepA = {run: runLeader};
 const roleDuoCreepB = {run: runFollower};
 
-export {roleDuoCreepA, roleDuoCreepB, splitQuadToDuos, degradeQuadToDuo};
+export {roleDuoCreepA, roleDuoCreepB, splitQuadToDuos, degradeQuadToDuo, travelToRoom};

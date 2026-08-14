@@ -233,8 +233,9 @@ function assignDynamicLabs(room, storage, LabsInRoom) {
  *   - the 21000-tick janitor wiped amount==0 slots even when use>0
  *     (EM had already delivered; the live creep was still walking to the lab)
  *
- * Now each slot also has `owners: { [creepName]: { amount, t } }`. amount/use
- * stay so energyManager and the reaction-pause gates keep working unchanged.
+ * Now each slot also has `owners: { [creepName]: { amount, t } }`. `use` is
+ * live claimants; `amount` is aggregate STILL-TO-DELIVER (EM decrements it
+ * on withdraw). consume must not subtract rec.amount from that field.
  * The janitor refunds a slot only for owners that are neither live nor queued.
  */
 
@@ -253,9 +254,48 @@ function spawnListHasName(room, name) {
     return false;
 }
 
-/** Reserve `amount` of this slot's mineral for `ownerName`. Same name re-queues replace, they do not stack. */
-export function chargeBoostSlot(room, labKey: string, amount: number, ownerName: string): void {
-    if(!room || !labKey || !ownerName || !(amount > 0)) return;
+function ownerLooksLikeEnergyMiner(name) {
+    if(name.indexOf("EnergyMiner") === 0) return true;
+    const c = Game.creeps[name];
+    return !!(c && c.memory && c.memory.role === "EnergyMiner");
+}
+
+function slotOwnerCount(slot) {
+    if(!slot || !slot.owners) return 0;
+    return Object.keys(slot.owners).length;
+}
+
+// lab8 is room-wide: UO (miner, lab8reserved) or XKH2O (repair). Mixing them
+// dumps the first mineral. Same-name replace is not a conflict.
+function lab8ChargeConflicts(room, slot, ownerName) {
+    if(!slot || !slot.owners) return false;
+    const wantUo = !!(room.memory.labs && room.memory.labs.lab8reserved);
+    for(const name in slot.owners) {
+        if(name === ownerName) continue;
+        if(ownerLooksLikeEnergyMiner(name) !== wantUo) return true;
+    }
+    return false;
+}
+
+function labCarriedLiveOrQueued(room, labId) {
+    if(!labId) return false;
+    for(const name in Game.creeps) {
+        const labs = Game.creeps[name].memory && Game.creeps[name].memory.boostlabs;
+        if(labs && labs.indexOf(labId) !== -1) return true;
+    }
+    const q = room.memory.spawn_list || [];
+    for(let i = 2; i < q.length; i += 3) {
+        const mem = q[i] && q[i].memory;
+        const labs = mem && mem.boostlabs;
+        if(labs && labs.indexOf(labId) !== -1) return true;
+    }
+    return false;
+}
+
+/** Reserve `amount` of this slot's mineral for `ownerName`. Same name re-queues replace, they do not stack.
+ *  Returns false on lab8 mineral conflict — caller must queue unboosted. */
+export function chargeBoostSlot(room, labKey: string, amount: number, ownerName: string): boolean {
+    if(!room || !labKey || !ownerName || !(amount > 0)) return false;
     const boost = boostLedger(room);
     let slot = boost[labKey];
     if(!slot) {
@@ -263,6 +303,22 @@ export function chargeBoostSlot(room, labKey: string, amount: number, ownerName:
         boost[labKey] = slot;
     }
     if(!slot.owners) slot.owners = {};
+    // leftover pre-owners {amount,use} — adopt, do not stack on the orphan
+    if(slotOwnerCount(slot) === 0) {
+        slot.amount = 0;
+        slot.use = 0;
+    }
+    if(labKey === "lab8" && lab8ChargeConflicts(room, slot, ownerName)) {
+        // Caller may have set lab8reserved before this charge. Keep the
+        // owners' mineral so EM does not dump it after a refused mix.
+        let ownersWantUo = false;
+        for(const name in slot.owners) {
+            if(name === ownerName) continue;
+            if(ownerLooksLikeEnergyMiner(name)) { ownersWantUo = true; break; }
+        }
+        room.memory.labs.lab8reserved = ownersWantUo;
+        return false;
+    }
     if(slot.owners[ownerName]) {
         slot.amount = Math.max(0, (slot.amount || 0) - (slot.owners[ownerName].amount || 0));
         slot.use = Math.max(0, (slot.use || 0) - 1);
@@ -270,6 +326,7 @@ export function chargeBoostSlot(room, labKey: string, amount: number, ownerName:
     slot.owners[ownerName] = {amount: amount, t: Game.time};
     slot.amount = (slot.amount || 0) + amount;
     slot.use = (slot.use || 0) + 1;
+    return true;
 }
 
 /** Map an output-lab structure id back to "lab1".."lab8". */
@@ -285,12 +342,19 @@ function clearLab8ReserveIfIdle(room, slot) {
     if(!room.memory.labs || !room.memory.labs.lab8reserved) return;
     if(slot && slot.owners) {
         for(const name in slot.owners) {
-            if(name.indexOf("EnergyMiner") === 0) return;
-            const c = Game.creeps[name];
-            if(c && c.memory && c.memory.role === "EnergyMiner") return;
+            if(ownerLooksLikeEnergyMiner(name)) return;
         }
     }
     room.memory.labs.lab8reserved = false;
+}
+
+const consumeSkipLogged = {};
+
+function unwindUndelivered(slot, recAmount) {
+    // amount is still-to-deliver. Bound the refund so a late death cannot
+    // zero a sibling's remaining haul.
+    const left = slot.amount || 0;
+    slot.amount = left - Math.min(recAmount || 0, left);
 }
 
 /** Drop one owner's claim on one slot (boost success, give-up, or wrong mineral). */
@@ -299,13 +363,21 @@ export function consumeBoostOwner(room, labKey: string, ownerName: string): void
     if(!boost || !labKey) return;
     const slot = boost[labKey];
     if(!slot) return;
-    if(slot.owners && ownerName && slot.owners[ownerName]) {
-        const rec = slot.owners[ownerName];
-        // Same amount unwind as refundBoostOwner — leaving rec.amount on the
-        // slot kept EM filling a lab nobody will drink from.
-        slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
-        delete slot.owners[ownerName];
+    // EM already decremented amount on withdraw. Subtracting rec.amount
+    // here zeros siblings on a shared slot (quad lab2, ram+signifer).
+    // Id-remap: labKeyForId can point at a slot this creep never owned —
+    // decrementing that use is theft.
+    if(!slot.owners || !ownerName || !slot.owners[ownerName]) {
+        if(ownerName) {
+            const tag = room.name + ":" + labKey + ":" + ownerName;
+            if(!consumeSkipLogged[tag]) {
+                consumeSkipLogged[tag] = 1;
+                console.log("consumeBoostOwner skip", room.name, labKey, ownerName, "- not an owner");
+            }
+        }
+        return;
     }
+    delete slot.owners[ownerName];
     if((slot.use || 0) > 0) slot.use -= 1;
     if(labKey === "lab8") clearLab8ReserveIfIdle(room, slot);
 }
@@ -318,7 +390,7 @@ export function refundBoostOwner(room, ownerName: string): void {
         const slot = boost[key];
         if(!slot || !slot.owners || !slot.owners[ownerName]) continue;
         const rec = slot.owners[ownerName];
-        slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
+        unwindUndelivered(slot, rec.amount);
         slot.use = Math.max(0, (slot.use || 0) - 1);
         delete slot.owners[ownerName];
         if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
@@ -343,27 +415,41 @@ export function renameBoostOwner(room, oldName: string, newName: string): void {
  */
 export function janitorBoostLedger(room): void {
     const boost = room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost;
-    if(!boost) return;
-    for(const key in boost) {
-        const slot = boost[key];
-        if(!slot || typeof slot !== "object") continue;
-        if(slot.owners) {
-            for(const name in slot.owners) {
-                if(Game.creeps[name] || spawnListHasName(room, name)) continue;
-                const rec = slot.owners[name];
-                slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
-                slot.use = Math.max(0, (slot.use || 0) - 1);
-                delete slot.owners[name];
-                if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
+    if(boost) {
+        for(const key in boost) {
+            const slot = boost[key];
+            if(!slot || typeof slot !== "object") continue;
+            if(slot.owners) {
+                for(const name in slot.owners) {
+                    if(Game.creeps[name] || spawnListHasName(room, name)) continue;
+                    const rec = slot.owners[name];
+                    unwindUndelivered(slot, rec.amount);
+                    slot.use = Math.max(0, (slot.use || 0) - 1);
+                    delete slot.owners[name];
+                    if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
+                }
+            }
+            const ownersLeft = slotOwnerCount(slot) > 0;
+            // pre-owners leftover: use>0 with nobody on the slot and no
+            // live/queued creep still pointing boostlabs at this lab.
+            if(!ownersLeft && (slot.use || 0) > 0) {
+                const n = key.indexOf("lab") === 0 ? key.substring(3) : "";
+                const labId = n && room.memory.labs["outputLab" + n];
+                if(!labCarriedLiveOrQueued(room, labId)) {
+                    slot.use = 0;
+                    slot.amount = 0;
+                }
+            }
+            // use>0 means someone is still entitled to this mineral, even if EM
+            // already delivered (amount==0). The old 21000 wipe ignored that.
+            if((slot.use || 0) <= 0 && (slot.amount || 0) <= 0 && !ownersLeft) {
+                delete boost[key];
             }
         }
-        const ownersLeft = slot.owners && Object.keys(slot.owners).length > 0;
-        // use>0 means someone is still entitled to this mineral, even if EM
-        // already delivered (amount==0). The old 21000 wipe ignored that.
-        if((slot.use || 0) <= 0 && (slot.amount || 0) <= 0 && !ownersLeft) {
-            delete boost[key];
-        }
     }
+    // lab8reserved is a sibling flag, not a slot field — clear it even when
+    // boost.lab8 is already gone.
+    clearLab8ReserveIfIdle(room, boost && boost.lab8);
 }
 
 function labs(room) {

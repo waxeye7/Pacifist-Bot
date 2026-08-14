@@ -169,41 +169,44 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
             let outputLab1; let outputLab2; let outputLab3; let outputLab4;
             let outputLab5; let outputLab6; let outputLab7; let outputLab8;
 
+            // {n, lab} so boost.labN always fills outputLabN. A dense push
+            // plus number++ poured lab2's mineral into lab3 when outputLab2
+            // was missing (legacy strip deletes holes independently).
             let outputLabs = [];
 
             if(creep.room.memory.labs.inputLab1) {inputLab1 = Game.getObjectById(creep.room.memory.labs.inputLab1)}
             if(creep.room.memory.labs.inputLab2) {inputLab2 = Game.getObjectById(creep.room.memory.labs.inputLab2)}
             if(creep.room.memory.labs.outputLab1) {
                 outputLab1 = Game.getObjectById(creep.room.memory.labs.outputLab1)
-                outputLabs.push(outputLab1)
+                outputLabs.push({n: 1, lab: outputLab1})
             }
             if(creep.room.memory.labs.outputLab2) {
                 outputLab2 = Game.getObjectById(creep.room.memory.labs.outputLab2)
-                outputLabs.push(outputLab2)
+                outputLabs.push({n: 2, lab: outputLab2})
             }
             if(creep.room.memory.labs.outputLab3) {
                 outputLab3 = Game.getObjectById(creep.room.memory.labs.outputLab3)
-                outputLabs.push(outputLab3)
+                outputLabs.push({n: 3, lab: outputLab3})
             }
             if(creep.room.memory.labs.outputLab4) {
                 outputLab4 = Game.getObjectById(creep.room.memory.labs.outputLab4)
-                outputLabs.push(outputLab4)
+                outputLabs.push({n: 4, lab: outputLab4})
             }
             if(creep.room.memory.labs.outputLab5) {
                 outputLab5 = Game.getObjectById(creep.room.memory.labs.outputLab5)
-                outputLabs.push(outputLab5)
+                outputLabs.push({n: 5, lab: outputLab5})
             }
             if(creep.room.memory.labs.outputLab6) {
                 outputLab6 = Game.getObjectById(creep.room.memory.labs.outputLab6)
-                outputLabs.push(outputLab6)
+                outputLabs.push({n: 6, lab: outputLab6})
             }
             if(creep.room.memory.labs.outputLab7) {
                 outputLab7 = Game.getObjectById(creep.room.memory.labs.outputLab7)
-                outputLabs.push(outputLab7)
+                outputLabs.push({n: 7, lab: outputLab7})
             }
             if(creep.room.memory.labs.outputLab8) {
                 outputLab8 = Game.getObjectById(creep.room.memory.labs.outputLab8)
-                outputLabs.push(outputLab8)
+                outputLabs.push({n: 8, lab: outputLab8})
             }
 
             let currentOutput = creep.room.memory.labs.status.currentOutput;
@@ -231,9 +234,9 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
                 }
                 return;
             }
-            let number = 0;
-            for(let outputLab of outputLabs) {
-                number += 1;
+            for(let entry of outputLabs) {
+                let number = entry.n;
+                let outputLab = entry.lab;
 
                 if(number == 1 && creep.room.memory.labs.outputLab1 && creep.room.memory.labs.status && creep.room.memory.labs.status.boost && creep.room.memory.labs.status.boost.lab1 && creep.room.memory.labs.status.boost.lab1.use > 0) {
                     if(creep.room.memory.labs.status.boost.lab1.amount == 0) {

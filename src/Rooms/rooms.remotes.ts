@@ -154,9 +154,17 @@ export function remoteIsHot(homeRoom: any, remoteName: string): boolean {
             }).length > 0) {
                 return true;
             }
+            delete e.hot;
+            console.log(`[remotes] ${name} ${remoteName} cooled down, re-opening`);
+            return false;
         }
+        // No vision: the usual state after we pulled. Still expire `hot` so
+        // we are not deadlocked, but the first body in must be a probe —
+        // cores last longer than HOT_COOLDOWN and a full crew walks into them.
+        // Spawn consumes `probeFirst` (spawn_energy_miner).
         delete e.hot;
-        console.log(`[remotes] ${name} ${remoteName} cooled down, re-opening`);
+        e.probeFirst = true;
+        console.log(`[remotes] ${name} ${remoteName} cooled down, re-opening (probe)`);
         return false;
     }
     return true;

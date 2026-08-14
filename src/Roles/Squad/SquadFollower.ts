@@ -1,5 +1,5 @@
-import {bindSquadSlot, resolveMyCreep} from "./SquadHelperFunctions";
-import {degradeQuadToDuo} from "./SquadDuo";
+import {bindSquadSlot, resolveMyCreep, shareSquadTargetPosition} from "./SquadHelperFunctions";
+import {degradeQuadToDuo, travelToRoom} from "./SquadDuo";
 
 /**
  * Shared follower logic for SquadCreepB/Y/Z. The three roles are identical
@@ -110,6 +110,7 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
         let b = bindSquadSlot(creep, "b", "SquadCreepB");
         let y = bindSquadSlot(creep, "y", "SquadCreepY");
         let z = bindSquadSlot(creep, "z", "SquadCreepZ");
+        shareSquadTargetPosition([a, b, y, z]);
 
 
 
@@ -123,6 +124,14 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
                 // A died: promote a survivor so the 3-creep formation still has a leader
                 const promo = liveNow[0];
                 promo.memory.role = "SquadCreepA";
+                if(!promo.memory.targetPosition) {
+                    for(const c of liveNow) {
+                        if(c.memory.targetPosition) {
+                            promo.memory.targetPosition = c.memory.targetPosition;
+                            break;
+                        }
+                    }
+                }
                 if(!promo.memory.targetPosition) {
                     promo.memory.targetPosition = new RoomPosition(25, 25, promo.memory.homeRoom || promo.room.name);
                 }
@@ -199,6 +208,27 @@ const makeFollower = function (dx: number, dy: number, slotIndex: number) {
                 }
             }
 
+
+            // last member: no formation left — walk the attack room and keep fighting
+            if(liveNow.length == 1) {
+                const dest = creep.memory.targetPosition;
+                if(dest && creep.room.name != dest.roomName) {
+                    travelToRoom(creep, dest.roomName);
+                }
+                else if(targetCreep) {
+                    creep.moveTo(targetCreep);
+                }
+                else if(structures.length > 0) {
+                    const closest = creep.pos.findClosestByRange(structures);
+                    if(closest) {
+                        creep.moveTo(closest);
+                    }
+                }
+                else if(dest) {
+                    creep.moveTo(new RoomPosition(dest.x, dest.y, dest.roomName));
+                }
+                return;
+            }
 
             if(a && a.memory.target) {
                 let targetStructure:any = Game.getObjectById(a.memory.target);

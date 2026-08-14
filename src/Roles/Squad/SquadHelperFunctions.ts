@@ -200,6 +200,50 @@ const resolveMyCreep = function (id: string): any {
     return null;
 };
 
+// only A is spawned with the attack room; copy it onto anyone who is missing it
+const shareSquadTargetPosition = function (members: any[]) {
+    let src: any = null;
+    for (const m of members) {
+        if (m && m.memory.targetPosition) {
+            src = m.memory.targetPosition;
+            break;
+        }
+    }
+    if (!src) {
+        return;
+    }
+    for (const m of members) {
+        if (m && !m.memory.targetPosition) {
+            m.memory.targetPosition = src;
+        }
+    }
+};
+
+// ids/names already sitting in another same-room SquadCreepA's squad map
+const claimedByOtherSquadLeader = function (creep: any): any {
+    const claimed: any = {};
+    const leaders = creep.room.find(FIND_MY_CREEPS, {
+        filter: function (c: any) {
+            return c.memory.role == "SquadCreepA" && c.id !== creep.id && c.memory.squad;
+        }
+    });
+    for (const leader of leaders) {
+        const sq = leader.memory.squad;
+        for (const key in sq) {
+            if (!sq[key]) {
+                continue;
+            }
+            claimed[sq[key]] = true;
+            const held = resolveMyCreep(sq[key]) || Game.creeps[sq[key]];
+            if (held) {
+                claimed[held.id] = true;
+                claimed[held.name] = true;
+            }
+        }
+    }
+    return claimed;
+};
+
 // resolve a squad slot; drop the id when the creep is actually dead so rematch can run
 const bindSquadSlot = function (creep: any, slot: string, role: string): any {
     if (!creep.memory.squad) {
@@ -208,20 +252,30 @@ const bindSquadSlot = function (creep: any, slot: string, role: string): any {
     if (creep.memory.squad[slot]) {
         const live = resolveMyCreep(creep.memory.squad[slot]);
         if (live) {
+            shareSquadTargetPosition([creep, live]);
             return live;
         }
         delete creep.memory.squad[slot];
     }
+    // rematch: do not adopt a body another same-room leader already slotted
+    const claimed = claimedByOtherSquadLeader(creep);
+    if (creep.memory.role == role && !claimed[creep.id] && !claimed[creep.name]) {
+        creep.memory.squad[slot] = creep.id;
+        return creep;
+    }
     const found = creep.room.find(FIND_MY_CREEPS, {
-        filter: function (c: any) { return c.memory.role == role; }
+        filter: function (c: any) {
+            return c.memory.role == role && !claimed[c.id] && !claimed[c.name];
+        }
     });
     if (found.length > 0) {
         found.sort(function (a: any, b: any) { return b.ticksToLive - a.ticksToLive; });
         creep.memory.squad[slot] = found[0].id;
+        shareSquadTargetPosition([creep, found[0]]);
         return found[0];
     }
     return null;
 };
 
 
-export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, roomCallbackDuo, resolveMyCreep, bindSquadSlot};
+export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, roomCallbackDuo, resolveMyCreep, bindSquadSlot, shareSquadTargetPosition};
