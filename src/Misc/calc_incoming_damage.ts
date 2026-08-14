@@ -4,7 +4,9 @@ function calc_incoming_damage(pos: RoomPosition, towers: Array<StructureTower>, 
   const BASE_RANGED_CREEP_DAMAGE = 10;
   const MAX_TOWER_DAMAGE = 600;
   const MIN_TOWER_DAMAGE = 150;
-  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 14;
+  // falloff ramp is TOWER_FALLOFF_RANGE(20) - TOWER_OPTIMAL_RANGE(5) = 15 steps,
+  // not 14 - dividing by 14 under-rated tower damage by ~21% at max range.
+  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 15;
 
   // Boost multipliers for different tiers
   const BOOST_MULTIPLIERS = {
@@ -74,7 +76,9 @@ function calc_incoming_damage_potential_next_tick(
   const BASE_RANGED_CREEP_DAMAGE = 10;
   const MAX_TOWER_DAMAGE = 600;
   const MIN_TOWER_DAMAGE = 150;
-  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 14;
+  // falloff ramp is TOWER_FALLOFF_RANGE(20) - TOWER_OPTIMAL_RANGE(5) = 15 steps,
+  // not 14 - dividing by 14 under-rated tower damage by ~21% at max range.
+  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 15;
 
   // Boost multipliers for different tiers
   const BOOST_MULTIPLIERS = {
@@ -148,7 +152,9 @@ function calc_incoming_damage_potential_next_tick_next_pos(
   const BASE_RANGED_CREEP_DAMAGE = 10;
   const MAX_TOWER_DAMAGE = 600;
   const MIN_TOWER_DAMAGE = 150;
-  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 14;
+  // falloff ramp is TOWER_FALLOFF_RANGE(20) - TOWER_OPTIMAL_RANGE(5) = 15 steps,
+  // not 14 - dividing by 14 under-rated tower damage by ~21% at max range.
+  const TOWER_RANGE_RAMP_RATE = (MAX_TOWER_DAMAGE - MIN_TOWER_DAMAGE) / 15;
 
   // Boost multipliers for different tiers
   const BOOST_MULTIPLIERS = {

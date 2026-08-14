@@ -1313,14 +1313,18 @@ function construction(room) {
                         }
 
                         let MyRamparts = room.find(FIND_MY_STRUCTURES, {filter: s => s.structureType == STRUCTURE_RAMPART && s.pos.getRangeTo(storage) <= 10});
-                        if(myConstructionSites.length == 0 && Game.shard.name !== "shard3") {
+                        // myConstructionSites is already a count (see the .length at its
+                        // assignment); .length on a number is undefined, so this block never
+                        // ran. It also has to read THIS rampart's tile, not the stale
+                        // storage-tile lookup, or it kept roads from the wrong position.
+                        if(myConstructionSites == 0 && Game.shard.name !== "shard3") {
                             for(let rampart of MyRamparts) {
                                 let lookForStructsHere = rampart.pos.lookFor(LOOK_STRUCTURES);
                                 if(lookForStructsHere.length == 1) {
                                     rampart.pos.createConstructionSite(STRUCTURE_ROAD);
                                 }
                                 else {
-                                    for(let building of lookForExistingStructures) {
+                                    for(let building of lookForStructsHere) {
                                         if(building.structureType == STRUCTURE_ROAD) {
                                             if(room.memory.keepTheseRoads && !_.includes(room.memory.keepTheseRoads, building.id, 0)) {
                                                 room.memory.keepTheseRoads.push(building.id);
@@ -2439,7 +2443,7 @@ function Build_Remote_Roads(room) {
 }
 
 function Situational_Building(room) {
-    if(room.controller.level == 4 && room.memory.data && room.memory.data.DOBug && (room.memory.data.DOGug == 3 || room.memory.data.DOBug == 4)) {
+    if(room.controller.level == 4 && room.memory.data && room.memory.data.DOBug && (room.memory.data.DOBug == 3 || room.memory.data.DOBug == 4)) {
         if(room.memory.data.DOBug == 3) {
             let spawns = room.find(FIND_MY_SPAWNS);
             let spawn;

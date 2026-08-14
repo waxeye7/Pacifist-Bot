@@ -17,6 +17,9 @@ interface Room {
 
 
 Room.prototype.roomTowersHealMe = function(creep): object | void {
+    // memory.Structures only exists for owned rooms - remotes reach here (harvestEnergy)
+    // and reading .towers off undefined threw. No towers to use, so bail.
+    if(!this.memory.Structures) return;
     if(creep) {
         let towerIDs = this.memory.Structures.towers;
         let towerObjs = [];
@@ -35,6 +38,8 @@ Room.prototype.roomTowersHealMe = function(creep): object | void {
 }
 
 Room.prototype.roomTowersAttackEnemy = function(enemyCreep) {
+    // remote rooms have no memory.Structures - see roomTowersHealMe
+    if (!this.memory.Structures) return;
     if (enemyCreep) {
         let towerIDs = this.memory.Structures.towers || [];
         let towerObjs = [];
@@ -64,6 +69,8 @@ Room.prototype.roomTowersAttackEnemy = function(enemyCreep) {
 
 
 Room.prototype.roomTowersRepairTarget = function(target): object | void {
+    // remote rooms have no memory.Structures - see roomTowersHealMe
+    if(!this.memory.Structures) return;
     if(target) {
         let towerIDs = this.memory.Structures.towers;
         let towerObjs = [];

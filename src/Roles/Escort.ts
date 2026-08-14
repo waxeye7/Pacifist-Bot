@@ -1,7 +1,9 @@
 const run = function (creep) {
   creep.memory.moving = false;
   if(creep.room.name === creep.memory.targetRoom) {
-    if(creep.pos.x >= 2 || creep.pos.x <= 47 || creep.pos.y >= 2 || creep.pos.y <= 47) {
+    // The ||s made this true on every tile, so an Escort converted to Solomon
+    // the tick it arrived — including while still standing on the exit.
+    if(creep.pos.x >= 2 && creep.pos.x <= 47 && creep.pos.y >= 2 && creep.pos.y <= 47) {
       creep.memory.role = "Solomon"; return;
     }
     else {

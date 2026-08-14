@@ -191,7 +191,7 @@ export function scanRemoteThreats(room: any): void {
 }
 
 /** stagger the per-room pass so 10 communes don't all path on one tick */
-function roomTickOffset(name: string): number {
+export function roomTickOffset(name: string): number {
     let h = 0;
     for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 997;
     return h;

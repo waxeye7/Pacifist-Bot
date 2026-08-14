@@ -141,7 +141,7 @@ const run = function (creep) {
         }
 
 
-        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && creep.memory.sticky == false) {
+        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && !creep.memory.sticky) {
             creep.memory.targetRoom = false;
         }
     }

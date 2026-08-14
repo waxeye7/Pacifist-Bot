@@ -455,7 +455,12 @@ function depotSink(creep: any): any {
 	if(creep.ticksToLive <= 30 && !creep.memory.full && creep.memory.targetRoom === creep.room.name) {
 		creep.memory.suicide = true;
 	}
-    else if(creep.ticksToLive <= 75 && !creep.memory.full && creep.memory.targetRoom !== creep.room.name)
+    // The braceless else-if swallowed the suicide check as its body, so a carry
+    // flagged for suicide anywhere else in the tick never reached recycle().
+    else if(creep.ticksToLive <= 75 && !creep.memory.full && creep.memory.targetRoom !== creep.room.name) {
+		creep.memory.suicide = true;
+	}
+
 	if(creep.memory.suicide == true) {
 		creep.recycle();
         return;

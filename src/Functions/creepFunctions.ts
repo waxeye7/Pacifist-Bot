@@ -2962,7 +2962,9 @@ const roomCallbackSafeToSource = (roomName: string): boolean | CostMatrix => {
     for(let eCreep of EnemyCreeps) {
         for(let i=-7; i<=7; i++) {
             for(let o=-7; o<=7; o++) {
-                if(eCreep && eCreep.pos.x + i >= 1 && eCreep.pos.x + i <= 48 && eCreep.pos.y + o >= 1 && eCreep.pos.y + 0 <= 48) {
+                // upper y bound tests `+ o`, not the literal `+ 0`: CostMatrix.set is
+                // unchecked (_bits[x*50+y]), so a y of 50..56 wrote onto column x+1.
+                if(eCreep && eCreep.pos.x + i >= 1 && eCreep.pos.x + i <= 48 && eCreep.pos.y + o >= 1 && eCreep.pos.y + o <= 48) {
                     if((i >= -4 && i <= 4) || (o >= -4 && o <= 4)) {
                         if(costs.get(eCreep.pos.x + i, eCreep.pos.y + o) == 5) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 125);
@@ -3628,7 +3630,7 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
             if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3637,7 +3639,7 @@ const roomCallbackRoadPrioFlee = (roomName: string): boolean | CostMatrix => {
             else {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3735,7 +3737,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean 
             if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3744,7 +3746,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchRam = (roomName: string): boolean 
             else {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3843,7 +3845,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3852,7 +3854,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuch = (roomName: string): boolean | C
             else {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 30);
                         }
                     }
@@ -3956,7 +3958,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
             if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
                         }
                     }
@@ -3965,7 +3967,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierFull = (roomName: string
             else {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
                         }
                     }
@@ -4096,7 +4098,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
             if(eCreep.owner.username == "Invader" || eCreep.owner.username == "Source Keeper") {
                 for(let i=-5; i<5; i++) {
                     for(let o=-5; o<5; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
                         }
                     }
@@ -4105,7 +4107,7 @@ const roomCallbackRoadPrioAvoidEnemyCreepsMuchForCarrierEmpty = (roomName: strin
             else {
                 for(let i=-3; i<3; i++) {
                     for(let o=-3; o<3; o++) {
-                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                        if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                             costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 100);
                         }
                     }
@@ -4283,7 +4285,7 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
     for(let eCreep of EnemyCreeps) {
         for(let i=-3; i<3; i++) {
             for(let o=-3; o<3; o++) {
-                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + 0 <= 49) {
+                if(eCreep && eCreep.pos.x + i >= 0 && eCreep.pos.x + i <= 49 && eCreep.pos.y + o >= 0 && eCreep.pos.y + o <= 49) {
                     costs.set(eCreep.pos.x + i, eCreep.pos.y + o, 255);
                 }
             }
@@ -4318,7 +4320,7 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             for(let i=-27; i<=27; i++) {
                 for(let o=-27; o<=27; o++) {
                     if(i<=-26 || i >= 26 || o <= -26 || o >= 26) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }
@@ -4329,7 +4331,7 @@ const roomCallbackAvoidInvaders = (roomName: string): boolean | CostMatrix => {
             for(let i=-13; i<=13; i++) {
                 for(let o=-13; o<=13; o++) {
                     if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }
@@ -4444,7 +4446,7 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
             for(let i=-27; i<=27; i++) {
                 for(let o=-27; o<=27; o++) {
                     if(i<=-26 || i >= 26 || o <= -26 || o >= 26) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }
@@ -4455,7 +4457,7 @@ const roomCallbackForRangedRampartDefender = (roomName: string): boolean | CostM
             for(let i=-13; i<=13; i++) {
                 for(let o=-13; o<=13; o++) {
                     if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }
@@ -4549,7 +4551,7 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
             for(let i=-27; i<=27; i++) {
                 for(let o=-27; o<=27; o++) {
                     if(i<=-26 || i >= 26 || o <= -26 || o >= 26) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }
@@ -4560,7 +4562,7 @@ const roomCallbackForRampartDefender = (roomName: string): boolean | CostMatrix 
             for(let i=-13; i<=13; i++) {
                 for(let o=-13; o<=13; o++) {
                     if(i<=-11 || i >= 11 || o <= -11 || o >= 11) {
-                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + 0 <= 49) {
+                        if(storage && storage.pos.x + i >= 0 && storage.pos.x + i <= 49 && storage.pos.y + o >= 0 && storage.pos.y + o <= 49) {
                             costs.set(storage.pos.x + i, storage.pos.y + o, 255);
                         }
                     }

@@ -1,5 +1,15 @@
+import { roomTickOffset } from "./rooms.remotes";
+
 function market(room):any {
-    if(room.terminal && room.terminal.cooldown == 0 && room.storage && room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && Game.time % 10 == 0 && Game.cpu.bucket > 1000) {
+    // EVERY cadence in this function runs on the room's staggered clock `t`,
+    // never on absolute Game.time. The caller (rooms.ts) only enters market()
+    // on ticks where t % 10 == 0, so an absolute gate like Game.time % 400
+    // could only ever fire for rooms whose stagger offset happens to be a
+    // multiple of 10 - for every other room it would simply never be true.
+    // One shared clock keeps all the inner cadences (%20 ... %10000) aligned
+    // with the entry gate, and keeps a console-invoked market(room) throttled.
+    const t = Game.time + roomTickOffset(room.name);
+    if(room.terminal && room.terminal.cooldown == 0 && room.storage && room.memory.Structures.spawn && Game.getObjectById(room.memory.Structures.spawn) && t % 10 == 0 && Game.cpu.bucket > 1000) {
         let BaseResources = [RESOURCE_HYDROGEN, RESOURCE_OXYGEN, RESOURCE_UTRIUM, RESOURCE_KEANIUM, RESOURCE_LEMERGIUM, RESOURCE_ZYNTHIUM, RESOURCE_CATALYST];
         let Mineral:any = Game.getObjectById(room.memory.mineral) || room.findMineral();
 
@@ -64,7 +74,7 @@ function market(room):any {
                 if(order.remainingAmount <= 1000)  {
                     Game.market.extendOrder(room.memory.market.sellOrders.roomMineral.ID, 4000)
                 }
-                else if(Game.time % 400 == 0) {
+                else if(t % 400 == 0) {
                     let recPrice = CalcPriceForOrder(resourceToSell, room.terminal.store[resourceToSell])
                     function inRange(x, min, max) {
                         return ((x-min)*(x-max) <= 0);
@@ -177,7 +187,7 @@ function market(room):any {
         if(Memory.my_goods[Mineral.mineralType].length == 0 || !Memory.my_goods[Mineral.mineralType].includes(room.name, 0)) {
             Memory.my_goods[Mineral.mineralType].push(room.name);
         }
-        else if(Game.time % 10000 == 0) {
+        else if(t % 10000 == 0) {
             Memory.my_goods = false;
         }
 
@@ -189,8 +199,13 @@ function market(room):any {
                         if(Memory.my_goods[resource] && Memory.my_goods[resource].length > 0) {
                             for(let room_with_mineral of Memory.my_goods[resource]) {
                                 if(!Game.rooms[room_with_mineral]) {
-                                    Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
-                                    break;
+                                    // filter() returns the pruned copy - it was
+                                    // being discarded, so the dead room stayed
+                                    // in the list forever; and the `break`
+                                    // meant no live room BEHIND the dead entry
+                                    // ever shipped this mineral again.
+                                    Memory.my_goods[resource] = Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
+                                    continue;
                                 }
                                 if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 1000) {
                                     Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
@@ -300,19 +315,19 @@ function market(room):any {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 100 && Game.time % 100 == 0) {
+                if(room.terminal.store[resource] >= 100 && t % 100 == 0) {
                     let result = sell_resource(resource, 2, 100);
                     if(result == 0) {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 1 && Game.time % 1000 == 0) {
+                if(room.terminal.store[resource] >= 1 && t % 1000 == 0) {
                     let result = sell_resource(resource, 2, 10);
                     if(result == 0) {
                         return;
                     }
                 }
-                if(room.terminal.store[resource] >= 1 && Game.time % 10000 == 0) {
+                if(room.terminal.store[resource] >= 1 && t % 10000 == 0) {
                     let result = sell_resource(resource, 2, 1);
                     if(result == 0) {
                         return;
@@ -767,7 +782,7 @@ function market(room):any {
         // }
 
 
-        if(Game.resources.pixel > 0 && room.terminal && Game.time % 100 == 0) {
+        if(Game.resources.pixel > 0 && room.terminal && t % 100 == 0) {
             let OrderPrice = 50000;
 
             let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: PIXEL});
@@ -791,7 +806,7 @@ function market(room):any {
         }
     }
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.time % 110 == 0 && Game.cpu.bucket > 9000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+    if(storage && storage.store[RESOURCE_ENERGY] > 300000 && t % 110 == 0 && Game.cpu.bucket > 9000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
         let crawler_list = [
             RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_GHODIUM,
             RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,
@@ -858,15 +873,24 @@ function market(room):any {
     if (
       targetRampRoom &&
 
-      Game.time % 1000 === 0 &&
+      t % 1000 === 0 &&
       Game.rooms[targetRampRoom] &&
       Game.rooms[targetRampRoom].controller?.level === 8 &&
       Game.rooms[targetRampRoom].storage?.store[RESOURCE_ENERGY] >= 400000
     ) {
-      delete Memory.targetRampRoom;
+      // NOT `delete Memory.targetRampRoom`: MemoryManager only reseeds the
+      // container at the START of the next tick, and this tick ~10 readers
+      // (the RCL6-8 filler rungs in rooms.spawning, rooms.factory,
+      // energyManager, rooms.ts) dereference .room/.urgent unguarded - so
+      // deleting the object threw a TypeError in every room iterated after
+      // this one and unwound rooms(), which also skipped RunAllCreepsManager:
+      // every creep in the empire idled for a tick each time a ramp target
+      // graduated. Clear the fields, keep the container.
+      Memory.targetRampRoom.room = false;
+      Memory.targetRampRoom.urgent = false;
       targetRampRoom = undefined;
     }
-    if(targetRampRoom && Game.time % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
+    if(targetRampRoom && t % 20 == 0 && room.name != targetRampRoom && Game.rooms[targetRampRoom] && Game.rooms[targetRampRoom].controller && Game.rooms[targetRampRoom].controller.my && Game.rooms[targetRampRoom].controller.level >= 6 &&
         Game.rooms[targetRampRoom].terminal && Game.rooms[targetRampRoom].terminal.store[RESOURCE_ENERGY] < 80000 && Game.rooms[targetRampRoom].terminal.store.getFreeCapacity() > 50000 && Game.rooms[targetRampRoom].memory.Structures.spawn && Game.getObjectById(Game.rooms[targetRampRoom].memory.Structures.spawn) && Game.rooms[targetRampRoom].storage) {
             let theirRoom:any = Game.rooms[targetRampRoom];
             let theirStorage = Game.getObjectById(theirRoom.memory.Structures.storage) || theirRoom.findStorage();
@@ -878,7 +902,7 @@ function market(room):any {
     // Game.time % 10 == 0 && targetRampRoom && targetRampRoom == room.name && room.terminal.store[RESOURCE_ENERGY] < 150000 && Game.market.credits > 100000000 ||
 
 
-    if(Game.time % 1000 === 0 && storage && storage.store[RESOURCE_ENERGY] > 430000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
+    if(t % 1000 === 0 && storage && storage.store[RESOURCE_ENERGY] > 430000 && room.terminal.store[RESOURCE_ENERGY] > 30000) {
         if(!room.memory.market.sellOrders.energy) {
             room.memory.market.sellOrders.energy = {};
         }
@@ -941,7 +965,7 @@ function market(room):any {
         }
     }
 
-    if(Game.time % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 100000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
+    if(t % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 100000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
 
 
         function CalcPriceForOrder(resourceToSell) {

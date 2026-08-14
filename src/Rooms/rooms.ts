@@ -6,7 +6,7 @@ import labs from "./rooms.labs";
 import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
-import remotes, { manageRemotes, scanRemoteThreats } from "./rooms.remotes";
+import remotes, { manageRemotes, scanRemoteThreats, roomTickOffset } from "./rooms.remotes";
 import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
 import { getCpuPolicy } from "utils/CpuPolicy";
@@ -106,12 +106,17 @@ function rooms() {
 
       if (current) Memory.targetRampRoom.room = current;
 
-      if (room.controller && room.controller.level == 6 && room.controller.progress < 10000) {
+      // .my is load-bearing here: this % 400 block runs for EVERY visible
+      // room (the owned-room branch only opens further down), so an OBSERVED
+      // foreign RCL6 room could capture the ramp target - and because the
+      // urgent-latch release requires targetRampRoom.room to equal an OWNED
+      // room's name, a foreign name could never be released.
+      if (room.controller && room.controller.my && room.controller.level == 6 && room.controller.progress < 10000) {
         Memory.targetRampRoom.room = room.name;
       }
       if (room.memory.Structures) {
         let storage: any = Game.getObjectById(room.memory.Structures.storage);
-        if (room.controller && room.controller.level >= 6 && room.terminal && storage && storage.store[RESOURCE_ENERGY] < 75000) {
+        if (room.controller && room.controller.my && room.controller.level >= 6 && room.terminal && storage && storage.store[RESOURCE_ENERGY] < 75000) {
           Memory.targetRampRoom.room = room.name;
         }
       }
@@ -294,13 +299,19 @@ function rooms() {
       }
       data(room);
 
-      if (Game.time % 10 === 0 && room.terminal && room.controller.level >= 6) {
-        const start = Game.cpu.getUsed();
-        market(room);
-        if (Game.time % 10 == 0) {
+      if (room.terminal && room.controller.level >= 6) {
+        // Staggered per room so every terminal room does not scan Game.market
+        // on the same tick (same idiom as manageRemotes). Labs stays on the
+        // plain %10: its internal refresh cadences (%120 / %500 / %21000 in
+        // rooms.labs.ts) sit on absolute Game.time, and a %120 tick only
+        // lands on a staggered %10 gate when the room's offset is itself a
+        // multiple of 10 - for every other room they would simply never run.
+        if ((Game.time + roomTickOffset(room.name)) % 10 === 0) {
+          const start = Game.cpu.getUsed();
+          market(room);
           console.log("Market Ran in", Game.cpu.getUsed() - start, "ms");
         }
-        if (room.controller.level >= 6) {
+        if (Game.time % 10 === 0) {
           labs(room);
         }
       }
@@ -354,7 +365,7 @@ function rooms() {
       if (
         (Game.time % constructionInterval == 0 && bucket > 3500) ||
         room.memory.data.DOB == 2 ||
-        room.memory.data.DOGug == 2
+        room.memory.data.DOBug == 2
       ) {
         const start = Game.cpu.getUsed();
         construction(room);

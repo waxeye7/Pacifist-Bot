@@ -87,7 +87,7 @@ const run = function (creep) {
     if(creep.room.name == targetRoom) {
         if(!creep.memory.in_danger || Game.time % 10 == 0) {
             let HostileCreeps = creep.room.find(FIND_HOSTILE_CREEPS);
-            HostileCreeps = HostileCreeps.filter(function(c) {return  creep.pos.getRangeTo(c <= 15) && (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);});
+            HostileCreeps = HostileCreeps.filter(function(c) {return  creep.pos.getRangeTo(c) <= 15 && (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0);});
             if(HostileCreeps.length > 0) {
 
                     let roomsAvailable = Object.keys(Game.map.describeExits(creep.room.name));

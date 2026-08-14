@@ -159,7 +159,7 @@ const run = function (creep) {
         if(specialTarget) {
             if(creep.pos.isNearTo(specialTarget)) {
                 for(let resource in specialTarget.store) {
-
+                        creep.withdraw(specialTarget, resource);
                         console.log(`[Withdraw From Special Target] - ${creep.name} withdrawing ${resource}.`);
 
                 }

@@ -59,7 +59,7 @@ const OSC_TRAIL_STALE = 20;
 const OSC_EXEMPT_ROLES: { [role: string]: boolean } = {
   RampartDefender: true,
   RampartErector: true,
-  rampartUpgrader: true,
+  RampartUpgrader: true,
   Guard: true,
   defender: true,
   healer: true,

@@ -4,7 +4,6 @@ const run = function (creep:Creep) {
 
     if(creep.memory.boostlabs && creep.memory.boostlabs.length > 0) {
         let result = creep.Boost();
-        console.log(result)
         if(!result) {
             return;
         }
@@ -74,8 +73,11 @@ const run = function (creep:Creep) {
                 if(enemyCreepsInRange.length > 1) {
                     enemyCreepsInRange.sort((a,b) => a.hits - b.hits);
                     if(enemyCreepsInRange[0].hits < enemyCreepsInRange[0].hitsMax) {
-                        creep.rangedAttack(closestEnemyCreep);
-                        creep.room.roomTowersAttackEnemy(closestEnemyCreep);
+                        // The sort picks the weakest in range, but the shot went to
+                        // the closest — the wounded creep got healed back up while we
+                        // spread damage. Fire on the weakest so it actually drops.
+                        creep.rangedAttack(enemyCreepsInRange[0]);
+                        creep.room.roomTowersAttackEnemy(enemyCreepsInRange[0]);
                     }
                     else {
                         // could add more random targetting and random hitting from towers to get some creeps low hits to blast them down but this will do for now.

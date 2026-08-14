@@ -15,8 +15,10 @@ function mosquito_manager() {
             continue;
           }
           let room = Game.rooms[myRoomName];
-          let storage = room.storage;
-          let terminal = room.terminal;
+          // guard before the dereference: a room we have no vision of is undefined
+          // here, and reading .storage off it threw before the null check below ran.
+          let storage = room && room.storage;
+          let terminal = room && room.terminal;
           if (room && storage && terminal && room.controller && room.controller.my && room.controller.level === 8) {
             if (
               storage.store[RESOURCE_ENERGY] >= 10000

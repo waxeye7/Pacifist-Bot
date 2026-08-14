@@ -1848,7 +1848,14 @@ export function placeFromPlanV2(room: Room): void {
           budget = 0;
           break;
         }
-      } else if (res !== ERR_FULL) {
+      } else if (res === ERR_FULL) {
+        // The 100-site cap is global to the shard, not per type or per room, so
+        // every remaining intent this pass is already doomed: a capped room used
+        // to fire ~300 of them silently. Say it once and stop the whole pass.
+        logAlways(`planV2 ${room.name}: construction sites full, stopping at ${type}@${x},${y}`);
+        budget = 0;
+        break;
+      } else {
         logAlways(`planV2 ${room.name}: site ${type}@${x},${y} err ${res}`);
       }
     }

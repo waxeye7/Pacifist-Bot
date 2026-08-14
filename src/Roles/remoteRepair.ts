@@ -14,7 +14,7 @@ function findLockedRepair(creep) {
             // if(building.pos.lookFor(LOOK_CREEPS).length != 0) {
             if(building.structureType == STRUCTURE_CONTAINER) {
                 if(sources.length > 0) {
-                    let isNearToSource = creep.pos.isNearTo(creep.pos.findClosestByRange(sources));
+                    let isNearToSource = building.pos.isNearTo(building.pos.findClosestByRange(sources));
                     if(isNearToSource) {
                         creep.memory.allowed_repairs.push(building.id)
                     }

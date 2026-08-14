@@ -37,7 +37,7 @@ const run = function (creep) {
             if(!controller.upgradeBlocked && !controller.my && controller.level > 0) {
                 let myControllerKillers = _.filter(Game.creeps, (c) => c.memory.role == "CCK" && c.memory.targetRoom == creep.room.name && Math.abs(c.ticksToLive - creep.ticksToLive) < 200);
                 if(myControllerKillers.length > 1 && creep.ticksToLive > 1 && !creep.room.find(FIND_HOSTILE_CREEPS, {
-                    filter: c => (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0) && c.pos.getRangeTo(c) <= 3
+                    filter: c => (c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0) && creep.pos.getRangeTo(c) <= 3
                 }).length) {
                     // wait
                 }

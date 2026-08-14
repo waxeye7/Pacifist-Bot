@@ -535,72 +535,83 @@ function add_creeps_to_spawn_list(room, spawn) {
                 RemoteRepairers ++;
                 break;
 
+            // The cases below count a creep only while it stands in this room.
+            // They used to put the break INSIDE the isInRoom branch and nothing
+            // after it, so a creep that was NOT in the room fell through every
+            // following case BODY (fall-through ignores the case labels) until
+            // something broke - for this chain that was the scout counter, so
+            // an out-of-room repairer/maintainer/defender with homeRoom set
+            // read as a scout. The break belongs after the if, unconditionally:
+            // out-of-room creeps count as nothing, same as ControllerLinkFiller
+            // above. (EnergyMiner/carry up top keep their internal breaks on
+            // purpose - their fall-through is within the same case, to a plain
+            // count for out-of-room creeps.)
             case "EnergyManager":
                 if(isInRoom(creep, room)) {
                     EnergyManagers ++;
-                    break;
                 }
+                break;
 
             case "MineralMiner":
                 if(isInRoom(creep, room)) {
                     MineralMiners ++;
-                    break;
                 }
+                break;
 
             case "builder":
                 if(isInRoom(creep, room)) {
                     builders ++;
-                    break;
                 }
+                break;
 
             case "upgrader":
                 if(isInRoom(creep, room)) {
                     upgraders ++;
-                    break;
                 }
+                break;
 
             case "filler":
                 if(isInRoom(creep, room)) {
                     fillers ++;
-                    break;
                 }
+                break;
 
             case "repair":
                 if(isInRoom(creep, room)) {
                     repairers ++;
-                    break;
                 }
+                break;
 
             case "maintainer":
                 if(isInRoom(creep, room)) {
                     maintainers ++;
-                    break;
                 }
+                break;
 
             case "defender":
                 if(isInRoom(creep, room)) {
                     defenders ++;
-                    break;
                 }
+                break;
 
             case "RampartDefender":
                 if(isInRoom(creep, room)) {
                     RampartDefenders ++;
-                    break;
                 }
+                break;
 
             case "RRD":
                 if(isInRoom(creep, room)) {
                     RangedRampartDefenders ++;
-                    break;
                 }
+                break;
 
 
             case "Dismantler":
                 if(isInRoom(creep, room)) {
                     Dismantlers ++;
-                    break;
                 }
+                break;
 
             case "scout":
                 if(creep.memory.homeRoom == room.name) {
@@ -636,10 +647,15 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
                 break;
 
+            // Had no break at all, so EVERY RampartErector - in the room or
+            // not - also ran the next case body and counted as a
+            // SneakyControllerUpgrader, and the sneaky gate below spawned that
+            // many fewer real ones.
             case "RampartErector":
                 if(isInRoom(creep, room)) {
                     RampartErectors ++;
                 }
+                break;
 
             case "SneakyControllerUpgrader":
                 SneakyControllerUpgraders ++;
@@ -680,8 +696,8 @@ function add_creeps_to_spawn_list(room, spawn) {
             case "sweeper":
                 if(isInRoom(creep, room)) {
                     sweepers ++;
-                    break;
                 }
+                break;
 
             case "goblin":
                 if(creep.memory.homeRoom == room.name) {
@@ -705,41 +721,40 @@ function add_creeps_to_spawn_list(room, spawn) {
             case "SpecialRepair":
                 if(isInRoom(creep, room)) {
                     SpecialRepairers ++;
-                    break;
                 }
+                break;
 
             case "SpecialCarry":
                 if(isInRoom(creep, room)) {
                     SpecialCarriers ++;
-                    break;
                 }
+                break;
 
             case "SquadCreepA":
                 if(isInRoom(creep, room)) {
                     CreepA ++;
-                    break;
                 }
+                break;
             case "SquadCreepB":
                 if(isInRoom(creep, room)) {
                     CreepB ++;
-                    break;
                 }
                 break;
             case "SquadCreepY":
                 if(isInRoom(creep, room)) {
                     CreepY ++;
-                    break;
                 }
+                break;
             case "SquadCreepZ":
                 if(isInRoom(creep, room)) {
                     CreepZ ++;
-                    break;
                 }
+                break;
             case "SafeModer":
                 if(isInRoom(creep, room)) {
                     SafeModers ++;
-                    break;
                 }
+                break;
         }
 
     });
@@ -2343,7 +2358,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                     }
                     // && HostileCreeps.length > 1
                     if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 990 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab3 && (HostileCreeps.length > 1 || HostileCreeps.length == 1 && room.controller.level == 7 && HostileCreeps[0].getActiveBodyparts(HEAL) >= 16)) {
-                        if(HostileCreeps.length > 2) {
+                        // >= 2, not > 2: the outer gate admits length 2, but
+                        // the arms here were `> 2` / `== 1`, so EXACTLY two
+                        // hostiles - the canonical attacker+healer duo - fell
+                        // between them and queued no defender at all (the
+                        // unboosted else below binds to the OUTER if, which
+                        // was taken). Two hostiles get the full 990 boost.
+                        if(HostileCreeps.length >= 2) {
 
 
 
@@ -4041,7 +4062,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
 
             let containerBuilders = [];
             if(room.controller.level <= 5) {
-                containerBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'containerBuilder' && creep.memory.targetRoom == room.name);
+                containerBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer' && creep.memory.targetRoom == room.name);
             }
             _.forEach(data.energy, function(values, sourceId:any) {
 
