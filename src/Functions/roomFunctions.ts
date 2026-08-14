@@ -20,8 +20,11 @@ Room.prototype.roomTowersHealMe = function(creep): object | void {
     // memory.Structures only exists for owned rooms - remotes reach here (harvestEnergy)
     // and reading .towers off undefined threw. No towers to use, so bail.
     if(!this.memory.Structures) return;
+    // Full-HP caller used to steal the whole battery for 0-hit heals.
+    if(!creep || creep.hits >= creep.hitsMax) return;
     if(creep) {
-        let towerIDs = this.memory.Structures.towers;
+        // `.towers` is filled on the %100 cache pass; undefined until then.
+        let towerIDs = this.memory.Structures.towers || [];
         let towerObjs = [];
         for(let towerID of towerIDs) {
             let towerObj = Game.getObjectById(towerID);
@@ -72,7 +75,8 @@ Room.prototype.roomTowersRepairTarget = function(target): object | void {
     // remote rooms have no memory.Structures - see roomTowersHealMe
     if(!this.memory.Structures) return;
     if(target) {
-        let towerIDs = this.memory.Structures.towers;
+        // `.towers` is filled on the %100 cache pass; undefined until then.
+        let towerIDs = this.memory.Structures.towers || [];
         let towerObjs = [];
         for(let towerID of towerIDs) {
             let towerObj = Game.getObjectById(towerID);
@@ -155,11 +159,14 @@ Room.prototype.findStorage = function() {
     // The real storage always wins, and a repoint invalidates the bin so it gets
     // re-derived next to the storage instead of next to the old container
     // (same repoint rooms.ts does per tick — this is the version that also
-    // covers rooms/ticks the room loop has not reached yet).
+    // covers rooms/ticks the room loop has not reached yet). Drop StorageLink
+    // too: readers are `getObjectById(id) || findStorageLink()`, so a live
+    // but-wrong hub-link id never rescans.
     if(this.storage && this.storage.my) {
         if(this.memory.Structures.storage !== this.storage.id) {
             this.memory.Structures.storage = this.storage.id;
             delete this.memory.Structures.bin;
+            delete this.memory.Structures.StorageLink;
         }
         return this.storage;
     }
@@ -168,6 +175,7 @@ Room.prototype.findStorage = function() {
         if(this.memory.Structures.storage !== storage[0].id) {
             this.memory.Structures.storage = storage[0].id;
             delete this.memory.Structures.bin;
+            delete this.memory.Structures.StorageLink;
         }
         return storage[0];
     }
@@ -188,14 +196,24 @@ Room.prototype.findExtractor = function() {
 Room.prototype.findSpawn = function() {
     let spawns = this.find(FIND_MY_STRUCTURES, {filter: (structure) => {return (structure.structureType == STRUCTURE_SPAWN && !structure.spawning);}});
     if(spawns.length) {
-        this.memory.Structures.spawn = spawns[0].id;
+        // Canonical spawn is a layout key (disrupt gate, construction
+        // ramparts, hub offsets). Writing whichever spawn is idle rotated
+        // that id every time the primary was busy. Only pin a new id when
+        // the cache is missing or dead; still return the idle spawn.
+        if(!this.memory.Structures) this.memory.Structures = {};
+        if(!Game.getObjectById(this.memory.Structures.spawn)) {
+            this.memory.Structures.spawn = spawns[0].id;
+        }
         return spawns[0]
     }
 }
 
 
 Room.prototype.findStorageContainer = function(): object | void {
-    let spawn:any = Game.getObjectById(this.memory.Structures.spawn);
+    // Cached spawn can be missing or dead; fall back to a live spawn so
+    // hub-container lookup still works instead of giving up.
+    let spawn:any = this.memory.Structures && Game.getObjectById(this.memory.Structures.spawn);
+    if(!spawn) spawn = this.find(FIND_MY_SPAWNS)[0];
     if(!spawn) return;
     // Match construction hub offsets (legacy spawn.y-2 first, then fallbacks).
     const offsets = [[0, -2], [0, 2], [-2, 0], [2, 0], [-1, -2], [1, -2], [-2, -1], [2, -1]];

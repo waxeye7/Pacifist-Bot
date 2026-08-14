@@ -131,9 +131,12 @@ function spawning(room: any) {
         !room.memory.danger && room.memory.spawn_list.length >= 1 && (Game.time - room.memory.lastTimeSpawnUsed) % 500 == 0 ||
         room.memory.danger && (Game.time - room.memory.lastTimeSpawnUsed) % 7 == 0 && room.memory.spawn_list.length == 0 ||
         // Danger used to require an empty queue, so a stuck head blocked every
-        // RampartDefender/RRD for the siege. Re-run every ~15 ticks; those
-        // two rungs skip if their name prefix is already queued.
-        room.memory.danger && room.memory.spawn_list.length >= 1 && (Game.time - room.memory.lastTimeSpawnUsed) % 15 == 0) {
+        // RampartDefender/RRD for the siege. Re-run every 15 ticks. Gate on
+        // absolute Game.time: a busy primary spawn writes lastTimeSpawnUsed =
+        // Game.time every tick, so (Game.time - lastTimeSpawnUsed) % 15 == 0
+        // was true every tick and flooded the 24-cap queue. Rungs with a
+        // named prefix skip if that prefix is already queued.
+        room.memory.danger && room.memory.spawn_list.length >= 1 && Game.time % 15 == 0) {
 
             add_creeps_to_spawn_list(room, spawn);
             clampSpawnListToCapacity(room);
@@ -1429,7 +1432,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[4].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if(maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
+            if(maintainers < spawnrules[4].maintain_creep.amount && !room.memory.danger && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[4].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -1486,7 +1489,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[5].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ', floor ' + pressure.onFloor + ')');
             }
-            if(maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
+            if(maintainers < spawnrules[5].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[5].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -1532,7 +1535,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             let rampartsInRoomBelow3Mil = rampartsInRoom?.filter(function(s) {return s.hits < 3050000;});
-            if(repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsInRoomBelow3Mil.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
+            if(repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsInRoomBelow3Mil.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -1571,7 +1574,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if(maintainers < spawnrules[6].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
+            if(maintainers < spawnrules[6].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[6].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -1617,7 +1620,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
             // Same 150k floor as RCL6. 500k meant a fresh RCL7 sat on decaying
             // ramparts until the bank was huge; the 1x30W body is unchanged.
-            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
+            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
                 let rampartsInRoomBelow5Mil = rampartsInRoom?.filter(function(s) {return s.hits < 4050000;});
                 if(rampartsInRoomBelow5Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1665,7 +1668,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
 
 
-            if(maintainers < spawnrules[7].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
+            if(maintainers < spawnrules[7].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[7].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -1729,7 +1732,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             else if(Game.cpu.bucket < 6000) {
                 spawnrules[8].repair_creep.amount = 1;
             }
-            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 280000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 150000)) {
+            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 280000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 150000) && !queuedWithPrefix(room, 'Repair-')) {
                 let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 15255000 && (room.name !== "E41N58" || s.pos.getRangeTo(storage) > 15 || s.pos.getRangeTo(storage) < 10);});
                 if(rampartsInRoomBelow10Mil.length > 0) {
                     if(storage && !room.memory.labs.lab8reserved && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] > 3150 && storage.store[RESOURCE_CATALYZED_KEANIUM_ACID] > 1000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1500 &&  room.memory.labs && room.memory.labs.outputLab1 && room.memory.labs.outputLab2 && room.memory.labs.outputLab8) {
@@ -1804,7 +1807,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
 
-            if(maintainers < spawnrules[8].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer)) {
+            if(maintainers < spawnrules[8].maintain_creep.amount && (room.memory.keepTheseRoads && room.memory.keepTheseRoads.length > 0 || spawnMaintainer) && !queuedWithPrefix(room, 'Maintainer')) {
                 if(spawnMaintainer) {
                     let name = 'Maintainer-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[8].maintain_creep.body, name, {memory: {role: 'maintainer', homeRoom: room.name}});
@@ -1983,7 +1986,8 @@ function add_creeps_to_spawn_list(room, spawn) {
         console.log('Adding Priest to Spawn List: ' + newName);
     }
 
-    if (room.controller.level === 8 && clearers < 1 && room.memory.danger && room.memory.danger_timer > 300 && RampartDefenders === 0) {
+    // Name prefix is 'Clearer-', not WallClearer (that role is command-queued).
+    if (room.controller.level === 8 && clearers < 1 && room.memory.danger && room.memory.danger_timer > 300 && RampartDefenders === 0 && !queuedWithPrefix(room, 'Clearer-')) {
         let hostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         hostileCreeps = _.filter(hostileCreeps, (c:any) => c.owner.username !== "Invader");
         if(hostileCreeps.length) {
@@ -2090,7 +2094,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         }
 
 
-        if(room.memory.danger_timer > 200 && SpecialRepairers < 1 || rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 4 && room.energyCapacityAvailable >= 4000) {
+        if((room.memory.danger_timer > 200 && SpecialRepairers < 1 || rampartsInDangerOfDying && SpecialRepairers < 1 || rampartsInDangerOfDying4Mil && SpecialRepairers < 4 && room.energyCapacityAvailable >= 4000) && !queuedWithPrefix(room, 'SpecialRepair')) {
 
             let newName = 'SpecialRepair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             console.log('Adding SpecialRepair to Spawn List: ' + newName);
@@ -2119,9 +2123,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
                 }
 
-                let newName2 = 'SpecialCarry-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
-                console.log('Adding SpecialCarry to Spawn List: ' + newName);
+                if(!queuedWithPrefix(room, 'SpecialCarry')) {
+                    let newName2 = 'SpecialCarry-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                    room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
+                    console.log('Adding SpecialCarry to Spawn List: ' + newName);
+                }
             }
             else if(room.controller.level == 6) {
                 if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 540 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50) {
@@ -2146,9 +2152,11 @@ function add_creeps_to_spawn_list(room, spawn) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair'}});
                 }
 
-                let newName2 = 'SpecialCarry-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
-                console.log('Adding SpecialCarry to Spawn List: ' + newName);
+                if(!queuedWithPrefix(room, 'SpecialCarry')) {
+                    let newName2 = 'SpecialCarry-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                    room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY], newName2, {memory: {role: 'SpecialCarry'}});
+                    console.log('Adding SpecialCarry to Spawn List: ' + newName);
+                }
             }
 
 
@@ -3943,7 +3951,8 @@ function queuedForSource(room, prefix:string, sourceId):boolean {
  * Is a creep whose name starts with `prefix` already on the spawn queue?
  *
  * Same walk as queuedForSource, but role-wide (no sourceId). The danger
- * re-producer would otherwise stack RampartDefender/RRD while a stuck head
+ * re-producer would otherwise stack named rungs (RampartDefender/RRD,
+ * SpecialRepair/Carry, Clearer, Repair, Maintainer) while a stuck head
  * keeps the queue non-empty.
  */
 function queuedWithPrefix(room, prefix:string):boolean {

@@ -58,7 +58,11 @@ const run = function (creep) {
                 // recycle() walks home while still full, then the travel arm
                 // walks back — pinball. Dump into any local sink, or drop;
                 // only recycle once TTL is too short to keep hauling.
+                // Enemy spawn/extension/tower is a valid type match in a
+                // freshly-claimed room; transfer then returns ERR_NOT_OWNER
+                // forever. Containers are unowned, so they stay eligible.
                 let sinks = creep.room.find(FIND_STRUCTURES, {filter: s =>
+                    (s.my || s.structureType == STRUCTURE_CONTAINER) &&
                     (s.structureType == STRUCTURE_SPAWN || s.structureType == STRUCTURE_EXTENSION ||
                      s.structureType == STRUCTURE_CONTAINER || s.structureType == STRUCTURE_TOWER) &&
                     s.store && s.store.getFreeCapacity(RESOURCE_ENERGY) > 0});

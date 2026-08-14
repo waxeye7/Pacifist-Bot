@@ -405,7 +405,15 @@ function roomDefence(room) {
                 // occupancy let towers volley while the defender walked.
                 let occupant = rampart.pos.lookFor(LOOK_CREEPS)[0];
                 if(occupant && occupant.my && occupant.memory && (occupant.memory.role == "RampartDefender" || occupant.memory.role == "RRD")) {
-                    if(room.memory.rampartToMan && rampart.id == room.memory.rampartToMan) {
+                    // Assigned tile OR a shell tile within 2 of it. Strict
+                    // assigned-only deadlocked against the defenders' own
+                    // hysteresis (they refuse to hop tiles while closer to the
+                    // hostile than the new assignment), so towers never
+                    // volleyed once the hostile slid along the wall. A creep
+                    // WALKING is not standing on a rampart, so the original
+                    // "don't volley while the defender walks" intent holds.
+                    let manned:any = room.memory.rampartToMan && Game.getObjectById(room.memory.rampartToMan);
+                    if(rampart.id == room.memory.rampartToMan || manned && rampart.pos.getRangeTo(manned) <= 2) {
                         room.memory.in_position = true;
                         found_creep = true;
                     }

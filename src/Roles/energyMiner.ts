@@ -630,7 +630,7 @@ const run = function (creep) {
                         new RoomPosition(creep.room.storage.pos.x-2,creep.room.storage.pos.y,creep.room.name).createConstructionSite(STRUCTURE_LINK);
                     }
                 }
-                if(!creep.room.memory.planV2) {
+                if(!creep.room.memory.planV2 && Game.time % 100 == 0) {
                     console.log("ALERT: stupid bug idk why. Link store is null.", creep.memory.targetRoom);
                 }
                 return;

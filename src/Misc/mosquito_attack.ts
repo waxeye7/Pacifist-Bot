@@ -36,6 +36,17 @@ function mosquito_attack() {
     let mosquitos = myCreeps.filter(c => c.memory.role === "mosquito" && c.memory.targetRoom === attack.n);
     let myOtherCreeps = myCreeps.filter(c => c.memory.role !== "mosquito");
 
+    // Safe-mode still resets the troop-request counter with no wave in
+    // room. Combat work (centre scan, log, per-creep loop) is wasted
+    // when nobody assigned is here.
+    let controller = room.controller;
+    let safeMode = false;
+    if (controller && controller.safeMode && controller.safeMode > 0) {
+      attack.ts = 0;
+      safeMode = true;
+    }
+    if (mosquitos.length === 0) continue;
+
     let structures = room.find(FIND_STRUCTURES);
     let neutralStructures = structures.filter(
       s => !(s instanceof OwnedStructure) && s.structureType !== STRUCTURE_CONTAINER
@@ -50,13 +61,6 @@ function mosquito_attack() {
     let combinedStructures = neutralStructures.concat(enemyStructures);
     let towers = <Array<StructureTower>>enemyStructures.filter(s => s.structureType === STRUCTURE_TOWER);
     let spawns = enemyStructures.filter(s => s.structureType === STRUCTURE_SPAWN);
-
-    let controller = room.controller;
-    let safeMode = false;
-    if (controller && controller.safeMode && controller.safeMode > 0) {
-      attack.ts = 0;
-      safeMode = true;
-    }
 
     let centermostPosition: RoomPosition | null = null;
 
