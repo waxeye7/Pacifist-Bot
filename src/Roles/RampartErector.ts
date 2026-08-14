@@ -14,8 +14,25 @@ import { interiorMove } from "utils/Interior";
 
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
-        creep.memory.locked_repair = false;
-        creep.memory.locked = false;
+        // keep the repair lock through the refill trip while the rampart is still
+        // fragile — dropping it here abandoned 1-hit newborns to decay away
+        let fresh:any = creep.memory.locked_repair ? Game.getObjectById(creep.memory.locked_repair) : null;
+        if(fresh && fresh.hits < 30000) {
+            // still fragile: keep locked_repair AND locked so the refilled creep
+            // resumes exactly where it left off
+        }
+        else {
+            if(!fresh && creep.memory.locked_repair && creep.memory.locked) {
+                // the newborn died while we refilled: put its tile back on the list
+                const pos:any = creep.memory.locked;
+                const list = creep.room.memory.construction && creep.room.memory.construction.rampartLocations;
+                if(list && pos.roomName == creep.room.name) {
+                    list.push([pos.x, pos.y]);
+                }
+            }
+            creep.memory.locked_repair = false;
+            creep.memory.locked = false;
+        }
     }
     if(!creep.memory.full && creep.store.getFreeCapacity() == 0) {
         creep.memory.full = true;
