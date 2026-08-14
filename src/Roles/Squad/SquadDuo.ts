@@ -155,6 +155,7 @@ const splitQuadToDuos = function (a: any, b: any, y: any, z: any, stagingRoom: s
         member.memory.route = undefined;
         member.memory.direction = false;
         member.memory.pathIncompleteCount = 0;
+        member.memory.swampyPathCount = 0;
         delete member.memory.splitTravel;
     }
     a.memory.finalTarget = finalTarget;

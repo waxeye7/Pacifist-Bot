@@ -446,7 +446,7 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
         // path came back incomplete twice in a row (terrain the 2x2 cannot cross).
         // The duos regroup one room short of the target and rejoin into the quad.
         if(a && b && y && z && creep.memory.targetPosition && creep.room.name != creep.memory.targetPosition.roomName &&
-           (creep.memory.splitTravel || (creep.memory.pathIncompleteCount || 0) >= 2) &&
+           (creep.memory.splitTravel || (creep.memory.pathIncompleteCount || 0) >= 2 || (creep.memory.swampyPathCount || 0) >= 3) &&
            a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) {
             let staging = creep.room.name;
             if(creep.memory.route && creep.memory.route.length >= 2) {
@@ -681,6 +681,16 @@ const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, cree
             }
             else {
                 creep.memory.pathIncompleteCount = 0;
+            }
+            // swamp-heavy path: with plainCost 1 / swampCost 5, an average tile cost
+            // >= 3 means the 2x2 footprint is dragging through mostly swamp — a duo
+            // pays single-tile costs there, so count toward an auto-split
+            if(!path.incomplete && path.path.length >= 5 && creep.room.name != creep.memory.targetPosition.roomName &&
+               path.cost / path.path.length >= 3) {
+                creep.memory.swampyPathCount = (creep.memory.swampyPathCount || 0) + 1;
+            }
+            else {
+                creep.memory.swampyPathCount = 0;
             }
             let pos = path.path[0];
             let direction = pos ? creep.pos.getDirectionTo(pos) : undefined;
