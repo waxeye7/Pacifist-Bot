@@ -58,7 +58,12 @@ PowerCreep.prototype.evacuate = function evacuate():any {
             this.memory.nukeTimer --;
         }
 
-        if(this.memory.nukeTimer > 0) {
+        // Same latch as Creep.evacuate: leftover nukeHaven yanks the PC
+        // home forever after the threat has passed.
+        const homeObj = this.memory.homeRoom && Game.rooms[this.memory.homeRoom];
+        const noHomeNukes = homeObj && homeObj.find(FIND_NUKES).length === 0;
+
+        if(this.memory.nukeTimer > 0 && !noHomeNukes) {
 
             if(!this.memory.nukeHaven) {
                 let possibleRooms = Object.values(Game.map.describeExits(this.room.name)).filter(roomname => Game.map.getRoomStatus(roomname).status === Game.map.getRoomStatus(this.room.name).status);
@@ -72,6 +77,8 @@ PowerCreep.prototype.evacuate = function evacuate():any {
         }
         else {
             if(this.room.name == this.memory.homeRoom) {
+                delete this.memory.nukeHaven;
+                delete this.memory.nukeTimer;
                 return false;
             }
             else {

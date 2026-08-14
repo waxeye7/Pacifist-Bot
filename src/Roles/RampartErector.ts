@@ -12,6 +12,10 @@ import { interiorMove } from "utils/Interior";
         return;
     }
 
+    if(creep.holdForFlee()) {
+        return;
+    }
+
     if(creep.memory.full && creep.store[RESOURCE_ENERGY] == 0) {
         creep.memory.full = false;
         // keep the repair lock through the refill trip while the rampart is still

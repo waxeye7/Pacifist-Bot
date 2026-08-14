@@ -1,4 +1,5 @@
 import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
+import { invalidateStaleStorageLink } from "Functions/roomFunctions";
 
 // declare global required now that this file imports (module scope): a bare
 // `interface Creep` stopped merging with the global type.
@@ -7,6 +8,7 @@ interface Creep {
     Boost: () => boolean | "done";
     Speak: () => void;
     evacuate:any;
+    holdForFlee: () => boolean;
     findFillerTarget:any;
     findSource: () => object;
     findSpawn:() => object | void;
@@ -495,7 +497,13 @@ Creep.prototype.evacuate = function evacuate():any {
             this.memory.nukeTimer --;
         }
 
-        if(this.memory.nukeTimer > 0) {
+        // nukeHaven is otherwise never cleared, so remotes that passed
+        // through home during evac get yanked back every tick for life.
+        // Haven is done when the timer has lapsed or home has no nukes.
+        const homeObj = this.memory.homeRoom && Game.rooms[this.memory.homeRoom];
+        const noHomeNukes = homeObj && homeObj.find(FIND_NUKES).length === 0;
+
+        if(this.memory.nukeTimer > 0 && !noHomeNukes) {
 
             if(!this.memory.nukeHaven) {
                 let possibleRooms = Object.values(Game.map.describeExits(this.room.name)).filter(roomname => Game.map.getRoomStatus(roomname).status === Game.map.getRoomStatus(this.room.name).status);
@@ -509,6 +517,8 @@ Creep.prototype.evacuate = function evacuate():any {
         }
         else {
             if(this.room.name == this.memory.homeRoom) {
+                delete this.memory.nukeHaven;
+                delete this.memory.nukeTimer;
                 return false;
             }
             else {
@@ -518,6 +528,21 @@ Creep.prototype.evacuate = function evacuate():any {
         }
 
         return true;
+    }
+    return false;
+}
+
+// Honour defence's same-tick flee step. Last intent wins, so a later
+// role move() walks back into the pack. True => caller must return.
+// Check melee<=6 AND ranged<=8 independently: ranged-else-melee skipped
+// the melee standing next to a mixed invader pack.
+Creep.prototype.holdForFlee = function(): boolean {
+    if(!this.memory.fleeing) return false;
+    const hostiles = this.room.find(FIND_HOSTILE_CREEPS);
+    for(const h of hostiles) {
+        const range = this.pos.getRangeTo(h);
+        if(h.getActiveBodyparts(RANGED_ATTACK) > 0 && range <= 8) return true;
+        if(h.getActiveBodyparts(ATTACK) > 0 && range <= 6) return true;
     }
     return false;
 }
@@ -757,19 +782,15 @@ Creep.prototype.findClosestLink = function() {
 }
 
 Creep.prototype.findClosestLinkToStorage = function():any {
-    let storage = Game.getObjectById(this.memory.storage) || this.findStorage();
-    if(storage) {
-        // hub link: legacy stamps sit at storage.x-2 (range 2), the v2
-        // planner glues it to the storage (range 1). Take the closest link
-        // within range 2 rather than one hardcoded offset.
-        let links = this.room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK && storage.pos.getRangeTo(s) <= 2});
-        if(links.length > 0) {
-            links.sort((a, b) => storage.pos.getRangeTo(a) - storage.pos.getRangeTo(b));
-            this.memory.closestLink = links[0].id;
-            return links[0];
-        }
+    // Same stale-pin drop as findStorageLink: a live RCL5 source-ring
+    // id never rescans on its own. Then reuse the room finder so EM
+    // and the room pin agree on the hub.
+    invalidateStaleStorageLink(this.room);
+    const hub: any = this.room.findStorageLink();
+    if(hub) {
+        this.memory.closestLink = hub.id;
+        return hub;
     }
-
 }
 
 

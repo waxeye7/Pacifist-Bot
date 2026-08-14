@@ -60,26 +60,8 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
-    if(creep.memory.fleeing) {
-        // find hostiles with attack or ranged attack
-        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
-        let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0 );
-        let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0 );
-        if(rangedHostiles.length) {
-            let closestRangedHostile = creep.pos.findClosestByRange(rangedHostiles);
-            if(creep.pos.getRangeTo(closestRangedHostile) <= 5) {
-                return;
-            }
-        }
-        else if(meleeHostiles.length) {
-            let closestMeleeHostile = creep.pos.findClosestByRange(meleeHostiles);
-            if(creep.pos.getRangeTo(closestMeleeHostile) <= 3) {
-                return;
-            }
-        }
-    }
-    else if(!creep.memory.danger) {
-        creep.memory.fleeing = false;
+    if(creep.holdForFlee()) {
+        return;
     }
 
     let targets = creep.room.find(FIND_MY_CONSTRUCTION_SITES);

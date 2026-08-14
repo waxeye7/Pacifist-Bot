@@ -178,22 +178,8 @@ function roomHasNoBuilder(room: any): boolean {
 const run = function (creep) {
 	creep.memory.moving = false;
 
-	// Honor defence's flee step (roomDefence runs before creeps; a move here
-	// would overwrite it and walk straight back into range). Same gate as
-	// builder/carry - this role was one of the three that never read it.
-	if(creep.memory.fleeing) {
-		let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
-		let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0);
-		let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0);
-		if(rangedHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(rangedHostiles)) <= 8) {
-			return;
-		}
-		else if(meleeHostiles.length && creep.pos.getRangeTo(creep.pos.findClosestByRange(meleeHostiles)) <= 6) {
-			return;
-		}
-	}
-	else if(!creep.room.memory.danger) {
-		creep.memory.fleeing = false;
+	if(creep.holdForFlee()) {
+		return;
 	}
 	if(creep.evacuate()) {
 		return;

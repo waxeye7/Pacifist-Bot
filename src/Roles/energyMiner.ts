@@ -12,15 +12,16 @@ import { remoteIsHot } from "Rooms/rooms.remotes";
  * is the wrong bar — a 1-source RCL6 room maxes at source+hub, carriers
  * already stop, and the miner stayed on drop-mine with nobody hauling.
  *
- * Cached per source for 500 ticks — layouts change on a construction
- * timescale, and every miner asks every tick.
+ * Cached per source for 50 ticks. Spawn cuts carriers the tick both
+ * ends exist; a 500-tick stale `false` left drop-mining with no haulers
+ * at the RCL6 hub cutover.
  */
 function linkNetworkDelivers(room, sourceId?):boolean {
     if(!room.storage) return false;
     const srcKey = sourceId || "*";
     if(!room.memory.linkHaulBySource) room.memory.linkHaulBySource = {};
     const rec = room.memory.linkHaulBySource[srcKey];
-    if(rec && Game.time - (rec.t || 0) < 500) {
+    if(rec && Game.time - (rec.t || 0) < 50) {
         return rec.v;
     }
     const links = room.find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_LINK});
@@ -132,7 +133,7 @@ export function forwardToControllerLink(room:any):void {
         // happens in rooms whose two keys collided (live VPS W1N2) — sending a
         // link to itself is ERR_INVALID_TARGET, so skip it rather than log it
         // every tick.
-        const hub:any = Game.getObjectById(S.StorageLink);
+        const hub:any = Game.getObjectById(S.StorageLink) || room.findStorageLink();
         if(!hub || hub.id === ctrlLink.id || hub.structureType !== STRUCTURE_LINK) return;
         const hubFree = hub.store.getFreeCapacity(RESOURCE_ENERGY);
         if(hubFree <= 0) return;
@@ -218,32 +219,17 @@ const run = function (creep) {
 	if(creep.evacuate()) {
 		return;
 	}
-    if(creep.fleeHomeIfInDanger() == "timeOut") {
+    // timeOut is only a hard abort while still IN the flagged remote.
+    // After the exit the helper still returns "timeOut" for 25t with no
+    // work move — a miner sat in the corridor / just inside home.
+    if(creep.room.name === creep.memory.targetRoom && creep.fleeHomeIfInDanger() == "timeOut") {
         return;
     }
 
     if(Game.cpu.bucket < 1000) return;
 
-    if(creep.memory.fleeing) {
-        // find hostiles with attack or ranged attack
-        let hostiles = creep.room.find(FIND_HOSTILE_CREEPS);
-        let meleeHostiles = hostiles.filter(c => c.getActiveBodyparts(ATTACK) > 0 );
-        let rangedHostiles = hostiles.filter(c => c.getActiveBodyparts(RANGED_ATTACK) > 0 );
-        if(rangedHostiles.length) {
-            let closestRangedHostile = creep.pos.findClosestByRange(rangedHostiles);
-            if(creep.pos.getRangeTo(closestRangedHostile) <= 5) {
-                return;
-            }
-        }
-        else if(meleeHostiles.length) {
-            let closestMeleeHostile = creep.pos.findClosestByRange(meleeHostiles);
-            if(creep.pos.getRangeTo(closestMeleeHostile) <= 3) {
-                return;
-            }
-        }
-    }
-    else if(!creep.memory.danger) {
-        creep.memory.fleeing = false;
+    if(creep.holdForFlee()) {
+        return;
     }
     // if(creep.fleeHomeIfInDanger() == true) {
     //     return;

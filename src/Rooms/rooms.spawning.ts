@@ -1949,8 +1949,19 @@ function add_creeps_to_spawn_list(room, spawn) {
         // [4C,M] the tick the depot existed — HOL in front of the parked
         // 4W that depot is for. Carriers already dump surplus there
         // (carry.ts depotSink); dry-depot upgraders shuttle.
+        //
+        // Same identity as upgrader controllerDepot / construction L2b:
+        // a hub or source-adjacent link inside range 3 is not a controller
+        // depot. Treating it as one spawned a CLF that filled the hub
+        // while EM emptied it, and wrote Structures.controllerLink onto
+        // that hub so drain-back never healed.
+        const sourcesNearCtrl = room.find(FIND_SOURCES);
+        const storageLinkId = room.memory.Structures && room.memory.Structures.StorageLink;
         const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
-            s.structureType == STRUCTURE_LINK && s.pos.getRangeTo(room.controller) <= 3});
+            s.structureType == STRUCTURE_LINK &&
+            s.pos.getRangeTo(room.controller) <= 3 &&
+            s.id !== storageLinkId &&
+            s.pos.findInRange(sourcesNearCtrl, 1).length == 0});
         const ctrlTarget: any = ctrlLinks.length
             ? room.controller.pos.findClosestByRange(ctrlLinks)
             : null;
@@ -2858,6 +2869,29 @@ function spawnFirstInLine(room, spawn) {
 
     // Normal spawn queue processing
     if(room.memory.spawn_list.length >= 1) {
+        // spawning() runs before scanRemoteThreats, so a miner/carrier
+        // queued this tick can hatch next tick into a remote that is
+        // now hot. Drop those triples; the producer re-queues when safe.
+        // Attackers/scouts targeting the same room are left alone.
+        while(room.memory.spawn_list.length >= 3) {
+            const headMem = room.memory.spawn_list[2] && room.memory.spawn_list[2].memory;
+            if(!headMem || !headMem.targetRoom || headMem.targetRoom === room.name) break;
+            const role = headMem.role;
+            if(role !== "EnergyMiner" && role !== "carry" &&
+               role !== "RemoteRepair" && role !== "reserve") break;
+            if(!remoteIsHot(room, headMem.targetRoom)) break;
+            refundBoostOwner(room, room.memory.spawn_list[1]);
+            console.log("dropping queued", room.memory.spawn_list[1],
+                "-", headMem.targetRoom, "is hot");
+            room.memory.spawn_list.shift();
+            room.memory.spawn_list.shift();
+            room.memory.spawn_list.shift();
+        }
+        if(room.memory.spawn_list.length < 3) {
+            room.memory.spawnStall = 0;
+            delete room.memory.spawnStallName;
+            return "list empty";
+        }
         let spawnAttempt = spawn.spawnCreep(room.memory.spawn_list[0],room.memory.spawn_list[1], room.memory.spawn_list[2]);
         if(spawnAttempt == 0) {
             console.log("spawning", room.memory.spawn_list[1], "creep", room.name);
@@ -3921,6 +3955,30 @@ function minerOnTheWay(room, sourceId):boolean {
         || queuedForSource(room, 'EnergyMiner', sourceId);
 }
 
+/** Live or queued EnergyMiner already walking this remote (any source). */
+function minerGoingToRemote(room, targetRoomName): boolean {
+    if(_.some(Game.creeps, (c: any) =>
+        c.memory.role == "EnergyMiner" && c.memory.targetRoom == targetRoomName)) {
+        return true;
+    }
+    const q = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < q.length; i += 3) {
+        if(typeof q[i] !== "string" || q[i].indexOf("EnergyMiner") !== 0) continue;
+        const opts = q[i + 1];
+        if(opts && opts.memory && opts.memory.targetRoom == targetRoomName) return true;
+    }
+    return false;
+}
+
+/** Hostiles or an invader core — same bar remoteIsHot uses on a visible room. */
+function remoteLooksThreatened(vis): boolean {
+    if(!vis) return false;
+    if(vis.find(FIND_HOSTILE_CREEPS).length > 0) return true;
+    return vis.find(FIND_HOSTILE_STRUCTURES, {
+        filter: (s: any) => s.structureType === STRUCTURE_INVADER_CORE,
+    }).length > 0;
+}
+
 /** live carriers (incl. mid-dropoff FakeFillers and hatching ones) bound to a source */
 function liveCarriersForSource(room, sourceId):number {
     let n = 0;
@@ -4163,6 +4221,48 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
             let holdHomeMinersForContainer = false;
             if(room.controller.level <= 4 && containerBuilders.length && targetRoomName == room.name) {
                 holdHomeMinersForContainer = room.find(FIND_STRUCTURES, {filter: (s:any) => s.structureType == STRUCTURE_CONTAINER}).length == 0;
+            }
+
+            // F3 sets probeFirst when hot expires with no vision. First body
+            // in must be a [WORK,WORK,MOVE] probe — a scouted remote would
+            // otherwise get the 8W crew and walk it into a still-cored room
+            // (cores outlive HOT_COOLDOWN). Leave the flag set until a quiet
+            // visible pass so the next producer cadence cannot send a full
+            // miner for the other source while the probe is still walking.
+            // "Once" is minerGoingToRemote. remoteIsHot first so expiry this
+            // tick actually sets the flag before we look at it.
+            if(targetRoomName != room.name) {
+                if(remoteIsHot(room, targetRoomName)) {
+                    return;
+                }
+                if(data.probeFirst) {
+                    const vis = Game.rooms[targetRoomName];
+                    if(vis && !remoteLooksThreatened(vis)) {
+                        delete data.probeFirst;
+                    }
+                    else {
+                        if(!vis && !minerGoingToRemote(room, targetRoomName) && data.energy) {
+                            let probeSourceId = null;
+                            let probeValues = null;
+                            for(const sid in data.energy) {
+                                probeSourceId = sid;
+                                probeValues = data.energy[sid];
+                                break;
+                            }
+                            if(probeSourceId) {
+                                const newName = 'EnergyMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                                room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
+                                    {memory: {role: 'EnergyMiner', sourceId: probeSourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                                console.log('Adding Energy Miner (probe, reopen) to Spawn List: ' + newName);
+                                if(probeValues) probeValues.lastSpawn = Game.time-120;
+                                // Consumed: one probe is queued. Flag stays
+                                // until the quiet scouted pass above so we
+                                // do not send the rest of the crew behind it.
+                            }
+                        }
+                        return;
+                    }
+                }
             }
             _.forEach(data.energy, function(values, sourceId:any) {
 
@@ -4484,7 +4584,13 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                  * ---------------------------------------------------------- */
                 if(!Game.rooms[targetRoomName]) return;
                 const homeVis:any = Game.rooms[targetRoomName];
-                if(homeVis.memory.roomData && homeVis.memory.roomData.has_hostile_creeps) return;
+                // establishMemory only writes roomData for unowned rooms, so
+                // after claim the last has_hostile_creeps sticks forever and
+                // a colony that fought through invaders never queued home
+                // carriers. This branch is the owned home room — live find.
+                if(homeVis.find(FIND_HOSTILE_CREEPS, {filter: (c:any) =>
+                    c.getActiveBodyparts(ATTACK) > 0 || c.getActiveBodyparts(RANGED_ATTACK) > 0
+                }).length > 0) return;
 
                 // A stamp in the FUTURE is the old RCL6 link cutoff
                 // (5000000000). Under a count-driven scheme it would silence
