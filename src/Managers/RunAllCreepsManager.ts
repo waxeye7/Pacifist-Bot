@@ -2,6 +2,7 @@ import QuadSquadRunManager from "./QuadSquadRunManager";
 import RunCreepManager from "./RunCreepManager";
 import RunPowerCreepManager from "./RunPowerCreepManager";
 import { powerDisabled } from "utils/Features";
+import { skipHighRclCreep } from "utils/Speedrun";
 
 function RunAllCreepsManager() {
 
@@ -29,7 +30,8 @@ function RunAllCreepsManager() {
         delete Memory.creeps[name];
         continue;
       }
-      if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ")) {
+      if(skipHighRclCreep(Game.creeps[name])) continue;
+      if(name.startsWith("SquadCreepA") || name.startsWith("SquadCreepB") || name.startsWith("SquadCreepY") || name.startsWith("SquadCreepZ") || name.startsWith("DuoCreepA") || name.startsWith("DuoCreepB")) {
         executeCreepScriptsLaterList.push(name);
       }
       else {
@@ -43,6 +45,7 @@ function RunAllCreepsManager() {
     // (live: Filler-1014650-E17S4). Sweep Game.creeps for names the loop missed.
     for(const name of Object.keys(Game.creeps)) {
       if(name in Memory.creeps) continue;
+      if(skipHighRclCreep(Game.creeps[name])) continue;
       RunCreepManager(name);
     }
 

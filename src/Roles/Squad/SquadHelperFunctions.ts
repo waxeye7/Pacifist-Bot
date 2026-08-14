@@ -1,614 +1,184 @@
-const roomCallbackSquadA = (roomName: string): boolean | CostMatrix => {
+/**
+ * One cost-matrix builder for all squad pathfinding. Every cost is written for the
+ * 2x2 quad footprint anchored at the leader (top-left), which is why each blocker
+ * also marks the three tiles up/left of itself.
+ *
+ * Variant differences are options:
+ *  - swampCost / edgeCost: terrain weights
+ *  - structuresFirst: SwampCostSame and GetReady apply structures before creeps,
+ *    the combat matrix applies creeps first (order matters where both write a tile)
+ *  - skipContainers: combat matrices ignore containers, GetReady does not
+ *  - myStructCost: own structures block (255) in combat, cost 100 in GetReady
+ *  - hostileStructCost: "stack" = 60, 120 if hit twice; otherwise a flat cost
+ *  - controllerHits: combat-A prices a low-hits blocker at 100 instead of 255
+ *  - creepCost: GetReady blocks creep tiles outright, combat softens to 10 when
+ *    the surrounding footprint is cheap (creep likely to move)
+ **/
+const buildQuadCostMatrix = function (roomName: string, opts: any): boolean | CostMatrix {
     let room = Game.rooms[roomName];
-    if (!room || room == undefined || room === undefined || room == null || room === null) {
+    if (!room) {
         return false;
     }
 
+    const single = opts.footprint == "single";
     let costs = new PathFinder.CostMatrix;
-
-
     const terrain = new Room.Terrain(roomName);
 
-
-
-
+    // interior terrain: wall blocks, swamp costs, plain costs 0 unless the rest of
+    // the footprint touches swamp; a wall anywhere in the footprint blocks the tile
     for(let y = 1; y < 49; y++) {
         for(let x = 1; x < 49; x++) {
             const tile = terrain.get(x, y);
             let weight;
             if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
+                weight = 255;
             }
             else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 5;
+                weight = opts.swampCost;
             }
-            else if(tile == 0){
+            else {
                 weight = 0;
-
-                if(terrain.get(x+1, y) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
+                if(!single &&
+                   (terrain.get(x+1, y) == TERRAIN_MASK_SWAMP ||
+                    terrain.get(x+1, y+1) == TERRAIN_MASK_SWAMP ||
+                    terrain.get(x, y+1) == TERRAIN_MASK_SWAMP)) {
+                    weight = opts.swampCost;
                 }
-                else if(terrain.get(x+1, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
-                }
-                else if(terrain.get(x, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
-                }
-
             }
-
-            if(weight !== 255) {
-                let problemTiles = [];
-                problemTiles.push(terrain.get(x + 1, y));
-                problemTiles.push(terrain.get(x, y + 1));
-                problemTiles.push(terrain.get(x + 1, y + 1));
-                // , [terrain.get(x + 2, y), terrain.get(x + 2, y + 1)]]
-                for(let tile of problemTiles) {
-                    if(tile == TERRAIN_MASK_WALL) {
-                        weight = 255;
-                        break;
-                    }
+            if(!single && weight !== 255) {
+                if(terrain.get(x+1, y) == TERRAIN_MASK_WALL ||
+                   terrain.get(x, y+1) == TERRAIN_MASK_WALL ||
+                   terrain.get(x+1, y+1) == TERRAIN_MASK_WALL) {
+                    weight = 255;
                 }
-
             }
-
             costs.set(x, y, weight);
-
-            // new RoomVisual(room.name).text("255", x, y, {color: 'green', font: 0.8});
         }
     }
 
-    room.find(FIND_CREEPS).forEach(function(creep) {
-        if(!creep.my || creep.memory.role == "carry" || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
+    const footprintTiles = function (pos: any) {
+        if(single) {
+            return [[pos.x, pos.y]];
+        }
+        return [[pos.x, pos.y], [pos.x - 1, pos.y], [pos.x - 1, pos.y - 1], [pos.x, pos.y - 1]];
+    };
 
-            let weight:any = 10;
-            if(costs.get(creep.pos.x, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y - 1) <= 5 && costs.get(creep.pos.x, creep.pos.y - 1) <= 5) {
-                costs.set(creep.pos.x, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
-                costs.set(creep.pos.x, creep.pos.y - 1, weight);
-            }
-            else {
-                costs.set(creep.pos.x, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, 255);
-                costs.set(creep.pos.x, creep.pos.y - 1, 255);
+    const applyStructures = function () {
+        _.forEach(room.find(FIND_STRUCTURES), function(struct: any) {
+            if(struct.structureType == STRUCTURE_RAMPART && struct.my ||
+               struct.structureType == STRUCTURE_ROAD ||
+               (opts.skipContainers && struct.structureType == STRUCTURE_CONTAINER)) {
+                return;
             }
 
-
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-        // else if(creep.memory.role === "SquadCreepA") {
-        //     costs.set(creep.pos.x, creep.pos.y, 0);
-        // }
-    });
-
-    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD || struct.structureType == STRUCTURE_CONTAINER) {
-            return;
-        }
-
-        else {
+            const tiles = footprintTiles(struct.pos);
             if(struct.my) {
-                costs.set(struct.pos.x, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                costs.set(struct.pos.x, struct.pos.y - 1, 255);
+                for(const t of tiles) {
+                    costs.set(t[0], t[1], opts.myStructCost);
+                }
             }
-            else if(!struct.my && struct.structureType !== STRUCTURE_CONTROLLER) {
-                if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-                    if(costs.get(struct.pos.x, struct.pos.y) == 60) {
-                        costs.set(struct.pos.x, struct.pos.y, 120);
+            else if(struct.structureType !== STRUCTURE_CONTROLLER) {
+                if(opts.hostileStructCost == "stack") {
+                    for(const t of tiles) {
+                        if(costs.get(t[0], t[1]) !== 255) {
+                            costs.set(t[0], t[1], costs.get(t[0], t[1]) == 60 ? 120 : 60);
+                        }
                     }
-                    else {
-                        costs.set(struct.pos.x, struct.pos.y, 60);
-                    }
-                }
-                if(costs.get(struct.pos.x - 1, struct.pos.y) !== 255) {
-                    if(costs.get(struct.pos.x - 1, struct.pos.y) == 60) {
-                        costs.set(struct.pos.x - 1, struct.pos.y, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x - 1, struct.pos.y, 60);
-                    }
-                }
-
-                if(costs.get(struct.pos.x - 1, struct.pos.y - 1) !== 255) {
-                    if(costs.get(struct.pos.x - 1, struct.pos.y - 1) == 60) {
-                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 60);
-                    }
-                }
-
-                if(costs.get(struct.pos.x, struct.pos.y - 1) !== 255) {
-                    if(costs.get(struct.pos.x, struct.pos.y - 1) == 60) {
-                        costs.set(struct.pos.x, struct.pos.y - 1, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x, struct.pos.y - 1, 60);
-                    }
-                }
-
-            }
-            else {
-                if(struct.hits < 50000) {
-                    costs.set(struct.pos.x, struct.pos.y, 100);
-                    costs.set(struct.pos.x - 1, struct.pos.y, 100);
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 100);
-                    costs.set(struct.pos.x, struct.pos.y - 1, 100);
                 }
                 else {
-                    costs.set(struct.pos.x, struct.pos.y, 255);
-                    costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                    costs.set(struct.pos.x, struct.pos.y - 1, 255);
+                    // get-ready: the structure's own tile is always priced, the rest
+                    // of the footprint only when not already blocked
+                    costs.set(tiles[0][0], tiles[0][1], opts.hostileStructCost);
+                    for(let i = 1; i < 4; i++) {
+                        if(costs.get(tiles[i][0], tiles[i][1]) !== 255) {
+                            costs.set(tiles[i][0], tiles[i][1], opts.hostileStructCost);
+                        }
+                    }
                 }
-
             }
+            else {
+                const cost = (opts.controllerHits && struct.hits < 50000) ? 100 : 255;
+                for(const t of tiles) {
+                    costs.set(t[0], t[1], cost);
+                }
+            }
+        });
+    };
 
+    const applyCreeps = function () {
+        room.find(FIND_CREEPS).forEach(function(creep: any) {
+            if(!creep.my || creep.memory.role == "carry" ||
+               (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" &&
+                creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
 
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y-1, {color: 'green', font: 0.8});
+                const tiles = footprintTiles(creep.pos);
+                if(opts.creepCost == 255) {
+                    for(const t of tiles) {
+                        costs.set(t[0], t[1], 255);
+                    }
+                }
+                else if(tiles.every(t => costs.get(t[0], t[1]) <= 5)) {
+                    for(const t of tiles) {
+                        costs.set(t[0], t[1], 10);
+                    }
+                }
+                else {
+                    for(const t of tiles) {
+                        costs.set(t[0], t[1], 255);
+                    }
+                }
+            }
+        });
+    };
 
-        }
-    });
+    if(opts.structuresFirst) {
+        applyStructures();
+        applyCreeps();
+    }
+    else {
+        applyCreeps();
+        applyStructures();
+    }
 
-
-
-
-
-
-
-
-
-
+    // room border: walls block, exits get edgeCost, and an exit tile whose footprint
+    // neighbor along the border is a wall blocks (the quad cannot straddle it)
     for(let y = 0; y < 50; y++) {
         for(let x = 0; x < 50; x++) {
             if(x == 0 || x == 49 || y == 0 || y == 49) {
-                const tile = terrain.get(x, y);
-                // let cost = costs.get(x,y);
-                if(tile == TERRAIN_MASK_WALL) {
+                if(terrain.get(x, y) == TERRAIN_MASK_WALL) {
                     costs.set(x, y, 255);
                 }
                 else {
+                    costs.set(x, y, opts.edgeCost);
 
-                    costs.set(x, y, 5);
-
-                    if(y==49 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
+                    if(!single && (y == 49 || y == 0) && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
                         costs.set(x, y, 255);
                     }
-                    if(y==0 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==49 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==0 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
+                    if(!single && (x == 49 || x == 0) && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
                         costs.set(x, y, 255);
                     }
                 }
             }
         }
     }
-
-    // for(let y = 0; y < 50; y++) {
-    //     for(let x = 0; x < 50; x++) {
-    //         const tile = terrain.get(x, y);
-    //         let cost = costs.get(x,y);
-    //         if(cost !== 255) {
-    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
-    //         }
-    //     }
-    // }
-
-
-
-
 
     return costs;
-}
+};
 
 
-const roomCallbackSquadASwampCostSame = (roomName: string): boolean | CostMatrix => {
-    let room = Game.rooms[roomName];
-    if (!room || room == undefined || room === undefined || room == null || room === null) {
-        return false;
-    }
+const roomCallbackSquadA = (roomName: string): boolean | CostMatrix =>
+    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true});
 
-    let costs = new PathFinder.CostMatrix;
+const roomCallbackSquadASwampCostSame = (roomName: string): boolean | CostMatrix =>
+    buildQuadCostMatrix(roomName, {swampCost: 1, edgeCost: 3, structuresFirst: true, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: false});
 
+const roomCallbackSquadGetReady = (roomName: string): boolean | CostMatrix =>
+    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 15, structuresFirst: true, skipContainers: false, myStructCost: 100, hostileStructCost: 100, controllerHits: false, creepCost: 255});
 
-    const terrain = new Room.Terrain(roomName);
+// single-tile footprint for the 2-creep duo (the healer chases, so the leader
+// paths like a lone creep but still prices hostile structures for kiting)
+const roomCallbackDuo = (roomName: string): boolean | CostMatrix =>
+    buildQuadCostMatrix(roomName, {swampCost: 5, edgeCost: 5, structuresFirst: false, skipContainers: true, myStructCost: 255, hostileStructCost: "stack", controllerHits: true, footprint: "single"});
 
 
-
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 1;
-            }
-            else if(tile == 0){
-                weight = 0;
-
-                if(terrain.get(x+1, y) == TERRAIN_MASK_SWAMP) {
-                    weight = 1;
-                }
-                else if(terrain.get(x+1, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 1;
-                }
-                else if(terrain.get(x, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 1;
-                }
-
-            }
-
-            if(weight !== 255) {
-                let problemTiles = [];
-                problemTiles.push(terrain.get(x + 1, y));
-                problemTiles.push(terrain.get(x, y + 1));
-                problemTiles.push(terrain.get(x + 1, y + 1));
-                // , [terrain.get(x + 2, y), terrain.get(x + 2, y + 1)]]
-                for(let tile of problemTiles) {
-                    if(tile == TERRAIN_MASK_WALL) {
-                        weight = 255;
-                        break;
-                    }
-                }
-
-            }
-
-            costs.set(x, y, weight);
-
-            // new RoomVisual(room.name).text("255", x, y, {color: 'green', font: 0.8});
-        }
-    }
-
-    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD || struct.structureType == STRUCTURE_CONTAINER) {
-            return;
-        }
-
-        else {
-            if(struct.my) {
-                costs.set(struct.pos.x, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                costs.set(struct.pos.x, struct.pos.y - 1, 255);
-            }
-            else if(!struct.my && struct.structureType !== STRUCTURE_CONTROLLER) {
-                if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-                    if(costs.get(struct.pos.x, struct.pos.y) == 60) {
-                        costs.set(struct.pos.x, struct.pos.y, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x, struct.pos.y, 60);
-                    }
-                }
-                if(costs.get(struct.pos.x - 1, struct.pos.y) !== 255) {
-                    if(costs.get(struct.pos.x - 1, struct.pos.y) == 60) {
-                        costs.set(struct.pos.x - 1, struct.pos.y, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x - 1, struct.pos.y, 60);
-                    }
-                }
-
-                if(costs.get(struct.pos.x - 1, struct.pos.y - 1) !== 255) {
-                    if(costs.get(struct.pos.x - 1, struct.pos.y - 1) == 60) {
-                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x - 1, struct.pos.y - 1, 60);
-                    }
-                }
-
-                if(costs.get(struct.pos.x, struct.pos.y - 1) !== 255) {
-                    if(costs.get(struct.pos.x, struct.pos.y - 1) == 60) {
-                        costs.set(struct.pos.x, struct.pos.y - 1, 120);
-                    }
-                    else {
-                        costs.set(struct.pos.x, struct.pos.y - 1, 60);
-                    }
-                }
-
-            }
-            else {
-                costs.set(struct.pos.x, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                costs.set(struct.pos.x, struct.pos.y - 1, 255);
-            }
-
-
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-    });
-
-
-    room.find(FIND_CREEPS).forEach(function(creep) {
-        if(!creep.my || creep.memory.role == "carry" || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
-
-            let weight:any = 10;
-            if(costs.get(creep.pos.x, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y) <= 5 && costs.get(creep.pos.x - 1, creep.pos.y - 1) <= 5 && costs.get(creep.pos.x, creep.pos.y - 1) <= 5) {
-                costs.set(creep.pos.x, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y, weight);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
-                costs.set(creep.pos.x, creep.pos.y - 1, weight);
-            }
-            else {
-                costs.set(creep.pos.x, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y, 255);
-                costs.set(creep.pos.x - 1, creep.pos.y - 1, 255);
-                costs.set(creep.pos.x, creep.pos.y - 1, 255);
-            }
-
-
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-        // else if(creep.memory.role === "SquadCreepA") {
-        //     costs.set(creep.pos.x, creep.pos.y, 0);
-        // }
-    });
-
-
-
-
-
-
-
-    for(let y = 0; y < 50; y++) {
-        for(let x = 0; x < 50; x++) {
-            if(x == 0 || x == 49 || y == 0 || y == 49) {
-                const tile = terrain.get(x, y);
-                // let cost = costs.get(x,y);
-                if(tile == TERRAIN_MASK_WALL) {
-                    costs.set(x, y, 255);
-                }
-                else {
-
-                    costs.set(x, y, 3);
-
-                    if(y==49 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(y==0 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==49 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==0 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                }
-            }
-        }
-    }
-
-    // for(let y = 0; y < 50; y++) {
-    //     for(let x = 0; x < 50; x++) {
-    //         const tile = terrain.get(x, y);
-    //         let cost = costs.get(x,y);
-    //         if(cost !== 255) {
-    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
-    //         }
-    //     }
-    // }
-
-
-
-
-
-    return costs;
-}
-
-
-
-const roomCallbackSquadGetReady = (roomName: string): boolean | CostMatrix => {
-    let room = Game.rooms[roomName];
-    if (!room || room == undefined || room === undefined || room == null || room === null) {
-        return false;
-    }
-
-    let costs = new PathFinder.CostMatrix;
-
-
-    const terrain = new Room.Terrain(roomName);
-
-
-
-    for(let y = 1; y < 49; y++) {
-        for(let x = 1; x < 49; x++) {
-            const tile = terrain.get(x, y);
-            let weight;
-            if(tile == TERRAIN_MASK_WALL) {
-                weight = 255
-            }
-            else if(tile == TERRAIN_MASK_SWAMP) {
-                weight = 5;
-            }
-            else if(tile == 0){
-                weight = 0;
-
-                if(terrain.get(x+1, y) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
-                }
-                else if(terrain.get(x+1, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
-                }
-                else if(terrain.get(x, y+1) == TERRAIN_MASK_SWAMP) {
-                    weight = 5;
-                }
-
-            }
-
-            if(weight !== 255) {
-                let problemTiles = [];
-                problemTiles.push(terrain.get(x + 1, y));
-                problemTiles.push(terrain.get(x, y + 1));
-                problemTiles.push(terrain.get(x + 1, y + 1));
-                // , [terrain.get(x + 2, y), terrain.get(x + 2, y + 1)]]
-                for(let tile of problemTiles) {
-                    if(tile == TERRAIN_MASK_WALL) {
-                        weight = 255;
-                        break;
-                    }
-                }
-
-            }
-
-            costs.set(x, y, weight);
-
-            // new RoomVisual(room.name).text("255", x, y, {color: 'green', font: 0.8});
-        }
-    }
-
-    _.forEach(room.find(FIND_STRUCTURES), function(struct:any) {
-        if(struct.structureType == STRUCTURE_RAMPART && struct.my || struct.structureType == STRUCTURE_ROAD) {
-            return;
-        }
-
-        else {
-            if(struct.my) {
-                costs.set(struct.pos.x, struct.pos.y, 100);
-                costs.set(struct.pos.x - 1, struct.pos.y, 100);
-                costs.set(struct.pos.x - 1, struct.pos.y - 1, 100);
-                costs.set(struct.pos.x, struct.pos.y - 1, 100);
-            }
-            else if(!struct.my && struct.structureType !== STRUCTURE_CONTROLLER) {
-                if(costs.get(struct.pos.x, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y, 100);
-                }
-                else {
-                    costs.set(struct.pos.x, struct.pos.y, 100);
-                }
-                if(costs.get(struct.pos.x - 1, struct.pos.y) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y, 100);
-                }
-                else {
-                    costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                }
-                if(costs.get(struct.pos.x - 1, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 100);
-                }
-                else {
-                    costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                }
-                if(costs.get(struct.pos.x, struct.pos.y - 1) !== 255) {
-                    costs.set(struct.pos.x, struct.pos.y - 1, 100);
-                }
-                else {
-                    costs.set(struct.pos.x, struct.pos.y - 1, 255);
-                }
-            }
-            else {
-                costs.set(struct.pos.x, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y, 255);
-                costs.set(struct.pos.x - 1, struct.pos.y - 1, 255);
-                costs.set(struct.pos.x, struct.pos.y - 1, 255);
-            }
-
-
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x-1, struct.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(room.name).text("255", struct.pos.x, struct.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-    });
-
-
-    room.find(FIND_CREEPS).forEach(function(creep) {
-        if(!creep.my || (creep.memory.role !== "SquadCreepA" && creep.memory.role !== "SquadCreepB" && creep.memory.role !== "SquadCreepY" && creep.memory.role !== "SquadCreepZ")) {
-
-            let weight:any = 255;
-
-            costs.set(creep.pos.x, creep.pos.y, weight);
-            costs.set(creep.pos.x - 1, creep.pos.y, weight);
-            costs.set(creep.pos.x - 1, creep.pos.y - 1, weight);
-            costs.set(creep.pos.x, creep.pos.y - 1, weight);
-
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x-1, creep.pos.y-1, {color: 'green', font: 0.8});
-            // new RoomVisual(creep.room.name).text("255", creep.pos.x, creep.pos.y-1, {color: 'green', font: 0.8});
-
-        }
-        // else if(creep.memory.role === "SquadCreepA") {
-        //     costs.set(creep.pos.x, creep.pos.y, 0);
-        // }
-    });
-
-
-
-
-    for(let y = 0; y < 50; y++) {
-        for(let x = 0; x < 50; x++) {
-            if(x == 0 || x == 49 || y == 0 || y == 49) {
-                const tile = terrain.get(x, y);
-                // let cost = costs.get(x,y);
-                if(tile == TERRAIN_MASK_WALL) {
-                    costs.set(x, y, 255);
-                }
-                else {
-
-                    costs.set(x, y, 15);
-
-                    if(y==49 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(y==0 && terrain.get(x+1, y) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==49 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                    if(x==0 && terrain.get(x, y+1) == TERRAIN_MASK_WALL) {
-                        costs.set(x, y, 255);
-                    }
-                }
-            }
-        }
-    }
-
-    // for(let y = 0; y < 50; y++) {
-    //     for(let x = 0; x < 50; x++) {
-    //         const tile = terrain.get(x, y);
-    //         let cost = costs.get(x,y);
-    //         if(cost !== 255) {
-    //             new RoomVisual(room.name).text(cost.toString(), x, y, {color: 'green', font: 0.6});
-    //         }
-    //     }
-    // }
-
-
-
-
-
-    return costs;
-}
-
-
-export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady};
+export {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady, roomCallbackDuo};

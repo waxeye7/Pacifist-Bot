@@ -9,8 +9,9 @@ function QuadSquadRunManager(QuadSquadNameList) {
             if(creep.memory.role == undefined) {
                 console.log("i am undefined", name)
                 creep.suicide();
+                continue;
             }
-            if(creep.memory.role == "SquadCreepA") {
+            if((creep.memory.role == "SquadCreepA" || creep.memory.role == "DuoCreepA") && global.ROLES[creep.memory.role]) {
               global.ROLES[creep.memory.role].run(creep);
             }
         }
@@ -24,8 +25,9 @@ function QuadSquadRunManager(QuadSquadNameList) {
             if(creep.memory.role == undefined) {
                 console.log("i am undefined", name)
                 creep.suicide();
+                continue;
             }
-            if(creep.memory.role !== "SquadCreepA") {
+            if(creep.memory.role !== "SquadCreepA" && creep.memory.role !== "DuoCreepA" && global.ROLES[creep.memory.role]) {
               global.ROLES[creep.memory.role].run(creep);
             }
         }

@@ -1,5 +1,132 @@
 import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGetReady} from "./SquadHelperFunctions";
 
+// tiles (relative to the leader) the 2x2 quad additionally needs clear to step one square in each direction
+const QUAD_CLEARANCE:any = {
+    1: [[0,-1],[1,-1]],
+    2: [[1,-1],[2,-1],[2,0]],
+    3: [[2,0],[2,1]],
+    4: [[2,1],[1,2],[2,2]],
+    5: [[0,2],[1,2]],
+    6: [[-1,1],[-1,2],[0,2]],
+    7: [[-1,0],[-1,1]],
+    8: [[0,-1],[-1,-1],[-1,0]],
+};
+
+// at the room edge these directions are waved through without tile checks (crossing an exit)
+const QUAD_EDGE_SHORTCUT:any = {
+    1: (pos:any) => pos.y <= 1,
+    2: (pos:any) => pos.y <= 1 || pos.x >= 48,
+    3: (pos:any) => pos.x >= 48,
+    4: (pos:any) => pos.x >= 48 || pos.y >= 48,
+    5: (pos:any) => pos.y >= 48,
+    6: (pos:any) => pos.y >= 48 || pos.x <= 1,
+    7: (pos:any) => pos.x <= 1,
+    8: (pos:any) => pos.x <= 1 || pos.y <= 1,
+};
+
+// a tile is quad-passable if it holds no creep and nothing but roads, containers and own ramparts
+const tileFreeForQuad = function (x:number, y:number, roomName:string) {
+    if(x < 0 || x > 49 || y < 0 || y > 49) {
+        return true;
+    }
+    const pos = new RoomPosition(x, y, roomName);
+    if(pos.lookFor(LOOK_CREEPS).length > 0) {
+        return false;
+    }
+    return pos.lookFor(LOOK_STRUCTURES).every(function(structure:any) {
+        return structure.structureType == STRUCTURE_ROAD ||
+               structure.structureType == STRUCTURE_CONTAINER ||
+               (structure.structureType == STRUCTURE_RAMPART && structure.my);
+    });
+};
+
+const quadClearanceFree = function (creep:any, direction:any) {
+    const tiles = QUAD_CLEARANCE[direction];
+    if(!tiles) {
+        return false;
+    }
+    return tiles.every(function(offset:any) {
+        return tileFreeForQuad(creep.pos.x + offset[0], creep.pos.y + offset[1], creep.room.name);
+    });
+};
+
+// swap the given slot pairs: every member's squad id-map is updated, then the paired
+// creeps exchange whole memory objects (identity, incl. role, stays with the slot,
+// only the bodies trade places), then the paired creeps physically swap positions
+const rotateSquad = function (a:any, b:any, y:any, z:any, pairs:any, moves:any) {
+    const members:any = {a: a, b: b, y: y, z: z};
+    const memories:any = {a: a.memory, b: b.memory, y: y.memory, z: z.memory};
+
+    for(const slot of ["a", "b", "y", "z"]) {
+        for(const pair of pairs) {
+            memories[slot].squad[pair[0]] = members[pair[1]].id;
+            memories[slot].squad[pair[1]] = members[pair[0]].id;
+        }
+    }
+    for(const pair of pairs) {
+        members[pair[0]].memory = memories[pair[1]];
+        members[pair[1]].memory = memories[pair[0]];
+    }
+    for(const slot in moves) {
+        members[slot].move(moves[slot]);
+    }
+};
+
+// bring a damage body (or shield a heal body) to the side an adjacent enemy is on
+const performSquadRotation = function (a:any, b:any, y:any, z:any, dir:any, creepBodyType:any) {
+    const atk = function (bodyType:any) { return bodyType == "ranged_attack" || bodyType == "work" || bodyType == "attack"; };
+    const btA = creepBodyType;
+    const btB = b.memory.bodyType;
+    const btY = y.memory.bodyType;
+    const btZ = z.memory.bodyType;
+
+    const VERTICAL_FLIP:any = [["a","y"],["b","z"]];
+    const HORIZONTAL_FLIP:any = [["a","b"],["y","z"]];
+    const FLIP_V_MOVES:any = {a: BOTTOM, y: TOP, b: BOTTOM, z: TOP};
+    const FLIP_H_MOVES:any = {a: RIGHT, y: RIGHT, b: LEFT, z: LEFT};
+    const SWAP_YB:any = [["y","b"]];
+    const SWAP_YB_MOVES:any = {y: TOP_RIGHT, b: BOTTOM_LEFT};
+    const SWAP_AZ:any = [["a","z"]];
+    const SWAP_AZ_MOVES:any = {a: BOTTOM_RIGHT, z: TOP_LEFT};
+
+    if((dir == 1 || dir == 2 || dir == 8) && btA == "heal" && btB == "heal") {
+        rotateSquad(a, b, y, z, VERTICAL_FLIP, FLIP_V_MOVES);
+    }
+    else if(dir == 1 && atk(btY)) {
+        rotateSquad(a, b, y, z, SWAP_YB, SWAP_YB_MOVES);
+    }
+    else if(dir == 1 && atk(btZ)) {
+        rotateSquad(a, b, y, z, SWAP_AZ, SWAP_AZ_MOVES);
+    }
+    else if((dir == 4 || dir == 5 || dir == 6) && atk(btA) && atk(btB)) {
+        rotateSquad(a, b, y, z, VERTICAL_FLIP, FLIP_V_MOVES);
+    }
+    else if(dir == 5 && atk(btA)) {
+        rotateSquad(a, b, y, z, SWAP_AZ, SWAP_AZ_MOVES);
+    }
+    else if(dir == 5 && atk(btB)) {
+        rotateSquad(a, b, y, z, SWAP_YB, SWAP_YB_MOVES);
+    }
+    else if(dir == 3 && atk(btA) && atk(btY)) {
+        rotateSquad(a, b, y, z, HORIZONTAL_FLIP, FLIP_H_MOVES);
+    }
+    else if(dir == 3 && atk(btY)) {
+        rotateSquad(a, b, y, z, SWAP_YB, SWAP_YB_MOVES);
+    }
+    else if(dir == 3 && atk(btA)) {
+        rotateSquad(a, b, y, z, SWAP_AZ, SWAP_AZ_MOVES);
+    }
+    else if(dir == 7 && atk(btB) && atk(btZ)) {
+        rotateSquad(a, b, y, z, HORIZONTAL_FLIP, FLIP_H_MOVES);
+    }
+    else if(dir == 7 && atk(btB)) {
+        rotateSquad(a, b, y, z, SWAP_YB, SWAP_YB_MOVES);
+    }
+    else if(dir == 7 && atk(btZ)) {
+        rotateSquad(a, b, y, z, SWAP_AZ, SWAP_AZ_MOVES);
+    }
+};
+
 // Game.rooms["E45N59"].memory.spawning_squad.status = true;
 
 
@@ -26,7 +153,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
      return Object.keys(hashmap).reduce((a, b) => hashmap[a] > hashmap[b] ? a : b)
      }
 
-    let creepBodyType = getMostFrequent(creepBody);
+    let creepBodyType = creepBody.length > 0 ? getMostFrequent(creepBody) : "move";
      creep.memory.bodyType = creepBodyType;
 
 
@@ -93,7 +220,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         }
 
 
-        if(creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 1) {
+        if(creep.memory.route && creep.memory.route !== -2 && creep.memory.route.length > 1) {
             if(creep.memory.route.length == 2) {
                 move_location = new RoomPosition(25, 25, creep.memory.route[0].room);
             }
@@ -130,7 +257,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
         }
 
-        if(!creep.memory.go && creep.memory.route && creep.memory.route !== 2 && creep.memory.route.length > 0) {
+        if(!creep.memory.go && creep.memory.route && creep.memory.route !== -2 && creep.memory.route.length > 0) {
 
             if(creep.pos.x >= 3 && creep.pos.x <= 45 && creep.pos.y >= 3 && creep.pos.y <= 45) {
                 creep.moveTo(new RoomPosition(25, 25, creep.memory.route[0].room),{range:23});
@@ -151,9 +278,11 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     }
                     );
                     let pos = path.path[0];
-                    let direction = creep.pos.getDirectionTo(pos);
+                    if(pos) {
+                        let direction = creep.pos.getDirectionTo(pos);
 
-                    creep.move(direction);
+                        creep.move(direction);
+                    }
             }
 
             // else if((Game.time % 30 == 0 || Game.time % 30 == 1) && (creep.pos.x == 1 || creep.pos.x == 47 || creep.pos.y == 1 || creep.pos.y == 47)) {
@@ -168,37 +297,20 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
     let enemyCreepInRangeThree = creep.pos.findInRange(enemyCreeps, 3);
     let targetCreep;
     if(enemyCreepInRangeThree.length > 0) {
-        let attack_able = false;
         for(let e_creep of enemyCreepInRangeThree) {
 
+            let enemyCombatBody = e_creep.body.filter(function(part) {return part.type !== "move";});
+            let enemyBodyType = enemyCombatBody.length > 0 ? getMostFrequent(enemyCombatBody) : "move";
 
-            if (getMostFrequent(e_creep.body) !== "heal" || creepBodyType !== "ranged_attack") {
-                if (e_creep.pos.x == 0 || e_creep.pos.x == 49 || e_creep.pos.y == 0 || e_creep.pos.y == 49) {
-                    attack_able = true;
-                    targetCreep = e_creep;
+            if (enemyBodyType !== "heal" || creepBodyType !== "ranged_attack") {
+                let underRampart = false;
+                for (let structure of e_creep.pos.lookFor(LOOK_STRUCTURES)) {
+                    if (structure.structureType == STRUCTURE_RAMPART) {
+                        underRampart = true;
+                    }
                 }
-                else {
-
-                    let lookStructuresOnEnemyCreep = e_creep.pos.lookFor(LOOK_STRUCTURES);
-                    if (lookStructuresOnEnemyCreep.length > 0) {
-                        if (lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD ||
-                            lookStructuresOnEnemyCreep.length == 1 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER ||
-                            lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_ROAD && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_CONTAINER ||
-                            lookStructuresOnEnemyCreep.length == 2 && lookStructuresOnEnemyCreep[0].structureType == STRUCTURE_CONTAINER && lookStructuresOnEnemyCreep[1].structureType == STRUCTURE_ROAD) {
-                            attack_able = true;
-                            targetCreep = e_creep;
-                        }
-                        for (let structure of lookStructuresOnEnemyCreep) {
-                            if (structure.structureType == STRUCTURE_RAMPART) {
-                                attack_able = false;
-                            }
-                        }
-                    }
-                    else {
-                        attack_able = false;
-                        targetCreep = e_creep;
-                    }
-
+                if (!underRampart && (!targetCreep || creep.pos.getRangeTo(e_creep) < creep.pos.getRangeTo(targetCreep))) {
+                    targetCreep = e_creep;
                 }
             }
 
@@ -350,16 +462,43 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
         if(aliveCreeps.length > 0) {
             let healPartsTotal = 0;
             let target;
-            let lowest = creep.hitsMax;
+            let lowest = Infinity;
             for(let squadmember of aliveCreeps) {
                 healPartsTotal += squadmember.getActiveBodyparts(HEAL);
-                if(squadmember.hits < lowest) {
+                if(squadmember.hits < squadmember.hitsMax && squadmember.hits < lowest) {
                     lowest = squadmember.hits;
                     target = squadmember;
                 }
             }
+
+            // pre-heal: nobody damaged yet, but we are in the hot room with a
+            // threat present, so a heal lands the same tick the first damage does
+            if(!target && creep.memory.targetPosition && creep.room.name == creep.memory.targetPosition.roomName) {
+                let hostileTowers = creep.room.find(FIND_HOSTILE_STRUCTURES, {
+                    filter: (s:any) => s.structureType == STRUCTURE_TOWER && s.store[RESOURCE_ENERGY] >= 10
+                });
+                if(hostileTowers.length > 0 || enemyCreepInRangeThree.length > 0) {
+                    let threat = hostileTowers.length > 0
+                        ? creep.pos.findClosestByRange(hostileTowers)
+                        : creep.pos.findClosestByRange(enemyCreepInRangeThree);
+                    if(threat) {
+                        let closest = Infinity;
+                        for(let squadmember of aliveCreeps) {
+                            closest = Math.min(closest, squadmember.pos.getRangeTo(threat));
+                        }
+                        let mostExposed = aliveCreeps.filter(member => member.pos.getRangeTo(threat) == closest);
+                        target = mostExposed[0];
+                    }
+                }
+            }
+
             if(target) {
-                creep.heal(target);
+                if(creep.pos.isNearTo(target)) {
+                    creep.heal(target);
+                }
+                else {
+                    creep.rangedHeal(target);
+                }
                 if(creep.memory.targetPosition.roomName == creep.room.name) {
                     creep.memory.lastHeal = target.id;
                 }
@@ -368,9 +507,11 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                 creep.heal(creep);
             }
             else {
-                let lastHealCreep = Game.getObjectById(a.memory.lastHeal)
-                if(lastHealCreep && creep.pos.isNearTo(lastHealCreep)) {
-                    creep.heal(lastHealCreep)
+                if(a) {
+                    let lastHealCreep = Game.getObjectById(a.memory.lastHeal)
+                    if(lastHealCreep && creep.pos.isNearTo(lastHealCreep)) {
+                        creep.heal(lastHealCreep)
+                    }
                 }
             }
 
@@ -398,9 +539,11 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                             HealPower *= 4;
                         }
 
-                        console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
+                        if(Memory.verbose) {
+                            console.log("heal power is", HealPower, "tower power is", totalTowerDamage);
+                        }
 
-                        if(totalTowerDamage > HealPower && lowest < creep.hitsMax && target && target.hits < target.hitsMax || target && target.hits <= target.hitsMax/2.1 || enemyCreepInRangeThree.length && enemyCreepInRangeThree.filter(ecreep => ecreep.getActiveBodyparts(ATTACK) > 24 && ecreep.pos.findPathTo(creep, { ignoreCreeps: false, ignoreRoads: true, swampCost: 1 }).length < 3).length) {
+                        if(totalTowerDamage > HealPower && target && target.hits < target.hitsMax || target && target.hits <= target.hitsMax/2.1 || enemyCreepInRangeThree.length && enemyCreepInRangeThree.filter(ecreep => ecreep.getActiveBodyparts(ATTACK) > 24 && ecreep.pos.findPathTo(creep, { ignoreCreeps: false, ignoreRoads: true, swampCost: 1 }).length < 3).length) {
 
                             let distance = creep.pos.getRangeTo(closestTower);
 
@@ -418,319 +561,9 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                             let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreepInRangeThree);
                             let directionToEnemyCreep = creep.pos.getDirectionTo(closestEnemyCreep);
 
-                                                        if(aliveCreeps.length == 4) {
-
-                                let leaderMemory = a.memory;
-                                let nonLeaderMemoryB = b.memory;
-                                let nonLeaderMemoryY = y.memory;
-                                let nonLeaderMemoryZ = z.memory;
-
-                                if((directionToEnemyCreep == 1 || directionToEnemyCreep == 2 || directionToEnemyCreep == 8) && creepBodyType == "heal" && b.memory.bodyType == "heal") {
-                                    leaderMemory.squad.a = y.id;
-                                    leaderMemory.squad.y = a.id;
-                                    leaderMemory.squad.b = z.id;
-                                    leaderMemory.squad.z = b.id;
-
-                                    nonLeaderMemoryB.squad.a = y.id;
-                                    nonLeaderMemoryB.squad.y = a.id;
-                                    nonLeaderMemoryB.squad.b = z.id;
-                                    nonLeaderMemoryB.squad.z = b.id;
-
-                                    nonLeaderMemoryY.squad.a = y.id;
-                                    nonLeaderMemoryY.squad.y = a.id;
-                                    nonLeaderMemoryY.squad.b = z.id;
-                                    nonLeaderMemoryY.squad.z = b.id;
-
-                                    nonLeaderMemoryZ.squad.a = y.id;
-                                    nonLeaderMemoryZ.squad.y = a.id;
-                                    nonLeaderMemoryZ.squad.b = z.id;
-                                    nonLeaderMemoryZ.squad.z = b.id;
-
-
-                                    a.memory = nonLeaderMemoryY;
-                                    b.memory = nonLeaderMemoryZ;
-                                    y.memory = leaderMemory;
-                                    z.memory = nonLeaderMemoryB;
-
-                                    a.move(BOTTOM);
-                                    y.move(TOP);
-                                    b.move(BOTTOM);
-                                    z.move(TOP);
-                                }
-                                else if(directionToEnemyCreep == 1 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.b = y.id;
-                                    nonLeaderMemoryB.squad.y = b.id;
-
-                                    nonLeaderMemoryY.squad.b = y.id;
-                                    nonLeaderMemoryY.squad.y = b.id;
-
-                                    nonLeaderMemoryZ.squad.b = y.id;
-                                    nonLeaderMemoryZ.squad.y = b.id;
-
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-                                else if(directionToEnemyCreep == 1 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.z = a.id;
-                                    leaderMemory.squad.a = z.id;
-
-                                    nonLeaderMemoryB.squad.z = a.id;
-                                    nonLeaderMemoryB.squad.a = z.id;
-
-                                    nonLeaderMemoryY.squad.z = a.id;
-                                    nonLeaderMemoryY.squad.a = z.id;
-
-                                    nonLeaderMemoryZ.squad.z = a.id;
-                                    nonLeaderMemoryZ.squad.a = z.id;
-
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-
-                                else if((directionToEnemyCreep == 4 || directionToEnemyCreep == 5 || directionToEnemyCreep == 6) && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = y.id;
-                                    leaderMemory.squad.y = a.id;
-                                    leaderMemory.squad.b = z.id;
-                                    leaderMemory.squad.z = b.id;
-
-                                    nonLeaderMemoryB.squad.a = y.id;
-                                    nonLeaderMemoryB.squad.y = a.id;
-                                    nonLeaderMemoryB.squad.b = z.id;
-                                    nonLeaderMemoryB.squad.z = b.id;
-
-                                    nonLeaderMemoryY.squad.a = y.id;
-                                    nonLeaderMemoryY.squad.y = a.id;
-                                    nonLeaderMemoryY.squad.b = z.id;
-                                    nonLeaderMemoryY.squad.z = b.id;
-
-                                    nonLeaderMemoryZ.squad.a = y.id;
-                                    nonLeaderMemoryZ.squad.y = a.id;
-                                    nonLeaderMemoryZ.squad.b = z.id;
-                                    nonLeaderMemoryZ.squad.z = b.id;
-
-                                    a.memory = nonLeaderMemoryY;
-                                    b.memory = nonLeaderMemoryZ;
-                                    y.memory = leaderMemory;
-                                    z.memory = nonLeaderMemoryB;
-
-                                    a.move(BOTTOM);
-                                    y.move(TOP);
-                                    b.move(BOTTOM);
-                                    z.move(TOP);
-                                }
-                                else if(directionToEnemyCreep == 5 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-                                else if(directionToEnemyCreep == 5 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.b = y.id;
-                                    leaderMemory.squad.y = b.id;
-
-                                    nonLeaderMemoryB.squad.b = y.id;
-                                    nonLeaderMemoryB.squad.y = b.id;
-
-                                    nonLeaderMemoryY.squad.b = y.id;
-                                    nonLeaderMemoryY.squad.y = b.id;
-
-                                    nonLeaderMemoryZ.squad.b = y.id;
-                                    nonLeaderMemoryZ.squad.y = b.id;
-
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    b.move(BOTTOM_LEFT);
-                                    y.move(TOP_RIGHT);
-                                }
-
-
-                                else if(directionToEnemyCreep == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = b.id;
-                                    leaderMemory.squad.b = a.id;
-                                    leaderMemory.squad.y = z.id;
-                                    leaderMemory.squad.z = y.id;
-
-                                    nonLeaderMemoryB.squad.a = b.id;
-                                    nonLeaderMemoryB.squad.b = a.id;
-                                    nonLeaderMemoryB.squad.y = z.id;
-                                    nonLeaderMemoryB.squad.z = y.id;
-
-                                    nonLeaderMemoryY.squad.a = b.id;
-                                    nonLeaderMemoryY.squad.b = a.id;
-                                    nonLeaderMemoryY.squad.y = z.id;
-                                    nonLeaderMemoryY.squad.z = y.id;
-
-                                    nonLeaderMemoryZ.squad.a = b.id;
-                                    nonLeaderMemoryZ.squad.b = a.id;
-                                    nonLeaderMemoryZ.squad.y = z.id;
-                                    nonLeaderMemoryZ.squad.z = y.id;
-
-                                    a.memory = nonLeaderMemoryB;
-                                    b.memory = leaderMemory;
-                                    y.memory = nonLeaderMemoryZ;
-                                    z.memory = nonLeaderMemoryY;
-
-                                    a.move(RIGHT);
-                                    y.move(RIGHT);
-                                    b.move(LEFT);
-                                    z.move(LEFT);
-                                }
-
-                                else if(directionToEnemyCreep == 3 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.y = b.id;
-                                    nonLeaderMemoryB.squad.b = y.id;
-
-                                    nonLeaderMemoryY.squad.y = b.id;
-                                    nonLeaderMemoryY.squad.b = y.id;
-
-                                    nonLeaderMemoryZ.squad.y = b.id;
-                                    nonLeaderMemoryZ.squad.b = y.id;
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-
-                                else if(directionToEnemyCreep == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-
-                                else if(directionToEnemyCreep == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack") && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = b.id;
-                                    leaderMemory.squad.b = a.id;
-                                    leaderMemory.squad.y = z.id;
-                                    leaderMemory.squad.z = y.id;
-
-                                    nonLeaderMemoryB.squad.a = b.id;
-                                    nonLeaderMemoryB.squad.b = a.id;
-                                    nonLeaderMemoryB.squad.y = z.id;
-                                    nonLeaderMemoryB.squad.z = y.id;
-
-                                    nonLeaderMemoryY.squad.a = b.id;
-                                    nonLeaderMemoryY.squad.b = a.id;
-                                    nonLeaderMemoryY.squad.y = z.id;
-                                    nonLeaderMemoryY.squad.z = y.id;
-
-                                    nonLeaderMemoryZ.squad.a = b.id;
-                                    nonLeaderMemoryZ.squad.b = a.id;
-                                    nonLeaderMemoryZ.squad.y = z.id;
-                                    nonLeaderMemoryZ.squad.z = y.id;
-
-                                    a.memory = nonLeaderMemoryB;
-                                    b.memory = leaderMemory;
-                                    y.memory = nonLeaderMemoryZ;
-                                    z.memory = nonLeaderMemoryY;
-
-                                    a.move(RIGHT);
-                                    y.move(RIGHT);
-                                    b.move(LEFT);
-                                    z.move(LEFT);
-                                }
-
-                                else if(directionToEnemyCreep == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.y = b.id;
-                                    nonLeaderMemoryB.squad.b = y.id;
-
-                                    nonLeaderMemoryY.squad.y = b.id;
-                                    nonLeaderMemoryY.squad.b = y.id;
-
-                                    nonLeaderMemoryZ.squad.y = b.id;
-                                    nonLeaderMemoryZ.squad.b = y.id;
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-
-                                else if(directionToEnemyCreep == 7 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-                                }
+                            if(aliveCreeps.length == 4) {
+                                performSquadRotation(a, b, y, z, directionToEnemyCreep, creepBodyType);
+                            }
 
                             move_location = creep.pos;
                         }
@@ -741,7 +574,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             else if(z && z.room.name == creep.memory.targetPosition.roomName) {
                 if(structures.length > 0) {
 
-                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_ROAD && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_CONTAINER;});
+                    let nowall = structures.filter(function(building) {return building.structureType!=STRUCTURE_WALL && building.structureType!=STRUCTURE_ROAD && building.structureType!=STRUCTURE_CONTAINER && building.structureType!=STRUCTURE_RAMPART;});
                     if(nowall.length > 0) {
                         let closestBuilding = z.pos.findClosestByRange(nowall);
                         if(closestBuilding) {
@@ -825,14 +658,16 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
             path.path.forEach(spot => {
                 new RoomVisual(spot.roomName).circle(spot.x, spot.y, {fill: 'transparent', radius: .25, stroke: '#ffffff'});
             });
-            console.log(path.incomplete)
+            if(Memory.verbose) {
+                console.log(path.incomplete)
+            }
             let pos = path.path[0];
-            let direction = creep.pos.getDirectionTo(pos);
+            let direction = pos ? creep.pos.getDirectionTo(pos) : undefined;
             // && a.room.name == y.room.name && a.room.name == z.room.name) || (a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) || (a.room.name == y.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(b))
             if(
                 pos &&
 
-                (a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) ||
+                ((a.room.name == b.room.name && a.room.name == y.room.name && a.room.name == z.room.name) ||
 
                 (
                 ((a.room.name == b.room.name && a.pos.isNearTo(b) && !a.pos.isNearTo(y)) ||
@@ -846,7 +681,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                 &&
                 (y.room.name == a.room.name && y.pos.isNearTo(a) && !y.pos.isNearTo(z) ||
                 y.room.name == z.room.name && y.pos.isNearTo(z) && !y.pos.isNearTo(a))
-                )
+                ))
             )
             {
 
@@ -942,457 +777,11 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
                     else {
                         let allow = false;
                         if(creep.pos.x <= 47 && creep.pos.x >= 2 && creep.pos.y <= 47 && creep.pos.y >= 2) {
-                            if(direction == 1) {
-
-                                let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTop = LookStructuresTop.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTopRight = LookStructuresTopRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
-                                    LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
-                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-
-                            }
-
-                            else if(direction == 2) {
-                                let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresRightRight = LookStructuresRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTopRight = LookStructuresTopRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresTopRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTopRightRight = LookStructuresTopRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresTopRightRight.length == 0 || LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my ||
-                                    LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my && LookStructuresTopRightRight[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[1].my && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
-                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-
-                                (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
-                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-
-                            }
-                            else if(direction == 3) {
-
-                                let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresRightRight = LookStructuresRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresRightRightBottom = LookStructuresRightRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
-                                    LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
-                                    LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-
-                            }
-                            else if(direction == 4) {
-                                let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresRightRightBottom = LookStructuresRightRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresRightBottomBottom:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresRightBottomBottom = LookStructuresRightBottomBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresDoubleRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresDoubleRightBottom = LookStructuresDoubleRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresRightBottomBottom.length == 0 || LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my ||
-                                    LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[1].my && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
-                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresDoubleRightBottom.length == 0 || LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my ||
-                                    LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[1].my && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-
-                            }
-                            else if(direction == 5) {
-
-                                let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresBottom = LookStructuresBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresBottomRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresBottomRight = LookStructuresBottomRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
-                                    LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresBottomRight.length == 0 || LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my ||
-                                    LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my && LookStructuresBottomRight[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[1].my && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-
-                            }
-                            else if(direction == 6) {
-                                let LookStructuresLeftBottom:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresLeftBottom = LookStructuresLeftBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresBottomLeft = LookStructuresBottomLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresBottom = LookStructuresBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
-                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresLeftBottom.length == 0 || LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my ||
-                                        LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my && LookStructuresLeftBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[1].my && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
-                                    LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-                            }
-                            else if(direction == 7) {
-                                let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresLeft = LookStructuresLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresBottomLeft = LookStructuresBottomLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
-                                    LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
-                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-                            }
-                            else if(direction == 8) {
-                                let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTop = LookStructuresTop.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresTopLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresTopLeft = LookStructuresTopLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                LookStructuresLeft = LookStructuresLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-
-                                if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
-                                    LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
-                                    LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                (LookStructuresTopLeft.length == 0 || LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my ||
-                                    LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my && LookStructuresTopLeft[1].structureType == STRUCTURE_ROAD ||
-                                    LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[1].my && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD)) {
-                                        allow = true;
-                                }
-                            }
+                            allow = quadClearanceFree(creep, direction);
                         }
-
                         else if(creep.pos.x >= 48 || creep.pos.x <= 1 || creep.pos.y >= 48 || creep.pos.y <= 1) {
-                            if(direction == 1) {
-                                if(creep.pos.y <= 1) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTop = LookStructuresTop.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTopRight = LookStructuresTopRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
-                                        LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
-                                        LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-                            }
-
-                            else if(direction == 2) {
-                                if(creep.pos.y <= 1 || creep.pos.x >= 48) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresRightRight = LookStructuresRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresTopRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTopRight = LookStructuresTopRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresTopRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTopRightRight = LookStructuresTopRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x + 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 2, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresTopRightRight.length == 0 || LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRightRight.length == 1 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my ||
-                                        LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[0].my && LookStructuresTopRightRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRightRight.length == 2 && LookStructuresTopRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRightRight[1].my && LookStructuresTopRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-                                        (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
-                                            LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-
-                                    (LookStructuresTopRight.length == 0 || LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRight.length == 1 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my ||
-                                        LookStructuresTopRight.length == 2 && LookStructuresTopRight[0].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[0].my && LookStructuresTopRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopRight.length == 2 && LookStructuresTopRight[1].structureType == STRUCTURE_RAMPART && LookStructuresTopRight[1].my && LookStructuresTopRight[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
-                            else if(direction == 3) {
-                                if(creep.pos.x >= 48) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresRightRight:any = new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresRightRight = LookStructuresRightRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresRightRightBottom = LookStructuresRightRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x + 2, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresRightRight.length == 0 || LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRight.length == 1 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my ||
-                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[0].my && LookStructuresRightRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRight.length == 2 && LookStructuresRightRight[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRight[1].my && LookStructuresRightRight[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
-                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-                            }
-                            else if(direction == 4) {
-                                if(creep.pos.x >= 48 || creep.pos.y >= 48) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresRightRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresRightRightBottom = LookStructuresRightRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresRightBottomBottom:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresRightBottomBottom = LookStructuresRightBottomBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresDoubleRightBottom:any = new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresDoubleRightBottom = LookStructuresDoubleRightBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 2, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 2, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresRightBottomBottom.length == 0 || LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightBottomBottom.length == 1 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my ||
-                                        LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[0].my && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresRightBottomBottom.length == 2 && LookStructuresRightBottomBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightBottomBottom[1].my && LookStructuresRightBottomBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                        (LookStructuresRightRightBottom.length == 0 || LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresRightRightBottom.length == 1 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my ||
-                                            LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[0].my && LookStructuresRightRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresRightRightBottom.length == 2 && LookStructuresRightRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresRightRightBottom[1].my && LookStructuresRightRightBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresDoubleRightBottom.length == 0 || LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresDoubleRightBottom.length == 1 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my ||
-                                        LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[0].my && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresDoubleRightBottom.length == 2 && LookStructuresDoubleRightBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresDoubleRightBottom[1].my && LookStructuresDoubleRightBottom[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
-                            else if(direction == 5) {
-                                if(creep.pos.y >= 48) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresBottom = LookStructuresBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresBottomRight:any = new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresBottomRight = LookStructuresBottomRight.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x + 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
-                                        LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresBottomRight.length == 0 || LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomRight.length == 1 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my ||
-                                        LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[0].my && LookStructuresBottomRight[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomRight.length == 2 && LookStructuresBottomRight[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomRight[1].my && LookStructuresBottomRight[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
-                            else if(direction == 6) {
-                                if(creep.pos.y >= 48 || creep.pos.x <= 1) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresLeftBottom:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresLeftBottom = LookStructuresLeftBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresBottomLeft = LookStructuresBottomLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresBottom:any = new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresBottom = LookStructuresBottom.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x - 1, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x, creep.pos.y + 2, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
-                                        LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                        (LookStructuresLeftBottom.length == 0 || LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresLeftBottom.length == 1 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my ||
-                                            LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[0].my && LookStructuresLeftBottom[1].structureType == STRUCTURE_ROAD ||
-                                            LookStructuresLeftBottom.length == 2 && LookStructuresLeftBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresLeftBottom[1].my && LookStructuresLeftBottom[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresBottom.length == 0 || LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottom.length == 1 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my ||
-                                        LookStructuresBottom.length == 2 && LookStructuresBottom[0].structureType == STRUCTURE_RAMPART && LookStructuresBottom[0].my && LookStructuresBottom[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottom.length == 2 && LookStructuresBottom[1].structureType == STRUCTURE_RAMPART && LookStructuresBottom[1].my && LookStructuresBottom[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
-                            else if(direction == 7) {
-                                if(creep.pos.x <= 1) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresLeft = LookStructuresLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresBottomLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresBottomLeft = LookStructuresBottomLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x - 1, creep.pos.y + 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
-                                        LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresBottomLeft.length == 0 || LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomLeft.length == 1 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my ||
-                                        LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[0].my && LookStructuresBottomLeft[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresBottomLeft.length == 2 && LookStructuresBottomLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresBottomLeft[1].my && LookStructuresBottomLeft[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
-                            else if(direction == 8) {
-                                if(creep.pos.x <= 1 || creep.pos.y <= 1) {
-                                    allow = true;
-                                }
-                                else {
-                                    let LookStructuresTop:any = new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTop = LookStructuresTop.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresTopLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresTopLeft = LookStructuresTopLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    let LookStructuresLeft:any = new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_STRUCTURES);
-                                    LookStructuresLeft = LookStructuresLeft.filter(function(building) {return building.structureType !== STRUCTURE_CONTAINER});
-                                    if(new RoomPosition(creep.pos.x, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x - 1, creep.pos.y - 1, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    new RoomPosition(creep.pos.x - 1, creep.pos.y, creep.room.name).lookFor(LOOK_CREEPS).length == 0 &&
-                                    (LookStructuresTop.length == 0 || LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTop.length == 1 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my ||
-                                        LookStructuresTop.length == 2 && LookStructuresTop[0].structureType == STRUCTURE_RAMPART && LookStructuresTop[0].my && LookStructuresTop[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTop.length == 2 && LookStructuresTop[1].structureType == STRUCTURE_RAMPART && LookStructuresTop[1].my && LookStructuresTop[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresLeft.length == 0 || LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeft.length == 1 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my ||
-                                        LookStructuresLeft.length == 2 && LookStructuresLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresLeft[0].my && LookStructuresLeft[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresLeft.length == 2 && LookStructuresLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresLeft[1].my && LookStructuresLeft[0].structureType == STRUCTURE_ROAD) &&
-
-                                    (LookStructuresTopLeft.length == 0 || LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopLeft.length == 1 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my ||
-                                        LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[0].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[0].my && LookStructuresTopLeft[1].structureType == STRUCTURE_ROAD ||
-                                        LookStructuresTopLeft.length == 2 && LookStructuresTopLeft[1].structureType == STRUCTURE_RAMPART && LookStructuresTopLeft[1].my && LookStructuresTopLeft[0].structureType == STRUCTURE_ROAD)) {
-                                            allow = true;
-                                    }
-                                }
-
-                            }
+                            allow = (QUAD_EDGE_SHORTCUT[direction] && QUAD_EDGE_SHORTCUT[direction](creep.pos)) || quadClearanceFree(creep, direction);
                         }
-
                         else {
                             allow = true;
                         }
@@ -1848,338 +1237,7 @@ import {roomCallbackSquadA, roomCallbackSquadASwampCostSame, roomCallbackSquadGe
 
 
                             if(aliveCreeps.length == 4) {
-
-                                let leaderMemory = a.memory;
-                                let nonLeaderMemoryB = b.memory;
-                                let nonLeaderMemoryY = y.memory;
-                                let nonLeaderMemoryZ = z.memory;
-
-                                if((direction == 1 || direction == 2 || direction == 8) && creepBodyType == "heal" && b.memory.bodyType == "heal") {
-                                    leaderMemory.squad.a = y.id;
-                                    leaderMemory.squad.y = a.id;
-                                    leaderMemory.squad.b = z.id;
-                                    leaderMemory.squad.z = b.id;
-
-                                    nonLeaderMemoryB.squad.a = y.id;
-                                    nonLeaderMemoryB.squad.y = a.id;
-                                    nonLeaderMemoryB.squad.b = z.id;
-                                    nonLeaderMemoryB.squad.z = b.id;
-
-                                    nonLeaderMemoryY.squad.a = y.id;
-                                    nonLeaderMemoryY.squad.y = a.id;
-                                    nonLeaderMemoryY.squad.b = z.id;
-                                    nonLeaderMemoryY.squad.z = b.id;
-
-                                    nonLeaderMemoryZ.squad.a = y.id;
-                                    nonLeaderMemoryZ.squad.y = a.id;
-                                    nonLeaderMemoryZ.squad.b = z.id;
-                                    nonLeaderMemoryZ.squad.z = b.id;
-
-
-                                    a.memory = nonLeaderMemoryY;
-                                    b.memory = nonLeaderMemoryZ;
-                                    y.memory = leaderMemory;
-                                    z.memory = nonLeaderMemoryB;
-
-                                    a.move(BOTTOM);
-                                    y.move(TOP);
-                                    b.move(BOTTOM);
-                                    z.move(TOP);
-                                }
-                                else if(direction == 1 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.b = y.id;
-                                    nonLeaderMemoryB.squad.y = b.id;
-
-                                    nonLeaderMemoryY.squad.b = y.id;
-                                    nonLeaderMemoryY.squad.y = b.id;
-
-                                    nonLeaderMemoryZ.squad.b = y.id;
-                                    nonLeaderMemoryZ.squad.y = b.id;
-
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-                                else if(direction == 1 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.z = a.id;
-                                    leaderMemory.squad.a = z.id;
-
-                                    nonLeaderMemoryB.squad.z = a.id;
-                                    nonLeaderMemoryB.squad.a = z.id;
-
-                                    nonLeaderMemoryY.squad.z = a.id;
-                                    nonLeaderMemoryY.squad.a = z.id;
-
-                                    nonLeaderMemoryZ.squad.z = a.id;
-                                    nonLeaderMemoryZ.squad.a = z.id;
-
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-
-                                else if((direction == 4 || direction == 5 || direction == 6) && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = y.id;
-                                    leaderMemory.squad.y = a.id;
-                                    leaderMemory.squad.b = z.id;
-                                    leaderMemory.squad.z = b.id;
-
-                                    nonLeaderMemoryB.squad.a = y.id;
-                                    nonLeaderMemoryB.squad.y = a.id;
-                                    nonLeaderMemoryB.squad.b = z.id;
-                                    nonLeaderMemoryB.squad.z = b.id;
-
-                                    nonLeaderMemoryY.squad.a = y.id;
-                                    nonLeaderMemoryY.squad.y = a.id;
-                                    nonLeaderMemoryY.squad.b = z.id;
-                                    nonLeaderMemoryY.squad.z = b.id;
-
-                                    nonLeaderMemoryZ.squad.a = y.id;
-                                    nonLeaderMemoryZ.squad.y = a.id;
-                                    nonLeaderMemoryZ.squad.b = z.id;
-                                    nonLeaderMemoryZ.squad.z = b.id;
-
-                                    a.memory = nonLeaderMemoryY;
-                                    b.memory = nonLeaderMemoryZ;
-                                    y.memory = leaderMemory;
-                                    z.memory = nonLeaderMemoryB;
-
-                                    a.move(BOTTOM);
-                                    y.move(TOP);
-                                    b.move(BOTTOM);
-                                    z.move(TOP);
-                                }
-                                else if(direction == 5 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-                                else if(direction == 5 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.b = y.id;
-                                    leaderMemory.squad.y = b.id;
-
-                                    nonLeaderMemoryB.squad.b = y.id;
-                                    nonLeaderMemoryB.squad.y = b.id;
-
-                                    nonLeaderMemoryY.squad.b = y.id;
-                                    nonLeaderMemoryY.squad.y = b.id;
-
-                                    nonLeaderMemoryZ.squad.b = y.id;
-                                    nonLeaderMemoryZ.squad.y = b.id;
-
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    b.move(BOTTOM_LEFT);
-                                    y.move(TOP_RIGHT);
-                                }
-
-
-                                else if(direction == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack") && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = b.id;
-                                    leaderMemory.squad.b = a.id;
-                                    leaderMemory.squad.y = z.id;
-                                    leaderMemory.squad.z = y.id;
-
-                                    nonLeaderMemoryB.squad.a = b.id;
-                                    nonLeaderMemoryB.squad.b = a.id;
-                                    nonLeaderMemoryB.squad.y = z.id;
-                                    nonLeaderMemoryB.squad.z = y.id;
-
-                                    nonLeaderMemoryY.squad.a = b.id;
-                                    nonLeaderMemoryY.squad.b = a.id;
-                                    nonLeaderMemoryY.squad.y = z.id;
-                                    nonLeaderMemoryY.squad.z = y.id;
-
-                                    nonLeaderMemoryZ.squad.a = b.id;
-                                    nonLeaderMemoryZ.squad.b = a.id;
-                                    nonLeaderMemoryZ.squad.y = z.id;
-                                    nonLeaderMemoryZ.squad.z = y.id;
-
-                                    a.memory = nonLeaderMemoryB;
-                                    b.memory = leaderMemory;
-                                    y.memory = nonLeaderMemoryZ;
-                                    z.memory = nonLeaderMemoryY;
-
-                                    a.move(RIGHT);
-                                    y.move(RIGHT);
-                                    b.move(LEFT);
-                                    z.move(LEFT);
-                                }
-
-                                else if(direction == 3 && (y.memory.bodyType == "ranged_attack" || y.memory.bodyType == "work" || y.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.y = b.id;
-                                    nonLeaderMemoryB.squad.b = y.id;
-
-                                    nonLeaderMemoryY.squad.y = b.id;
-                                    nonLeaderMemoryY.squad.b = y.id;
-
-                                    nonLeaderMemoryZ.squad.y = b.id;
-                                    nonLeaderMemoryZ.squad.b = y.id;
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-
-                                else if(direction == 3 && (creepBodyType == "ranged_attack" || creepBodyType == "work" || creepBodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-
-                                else if(direction == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack") && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = b.id;
-                                    leaderMemory.squad.b = a.id;
-                                    leaderMemory.squad.y = z.id;
-                                    leaderMemory.squad.z = y.id;
-
-                                    nonLeaderMemoryB.squad.a = b.id;
-                                    nonLeaderMemoryB.squad.b = a.id;
-                                    nonLeaderMemoryB.squad.y = z.id;
-                                    nonLeaderMemoryB.squad.z = y.id;
-
-                                    nonLeaderMemoryY.squad.a = b.id;
-                                    nonLeaderMemoryY.squad.b = a.id;
-                                    nonLeaderMemoryY.squad.y = z.id;
-                                    nonLeaderMemoryY.squad.z = y.id;
-
-                                    nonLeaderMemoryZ.squad.a = b.id;
-                                    nonLeaderMemoryZ.squad.b = a.id;
-                                    nonLeaderMemoryZ.squad.y = z.id;
-                                    nonLeaderMemoryZ.squad.z = y.id;
-
-                                    a.memory = nonLeaderMemoryB;
-                                    b.memory = leaderMemory;
-                                    y.memory = nonLeaderMemoryZ;
-                                    z.memory = nonLeaderMemoryY;
-
-                                    a.move(RIGHT);
-                                    y.move(RIGHT);
-                                    b.move(LEFT);
-                                    z.move(LEFT);
-                                }
-
-                                else if(direction == 7 && (b.memory.bodyType == "ranged_attack" || b.memory.bodyType == "work" || b.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.y = b.id;
-                                    leaderMemory.squad.b = y.id;
-
-                                    nonLeaderMemoryB.squad.y = b.id;
-                                    nonLeaderMemoryB.squad.b = y.id;
-
-                                    nonLeaderMemoryY.squad.y = b.id;
-                                    nonLeaderMemoryY.squad.b = y.id;
-
-                                    nonLeaderMemoryZ.squad.y = b.id;
-                                    nonLeaderMemoryZ.squad.b = y.id;
-
-                                    a.memory = leaderMemory;
-                                    b.memory = nonLeaderMemoryY;
-                                    y.memory = nonLeaderMemoryB;
-                                    z.memory = nonLeaderMemoryZ;
-
-                                    y.move(TOP_RIGHT);
-                                    b.move(BOTTOM_LEFT);
-                                }
-
-                                else if(direction == 7 && (z.memory.bodyType == "ranged_attack" || z.memory.bodyType == "work" || z.memory.bodyType == "attack")) {
-                                    leaderMemory.squad.a = z.id;
-                                    leaderMemory.squad.z = a.id;
-
-                                    nonLeaderMemoryB.squad.a = z.id;
-                                    nonLeaderMemoryB.squad.z = a.id;
-
-                                    nonLeaderMemoryY.squad.a = z.id;
-                                    nonLeaderMemoryY.squad.z = a.id;
-
-                                    nonLeaderMemoryZ.squad.a = z.id;
-                                    nonLeaderMemoryZ.squad.z = a.id;
-
-                                    a.memory = nonLeaderMemoryZ;
-                                    b.memory = nonLeaderMemoryB;
-                                    y.memory = nonLeaderMemoryY;
-                                    z.memory = leaderMemory;
-
-                                    a.move(BOTTOM_RIGHT);
-                                    z.move(TOP_LEFT);
-                                }
-
-                                // else if(direction == 3 && ) {
-                                //     leaderMemory.squad.a = b.id;
-                                //     leaderMemory.squad.b = a.id;
-                                //     leaderMemory.squad.y = z.id;
-                                //     leaderMemory.squad.z = y.id;
-
-                                //     nonLeaderMemory.squad.a = b.id;
-                                //     nonLeaderMemory.squad.b = a.id;
-                                //     nonLeaderMemory.squad.y = z.id;
-                                //     nonLeaderMemory.squad.z = y.id;
-
-                                //     a.memory = nonLeaderMemory;
-                                //     a.memory.role = "SquadCreepB"
-                                //     b.memory = leaderMemory;
-                                //     b.memory.role = "SquadCreepA"
-                                //     y.memory = nonLeaderMemory;
-                                //     y.memory.role = "SquadCreepZ"
-                                //     z.memory = nonLeaderMemory;
-                                //     z.memory.role = "SquadCreepY"
-                                // }
+                                performSquadRotation(a, b, y, z, direction, creepBodyType);
                             }
 
 
@@ -2208,7 +1266,7 @@ function TowerDamageCalculator(creepPosition, closestTowerPosition) {
         return 150;
     }
     else if(distance > 5 && distance < 20) {
-        return 450/distance*8.4 // might be wrong but it'll do for now.
+        return 600 - (distance - 5) * 30;
     }
     else {
         return 600;

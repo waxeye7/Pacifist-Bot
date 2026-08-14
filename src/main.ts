@@ -69,9 +69,8 @@ import roleSpecialRepair from "Roles/SpecialRepair";
 import roleSpecialCarry from "Roles/SpecialCarry";
 import roleWallClearer from "Roles/WallClearer";
 import roleSquadCreepA from "Roles/Squad/SquadCreepA";
-import roleSquadCreepB from "Roles/Squad/SquadCreepB";
-import roleSquadCreepY from "Roles/Squad/SquadCreepY";
-import roleSquadCreepZ from "Roles/Squad/SquadCreepZ";
+import {roleSquadCreepB, roleSquadCreepY, roleSquadCreepZ} from "Roles/Squad/SquadFollower";
+import {roleDuoCreepA, roleDuoCreepB} from "Roles/Squad/SquadDuo";
 import roleSign from "Roles/Sign";
 import rolePriest from "Roles/Priest";
 import roleGuard from "Roles/Guard";
@@ -142,6 +141,8 @@ global.ROLES = {
   SquadCreepB: roleSquadCreepB,
   SquadCreepY: roleSquadCreepY,
   SquadCreepZ: roleSquadCreepZ,
+  DuoCreepA: roleDuoCreepA,
+  DuoCreepB: roleDuoCreepB,
   Sign: roleSign,
   Priest: rolePriest,
   Guard: roleGuard,

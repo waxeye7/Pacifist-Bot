@@ -61,6 +61,8 @@ declare global {
         roomName?: string;
         /** Campaign remotes-off A/B. Unset/false = current RCL3+ remotes. */
         disableRemotes?: boolean;
+        /** Local hyperspeed: skip RCL6+ rooms and their creeps. */
+        skipHighRcl?: boolean;
       };
       AvoidRooms: any;
       AvoidRoomsTemp: { [key: string]: number };
@@ -239,6 +241,7 @@ declare global {
           ROLES: any;
           SS: any;
           SQR: any;
+          DUO: any;
           SRDP: any;
           SQM: any;
           SQD: any;
