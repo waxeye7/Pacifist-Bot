@@ -1,4 +1,5 @@
 import urgent_buy from "Random_Stuff/urgent_buy";
+import { chargeBoostSlot } from "Rooms/rooms.labs";
 import { setVerbose, logAlways } from "utils/Logger";
 import { cpuStatusString, getCpuPolicy } from "utils/CpuPolicy";
 import {
@@ -1024,60 +1025,23 @@ global.SS = function (roomName, targetRoomName, backupTR = ""): any {
                 HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL, HEAL];
 
             let newName = 'Solomon-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-            // outputLab2/4/5/7 may be unset (fewer than 8 output labs built, or
-            // a v2 diamond that assigns different slots) — an undefined entry
-            // makes Creep.Boost() spin forever waiting on a lab that isn't there
-            let solomonBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
+            // Charge ONLY slots the creep will actually visit. Charging lab4
+            // when outputLab4 is missing left use/amount orphaned forever.
+            let solomonSlots = [
+                {key: "lab2", id: room.memory.labs.outputLab2, amount: 300},  // 10 MOVE * 30 XZHO2
+                {key: "lab4", id: room.memory.labs.outputLab4, amount: 330},  // 11 RA * 30 XKHO2
+                {key: "lab5", id: room.memory.labs.outputLab5, amount: 600},  // 20 HEAL * 30 XLHO2
+                {key: "lab7", id: room.memory.labs.outputLab7, amount: 270},  // 9 TOUGH * 30 XGHO2
+            ];
+            let solomonBoostLabs = [];
+            for(let i = 0; i < solomonSlots.length; i++) {
+                if(solomonSlots[i].id) {
+                    solomonBoostLabs.push(solomonSlots[i].id);
+                    chargeBoostSlot(room, solomonSlots[i].key, solomonSlots[i].amount, newName);
+                }
+            }
             room.memory.spawn_list.push(body, newName, { memory: { role: 'Solomon', homeRoom: roomName, targetRoom: targetRoomName, backupTR: backupTR, boostlabs: solomonBoostLabs } });
             console.log('Adding Solomon to Spawn List: ' + newName + roomName, targetRoomName);
-
-
-            if (room.memory.labs.status && !room.memory.labs.status.boost) {
-                room.memory.labs.status.boost = {};
-            }
-
-            if (room.memory.labs.status.boost) {
-                // kean alk
-                if (room.memory.labs.status.boost.lab4) {
-                    room.memory.labs.status.boost.lab4.amount += 330;
-                    room.memory.labs.status.boost.lab4.use += 1;
-                }
-                else {
-                    room.memory.labs.status.boost.lab4 = {};
-                    room.memory.labs.status.boost.lab4.amount = 330;
-                    room.memory.labs.status.boost.lab4.use = 1;
-                }
-                // lemer alk
-                if (room.memory.labs.status.boost.lab5) {
-                    room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 600;
-                    room.memory.labs.status.boost.lab5.use += 1;
-                }
-                else {
-                    room.memory.labs.status.boost.lab5 = {};
-                    room.memory.labs.status.boost.lab5.amount = 600;
-                    room.memory.labs.status.boost.lab5.use = 1;
-                }
-                // zyn alk
-                if (room.memory.labs.status.boost.lab2) {
-                    room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 300;
-                    room.memory.labs.status.boost.lab2.use += 1;
-                }
-                else {
-                    room.memory.labs.status.boost.lab2 = {};
-                    room.memory.labs.status.boost.lab2.amount = 300;
-                    room.memory.labs.status.boost.lab2.use = 1;
-                }
-                // gho alk
-                if (room.memory.labs.status.boost.lab7) {
-                    room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 270;
-                    room.memory.labs.status.boost.lab7.use += 1;
-                }
-                else {
-                    room.memory.labs.status.boost.lab7 = {};
-                    room.memory.labs.status.boost.lab7.amount = 270;
-                    room.memory.labs.status.boost.lab7.use = 1;
-                }
-            }
             return "Success";
 
         }
@@ -1351,60 +1315,21 @@ global.SDB = function (roomName, targetRoomName, boost = false, defendController
             if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 870 &&
                 storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 870 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 660 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5 && room.memory.labs.outputLab7) {
-                if (room.memory.labs.status && !room.memory.labs.status.boost) {
-                    room.memory.labs.status.boost = {};
-                }
-
-                if (room.memory.labs.status.boost) {
-                    // utrium acid
-                    if (room.memory.labs.status.boost.lab3) {
-                        room.memory.labs.status.boost.lab3.amount = room.memory.labs.status.boost.lab3.amount + 870;
-                        room.memory.labs.status.boost.lab3.use += 1;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab3 = {};
-                        room.memory.labs.status.boost.lab3.amount = 870;
-                        room.memory.labs.status.boost.lab3.use = 1;
-                    }
-                    // lemer alk
-                    if (room.memory.labs.status.boost.lab5) {
-                        room.memory.labs.status.boost.lab5.amount = room.memory.labs.status.boost.lab5.amount + 870;
-                        room.memory.labs.status.boost.lab5.use += 1;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab5 = {};
-                        room.memory.labs.status.boost.lab5.amount = 870;
-                        room.memory.labs.status.boost.lab5.use = 1;
-                    }
-                    // zyn alk
-                    if (room.memory.labs.status.boost.lab2) {
-                        room.memory.labs.status.boost.lab2.amount = room.memory.labs.status.boost.lab2.amount + 600;
-                        room.memory.labs.status.boost.lab2.use += 2;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab2 = {};
-                        room.memory.labs.status.boost.lab2.amount = 600;
-                        room.memory.labs.status.boost.lab2.use = 2;
-                    }
-                    // gho alk
-                    if (room.memory.labs.status.boost.lab7) {
-                        room.memory.labs.status.boost.lab7.amount = room.memory.labs.status.boost.lab7.amount + 660;
-                        room.memory.labs.status.boost.lab7.use += 2;
-                    }
-                    else {
-                        room.memory.labs.status.boost.lab7 = {};
-                        room.memory.labs.status.boost.lab7.amount = 660;
-                        room.memory.labs.status.boost.lab7.use = 2;
-                    }
-                }
-
-
+                // Per-owner charges matching the bodies (11T/29A/10M and 11T/29H/10M).
+                // 29*30=870 — this is not SD's 35-attack 1050 body.
                 let newNameRam = 'Ram-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
+                let newNameSignifer = 'Signifer-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
+                chargeBoostSlot(room, "lab3", 870, newNameRam);       // 29 ATTACK
+                chargeBoostSlot(room, "lab2", 300, newNameRam);       // 10 MOVE
+                chargeBoostSlot(room, "lab7", 330, newNameRam);       // 11 TOUGH
+                chargeBoostSlot(room, "lab5", 870, newNameSignifer);  // 29 HEAL
+                chargeBoostSlot(room, "lab2", 300, newNameSignifer);  // 10 MOVE
+                chargeBoostSlot(room, "lab7", 330, newNameSignifer);  // 11 TOUGH
+
                 room.memory.spawn_list.push(bodyRam8Boosted,
                     newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7], defendController:true } });
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
 
-                let newNameSignifer = 'Signifer-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
                 room.memory.spawn_list.push(bodySignifer8Boosted,
                     newNameSignifer, { memory: { role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5, room.memory.labs.outputLab7] } });
                 console.log('Adding Signifer to Spawn List: ' + newNameSignifer);

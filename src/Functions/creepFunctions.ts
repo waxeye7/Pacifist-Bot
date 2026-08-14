@@ -1,3 +1,8 @@
+import { consumeBoostOwner, labKeyForId } from "Rooms/rooms.labs";
+
+// declare global required now that this file imports (module scope): a bare
+// `interface Creep` stopped merging with the global type.
+declare global {
 interface Creep {
     Boost: () => boolean | "done";
     Speak: () => void;
@@ -32,6 +37,7 @@ interface Creep {
     MoveToSourceSafely:any;
     /** Unified movement — prefer this over bare moveTo */
     goTo: (target: any, opts?: GoToOpts) => ScreepsReturnCode | void;
+}
 }
 
 interface GoToOpts {
@@ -518,70 +524,80 @@ Creep.prototype.evacuate = function evacuate():any {
 
 Creep.prototype.Boost = function Boost():any {
 
-    if(this.memory.boostlabs.length == 0) {
-        return;
+    // Empty list means we are done — callers treat a falsy return as "keep
+    // waiting", so a bare `return` here parked the creep for its whole life.
+    if(!this.memory.boostlabs || this.memory.boostlabs.length == 0) {
+        return true;
     }
-    else {
-        let labs = [];
-        for(let labID of this.memory.boostlabs) {
-            labs.push(Game.getObjectById(labID));
-        }
-        let closestLab = this.pos.findClosestByRange(labs);
-        if(closestLab.mineralAmount <  30) {
-            if(this.ticksToLive < 1100 && this.getActiveBodyparts(CLAIM)===0) {
-                let idToRemove = closestLab.id;
-                this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
-            }
-            this.MoveCostMatrixRoadPrio(closestLab, 3);
-        }
-        else {
-            if(this.pos.isNearTo(closestLab)) {
-                let result = closestLab.boostCreep(this);
-                if(result == 0) {
-                    if(this.room.memory.labs.outputLab1 && this.room.memory.labs.outputLab1 == closestLab.id && this.room.memory.labs.status.boost.lab1?.use) {
-                        this.room.memory.labs.status.boost.lab1.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab2 && this.room.memory.labs.outputLab2 == closestLab.id && this.room.memory.labs.status.boost.lab2?.use) {
-                        this.room.memory.labs.status.boost.lab2.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab3 && this.room.memory.labs.outputLab3 == closestLab.id && this.room.memory.labs.status.boost.lab3?.use) {
-                        this.room.memory.labs.status.boost.lab3.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab4 && this.room.memory.labs.outputLab4 == closestLab.id && this.room.memory.labs.status.boost.lab4?.use) {
-                        this.room.memory.labs.status.boost.lab4.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab5 && this.room.memory.labs.outputLab5 == closestLab.id && this.room.memory.labs.status.boost.lab5?.use) {
-                        this.room.memory.labs.status.boost.lab5.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab6 && this.room.memory.labs.outputLab6 == closestLab.id && this.room.memory.labs.status.boost.lab6?.use) {
-                        this.room.memory.labs.status.boost.lab6.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab7 && this.room.memory.labs.outputLab7 == closestLab.id && this.room.memory.labs.status.boost.lab7?.use) {
-                        this.room.memory.labs.status.boost.lab7.use -= 1;
-                    }
-                    else if(this.room.memory.labs.outputLab8 && this.room.memory.labs.outputLab8 == closestLab.id && this.room.memory.labs.status.boost.lab8?.use) {
-                        this.room.memory.labs.status.boost.lab8.use -= 1;
-                        if(this.room.memory.labs.status.boost.lab8.use ===0 && this.memory.role === "EnergyMiner") {
-                            this.room.memory.labs.lab8reserved = false;
-                        }
-                    }
 
-                    let idToRemove = closestLab.id;
-                    this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== idToRemove);
-                    return true;
-                }
-                else {
-                    console.log(result)
-                }
-            }
-
-            else {
-                this.MoveCostMatrixRoadPrio(closestLab, 1);
-                return false;
-            }
-        }
-
+    let labs = [];
+    let stale = [];
+    for(let labID of this.memory.boostlabs) {
+        let lab:any = Game.getObjectById(labID);
+        if(lab) labs.push(lab);
+        else stale.push(labID);
     }
+    if(stale.length) {
+        for(const id of stale) {
+            const key = labKeyForId(this.room, id);
+            if(key) consumeBoostOwner(this.room, key, this.name);
+        }
+        this.memory.boostlabs = this.memory.boostlabs.filter(id => stale.indexOf(id) === -1);
+    }
+    if(labs.length == 0) {
+        return true;
+    }
+
+    let closestLab:any = this.pos.findClosestByRange(labs);
+    if(!closestLab) {
+        return true;
+    }
+
+    if(!this.memory.boostWait) this.memory.boostWait = Game.time;
+
+    const dropThisLab = () => {
+        const key = labKeyForId(this.room, closestLab.id);
+        if(key) consumeBoostOwner(this.room, key, this.name);
+        this.memory.boostlabs = this.memory.boostlabs.filter(labid => labid !== closestLab.id);
+        delete this.memory.boostWait;
+    };
+
+    // Mineral in the lab cannot boost any unboosted part we still have
+    // (wrong compound, or those parts already boosted). ERR_NOT_FOUND
+    // used to just console.log and sit here until TTL.
+    const mineral = closestLab.mineralType;
+    const canUse = !mineral || this.body.some((p:any) =>
+        !p.boost && BOOSTS[p.type] && BOOSTS[p.type][mineral]);
+
+    const waitedOut = Game.time - this.memory.boostWait > 80;
+    const ttlGiveUp = this.ticksToLive < 1100 && this.getActiveBodyparts(CLAIM) === 0;
+
+    if(closestLab.mineralAmount < 30 || !canUse) {
+        if(!canUse || ttlGiveUp || waitedOut) {
+            dropThisLab();
+            return this.memory.boostlabs.length == 0 ? true : false;
+        }
+        this.MoveCostMatrixRoadPrio(closestLab, 3);
+        return false;
+    }
+
+    if(this.pos.isNearTo(closestLab)) {
+        let result = closestLab.boostCreep(this);
+        if(result == 0) {
+            dropThisLab();
+            return true;
+        }
+        // ERR_NOT_FOUND / INVALID_TARGET: this compound will never apply.
+        if(result == ERR_NOT_FOUND || result == ERR_INVALID_TARGET || waitedOut) {
+            dropThisLab();
+            return this.memory.boostlabs.length == 0 ? true : false;
+        }
+        console.log(result);
+        return false;
+    }
+
+    this.MoveCostMatrixRoadPrio(closestLab, 1);
+    return false;
 }
 
 

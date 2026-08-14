@@ -223,6 +223,145 @@ function assignDynamicLabs(room, storage, LabsInRoom) {
     return true;
 }
 
+/**
+ * Boost ledger (R6.93).
+ *
+ * The old shape was just `{ amount, use }` on each labN. That cannot tell
+ * WHO reserved the minerals, so:
+ *   - a second queue stomp overwrote the first creep's amount
+ *   - death / shred / TTL-skip left use+amount orphaned
+ *   - the 21000-tick janitor wiped amount==0 slots even when use>0
+ *     (EM had already delivered; the live creep was still walking to the lab)
+ *
+ * Now each slot also has `owners: { [creepName]: { amount, t } }`. amount/use
+ * stay so energyManager and the reaction-pause gates keep working unchanged.
+ * The janitor refunds a slot only for owners that are neither live nor queued.
+ */
+
+function boostLedger(room) {
+    if(!room.memory.labs) room.memory.labs = {};
+    if(!room.memory.labs.status) room.memory.labs.status = {};
+    if(!room.memory.labs.status.boost) room.memory.labs.status.boost = {};
+    return room.memory.labs.status.boost;
+}
+
+function spawnListHasName(room, name) {
+    const q = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < q.length; i += 3) {
+        if(q[i] === name) return true;
+    }
+    return false;
+}
+
+/** Reserve `amount` of this slot's mineral for `ownerName`. Same name re-queues replace, they do not stack. */
+export function chargeBoostSlot(room, labKey: string, amount: number, ownerName: string): void {
+    if(!room || !labKey || !ownerName || !(amount > 0)) return;
+    const boost = boostLedger(room);
+    let slot = boost[labKey];
+    if(!slot) {
+        slot = {amount: 0, use: 0, owners: {}};
+        boost[labKey] = slot;
+    }
+    if(!slot.owners) slot.owners = {};
+    if(slot.owners[ownerName]) {
+        slot.amount = Math.max(0, (slot.amount || 0) - (slot.owners[ownerName].amount || 0));
+        slot.use = Math.max(0, (slot.use || 0) - 1);
+    }
+    slot.owners[ownerName] = {amount: amount, t: Game.time};
+    slot.amount = (slot.amount || 0) + amount;
+    slot.use = (slot.use || 0) + 1;
+}
+
+/** Map an output-lab structure id back to "lab1".."lab8". */
+export function labKeyForId(room, labId: string): string | null {
+    if(!room || !room.memory.labs || !labId) return null;
+    for(let i = 1; i <= 8; i++) {
+        if(room.memory.labs["outputLab" + i] === labId) return "lab" + i;
+    }
+    return null;
+}
+
+function clearLab8ReserveIfIdle(room, slot) {
+    if(!room.memory.labs || !room.memory.labs.lab8reserved) return;
+    if(slot && slot.owners) {
+        for(const name in slot.owners) {
+            if(name.indexOf("EnergyMiner") === 0) return;
+            const c = Game.creeps[name];
+            if(c && c.memory && c.memory.role === "EnergyMiner") return;
+        }
+    }
+    room.memory.labs.lab8reserved = false;
+}
+
+/** Drop one owner's claim on one slot (boost success, give-up, or wrong mineral). */
+export function consumeBoostOwner(room, labKey: string, ownerName: string): void {
+    const boost = room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost;
+    if(!boost || !labKey) return;
+    const slot = boost[labKey];
+    if(!slot) return;
+    if(slot.owners && ownerName && slot.owners[ownerName]) {
+        delete slot.owners[ownerName];
+    }
+    if((slot.use || 0) > 0) slot.use -= 1;
+    if(labKey === "lab8") clearLab8ReserveIfIdle(room, slot);
+}
+
+/** Refund every slot this creep name still owns. Death, shred, or queue drop. */
+export function refundBoostOwner(room, ownerName: string): void {
+    const boost = room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost;
+    if(!boost || !ownerName) return;
+    for(const key in boost) {
+        const slot = boost[key];
+        if(!slot || !slot.owners || !slot.owners[ownerName]) continue;
+        const rec = slot.owners[ownerName];
+        slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
+        slot.use = Math.max(0, (slot.use || 0) - 1);
+        delete slot.owners[ownerName];
+        if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
+    }
+}
+
+/** ERR_NAME_EXISTS retries keep the reservation attached to the new name. */
+export function renameBoostOwner(room, oldName: string, newName: string): void {
+    const boost = room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost;
+    if(!boost || !oldName || !newName || oldName === newName) return;
+    for(const key in boost) {
+        const slot = boost[key];
+        if(!slot || !slot.owners || !slot.owners[oldName]) continue;
+        slot.owners[newName] = slot.owners[oldName];
+        delete slot.owners[oldName];
+    }
+}
+
+/**
+ * Owner-liveness janitor. Runs every labs() pass (8 slots, cheap).
+ * A slot with use>0 is a LIVE fill — never wipe it just because amount hit 0.
+ */
+export function janitorBoostLedger(room): void {
+    const boost = room.memory.labs && room.memory.labs.status && room.memory.labs.status.boost;
+    if(!boost) return;
+    for(const key in boost) {
+        const slot = boost[key];
+        if(!slot || typeof slot !== "object") continue;
+        if(slot.owners) {
+            for(const name in slot.owners) {
+                if(Game.creeps[name] || spawnListHasName(room, name)) continue;
+                const rec = slot.owners[name];
+                slot.amount = Math.max(0, (slot.amount || 0) - (rec.amount || 0));
+                slot.use = Math.max(0, (slot.use || 0) - 1);
+                delete slot.owners[name];
+                if(key === "lab8") clearLab8ReserveIfIdle(room, slot);
+            }
+        }
+        const ownersLeft = slot.owners && Object.keys(slot.owners).length > 0;
+        // use>0 means someone is still entitled to this mineral, even if EM
+        // already delivered (amount==0). The old 21000 wipe ignored that.
+        if((slot.use || 0) <= 0 && (slot.amount || 0) <= 0 && !ownersLeft) {
+            delete boost[key];
+        }
+    }
+}
+
 function labs(room) {
     if(!room.memory.labs || Game.time % 120 == 0) {
 
@@ -294,41 +433,9 @@ function labs(room) {
         outputLab8 = Game.getObjectById(room.memory.labs.outputLab8)
     }
 
-    if(Game.time % 21000 == 0) {
-        let spawns = room.find(FIND_MY_SPAWNS);
-        let found = false;
-        for(let spawn of spawns) {
-            if(spawn.spawning) {
-                found = true;
-                break;
-            }
-        }
-        if(!found) {
-            if(!room.memory.spawn_list || room.memory.spawn_list.length == 0) {
-                if(room.memory.labs.status && room.memory.labs.status.boost && (!room.memory.labs.status.boost.lab1 || room.memory.labs.status.boost.lab1.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab2 || room.memory.labs.status.boost.lab2.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab3 || room.memory.labs.status.boost.lab3.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab4 || room.memory.labs.status.boost.lab4.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab5 || room.memory.labs.status.boost.lab5.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab6 || room.memory.labs.status.boost.lab6.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab7 || room.memory.labs.status.boost.lab7.amount == 0) &&
-                    (!room.memory.labs.status.boost.lab8 || room.memory.labs.status.boost.lab8.amount == 0)) {
-
-                        let creepsInRoom = room.find(FIND_MY_CREEPS);
-                        let rams = creepsInRoom.filter(function(c) {return c.memory.role == "ram";});
-                        let quadSquadChars = creepsInRoom.filter(function(c) {return c.name.startsWith("SquadCreep");});
-                        let solomons = creepsInRoom.filter(function(c) {return c.memory.role == "Solomon";});
-                        if(rams.length == 0 && quadSquadChars.length == 0 && solomons.length == 0) {
-
-                            room.memory.labs.status.boost = {};
-
-                        }
-
-
-                    }
-            }
-        }
-    }
+    // Owner-liveness refunds. Replaces the 21000-tick wipe that deleted
+    // amount==0 slots while use>0 (live creeps still walking to a filled lab).
+    janitorBoostLedger(room);
 
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
 
