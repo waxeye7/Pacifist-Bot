@@ -116,3 +116,5 @@ RCL3 repairer stays `[W,C,M]` (200). `getBody` stacked it to `[2W,2C,2M]` (400) 
 RCL3 does not pave. The roads-only builder is gone, and leftover builders recycle once only roads remain. 1:1 haulers already walk plains at 1 tick/tile; arterial tiles are ~12k the controller wants. RCL4 still gets the full road array. Hypothesis: the 135k climb is not spent on pavement. A/B still pending.
 
 RCL3 builders finish the tower before the second-source container. Depot still first (unlocks the parked 4W); leftover containers were 5k in front of the 3k tower. Hypothesis: the first tower finishes during the climb, not after a second drop-mine buffer. A/B still pending.
+
+RCL3 repairer queues after miners/carriers/builders/upgraders, and only when a container or road is actually 1000 hits down. Container life is 5000 ticks; the 200e body used to HOL the depot builder and the parked 4W on every RCL3 pass. Hypothesis: the climb is not paying a 200e HOL to nurse a full-hits container. A/B still pending.

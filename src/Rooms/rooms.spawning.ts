@@ -1326,11 +1326,6 @@ function add_creeps_to_spawn_list(room, spawn) {
             queueEarlyFiller(room, storage, fillers, spawnrules[3].filler_creep.amount, spawnrules[3].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[3].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger) {
-                let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
-                console.log('Adding Repair to Spawn List: ' + name);
-            }
             // Pavement waits for RCL4. 1:1 haulers already walk plains at
             // 1 tick/tile; arterial tiles are ~12k the controller wants.
             const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount);
@@ -1353,6 +1348,13 @@ function add_creeps_to_spawn_list(room, spawn) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
+            }
+            // After eco. Container decay is 50 hits/t (5000-tick life);
+            // a 200e body must not HOL the depot builder or the parked 4W.
+            if(repairers < spawnrules[3].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger && earlyRepairNeeded(room)) {
+                let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                room.memory.spawn_list.push(spawnrules[3].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
+                console.log('Adding Repair to Spawn List: ' + name);
             }
             // No RCL3 maintainer. The 800e [4W,2M,4C] used to queue the moment
             // an arterial hit 2000 (≈3000 ticks of decay) and HOL-block the
@@ -3350,6 +3352,14 @@ function onlyRoadSites(sites): boolean {
         if(sites[i].structureType !== STRUCTURE_ROAD) return false;
     }
     return true;
+}
+
+/** Container/road actually below the repairer's 1000-hit slack. */
+function earlyRepairNeeded(room): boolean {
+    return room.find(FIND_STRUCTURES, {filter: (s: any) =>
+        (s.structureType === STRUCTURE_CONTAINER || s.structureType === STRUCTURE_ROAD) &&
+        s.hits + 1000 < s.hitsMax
+    }).length > 0;
 }
 
 /**
