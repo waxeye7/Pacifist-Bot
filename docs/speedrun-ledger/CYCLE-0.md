@@ -119,4 +119,9 @@ RCL3 builders finish the tower before the second-source container. Depot still f
 
 RCL3 repairer queues after miners/carriers/builders/upgraders, and only when a container or road is actually 1000 hits down. Container life is 5000 ticks; the 200e body used to HOL the depot builder and the parked 4W on every RCL3 pass. Hypothesis: the climb is not paying a 200e HOL to nurse a full-hits container. A/B still pending.
 
+Extension schedule (the "all at once vs later" call):
+- **RCL2 — instantly all 5.** 300→550 is the body breakpoint (4W is 500e). Sited in one 5-slot pass; builder still finishes them before the one source container.
+- **RCL3 — not instantly.** Hold at 5 extensions until the controller depot AND the tower exist. The next five cost 15k on the 135k climb and do not unlock a bigger parked 4W. After depot+tower, site the second wave (550→800) so RCL4 does not also eat 15k of leftover RCL3 ext. Builder: depot → tower → extensions.
+- **RCL4 — storage first, then dump extensions.** Engine cap 20; site budget 8 once storage is up so 800→1300 does not trickle. Bigger storage-era bodies pay. A/B still pending (do not push-pacifist over the running baseline race).
+
 RCL1–3 home carriers cap at `[4C,4M]` (400). `getCarrierBody` otherwise bought `[5C,5M]` at cap 550 and `[8C,8M]` at 800 — 500–800e HOL in front of the parked 4W. `homeCarriersWanted` splits the rest across more bodies (max 3/source). RCL4+ with storage unchanged. Hypothesis: haul still covers 10 e/t and the 4W is not sitting behind an 800e hauler. A/B still pending.

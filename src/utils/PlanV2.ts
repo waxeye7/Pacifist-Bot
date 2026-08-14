@@ -27,9 +27,12 @@ import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
-/** RCL2 only: five slots so all five extensions site in one 15-tick pass. */
-function maxSitesFor(lvl: number): number {
-  return lvl === 2 ? 5 : MAX_SITES;
+/** RCL2: five slots so all five extensions site in one 15-tick pass.
+ *  RCL4 after storage: dump the next extensions faster (800→1300). */
+function maxSitesFor(lvl: number, room?: Room): number {
+  if (lvl === 2) return 5;
+  if (lvl >= 4 && room && room.storage && room.storage.my) return 8;
+  return MAX_SITES;
 }
 /** how often the legacy-facing memory mirror is refreshed (ticks) */
 const SYNC_EVERY = 100;
@@ -860,8 +863,48 @@ function containerStageOrder(plan: PackedPlan): { order: number[]; early: number
   return { order: order, early: deferred >= 0 ? order.length - 1 : order.length };
 }
 
-function plannedTilesFor(plan: PackedPlan, type: string, lvl: number): number[] {
+/**
+ * Speedrun extension schedule:
+ *   RCL2 — all 5 instantly (300→550; 4W/parked bodies need this).
+ *   RCL3 — hold at 5 until controller depot AND tower exist. The next five
+ *           cost 15k on the 135k climb and do not unlock a bigger 4W (500e).
+ *   RCL4+ — engine cap (20/30/…). Storage still sites first in PLACE_ORDER.
+ */
+function rcl3SecondExtWaveReady(room: Room): boolean {
+  const towers = room.find(FIND_MY_STRUCTURES, {
+    filter: (s) => s.structureType === STRUCTURE_TOWER,
+  });
+  if (!towers.length) return false;
+  const ctrl = room.controller;
+  if (!ctrl) return false;
+  const sources = room.find(FIND_SOURCES);
+  const boxes = room.find(FIND_STRUCTURES, {
+    filter: (s) => s.structureType === STRUCTURE_CONTAINER,
+  });
+  for (const c of boxes) {
+    if (c.pos.getRangeTo(ctrl) <= 4 && c.pos.findInRange(sources, 1).length === 0) return true;
+  }
+  return false;
+}
+
+function extensionTake(lvl: number, engineCap: number, room?: Room): number {
+  if (engineCap <= 0) return 0;
+  if (lvl <= 2) return Math.min(5, engineCap);
+  if (lvl === 3) {
+    if (room && rcl3SecondExtWaveReady(room)) return Math.min(10, engineCap);
+    return Math.min(5, engineCap);
+  }
+  return engineCap;
+}
+
+function plannedTilesFor(plan: PackedPlan, type: string, lvl: number, room?: Room): number[] {
   const planned = plan.t[type] || [];
+  if (type === STRUCTURE_EXTENSION) {
+    const caps = (CONTROLLER_STRUCTURES as any)[type];
+    const engineCap = caps ? caps[lvl] || 0 : planned.length;
+    const take = Math.min(extensionTake(lvl, engineCap, room), planned.length);
+    return take >= planned.length ? planned : planned.slice(0, take);
+  }
   if (type !== STRUCTURE_CONTAINER || !planned.length) return planned;
   const staged = containerStageOrder(plan);
   const caps = (CONTROLLER_STRUCTURES as any)[type];
@@ -1248,7 +1291,7 @@ function migrateClass(
   const perPass = MIGRATE_PER_PASS[type];
   if (!perPass) return;
   if (!typeAllowedAtRcl(type, lvl)) return;
-  const planned = plannedTilesFor(plan, type, lvl);
+  const planned = plannedTilesFor(plan, type, lvl, room);
   if (!planned || !planned.length) return;
   if (!migrateTimerDue(room, type)) return;
 
@@ -1691,7 +1734,7 @@ export function placeFromPlanV2(room: Room): void {
     liveSites = 0;
     for (const s of sites) if (s.structureType === STRUCTURE_SPAWN) liveSites++;
   }
-  let budget = maxSitesFor(lvl) - liveSites;
+  let budget = maxSitesFor(lvl, room) - liveSites;
   // existing structures + sites by type (containers/roads are unowned)
   const have: { [type: string]: { [packed: number]: boolean } } = {};
   const count: { [type: string]: number } = {};
@@ -1753,8 +1796,8 @@ export function placeFromPlanV2(room: Room): void {
     // the loop below must iterate the selection itself.
     const planned =
       type === "road"
-        ? roadsForRcl(plan, plannedTilesFor(plan, type, lvl), lvl)
-        : plannedTilesFor(plan, type, lvl);
+        ? roadsForRcl(plan, plannedTilesFor(plan, type, lvl, room), lvl)
+        : plannedTilesFor(plan, type, lvl, room);
     if (!planned || !planned.length) continue;
     if (!typeAllowedAtRcl(type, lvl)) continue;
     const cap =
