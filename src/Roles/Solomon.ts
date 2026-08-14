@@ -78,6 +78,10 @@ const run = function (creep:Creep) {
     }
 
     if(creep.room.name !== creep.memory.targetRoom) {
+        // flee already issued a path this tick; travel would overwrite it
+        if(!moveAnymore) {
+            return;
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 

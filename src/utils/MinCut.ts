@@ -60,22 +60,24 @@ function room2d(roomName: string, bounds: CutBounds): number[][] {
     }
   }
 
-  // near-exit tiles cannot hold walls
+  // near-exit tiles cannot hold walls. Terrain walls stay UNWALKABLE:
+  // painting them TO_EXIT opens a fake path through the wall and the
+  // min-cut misses the real choke (Overmind refuses this overwrite).
   for (let y = 1; y < 49; y++) {
-    if (room_2d[0][y - 1] === EXIT) room_2d[1][y] = TO_EXIT;
-    if (room_2d[0][y] === EXIT) room_2d[1][y] = TO_EXIT;
-    if (room_2d[0][y + 1] === EXIT) room_2d[1][y] = TO_EXIT;
-    if (room_2d[49][y - 1] === EXIT) room_2d[48][y] = TO_EXIT;
-    if (room_2d[49][y] === EXIT) room_2d[48][y] = TO_EXIT;
-    if (room_2d[49][y + 1] === EXIT) room_2d[48][y] = TO_EXIT;
+    if (room_2d[0][y - 1] === EXIT && room_2d[1][y] !== UNWALKABLE) room_2d[1][y] = TO_EXIT;
+    if (room_2d[0][y] === EXIT && room_2d[1][y] !== UNWALKABLE) room_2d[1][y] = TO_EXIT;
+    if (room_2d[0][y + 1] === EXIT && room_2d[1][y] !== UNWALKABLE) room_2d[1][y] = TO_EXIT;
+    if (room_2d[49][y - 1] === EXIT && room_2d[48][y] !== UNWALKABLE) room_2d[48][y] = TO_EXIT;
+    if (room_2d[49][y] === EXIT && room_2d[48][y] !== UNWALKABLE) room_2d[48][y] = TO_EXIT;
+    if (room_2d[49][y + 1] === EXIT && room_2d[48][y] !== UNWALKABLE) room_2d[48][y] = TO_EXIT;
   }
   for (let x = 1; x < 49; x++) {
-    if (room_2d[x - 1][0] === EXIT) room_2d[x][1] = TO_EXIT;
-    if (room_2d[x][0] === EXIT) room_2d[x][1] = TO_EXIT;
-    if (room_2d[x + 1][0] === EXIT) room_2d[x][1] = TO_EXIT;
-    if (room_2d[x - 1][49] === EXIT) room_2d[x][48] = TO_EXIT;
-    if (room_2d[x][49] === EXIT) room_2d[x][48] = TO_EXIT;
-    if (room_2d[x + 1][49] === EXIT) room_2d[x][48] = TO_EXIT;
+    if (room_2d[x - 1][0] === EXIT && room_2d[x][1] !== UNWALKABLE) room_2d[x][1] = TO_EXIT;
+    if (room_2d[x][0] === EXIT && room_2d[x][1] !== UNWALKABLE) room_2d[x][1] = TO_EXIT;
+    if (room_2d[x + 1][0] === EXIT && room_2d[x][1] !== UNWALKABLE) room_2d[x][1] = TO_EXIT;
+    if (room_2d[x - 1][49] === EXIT && room_2d[x][48] !== UNWALKABLE) room_2d[x][48] = TO_EXIT;
+    if (room_2d[x][49] === EXIT && room_2d[x][48] !== UNWALKABLE) room_2d[x][48] = TO_EXIT;
+    if (room_2d[x + 1][49] === EXIT && room_2d[x][48] !== UNWALKABLE) room_2d[x][48] = TO_EXIT;
   }
   return room_2d;
 }

@@ -41,12 +41,21 @@ const run = function (creep) {
 
     if(creep.memory.repairing) {
         let buildingsToRepair = [];
-        (creep.room.memory.keepTheseRoads || []).forEach(function(roadID) {
-            let road:any = Game.getObjectById(roadID);
-            if(road && road.hits <= road.hitsMax - 500) {
+        // keepTheseRoads never drops dead ids; prune as we walk or
+        // maintainers keep scanning ghosts forever
+        let roadIds = creep.room.memory.keepTheseRoads || [];
+        let liveRoadIds = [];
+        for(let i = 0; i < roadIds.length; i++) {
+            let road:any = Game.getObjectById(roadIds[i]);
+            if(!road) continue;
+            liveRoadIds.push(roadIds[i]);
+            if(road.hits <= road.hitsMax - 500) {
                 buildingsToRepair.push(road);
             }
-        });
+        }
+        if(liveRoadIds.length !== roadIds.length) {
+            creep.room.memory.keepTheseRoads = liveRoadIds;
+        }
         let containers;
         if(creep.room.controller.level <= 6) {
             containers = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType == STRUCTURE_CONTAINER});

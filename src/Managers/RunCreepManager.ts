@@ -152,7 +152,9 @@ function isOscillating(trail: number[]): boolean {
 /** the id this creep is currently walking to, whatever the role calls it */
 function currentTargetId(creep: any): string | undefined {
   const m = creep.memory;
-  return m.t || m.locked || m.MoveTargetId || undefined;
+  // signifer parks on memory.healtarget (the ram); without it the damper
+  // treats the approach shuffle as a livelock and sidesteps off the duo
+  return m.t || m.locked || m.MoveTargetId || m.healtarget || undefined;
 }
 
 /** wipe every movement cache this bot keeps, so next tick re-plans from zero */

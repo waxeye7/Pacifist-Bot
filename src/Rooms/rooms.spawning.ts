@@ -129,7 +129,11 @@ function spawning(room: any) {
         !room.memory.danger && room.memory.spawn_list.length == 0 && (Game.time - room.memory.lastTimeSpawnUsed) % 35 == 0 && room.controller.level >= 6 ||
         !room.memory.danger && room.memory.spawn_list.length == 0 && (Game.time - room.memory.lastTimeSpawnUsed) % 20 == 0 && room.controller.level <= 5 ||
         !room.memory.danger && room.memory.spawn_list.length >= 1 && (Game.time - room.memory.lastTimeSpawnUsed) % 500 == 0 ||
-        room.memory.danger && (Game.time - room.memory.lastTimeSpawnUsed) % 7 == 0 && room.memory.spawn_list.length == 0) {
+        room.memory.danger && (Game.time - room.memory.lastTimeSpawnUsed) % 7 == 0 && room.memory.spawn_list.length == 0 ||
+        // Danger used to require an empty queue, so a stuck head blocked every
+        // RampartDefender/RRD for the siege. Re-run every ~15 ticks; those
+        // two rungs skip if their name prefix is already queued.
+        room.memory.danger && room.memory.spawn_list.length >= 1 && (Game.time - room.memory.lastTimeSpawnUsed) % 15 == 0) {
 
             add_creeps_to_spawn_list(room, spawn);
             clampSpawnListToCapacity(room);
@@ -908,7 +912,12 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 5,
-                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
+                // Parked 8W2C2M only pays once the controller container exists.
+                // Until then this is the same shuttle as RCL3 — otherwise the
+                // body is 4 ticks/tile with a 100-energy tank.
+                body:   hasControllerDepot(room)
+                    ? getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50)
+                    : shuttleUpgraderBody(room),
 
             },
 
@@ -1025,7 +1034,12 @@ function add_creeps_to_spawn_list(room, spawn) {
             upgrade_creep: {
 
                 amount: 1,
-                body:   [WORK,WORK,WORK,WORK,CARRY,CARRY,MOVE],
+                // 12W3C3M (1500e), same floor body RCL6 runs - the hardcoded
+                // [4W,2C,M] cut upgrade rate to 1/3 the moment a room crossed
+                // 6->7 with a sub-surplus bank. maxLength 18 pins it at three
+                // segments; an uncapped getBody at RCL7 capacity would stack
+                // to 32W and HOL-block this very rung.
+                body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 18),
 
             },
 
@@ -1601,7 +1615,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 500000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
+            // Same 150k floor as RCL6. 500k meant a fresh RCL7 sat on decaying
+            // ramparts until the bank was huge; the 1x30W body is unchanged.
+            if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000)) {
                 let rampartsInRoomBelow5Mil = rampartsInRoom?.filter(function(s) {return s.hits < 4050000;});
                 if(rampartsInRoomBelow5Mil.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2227,7 +2243,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                 if(HostileCreeps.length > 4 && RampartDefenders <= 1 && storage &&
                     storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
                     storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 1200 &&
-                    (RangedRampartDefenders < 3 && room.controller.level == 7 || RangedRampartDefenders  < 2 && room.controller.level == 8))  {
+                    (RangedRampartDefenders < 3 && room.controller.level == 7 || RangedRampartDefenders  < 2 && room.controller.level == 8) &&
+                    !queuedWithPrefix(room, 'RRD'))  {
                     if(room.controller.level == 8) {
 
                         let body = [RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,
@@ -2313,7 +2330,7 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
         }
 
-        if(inRangeFourteen && RampartDefenders < 1) {
+        if(inRangeFourteen && RampartDefenders < 1 && !queuedWithPrefix(room, 'RampartDefender')) {
             let found = false;
             for(let enemyCreep of HostileCreeps) {
                 for(let part of enemyCreep.body) {
@@ -3719,13 +3736,11 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
 
     if(targetSource.room.name == room.name) {
-        // Same ratio rule as remotes: 1:1 on dirt, 2:1 once the hub is roaded.
-        // The old loop added MOVE every other CARRY (road speed) at every RCL.
-        // RCL2 has no roads; RCL3 only sites hub↔source arterials and we
-        // deprioritized paving them. A loaded 2:1 body is 2 ticks/tile on
-        // plain, so the trip was sized for a walk it could not make.
-        const roaded = !!(room.controller && room.controller.level >= 4 &&
-            room.storage && room.storage.my);
+        // Same ratio rule as remotes: 1:1 on dirt, 2:1 once THIS path is roaded.
+        // RCL4 + storage.my used to stand in for that, but RCL3 does not pave
+        // and storage completes first — a loaded 2:1 body is then 2 ticks/tile
+        // on plain, so the trip was sized for a walk it could not make.
+        const roaded = homePathIsRoaded(room, targetSource, storage, spawn);
         const movePerCarry = roaded ? 0.5 : 1;
         const budget = room.energyCapacityAvailable;
         const unitCost = 50 + 50 * movePerCarry;
@@ -3925,6 +3940,21 @@ function queuedForSource(room, prefix:string, sourceId):boolean {
 }
 
 /**
+ * Is a creep whose name starts with `prefix` already on the spawn queue?
+ *
+ * Same walk as queuedForSource, but role-wide (no sourceId). The danger
+ * re-producer would otherwise stack RampartDefender/RRD while a stuck head
+ * keeps the queue non-empty.
+ */
+function queuedWithPrefix(room, prefix:string):boolean {
+    const queue = room.memory.spawn_list || [];
+    for(let i = 1; i + 1 < queue.length; i += 3) {
+        if(typeof queue[i] === 'string' && queue[i].indexOf(prefix) === 0) return true;
+    }
+    return false;
+}
+
+/**
  * Is anything actually working, hatching or waiting for this source?
  *
  * Creeps under construction are already in Game.creeps (creep.spawning), so a
@@ -3964,6 +3994,31 @@ function remotePathIsRoaded(room, targetRoomName):boolean {
     // 25 ticks — do NOT re-find() it here, this runs once per source per pass.
     const res = room.memory.resources;
     return !!(res && res[targetRoomName] && res[targetRoomName].roaded);
+}
+
+/**
+ * Is the haul path from the hub to this HOME source actually paved?
+ *
+ * remotePathIsRoaded reads a cached room-wide count (no vision). We have the
+ * room, so walk the real path and apply the same 40% threshold. A couple of
+ * lab/controller roads must not flip a still-dirt source arterial to 2:1.
+ */
+function homePathIsRoaded(room, targetSource, storage, spawn): boolean {
+    const origin = storage || spawn;
+    if(!origin || !targetSource || !targetSource.pos) return false;
+    const path = origin.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
+    if(!path || path.length === 0) return false;
+    let roads = 0;
+    for(let i = 0; i < path.length; i++) {
+        const structs = room.lookForAt(LOOK_STRUCTURES, path[i].x, path[i].y);
+        for(let j = 0; j < structs.length; j++) {
+            if(structs[j].structureType === STRUCTURE_ROAD) {
+                roads++;
+                break;
+            }
+        }
+    }
+    return roads >= path.length * 0.4;
 }
 
 /**

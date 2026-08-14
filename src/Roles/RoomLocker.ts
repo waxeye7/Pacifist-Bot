@@ -10,7 +10,8 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
   }
 
   if(!creep.memory.full && creep.room.name === creep.memory.homeRoom) {
-    let storage = creep.room.storage;
+    // room.storage is null before RCL4; findStorage falls back to the hub container
+    let storage = creep.room.storage || creep.room.findStorage();
     if(storage) {
       let result = creep.withdraw(storage, RESOURCE_ENERGY);
       if(result === ERR_NOT_IN_RANGE) {

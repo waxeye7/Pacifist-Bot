@@ -62,7 +62,9 @@ const run = function (creep) {
 
         }
         else {
-            creep.memory.target = false;
+            // this role reads memory.targets; writing .target left a
+            // dead list in place forever
+            creep.memory.targets = false;
         }
     }
 

@@ -36,7 +36,9 @@
             copy_of_list.sort((a,b) => Game.map.getRoomLinearDistance(creep.room.name, a) - Game.map.getRoomLinearDistance(creep.room.name, b));
             for(let billtong_room of copy_of_list) {
                  Game.map.getRoomLinearDistance(creep.room.name, billtong_room)
-                if(creep.memory.searchedRooms && !creep.memory.searchedRooms.includes(billtong_room) && Game.map.getRoomLinearDistance(creep.room.name, billtong_room) <= 4) {
+                // searchedRooms is unset on a fresh creep, so && short-
+                // circuited and we never took a known billtong room
+                if((!creep.memory.searchedRooms || !creep.memory.searchedRooms.includes(billtong_room)) && Game.map.getRoomLinearDistance(creep.room.name, billtong_room) <= 4) {
                     creep.memory.targetRoom = billtong_room;
                     return;
                 }
@@ -262,7 +264,9 @@
                 creep.moveTo(deposit);
             }
 
-            if(creep.ticksToLive == creep.memory.timeToGetHome || creep.ticksToLive == creep.memory.timeToGetHome - 1) {
+            // two-tick equality can be skipped; once TTL is inside the
+            // return window, haul home
+            if(creep.memory.timeToGetHome && creep.ticksToLive <= creep.memory.timeToGetHome) {
                 creep.memory.suicide = true;
             }
         }

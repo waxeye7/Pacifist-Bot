@@ -207,10 +207,16 @@ function market(room):any {
                                     Memory.my_goods[resource] = Memory.my_goods[resource].filter(function(r) {return r !== room_with_mineral;});
                                     continue;
                                 }
-                                if(Game.rooms[room_with_mineral].terminal && Game.rooms[room_with_mineral].terminal.store[resource] >= 1000) {
-                                    Game.rooms[room_with_mineral].terminal.send(resource, 1000, room.name, "enjoy this " + resource + " other room!");
-                                    console.log("sending", room.name, "1000", resource)
-                                    break;
+                                let donorTerm = Game.rooms[room_with_mineral].terminal;
+                                if(donorTerm && donorTerm.store[resource] >= 1000) {
+                                    // Donor may be on cooldown or lack the send-fee energy;
+                                    // a failed send used to `break` and skip every later donor.
+                                    if(donorTerm.cooldown != 0) continue;
+                                    if(donorTerm.store[RESOURCE_ENERGY] < Game.market.calcTransactionCost(1000, room_with_mineral, room.name)) continue;
+                                    if(donorTerm.send(resource, 1000, room.name, "enjoy this " + resource + " other room!") == OK) {
+                                        console.log("sending", room.name, "1000", resource)
+                                        break;
+                                    }
                                 }
                             }
                         }
@@ -488,6 +494,14 @@ function market(room):any {
         for(let boost of boostsToNeed) {
             if(room.terminal && room.terminal.store[boost] > 500 && storage && storage.store[boost] > 18000) {
                 if(Memory.resource_requests[boost].length > 0) {
+                    // Requesters are our own visible rooms; dead/lost names stay
+                    // in the list forever otherwise and every surplus tick walks them.
+                    for(let i = Memory.resource_requests[boost].length - 1; i >= 0; i--) {
+                        let reqName = Memory.resource_requests[boost][i];
+                        if(!(Game.rooms[reqName] && Game.rooms[reqName].controller && Game.rooms[reqName].controller.my)) {
+                            Memory.resource_requests[boost].splice(i, 1);
+                        }
+                    }
                     for(let roomName of Memory.resource_requests[boost]) {
                         if(roomName !== room.name && Game.rooms[roomName] && Game.rooms[roomName].memory.Structures.spawn && Game.getObjectById(Game.rooms[roomName].memory.Structures.spawn) && Game.rooms[roomName].storage) {
                             let roomObj = Game.rooms[roomName];
@@ -495,9 +509,15 @@ function market(room):any {
                                 let theirTerminal = roomObj.terminal;
                                 let theirStorage:any = Game.getObjectById(roomObj.memory.Structures.storage);
                                 if(theirTerminal && theirStorage && theirTerminal.store.getFreeCapacity() > 10000 && theirStorage.store.getFreeCapacity() > 10000) {
-                                    room.terminal.send(boost, 500, roomName, "enjoy this " + boost + " other room!");
-                                    console.log("sending", roomName, "500", boost)
-                                    return;
+                                    // Send fee is paid from this terminal's energy; a failed
+                                    // send must not return or later requesters never get served.
+                                    if(room.terminal.store[RESOURCE_ENERGY] < Game.market.calcTransactionCost(500, room.name, roomName)) {
+                                        continue;
+                                    }
+                                    if(room.terminal.send(boost, 500, roomName, "enjoy this " + boost + " other room!") == OK) {
+                                        console.log("sending", roomName, "500", boost)
+                                        return;
+                                    }
                                 }
                             }
                             else {

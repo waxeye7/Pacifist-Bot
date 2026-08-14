@@ -264,16 +264,20 @@
 
             if(buildingsAroundMe.length > 0) {
 
+                // last attack() wins, so an adjacent spawn was immediately
+                // overwritten by the weakest neighbor
+                let adjacentSpawn = false;
                 for(let building of buildingsAroundMe) {
                     if(building.structureType == STRUCTURE_SPAWN) {
                         creep.attack(building);
+                        adjacentSpawn = true;
                         break;
                     }
                 }
-                buildingsAroundMe.sort((a,b) => a.hits - b.hits);
-                // buildingsAroundMe.sort((a,b) => b.pos.x - a.pos.x);
-                // buildingsAroundMe.sort((a,b) => b.pos.y - a.pos.y);
-                creep.attack(buildingsAroundMe[0]);
+                if(!adjacentSpawn) {
+                    buildingsAroundMe.sort((a,b) => a.hits - b.hits);
+                    creep.attack(buildingsAroundMe[0]);
+                }
 
             }
 

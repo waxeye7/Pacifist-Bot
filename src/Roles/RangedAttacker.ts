@@ -43,15 +43,18 @@ const run = function (creep) {
                     creep.moveTo(closestEnemyCreep);
                     return;
                 }
-                else if(creep.pos.isNearTo(closestEnemyCreep)) {
+                // RMA then rangedAttack left the last intent winning; travel
+                // after a flee step did the same. One shot, then stop if we fled.
+                let adjacentHostiles = creep.pos.findInRange(enemyCreeps, 1);
+                if(adjacentHostiles.length >= 2) {
                     creep.rangedMassAttack();
                 }
                 else {
                     creep.rangedAttack(closestEnemyCreep);
-                    creep.moveTo(closestEnemyCreep);
                 }
-                if(isMelee && creep.rangedAttack(closestEnemyCreep) == 0) {
+                if(isMelee) {
                     creep.RangedAttackFleeFromMelee(closestEnemyCreep);
+                    return;
                 }
                 else {
                     creep.moveTo(closestEnemyCreep);

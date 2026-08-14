@@ -10,11 +10,14 @@
 
     let controller = creep.room.controller
     if(!controller) {
-        creep.memory.suicide = true;
+        creep.recycle();
+        return;
     }
 
     if(!creep.pos.isNearTo(controller)) {
-        GoToController(creep, controller.pos, 1);
+        // RoomPosition has no .id, so MoveTargetId never stuck and we
+        // repathed every tick. Pass the structure.
+        GoToController(creep, controller, 1);
     }
     else {
         creep.suicide();
@@ -45,11 +48,12 @@ function GoToController(creep, target, range) {
         if(creep.memory.path && creep.memory.path.length > 0 && (Math.abs(creep.pos.x - creep.memory.path[0].x) > 1 || Math.abs(creep.pos.y - creep.memory.path[0].y) > 1)) {
             creep.memory.path = false;
         }
-        if(!creep.memory.path || creep.memory.path.length == 0 || !creep.memory.MoveTargetId || creep.memory.MoveTargetId != target.id || target.roomName !== creep.room.name) {
+        let dest = target.pos || target;
+        if(!creep.memory.path || creep.memory.path.length == 0 || !creep.memory.MoveTargetId || creep.memory.MoveTargetId != target.id || dest.roomName !== creep.room.name) {
             let costMatrix = GoToTheController;
 
             let path = PathFinder.search(
-                creep.pos, {pos:target, range:range},
+                creep.pos, {pos:dest, range:range},
                 {
                     maxOps: 1000,
                     maxRooms: 1,

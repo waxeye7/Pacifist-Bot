@@ -17,7 +17,11 @@ const run = function (creep) {
 
     let buildings = creep.room.find(FIND_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_ROAD && s.structureType !== STRUCTURE_CONTAINER && s.structureType !== STRUCTURE_CONTROLLER && s.pos.x >= 1 && s.pos.x <= 48 && s.pos.y >= 1 && s.pos.y <= 48});
 
-    if(controller && controller.my && controller.level == 1 && controller.ticksToDowngrade > 19900) {
+    // ticksToDowngrade > 19900 is unreachable on a fresh claim (timer
+    // starts at 1000), so the claim was never unwound. Destroy then
+    // unclaim once this target is ours. Stay on RCL1 + targetRoom so a
+    // transit through home/other owned rooms does not wipe them.
+    if(controller && controller.my && controller.level == 1 && creep.room.name == creep.memory.targetRoom) {
         if(buildings.length > 0) {
             for(let building of buildings) {
                 building.destroy();

@@ -102,7 +102,16 @@ function calc_incoming_damage_potential_next_tick(
     if(pathRange > range) {
       range = pathRange;
     }
-    if (range > 5 || (range === 5 && (Hostile.fatigue === 0 && fatigue !== 0) || (Hostile.fatigue !== 0 && fatigue === 0)) || (range === 4 && Hostile.fatigue !== 0 && fatigue !== 0) || Hostile.ticksToLive === 1) return;
+    // the || after range===5 was unbound, so any fatigued hostile was dropped
+    // even when adjacent — they still hit without moving, skip only at range>=2
+    if (
+      range > 5 ||
+      (range === 5 && Hostile.fatigue === 0 && fatigue !== 0) ||
+      (range >= 2 && Hostile.fatigue !== 0 && fatigue === 0) ||
+      (range === 4 && Hostile.fatigue !== 0 && fatigue !== 0) ||
+      Hostile.ticksToLive === 1
+    )
+      return;
     let meleeWorthy = false;
     if (range === 1 || (range === 2 && (Hostile.fatigue === 0 || fatigue === 0))) {
       meleeWorthy = true;

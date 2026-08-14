@@ -13,7 +13,9 @@
     let Structures = creep.room.find(FIND_HOSTILE_STRUCTURES, {
         filter: object => object.structureType != STRUCTURE_CONTROLLER && object.structureType != STRUCTURE_KEEPER_LAIR && object.structureType != STRUCTURE_STORAGE && object.structureType != STRUCTURE_TERMINAL});
     let ConstructionSites = creep.room.find(FIND_HOSTILE_CONSTRUCTION_SITES, {filter: site => site.structureType != STRUCTURE_ROAD && site.progress != 0});
-    if(enemyCreeps.length > 0) {
+    // any hostile in a transit room used to return here and stall the
+    // walk forever. Fight only once we have arrived.
+    if(enemyCreeps.length > 0 && creep.room.name == creep.memory.targetRoom) {
         let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
             if(creep.pos.isNearTo(closestEnemyCreep)) {
                 creep.attack(closestEnemyCreep);

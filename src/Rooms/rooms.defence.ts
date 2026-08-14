@@ -218,7 +218,9 @@ function roomDefence(room) {
 
 
                     let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-                    let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender"});
+                    // Count RRD too: fire-hold treated a ranged-only shell as
+                    // empty and volleyed before they were on the assigned tile.
+                    let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender" || creep.memory.role == "RRD"});
                     let rampartDefendersLength = rampartDefenders.length;
                     let rampartID = room.memory.rampartToMan
                     let rampart:any = Game.getObjectById(rampartID);
@@ -294,7 +296,10 @@ function roomDefence(room) {
     }
 
 
-    if(Game.time % 5 == 0 || room.memory.danger && Game.time % 1 == 0) {
+    // Hostile scan every tick. The %5 gate left a 4-tick first-contact
+    // window; towers already fire on last-tick danger, so a late latch
+    // costs another salvo.
+    {
         let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
         let storage:any = Game.getObjectById(room.memory.Structures.storage);
         if(HostileCreeps.length > 0) {
@@ -394,9 +399,16 @@ function roomDefence(room) {
 
             let found_creep = false;
             _.forEach(MyRamparts, function(rampart) {
-                if(rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RampartDefender" || rampart.pos.lookFor(LOOK_CREEPS).length > 0 && rampart.pos.lookFor(LOOK_CREEPS)[0].memory.role == "RRD") {
-                    room.memory.in_position = true;
-                    found_creep = true;
+                // Hostile on a shell tile has no .memory — unguarded .role
+                // threw and aborted rampartToMan/in_position for the room.
+                // in_position is the assigned-tile fire-hold; any-perimeter
+                // occupancy let towers volley while the defender walked.
+                let occupant = rampart.pos.lookFor(LOOK_CREEPS)[0];
+                if(occupant && occupant.my && occupant.memory && (occupant.memory.role == "RampartDefender" || occupant.memory.role == "RRD")) {
+                    if(room.memory.rampartToMan && rampart.id == room.memory.rampartToMan) {
+                        room.memory.in_position = true;
+                        found_creep = true;
+                    }
                     return;
                 }
                 let myRampartDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender" || c.memory.role === "RRD";});

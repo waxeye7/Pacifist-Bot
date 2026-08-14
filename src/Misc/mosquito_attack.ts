@@ -31,7 +31,9 @@ function mosquito_attack() {
     let myCreeps = creeps.filter(c => c.my);
     let enemyCreeps = creeps.filter(c => !c.my);
 
-    let mosquitos = myCreeps.filter(c => c.memory.role === "mosquito");
+    // only the wave assigned to this attack; travelers targeting another
+    // room (or none) keep their own role's transit behavior
+    let mosquitos = myCreeps.filter(c => c.memory.role === "mosquito" && c.memory.targetRoom === attack.n);
     let myOtherCreeps = myCreeps.filter(c => c.memory.role !== "mosquito");
 
     let structures = room.find(FIND_STRUCTURES);
@@ -188,18 +190,12 @@ function mosquito_attack() {
           let closestexit = mosquito.pos.findClosestByRange(exits);
 
                   if (closestexit) {
-                    if(nukes[0].timeToLand === 2) {
-
-                      const exitPos = new RoomPosition(closestexit.x, closestexit.y, mosquito.room.name);
-                    mosquito.moveTo(exitPos, { visualizePathStyle: { stroke: "#ffffff" } });
-
-                    }
-                    else {
+                    // range 0 steps onto the exit tile so we leave; range 1
+                    // sat adjacent forever, and chase moveTo below overwrote
+                    // even the late-evac step
                     const exitPos = new RoomPosition(closestexit.x, closestexit.y, mosquito.room.name);
-                    mosquito.moveTo(exitPos, {range:1, visualizePathStyle: { stroke: "#ffffff" } });
-
-                    }
-
+                    mosquito.moveTo(exitPos, {range: 0, visualizePathStyle: { stroke: "#ffffff" } });
+                    continue;
                   }
 
 

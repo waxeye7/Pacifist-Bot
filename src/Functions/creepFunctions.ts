@@ -2233,8 +2233,9 @@ Creep.prototype.fleeFromMelee = function(fleeTarget) {
 
 
 
-    // Use PathFinder with the custom cost matrix and flee set to true
-    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 5 }, { flee: true, roomCallback: (roomName) => costMatrix });
+    // this CostMatrix is only valid for this room; without maxRooms PathFinder
+    // paints the same walls onto neighbouring rooms and near-exit flees die
+    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 5 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
 
     if(!FleePath.path || FleePath.path.length == 0) {
         return;
@@ -2290,8 +2291,9 @@ Creep.prototype.fleeFromRanged = function(fleeTarget) {
 
 
 
-    // Use PathFinder with the custom cost matrix and flee set to true
-    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 7 }, { flee: true, roomCallback: (roomName) => costMatrix });
+    // this CostMatrix is only valid for this room; without maxRooms PathFinder
+    // paints the same walls onto neighbouring rooms and near-exit flees die
+    const FleePath = PathFinder.search(this.pos, { pos: fleeTarget.pos, range: 7 }, { flee: true, maxRooms: 1, roomCallback: (roomName) => costMatrix });
 
     if(!FleePath.path || FleePath.path.length == 0) {
         return;

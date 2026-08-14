@@ -28,6 +28,9 @@ const run = function (creep) {
             if(enemyCreeps.length > 0) {
                 creep.memory.coma = false;
                 killCreepsInroom(creep, enemyCreeps);
+                // chase move then travel: last intent wins and we never
+                // actually close. Stay on the chase this tick.
+                return;
             }
             else {
                 creep.memory.coma = true;
@@ -54,13 +57,14 @@ const run = function (creep) {
     }
 
     if(enemyCreeps.length > 0) {
-        killCreepsInroom(creep, enemyCreeps);
+        let creepAttack = killCreepsInroom(creep, enemyCreeps);
         // structs filter away controller
         // FIND_STRUCTURES here also returned our own walls and ramparts, so a
         // Guard defending a room spent the fight chewing through its own base.
         let structs = creep.room.find(FIND_HOSTILE_STRUCTURES, {filter: s => s.structureType !== STRUCTURE_CONTROLLER});
         let closestStruct = creep.pos.findClosestByRange(structs);
-        if(closestStruct && creep.pos.isNearTo(closestStruct)) {
+        // attack() last-write: do not clobber a successful creep shot
+        if(creepAttack !== 0 && closestStruct && creep.pos.isNearTo(closestStruct)) {
             creep.attack(closestStruct);
         }
     }
@@ -100,7 +104,7 @@ const run = function (creep) {
 function killCreepsInroom(creep, enemyCreeps) {
     let closestEnemyCreep = creep.pos.findClosestByRange(enemyCreeps);
     GoToController(creep, closestEnemyCreep.pos, 1)
-    creep.attack(closestEnemyCreep)
+    return creep.attack(closestEnemyCreep)
 }
 
 

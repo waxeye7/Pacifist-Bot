@@ -199,13 +199,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
 
         if(mySpawns.length == 1) {
-            if(mySpawns[0].store.getFreeCapacity() !== 0) {
+            // argless getFreeCapacity() is null on a spawn (always !== 0),
+            // and the fill move was overwritten by the build walk below
+            if(mySpawns[0].store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                 if(creep.pos.isNearTo(mySpawns[0])) {
                     creep.transfer(mySpawns[0], RESOURCE_ENERGY);
                 }
                 else {
                     creep.MoveCostMatrixRoadPrio(mySpawns[0], 1);
                 }
+                return;
             }
 
             // ------------------------------------------------------------------
