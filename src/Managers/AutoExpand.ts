@@ -238,6 +238,7 @@ function adoptPacked(room: Room, payload: any, from: string): void {
     room.find(FIND_MY_STRUCTURES).length < 15;
   if (!(room.memory as any).planMigration && young) {
     (room.memory as any).planMigration = { mode: "auto", since: Game.time };
+    logAlways(`autoExpand: ${room.name} auto-armed migration (young colony)`);
   }
   const t = (room.memory.planV2 as any).t;
   delete (room.memory as any).planPackMiss;
@@ -343,6 +344,9 @@ export function runPackAdoption(): void {
       if (room.memory.planV2) {
         // self-heal colonies that adopted BEFORE the arming model existed:
         // they hold a plan but no planMigration, so squatter-reclaim is dead
+        // an existing planMigration of ANY mode — including the "disarmed"
+        // tombstone migrateAbort writes — blocks the self-heal: only rooms
+        // that predate the arming model entirely are armed here
         const armless = !(room.memory as any).planMigration;
         const young =
           room.controller != null &&
@@ -350,6 +354,7 @@ export function runPackAdoption(): void {
           room.find(FIND_MY_STRUCTURES).length < 15;
         if (armless && young) {
           (room.memory as any).planMigration = { mode: "auto", since: Game.time };
+          logAlways(`autoExpand: ${room.name} auto-armed migration (pre-arming-model colony)`);
         }
         continue;
       }

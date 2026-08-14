@@ -271,20 +271,27 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   const room = Game.rooms[roomName];
   if (!room) return `no visibility on ${roomName}`;
   if (!room.memory.planV2) return `${roomName} has no adopted planV2 — adoptPlan first`;
-  // below RCL4 the gradual gate would block; arm the colony mode instead so an
-  // operator CAN unwedge a young room whose auto-arm never happened
+  // TRULY young rooms (low level AND few structures) get the colony mode so an
+  // operator can unwedge one whose auto-arm never happened; a downgraded BUILT
+  // room gets gradual, which the gate deliberately holds until RCL4 — its
+  // economy depends on the structures migration would eat
   const lvl = room.controller ? room.controller.level : 0;
-  const mode = lvl < 4 ? "auto" : "gradual";
-  (room.memory as any).planMigration = { mode: mode, since: Game.time };
+  const young = lvl < 4 && room.find(FIND_MY_STRUCTURES).length < 15;
+  const mode = young ? "auto" : "gradual";
+  (room.memory as any).planMigration = { mode: mode, since: Game.time, by: "operator" };
   delete (room.memory as any).planMigratePaused;
-  return `${mode} migration ARMED for ${roomName} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
+  const hold = mode === "gradual" && lvl < 4 ? ` (holds until RCL4 — economy safety)` : "";
+  return `${mode} migration ARMED for ${roomName}${hold} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
 };
 
 /** Console: migrateAbort("W1N1") — disarm; nothing further is demolished, placement continues. */
 (global as any).migrateAbort = function (roomName: string) {
   const room = Game.rooms[roomName];
   if (!room) return `no visibility on ${roomName}`;
-  delete (room.memory as any).planMigration;
+  // TOMBSTONE, not deletion: the AutoExpand self-heal re-arms armless young
+  // rooms, so a deleted arm resurrected within 25 ticks — an explicit
+  // "disarmed" survives every sweep and only dropPlan or migratePlan replace it
+  (room.memory as any).planMigration = { mode: "disarmed", since: Game.time, by: "operator" };
   delete (room.memory as any).planMigratePaused;
   return `migration disarmed for ${roomName} — nothing further will be demolished (plan placement continues)`;
 };
@@ -1406,10 +1413,18 @@ function migrationAllowed(room: Room): string | null {
   let why: string | null = null;
   if (!arm || (arm.mode !== "gradual" && arm.mode !== "auto")) {
     why = "not armed — migratePlan(room) to arm";
-  } else if (arm.mode === "auto" && room.controller && room.controller.level >= 6) {
-    // an infancy-era heuristic arm must not follow a room into maturity — by
-    // RCL6 the room is established and demolition needs an operator decision
-    why = "auto arm expired (RCL6+) — migratePlan(room) to arm";
+  } else if (arm.mode === "auto" && room.controller && room.controller.level >= 4) {
+    // an infancy-era heuristic arm must not follow a room into maturity: from
+    // RCL4 the room has storage and a real economy, and demolition needs an
+    // operator decision. This is a STATE TRANSITION, not a per-tick veto — a
+    // vetoed-but-live arm resurrected the moment a downgrade dipped the level.
+    arm.mode = "disarmed";
+    (arm as any).reason = "auto arm expired at RCL4";
+    logAlways(
+      `planV2 ${room.name}: infancy auto-arm expired at RCL${room.controller.level} — ` +
+        `migration disarmed; migratePlan("${room.name}") to arm deliberately`,
+    );
+    why = "auto arm expired (RCL4+) — migratePlan(room) to arm";
   } else if ((room.memory as any).planMigratePaused) {
     why = "paused";
   } else if (arm.mode === "gradual" && room.controller && room.controller.level < 4) {
@@ -1557,35 +1572,26 @@ function migrateClass(
     const stallKey = "sites:" + type;
     if (pendingSites.length > 0) {
       if (!timers[stallKey]) timers[stallKey] = Game.time;
-      // ESCAPE HATCH: a rebuild that has not finished after 3000 ticks is
-      // stalled, not pending. Remove zero-progress sites so the class can
-      // re-site somewhere buildable instead of freezing forever behind one
-      // unreachable tile; partially-built sites are kept (energy invested)
-      // and only warned about.
+      // A rebuild that has not finished after 3000 ticks is a stalled builder
+      // economy or an unreachable planned tile. Removing the site does NOT
+      // help — placement re-sites the identical plan tile the next pass, and
+      // the remove/re-site cycle just opened a destroy window every 3000
+      // ticks (gauntlet r3). So: freeze LOUDLY and stay frozen. The class
+      // resumes the moment the sites finish or the operator intervenes.
       if (Game.time - timers[stallKey] > 3000) {
-        let removed = 0;
-        for (const site of pendingSites) {
-          if (!site.progress) {
-            site.remove();
-            removed++;
-          }
-        }
-        timers[stallKey] = Game.time;
-        if (removed) {
-          logAlways(
-            `planV2 ${room.name}: ${type} rebuild stalled >3000 ticks — removed ${removed} zero-progress site(s) to unfreeze the class`,
-          );
-        } else {
-          noteOnce(
-            room,
-            `sites-stalled:${type}`,
-            `planV2 ${room.name}: ${type} rebuild stalled >3000 ticks with partial progress — waiting; check the builder economy`,
-          );
-        }
+        noteOnce(
+          room,
+          `sites-stalled:${type}`,
+          `planV2 ${room.name}: ${type} migration FROZEN — site(s) at ` +
+            pendingSites.map((s) => `${s.pos.x},${s.pos.y}`).join(" ") +
+            ` unbuilt for >3000 ticks. Check the builder economy or reachability; ` +
+            `remove the site(s) by hand if the tile is unbuildable.`,
+        );
       }
       return;
     }
     delete timers[stallKey];
+    delete (room.memory.planMigrateLog || {})[`sites-stalled:${type}`];
   }
 
   const rich = migrationEnergy(room) > MIGRATE_ENERGY;
