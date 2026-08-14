@@ -1606,6 +1606,7 @@ function migrateClass(
   const rich = migrationEnergy(room) > MIGRATE_ENERGY;
   let candidates = ranked.off;
   let reason = "";
+  let floorHeadroom = Infinity;
 
   if (type === STRUCTURE_TOWER) {
     if (!rich) return;
@@ -1626,6 +1627,16 @@ function migrateClass(
     candidates = ranked.off.slice(0, 1);
     reason = "tower swap, N-1 stays live";
   } else if (FREE_REPLACE[type] && rich) {
+    if (!isRoad) {
+      // plannedBatchFloor (spec I3, the REAL one): the built count may never
+      // sink more than one batch below the effective cap, regardless of what
+      // starves the rebuild. The pending-sites check alone passed vacuously
+      // when the site budget was eaten by rampart sites — live E37N59 went
+      // 40 -> 19 extensions with zero sites ever placed.
+      const effCap = Math.min(cap, planned.length);
+      if (ranked.built <= effCap - perPass) return;
+      floorHeadroom = ranked.built - (effCap - perPass);
+    }
     if (isRoad) {
       // Off-plan roads OUTSIDE the shell are the remote/approach lines, not
       // legacy stamp litter. Retiring those would unpave every hauler route
@@ -1653,6 +1664,7 @@ function migrateClass(
 
   let take = Math.min(perPass, candidates.length);
   if (wanted > 0) take = Math.min(take, wanted);
+  if (floorHeadroom !== Infinity) take = Math.min(take, floorHeadroom);
   if (take <= 0) return;
 
   migrateTimerStamp(room, type);
@@ -2017,10 +2029,17 @@ export function placeFromPlanV2(room: Room): void {
   // ConstructionSite.remove() only lands at the end of the tick, so the sites
   // the lockdown just removed are still in `sites` — do not let them hold the
   // budget hostage for one more pass.
-  let liveSites = sites.length;
-  if (spawnless) {
-    liveSites = 0;
-    for (const s of sites) if (s.structureType === STRUCTURE_SPAWN) liveSites++;
+  let liveSites = 0;
+  for (const s of sites) {
+    if (spawnless) {
+      if (s.structureType === STRUCTURE_SPAWN) liveSites++;
+    } else if (s.structureType !== STRUCTURE_RAMPART) {
+      // rampart sites are erector-owned (construction.rampartLocations) and
+      // build on their own budget — counting them here starved plan placement
+      // completely while a new shell went up (live E37N59: 7 rampart sites =
+      // zero extension sites = the I3 gate passing vacuously)
+      liveSites++;
+    }
   }
   let budget = maxSitesFor(lvl, room) - liveSites;
   // existing structures + sites by type (containers/roads are unowned)
