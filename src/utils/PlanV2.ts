@@ -253,8 +253,38 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
 
 (global as any).dropPlan = function (roomName: string) {
   const room = Game.rooms[roomName];
-  if (room) delete room.memory.planV2;
-  return `dropped planV2 for ${roomName} (legacy construction resumes)`;
+  if (room) {
+    delete room.memory.planV2;
+    // every piece of migration state belongs to the dropped plan — a re-adopt
+    // must start clean (a stale pause once silently parked a fresh adoption)
+    const m: any = room.memory;
+    delete m.planMigration;
+    delete m.planMigrate;
+    delete m.planMigrateLog;
+    delete m.planMigratePaused;
+    delete m.planSpawnReady;
+    delete m.planDrain;
+  }
+  return `dropped planV2 + migration state for ${roomName} (legacy construction resumes)`;
+};
+
+/** Console: migratePlan("W1N1") — the explicit go for demolishing toward the plan. */
+(global as any).migratePlan = function (roomName: string) {
+  const room = Game.rooms[roomName];
+  if (!room) return `no visibility on ${roomName}`;
+  if (!room.memory.planV2) return `${roomName} has no adopted planV2 — adoptPlan first`;
+  (room.memory as any).planMigration = { mode: "gradual", since: Game.time };
+  delete (room.memory as any).planMigratePaused;
+  return `gradual migration ARMED for ${roomName} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
+};
+
+/** Console: migrateAbort("W1N1") — disarm; nothing further is demolished, placement continues. */
+(global as any).migrateAbort = function (roomName: string) {
+  const room = Game.rooms[roomName];
+  if (!room) return `no visibility on ${roomName}`;
+  delete (room.memory as any).planMigration;
+  delete (room.memory as any).planMigratePaused;
+  return `migration disarmed for ${roomName} — nothing further will be demolished (plan placement continues)`;
 };
 
 /** Console: park/unpark the gradual migration of one room (adoption + placement continue). */
@@ -272,7 +302,11 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   return `migration resumed for ${roomName}`;
 };
 
-/** Console: migrateStatus() — one line per planV2 room: off-plan census + engine state. */
+/**
+ * Console: migrateStatus() — one line per planV2 room, using the ENGINE'S OWN
+ * view of on/off-plan (staged/RCL-capped tile prefixes, exterior roads
+ * excluded), so the census can only report work the engine would actually do.
+ */
 (global as any).migrateStatus = function () {
   const lines: string[] = [];
   for (const roomName in Game.rooms) {
@@ -280,25 +314,46 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
     if (!room.controller || !room.controller.my) continue;
     const plan: any = room.memory.planV2;
     if (!plan || !plan.t) continue;
-    const planned: { [type: string]: Set<number> } = {};
-    for (const type of Object.keys(plan.t)) {
-      if (type === "shellCut" || type === "labInput") continue;
-      planned[type] = new Set(plan.t[type]);
+    const lvl = room.controller.level;
+    const parts: string[] = [];
+    for (const cls of MIGRATE_CLASSES) {
+      const planned = plannedTilesFor(plan, cls, lvl, room) || [];
+      if (!planned.length) continue;
+      const isRoad = cls === STRUCTURE_ROAD;
+      const cap = isRoad
+        ? planned.length
+        : (CONTROLLER_STRUCTURES as any)[cls]
+          ? (CONTROLLER_STRUCTURES as any)[cls][lvl] || 0
+          : planned.length;
+      const limit = isRoad ? planned.length : Math.min(cap, planned.length);
+      const set = new Set<number>();
+      for (let i = 0; i < limit; i++) set.add(planned[i]);
+      const list: any[] =
+        isRoad || cls === STRUCTURE_CONTAINER
+          ? room.find(FIND_STRUCTURES, { filter: (x: any) => x.structureType === cls })
+          : room.find(FIND_MY_STRUCTURES, { filter: (x: any) => x.structureType === cls });
+      let off = 0;
+      for (const s of list) {
+        if (set.has(s.pos.x + s.pos.y * 50)) continue;
+        // exterior roads are the remote lines — the engine never touches them
+        if (isRoad && isExteriorTile(room, s.pos.x, s.pos.y)) continue;
+        off++;
+      }
+      if (off) parts.push(`${cls}:${off}`);
     }
-    const offPlan: { [type: string]: number } = {};
-    for (const s of room.find(FIND_MY_STRUCTURES).concat(room.find(FIND_STRUCTURES, {
-      filter: (x: any) => x.structureType === STRUCTURE_ROAD || x.structureType === STRUCTURE_CONTAINER,
-    }) as any)) {
-      const type = (s as any).structureType;
-      if (type === STRUCTURE_CONTROLLER || type === STRUCTURE_RAMPART) continue;
-      const set = planned[type];
-      if (set && !set.has(s.pos.x + s.pos.y * 50)) offPlan[type] = (offPlan[type] || 0) + 1;
-    }
-    const census = Object.keys(offPlan).map((k) => `${k}:${offPlan[k]}`).join(" ") || "none";
-    const paused = (room.memory as any).planMigratePaused ? " PAUSED" : "";
-    const danger = room.memory.danger ? " DANGER" : "";
-    const down = room.controller.ticksToDowngrade < 10000 ? " DOWNGRADE-RISK" : "";
-    lines.push(`${roomName} plan ${plan.h} rcl ${room.controller.level} off-plan: ${census}${paused}${danger}${down}`);
+    // types the plan does not manage at all (legacy factory/powerSpawn etc.)
+    const unmanaged = room
+      .find(FIND_MY_STRUCTURES, {
+        filter: (s: any) =>
+          s.structureType === STRUCTURE_FACTORY || s.structureType === STRUCTURE_POWER_SPAWN,
+      })
+      .map((s: any) => s.structureType);
+    const gate = migrationAllowed(room);
+    lines.push(
+      `${roomName} plan ${plan.h} rcl ${lvl} off-plan[engine-view]: ${parts.join(" ") || "none"}` +
+        (unmanaged.length ? ` unmanaged: ${unmanaged.join(",")}` : "") +
+        ` — ${gate === null ? "ACTIVE" : "BLOCKED: " + gate}`,
+    );
   }
   return lines.length ? lines.join("\n") : "no planV2 rooms visible";
 };
@@ -432,14 +487,29 @@ export function runPlanV2Adoption(): void {
     const prev = room.memory.planV2 as PackedPlan | undefined;
     if (prev && prev.h && data.planHash && prev.h !== data.planHash) {
       logAlways(`planV2: ${adopt.room} re-adopt — plan hash ${prev.h} -> ${data.planHash} (layout changed)`);
+      // the one-shot migration notes (hub deferral, solo spawn/tower) belong
+      // to the OLD layout; a new layout must be allowed to say them again
+      delete room.memory.planMigrateLog;
     }
     room.memory.planV2 = packed;
+    // arming: a young room (fresh colony) auto-arms so bootstrap squatters get
+    // cleared; an established room adopts placement-only and demolition waits
+    // for the operator's explicit migratePlan()
+    const armed = (room.memory as any).planMigration;
+    const young = room.controller.level < 4 || room.find(FIND_MY_STRUCTURES).length < 15;
+    if (!armed && young) {
+      (room.memory as any).planMigration = { mode: "auto", since: Game.time };
+    }
     delete Memory.planV2Adopt;
+    const armState = (room.memory as any).planMigration
+      ? `migration ${(room.memory as any).planMigration.mode}`
+      : `placement only — run migratePlan("${adopt.room}") to arm the gradual migration`;
     logAlways(
       `planV2: ${adopt.room} adopted (${data.planHash || "no-hash"}) — ` +
         Object.keys(t)
           .map((k) => `${k}:${t[k].length}`)
-          .join(" "),
+          .join(" ") +
+        ` — ${armState}`,
     );
   } catch (e: any) {
     logAlways(`planV2: segment parse failed: ${e.message}`);
@@ -1240,7 +1310,9 @@ const MIGRATE_EVERY = 60;
 /** how many off-plan structures one pass of a class may retire */
 const MIGRATE_PER_PASS: { [k: string]: number } = {
   [STRUCTURE_EXTENSION]: 3,
-  [STRUCTURE_CONTAINER]: 3,
+  // one container per pass: a pass that retired both source containers AND the
+  // controller container in a single tick stalled the whole mining economy
+  [STRUCTURE_CONTAINER]: 1,
   [STRUCTURE_ROAD]: 3,
   [STRUCTURE_TOWER]: 1,
 };
@@ -1261,6 +1333,56 @@ const HUB_MIGRATE_RCL = 6;
 
 function migrationEnergy(room: Room): number {
   return room.storage ? room.storage.store[RESOURCE_ENERGY] || 0 : 0;
+}
+
+/**
+ * THE single gate every DESTRUCTIVE migration action must pass — both
+ * runMigration's classes and the placement loop's reclaimTile. Returns null
+ * when clear, otherwise the human-readable block reason (surfaced by
+ * migrateStatus).
+ *
+ * Arming: adoption alone never enables demolition on an established room.
+ *  - mode "auto"    set at adoption when the room is young (fresh colonies,
+ *                   where clearing a bootstrap squatter is the point and there
+ *                   is nothing of value to lose)
+ *  - mode "gradual" set by console migratePlan(room) — the operator's explicit
+ *                   go for reshaping a built room
+ * Absent (or after migrateAbort): placement continues, demolition does not.
+ */
+let migrationGateTick = -1;
+const migrationGateCache: { [room: string]: string | null } = {};
+function migrationAllowed(room: Room): string | null {
+  if (migrationGateTick !== Game.time) {
+    migrationGateTick = Game.time;
+    for (const k of Object.keys(migrationGateCache)) delete migrationGateCache[k];
+  }
+  if (room.name in migrationGateCache) return migrationGateCache[room.name];
+  const arm = (room.memory as any).planMigration;
+  let why: string | null = null;
+  if (!arm || (arm.mode !== "gradual" && arm.mode !== "auto")) {
+    why = "not armed — migratePlan(room) to arm";
+  } else if ((room.memory as any).planMigratePaused) {
+    why = "paused";
+  } else if (arm.mode === "gradual" && room.controller && room.controller.level < 4) {
+    // a built room being reshaped must be able to hold its economy through the
+    // shuffle; colonies (mode auto) are exempt — they have nothing to hold
+    why = "RCL < 4";
+  } else if (room.memory.danger) {
+    why = "danger";
+  } else if (room.find(FIND_HOSTILE_CREEPS).length > 0) {
+    // danger can be cleared while hostiles idle out a safe mode; check directly
+    why = "hostiles present";
+  } else if (Game.cpu.bucket < 3000) {
+    why = "bucket < 3000";
+  } else if (room.controller) {
+    // downgrade risk, scaled to the level's own maximum — a flat 10k floor
+    // permanently blocked RCL2 (max 10k) and half-blocked RCL1/3 (max 20k)
+    const max = (CONTROLLER_DOWNGRADE as any)[room.controller.level] || 0;
+    const floor = Math.min(10000, Math.floor(max / 2));
+    if (room.controller.ticksToDowngrade < floor) why = "downgrade risk";
+  }
+  migrationGateCache[room.name] = why;
+  return why;
 }
 
 /**
@@ -1371,6 +1493,19 @@ function migrateClass(
 
   const ranked = rankOffPlan(room, type, planTile, plan, structures);
   if (!ranked.off.length) return;
+
+  // REBUILD-CONFIRMED batching (spec I3): a construction site is a promise,
+  // not a rebuild. While any site of this class is pending, the previous
+  // batch has not been paid back and no further batch may be destroyed —
+  // otherwise a starved builder economy lets capacity ratchet down 3 per
+  // minute with nothing coming back. Roads exempt: they are cheap, their
+  // sites linger by design, and stalling on them would freeze the class.
+  if (!isRoad) {
+    const pendingSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
+      filter: (site) => site.structureType === type,
+    }).length;
+    if (pendingSites > 0) return;
+  }
 
   const rich = migrationEnergy(room) > MIGRATE_ENERGY;
   let candidates = ranked.off;
@@ -1642,17 +1777,10 @@ function runMigration(
   structures: Structure[],
   have: { [type: string]: { [packed: number]: boolean } },
 ): void {
-  // NEVER while the room is being attacked. Every action here costs the room
-  // either energy capacity or a tower, and a room under siege needs both to
-  // spawn and man its defence. Migration is a tidy-up; it can wait.
-  if (room.memory.danger) return;
-  // nor while the controller is at downgrade risk — migration must never
-  // out-prioritize the upgrader economy that keeps the room's RCL
-  if (room.controller && room.controller.ticksToDowngrade < 10000) return;
-  // nor on an empty CPU bucket: a migrating room is a running room first
-  if (Game.cpu.bucket < 3000) return;
-  // console kill switch: migratePause("W1N1") parks the engine indefinitely
-  if ((room.memory as any).planMigratePaused) return;
+  // every reason NOT to demolish — arming, danger, hostiles, bucket,
+  // downgrade risk, pause — lives in migrationAllowed, shared with the
+  // placement loop's reclaimTile so no destruction path can bypass it
+  if (migrationAllowed(room) !== null) return;
   for (const cls of MIGRATE_CLASSES) migrateClass(room, plan, lvl, cls, structures, have);
   migrateSpawns(room, plan, lvl, structures);
   migrateHub(room, plan, lvl, structures);
@@ -1889,7 +2017,9 @@ export function placeFromPlanV2(room: Room): void {
         existing++;
         budget--;
       } else if (res === ERR_INVALID_TARGET) {
-        if (!SHARES_TILE[type]) reclaimTile(room, type, x, y, state);
+        // reclaim is a DESTRUCTION and passes the same gate as runMigration —
+        // it used to bypass danger/pause/arming entirely (gauntlet critical #2)
+        if (!SHARES_TILE[type] && migrationAllowed(room) === null) reclaimTile(room, type, x, y, state);
         // A reclaim only frees the tile at the end of THIS tick, so the site
         // has to wait for the next pass — and the next pass needs a free
         // slot for it. Stop here rather than letting the lower-priority

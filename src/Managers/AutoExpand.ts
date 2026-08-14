@@ -229,6 +229,14 @@ function pick(st: ExpandState): void {
 /** Write a pack payload into room.memory.planV2 and say so. */
 function adoptPacked(room: Room, payload: any, from: string): void {
   room.memory.planV2 = packPlanPayload(payload);
+  // fresh colonies auto-arm migration so bootstrap squatters get cleared;
+  // established rooms (a pack adopted late) stay placement-only until the
+  // operator runs migratePlan() — same rule as console adoption
+  const young =
+    (room.controller && room.controller.level < 4) || room.find(FIND_MY_STRUCTURES).length < 15;
+  if (!(room.memory as any).planMigration && young) {
+    (room.memory as any).planMigration = { mode: "auto", since: Game.time };
+  }
   const t = (room.memory.planV2 as any).t;
   delete (room.memory as any).planPackMiss;
   logAlways(

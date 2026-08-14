@@ -60,7 +60,7 @@ function loadConfig(dest) {
   if (!cfg) throw new Error(`no "${dest}" in screeps.json`);
   const port = cfg.port ? `:${cfg.port}` : "";
   const base = `${cfg.protocol || "http"}://${cfg.hostname}${port}${cfg.path || "/"}`.replace(/\/+$/, "");
-  return { base, token: cfg.token };
+  return { base, token: cfg.token, hostname: cfg.hostname, shard: cfg.shard };
 }
 
 function redis(argv) {
@@ -144,6 +144,14 @@ async function fetchRoomObjects(cfg, room) {
   try {
     return await fetchRoomObjectsRest(cfg, room);
   } catch (e) {
+    if (cfg.shard) {
+      // the ws fallback subscribes to unprefixed room channels and can never
+      // match a sharded server's room:<shard>/<room> frames — fail loud and
+      // honest instead of hanging 25s and blaming the tailnet
+      throw new Error(
+        `${room}: REST room-objects failed on sharded server (${e.message}) — retry; no websocket fallback exists for shards`,
+      );
+    }
     console.log(`${room}: REST room-objects unavailable (${e.message}) — falling back to websocket`);
     return await fetchRoomObjectsWs(cfg, room);
   }
@@ -1494,13 +1502,12 @@ async function main() {
   }
   const dest = args.includes("--dest") ? args[args.indexOf("--dest") + 1] : "pserver";
   const cfg = loadConfig(dest);
-  // screeps.com is sharded; local/VPS servers are not. --shard overrides,
-  // dest "main" defaults to this bot's shard.
+  // screeps.com is sharded; local/VPS servers are not. Priority: --shard flag,
+  // then a `shard` field on the screeps.json entry, then shard3 for any
+  // screeps.com host (keyed to the HOSTNAME, not the dest's name).
   cfg.shard = args.includes("--shard")
     ? args[args.indexOf("--shard") + 1]
-    : dest === "main"
-      ? "shard3"
-      : undefined;
+    : cfg.shard || (/(^|\.)screeps\.com$/.test(cfg.hostname || "") ? "shard3" : undefined);
   // --user mints/looks up a token in the LOCAL redis; --token is the remote
   // equivalent for a server this machine only has HTTP to (the VPS).
   if (args.includes("--user")) {

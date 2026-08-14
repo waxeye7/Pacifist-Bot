@@ -1,97 +1,67 @@
-# Gradual Plan Migration — Spec (v1)
+# Gradual Plan Migration — Spec (v2, matches implementation)
 
 Goal: walk a LIVING, built room from its legacy layout to an adopted planV2
-layout without ever compromising the room's ability to spawn, defend, or store —
-in contrast to the existing instant migration (runMigration), which demolishes
-every off-plan structure at adoption time and is only safe for freshly-claimed
-rooms.
+layout without ever compromising the room's ability to spawn, defend, or store.
 
-## Modes
+## Architecture
 
-- `room.memory.planMigration = { mode: "gradual", phase, since, batch }`
-  armed by console `migratePlan(roomName)`; requires `room.memory.planV2`
-  already present (adopted with demolition suppressed — see Gate below).
-- Absent memory → no migration activity at all (default; colonies keep the
-  existing instant path).
-- `migrateAbort(roomName)` deletes the state; nothing further is demolished.
-  Already-migrated structures stay. `migrateStatus()` prints all rooms' states.
+One engine: PlanV2's per-class migration (migrateClass + migrateSpawns +
+migrateHub) plus the placement loop's reclaimTile. EVERY destructive action —
+both paths — must pass the single gate `migrationAllowed(room)`.
 
-## Gate on the instant path
+## Arming (opt-in; adoption alone never demolishes an established room)
 
-Adoption via segment 88 / pack adoption keeps its current behavior EXCEPT when
-`room.memory.planMigration` exists with mode "gradual": then adoption writes
-planV2 but MUST NOT call the demolition step. The gradual engine owns all
-destruction from that point.
+- `room.memory.planMigration = {mode, since}`:
+  - `"auto"`   — set at adoption when the room is young (RCL < 4 or fewer than
+                 15 owned structures): fresh colonies, where clearing a
+                 bootstrap squatter is the point.
+  - `"gradual"`— set ONLY by console `migratePlan(room)`: the operator's
+                 explicit go for reshaping a built room.
+- Absent or after `migrateAbort(room)`: plan PLACEMENT continues, demolition
+  does not. `dropPlan(room)` clears the plan AND all migration state.
 
-## Safety invariants — checked EVERY tick the engine acts; any violation pauses
-the engine (phase "paused", reason logged) rather than proceeding:
+## The gate — migrationAllowed(room) returns a block reason or null
 
-I1. Spawn count: room keeps >= 1 functional (built) spawn at all times.
-    Spawn relocation is only permitted while a SECOND built spawn exists
-    (i.e. RCL >= 7 and both spawns up).
-I2. Tower count: >= 1 built tower at all times (if the room had any).
-I3. Energy capacity: extensionCount_current >= plannedBatchFloor, where the
-    engine only destroys up to BATCH_SIZE (default 5) extensions at once and
-    must see them REBUILT at planned positions before destroying the next
-    batch.
-I4. Storage/terminal: NEVER destroyed by the engine in v1. If the plan moves
-    them, the engine completes everything else and finishes with phase
-    "done-partial" listing the immovables. (Their migration is a future
-    explicit opt-in.)
-I5. Danger: room.memory.danger or hostiles present → engine pauses.
-I6. Bucket: Game.cpu.bucket < 3000 → engine idles that tick.
-I7. Controller downgrade: ticksToDowngrade < 10000 → pause (never let the
-    migration distract from upgrading).
+Blocks on: not armed · paused (`migratePause`) · mode gradual below RCL 4 ·
+`room.memory.danger` · hostiles present (direct find, covering the safe-mode
+window where danger is cleared) · bucket < 3000 · controller downgrade risk
+(floor = min(10000, half the level's own CONTROLLER_DOWNGRADE max, so RCL2's
+10k max cannot permanently wedge it).
 
-## Order of operations (phases)
+## Per-class protocol (unchanged core + I3)
 
-P0 sanity     — planV2 present, invariants pass, diff computed.
-P1 additive   — place planned structures whose tiles are FREE (roads,
-                containers, extensions, labs, links, towers up to caps).
-                No destruction. Uses existing placeFromPlanV2 placement.
-P2 blockers   — structures standing ON planned tiles of a DIFFERENT type:
-                destroy in dependency order (roads/containers first, then
-                extensions, then labs/links), one batch per class, rebuild
-                confirmed before next batch (I3).
-P3 extensions — off-plan extensions beyond what P2 handled, batches of
-                BATCH_SIZE, rebuild-confirmed between batches.
-P4 towers     — off-plan towers one at a time; replacement tower must be BUILT
-                before the next one is touched (I2).
-P5 spawns     — RCL >= 7 only: destroy ONE off-plan spawn while the other
-                lives; wait until the planned replacement is BUILT; repeat.
-                The LAST spawn is never destroyed unless a planned spawn is
-                already built elsewhere (I1).
-P6 cleanup    — leftover off-plan roads/containers/walls; off-plan ramparts
-                are NOT touched (decay handles them; defense reads the new
-                shellCut already).
-done / done-partial — state retained with a summary for migrateStatus().
+- extension: 3/pass, 60 ticks apart, storage > 20k. REBUILD-CONFIRMED: while
+  any extension construction site is pending, no further batch is destroyed.
+- container: 1/pass (never both source containers in one tick), same
+  rebuild-confirmation.
+- tower: 1/pass, N-1 always live, never the last, replacement placed first.
+- road: 3/pass, interior only (exterior = remote lines, never touched).
+- spawn: ABSOLUTE — the room's only spawn is never destroyed; relocation only
+  at RCL7+ with the planned replacement built and verified live for 60 ticks.
+- storage/terminal: never (caps make build-then-drain impossible); deferred
+  with a one-shot note. Their move is a manual, future step.
+- reclaimTile (squatter on a planned tile): same gate as everything else,
+  one per pass, container/extension/road only, never spawns.
 
-## Destruction rules
+## Console surface
 
-- Only `structure.my` structures in the migrating room.
-- Never: storage, terminal, controller, extractor (extractor only if plan
-  places it elsewhere — it cannot, minerals are fixed → never).
-- Nuker/observer/powerSpawn/factory: treated like labs (batch, rebuild first)
-  — v1 may simply defer them to done-partial if absent from plan tooling.
-- Every destruction logged loudly with tile + type; a rolling
-  `planMigration.log` (last 20 events) in memory for the console.
+migratePlan(room) · migrateAbort(room) · migratePause(room) /
+migrateResume(room) · migrateStatus() — census computed with the ENGINE'S own
+staged/RCL-capped tile view (exterior roads excluded, unmanaged legacy types
+reported separately), plus the live gate verdict per room.
 
-## Builder pressure
+## State hygiene
 
-The engine only creates work; construction sites are built by the existing
-builder/erector economy. The engine must cap concurrent sites it creates
-(MAX_SITES = 10) and must not fight ensureSpawnFirst or other placers: it
-never runs in rooms below RCL 4, and it defers to danger.
+dropPlan clears planMigration/planMigrate/planMigrateLog/planMigratePaused/
+planSpawnReady/planDrain. Re-adoption with a changed plan hash clears
+planMigrateLog so one-shot owner-action notes fire again for the new layout.
 
-## Testing gauntlet (acceptance)
+## Acceptance gauntlet
 
-- Static: adversarial review workflow — findings fixed until two consecutive
-  clean rounds.
-- Runtime (VPS W1N1, RCL7, 300ms ticks): adopt gradual plan, then observe:
-  (a) invariants never violated in polled snapshots,
-  (b) monotonic progress (diff size shrinks over time),
-  (c) spawn capability continuously available (spawn queue not starved by
-      capacity dips),
-  (d) abort mid-P3 leaves a functioning room,
-  (e) engine reaches done/done-partial.
-- Only after (a)-(e): push-main, arm E37N59 with preview + explicit start.
+- Static: adversarial review workflow — no confirmed critical/major findings.
+- Runtime (VPS W1N1, RCL7, fast ticks): arm gradual, observe (a) no invariant
+  violations in polled snapshots, (b) off-plan census monotonically shrinking,
+  (c) spawn capability continuously available, (d) migrateAbort mid-run leaves
+  a functioning room, (e) engine converges or reports deferred immovables.
+- Only after (a)-(e): push-main; E37N59 adoption is placement-only until the
+  operator (or an explicitly authorized session) runs migratePlan("E37N59").
