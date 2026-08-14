@@ -16,7 +16,20 @@ function key(x: number, y: number): string {
 export function getPerimeterTiles(room: Room): PerimeterTile[] {
   const plan = room.memory.basePlan;
   if (plan && plan.perimeter && plan.perimeter.length) {
-    return plan.perimeter as PerimeterTile[];
+    // ramp openings get a rampart too: own creeps walk through own ramparts, so
+    // an open ramp only ever helps an attacker. Including them here makes the
+    // erector build them and the tower shell upkeep maintain them.
+    const seen = new Set<string>();
+    const out: PerimeterTile[] = [];
+    const ramps = (plan.ramps || []) as PerimeterTile[];
+    for (const t of (plan.perimeter as PerimeterTile[]).concat(ramps)) {
+      const k = key(t.x, t.y);
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push({ x: t.x, y: t.y });
+      }
+    }
+    return out;
   }
   // Legacy: construction.rampartLocations as [x,y][]
   const legacy = room.memory.construction && room.memory.construction.rampartLocations;
