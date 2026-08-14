@@ -3706,7 +3706,12 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
         const loadedTicks = movePerCarry >= 1 ? 1 : 2;
         const headroom = roaded ? 1.15 : 1.35;
         const need = homeSourceHarvest(room, sourceId).energyPerTick * (L + L * loadedTicks + 6) * headroom;
-        const carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(need / 50)));
+        // RCL1–3: cap 4C/4M (400e). Budget otherwise buys [5C,5M] at 550
+        // and [8C,8M] at 800 — 500–800e HOL in front of the parked 4W.
+        // homeCarriersWanted splits the rest across more bodies (max 3).
+        const maxCarryEarly = (!roaded && room.controller && room.controller.level <= 3)
+            ? 4 : maxCarryByParts;
+        const carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryEarly, Math.ceil(need / 50)));
         const move = Math.max(1, Math.ceil(carry * movePerCarry));
         const body = [];
         for(let i = 0; i < carry; i++) body.push(CARRY);

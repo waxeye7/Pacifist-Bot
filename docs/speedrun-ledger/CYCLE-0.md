@@ -118,3 +118,5 @@ RCL3 does not pave. The roads-only builder is gone, and leftover builders recycl
 RCL3 builders finish the tower before the second-source container. Depot still first (unlocks the parked 4W); leftover containers were 5k in front of the 3k tower. Hypothesis: the first tower finishes during the climb, not after a second drop-mine buffer. A/B still pending.
 
 RCL3 repairer queues after miners/carriers/builders/upgraders, and only when a container or road is actually 1000 hits down. Container life is 5000 ticks; the 200e body used to HOL the depot builder and the parked 4W on every RCL3 pass. Hypothesis: the climb is not paying a 200e HOL to nurse a full-hits container. A/B still pending.
+
+RCL1–3 home carriers cap at `[4C,4M]` (400). `getCarrierBody` otherwise bought `[5C,5M]` at cap 550 and `[8C,8M]` at 800 — 500–800e HOL in front of the parked 4W. `homeCarriersWanted` splits the rest across more bodies (max 3/source). RCL4+ with storage unchanged. Hypothesis: haul still covers 10 e/t and the 4W is not sitting behind an 800e hauler. A/B still pending.
