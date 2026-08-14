@@ -233,7 +233,9 @@ function adoptPacked(room: Room, payload: any, from: string): void {
   // established rooms (a pack adopted late) stay placement-only until the
   // operator runs migratePlan() — same rule as console adoption
   const young =
-    (room.controller && room.controller.level < 4) || room.find(FIND_MY_STRUCTURES).length < 15;
+    room.controller != null &&
+    room.controller.level < 4 &&
+    room.find(FIND_MY_STRUCTURES).length < 15;
   if (!(room.memory as any).planMigration && young) {
     (room.memory as any).planMigration = { mode: "auto", since: Game.time };
   }
@@ -338,7 +340,19 @@ export function runPackAdoption(): void {
   if (!cur) {
     if (Game.time % ADOPT_SCAN_EVERY !== 0) return;
     for (const room of ownedRooms()) {
-      if (room.memory.planV2) continue;
+      if (room.memory.planV2) {
+        // self-heal colonies that adopted BEFORE the arming model existed:
+        // they hold a plan but no planMigration, so squatter-reclaim is dead
+        const armless = !(room.memory as any).planMigration;
+        const young =
+          room.controller != null &&
+          room.controller.level < 4 &&
+          room.find(FIND_MY_STRUCTURES).length < 15;
+        if (armless && young) {
+          (room.memory as any).planMigration = { mode: "auto", since: Game.time };
+        }
+        continue;
+      }
       const miss = (room.memory as any).planPackMiss;
       if (miss && Game.time - miss < ADOPT_MISS_BACKOFF) continue;
       cur = { room: room.name, since: Game.time };

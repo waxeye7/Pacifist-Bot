@@ -1492,7 +1492,21 @@ function census() {
 async function main() {
   const args = process.argv.slice(2);
   if (args.includes("--census")) return census();
-  const room = args.find((a) => !a.startsWith("--"));
+  // value-flag aware: `--dest mmo E37N59` must not read "mmo" as the room
+  const VALUE_FLAGS = new Set(["--dest", "--user", "--token", "--plan-file", "--shard"]);
+  let room;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith("--")) {
+      if (VALUE_FLAGS.has(args[i])) i++;
+      continue;
+    }
+    room = args[i];
+    break;
+  }
+  if (room && !/^[EW]\d+[NS]\d+$/.test(room)) {
+    console.error(`"${room}" is not a room name (expected e.g. E37N59) — check argument order`);
+    process.exit(1);
+  }
   if (!room) {
     console.error(
       "usage: node tools/server/push-plan.mjs <room> [--dest pserver] [--user <name>] " +
