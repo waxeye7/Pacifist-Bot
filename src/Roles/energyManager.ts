@@ -522,9 +522,13 @@ function takeBoostFromStorage(creep, storage, outputLab, boost, resource) {
         }
 
 
-        // `% 50 <= 50` is always true, so this block ran every tick. Intended
-        // cadence is once per 50 ticks — compounds still move, just not every tick.
-        if(Game.time % 50 == 0) {
+        // REGRESSION REPAIR: the old `% 50 <= 50` was always true, so the LIVE
+        // behavior was every tick - and this block is not just compound moves,
+        // it also contains the factory / nuker / power-spawn / ops delivery
+        // state machine further down. Throttling to 1-in-50 left the manager
+        // frozen mid-errand for 49 ticks and stalled factory and power
+        // processing. The gate was decorative; keep the always-run behavior.
+        {
 
 
         let listOfResourcesToTerminal1:any = [

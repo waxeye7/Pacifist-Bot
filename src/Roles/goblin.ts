@@ -159,9 +159,12 @@ const run = function (creep) {
         if(specialTarget) {
             if(creep.pos.isNearTo(specialTarget)) {
                 for(let resource in specialTarget.store) {
-                        creep.withdraw(specialTarget, resource);
-                        console.log(`[Withdraw From Special Target] - ${creep.name} withdrawing ${resource}.`);
-
+                        // One withdraw intent per tick - without the break the
+                        // LAST store key won, which was often not energy.
+                        if(creep.withdraw(specialTarget, resource) == OK) {
+                            console.log(`[Withdraw From Special Target] - ${creep.name} withdrawing ${resource}.`);
+                            break;
+                        }
                 }
             }
             else {

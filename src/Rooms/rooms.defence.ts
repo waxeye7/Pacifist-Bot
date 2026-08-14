@@ -47,10 +47,13 @@ function roomDefence(room) {
         room.memory.defence.towerShotsInRow = 0;
     }
 
-    // rooms.ts increments then resets danger_timer at >10000 before this runs,
-    // so >=11000 never fired. 9500 still means a long siege that has not
-    // already tripped the damaged-rampart arm.
-    if(room.memory.danger && (room.memory.danger_timer >= 9500 || room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
+    // No duration-only trigger. The >=11000 arm was dead (rooms.ts wraps the
+    // timer at >10000), and making it reachable meant a long-range CAMP that
+    // never damaged the shell burned a safemode every timer wrap. Real
+    // breaches are covered by the damaged-rampart arm below; a camp that
+    // breaks nothing gets no safemode - matching the battle-tested live
+    // behavior from before the dead arm was "fixed".
+    if(room.memory.danger && (room.memory.danger_timer >= 50 && Game.time % 5 === 0 && hasDamagedRamparts(room.name) && room.find(FIND_MY_SPAWNS).length)) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
         if(enemyCreepsInRoom.length >= 2) {
             for(let eCreep of enemyCreepsInRoom) {
@@ -81,7 +84,10 @@ function roomDefence(room) {
             for(let tower of towers) {
                 // findDamagedPerimeterRamparts already filtered hits < 2500000,
                 // so `||` made every tower repair regardless of range or energy.
-                if(rampartToRepair.hits < 2500000 && tower.pos.getRangeTo(rampartToRepair) <= 8 && tower.store[RESOURCE_ENERGY] >= 800) {
+                // No range clause: legacy perimeters sit 8-13 from storage, so
+                // range<=8 excluded the outer shell exactly during a disrupt.
+                // The 800 floor alone protects the defensive salvo reserve.
+                if(rampartToRepair.hits < 2500000 && tower.store[RESOURCE_ENERGY] >= 800) {
                     tower.repair(rampartToRepair);
                 }
             }
@@ -231,37 +237,38 @@ function roomDefence(room) {
                         else if(Game.time % 150 >= 0 && Game.time % 150 < 30) {
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
                                 if(closestHostile.ticksToLive > 50) {
+                                    // Return WITH the shot (one intent per tower, the
+                                    // %12 heal would overwrite it) - but ONLY with the
+                                    // shot: outside the fire window the tower is free
+                                    // to heal, so no bare return.
                                     tower.attack(closestHostile);
+                                    return;
                                 }
                             }
-                            // One intent per tower; the %12 heal below overwrites
-                            // the shot if we fall through.
-                            return;
                         }
                         else if(HostileCreeps.length > 1 && target && rampart && rampart.pos.getRangeTo(target) < 2 ){
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
                                 if(closestHostile.ticksToLive > 50) {
                                     tower.attack(closestHostile);
+                                    return;
                                 }
                             }
-
-                            return;
                         }
                         else if(HostileCreeps.length == 1){
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
                                 if(closestHostile.ticksToLive > 50) {
                                     tower.attack(closestHostile);
+                                    return;
                                 }
                             }
-                            return;
                         }
                         else {
                             if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
                                 if(closestHostile.ticksToLive > 50) {
                                     tower.attack(closestHostile);
+                                    return;
                                 }
                             }
-                            return;
                         }
                     }
                 }

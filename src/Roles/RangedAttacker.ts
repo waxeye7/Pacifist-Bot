@@ -141,7 +141,12 @@ const run = function (creep) {
         }
 
 
-        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && !creep.memory.sticky) {
+        // Releasing targetRoom feeds the %35 suicide rung below - right for
+        // offensive taskings, but a defender whose target room is OURS would
+        // recycle ~35 ticks after winning and leave the room uncovered while
+        // has_attacker stays latched. Hold the post in owned rooms.
+        if(enemyCreeps.length == 0 && Structures.length == 0 && creep.ticksToLive % 50 == 0 && !creep.memory.sticky
+            && !(Game.rooms[creep.memory.targetRoom] && Game.rooms[creep.memory.targetRoom].controller && Game.rooms[creep.memory.targetRoom].controller.my)) {
             creep.memory.targetRoom = false;
         }
     }
