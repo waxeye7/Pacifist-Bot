@@ -44,7 +44,10 @@ const run = function (creep) {
     if(creep.room.name == creep.memory.targetRoom) {
         if(creep.memory.full && creep.store.getUsedCapacity() > 0) {
             let storage:any = (creep.room.memory.Structures && Game.getObjectById(creep.room.memory.Structures.storage)) || creep.room.storage;
-            if(storage && storage.store.getFreeCapacity() > 100) {
+            // room.storage on a colonise target can be the ENEMY's leftover
+            // storage - transfer is ERR_NOT_OWNER forever and the sink
+            // fallback below is never reached.
+            if(storage && (storage.my || storage.structureType == STRUCTURE_CONTAINER) && storage.store.getFreeCapacity() > 100) {
                 if(creep.pos.isNearTo(storage)) {
                     if(creep.transfer(storage, RESOURCE_ENERGY) === 0) {
                         creep.memory.homeRoom = creep.memory.targetRoom;

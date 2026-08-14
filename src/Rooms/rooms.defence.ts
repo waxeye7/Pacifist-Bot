@@ -448,6 +448,21 @@ function roomDefence(room) {
             if(found_creep == false) {
                 room.memory.in_position = false;
             }
+            // Walker veto: the range-2 acceptance above can be satisfied by a
+            // parked defender while a SECOND RD/RRD is still crossing open
+            // ground from the spawn - and the volley it authorizes gets that
+            // walker shot at. Hold fire until every live defender stands on a
+            // rampart.
+            if(room.memory.in_position) {
+                let allDefenders = myCreeps.filter(function(c) {return c.memory.role == "RampartDefender" || c.memory.role == "RRD";});
+                for(let d of allDefenders) {
+                    let onRampart = d.pos.lookFor(LOOK_STRUCTURES).some(function(s:any) {return s.structureType == STRUCTURE_RAMPART;});
+                    if(!onRampart) {
+                        room.memory.in_position = false;
+                        break;
+                    }
+                }
+            }
         }
         else {
             room.memory.danger = false;
