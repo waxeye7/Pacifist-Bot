@@ -25958,7 +25958,7 @@ export function checkRoom(plan, terrain, objects, fleet = null) {
   // ROUND 27 / MF5 + MF6 — the two class inventories. Every *Basis/*Why
   // string is registered and the eleven unread fields are re-rendered; every
   // identifier leaf name in meta is in the closed snapshot.
-  for (const msg27 of checkR27(plan, { terrain, extShip: ext })) {
+  for (const msg27 of checkR27(plan, { terrain, extShip: ext, objects })) {
     fails.push(msg27);
   }
 

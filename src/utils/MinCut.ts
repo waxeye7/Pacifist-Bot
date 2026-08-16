@@ -112,9 +112,11 @@ class FlowGraph {
     if (t >= this.v) return false;
     this.level.fill(-1);
     this.level[s] = 0;
+    // head-index queue: q.shift() is O(n) per pop on a 5002-node graph.
     const q: number[] = [s];
-    while (q.length) {
-      const u = q.shift()!;
+    let head = 0;
+    while (head < q.length) {
+      const u = q[head++];
       for (const edge of this.edges[u]) {
         if (this.level[edge.v] < 0 && edge.f < edge.c) {
           this.level[edge.v] = this.level[u] + 1;
@@ -125,19 +127,46 @@ class FlowGraph {
     return this.level[t] >= 0;
   }
 
+  /**
+   * Iterative blocking-flow DFS. Was recursive: an augmenting path can be
+   * ~1700+ nodes long on a 1-wide corridor room, which blows the Screeps
+   * isolate stack. The explicit stack keeps the recursion's exact edge order
+   * (c[] is still the per-node "next edge to try" cursor, shared across the
+   * whole phase), so the augmenting path picked — and the final cut — are
+   * unchanged. Levels strictly increase along a path, so no node can appear
+   * twice on the stack and one cursor per node stays sound.
+   */
   dfsFlow(u: number, f: number, t: number, c: number[]): number {
     if (u === t) return f;
-    while (c[u] < this.edges[u].length) {
-      const edge = this.edges[u][c[u]];
-      if (this.level[edge.v] === this.level[u] + 1 && edge.f < edge.c) {
-        const flowToT = this.dfsFlow(edge.v, Math.min(f, edge.c - edge.f), t, c);
-        if (flowToT > 0) {
+    const path: number[] = [u];
+    const caps: number[] = [f];
+    while (path.length) {
+      const top = path.length - 1;
+      const node = path[top];
+      if (node === t) {
+        // Unwind deepest-first, exactly as the recursive returns did.
+        const flowToT = caps[top];
+        for (let i = top - 1; i >= 0; i--) {
+          const edge = this.edges[path[i]][c[path[i]]];
           edge.f += flowToT;
           this.edges[edge.v][edge.r].f -= flowToT;
-          return flowToT;
         }
+        return flowToT;
       }
-      c[u]++;
+      if (c[node] < this.edges[node].length) {
+        const edge = this.edges[node][c[node]];
+        if (this.level[edge.v] === this.level[node] + 1 && edge.f < edge.c) {
+          path.push(edge.v);
+          caps.push(Math.min(caps[top], edge.c - edge.f));
+        } else {
+          c[node]++;
+        }
+      } else {
+        // Dead end: this node returned 0, so the caller advances its cursor.
+        path.pop();
+        caps.pop();
+        if (path.length) c[path[path.length - 1]]++;
+      }
     }
     return 0;
   }
@@ -146,9 +175,11 @@ class FlowGraph {
     const eInCut: Edge[] = [];
     this.level.fill(-1);
     this.level[s] = 1;
+    // head-index queue, same visiting order as the old q.shift().
     const q: number[] = [s];
-    while (q.length) {
-      const u = q.shift()!;
+    let head = 0;
+    while (head < q.length) {
+      const u = q[head++];
       for (const edge of this.edges[u]) {
         if (edge.f < edge.c) {
           if (this.level[edge.v] < 1) {
@@ -264,6 +295,12 @@ export function getCutTiles(
     const y = Math.floor(u / 50);
     const key = `${x},${y}`;
     if (seen.has(key)) continue;
+    // SILENT HOLE. A cut vertex outside the 2..47 band is DROPPED, not
+    // rejected: the caller gets a shorter list and no way to tell that the
+    // ring it just received is not closed. Kept as-is deliberately (the
+    // alternative is planning ramparts on tiles the engine will not accept),
+    // but callers must treat the result as best-effort — BasePlan logs both
+    // the empty and the thrown case via noteMinCutFailure.
     if (x < 2 || x > 47 || y < 2 || y > 47) continue;
     seen.add(key);
     positions.push({ x, y });

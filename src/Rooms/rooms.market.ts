@@ -1,4 +1,240 @@
 import { roomTickOffset } from "./rooms.remotes";
+import { logVerbose } from "utils/Logger";
+import { book, energyValue, fair, getOrdersCached, invalidateOrderCache } from "Market/pricing";
+import {
+    KEEP_FOR_REACTIONS,
+    canSpend,
+    ceilingFor,
+    dealGuarded,
+    empireStock,
+    mktMem,
+    note,
+    noteSold,
+    sellCapOf,
+    soldOf
+} from "Market/budget";
+
+// weightedHistoryAvg lives in Market/pricing now; re-exported here so the
+// existing importer (Random_Stuff/urgent_buy) keeps resolving.
+export { weightedHistoryAvg } from "Market/pricing";
+
+// ---------------------------------------------------------------------------
+// market v1 policy constants. Everything the module is allowed to pay or
+// accept is one of these; nothing is hardcoded further down.
+// ---------------------------------------------------------------------------
+
+/** Max units bought in one deal from the shopping list. */
+const BUY_LOT = 1000;
+/**
+ * Skip a buy whose transaction fee, valued in credits (fee energy x energy
+ * price), eats more than this share of the deal's credit value. Valued in
+ * credits rather than "energy per unit" on purpose: X at ~170c from 25 rooms
+ * out costs ~0.57 energy/unit (~9% of its price - fine), while Z at 12c from
+ * the same distance would be ~130% (correctly refused). A flat energy-per-unit
+ * cap could not tell those apart, and the live X book has no seller within 5
+ * rooms of E37N59.
+ */
+const BUY_FEE_SHARE = 0.15;
+/** Orders within this much of the best price are ranked by distance instead. */
+const BUY_PRICE_BAND = 1.02;
+
+/** bid >= SPIKE_MULT * fair() is a spike worth dumping into. */
+const SPIKE_MULT = 1.5;
+/** Max units sold into a spike in one deal. */
+const SPIKE_LOT = 5000;
+/**
+ * Skip a sell whose fee, valued in credits, eats more than this of the gross.
+ * Measured against the live H book on 2026-08-16: the best bid (223 @ E56N48,
+ * 19 rooms out) costs 5.7% and the deep 330k bid at E51S33 costs 13.1%, so
+ * anything tighter than ~0.15 refuses every bid on the board and the spike
+ * sell never fires. Buys use the much tighter BUY_FEE_SHARE instead - there we
+ * are not sitting on a 4x windfall and can simply wait.
+ */
+const SELL_FEE_SHARE = 0.15;
+
+/** Terminal units of the room mineral needed before a standing sell order. */
+const STANDING_SELL_MIN = 5000;
+/** Size of the standing sell order. */
+const STANDING_SELL_AMOUNT = 5000;
+/** Screeps charges this fraction of price*amount to list or to raise a price. */
+const ORDER_FEE = 0.05;
+
+/**
+ * Bootstrap energy buying only. Deliberately unreachable on shard3, where
+ * energy asks sit near 27c: we do not convert credits into RCL energy at all
+ * (762k credits is ~28k energy - irrelevant next to what the rooms mine).
+ */
+const ENERGY_BOOTSTRAP_PRICE = 3;
+const ENERGY_BOOTSTRAP_BELOW = 300;
+
+/** Hard per-unit cap for the low-value order crawler. */
+const CRAWLER_MAX_PRICE = 3;
+
+/**
+ * Deposit / factory commodity sell floors, unchanged from the hardcoded ladder
+ * this table replaced. Walked on t % 100 only - these never trade in volume.
+ */
+const COMMODITY_FLOORS: {res:ResourceConstant, floor:number}[] = [
+    {res: RESOURCE_CONDENSATE,  floor: 999},
+    {res: RESOURCE_CONCENTRATE, floor: 9999},
+    {res: RESOURCE_EXTRACT,     floor: 80000},
+    {res: RESOURCE_SPIRIT,      floor: 199999},
+    {res: RESOURCE_EMANATION,   floor: 800000},
+    {res: RESOURCE_ESSENCE,     floor: 2000000},
+    {res: RESOURCE_WIRE,        floor: 999},
+    {res: RESOURCE_SWITCH,      floor: 9999},
+    {res: RESOURCE_TRANSISTOR,  floor: 80000},
+    {res: RESOURCE_MICROCHIP,   floor: 199999},
+    {res: RESOURCE_CIRCUIT,     floor: 800000},
+    {res: RESOURCE_DEVICE,      floor: 2000000},
+    {res: RESOURCE_CELL,        floor: 999},
+    {res: RESOURCE_PHLEGM,      floor: 9999},
+    {res: RESOURCE_TISSUE,      floor: 80000},
+    {res: RESOURCE_MUSCLE,      floor: 199999},
+    {res: RESOURCE_ORGANOID,    floor: 800000},
+    {res: RESOURCE_ORGANISM,    floor: 2000000},
+    {res: RESOURCE_ALLOY,       floor: 999},
+    {res: RESOURCE_TUBE,        floor: 9999},
+    {res: RESOURCE_FIXTURES,    floor: 80000},
+    {res: RESOURCE_FRAME,       floor: 199999},
+    {res: RESOURCE_HYDRAULICS,  floor: 800000},
+    {res: RESOURCE_MACHINE,     floor: 2000000}
+];
+
+/** Inter-shard orders have no roomName - deal()/calcTransactionCost() cannot use them. */
+function dealable(order:any):boolean {
+    return !!order && !!order.roomName && order.amount > 0;
+}
+
+/** Price of the standing sell order: max(bid + 0.5, 0.9 * fair). */
+function standingSellPrice(res:ResourceConstant):number {
+    const avg = fair(res);
+    const b = book(res);
+    let price = 0;
+    if(b.bid > 0) price = b.bid + 0.5;
+    if(avg > 0) price = Math.max(price, avg * 0.9);
+    return price;
+}
+
+/**
+ * One buy per room per pass off Memory.mkt.want.
+ *
+ * Refuses to chase: the ceiling is 1.2x the weighted history average (or an
+ * explicit override), which is exactly what makes X at 307 a no-trade while
+ * fair sits at 169. Fee-capped, budget-capped, and among the orders within 2%
+ * of the best price it takes the NEAREST one rather than the cheapest, because
+ * the fee is paid in energy and energy is the scarce thing here.
+ */
+function shopWantList(room:any):boolean {
+    const term = room.terminal;
+    const termEnergy = term.store[RESOURCE_ENERGY] || 0;
+    const eValueBuy = energyValue();
+    const termFree = term.store.getFreeCapacity();
+    if(termFree < 1000) return false;
+
+    const m = mktMem();
+    for(const res in m.want) {
+        const target = m.want[res];
+        if(!(target > 0)) continue;
+        const resource = res as ResourceConstant;
+        const have = empireStock(resource);
+        if(have >= target) continue;
+
+        const avg = fair(resource);
+        const cap = ceilingFor(resource, avg);
+        if(!(cap > 0)) continue;
+
+        const want = Math.min(BUY_LOT, target - have, termFree);
+        if(want < 100) continue;
+
+        const orders = getOrdersCached(ORDER_SELL, resource);
+        let candidates:any[] = [];
+        let best = 0;
+        for(const o of orders) {
+            if(!dealable(o) || o.price > cap) continue;
+            const amount = Math.min(want, o.amount);
+            const feeEnergy = Game.market.calcTransactionCost(amount, room.name, o.roomName);
+            if(feeEnergy > termEnergy) continue;
+            if(feeEnergy * eValueBuy > BUY_FEE_SHARE * amount * o.price) continue;
+            if(!canSpend(amount * o.price)) continue;
+            if(best == 0 || o.price < best) best = o.price;
+            candidates.push({order: o, amount: amount, feeEnergy: feeEnergy});
+        }
+        if(!candidates.length) {
+            logVerbose(`mkt buy ${room.name}: no ${res} at or below ${cap.toFixed(1)} (fair ${avg.toFixed(1)}, ask ${book(resource).ask})`);
+            continue;
+        }
+
+        candidates = candidates.filter(c => c.order.price <= best * BUY_PRICE_BAND);
+        candidates.sort((a, b) =>
+            Game.map.getRoomLinearDistance(room.name, a.order.roomName) -
+            Game.map.getRoomLinearDistance(room.name, b.order.roomName));
+
+        const pick = candidates[0];
+        const cost = pick.amount * pick.order.price;
+        const result = dealGuarded(pick.order.id, pick.amount, room.name);
+        if(result == OK) {
+            invalidateOrderCache();
+            note(cost);
+            logVerbose(`mkt buy ${room.name}: ${pick.amount} ${res} @ ${pick.order.price} = ${Math.round(cost)}c (cap ${cap.toFixed(1)}, fee ${pick.feeEnergy}e, stock ${have}/${target})`);
+            return true;
+        }
+        logVerbose(`mkt buy ${room.name}: ${res} deal failed (${result})`);
+    }
+    return false;
+}
+
+/**
+ * Dump into a price spike. Only fires while the best bid is >= 1.5x the
+ * weighted history average, never sells below that same 1.5x floor, stops at
+ * Memory.mkt.sellCaps[res] total and always leaves KEEP_FOR_REACTIONS behind.
+ */
+function spikeSell(room:any, res:ResourceConstant):boolean {
+    const term = room.terminal;
+    const avg = fair(res);
+    if(!(avg > 0)) return false;
+    const b = book(res);
+    const floor = avg * SPIKE_MULT;
+    if(!(b.bid >= floor)) return false;
+
+    const cap = sellCapOf(res);
+    const already = soldOf(res);
+    if(already >= cap) return false;
+
+    const spare = empireStock(res) - KEEP_FOR_REACTIONS;
+    const inTerminal = term.store[res] || 0;
+    const want = Math.min(SPIKE_LOT, inTerminal, spare, cap - already);
+    if(want < 100) return false;
+
+    const termEnergy = term.store[RESOURCE_ENERGY] || 0;
+    const eValue = energyValue();
+    const orders = getOrdersCached(ORDER_BUY, res);
+    let candidates:any[] = [];
+    for(const o of orders) {
+        if(!dealable(o) || o.price < floor) continue;
+        const amount = Math.min(want, o.amount);
+        const feeEnergy = Game.market.calcTransactionCost(amount, room.name, o.roomName);
+        if(feeEnergy > termEnergy) continue;
+        // Fee is energy, revenue is credits - compare them in credits.
+        if(feeEnergy * eValue > SELL_FEE_SHARE * amount * o.price) continue;
+        candidates.push({order: o, amount: amount, feeEnergy: feeEnergy, net: amount * o.price - feeEnergy * eValue});
+    }
+    if(!candidates.length) return false;
+    // Rank on NET proceeds, not headline price: two bids 0.01c apart can be 19
+    // and 67 rooms away, which is a 2000+ energy difference on a 5000 lot.
+    candidates.sort((a, b2) => b2.net - a.net);
+
+    const pick = candidates[0];
+    const result = dealGuarded(pick.order.id, pick.amount, room.name);
+    if(result == OK) {
+        invalidateOrderCache();
+        noteSold(res, pick.amount);
+        logVerbose(`mkt spike-sell ${room.name}: ${pick.amount} ${res} @ ${pick.order.price} = ${Math.round(pick.amount * pick.order.price)}c net ${Math.round(pick.net)}c (fair ${avg.toFixed(1)}, floor ${floor.toFixed(1)}, sold ${soldOf(res)}/${cap}, fee ${pick.feeEnergy}e)`);
+        return true;
+    }
+    logVerbose(`mkt spike-sell ${room.name}: ${res} deal failed (${result})`);
+    return false;
+}
 
 function market(room):any {
     // EVERY cadence in this function runs on the room's staggered clock `t`,
@@ -15,44 +251,25 @@ function market(room):any {
 
 
 
-        let resourceToSell = Mineral.mineralType;
-        // if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_HYDROGEN] >= 20000) {
-        //     resourceToSell = RESOURCE_HYDROGEN;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_OXYGEN] >= 20000) {
-        //     resourceToSell = RESOURCE_OXYGEN;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_UTRIUM] >= 20000) {
-        //     resourceToSell = RESOURCE_UTRIUM;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_KEANIUM] >= 20000) {
-        //     resourceToSell = RESOURCE_KEANIUM;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_LEMERGIUM] >= 20000) {
-        //     resourceToSell = RESOURCE_LEMERGIUM;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_ZYNTHIUM] >= 20000) {
-        //     resourceToSell = RESOURCE_ZYNTHIUM;
-        // }
-        // else if(room.terminal.store[RESOURCE_ENERGY] >= 1500 && room.terminal.store[RESOURCE_CATALYST] >= 20000) {
-        //     resourceToSell = RESOURCE_CATALYST;
-        // }
-        // else {
-        //     resourceToSell = false;
-        // }
+        let resourceToSell:ResourceConstant = Mineral.mineralType;
 
+        // Panic dump: the terminal is nearly full of one mineral and blocking
+        // every other market path. Sell it, but AT THE BOOK - the old loop
+        // walked every bid in descending order and would happily have crossed
+        // into a 0.001c order once the top ones were gone.
         if(room.terminal.store.getUsedCapacity() > 280000 && room.terminal.store[resourceToSell] > 100000) {
-            let orders = Game.market.getAllOrders(order => order.resourceType == resourceToSell &&
-                order.type == ORDER_BUY);
-
-            console.log(resourceToSell, "buy orders found:", orders.length);
+            const dumpBook = book(resourceToSell);
+            const dumpFloor = dumpBook.bid * 0.95;
+            let orders = getOrdersCached(ORDER_BUY, resourceToSell).slice();
             orders.sort(function(a,b){return b.price - a.price;});
             for(let order of orders) {
-                if(!order.amount) continue;
+                if(!dealable(order) || order.price < dumpFloor) continue;
                 let orderQuantity = Math.min(500, order.amount);
-                let result = Game.market.deal(order.id, orderQuantity, room.name);
+                if(Game.market.calcTransactionCost(orderQuantity, room.name, order.roomName) > room.terminal.store[RESOURCE_ENERGY]) continue;
+                let result = dealGuarded(order.id, orderQuantity, room.name);
                 if(result == 0) {
-                    console.log("Successful sell on", resourceToSell, "at the price of", order.price, "and quantity of", orderQuantity);
+                    invalidateOrderCache();
+                    logVerbose(`mkt panic-dump ${room.name}: ${orderQuantity} ${resourceToSell} @ ${order.price} (bid ${dumpBook.bid})`);
                     return;
                 }
             }
@@ -68,106 +285,89 @@ function market(room):any {
             room.memory.market.sellOrders.roomMineral = {};
         }
 
-        if(room.terminal.store[resourceToSell] >= 30000) {
-            if(room.memory.market.sellOrders.roomMineral.ID && Game.market.orders[room.memory.market.sellOrders.roomMineral.ID]) {
-                let order = Game.market.orders[room.memory.market.sellOrders.roomMineral.ID];
-                if(order.remainingAmount <= 1000)  {
-                    Game.market.extendOrder(room.memory.market.sellOrders.roomMineral.ID, 4000)
-                }
-                else if(t % 400 == 0) {
-                    let recPrice = CalcPriceForOrder(resourceToSell, room.terminal.store[resourceToSell])
-                    function inRange(x, min, max) {
-                        return ((x-min)*(x-max) <= 0);
-                    }
-                    if(!inRange(order.price, recPrice-2, recPrice+2)) {
-                        if(recPrice > 500)
-                            recPrice = 500;
-                        Game.market.changeOrderPrice(order.id, recPrice);
-                    }
-                }
-            }
-            else {
-                let foundOrder = false;
-
-                let Orders = Game.market.orders;
-
-                // for(let orderID in Orders) {
-                //     let myOrder = Game.market.orders[orderID];
-                //     if(myOrder.price == 99) {
-                //         Game.market.cancelOrder(orderID)
-                //     }
-                // }
-
-                for(let orderID in Orders) {
-                    let myOrder = Game.market.orders[orderID];
-                    if(myOrder.resourceType == resourceToSell && myOrder.type == ORDER_SELL && myOrder.roomName == room.name) {
-                        foundOrder = true;
-                        room.memory.market.sellOrders.roomMineral.ID = orderID;
-                        break;
-                    }
-                }
-
-
-                if(!foundOrder) {
-
-                    let recPrice = CalcPriceForOrder(resourceToSell, room.terminal.store[resourceToSell])
-
-                    Game.market.createOrder({
-                        type: ORDER_SELL,
-                        resourceType: resourceToSell,
-                        price: recPrice,
-                        totalAmount: 5000,
-                        roomName: room.name
-                    });
-                }
-
-            }
+        // (a) SPIKE SELL. Hits live bids, pays no listing fee, and is the only
+        // path that should be moving the room mineral while H trades at ~4x
+        // its own 14d average. One deal per pass - dealGuarded() puts the
+        // terminal on TERMINAL_COOLDOWN, so a second deal this tick is ERR_TIRED.
+        if(spikeSell(room, resourceToSell)) {
+            return;
         }
 
-        function CalcPriceForOrder(resourceToSell, resourceStored) {
-            let resourceData = Game.market.getHistory(resourceToSell);
-            let myTotalAverage = 0;
-            let myTotalStDevAverage = 0;
-            let weightNumber = 1;
-            if(resourceData && resourceData.length > 0) {
-                for(let day of resourceData) {
-
-                    myTotalAverage += day.avgPrice * weightNumber;
-                    myTotalStDevAverage += day.stddevPrice * weightNumber;
-                    weightNumber ++;
-                }
-                let Average = myTotalAverage / 105;
-                let AverageStDev = myTotalStDevAverage / 105;
-                console.log(Average, "averageprice", AverageStDev, "average St Dev")
-
-                if(resourceStored >= 100000) {
-                    if(Average > 6) {
-                        return Average - 6
+        // (b) STANDING SELL ORDER, when there is no spike to hit.
+        //
+        // Priced at max(bid + 0.5, 0.9 * fair) instead of the old
+        // "average - 6" ladder, which listed H at ~42 while the bid was 201.
+        //
+        // Two guards the old code did not have:
+        //  - createOrder / changeOrderPrice(up) cost 5% of price*amount in
+        //    CREDITS. Repricing 5000 H from 42 to 201 is ~40k credits, so the
+        //    fee goes through the same budget as a purchase.
+        //  - never list during a spike: the deal() path above is already
+        //    selling into it for free, and a 5000-unit listing at spike price
+        //    burns ~50k credits for an order that goes stale when it collapses.
+        const standingAvg = fair(resourceToSell);
+        const standingBook = book(resourceToSell);
+        const spiking = standingAvg > 0 && standingBook.bid >= standingAvg * SPIKE_MULT;
+        if(!spiking && room.terminal.store[resourceToSell] >= STANDING_SELL_MIN &&
+           empireStock(resourceToSell) > KEEP_FOR_REACTIONS + STANDING_SELL_AMOUNT) {
+            const recPrice = standingSellPrice(resourceToSell);
+            if(recPrice > 0) {
+                if(room.memory.market.sellOrders.roomMineral.ID && Game.market.orders[room.memory.market.sellOrders.roomMineral.ID]) {
+                    let order = Game.market.orders[room.memory.market.sellOrders.roomMineral.ID];
+                    if(order.remainingAmount <= 1000) {
+                        // extendOrder is charged the same 5% of price*addAmount.
+                        const extendFee = order.price * 4000 * ORDER_FEE;
+                        if(canSpend(extendFee) && Game.market.extendOrder(order.id, 4000) == OK) {
+                            note(extendFee);
+                            logVerbose(`mkt sell-order ${room.name}: extended ${resourceToSell} by 4000 (fee ${Math.round(extendFee)}c)`);
+                        }
                     }
-                    return Average
-                }
-                else if(resourceStored >= 80000) {
-                    if(Average > 4) {
-                        return Average - 4
+                    else if(t % 400 == 0 && Math.abs(order.price - recPrice) > 2) {
+                        // Only a price INCREASE is charged, and only on the increase.
+                        const feeCredits = recPrice > order.price ? (recPrice - order.price) * order.remainingAmount * ORDER_FEE : 0;
+                        if(feeCredits == 0 || canSpend(feeCredits)) {
+                            if(Game.market.changeOrderPrice(order.id, recPrice) == OK) {
+                                if(feeCredits > 0) note(feeCredits);
+                                logVerbose(`mkt sell-order ${room.name}: repriced ${resourceToSell} ${order.price} -> ${recPrice.toFixed(2)} (fee ${Math.round(feeCredits)}c)`);
+                            }
+                        }
+                        else {
+                            logVerbose(`mkt sell-order ${room.name}: reprice ${resourceToSell} to ${recPrice.toFixed(2)} skipped, ${Math.round(feeCredits)}c fee over budget`);
+                        }
                     }
-                    return Average
-                }
-                else if(resourceStored >= 60000) {
-                    if(Average > 2) {
-                        return Average - 2
-                    }
-                    return Average
                 }
                 else {
-                    return Average + AverageStDev;
+                    let foundOrder = false;
+                    let Orders = Game.market.orders;
+                    for(let orderID in Orders) {
+                        let myOrder = Game.market.orders[orderID];
+                        if(myOrder.resourceType == resourceToSell && myOrder.type == ORDER_SELL && myOrder.roomName == room.name) {
+                            foundOrder = true;
+                            room.memory.market.sellOrders.roomMineral.ID = orderID;
+                            break;
+                        }
+                    }
+
+                    if(!foundOrder) {
+                        const feeCredits = recPrice * STANDING_SELL_AMOUNT * ORDER_FEE;
+                        if(canSpend(feeCredits)) {
+                            if(Game.market.createOrder({
+                                type: ORDER_SELL,
+                                resourceType: resourceToSell,
+                                price: recPrice,
+                                totalAmount: STANDING_SELL_AMOUNT,
+                                roomName: room.name
+                            }) == OK) {
+                                note(feeCredits);
+                                logVerbose(`mkt sell-order ${room.name}: listed ${STANDING_SELL_AMOUNT} ${resourceToSell} @ ${recPrice.toFixed(2)} (fee ${Math.round(feeCredits)}c)`);
+                            }
+                        }
+                        else {
+                            logVerbose(`mkt sell-order ${room.name}: listing ${resourceToSell} @ ${recPrice.toFixed(2)} skipped, ${Math.round(feeCredits)}c fee over budget`);
+                        }
+                    }
                 }
             }
-            else {
-                return 0.009;
-            }
-
-
-
         }
 
 //------------------------------------------------------------------------------------------------------------------------------------------------
@@ -239,80 +439,15 @@ function market(room):any {
 
 
 
-            // for(let resource of BaseResources) {
-            //     if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-            //         let result = buy_resource(resource, 5);
-            //         if(result == 0) {
-            //             return;
-            //         }
-            //     }
-            // }
-
-            if(Game.market.credits > 1000000 && Game.shard.name == "shard3" || Game.shard.name !== "shard3" && Game.market.credits >= 10000) {
-                if(room.terminal.store.getFreeCapacity() > 1000) {
-                    for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 8000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 2);
-                            if(result == 0) {
-                                return;
-                            }
-                        }
-                    }
-
-
-                    for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 7000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 50);
-                            if(result == 0) {
-                                return;
-                            }
-                        }
-                    }
-
-
-                    for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 6000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 100);
-                            if(result == 0) {
-                                return;
-                            }
-                        }
-                    }
-
-                    for(let resource of BaseResources) {
-                        if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-                            let result = buy_resource(resource, 500);
-                            if(result == 0) {
-                                return;
-                            }
-                        }
-                    }
-
-                    if(Game.market.credits > 100000000) {
-                        // check if terminal + storage have less than 5000 power
-                        // if so, buy 5000 power
-                        if(room.terminal.store[RESOURCE_POWER] + room.storage.store[RESOURCE_POWER] < 5000) {
-                            let result = buy_resource(RESOURCE_POWER, 5000, 5000);
-                            if(result == 0) {
-                                return;
-                            }
-                        }
-                    }
-                }
+            // The `credits > 1M` rungs that used to live here bought ANY base
+            // mineral the terminal was short of, at up to 500c/unit, on a
+            // 10-tick clock - 1000 X at 307 every pass would have been ~300k
+            // credits a minute. Replaced by the explicit shopping list: only
+            // what the T3 chains actually need, only below 1.2x fair, one deal
+            // per room per pass, under a rolling credit budget.
+            if(shopWantList(room)) {
+                return;
             }
-
-
-
-
-            // for(let resource of BaseResources) {
-            //     if(room.terminal.store[resource] < 1000 && resource != Mineral.mineralType || room.terminal.store[resource] < 800 && resource == Mineral.mineralType) {
-            //         let result = buy_resource(resource, 60);
-            //         if(result == 0) {
-            //             return;
-            //         }
-            //     }
-            // }
-
 
             let SellResources = [RESOURCE_MIST, RESOURCE_GHODIUM_MELT, RESOURCE_COMPOSITE, RESOURCE_CRYSTAL, RESOURCE_LIQUID,
             RESOURCE_OXIDANT, RESOURCE_REDUCTANT, RESOURCE_ZYNTHIUM_BAR, RESOURCE_LEMERGIUM_BAR, RESOURCE_UTRIUM_BAR, RESOURCE_KEANIUM_BAR, RESOURCE_PURIFIER,
@@ -333,6 +468,25 @@ function market(room):any {
                     const xkh = ((st && st.store[RESOURCE_CATALYZED_KEANIUM_ACID]) || 0) + (term.store[RESOURCE_CATALYZED_KEANIUM_ACID] || 0);
                     const ka = ((st && st.store[RESOURCE_KEANIUM_ACID]) || 0) + (term.store[RESOURCE_KEANIUM_ACID] || 0);
                     if (xkh < 10000 && ka < 3000) continue;
+                }
+                if(resource === RESOURCE_GHODIUM_HYDRIDE || resource === RESOURCE_GHODIUM_ACID) {
+                    // Same shape as the KA guard above: keep a reserve of the
+                    // ghodium intermediates instead of dumping every gram at >=2c,
+                    // and only sell the surplus on top of it.
+                    //
+                    // NB (checked against rooms.labs.ts ~694-715): the XGHO2 chain
+                    // the labs actually run is G+O -> GO -> +OH -> GHO2 -> +X -> XGHO2,
+                    // so its feedstock is GHODIUM_OXIDE / GHODIUM_ALKALIDE - neither of
+                    // which is on this sell list. GH and GH2O feed the XGH2O rung, which
+                    // is commented out in rooms.labs.ts today (energyManager even hauls
+                    // them to the terminal as surplus). They are still five reaction
+                    // steps deep, so hold a floor in case that rung comes back rather
+                    // than let the ladder drain the room to zero.
+                    const st = room.storage;
+                    const term = room.terminal;
+                    const xgh = ((st && st.store[RESOURCE_CATALYZED_GHODIUM_ACID]) || 0) + (term.store[RESOURCE_CATALYZED_GHODIUM_ACID] || 0);
+                    const held = ((st && st.store[resource]) || 0) + (term.store[resource] || 0);
+                    if (xgh < 10000 && held < 3000) continue;
                 }
 
                 if(room.terminal.store[resource] >= 1000) {
@@ -362,122 +516,64 @@ function market(room):any {
             }
 
 
-            // for(let resource of BaseResources) {
-            //     if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-            //         let result = buy_resource(resource, 15);
-            //         if(result == 0) {
-            //             return;
-            //         }
-            //     }
-            // }
-
-            // if(Game.time % 41 == 0) {
-            //     for(let resource of BaseResources) {
-            //         if(room.terminal.store[resource] < 5000 && resource != Mineral.mineralType || room.terminal.store[resource] < 1000 && resource == Mineral.mineralType) {
-            //             let result = buy_resource(resource, 20);
-            //             if(result == 0) {
-            //                 return;
-            //             }
-            //         }
-            //     }
-            // }
         }
 
-        function buy_resource(resource:ResourceConstant, OrderPrice:number=5, OrderAmount=1000):any | void {
-            // amount*4 is far above the 2000 energy floor; a distant power
-            // deal would pass the filter and then fail (or drain) the terminal.
-            let OrderMaxEnergy = Math.min(OrderAmount * 4, room.terminal.store[RESOURCE_ENERGY]);
-            let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
-            orders = _.filter(orders, (order) => Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
-            if(orders.length > 0) {
-                orders.sort((a,b) => a.price - b.price);
-                let orderID = orders[0].id;
-                let newOrderAmount = Math.min(OrderAmount, orders[0].amount);
-                console.log(JSON.stringify(orders[0]))
-                console.log(Game.market.calcTransactionCost(newOrderAmount, room.name, orders[0].roomName));
-
-                let result = Game.market.deal(orderID, newOrderAmount, room.name);
-                if(result == 0) {
-                    console.log(
-                      newOrderAmount,
-                      resource,
-                      "Bought at Price:",
-                      orders[0].price,
-                      "=",
-                      newOrderAmount * orders[0].price
-                    );
-                    return result;
-                }
-                else {
-                    console.log(result);
-                }
-            }
-            else {
-                // console.log("no order found below price of", OrderPrice, "for", resource, room.name)
-            }
-        }
-
+        /**
+         * Floor-priced sell into the best bid at or above OrderPrice.
+         * buy_resource() used to sit next to this; it only served the deleted
+         * `credits > 1M` rungs and is gone - buying goes through shopWantList().
+         */
         function sell_resource(resource:ResourceConstant, OrderPrice:number=5, OrderAmount=100):any | void {
-            let OrderMaxEnergy = OrderAmount * 8;
-            let orders = Game.market.getAllOrders({type: ORDER_BUY, resourceType: resource});
-            orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
+            // The transaction fee comes out of THIS terminal's energy, so a
+            // flat amount*8 budget happily picked deals the terminal could not
+            // pay for - they came back as a bare console.log(result) and the
+            // resource never moved.
+            let OrderMaxEnergy = Math.min(OrderAmount * 8, room.terminal.store[RESOURCE_ENERGY]);
+            let orders = getOrdersCached(ORDER_BUY, resource);
+            orders = _.filter(orders, (order) => dealable(order) && order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price >= OrderPrice);
             if(orders.length > 0) {
                 orders.sort((a,b) => b.price - a.price);
-
-                // if(!price_checker(orders[0].price, resource)) {
-                //     return false;
-                // }
-
                 let orderID = orders[0].id;
-
-                console.log(JSON.stringify(orders[0]))
-                console.log(Game.market.calcTransactionCost(OrderAmount, room.name, orders[0].roomName))
-
-                let result = Game.market.deal(orderID, OrderAmount, room.name);
+                let result = dealGuarded(orderID, OrderAmount, room.name);
                 if(result == 0) {
-                    console.log(OrderAmount, resource, "Sold at Price:", orders[0].price, "=", OrderAmount * orders[0].price);
+                    invalidateOrderCache();
+                    logVerbose(`mkt sell ${room.name}: ${OrderAmount} ${resource} @ ${orders[0].price} = ${Math.round(OrderAmount * orders[0].price)}c (floor ${OrderPrice})`);
                     return result;
                 }
-                else {
-                    console.log(result);
-                }
-            }
-            else {
-                console.log("no order found above price of", OrderPrice, "for", resource, room.name)
+                logVerbose(`mkt sell ${room.name}: ${resource} deal failed (${result})`);
             }
         }
 
 
         let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-        if(room.terminal.store[RESOURCE_ENERGY] > 500 && room.terminal.store[RESOURCE_ENERGY] < 10000 && storage && storage.store[RESOURCE_ENERGY] < 40000) {
 
-            let OrderPrice = 20;
+        // ENERGY BUY-BY-DEAL, bootstrap only.
+        //
+        // Credits do NOT buy RCL energy here: shard3 asks sit near 27c, so the
+        // whole 762k credit pile is ~28k energy. The valve is kept only for the
+        // case where a terminal has no energy at all and therefore cannot pay a
+        // transaction fee to do anything else - and even that is capped at 3c.
+        // On shard3 both conditions together make this dead code, on purpose.
+        if(room.terminal.store[RESOURCE_ENERGY] < ENERGY_BOOTSTRAP_BELOW && storage && storage.store[RESOURCE_ENERGY] < 40000) {
             let OrderAmount = 5000;
-            // Fee is paid from terminal energy, not a fixed 2500 budget —
-            // an empty terminal would accept a deal it cannot pay for.
-            let OrderMaxEnergy = Math.min(OrderAmount / 2, room.terminal.store[RESOURCE_ENERGY]);
-            let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: RESOURCE_ENERGY});
-            orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
+            // Fee is paid from terminal energy, and there is barely any.
+            let OrderMaxEnergy = room.terminal.store[RESOURCE_ENERGY];
+            let orders = getOrdersCached(ORDER_SELL, RESOURCE_ENERGY);
+            orders = _.filter(orders, (order) => dealable(order) && order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= ENERGY_BOOTSTRAP_PRICE);
             if(orders.length > 0) {
                 orders.sort((a,b) => a.price - b.price);
-                let orderID = orders[0].id;
-
-                console.log(JSON.stringify(orders[0]))
-                console.log(Game.market.calcTransactionCost(OrderAmount, room.name, orders[0].roomName))
-
-                let result = Game.market.deal(orderID, OrderAmount, room.name);
-                if(result == 0) {
-                    console.log(OrderAmount, RESOURCE_ENERGY, "Bought at Price:", orders[0].price, "=", OrderAmount * orders[0].price);
-                    return;
-                }
-                else {
-                    console.log(result);
+                const cost = OrderAmount * orders[0].price;
+                if(canSpend(cost)) {
+                    let result = dealGuarded(orders[0].id, OrderAmount, room.name);
+                    if(result == 0) {
+                        invalidateOrderCache();
+                        note(cost);
+                        logVerbose(`mkt energy-bootstrap ${room.name}: ${OrderAmount} energy @ ${orders[0].price} = ${Math.round(cost)}c`);
+                        return;
+                    }
+                    logVerbose(`mkt energy-bootstrap ${room.name}: deal failed (${result})`);
                 }
             }
-            else {
-                console.log("no order found below price of", OrderPrice, "for", RESOURCE_ENERGY)
-            }
-
         }
 
 
@@ -556,274 +652,26 @@ function market(room):any {
 
 
 
-        if(room.terminal.store[RESOURCE_CONDENSATE] >= 10) {
-            let result = sell_resource(RESOURCE_CONDENSATE, 999, 10);
-            if(result == 0) {
-                return;
+        // Deposit + factory commodity ladder. This was ~240 lines of hardcoded
+        // if(store[X] >= n) sell_resource(X, floor, n) blocks; the floors are
+        // unchanged, the amounts collapse to one descending ladder because the
+        // high-tier commodities only ever have 1-10 unit bids on the book.
+        // Walked on t % 100 - none of this trades often enough to poll harder.
+        if(t % 100 == 0) {
+            for(const row of COMMODITY_FLOORS) {
+                const held = room.terminal.store[row.res] || 0;
+                if(held <= 0) continue;
+                let last = 0;
+                for(const lot of [10, 5, 2, 1]) {
+                    const amount = Math.min(held, lot);
+                    if(amount <= 0 || amount == last) continue;
+                    last = amount;
+                    if(sell_resource(row.res, row.floor, amount) == 0) {
+                        return;
+                    }
+                }
             }
         }
-        if(room.terminal.store[RESOURCE_CONCENTRATE] >= 10) {
-            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CONCENTRATE] >= 2) {
-            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, 2);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_EXTRACT] >= 5) {
-            let result = sell_resource(RESOURCE_EXTRACT, 80000, 5);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_EXTRACT] >= 1) {
-            let result = sell_resource(RESOURCE_EXTRACT, 80000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_SPIRIT] >= 1) {
-            let result = sell_resource(RESOURCE_SPIRIT, 199999, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_EMANATION] >= 1) {
-            let result = sell_resource(RESOURCE_EMANATION, 800000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_ESSENCE] >= 1) {
-            let result = sell_resource(RESOURCE_ESSENCE, 2000000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CONDENSATE] > 0) {
-            let result = sell_resource(RESOURCE_CONDENSATE, 999, room.terminal.store[RESOURCE_CONDENSATE]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CONCENTRATE] > 0) {
-            let result = sell_resource(RESOURCE_CONCENTRATE, 9999, room.terminal.store[RESOURCE_CONCENTRATE]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_WIRE] >= 10) {
-            let result = sell_resource(RESOURCE_WIRE, 999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_SWITCH] >= 10) {
-            let result = sell_resource(RESOURCE_SWITCH, 9999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_SWITCH] >= 2) {
-            let result = sell_resource(RESOURCE_SWITCH, 9999, 2);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TRANSISTOR] >= 5) {
-            let result = sell_resource(RESOURCE_TRANSISTOR, 80000, 5);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TRANSISTOR] >= 1) {
-            let result = sell_resource(RESOURCE_TRANSISTOR, 80000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_MICROCHIP] >= 1) {
-            let result = sell_resource(RESOURCE_MICROCHIP, 199999, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CIRCUIT] >= 1) {
-            let result = sell_resource(RESOURCE_CIRCUIT, 800000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_DEVICE] >= 1) {
-            let result = sell_resource(RESOURCE_DEVICE, 2000000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_WIRE] > 0) {
-            let result = sell_resource(RESOURCE_WIRE, 999, room.terminal.store[RESOURCE_WIRE]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_SWITCH] > 0) {
-            let result = sell_resource(RESOURCE_SWITCH, 9999, room.terminal.store[RESOURCE_SWITCH]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CELL] >= 10) {
-            let result = sell_resource(RESOURCE_CELL, 999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_PHLEGM] >= 10) {
-            let result = sell_resource(RESOURCE_PHLEGM, 9999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_PHLEGM] >= 2) {
-            let result = sell_resource(RESOURCE_PHLEGM, 9999, 2);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TISSUE] >= 5) {
-            let result = sell_resource(RESOURCE_TISSUE, 80000, 5);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TISSUE] >= 1) {
-            let result = sell_resource(RESOURCE_TISSUE, 80000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_MUSCLE] >= 1) {
-            let result = sell_resource(RESOURCE_MUSCLE, 199999, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_ORGANOID] >= 1) {
-            let result = sell_resource(RESOURCE_ORGANOID, 800000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_ORGANISM] >= 1) {
-            let result = sell_resource(RESOURCE_ORGANISM, 2000000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_CELL] > 0) {
-            let result = sell_resource(RESOURCE_CELL, 999, room.terminal.store[RESOURCE_CELL]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_PHLEGM] > 0) {
-            let result = sell_resource(RESOURCE_PHLEGM, 9999, room.terminal.store[RESOURCE_PHLEGM]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_ALLOY] >= 10) {
-            let result = sell_resource(RESOURCE_ALLOY, 999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TUBE] >= 10) {
-            let result = sell_resource(RESOURCE_TUBE, 9999, 10);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TUBE] >= 2) {
-            let result = sell_resource(RESOURCE_TUBE, 9999, 2);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_FIXTURES] >= 5) {
-            let result = sell_resource(RESOURCE_FIXTURES, 80000, 5);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_FIXTURES] >= 1) {
-            let result = sell_resource(RESOURCE_FIXTURES, 80000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_FRAME] >= 1) {
-            let result = sell_resource(RESOURCE_FRAME, 199999, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_HYDRAULICS] >= 1) {
-            let result = sell_resource(RESOURCE_HYDRAULICS, 800000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_MACHINE] >= 1) {
-            let result = sell_resource(RESOURCE_MACHINE, 2000000, 1);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_ALLOY] > 0) {
-            let result = sell_resource(RESOURCE_ALLOY, 999, room.terminal.store[RESOURCE_ALLOY]);
-            if(result == 0) {
-                return;
-            }
-        }
-        if(room.terminal.store[RESOURCE_TUBE] > 0) {
-            let result = sell_resource(RESOURCE_TUBE, 9999, room.terminal.store[RESOURCE_TUBE]);
-            if(result == 0) {
-                return;
-            }
-        }
-
-
-        // if(room.factory && room.terminal) {
-        //     if(room.terminal.store[RESOURCE_ALLOY] >= 100) {
-        //         let result = sell_resource(RESOURCE_ALLOY, 500);
-        //         if(result == 0) {
-        //             return;
-        //         }
-        //     }
-        //     else if(room.terminal.store[RESOURCE_CELL] >= 100) {
-        //         let result = sell_resource(RESOURCE_CELL, 500);
-        //         if(result == 0) {
-        //             return;
-        //         }
-        //     }
-        //     else if(room.terminal.store[RESOURCE_WIRE] >= 100) {
-        //         let result = sell_resource(RESOURCE_WIRE, 500);
-        //         if(result == 0) {
-        //             return;
-        //         }
-        //     }
-        //     else if(room.terminal.store[RESOURCE_CONDENSATE] >= 100) {
-        //         let result = sell_resource(RESOURCE_CONDENSATE, 500);
-        //         if(result == 0) {
-        //             return;
-        //         }
-        //     }
-        // }
 
 
         if(Game.resources.pixel > 0 && room.terminal && t % 100 == 0) {
@@ -834,7 +682,7 @@ function market(room):any {
             if(orders.length > 0) {
                 orders.sort((a,b) => b.price - a.price);
                 let orderID = orders[0].id;
-                let result = Game.market.deal(orderID, 1, room.name);
+                let result = dealGuarded(orderID, 1, room.name);
                 if(result == 0) {
                     console.log(1, PIXEL, "Sold at Price:", orders[0].price, "=", 1 * orders[0].price);
                     return;
@@ -851,8 +699,14 @@ function market(room):any {
     }
     let storage = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
     if(storage && storage.store[RESOURCE_ENERGY] > 300000 && t % 110 == 0 && Game.cpu.bucket > 9000 && room.terminal.cooldown == 0 && room.terminal.store.getFreeCapacity() > 50000) {
+        // RESOURCE_ENERGY is deliberately NOT in this list. The crawler buys in
+        // 50-unit lots and the transaction fee is itself paid in energy, so an
+        // energy entry could burn hundreds of energy of fee plus credits to
+        // receive 50 energy. Energy purchasing is handled properly elsewhere in
+        // this file: the <=20c / 5000-unit block above (terminal-energy clamped)
+        // and the standing ORDER_BUY maintained further down.
         let crawler_list = [
-            RESOURCE_ENERGY,RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_GHODIUM,
+            RESOURCE_POWER,RESOURCE_HYDROGEN,RESOURCE_LEMERGIUM,RESOURCE_GHODIUM,
             RESOURCE_SILICON,RESOURCE_METAL,RESOURCE_BIOMASS,RESOURCE_MIST,RESOURCE_HYDROXIDE,RESOURCE_ZYNTHIUM_KEANITE,RESOURCE_UTRIUM_LEMERGITE,RESOURCE_UTRIUM_HYDRIDE,
             RESOURCE_UTRIUM_OXIDE,RESOURCE_KEANIUM_HYDRIDE,RESOURCE_KEANIUM_OXIDE,RESOURCE_LEMERGIUM_HYDRIDE,RESOURCE_LEMERGIUM_OXIDE,RESOURCE_ZYNTHIUM_HYDRIDE,
             RESOURCE_ZYNTHIUM_OXIDE,RESOURCE_GHODIUM_HYDRIDE,RESOURCE_GHODIUM_OXIDE,RESOURCE_UTRIUM_ACID,RESOURCE_UTRIUM_ALKALIDE,RESOURCE_KEANIUM_ACID,
@@ -866,16 +720,32 @@ function market(room):any {
             RESOURCE_MACHINE,RESOURCE_CONDENSATE,RESOURCE_CONCENTRATE,RESOURCE_EXTRACT,RESOURCE_SPIRIT,RESOURCE_EMANATION,RESOURCE_ESSENCE
         ]
 
-        let shuffled_crawler_list = crawler_list
+        // Walking the whole list meant ~77 getAllOrders() calls in a SINGLE tick.
+        // Take a small rotating slice instead; the cursor lives in room memory so
+        // successive passes still cover every entry, just spread over ~16 passes.
+        const CRAWLER_SLICE = 5;
+        if(!room.memory.market) {
+            room.memory.market = {};
+        }
+        let crawlerIndex = room.memory.market.crawlerIndex || 0;
+        if(!(crawlerIndex >= 0) || crawlerIndex >= crawler_list.length) {
+            crawlerIndex = 0;
+        }
+        let crawler_slice:any[] = [];
+        for(let i = 0; i < CRAWLER_SLICE && i < crawler_list.length; i++) {
+            crawler_slice.push(crawler_list[(crawlerIndex + i) % crawler_list.length]);
+        }
+        room.memory.market.crawlerIndex = (crawlerIndex + CRAWLER_SLICE) % crawler_list.length;
+
+        let shuffled_crawler_list = crawler_slice
             .map(value => ({ value, sort: Math.random() }))
             .sort((a, b) => a.sort - b.sort)
             .map(({ value }) => value);
 
         if(room.terminal.store[RESOURCE_ENERGY] >= 2000) {
             let count = 0;
-            let price = 3;
             for(let resource of shuffled_crawler_list) {
-                let result = buy_resource_crawler(resource, price);
+                let result = buy_resource_crawler(resource);
                 if(result == 0) {
                     return;
                 }
@@ -883,29 +753,38 @@ function market(room):any {
                     count += 1
                 }
             }
-            console.log(count, "items not found by the market crawler below price of", price, room.name);
+            logVerbose(`mkt crawler ${room.name}: ${count}/${shuffled_crawler_list.length} nothing cheap enough`);
         }
 
-        function buy_resource_crawler(resource:ResourceConstant, OrderPrice:number=5):any | void {
+        function buy_resource_crawler(resource:ResourceConstant):any | void {
             let OrderAmount = 50;
-            let OrderMaxEnergy = OrderAmount * 8;
-            let orders = Game.market.getAllOrders({type: ORDER_SELL, resourceType: resource});
-            orders = _.filter(orders, (order) => order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
+            // Per-unit cap is min(3, half of fair). The flat 3c let the crawler
+            // pay 3c for things whose 14d average is 0.2c; anything at half of
+            // fair is a genuine mispricing, anything above it is not.
+            const avg = fair(resource);
+            const OrderPrice = avg > 0 ? Math.min(CRAWLER_MAX_PRICE, avg * 0.5) : CRAWLER_MAX_PRICE;
+            // calcTransactionCost() is always strictly below the amount moved, so
+            // the old OrderAmount*8 (=400) budget was no budget at all - a 50-unit
+            // lot could cost ~48 energy of fee from the far side of the map on top
+            // of the credits. Require the fee to stay under half of what we
+            // receive, and never above what the terminal actually holds.
+            let OrderMaxEnergy = Math.min(Math.ceil(OrderAmount / 2), room.terminal.store[RESOURCE_ENERGY]);
+            let orders = getOrdersCached(ORDER_SELL, resource);
+            orders = _.filter(orders, (order) => dealable(order) && order.amount >= OrderAmount && Game.market.calcTransactionCost(OrderAmount, room.name, order.roomName) <= OrderMaxEnergy && order.price <= OrderPrice);
             if(orders.length > 0) {
                 orders.sort((a,b) => a.price - b.price);
-                let orderID = orders[0].id;
-
-                console.log(JSON.stringify(orders[0]))
-                console.log(Game.market.calcTransactionCost(OrderAmount, room.name, orders[0].roomName))
-
-                let result = Game.market.deal(orderID, OrderAmount, room.name);
+                const cost = OrderAmount * orders[0].price;
+                if(!canSpend(cost)) {
+                    return false;
+                }
+                let result = dealGuarded(orders[0].id, OrderAmount, room.name);
                 if(result == 0) {
-                    console.log(OrderAmount, resource, "Bought at Price:", orders[0].price, "=", OrderAmount * orders[0].price);
+                    invalidateOrderCache();
+                    note(cost);
+                    logVerbose(`mkt crawler ${room.name}: ${OrderAmount} ${resource} @ ${orders[0].price} = ${Math.round(cost)}c (cap ${OrderPrice.toFixed(2)})`);
                     return result;
                 }
-                else {
-                    console.log(result);
-                }
+                logVerbose(`mkt crawler ${room.name}: ${resource} deal failed (${result})`);
             }
             else {
                 return false;
@@ -998,100 +877,30 @@ function market(room):any {
         }
 
         function CalcPriceForOrder(resourceToSell) {
-            let resourceData = Game.market.getHistory(resourceToSell);
-            let myTotalAverage = 0;
-            let weightNumber = 1;
-
-            if (resourceData && resourceData.length > 0) {
-                for (let day of resourceData) {
-                    myTotalAverage += day.avgPrice * weightNumber;
-                    weightNumber++;
-                }
-
-                let Average = myTotalAverage / 105;
-                console.log(Average, "average price");
-
-                return Average + 1;
-            } else {
-                return 5.889;
-            }
+            // fair() is the same weighted-history anchor everything else in
+            // this module prices against; +1 puts this ask just above it.
+            const avg = fair(resourceToSell);
+            return avg > 0 ? avg + 1 : 5.889;
         }
     }
 
-    if(t % 50 == 0 && storage && storage.store[RESOURCE_ENERGY] < 100000 && room.terminal.store[RESOURCE_ENERGY] < 50000 && Game.market.credits > 1000000) {
-
-
-        function CalcPriceForOrder(resourceToSell) {
-            let resourceData = Game.market.getHistory(resourceToSell);
-            let myTotalAverage = 0;
-            let weightNumber = 1;
-
-            if (resourceData && resourceData.length > 0) {
-                for (let day of resourceData) {
-                    myTotalAverage += day.avgPrice * weightNumber;
-                    weightNumber++;
-                }
-
-                let Average = myTotalAverage / 105;
-                console.log(Average, "average price");
-
-                return Average + 1;
-            } else {
-                return 5.889;
-            }
-        }
-
-
-        let foundInRoomEnergyOrder = false;
-
-        let Orders = Game.market.orders;
-        for(let orderID in Orders) {
+    // The standing energy BUY order that used to live here priced itself at
+    // "history average + 1" and, at tick 82.16M, spent 582,393 credits on
+    // 20,000 energy - 29c each, for the resource the rooms already dig out of
+    // the ground. Credits exist to buy the T3 boost inputs the empire cannot
+    // mine (X, K, L, Z). Deleted, not re-tuned.
+    //
+    // An order created by the old code can still be live and still filling, so
+    // retire any of ours that survived the deploy.
+    if(t % 100 == 0) {
+        for(let orderID in Game.market.orders) {
             let order = Game.market.orders[orderID];
-
-
-            if(order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.roomName == room.name) {
-                foundInRoomEnergyOrder = true;
+            if(order.type == ORDER_BUY && order.resourceType == RESOURCE_ENERGY && order.roomName == room.name) {
+                if(Game.market.cancelOrder(orderID) == OK) {
+                    logVerbose(`mkt ${room.name}: cancelled legacy energy BUY order (${order.remainingAmount} left @ ${order.price})`);
+                }
             }
-
-            if(order.roomName == room.name && order.resourceType == RESOURCE_ENERGY && order.type == ORDER_BUY && order.amount <= 1000 && storage && storage.store[RESOURCE_ENERGY] < 100000) {
-                Game.market.extendOrder(orderID, 20000);
-            }
-        }
-
-        if(!foundInRoomEnergyOrder) {
-            Game.market.createOrder({
-                type: ORDER_BUY,
-                resourceType: RESOURCE_ENERGY,
-                price: CalcPriceForOrder(RESOURCE_ENERGY),
-                totalAmount: 20000,
-                roomName: room.name
-            });
         }
     }
 }
 export default market;
-
-
-function price_checker(price, resource) {
-    if(resource == RESOURCE_CONDENSATE && price < 999) {
-        return false;
-    }
-    else if(resource == RESOURCE_CONCENTRATE && price < 9999) {
-        return false;
-    }
-    else if(resource == RESOURCE_EXTRACT && price < 80000) {
-        return false;
-    }
-    else if(resource == RESOURCE_SPIRIT && price < 199999) {
-        return false;
-    }
-    else if(resource == RESOURCE_EMANATION && price < 800000) {
-        return false;
-    }
-    else if(resource == RESOURCE_ESSENCE && price < 2000000) {
-        return false;
-    }
-
-
-    return true;
-}

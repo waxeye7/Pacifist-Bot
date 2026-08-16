@@ -22,8 +22,7 @@ declare global {
       features?: {
         disablePower?: boolean;
         speedrun?: boolean;
-        dynamicLayout?: boolean;
-        placeFromPlan?: boolean;
+        /** min-cut vs the legacy square ring — read by rooms.construction */
         minCutWalls?: boolean;
         squareWalls?: boolean;
         /** Hauler pickup target lock + reservation ledger (default ON) */
@@ -65,6 +64,15 @@ declare global {
         skipHighRcl?: boolean;
       };
       AvoidRooms: any;
+      /**
+       * Per-entry age stamps for the FLAT `AvoidRooms` array — room name to the
+       * Game.time it was last observed towered. Separate from AvoidRoomsTemp,
+       * which is a countdown decremented every tick by a different mechanism
+       * and is read independently in the routeCallback. Entries here expire
+       * individually (Misc/decrementTempBadRooms) instead of the whole array
+       * being wiped every 20,000 ticks.
+       */
+      AvoidRoomsAt?: { [roomName: string]: number };
       AvoidRoomsTemp: { [key: string]: number };
       /** console: Memory.debugReserver = true — traces remote reserver gating */
       debugReserver?: boolean;
@@ -87,6 +95,13 @@ declare global {
       terrainDataInitialized: boolean;
       lastProcessedCoord: { x: number; y: number; };
       roomStatuses: any;
+      /**
+       * Which commune owns which remote. Empire-level arbitration for
+       * manageRemotes, which otherwise only ever compares a room's exits
+       * against its OWN memory and so lets two neighbours staff the same
+       * remote. See Rooms/rooms.remotes.
+       */
+      remoteOwner?: { [remoteRoom: string]: { home: string; t: number } };
     }
 
     // console helpers (see utils/Commands.ts, Logger, CpuPolicy)
@@ -132,8 +147,21 @@ declare global {
         };
         /** Dynamic layout cache — see utils/BasePlan.ts */
         basePlan?: any;
-        /** Adopted v2 plan (packed coords) — see utils/PlanV2.ts */
-        planV2?: { v: number; h?: string; s?: number; t: { [structureType: string]: number[] } };
+        /**
+         * Adopted v2 plan (packed coords) — see utils/PlanV2.ts PackedPlan.
+         * v  payload schema (PLAN_PAYLOAD_VERSION), h  plan hash,
+         * s  last syncPlanV2Memory tick, t  packed tiles per structure type,
+         * rs road staging (RCL per t.road tile, same order/length),
+         * si packed sitter/refill anchor tile.
+         */
+        planV2?: {
+          v: number;
+          h?: string;
+          s?: number;
+          t: { [structureType: string]: number[] };
+          rs?: number[];
+          si?: number;
+        };
         construction?: { rampartLocations?: any; [key: string]: any };
         /**
          * Structures with NO walkable D8 approach — see utils/Reachability.
@@ -153,7 +181,7 @@ declare global {
         planSpawnReady?: number;
         /** id of a legacy storage/terminal waiting to be drained before retirement */
         planDrain?: string;
-        defence?: { towerShotsInRow?: number; perimeter?: any; [key: string]: any };
+        defence?: { perimeter?: any; [key: string]: any };
         roomData:any;
         has_hostile_structures: boolean;
         has_hostile_creeps: boolean;
@@ -172,12 +200,10 @@ declare global {
         bin: any;
         in_position: boolean;
         labs: any;
-        attack_target: any;
         request_unboost: boolean;
         AvoidRooms: Array<string>;
         Energy_Spent_First: Array<string>;
         spawning_squad: object;
-        factory:any;
         NukeRepair:boolean;
         Structures:any;
         resources:any;

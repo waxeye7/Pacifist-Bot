@@ -54,6 +54,7 @@ import {
   buildable,
   checkEnclosureContract,
   engineBuildable,
+  exteriorFlood,
   invalidateExterior,
   isWall,
   key,
@@ -538,7 +539,7 @@ export function forbiddenExtSeats(plan) {
   return out;
 }
 
-export function planExtensions(terrain, plan) {
+export function planExtensions(terrain, plan, opts = {}) {
   if (!plan.shell) return { error: "extensions need a shell (layer 2 missing)" };
   const depth = plan.depth;
   const ext = plan.exterior;
@@ -2302,6 +2303,12 @@ export function planExtensions(terrain, plan) {
     fullRun.to = to;
     run.extMeta.laneMeta.fullRun = { ...fullRun };
   };
+  // r45 / 98 — the validator re-walks this cap-10 board. Shrink search is
+  // the priced refusal of that walk, not the walk.
+  if (opts.cap10Only) {
+    stampFull(out, fullRun.used);
+    return out;
+  };
   /**
    * THE RESERVATION HAS TO BE FREE, AND THE ONLY WAY TO KNOW IS TO ASK.
    *
@@ -2513,6 +2520,127 @@ export function planExtensions(terrain, plan) {
     stampFull(out, to);
   }
   return out;
+}
+
+function depthFromFreeze(ext) {
+  const depth = new Int16Array(2500).fill(999);
+  const q = [];
+  for (let i = 0; i < 2500; i++) {
+    if (ext[i]) {
+      depth[i] = 0;
+      q.push(i);
+    }
+  }
+  for (let qi = 0; qi < q.length; qi++) {
+    const i = q[qi];
+    const x = i % 50;
+    const y = (i / 50) | 0;
+    for (const [dx, dy] of D8) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < 0 || ny < 0 || nx > 49 || ny > 49) continue;
+      const ni = nx + ny * 50;
+      if (depth[ni] <= depth[i] + 1) continue;
+      depth[ni] = depth[i] + 1;
+      q.push(ni);
+    }
+  }
+  return depth;
+}
+
+/**
+ * Layer-6 input reconstructed from a finished hub plan: freeze cut, frozen
+ * enclosure, pre-layer-6 roads, claim/park reservations. Extensions and
+ * layer-6+ roads are not on this board.
+ */
+export function l6BoardFromShipped(plan, terrain) {
+  const sh = plan.meta?.shell || {};
+  const freezeSrc = Array.isArray(sh.cutAtFreeze) && sh.cutAtFreeze.length ? sh.cutAtFreeze : sh.cut || [];
+  const freeze = freezeSrc.map((t) => ({ x: t.x, y: t.y }));
+  const freezeSet = new Set(freeze.map((t) => key(t.x, t.y)));
+  const exterior = exteriorFlood(terrain, freezeSet);
+  const depth = depthFromFreeze(exterior);
+  const roads = [];
+  for (const [k, v] of Object.entries(plan.meta?.roadLayer || {})) {
+    if (typeof v === "number" && v < 6) {
+      const [x, y] = k.split(",").map(Number);
+      if (Number.isInteger(x) && Number.isInteger(y)) roads.push({ x, y });
+    }
+  }
+  const structures = { road: roads, extension: [], rampart: freeze.map((t) => ({ x: t.x, y: t.y })) };
+  for (const t of ["storage", "terminal", "link", "spawn", "container", "tower", "lab", "nuker", "observer", "extractor"]) {
+    structures[t] = (plan.structures?.[t] || []).map((q) => ({ x: q.x, y: q.y }));
+  }
+  const objectTiles = new Set();
+  for (const src of plan.sources || []) objectTiles.add(key(src.x, src.y));
+  if (plan.controller) objectTiles.add(key(plan.controller.x, plan.controller.y));
+  if (plan.mineral) objectTiles.add(key(plan.mineral.x, plan.mineral.y));
+  const opts = { ...(plan.meta?.composeOpts || {}) };
+  delete opts.shellCache;
+  return {
+    room: plan.room,
+    sitter: plan.sitter && { x: plan.sitter.x, y: plan.sitter.y },
+    hub: plan.hub && { x: plan.hub.x, y: plan.hub.y },
+    sources: plan.sources,
+    controller: plan.controller,
+    mineral: plan.mineral,
+    claimSeat: plan.claimSeat || plan.meta?.claimSeat,
+    claimApproach: plan.claimApproach || plan.meta?.claimApproach,
+    mineralSeat: plan.mineralSeat || plan.meta?.mineralSeat,
+    mineralApproach: plan.mineralApproach || plan.meta?.mineralApproach,
+    parkReserve: (plan.parkReserve || plan.meta?.ctrlParkReserve || []).map((p) => ({ x: p.x, y: p.y })),
+    objectTiles,
+    shell: { cut: freeze },
+    exterior,
+    depth,
+    structures,
+    meta: { composeOpts: opts, shortfalls: [] },
+  };
+}
+
+const CAP10_CACHE = new Map();
+
+function cap10CacheKey(plan) {
+  const sh = plan.meta?.shell || {};
+  const freeze = (Array.isArray(sh.cutAtFreeze) && sh.cutAtFreeze.length ? sh.cutAtFreeze : sh.cut || [])
+    .map((t) => `${t.x},${t.y}`)
+    .sort()
+    .join(";");
+  const rl = plan.meta?.roadLayer || {};
+  let pre = 0;
+  for (const v of Object.values(rl)) if (typeof v === "number" && v < 6) pre++;
+  const seat = plan.claimSeat || plan.meta?.claimSeat;
+  const appr = plan.claimApproach || plan.meta?.claimApproach;
+  const parks = (plan.parkReserve || plan.meta?.ctrlParkReserve || []).map((p) => `${p.x},${p.y}`).sort().join(";");
+  const forbid = (plan.meta?.composeOpts?.forbidExtSeat || []).map((p) => `${p.x},${p.y}`).sort().join(";");
+  return `${plan.room}|${freeze}|${pre}|${seat ? `${seat.x},${seat.y}` : ""}|${appr ? `${appr.x},${appr.y}` : ""}|${parks}|${forbid}`;
+}
+
+/**
+ * Cap-10 greedy reservation this room composed before shrink/drop.
+ * Reserved tiles and byRound are that walk; tiles is `wanted`.
+ */
+export function composeCap10Lane(terrain, plan) {
+  const ck = cap10CacheKey(plan);
+  if (CAP10_CACHE.has(ck)) return CAP10_CACHE.get(ck);
+  const board = l6BoardFromShipped(plan, terrain);
+  const run = planExtensions(terrain, board, { cap10Only: true });
+  if (!run || run.error) {
+    CAP10_CACHE.set(ck, null);
+    return null;
+  }
+  const L = run.extMeta?.laneMeta || {};
+  const fr = L.fullRun || {};
+  const walk = {
+    reserved: [...(fr.reserved || L.reserved || [])].map(String),
+    byRound: (fr.byRound || L.byRound || []).map((r) => [...r].map(String)),
+    tiles: fr.tiles ?? L.tiles ?? 0,
+    rounds: fr.rounds ?? L.rounds ?? 0,
+    ext: fr.ext ?? (run.extension || []).length,
+    shallow: fr.shallow ?? run.extMeta?.shallow ?? 0,
+  };
+  CAP10_CACHE.set(ck, walk);
+  return walk;
 }
 
 // ===========================================================================

@@ -1,3 +1,5 @@
+import { cachedDerived, cachedDropped, cachedMyCreeps, cachedRuins, cachedSites, cachedSources, cachedStructures, cachedTombstones } from "utils/RoomCache";
+
 /**
  * The controller depot — the structure an upgrader draws from while it works.
  *
@@ -23,7 +25,51 @@
  * the closest link within 4 of the controller at RCL7+, otherwise the closest
  * container within 4 that is not a source container, the bin or the storage.
  * The room key still wins when something did set it.
+ *
+ * CPU: the candidate SET is a pure function of the room (structure positions,
+ * the source positions and three room-memory keys), so it is derived once per
+ * room per tick and shared by every upgrader in the room — see
+ * depotCandidates(). Only the stocked/closest RANKING is per-creep, because
+ * `minStock` depends on the creep's carry capacity and stores move mid-tick.
+ *
+ * Keyed on the current Structures.controllerLink (same convention as
+ * creepFunctions' _discoverControllerDepot) so a mid-tick rewrite of that key
+ * still re-derives; every upgrader in a room reads the same key, so the memo
+ * is shared exactly when it needs to be.
  */
+function depotCandidates(room: any, ctrl: any, S: any): any[] {
+	return cachedDerived(room, "upgDepotCands:" + (S.controllerLink || "0"), () => {
+		const sources = cachedSources(room);
+		const candidates: any[] = _.filter(cachedStructures(room), (s: any) =>
+			(s.structureType == STRUCTURE_CONTAINER || (s.structureType == STRUCTURE_LINK && s.my)) &&
+			s.id !== S.bin &&
+			s.id !== S.storage &&
+			s.id !== S.StorageLink &&
+			s.pos.getRangeTo(ctrl) <= 4 &&
+			s.pos.findInRange(sources, 1).length == 0);
+
+		// The room key is a HINT, not gospel. It used to be an unconditional early
+		// return, and that is exactly how W2N1 (RCL6) sat 444+ ticks at zero
+		// controller progress: creepFunctions' depot derivation only looks at
+		// CONTAINERS below RCL7, so the key was pinned to the empty container at
+		// (10,9) while the controller LINK at (9,9) — one tile closer to the
+		// controller — held a full 800 energy that nobody would ever draw. Keep it
+		// as a candidate and let the stocked-first ranking below decide.
+		const fromRoom: any = Game.getObjectById(S.controllerLink);
+		// The room key is only appended when the filter rejected it, so an
+		// unfiltered push can adopt a source container and HOL the source.
+		if (fromRoom && !_.some(candidates, (c: any) => c.id === fromRoom.id) &&
+			(fromRoom.structureType == STRUCTURE_CONTAINER || (fromRoom.structureType == STRUCTURE_LINK && fromRoom.my)) &&
+			fromRoom.id !== S.bin && fromRoom.id !== S.storage && fromRoom.id !== S.StorageLink &&
+			fromRoom.pos.getRangeTo(ctrl) <= 4 &&
+			fromRoom.pos.findInRange(sources, 1).length == 0) {
+			candidates.push(fromRoom);
+		}
+
+		return candidates;
+	});
+}
+
 function controllerDepot(creep: any): any {
 	const room = creep.room;
 	const ctrl = room.controller;
@@ -31,34 +77,41 @@ function controllerDepot(creep: any): any {
 	if (!room.memory.Structures) room.memory.Structures = {};
 
 	const S: any = room.memory.Structures;
-	const sources = room.find(FIND_SOURCES);
-	const candidates: any[] = room.find(FIND_STRUCTURES, {
-		filter: (s: any) =>
-			(s.structureType == STRUCTURE_CONTAINER || (s.structureType == STRUCTURE_LINK && s.my)) &&
-			s.id !== S.bin &&
-			s.id !== S.storage &&
-			s.id !== S.StorageLink &&
-			s.pos.getRangeTo(ctrl) <= 4 &&
-			s.pos.findInRange(sources, 1).length == 0,
-	});
+	// Walkers treat a depot as dry below 50; ranking on energy>0 let a
+	// leftover of 1-49 hide a full farther link for the 100t cache.
+	const minStock = Math.min(50, creep.store.getCapacity(RESOURCE_ENERGY) || 50);
+	const mem: any = creep.memory.controllerLink;
 
-	// The room key is a HINT, not gospel. It used to be an unconditional early
-	// return, and that is exactly how W2N1 (RCL6) sat 444+ ticks at zero
-	// controller progress: creepFunctions' depot derivation only looks at
-	// CONTAINERS below RCL7, so the key was pinned to the empty container at
-	// (10,9) while the controller LINK at (9,9) — one tile closer to the
-	// controller — held a full 800 energy that nobody would ever draw. Keep it
-	// as a candidate and let the stocked-first ranking below decide.
-	const fromRoom: any = Game.getObjectById(S.controllerLink);
-	// The room key is only appended when the filter rejected it, so an
-	// unfiltered push can adopt a source container and HOL the source.
-	if (fromRoom && !_.some(candidates, (c: any) => c.id === fromRoom.id) &&
-		(fromRoom.structureType == STRUCTURE_CONTAINER || (fromRoom.structureType == STRUCTURE_LINK && fromRoom.my)) &&
-		fromRoom.id !== S.bin && fromRoom.id !== S.storage && fromRoom.id !== S.StorageLink &&
-		fromRoom.pos.getRangeTo(ctrl) <= 4 &&
-		fromRoom.pos.findInRange(sources, 1).length == 0) {
-		candidates.push(fromRoom);
+	/* ---- steady state, no finds ------------------------------------------
+	 * A parked upgrader asks this question every tick for its whole life and
+	 * the answer is the same object every time, yet the cache check used to
+	 * sit BELOW two room-wide finds (FIND_SOURCES plus FIND_STRUCTURES with a
+	 * per-structure findInRange) — so the cache saved nothing at all and this
+	 * function was essentially the entire cost of the role.
+	 *
+	 * Serve the cached depot without deriving anything when it is STOCKED,
+	 * which is exactly the case the ranking below would answer the same way:
+	 * a stocked candidate makes `stocked` non-empty and is a member of it, so
+	 * pool == stocked contains it and the old cache test passed. A DRY cached
+	 * depot still falls through, because then the answer depends on whether
+	 * some other candidate is stocked.
+	 *
+	 * The id can only have been written from a validated candidate, but
+	 * re-check the cheap invariants anyway so a cache can never hand back a
+	 * dead or repurposed object.
+	 */
+	if (mem && mem.id && Game.time - (mem.t || 0) < 100) {
+		const cached: any = Game.getObjectById(mem.id);
+		if (cached && cached.store && cached.store[RESOURCE_ENERGY] >= minStock &&
+			(cached.structureType == STRUCTURE_CONTAINER || (cached.structureType == STRUCTURE_LINK && cached.my)) &&
+			cached.id !== S.bin && cached.id !== S.storage && cached.id !== S.StorageLink &&
+			cached.pos.getRangeTo(ctrl) <= 4) {
+			mem.t = Game.time;
+			return cached;
+		}
 	}
+
+	const candidates: any[] = depotCandidates(room, ctrl, S);
 
 	if (!candidates.length) {
 		delete creep.memory.controllerLink;
@@ -69,15 +122,11 @@ function controllerDepot(creep: any): any {
 	// out-rank a full link, otherwise the upgrader parks on a dry depot and
 	// falls through to the storage path in a room whose storage is also dry.
 	// Among equally-stocked candidates, closest to the controller wins.
-	// Walkers treat a depot as dry below 50; ranking on energy>0 let a
-	// leftover of 1-49 hide a full farther link for the 100t cache.
-	const minStock = Math.min(50, creep.store.getCapacity(RESOURCE_ENERGY) || 50);
 	const stocked = _.filter(candidates, (c: any) => c.store && c.store[RESOURCE_ENERGY] >= minStock);
 	const pool: any[] = stocked.length ? stocked : candidates;
 
 	// Only fall back to the cached pick when it is still in the winning pool —
 	// a cache hit must not resurrect the dry depot we just ruled out.
-	const mem: any = creep.memory.controllerLink;
 	if (mem && mem.id && Game.time - (mem.t || 0) < 100) {
 		const cached: any = Game.getObjectById(mem.id);
 		if (cached && _.some(pool, (c: any) => c.id === cached.id)) return cached;
@@ -99,7 +148,16 @@ function controllerDepot(creep: any): any {
  * upgraders' claims are skipped, so the roster spreads over the available
  * tiles instead of fighting for the best one. Creeps that find no free tile
  * get null and keep the old shuttle behaviour.
+ *
+ * NEGATIVE answers are cached too. "No free tile" used to be written back as
+ * `{id, t}` with no `x`, which is indistinguishable from "never looked" — so
+ * every upgrader that lost the race for the last park tile re-ran the whole
+ * scan (a room-wide FIND_MY_CREEPS plus up to 8 lookFor) EVERY tick for the
+ * rest of its life, which is precisely the creep that has the least to gain
+ * from asking again. Retry on a 25-tick timer instead; each creep stamps its
+ * own clock, so the retries stay spread across ticks by construction.
  */
+const PARK_RETRY = 25;
 function depotPark(creep: any, depot: any): any {
 	const room = creep.room;
 	const ctrl = room.controller;
@@ -107,9 +165,12 @@ function depotPark(creep: any, depot: any): any {
 	if (mem && mem.id == depot.id && mem.x !== undefined) {
 		return { pos: new RoomPosition(mem.x, mem.y, room.name), id: "ctrlpark:" + mem.x + "," + mem.y };
 	}
+	if (mem && mem.id == depot.id && mem.nopark && Game.time - mem.nopark < PARK_RETRY) {
+		return null;
+	}
 
 	const taken: any = {};
-	for (const other of room.find(FIND_MY_CREEPS)) {
+	for (const other of cachedMyCreeps(room)) {
 		if (other.id == creep.id) continue;
 		const m: any = other.memory.controllerLink;
 		if (m && m.x !== undefined) taken[m.x + "," + m.y] = true;
@@ -146,7 +207,7 @@ function depotPark(creep: any, depot: any): any {
 	}
 
 	if (!best) {
-		creep.memory.controllerLink = { id: depot.id, t: Game.time };
+		creep.memory.controllerLink = { id: depot.id, t: Game.time, nopark: Game.time };
 		return null;
 	}
 	creep.memory.controllerLink = { id: depot.id, x: best.x, y: best.y, t: Game.time };
@@ -168,11 +229,52 @@ function roomHasNoBuilder(room: any): boolean {
 	}
 	if(_builderCache[room.name] !== undefined) return _builderCache[room.name];
 	let found = false;
-	for(const c of room.find(FIND_MY_CREEPS)) {
+	for(const c of cachedMyCreeps(room)) {
 		if(c.memory.role == "builder") { found = true; break; }
 	}
 	_builderCache[room.name] = !found;
 	return !found;
+}
+
+/** How far from the controller an upgrader will walk for a refill. */
+const UPGRADER_TREK_RANGE = 12;
+
+/**
+ * Is there anything worth walking to within UPGRADER_TREK_RANGE of the
+ * controller? Containers / drops / tombstones / ruins holding at least 50
+ * energy (the same floor the walkers use for "this depot is dry").
+ *
+ * Cached per room per tick: every upgrader in the room asks the identical
+ * question, and the answer only changes on the tick boundary.
+ */
+let _nearTick = -1;
+let _nearCache: any = {};
+function energyNearController(room: any): boolean {
+	if(_nearTick !== Game.time) {
+		_nearTick = Game.time;
+		_nearCache = {};
+	}
+	if(_nearCache[room.name] !== undefined) return _nearCache[room.name];
+	const ctrl = room.controller;
+	let found = false;
+	if(ctrl) {
+		const R = UPGRADER_TREK_RANGE;
+		// Four `pos.findInRange(FIND_*, ...)` calls are four room-wide finds.
+		// The tick memo above already collapses them to once per room, but the
+		// shared RoomCache lists collapse them across every OTHER role too.
+		const p = ctrl.pos;
+		found =
+			_.some(cachedStructures(room), (s: any) =>
+				s.structureType == STRUCTURE_CONTAINER && s.store[RESOURCE_ENERGY] >= 50 && p.inRangeTo(s, R)) ||
+			_.some(cachedDropped(room), (r: any) =>
+				r.resourceType == RESOURCE_ENERGY && r.amount >= 50 && p.inRangeTo(r, R)) ||
+			_.some(cachedTombstones(room), (t: any) =>
+				t.store[RESOURCE_ENERGY] >= 50 && p.inRangeTo(t, R)) ||
+			_.some(cachedRuins(room), (r: any) =>
+				r.store[RESOURCE_ENERGY] >= 50 && p.inRangeTo(r, R));
+	}
+	_nearCache[room.name] = found;
+	return found;
 }
 
 const run = function (creep) {
@@ -216,10 +318,13 @@ const run = function (creep) {
 	// no real builder yet — so that once the builder rung delivers, upgraders
 	// go back to upgrading and the room can actually climb to RCL3.
 	// ------------------------------------------------------------------
+	// "no bank" = no real STRUCTURE_STORAGE: findStorage() now returns the
+	// 2k hub container at RCL4 while the storage is a site, and that is
+	// exactly the room this delegation was written for.
 	const skeletonCrewNoBank = creep.room.controller && creep.room.controller.level == 4 &&
-		!storage && creep.room.find(FIND_MY_CREEPS).length < 9;
+		(!storage || storage.structureType !== STRUCTURE_STORAGE) && cachedMyCreeps(creep.room).length < 9;
 	const rcl2Bootstrap = creep.room.controller.level == 2 && roomHasNoBuilder(creep.room);
-	if((skeletonCrewNoBank || rcl2Bootstrap) && creep.room.find(FIND_MY_CONSTRUCTION_SITES).length > 0) {
+	if((skeletonCrewNoBank || rcl2Bootstrap) && cachedSites(creep.room).length > 0) {
 		const builder: any = (global as any).ROLES && (global as any).ROLES.builder;
 		if(builder) {
 			builder.run(creep);
@@ -303,12 +408,77 @@ const run = function (creep) {
 		else {
 
 			if(storage == undefined) {
-				let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
-				if(result == 0) {
-					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
+				// ------------------------------------------------------------
+				// TREK CAP. acquireEnergyWithContainersAndOrDroppedEnergy() is
+				// ROOM-WIDE and takes no range argument (creepFunctions:1581) —
+				// its only distance preference is a range-12 first pass on
+				// DROPS, and it falls straight through to any pile / container
+				// anywhere in the room. So in a storage-less room, the tick the
+				// controller depot hits 0 every upgrader leaves for the source
+				// piles and comes back: E36N57 (RCL4, storage still a site at
+				// 21,28) had five upgraders walking 27-31 tiles each way from
+				// the depot at (38,27) to a pile at (9,6) / container (6,43),
+				// averaging 0.69 e/t against the 12.5 e/t they do while parked.
+				//
+				// Condition to cap: the room HAS a controller depot — i.e.
+				// controllerDepot() resolved a container or owned link within 4
+				// of the controller that is not a source container / bin /
+				// storage, which is the structure a filler or miner refills —
+				// AND nothing holding >= 50 energy sits within 12 of the
+				// controller. Then waiting beats walking: park in upgrade range
+				// and take the next delivery.
+				//
+				// When the room has NO depot at all (the RCL1-3 bootstrap, and
+				// any room whose depot has not been built yet) there is nothing
+				// to wait FOR, so the old room-wide shuttle is left untouched.
+				//
+				// Downgrade danger overrides, same as the storage branch below:
+				// if the depot has gone dead the room can still stall out, and
+				// a slow shuttle beats losing an RCL. (At RCL2 CONTROLLER_DOWN-
+				// GRADE is 10,000, so this also means the cap can never engage
+				// there — the early game keeps its old behaviour outright.)
+				// ------------------------------------------------------------
+				if(controllerLink && creep.room.controller.ticksToDowngrade > 10000 && !energyNearController(creep.room)) {
+					if(!creep.pos.inRangeTo(creep.room.controller, 3)) {
+						creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+					}
+				}
+				else {
+					let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+					if(result == 0) {
+						creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)
+					}
+				}
+			}
+			// Same bank floor as the ControllerLinkFiller / upgraderTarget
+			// (UPGRADE_FLOOR = 10k): the ladder stops SPAWNING upgraders below
+			// it, but a live one shuttling from storage drains the bank to zero
+			// anyway (E37N59: 27k -> 3.4k). Below the floor, wait by the
+			// controller for whatever the source links push into the depot;
+			// downgrade danger overrides.
+			//
+			// Hysteresis: park at < 10k, resume at >= 12k. Without it every trip
+			// flips the creep across the line (withdraw 800 -> bank dips under ->
+			// park -> income lifts it over -> withdraw ...) and in a room whose
+			// depot is a CONTAINER (no link income) that reads as "upgrading
+			// stopped" while the bank hovers a few hundred under the floor.
+			// While parked, floor loot / a stocked container within 12 of the
+			// controller is still fair game — that is not the bank.
+			else if(storage.structureType === STRUCTURE_STORAGE
+				&& creep.room.controller.ticksToDowngrade > 10000
+				&& (creep.memory.bankParked
+					? storage.store[RESOURCE_ENERGY] < 12000
+					: storage.store[RESOURCE_ENERGY] < 10000)) {
+				creep.memory.bankParked = true;
+				if(energyNearController(creep.room)) {
+					creep.acquireEnergyWithContainersAndOrDroppedEnergy();
+				}
+				else if(!creep.pos.inRangeTo(creep.room.controller, 3)) {
+					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
 				}
 			}
 			else {
+				if(creep.memory.bankParked) delete creep.memory.bankParked;
 				let result = creep.withdrawStorage(storage);
 				if(result == 0) {
 					creep.MoveCostMatrixRoadPrio(creep.room.controller, 3)

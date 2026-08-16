@@ -8691,6 +8691,32 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       });
     },
     "suffix|prefix|tile list");
+  run("r45/98-X-d8-neighbor-both-reserved",
+    any28((p) => p.room === "E11S1" && p.meta?.extensions?.laneMeta?.shrunk &&
+      Array.isArray(p.meta.extensions.laneMeta.fullRun?.reserved)) ||
+    any28((p) => p.meta?.extensions?.laneMeta?.shrunk && Array.isArray(p.meta.extensions.laneMeta.fullRun?.reserved)),
+    (p) => {
+      twinLane98(p, (L) => {
+        const extra = "19,27";
+        L.reserved = [...L.reserved.map(String), extra];
+        L.tiles = L.reserved.length;
+        L.fullRun.reserved = [...L.fullRun.reserved.map(String), extra];
+        const last = L.fullRun.byRound[L.fullRun.byRound.length - 1] || [];
+        L.fullRun.byRound = [
+          ...L.fullRun.byRound.slice(0, -1).map((r) => r.slice()),
+          [...last.map(String), extra],
+        ];
+        L.fullRun.tiles = L.fullRun.reserved.length;
+        L.shrunk.wanted = L.fullRun.tiles + 1;
+      });
+    },
+    "greedy compose|neighbour of the walk|both lists");
+  run("r45/98-X-wanted-plus-1",
+    any28((p) => p.meta?.extensions?.laneMeta?.shrunk && typeof p.meta.extensions.laneMeta.shrunk.wanted === "number"),
+    (p) => {
+      twinLane98(p, (L) => { L.shrunk.wanted += 1; });
+    },
+    "wanted is that walk|adding 1");
   run("r28/93-X-taken-room-fixedHolder-invented-off-the-board",
     any28((p) => p.meta?.sealedRecovery?.outcome === "taken"),
     (p) => {
@@ -8955,6 +8981,42 @@ const MF5_MSG = "re-derived under the refusal's own definition";
       }
     },
     "leaks the sitter");
+  run("r45/88-X-last-fat-same-lap-nudge-29-33-to-28-34",
+    any28((p) => {
+      const shipped = (p.structures?.rampart || []).length;
+      const sf = (p.meta?.shortfalls || []).find((s) => s && s.ladder && Array.isArray(s.ladder.rungs));
+      const rungs = sf?.ladder?.rungs || [];
+      const last = rungs[rungs.length - 1];
+      return !!(
+        last &&
+        last.ramparts > shipped &&
+        Array.isArray(last.cutTiles) &&
+        last.cutTiles.some((t) => t && t.x === 29 && t.y === 33) &&
+        !last.cutTiles.some((t) => t && t.x === 28 && t.y === 34)
+      );
+    }),
+    (p, d) => {
+      const sf = (p.meta.shortfalls || []).find((s0) => s0 && s0.ladder);
+      const last = sf.ladder.rungs[sf.ladder.rungs.length - 1];
+      const lastBonus = last.needDeepBonus;
+      const next = last.cutTiles.map((t) =>
+        t.x === 29 && t.y === 33 ? { x: 28, y: 34 } : { x: t.x, y: t.y },
+      );
+      const lap = enclosureMobility(d.terrain, p, next);
+      if (typeof lap !== "number") throw new Error("29,33→28,34 nudged cut has no enclosureMobility");
+      const apply = (row) => {
+        if (row && row.needDeepBonus === lastBonus) {
+          row.cutTiles = next.map((t) => ({ x: t.x, y: t.y }));
+          row.mobility = lap;
+        }
+      };
+      for (const row of sf.ladder.rungs) apply(row);
+      sf.detail = renderDecl(sf);
+      if (p.meta.shellEscalation?.rungs) {
+        for (const row of p.meta.shellEscalation.rungs) apply(row);
+      }
+    },
+    "composed at that bonus|same-lap neighbour");
   run("r29/MF6-X-extractorOffNetwork-flipped-alone",
     any28((p) => typeof p.meta?.misc?.extractorOffNetwork === "boolean" && typeof p.meta?.misc?.mineralOffNetwork === "boolean"),
     (p) => { p.meta.misc.extractorOffNetwork = !p.meta.misc.extractorOffNetwork; },

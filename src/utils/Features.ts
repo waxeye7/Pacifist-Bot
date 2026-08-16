@@ -7,16 +7,11 @@ export interface FeatureFlags {
   disablePower: boolean;
   /** Tick-based RCL instrumentation + early remote off */
   speedrun: boolean;
-  /**
-   * Compute & cache dynamic basePlan (hub + stamps + min-cut perimeter).
-   * Does not place sites by itself.
-   */
-  dynamicLayout: boolean;
-  /**
-   * Place construction sites from basePlan (dangerous if dual-stamping legacy).
-   * Default OFF until suite + migration look good.
-   */
-  placeFromPlan: boolean;
+  // NOTE: `dynamicLayout` and `placeFromPlan` used to live here. Nothing read
+  // them — the real placement switch is `room.memory.planV2` (see
+  // rooms.construction.ts, which short-circuits into placeFromPlanV2 on its
+  // presence) and demolition is gated by `room.memory.planMigration` +
+  // migrationAllowed. See docs/LAYOUT-MIGRATION.md.
   /** Use min-cut for rampart perimeter (not square shell) */
   minCutWalls: boolean;
   /** Legacy square shell generator (only if minCutWalls false) */
@@ -37,17 +32,24 @@ export interface FeatureFlags {
    * temporarily when you actually need the original symbol names.
    */
   sourceMaps: boolean;
+  /**
+   * AutoExpand is BLOCKED until an owned room reaches this RCL, once we already
+   * hold 3+ rooms. Owner rule: RCL7 then RCL8 before another claim — a fourth
+   * RCL4 room costs the main room's spawn time and buys ~nothing.
+   * Set to 0 to disable the gate entirely. Separate from `autoExpand`, which is
+   * still the on/off switch for the whole system.
+   */
+  expandMinRcl: number;
 }
 
 const DEFAULTS: FeatureFlags = {
   disablePower: true,
   speedrun: true,
-  dynamicLayout: true,
-  placeFromPlan: false,
   minCutWalls: true,
   squareWalls: false,
   pickupLock: true,
   sourceMaps: false,
+  expandMinRcl: 7,
 };
 
 export function getFeatures(): FeatureFlags {
@@ -57,12 +59,11 @@ export function getFeatures(): FeatureFlags {
   const f = Memory.features as FeatureFlags;
   if (f.disablePower === undefined) f.disablePower = true;
   if (f.speedrun === undefined) f.speedrun = true;
-  if (f.dynamicLayout === undefined) f.dynamicLayout = true;
-  if (f.placeFromPlan === undefined) f.placeFromPlan = false;
   if (f.minCutWalls === undefined) f.minCutWalls = true;
   if (f.squareWalls === undefined) f.squareWalls = false;
   if (f.pickupLock === undefined) f.pickupLock = true;
   if (f.sourceMaps === undefined) f.sourceMaps = false;
+  if (f.expandMinRcl === undefined) f.expandMinRcl = 7;
   return f;
 }
 
@@ -82,14 +83,6 @@ export function powerDisabled(): boolean {
 
 export function speedrunEnabled(): boolean {
   return !!getFeatures().speedrun;
-}
-
-export function dynamicLayoutEnabled(): boolean {
-  return !!getFeatures().dynamicLayout;
-}
-
-export function placeFromPlanEnabled(): boolean {
-  return !!getFeatures().placeFromPlan;
 }
 
 export function minCutWallsEnabled(): boolean {

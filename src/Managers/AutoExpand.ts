@@ -39,7 +39,7 @@
  * Console: autoExpand() · autoExpandStatus() · stopExpand()
  */
 import { logAlways } from "utils/Logger";
-import { packPlanPayload } from "utils/PlanV2";
+import { packPlanPayload, clearPlanSpawnTile } from "utils/PlanV2";
 
 const SEG_INDEX = 86;
 /** segments holding the pack's per-room plans (push-expansion-pack.mjs) */
@@ -53,6 +53,8 @@ const ADOPT_TIMEOUT = 200;
 const ADOPT_MISS_BACKOFF = 3000;
 /** phases advance on world state; this is only the giving-up bound */
 const PHASE_TIMEOUT = 20000;
+/** claimed + no MY spawn this long → finish(). One tunable. */
+const CLAIMED_SPAWNLESS = 8000;
 const MIN_BUCKET = 5000;
 const MIN_RCL = 3;
 
@@ -82,6 +84,11 @@ function ownedRooms(): Room[] {
   return out;
 }
 
+/** Any owned room with no finished MY spawn (site-only counts). */
+function spawnlessOwned(): boolean {
+  return ownedRooms().some((r) => r.find(FIND_MY_SPAWNS).length === 0);
+}
+
 /** null = clear to expand, otherwise the reason we are not. */
 function blockedReason(): string | null {
   const owned = ownedRooms();
@@ -91,6 +98,15 @@ function blockedReason(): string | null {
   if (Game.cpu.bucket <= MIN_BUCKET) return `bucket ${Game.cpu.bucket} <= ${MIN_BUCKET}`;
   if (!owned.some((r) => (r.controller as StructureController).level >= MIN_RCL))
     return `no owned room at RCL${MIN_RCL}+`;
+  // Owner rule: RCL7 then RCL8 before another claim. Memory.features.expandMinRcl
+  // (default 7, see utils/Features); 0 disables. Only bites once we hold 3+ rooms.
+  const minRcl = M().features && M().features.expandMinRcl !== undefined ? M().features.expandMinRcl : 7;
+  if (minRcl > 0 && owned.length >= 3 &&
+      !owned.some((r) => (r.controller as StructureController).level >= minRcl))
+    return `expandMinRcl ${minRcl}: ${owned.length} owned rooms and none at RCL${minRcl}+`;
+  // hold the queue: finish() without this just pick()s the next leftover
+  if (spawnlessOwned())
+    return "spawnless owned room — bootstrap before next claim";
   const st = M().autoExpand as ExpandState | undefined;
   if (st) return `already expanding to ${st.room} (${st.phase})`;
   return null;
@@ -144,6 +160,23 @@ function takenByAnyone(roomName: string): boolean {
   return !!room.controller.owner;
 }
 
+/** A home needs two sources. Visible count wins; else the pack must say >= 2. */
+function tooFewSources(roomName: string, packN?: number): boolean {
+  const room = Game.rooms[roomName];
+  if (room) return room.find(FIND_SOURCES).length < 2;
+  return !(typeof packN === "number" && packN >= 2);
+}
+
+/** Visible leftover spawn we cannot remove. No vision: trust the pack. */
+function hasVisibleForeignSpawn(roomName: string): boolean {
+  const room = Game.rooms[roomName];
+  if (!room) return false;
+  // HOSTILE is my===false only — unowned leftovers (user undefined) miss it.
+  // Same predicate as PlanV2 occupy: any standing spawn that is not ours.
+  return room.find(FIND_STRUCTURES, {filter: (s: Structure) =>
+    s.structureType === STRUCTURE_SPAWN && !(s as StructureSpawn).my}).length > 0;
+}
+
 function armColonise(st: ExpandState): void {
   const m = M();
   if (!m.target_colonise) m.target_colonise = {};
@@ -178,9 +211,10 @@ function ensureSpawnSite(st: ExpandState, room: Room): void {
   for (const s of pos.lookFor(LOOK_CONSTRUCTION_SITES)) {
     if (s.structureType === STRUCTURE_SPAWN) return;
   }
+  clearPlanSpawnTile(room, pos.x, pos.y);
   const res = pos.createConstructionSite(STRUCTURE_SPAWN);
   if (res === OK) logAlways(`autoExpand: ${st.room} spawn site placed at ${pos.x},${pos.y}`);
-  else if (res !== ERR_FULL && res !== ERR_INVALID_TARGET)
+  else if (res !== ERR_FULL)
     logAlways(`autoExpand: ${st.room} spawn site at ${pos.x},${pos.y} failed: ${res}`);
 }
 
@@ -210,6 +244,14 @@ function pick(st: ExpandState): void {
   for (const r of ownedRooms()) mine[r.name] = true;
   for (const t of data.targets) {
     if (mine[t.room] || takenByAnyone(t.room)) continue;
+    if (hasVisibleForeignSpawn(t.room)) {
+      logAlways(`autoExpand: skip ${t.room} — visible foreign spawn`);
+      continue;
+    }
+    if (tooFewSources(t.room, t.nSources)) {
+      logAlways(`autoExpand: skip ${t.room} — fewer than 2 sources`);
+      continue;
+    }
     st.room = t.room;
     st.spawnPos = t.spawnPos;
     st.seg = t.seg;
@@ -465,6 +507,10 @@ function advance(st: ExpandState): void {
       return;
 
     case "claiming":
+      if (hasVisibleForeignSpawn(st.room) && !hasSpawn) {
+        finish(st, "ABORT — visible foreign spawn while claiming");
+        return;
+      }
       if (mine) {
         setPhase(st, hasSpawn ? "spawned" : "claimed");
         return;
@@ -482,6 +528,24 @@ function advance(st: ExpandState): void {
       if (hasSpawn) {
         setPhase(st, "spawned");
         return;
+      }
+      if (hasVisibleForeignSpawn(st.room)) {
+        finish(st, "ABORT — visible foreign spawn, still spawnless");
+        return;
+      }
+      // missing since → started, else treat as already expired so a hand-written
+      // Memory.autoExpand cannot sit in claimed forever (NaN > N is false)
+      {
+        const claimedSince =
+          typeof st.since === "number"
+            ? st.since
+            : typeof st.started === "number"
+              ? st.started
+              : Game.time - CLAIMED_SPAWNLESS;
+        if (Game.time - claimedSince >= CLAIMED_SPAWNLESS) {
+          finish(st, `ABORT — claimed still spawnless after ${CLAIMED_SPAWNLESS}t`);
+          return;
+        }
       }
       // keep the colonise target set: it is what sends the ContainerBuilders
       // that build and feed the spawn (rooms.spawning)

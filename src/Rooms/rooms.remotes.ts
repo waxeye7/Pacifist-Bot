@@ -84,6 +84,29 @@ function remotes(room) {
  */
 export const RESCOUT_AFTER = 20000;
 /**
+ * ...but a room that has DELIVERED to us is not an unknown quantity, and 20,000
+ * ticks is most of a real-time day to sit on a remote we already know pays.
+ *
+ * Live E37N59 (RCL6): both of its remotes were closed with
+ * `retryAt ≈ 82,297,5xx` — 13,000 ticks out — while Memory.rstats recorded
+ * E38N59 del=12,650 and E36N59 del=4,600 over the measurement window. The
+ * verdict that closed them ("someone lives here", "reserved by X") is about who
+ * held the room on ONE tick; the delivery history is about whether it is worth
+ * having. A remote with `del > 0` therefore gets the short leash.
+ */
+export const RESCOUT_PROVEN = 1500;
+
+/**
+ * How long THIS home->remote pair should stand rejected before another look.
+ * Shared by manageRemotes (vision-side rejects) and Roles/scout (scout-side
+ * rejects) so the two cannot disagree.
+ */
+export function rescoutDelay(homeRoomName: string, remoteName: string): number {
+    const st = (Memory as any).rstats;
+    const e = st && st.r && st.r[homeRoomName + "|" + remoteName];
+    return e && e.del > 0 ? RESCOUT_PROVEN : RESCOUT_AFTER;
+}
+/**
  * Entries written before `retryAt` existed carry no reason at all, so we
  * cannot tell a world-border room from a rival's commune. Re-evaluate each of
  * them exactly once, shortly after this lands; the scout then writes a verdict
@@ -122,6 +145,139 @@ function clearRemoteVisionFlags(e: any): void {
 function resFor(homeRoomName: string): any {
     const mem = Memory.rooms && Memory.rooms[homeRoomName];
     return mem && (mem as any).resources;
+}
+
+/* ------------------------------------------------------------------ *
+ * Remote ownership registry — empire-level arbitration.
+ *
+ * manageRemotes scores a room's own `Game.map.describeExits` against that
+ * room's own `room.memory.resources` and nothing else, so two communes that
+ * share an exit both "win" the same neighbour and both staff it. Live:
+ * E36N58 was opened by E37N58 (miner seat 90%) AND by E36N57 (seat 30%,
+ * 400 energy delivered for its entire lifetime spend) — the same source ids
+ * fed to two spawn_energy_miner passes. Nothing in the per-room view can see
+ * that, so the claim has to live above the room.
+ *
+ * Memory.remoteOwner[<remote>] = { home: <commune>, t: <tick claimed> }
+ *
+ * A claim is only binding while the owner is REALLY still mining it
+ * (`Memory.rooms[owner].resources[remote].active === true`); anything else is
+ * stale and the next claimer overwrites it. That keeps the registry
+ * self-healing across losing a room, a global reset, or a manual edit.
+ * ------------------------------------------------------------------ */
+
+/** How long a room stands off a remote another commune holds. */
+const OWNED_RETRY = 1500;
+
+function remoteOwners(): { [remote: string]: { home: string; t: number } } {
+    const m: any = Memory as any;
+    if (!m.remoteOwner) m.remoteOwner = {};
+    return m.remoteOwner;
+}
+
+/**
+ * The commune that holds `remote` and is still actually mining it, if that is
+ * anyone other than `home`. Null means "free, or held by a stale claim" — in
+ * both cases `home` may take it.
+ */
+function remoteHeldByOther(remote: string, home: string): string | null {
+    const o = remoteOwners()[remote];
+    if (!o || o.home === home) return null;
+    // A claim held by a room we no longer own is stale by definition — and
+    // Memory.rooms outlives the loss of a room, so without this a commune that
+    // got wiped would hold its remotes against the rest of the empire forever.
+    // Our own rooms are always in Game.rooms, so this needs no vision.
+    const hr = Game.rooms[o.home];
+    if (!hr || !hr.controller || !hr.controller.my) return null;
+    const res = resFor(o.home);
+    const e = res && res[remote];
+    return e && e.active === true ? o.home : null;
+}
+
+/** Record `home` as the owner of `remote`. Rooms run sequentially; first writer wins. */
+function claimRemote(remote: string, home: string): void {
+    remoteOwners()[remote] = { home, t: Game.time };
+}
+
+/**
+ * Drop every claim this room holds but is no longer backing with an active
+ * remote. One sweep instead of a `delete` at each of the ~10 sites that set
+ * `active = false`, so a new close path cannot forget to release — a leaked
+ * claim would lock the remote out for every OTHER commune too.
+ */
+function syncRemoteClaims(room: any, res: any): void {
+    const owners = remoteOwners();
+    for (const n in owners) {
+        if (owners[n].home !== room.name) continue;
+        if (!res || !res[n] || res[n].active !== true) delete owners[n];
+    }
+}
+
+/**
+ * Has the remote this creep works been CLOSED by manageRemotes?
+ *
+ * manageRemotes flips `active = false` in ten places and that is the whole of
+ * it — no role ever read the flag, so the crew already in the field kept
+ * working a remote the haul fleet had stopped serving. A CARRY-less 4W miner
+ * ([W,W,M,W,W,M]) then drops 8 e/t onto the floor of a room nobody visits for
+ * up to 1500 more ticks. Live on E37N59: every remote inactive, every miner
+ * still out there.
+ *
+ * STICKY on purpose. The lookup is throttled, so an un-recall on the ticks in
+ * between would leave a miner oscillating between walking home and going back
+ * to work. The flag stores the ROOM NAME it was raised against rather than a
+ * bare true, so a creep later pointed at some other, open remote (global.send)
+ * is not recalled off it by a verdict about a different room.
+ *
+ * `active === false` is required EXPLICITLY. Absent memory (`Memory.rooms` for
+ * the home gone, no `resources`, no entry for this remote) means "no opinion",
+ * and recalling on absence would strand the entire remote fleet of any room
+ * whose memory has not been written yet.
+ */
+export function remoteRecalled(creep: any): boolean {
+    const m = creep.memory;
+    const home = m.homeRoom;
+    const target = m.targetRoom;
+    if (!home || !target || target === home) return false;
+    // One memory-chain read per remote creep per 10 ticks. A per-creep phase
+    // cannot come from ticksToLive — Game.time + ttl is CONSTANT for a given
+    // creep, so that test is either true every tick or never true at all.
+    // Between reads the sticky flag decides, so nothing oscillates.
+    if (Game.time % 10 !== 0) return m.remoteClosed === target;
+    const res = resFor(home);
+    const e = res && res[target];
+    if (m.remoteClosed === target) {
+        // Sticky, but not forever: a remote that flipped closed -> open again
+        // (cap juggling, a hot verdict that expired, an ownership claim that
+        // was re-won) must get its creep back rather than recycle a healthy
+        // miner and pay to hatch a new one. Live E36N57: miner flagged during
+        // a one-pass close of E36N58, entry active again 20 ticks later.
+        if (e && e.active === true) {
+            delete m.remoteClosed;
+            return false;
+        }
+        return true;
+    }
+    if (!e || e.active !== false) return false;
+    // DEBOUNCE. `active === false` is set on a lot of transient conditions — a
+    // CpuPolicy bucket dip that drops maxRemotes by one, two remotes swapping
+    // rank on a score recompute, an ownership claim changing hands for one pass
+    // — and the recall is expensive and asymmetric: it walks the whole crew
+    // home (and recycles the miners) in one tick, and re-staffing costs a full
+    // spawn cycle plus the walk back out. So a close only counts once it has
+    // STOOD for four manage passes; anything shorter is churn and is ignored.
+    //
+    // `closedAt` is stamped by manageRemotes at every close it owns. An entry
+    // closed by some other path (or before this field existed) has none, so the
+    // first creep to look at it stamps the clock and lets the remote be — the
+    // debounce then runs from first sight instead of recalling on legacy data.
+    if (!e.closedAt) {
+        e.closedAt = Game.time;
+        return false;
+    }
+    if (Game.time - e.closedAt <= 4 * MANAGE_EVERY) return false;
+    m.remoteClosed = target;
+    return true;
 }
 
 /** Is this remote currently abandoned for threat reasons? */
@@ -228,6 +384,12 @@ export function roomTickOffset(name: string): number {
 const MANAGE_EVERY = 25;
 /** owner's ask: reserve+mine the best 1-2 neighbours, no more */
 const HARD_CAP = 2;
+/**
+ * ...except from RCL6, where the room can afford a reserver (3x CLAIM), has the
+ * carrier bodies to run a 10 e/t reserved source, and is bottlenecked on income
+ * rather than on spawn time. CpuPolicy.maxRemotes is still the outer bound.
+ */
+const HARD_CAP_MATURE = 3;
 
 export function manageRemotes(room: any): void {
     if (!room.controller || !room.controller.my) return;
@@ -244,6 +406,7 @@ export function manageRemotes(room: any): void {
                     console.log(`[remotes] ${room.name} close ${n} (disableRemotes)`);
                 }
             }
+            syncRemoteClaims(room, r);
         }
         return;
     }
@@ -263,6 +426,7 @@ export function manageRemotes(room: any): void {
                     console.log(`[remotes] ${room.name} close ${n} (RCL${room.controller.level} < 4)`);
                 }
             }
+            syncRemoteClaims(room, r);
         }
         return;
     }
@@ -272,7 +436,8 @@ export function manageRemotes(room: any): void {
 
     const policy = getCpuPolicy();
     if (!policy.allowRemotes) return;
-    const cap = Math.max(1, Math.min(HARD_CAP, policy.maxRemotes));
+    const hardCap = room.controller.level >= 6 ? HARD_CAP_MATURE : HARD_CAP;
+    const cap = Math.max(1, Math.min(hardCap, policy.maxRemotes));
 
     const res = room.memory.resources;
     if (!res) return;
@@ -327,7 +492,7 @@ export function manageRemotes(room: any): void {
             if (seen.controller.owner) {
                 e.active = false;
                 e.energy = {};                       // someone lives here...
-                e.retryAt = Game.time + RESCOUT_AFTER; // ...for now
+                e.retryAt = Game.time + rescoutDelay(room.name, name); // ...for now
                 clearRemoteVisionFlags(e);
                 continue;
             }
@@ -377,6 +542,15 @@ export function manageRemotes(room: any): void {
         // field as legacy data and re-queued the same scout 200 ticks later,
         // forever.
         if (e.energy && Object.keys(e.energy).length === 0) {
+            // A deadline written under the old flat RESCOUT_AFTER is still
+            // sitting in memory from before rescoutDelay existed, so clamp it
+            // on read as well as on write — otherwise the fix does nothing for
+            // the rooms that already have the problem. E37N59's two remotes are
+            // both parked ~13,000 ticks out with a delivery history.
+            const maxWait = rescoutDelay(room.name, name);
+            if (e.retryAt > 0 && e.retryAt > Game.time + maxWait) {
+                e.retryAt = Game.time + maxWait;
+            }
             if (e.retryAt === undefined) {
                 e.retryAt = Game.time + LEGACY_RECHECK; // pre-`retryAt` data
             } else if (e.retryAt > 0 && Game.time >= e.retryAt) {
@@ -388,6 +562,23 @@ export function manageRemotes(room: any): void {
                 unscouted.push(name);
                 continue;
             }
+        }
+
+        // Another commune already holds this remote and is still working it.
+        // Checked HERE, while the candidate list is being built, rather than
+        // after the sort: a remote we cannot have must not consume one of the
+        // room's two (three at RCL6) HARD_CAP slots, and it must not consume
+        // the scout slot below either.
+        const heldBy = remoteHeldByOther(name, room.name);
+        if (heldBy) {
+            if (e.active) {
+                e.active = false;
+                e.closedAt = Game.time;   // starts remoteRecalled's debounce
+                console.log(`[remotes] ${room.name} close ${name} (owned by ${heldBy})`);
+            }
+            e.retryAt = Game.time + OWNED_RETRY;
+            clearRemoteVisionFlags(e);
+            continue;
         }
 
         if (!e.energy) {
@@ -403,6 +594,7 @@ export function manageRemotes(room: any): void {
         if (remoteIsHot(room, name)) {
             if (e.active) {
                 e.active = false;
+                e.closedAt = Game.time;   // starts remoteRecalled's debounce
                 console.log(`[remotes] ${room.name} close ${name} (hot)`);
             }
             clearRemoteVisionFlags(e);
@@ -418,6 +610,13 @@ export function manageRemotes(room: any): void {
             if (typeof pl === "number" && pl < best) best = pl;
         }
         if (!isFinite(best)) {
+            // No pathLength yet (fresh scout, Build_Remote_Roads not run) so it
+            // cannot be scored — but if it is already active it is already
+            // being mined, and the keep loop below (which stakes the claim) is
+            // never reached for it. Claim here so no other commune opens it in
+            // the window before its path lands. Live E37N59|E38N59: miner and
+            // carrier out, entry active, registry empty.
+            if (e.active) claimRemote(name, room.name);
             continue;
         }
 
@@ -441,8 +640,10 @@ export function manageRemotes(room: any): void {
             // Cached so carrier sizing never needs live vision — see
             // remoteCarrierDemand(). A reserved source yields 10/tick, an
             // unreserved one 5, and getting that wrong halves or doubles the
-            // fleet.
-            e.reserved = !!(vis.controller && vis.controller.reservation);
+            // fleet. It has to be OUR reservation: a rival's parks the room
+            // (foreignUntil, above) and the sources keep regenerating at 5.
+            const rsvHere = vis.controller && vis.controller.reservation;
+            e.reserved = !!(rsvHere && (!myName || rsvHere.username === myName));
         }
 
         /*
@@ -506,7 +707,21 @@ export function manageRemotes(room: any): void {
         const want = !!keep[s.name];
         if (!!res[s.name].active !== want) {
             res[s.name].active = want;
+            // The close clock remoteRecalled debounces against.
+            if (!want) res[s.name].closedAt = Game.time;
             console.log(`[remotes] ${room.name} ${want ? "OPEN" : "close"} ${s.name} (score ${s.score})`);
+        }
+        // Stake the claim every pass, not only on the OPEN transition: `t` then
+        // doubles as "when did this room last confirm it is mining here", and a
+        // registry wiped by a memory edit repairs itself within MANAGE_EVERY.
+        //
+        // Same reasoning for clearing the close clock: scout.ts ALSO writes
+        // `active = true`, and an entry that came back open that way never sees
+        // an OPEN transition here — it would carry a months-old `closedAt` into
+        // its next close and skip the debounce entirely.
+        if (want) {
+            claimRemote(s.name, room.name);
+            delete res[s.name].closedAt;
         }
     }
 
@@ -520,6 +735,7 @@ export function manageRemotes(room: any): void {
         for (let i = 1; i < pending.length; i++) res[pending[i]].active = false;
         if (pending.length === 0) {
             res[unscouted[0]].active = true;
+            delete res[unscouted[0]].closedAt;
             console.log(`[remotes] ${room.name} scouting ${unscouted[0]}`);
         }
     } else {
@@ -531,6 +747,9 @@ export function manageRemotes(room: any): void {
         if (name === room.name) continue;
         if (adjacent.indexOf(name) < 0 && res[name] && res[name].active) res[name].active = false;
     }
+
+    // ...and after every close above, hand back what we are no longer mining.
+    syncRemoteClaims(room, res);
 }
 
 export default remotes;

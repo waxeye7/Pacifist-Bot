@@ -25,6 +25,7 @@
  * whole bot.
  */
 import { logAlways } from "utils/Logger";
+import { requestSegments } from "utils/Segments";
 
 const INDEX_SEGMENT = 89;
 /** Steps stay on screen this long after the last one lands. */
@@ -166,9 +167,11 @@ function stop(reason?: string): void {
   if (reason) logAlways(`animPlan: ${reason}`);
 }
 
-/** Segments requested this tick only become readable next tick. */
+/** Segments requested this tick only become readable next tick.
+ *  Goes through utils/Segments so the request UNIONS with adoption (88), the
+ *  error segment (10) and AutoExpand's pack segments instead of replacing them. */
 function request(segments: number[]): void {
-  RawMemory.setActiveSegments(segments.slice(0, 10));
+  requestSegments(segments);
 }
 
 function readIndex(s: PlanAnimState): boolean {

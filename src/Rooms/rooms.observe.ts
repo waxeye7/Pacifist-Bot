@@ -56,8 +56,15 @@ function observeWaveInFlight(homeRoom: any, targetRoom: string): boolean {
 }
 
 function observe(room) {
-    let interval = 64;
-    let twoTimesInterval = interval*2
+    // One observeRoom per cycle over a ~100 room list, so the sweep takes
+    // interval * RoomsToSee.length ticks. observeRoom itself is free and the
+    // processing pass below is bucket-gated, so 8 is the default instead of 64.
+    // Memory.observeEvery = 64 restores the old cadence.
+    const configured = (Memory as any).observeEvery;
+    let interval = typeof configured === "number" && configured >= 2 ? Math.floor(configured) : 8;
+    // The power/deposit sweep keeps its own (much slower) cadence so that
+    // speeding up the intel sweep doesn't multiply highway scanning too.
+    let twoTimesInterval = 128;
     let observer:any = Game.getObjectById(room.memory.Structures.observer) || room.findObserver();
     if(observer && (Game.time % interval == 0 || Game.time % interval == 1) && Game.cpu.bucket > 8000) {
         if(!room.memory.observe) {
@@ -186,20 +193,29 @@ function observe(room) {
 
 
             let chosenRoom = RoomsToSee[room.memory.observe.lastObserved]
-            observer.observeRoom(chosenRoom);
+            const observeResult = observer.observeRoom(chosenRoom);
 
-
-            console.log("seeing", chosenRoom)
-
-
+            // Always advance the sweep, but only claim vision when the call took.
+            // A failed observeRoom used to leave lastRoomObserved pointing at the
+            // previous room, and the next tick processed that stale data as fresh.
             room.memory.observe.lastObserved += 1;
-            room.memory.observe.lastRoomObserved = chosenRoom;
+
+            if(observeResult === OK) {
+                // 8x the cadence would be 8x this line, so it follows setVerbose now
+                if(Memory.verbose) console.log("seeing", chosenRoom)
+                room.memory.observe.lastRoomObserved = chosenRoom;
+                room.memory.observe.lastRoomObservedTick = Game.time;
+            }
+            else {
+                console.log("observeRoom failed for", chosenRoom, observeResult)
+            }
 
         }
 
         if(Game.time % interval == 1) {
             let adj = room.memory.observe.lastRoomObserved;
-            if(areRoomsNormalToThisRoom(room.name, adj)) {
+            // only act on intel we actually asked for last tick
+            if(adj && room.memory.observe.lastRoomObservedTick === Game.time - 1 && areRoomsNormalToThisRoom(room.name, adj)) {
                 if (
                   Game.rooms[adj] &&
                   room.name !== adj &&
@@ -1022,7 +1038,7 @@ function observe(room) {
                   }
                 }
                 else {
-                  // Observe is %64==0, this process tick is %64==1. Without
+                  // Observe is %interval==0, this process tick is %interval==1. Without
                   // vision we used to drop adj from AvoidRooms, so towered
                   // rooms became walkable after a missed observe.
                   if (Game.rooms[adj]) {
@@ -1152,7 +1168,9 @@ function observe(room) {
 
             let RoomsToSee = room.memory.observe.listOfRoomsForPower
 
-            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2) {
+            // never fire two observeRoom intents in the same tick when a custom
+            // Memory.observeEvery lines the two sweeps up
+            if(RoomsToSee.length > 0 && Game.time % twoTimesInterval == 2 && Game.time % interval !== 0) {
                 if(!room.memory.observe.lastRoomObservedForPowerIndex || room.memory.observe.lastRoomObservedForPowerIndex >= RoomsToSee.length) {
                     room.memory.observe.lastRoomObservedForPowerIndex = 0
                 }

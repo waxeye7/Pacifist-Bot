@@ -104,6 +104,8 @@ docker exec local-screeps-server-mongo-1 mongosh screeps --quiet --eval '
 db["users.code"].updateMany({user:"pacifist-race",branch:"main"},{$set:{activeWorld:true,activeSim:true}})'
 ```
 
+`race-dash.mjs` rebuilds `docs/speedrun-ledger/dashboard/index.html` (means + pair timelapse). Serve at `http://127.0.0.1:8767/` via `node tools/server/race-dash.mjs --watch 45 --serve 8767`. Does not replace `race.mjs --watch`.
+
 `spawn-in.mjs` auto-detects the bot account with `/^pacifist$/i` first, so `pacifist-race`
 is never picked by accident; `race.mjs` always passes `--user` explicitly anyway.
 

@@ -1,5 +1,5 @@
 import urgent_buy from "Random_Stuff/urgent_buy";
-import { chargeBoostSlot } from "Rooms/rooms.labs";
+import { chargeBoostSlot, labKeyForId, storeOf } from "Rooms/rooms.labs";
 import { setVerbose, logAlways } from "utils/Logger";
 import { cpuStatusString, getCpuPolicy } from "utils/CpuPolicy";
 import {
@@ -25,6 +25,146 @@ import { getPerimeterTiles } from "utils/Perimeter";
 import { animPlan, animStop } from "utils/PlanAnimator";
 
 const g = global as any;
+
+const KEEP_ROOMS: { [name: string]: boolean } = { E36N57: true };
+
+/** Fixed slot map the EnergyManager fills by lab index (see energyManager.ts). */
+const LAB_SLOT_MINERAL: { [key: string]: ResourceConstant } = {
+    lab1: RESOURCE_CATALYZED_LEMERGIUM_ACID,      // REPAIR
+    lab2: RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE,   // MOVE
+    lab3: RESOURCE_CATALYZED_UTRIUM_ACID,         // ATTACK
+    lab4: RESOURCE_CATALYZED_KEANIUM_ALKALIDE,    // RANGED_ATTACK
+    lab5: RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE,  // HEAL
+    lab6: RESOURCE_CATALYZED_ZYNTHIUM_ACID,       // DISMANTLE
+    lab7: RESOURCE_CATALYZED_GHODIUM_ALKALIDE,    // TOUGH
+    lab8: RESOURCE_CATALYZED_KEANIUM_ACID,        // CARRY (or UO when lab8reserved)
+};
+
+/**
+ * Reserve a boost slot, and on refusal (lab8 mineral conflict, bad amount) drop
+ * that lab from the creep's boostlabs so it queues unboosted for that slot.
+ * An uncharged lab is never filled by the EnergyManager: the creep parks 80
+ * ticks next to it and can consume a sibling's reservation on the way out.
+ */
+function chargeOrDrop(room: any, labKey: string, amount: number, creepName: string, labIds: any[]): boolean {
+    if (chargeBoostSlot(room, labKey, amount, creepName)) return true;
+    const id = room && room.memory.labs && room.memory.labs["outputLab" + labKey.substring(3)];
+    if (id && labIds) {
+        for (let i = labIds.length - 1; i >= 0; i--) {
+            if (labIds[i] === id) labIds.splice(i, 1);
+        }
+    }
+    console.log("boost slot refused: " + (room && room.name) + " " + labKey + " for " + creepName + " - queueing unboosted for that lab");
+    return false;
+}
+
+function nearestTwoSourceHome(from: string): string {
+    const hits: string[] = [];
+    for (const n in Game.rooms) {
+        const r = Game.rooms[n];
+        if (!r.controller || !r.controller.my) continue;
+        if (n === from) continue;
+        if (r.find(FIND_SOURCES).length < 2) continue;
+        if (!r.find(FIND_MY_SPAWNS).length) continue;
+        hits.push(n);
+    }
+    hits.sort((a, b) =>
+        Game.map.getRoomLinearDistance(from, a) - Game.map.getRoomLinearDistance(from, b));
+    return hits[0] || "";
+}
+
+/** Everything sitting in a room's storage + terminal — destroy() throws it away. */
+function storedResources(room: Room): number {
+    let total = 0;
+    const holders: any[] = [room.storage, room.terminal];
+    for (const h of holders) {
+        if (!h || !h.store) continue;
+        for (const res in h.store) total += h.store[res] || 0;
+    }
+    return total;
+}
+
+/** Storage+terminal contents above this need dropRoom(name, true). */
+const DROP_CONTENT_LIMIT = 20000;
+/** A room this developed needs dropRoom(name, true) too. */
+const DROP_RCL_LIMIT = 5;
+
+/**
+ * Unclaim a bad expand. Refuses E36N57. Kills creeps in-room; others go home to
+ * recycle. Refuses a room that still holds >20k in storage+terminal or is RCL5+
+ * (destroy() deletes the contents) unless force is true: dropRoom(name, true).
+ */
+export function dropRoomNow(name: string, force: boolean = false): string {
+    if (!name || KEEP_ROOMS[name]) return "refused: " + name + " KEEP";
+    const room = Game.rooms[name];
+    // No vision means no destroy()/unclaim() below either, so nothing to guard.
+    if (room && !force) {
+        const rcl = room.controller && room.controller.my ? room.controller.level : 0;
+        const held = storedResources(room);
+        if (held > DROP_CONTENT_LIMIT || rcl >= DROP_RCL_LIMIT) {
+            return (
+                `refused: ${name} is RCL${rcl} and holds ${held} resources in storage+terminal ` +
+                `(limit ${DROP_CONTENT_LIMIT} / RCL${DROP_RCL_LIMIT}); dropping destroys them. ` +
+                `Empty it first, or force with dropRoom("${name}", true)`
+            );
+        }
+    }
+    const dest = nearestTwoSourceHome(name);
+    let creeps = 0;
+    for (const id in Game.creeps) {
+        const c = Game.creeps[id];
+        const hit = c.room.name === name || c.memory.homeRoom === name || c.memory.targetRoom === name;
+        if (!hit) continue;
+        creeps++;
+        if (dest) {
+            c.memory.homeRoom = dest;
+            c.memory.targetRoom = dest;
+            c.memory.suicide = true;
+            delete c.memory.sourceId;
+        }
+        if (c.room.name === name) c.suicide();
+    }
+    let sites = 0;
+    let structs = 0;
+    let unclaimed = false;
+    if (room) {
+        for (const s of room.find(FIND_MY_CONSTRUCTION_SITES)) {
+            s.remove();
+            sites++;
+        }
+        for (const s of room.find(FIND_MY_STRUCTURES)) {
+            if (s.structureType === STRUCTURE_CONTROLLER) continue;
+            if (s.destroy() === OK) structs++;
+        }
+        if (room.controller && room.controller.my) {
+            room.controller.unclaim();
+            unclaimed = true;
+        }
+    }
+    const m: any = Memory;
+    if (m.target_colonise && m.target_colonise.room === name) m.target_colonise = {};
+    if (m.autoExpand && m.autoExpand.room === name) delete m.autoExpand;
+    if (m.rooms && m.rooms[name]) delete m.rooms[name];
+    return `drop ${name}: creeps ${creeps} home ${dest || "none"} sites ${sites} structs ${structs} unclaim ${unclaimed}`;
+}
+
+export function runDropRooms(): void {
+    const name = (Memory as any).dropRoom;
+    if (!name || typeof name !== "string") return;
+    const msg = dropRoomNow(name);
+    logAlways(msg);
+    // The persisted retry never passes force, so a refusal would repeat forever
+    // (and could fire later, once the guard happens to pass). Clear it either way.
+    delete (Memory as any).dropRoom;
+}
+
+/** Console: dropRoom("E36N58") — add true to force past the contents guard. */
+g.dropRoom = function (name: string, force: boolean = false): string {
+    (Memory as any).dropRoom = name;
+    const msg = dropRoomNow(name, force);
+    if (msg.indexOf("refused") !== -1) delete (Memory as any).dropRoom;
+    return msg;
+};
 
 /**
  * Replay the offline planner stage by stage: animPlan("E2S7") or
@@ -103,20 +243,10 @@ g.showPerimeter = function (roomName: string): string {
   return msg;
 };
 
-/** Enable live placement from plan (careful): enablePlaceFromPlan() */
-g.enablePlaceFromPlan = function (): string {
-  getFeatures().placeFromPlan = true;
-  const msg = "placeFromPlan ON — plan will create construction sites";
-  logAlways(msg);
-  return msg;
-};
-
-g.disablePlaceFromPlan = function (): string {
-  getFeatures().placeFromPlan = false;
-  const msg = "placeFromPlan OFF";
-  logAlways(msg);
-  return msg;
-};
+// enablePlaceFromPlan / disablePlaceFromPlan removed: the `placeFromPlan` flag
+// they toggled was read by nothing. Placement is switched on by adopting a plan
+// (adoptPlan / the auto-expand pack writing room.memory.planV2) and off by
+// dropPlan; demolition is armed separately with migratePlan.
 
 /** Console: setVerbose(true|false) — default silent for shard3 */
 global.setVerbose = function (on: boolean = true): string {
@@ -414,10 +544,10 @@ global.spawn_mosquito = function (homeRoom: string, roomName: string): boolean {
             room.memory.labs.outputLab7
         ].filter(function (id) { return !!id; });
         // Per-owner ledger so janitor/refund can clear a dead mosquito.
-        if (room.memory.labs.outputLab4) chargeBoostSlot(room, "lab4", 450, newName2);
-        if (room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 480, newName2);
-        if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newName2);
-        if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 270, newName2);
+        if (room.memory.labs.outputLab4) chargeOrDrop(room, "lab4", 450, newName2, mosquitoBoostLabs);
+        if (room.memory.labs.outputLab5) chargeOrDrop(room, "lab5", 480, newName2, mosquitoBoostLabs);
+        if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName2, mosquitoBoostLabs);
+        if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 270, newName2, mosquitoBoostLabs);
         }
         room.memory.spawn_list.push(
           body,
@@ -508,7 +638,9 @@ global.lock_room = function (homeRoom, targetRoom) {
     let room = Game.rooms[homeRoom];
     if(!room) return;
     let storage = room.storage
-    if(room.controller && room.controller.level === 8 && storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 1000 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2000  && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1000) {
+    // storeOf = storage + terminal: market buys land in the terminal, so a
+    // storage-only gate refused the spawn the purchase was made for.
+    if(room.controller && room.controller.level === 8 && storage && storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 1000 && storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 2000  && storeOf(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) >= 2000 && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 1000) {
 
         // Guard labs like mosquito/SMDP: missing labs/status used to throw
         // after the Escort was queued, so the claimer/locker never spawned.
@@ -516,10 +648,10 @@ global.lock_room = function (homeRoom, targetRoom) {
         let escortBoostLabs = [];
         if(room.memory.labs && room.memory.labs.status) {
             escortBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newName3);
-            if (room.memory.labs.outputLab4) chargeBoostSlot(room, "lab4", 750, newName3);
-            if (room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 300, newName3);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 150, newName3);
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName3, escortBoostLabs);
+            if (room.memory.labs.outputLab4) chargeOrDrop(room, "lab4", 750, newName3, escortBoostLabs);
+            if (room.memory.labs.outputLab5) chargeOrDrop(room, "lab5", 300, newName3, escortBoostLabs);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 150, newName3, escortBoostLabs);
         }
         room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newName3, {memory: {role: 'Escort', targetRoom: targetRoom, homeRoom:room.name, line:1, boostlabs:escortBoostLabs }});
         console.log('Adding Escort to Spawn List: ' + newName3);
@@ -565,13 +697,14 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         // CLAIM parts cannot be boosted; Boost() never drops those labs, so
         // the party parks forever on an empty T3 reservation. Refuse to
         // queue unless storage can actually fund the charge amounts.
+        // storeOf = storage + terminal (market buys land in the terminal).
         let huntingStore: any = room.storage;
         if (!huntingStore ||
-            (huntingStore.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] || 0) < amountZYN_ALK ||
-            (huntingStore.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] || 0) < amountGHO_ALK ||
-            (huntingStore.store[RESOURCE_CATALYZED_UTRIUM_ACID] || 0) < 300 ||
-            (huntingStore.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] || 0) < 1200 ||
-            (huntingStore.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] || 0) < 600) {
+            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) < amountZYN_ALK ||
+            storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) < amountGHO_ALK ||
+            storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) < 300 ||
+            storeOf(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) < 1200 ||
+            storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) < 600) {
             return;
         }
         huntingBoostLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab3, room.memory.labs.outputLab4, room.memory.labs.outputLab5, room.memory.labs.outputLab7].filter(function (id) { return !!id; });
@@ -581,25 +714,28 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         let newNameA = "FreedomFighter-party-1-" + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding FreedomFighter to Spawn List: ' + newNameA);
         // Per-body charges (5T/10M/5A/20RA/10H). Only when the store check passed.
-        if (huntingBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newNameA);
-            if (room.memory.labs.outputLab3) chargeBoostSlot(room, "lab3", 150, newNameA);
-            if (room.memory.labs.outputLab4) chargeBoostSlot(room, "lab4", 600, newNameA);
-            if (room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 300, newNameA);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 150, newNameA);
+        // Own copy per creep: a refused slot must drop off THIS creep's list.
+        let huntingLabsA = huntingBoostLabs.slice();
+        if (huntingLabsA.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newNameA, huntingLabsA);
+            if (room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 150, newNameA, huntingLabsA);
+            if (room.memory.labs.outputLab4) chargeOrDrop(room, "lab4", 600, newNameA, huntingLabsA);
+            if (room.memory.labs.outputLab5) chargeOrDrop(room, "lab5", 300, newNameA, huntingLabsA);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 150, newNameA, huntingLabsA);
         }
-        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameA, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:1, lineLength:2+amountToSpawn, boostlabs:huntingBoostLabs.slice() } });
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameA, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:1, lineLength:2+amountToSpawn, boostlabs:huntingLabsA } });
 
         let newNameB = `FreedomFighter-party-${amountToSpawn+2}-` + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding FreedomFighter to Spawn List: ' + newNameB);
-        if (huntingBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newNameB);
-            if (room.memory.labs.outputLab3) chargeBoostSlot(room, "lab3", 150, newNameB);
-            if (room.memory.labs.outputLab4) chargeBoostSlot(room, "lab4", 600, newNameB);
-            if (room.memory.labs.outputLab5) chargeBoostSlot(room, "lab5", 300, newNameB);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 150, newNameB);
+        let huntingLabsB = huntingBoostLabs.slice();
+        if (huntingLabsB.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newNameB, huntingLabsB);
+            if (room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 150, newNameB, huntingLabsB);
+            if (room.memory.labs.outputLab4) chargeOrDrop(room, "lab4", 600, newNameB, huntingLabsB);
+            if (room.memory.labs.outputLab5) chargeOrDrop(room, "lab5", 300, newNameB, huntingLabsB);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 150, newNameB, huntingLabsB);
         }
-        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameB, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:amountToSpawn+2, boostlabs:huntingBoostLabs.slice() } });
+        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL], newNameB, { memory: { role: 'FreedomFighter', targetRoom: targetRoomName, homeRoom: homeRoomName, line:amountToSpawn+2, boostlabs:huntingLabsB } });
 
         let newNameFiller = 'Filler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
         room.memory.spawn_list.unshift([CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE,CARRY, CARRY, CARRY, CARRY, MOVE, MOVE, CARRY, CARRY, CARRY, CARRY, MOVE, MOVE], newNameFiller, { memory: { role: 'filler' } });
@@ -610,11 +746,12 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         let newName = 'ContinuousControllerKiller-party-2-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
         // CLAIM cannot boost; first CCK is 1T/4M.
-        if (huntingClaimBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 120, newName);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName);
+        let claimLabs2 = huntingClaimBoostLabs.slice();
+        if (claimLabs2.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 120, newName, claimLabs2);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 30, newName, claimLabs2);
         }
-        room.memory.spawn_list.push([TOUGH,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,MOVE,MOVE,MOVE,MOVE], newName, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:2, boostlabs:huntingClaimBoostLabs.slice() } });
+        room.memory.spawn_list.push([TOUGH,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,CLAIM,MOVE,MOVE,MOVE,MOVE], newName, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:2, boostlabs:claimLabs2 } });
 
         amountToSpawn--;
         if(amountToSpawn === 0)  return;
@@ -629,11 +766,12 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         }
         let newName2 = 'ContinuousControllerKiller-party-3-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName2);
-        if (huntingClaimBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", body2 === lastBody ? 60 : 90, newName2);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName2);
+        let claimLabs3 = huntingClaimBoostLabs.slice();
+        if (claimLabs3.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", body2 === lastBody ? 60 : 90, newName2, claimLabs3);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 30, newName2, claimLabs3);
         }
-        room.memory.spawn_list.push(body2, newName2, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:3, boostlabs:huntingClaimBoostLabs.slice() } });
+        room.memory.spawn_list.push(body2, newName2, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:3, boostlabs:claimLabs3 } });
 
         amountToSpawn--;
         if(amountToSpawn === 0)  return;
@@ -644,11 +782,12 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         }
         let newName3 = 'ContinuousControllerKiller-party-4-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName3);
-        if (huntingClaimBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", body3 === lastBody ? 60 : 90, newName3);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName3);
+        let claimLabs4 = huntingClaimBoostLabs.slice();
+        if (claimLabs4.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", body3 === lastBody ? 60 : 90, newName3, claimLabs4);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 30, newName3, claimLabs4);
         }
-        room.memory.spawn_list.push(body3, newName3, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:4, boostlabs:huntingClaimBoostLabs.slice() } });
+        room.memory.spawn_list.push(body3, newName3, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:4, boostlabs:claimLabs4 } });
 
         amountToSpawn--;
         if(amountToSpawn === 0)  return;
@@ -659,22 +798,24 @@ global.spawn_hunting_party = function(homeRoomName, targetRoomName, amountToSpaw
         }
         let newName4 = 'ContinuousControllerKiller-party-5-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName4);
-        if (huntingClaimBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", body4 === lastBody ? 60 : 90, newName4);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName4);
+        let claimLabs5 = huntingClaimBoostLabs.slice();
+        if (claimLabs5.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", body4 === lastBody ? 60 : 90, newName4, claimLabs5);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 30, newName4, claimLabs5);
         }
-        room.memory.spawn_list.push(body4, newName4, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:5, boostlabs:huntingClaimBoostLabs.slice() } });
+        room.memory.spawn_list.push(body4, newName4, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:5, boostlabs:claimLabs5 } });
 
         amountToSpawn--;
         if(amountToSpawn === 0)  return;
 
         let newName5 = 'ContinuousControllerKiller-party-6-' + Math.floor(Math.random() * Game.time) + "-" + homeRoomName + "-" + targetRoomName;
         console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName5);
-        if (huntingClaimBoostLabs.length) {
-            if (room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 60, newName5);
-            if (room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 30, newName5);
+        let claimLabs6 = huntingClaimBoostLabs.slice();
+        if (claimLabs6.length) {
+            if (room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 60, newName5, claimLabs6);
+            if (room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 30, newName5, claimLabs6);
         }
-        room.memory.spawn_list.push(lastBody, newName5, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:6, boostlabs:huntingClaimBoostLabs.slice() } });
+        room.memory.spawn_list.push(lastBody, newName5, { memory: { role: 'CCKparty', targetRoom: targetRoomName, homeRoom: homeRoomName, line:6, boostlabs:claimLabs6 } });
 
 
     }
@@ -693,8 +834,8 @@ global.SMDP = function (roomName, targetRoomName) {
             Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode &&
             // This body is 40A+10M — no TOUGH — so outputLab7 (XGHO2) is not
             // a boost slot and must not veto the spawn.
-            (!labsReady || (storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 1200 &&
-            storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
+            (!labsReady || (storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 1200 &&
+            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 &&
             room.memory.labs.outputLab3 && room.memory.labs.outputLab2))) {
 
             let body = [
@@ -707,8 +848,8 @@ global.SMDP = function (roomName, targetRoomName) {
 
             let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
             let smdpBoostLabs = labsReady ? [room.memory.labs.outputLab3, room.memory.labs.outputLab2] : [];
-            if (labsReady && room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newName);
-            if (labsReady && room.memory.labs.outputLab3) chargeBoostSlot(room, "lab3", 1200, newName);
+            if (labsReady && room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName, smdpBoostLabs);
+            if (labsReady && room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 1200, newName, smdpBoostLabs);
             room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: smdpBoostLabs, again: true } });
             console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
             return "Success";
@@ -719,8 +860,8 @@ global.SMDP = function (roomName, targetRoomName) {
         let storage: any = Game.getObjectById(room.memory.Structures.storage);
         if (storage && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller && Game.rooms[targetRoomName].controller.my &&
             Game.rooms[targetRoomName].controller.level >= 3 && Game.rooms[targetRoomName].controller.level <= 5 && !Game.rooms[targetRoomName].controller.safeMode &&
-            (!labsReady || (storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
-            storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
+            (!labsReady || (storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 300 && storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 900 &&
+            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 &&
             room.memory.labs.outputLab3 && room.memory.labs.outputLab2 && room.memory.labs.outputLab7))) {
 
             let body = [
@@ -734,9 +875,9 @@ global.SMDP = function (roomName, targetRoomName) {
 
             let newName = 'Guard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
             let smdpBoostLabs = labsReady ? [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7] : [];
-            if (labsReady && room.memory.labs.outputLab2) chargeBoostSlot(room, "lab2", 300, newName);
-            if (labsReady && room.memory.labs.outputLab3) chargeBoostSlot(room, "lab3", 900, newName);
-            if (labsReady && room.memory.labs.outputLab7) chargeBoostSlot(room, "lab7", 300, newName);
+            if (labsReady && room.memory.labs.outputLab2) chargeOrDrop(room, "lab2", 300, newName, smdpBoostLabs);
+            if (labsReady && room.memory.labs.outputLab3) chargeOrDrop(room, "lab3", 900, newName, smdpBoostLabs);
+            if (labsReady && room.memory.labs.outputLab7) chargeOrDrop(room, "lab7", 300, newName, smdpBoostLabs);
             room.memory.spawn_list.push(body, newName, { memory: { role: 'Guard', homeRoom: roomName, targetRoom: targetRoomName, boostlabs: smdpBoostLabs, again: true } });
             console.log('Adding Guard to Spawn List: ' + newName + roomName, targetRoomName);
             return "Success";
@@ -768,14 +909,18 @@ global.SCCK = function (homeRoom, targetRoomName) {
 
 global.SCCK2 = function (homeRoom, targetRoomName) {
     if (Game.rooms[homeRoom]) {
-        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 50 && Game.rooms[homeRoom].storage?.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 100) {
+        if (Game.rooms[homeRoom].controller && Game.rooms[homeRoom].controller.my && Game.rooms[homeRoom].controller.level === 8 && storeOf(Game.rooms[homeRoom], RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 50 && storeOf(Game.rooms[homeRoom], RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 100) {
 
+            let cckRoom: any = Game.rooms[homeRoom];
             let newName = 'ContinuousControllerKiller-' + Math.floor(Math.random() * Game.time) + "-" + homeRoom + "-" + targetRoomName;
             console.log('Adding ContinuousControllerKiller to Spawn List: ' + newName);
 
-            Game.rooms[homeRoom].memory.spawn_list.push([TOUGH, HEAL, HEAL, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom, boostlabs: [Game.rooms[homeRoom].memory.labs.outputLab5, Game.rooms[homeRoom].memory.labs.outputLab7].filter(function (id) { return !!id; }) } });
-            if (Game.rooms[homeRoom].memory.labs && Game.rooms[homeRoom].memory.labs.outputLab5) chargeBoostSlot(Game.rooms[homeRoom], "lab5", 60, newName);
-            if (Game.rooms[homeRoom].memory.labs && Game.rooms[homeRoom].memory.labs.outputLab7) chargeBoostSlot(Game.rooms[homeRoom], "lab7", 30, newName);
+            // labs may be unset (the push used to dereference it blind), and the
+            // charges have to happen BEFORE the list is handed to memory.
+            let cckLabs = cckRoom.memory.labs ? [cckRoom.memory.labs.outputLab5, cckRoom.memory.labs.outputLab7].filter(function (id) { return !!id; }) : [];
+            if (cckRoom.memory.labs && cckRoom.memory.labs.outputLab5) chargeOrDrop(cckRoom, "lab5", 60, newName, cckLabs);
+            if (cckRoom.memory.labs && cckRoom.memory.labs.outputLab7) chargeOrDrop(cckRoom, "lab7", 30, newName, cckLabs);
+            cckRoom.memory.spawn_list.push([TOUGH, HEAL, HEAL, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, CLAIM, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE, MOVE], newName, { memory: { role: 'CCK', targetRoom: targetRoomName, homeRoom: homeRoom, boostlabs: cckLabs } });
 
 
             return "Success!";
@@ -832,10 +977,13 @@ global.spawnSafeModer = function (roomName, targetRoomName) {
 global.SS = function (roomName, targetRoomName, backupTR = ""): any {
     let room = Game.rooms[roomName];
     if (room) {
+        // solomonSlots below reads room.memory.labs.*: no labs memory used to
+        // throw straight out of the command.
+        if (!room.memory.labs) return "Fail: " + roomName + " has no labs memory";
         let storage: any = Game.getObjectById(room.memory.Structures.storage);
         // 20 HEAL parts charge lab5 600 XLHO2; 270 let a half-boosted Solomon walk in
-        if (storage && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 270 && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 330 &&
-            storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 600) {
+        if (storage && storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 270 && storeOf(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) >= 330 &&
+            storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 && storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 600) {
 
             let body = [TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH, TOUGH,
                 RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK, RANGED_ATTACK,
@@ -857,7 +1005,7 @@ global.SS = function (roomName, targetRoomName, backupTR = ""): any {
             for(let i = 0; i < solomonSlots.length; i++) {
                 if(solomonSlots[i].id) {
                     solomonBoostLabs.push(solomonSlots[i].id);
-                    chargeBoostSlot(room, solomonSlots[i].key, solomonSlots[i].amount, newName);
+                    chargeOrDrop(room, solomonSlots[i].key, solomonSlots[i].amount, newName, solomonBoostLabs);
                 }
             }
             room.memory.spawn_list.push(body, newName, { memory: { role: 'Solomon', homeRoom: roomName, targetRoom: targetRoomName, backupTR: backupTR, boostlabs: solomonBoostLabs } });
@@ -957,24 +1105,26 @@ global.SD = function (roomName, targetRoomName, boost = false): any {
 
         else if (room.controller.level == 8) {
             let storage: any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-            if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 1050 &&
-                storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 1050 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 &&
+            if (boost && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 600 && storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 1050 &&
+                storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 1050 && storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 300 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5 && room.memory.labs.outputLab7) {
                 let newNameRam = 'Ram-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
                 let newNameSignifer = 'Signifer-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
-                chargeBoostSlot(room, "lab3", 1050, newNameRam);
-                chargeBoostSlot(room, "lab2", 300, newNameRam);
-                chargeBoostSlot(room, "lab7", 150, newNameRam);
-                chargeBoostSlot(room, "lab5", 1050, newNameSignifer);
-                chargeBoostSlot(room, "lab2", 300, newNameSignifer);
-                chargeBoostSlot(room, "lab7", 150, newNameSignifer);
+                let ramLabs = [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7];
+                let signiferLabs = [room.memory.labs.outputLab5, room.memory.labs.outputLab2, room.memory.labs.outputLab7];
+                chargeOrDrop(room, "lab3", 1050, newNameRam, ramLabs);
+                chargeOrDrop(room, "lab2", 300, newNameRam, ramLabs);
+                chargeOrDrop(room, "lab7", 150, newNameRam, ramLabs);
+                chargeOrDrop(room, "lab5", 1050, newNameSignifer, signiferLabs);
+                chargeOrDrop(room, "lab2", 300, newNameSignifer, signiferLabs);
+                chargeOrDrop(room, "lab7", 150, newNameSignifer, signiferLabs);
 
                 room.memory.spawn_list.push(bodyRam8Boosted,
-                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7] } });
+                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: ramLabs } });
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
 
                 room.memory.spawn_list.push(bodySignifer8Boosted,
-                    newNameSignifer, { memory: { role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab5, room.memory.labs.outputLab2, room.memory.labs.outputLab7] } });
+                    newNameSignifer, { memory: { role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: signiferLabs } });
                 console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
@@ -1091,26 +1241,28 @@ global.SDB = function (roomName, targetRoomName, boost = false, defendController
 
         else if (room.controller.level == 8) {
             let storage: any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-            if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 600 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 870 &&
-                storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 870 && storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 660 &&
+            if (boost && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 600 && storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 870 &&
+                storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 870 && storeOf(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 660 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5 && room.memory.labs.outputLab7) {
                 // Per-owner charges matching the bodies (11T/29A/10M and 11T/29H/10M).
                 // 29*30=870 — this is not SD's 35-attack 1050 body.
                 let newNameRam = 'Ram-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
                 let newNameSignifer = 'Signifer-' + Math.floor(Math.random() * Game.time) + "-" + roomName;
-                chargeBoostSlot(room, "lab3", 870, newNameRam);       // 29 ATTACK
-                chargeBoostSlot(room, "lab2", 300, newNameRam);       // 10 MOVE
-                chargeBoostSlot(room, "lab7", 330, newNameRam);       // 11 TOUGH
-                chargeBoostSlot(room, "lab5", 870, newNameSignifer);  // 29 HEAL
-                chargeBoostSlot(room, "lab2", 300, newNameSignifer);  // 10 MOVE
-                chargeBoostSlot(room, "lab7", 330, newNameSignifer);  // 11 TOUGH
+                let ramLabs = [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7];
+                let signiferLabs = [room.memory.labs.outputLab2, room.memory.labs.outputLab5, room.memory.labs.outputLab7];
+                chargeOrDrop(room, "lab3", 870, newNameRam, ramLabs);            // 29 ATTACK
+                chargeOrDrop(room, "lab2", 300, newNameRam, ramLabs);            // 10 MOVE
+                chargeOrDrop(room, "lab7", 330, newNameRam, ramLabs);            // 11 TOUGH
+                chargeOrDrop(room, "lab5", 870, newNameSignifer, signiferLabs);  // 29 HEAL
+                chargeOrDrop(room, "lab2", 300, newNameSignifer, signiferLabs);  // 10 MOVE
+                chargeOrDrop(room, "lab7", 330, newNameSignifer, signiferLabs);  // 11 TOUGH
 
                 room.memory.spawn_list.push(bodyRam8Boosted,
-                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab3, room.memory.labs.outputLab2, room.memory.labs.outputLab7], defendController:true } });
+                    newNameRam, { memory: { role: 'ram', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: ramLabs, defendController:true } });
                 console.log('Adding Ram to Spawn List: ' + newNameRam);
 
                 room.memory.spawn_list.push(bodySignifer8Boosted,
-                    newNameSignifer, { memory: { role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5, room.memory.labs.outputLab7] } });
+                    newNameSignifer, { memory: { role: 'signifer', targetRoom: targetRoomName, homeRoom: roomName, boostlabs: signiferLabs } });
                 console.log('Adding Signifer to Spawn List: ' + newNameSignifer);
 
 
@@ -1266,33 +1418,37 @@ global.SQR = function (roomName, targetRoomName, boost = false): any {
 
 
             let storage: any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-            if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 2400 &&
-                storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
+            if (boost && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 1200 && storeOf(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) >= 2400 &&
+                storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 2400 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab4 && room.memory.labs.outputLab5) {
 
                 let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
                 let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
                 let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
                 let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;
-                chargeBoostSlot(room, "lab5", 1200, newNameA);
-                chargeBoostSlot(room, "lab2", 300, newNameA);
-                chargeBoostSlot(room, "lab5", 1200, newNameB);
-                chargeBoostSlot(room, "lab2", 300, newNameB);
-                chargeBoostSlot(room, "lab4", 1200, newNameY);
-                chargeBoostSlot(room, "lab2", 300, newNameY);
-                chargeBoostSlot(room, "lab4", 1200, newNameZ);
-                chargeBoostSlot(room, "lab2", 300, newNameZ);
+                let labsA = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsB = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsY = [room.memory.labs.outputLab2, room.memory.labs.outputLab4];
+                let labsZ = [room.memory.labs.outputLab2, room.memory.labs.outputLab4];
+                chargeOrDrop(room, "lab5", 1200, newNameA, labsA);
+                chargeOrDrop(room, "lab2", 300, newNameA, labsA);
+                chargeOrDrop(room, "lab5", 1200, newNameB, labsB);
+                chargeOrDrop(room, "lab2", 300, newNameB, labsB);
+                chargeOrDrop(room, "lab4", 1200, newNameY, labsY);
+                chargeOrDrop(room, "lab2", 300, newNameY, labsY);
+                chargeOrDrop(room, "lab4", 1200, newNameZ, labsZ);
+                chargeOrDrop(room, "lab2", 300, newNameZ, labsZ);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5], targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: labsA, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: labsB } });
                 console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab4] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: labsY } });
                 console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab4] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: labsZ } });
                 console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                 return "Success with boost";
@@ -1365,12 +1521,36 @@ global.DUO = function (roomName, targetRoomName, boostLabIds: any = []): any {
 
     let RandomWords = Math.floor(Math.random() * Game.time);
 
+    // The ids used to go straight into memory with NO ledger charge: the
+    // EnergyManager only fills a lab with use>0, so the pair waited out the
+    // 80-tick Boost() timeout per lab and could consume a sibling's mineral on
+    // the way. Charge each requested lab for the parts this body can boost.
+    let duoLabIds = Array.isArray(boostLabIds) ? boostLabIds : [];
+    const chargeDuo = function (body: any, creepName: string): any[] {
+        let kept: any[] = [];
+        for (let id of duoLabIds) {
+            let key = labKeyForId(room, id);
+            let mineral = key ? LAB_SLOT_MINERAL[key] : null;
+            if (!mineral) continue;
+            let parts = 0;
+            for (let part of body) {
+                if (BOOSTS[part] && BOOSTS[part][mineral]) parts++;
+            }
+            if (!parts) continue;   // nothing on this body takes that boost
+            if (chargeBoostSlot(room, key, parts * LAB_BOOST_MINERAL, creepName)) kept.push(id);
+            else console.log("boost slot refused: " + room.name + " " + key + " for " + creepName + " - queueing unboosted for that lab");
+        }
+        return kept;
+    };
+
     let newNameA = 'DuoCreepA-' + RandomWords + "-" + room.name;
-    room.memory.spawn_list.push(bodyLeader, newNameA, { memory: { role: 'DuoCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25, 25, targetRoomName), boostlabs: boostLabIds.slice() } });
+    let duoLabsA = chargeDuo(bodyLeader, newNameA);
+    room.memory.spawn_list.push(bodyLeader, newNameA, { memory: { role: 'DuoCreepA', homeRoom: room.name, targetPosition: new RoomPosition(25, 25, targetRoomName), boostlabs: duoLabsA } });
     console.log('Adding DuoCreepA to Spawn List: ' + newNameA);
 
     let newNameB = 'DuoCreepB-' + RandomWords + "-" + room.name;
-    room.memory.spawn_list.push(bodyHealer, newNameB, { memory: { role: 'DuoCreepB', homeRoom: room.name, boostlabs: boostLabIds.slice() } });
+    let duoLabsB = chargeDuo(bodyHealer, newNameB);
+    room.memory.spawn_list.push(bodyHealer, newNameB, { memory: { role: 'DuoCreepB', homeRoom: room.name, boostlabs: duoLabsB } });
     console.log('Adding DuoCreepB to Spawn List: ' + newNameB);
 
     return "Duo queued for " + targetRoomName;
@@ -1499,33 +1679,37 @@ global.SQM = function (roomName, targetRoomName, boost = false): any {
 
 
             let storage: any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-            if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 2400 &&
-                storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
+            if (boost && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 1200 && storeOf(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 2400 &&
+                storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 2400 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab5) {
 
                 let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
                 let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
                 let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
                 let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;
-                chargeBoostSlot(room, "lab5", 1200, newNameA);
-                chargeBoostSlot(room, "lab2", 300, newNameA);
-                chargeBoostSlot(room, "lab5", 1200, newNameB);
-                chargeBoostSlot(room, "lab2", 300, newNameB);
-                chargeBoostSlot(room, "lab3", 1200, newNameY);
-                chargeBoostSlot(room, "lab2", 300, newNameY);
-                chargeBoostSlot(room, "lab3", 1200, newNameZ);
-                chargeBoostSlot(room, "lab2", 300, newNameZ);
+                let labsA = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsB = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsY = [room.memory.labs.outputLab2, room.memory.labs.outputLab3];
+                let labsZ = [room.memory.labs.outputLab2, room.memory.labs.outputLab3];
+                chargeOrDrop(room, "lab5", 1200, newNameA, labsA);
+                chargeOrDrop(room, "lab2", 300, newNameA, labsA);
+                chargeOrDrop(room, "lab5", 1200, newNameB, labsB);
+                chargeOrDrop(room, "lab2", 300, newNameB, labsB);
+                chargeOrDrop(room, "lab3", 1200, newNameY, labsY);
+                chargeOrDrop(room, "lab2", 300, newNameY, labsY);
+                chargeOrDrop(room, "lab3", 1200, newNameZ, labsZ);
+                chargeOrDrop(room, "lab2", 300, newNameZ, labsZ);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5], targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: labsA, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: labsB } });
                 console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab3] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: labsY } });
                 console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab3] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: labsZ } });
                 console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                 return "Success with boost";
@@ -1686,33 +1870,37 @@ global.SQD = function (roomName, targetRoomName, boost = false): any {
 
 
             let storage: any = Game.getObjectById(room.memory.Structures.storage) || room.findStorage();
-            if (boost && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1200 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ACID] >= 2400 &&
-                storage.store[RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE] >= 2400 &&
+            if (boost && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 1200 && storeOf(room, RESOURCE_CATALYZED_ZYNTHIUM_ACID) >= 2400 &&
+                storeOf(room, RESOURCE_CATALYZED_LEMERGIUM_ALKALIDE) >= 2400 &&
                 room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab5 && room.memory.labs.outputLab6) {
 
                 let newNameA = 'SquadCreepA-' + RandomWords + "-" + room.name;
                 let newNameB = 'SquadCreepB-' + RandomWords + "-" + room.name;
                 let newNameY = 'SquadCreepY-' + RandomWords + "-" + room.name;
                 let newNameZ = 'SquadCreepZ-' + RandomWords + "-" + room.name;
-                chargeBoostSlot(room, "lab5", 1200, newNameA);
-                chargeBoostSlot(room, "lab2", 300, newNameA);
-                chargeBoostSlot(room, "lab5", 1200, newNameB);
-                chargeBoostSlot(room, "lab2", 300, newNameB);
-                chargeBoostSlot(room, "lab6", 1200, newNameY);
-                chargeBoostSlot(room, "lab2", 300, newNameY);
-                chargeBoostSlot(room, "lab6", 1200, newNameZ);
-                chargeBoostSlot(room, "lab2", 300, newNameZ);
+                let labsA = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsB = [room.memory.labs.outputLab2, room.memory.labs.outputLab5];
+                let labsY = [room.memory.labs.outputLab2, room.memory.labs.outputLab6];
+                let labsZ = [room.memory.labs.outputLab2, room.memory.labs.outputLab6];
+                chargeOrDrop(room, "lab5", 1200, newNameA, labsA);
+                chargeOrDrop(room, "lab2", 300, newNameA, labsA);
+                chargeOrDrop(room, "lab5", 1200, newNameB, labsB);
+                chargeOrDrop(room, "lab2", 300, newNameB, labsB);
+                chargeOrDrop(room, "lab6", 1200, newNameY, labsY);
+                chargeOrDrop(room, "lab2", 300, newNameY, labsY);
+                chargeOrDrop(room, "lab6", 1200, newNameZ, labsZ);
+                chargeOrDrop(room, "lab2", 300, newNameZ, labsZ);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5], targetPosition: new RoomPosition(25, 25, targetRoomName) } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameA, { memory: { role: 'SquadCreepA', homeRoom: room.name, boostlabs: labsA, targetPosition: new RoomPosition(25, 25, targetRoomName) } });
                 console.log('Adding SquadCreepA to Spawn List: ' + newNameA);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab5] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedBack, newNameB, { memory: { role: 'SquadCreepB', homeRoom: room.name, boostlabs: labsB } });
                 console.log('Adding SquadCreepB to Spawn List: ' + newNameB);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab6] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameY, { memory: { role: 'SquadCreepY', homeRoom: room.name, boostlabs: labsY } });
                 console.log('Adding SquadCreepY to Spawn List: ' + newNameY);
 
-                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab2, room.memory.labs.outputLab6] } });
+                room.memory.spawn_list.push(bodyLevel8BoostedFront, newNameZ, { memory: { role: 'SquadCreepZ', homeRoom: room.name, boostlabs: labsZ } });
                 console.log('Adding SquadCreepZ to Spawn List: ' + newNameZ);
 
                 return "Success with boost";
@@ -2067,3 +2255,128 @@ global.SDM = function (homeRoom, targetRoomName) {
 
     }
 }
+
+/* ------------------------------------------------------------------------- *
+ * help() — the console command index.
+ *
+ * Hand-maintained: [name, "args", "one line"]. Add a row here when you add a
+ * command above. help() marks a row "!" when the name is not actually on
+ * global, which is the cheap check that this table has not rotted.
+ * ------------------------------------------------------------------------- */
+
+type CommandRow = [string, string, string];
+
+/** Commands defined in this file. */
+const COMMAND_INDEX: CommandRow[] = [
+  // --- rooms / expansion ---
+  ["dropRoom", "room, force?", "unclaim a bad expand: kill creeps, destroy structures. Guarded above 20k stored / RCL5 unless force"],
+  ["SC", "room, x, y", "set Memory.target_colonise room + spawn tile (x/y must be 1..48)"],
+  // --- base planning ---
+  ["replanBase", "room", "force a dynamic base replan"],
+  ["basePlan", "room", "print the cached hub, score, version and perimeter size"],
+  ["showPlan", "true|false|room", "draw hub + min-cut walls (Memory.showPlan)"],
+  ["showPerimeter", "room", "draw the perimeter tiles"],
+  ["animPlan", "room, speed?, loop?", "replay the offline planner frames from the memory segments"],
+  ["animStop", "", "stop the planner replay"],
+  // --- feature flags / logging ---
+  ["setVerbose", "on?", "console spam on/off (default silent)"],
+  ["features", "", "dump Memory.features"],
+  ["disablePower", "", "no PC managers / processPower (default, avoids enemy PC exposure)"],
+  ["enablePower", "", "allow power systems (exposes rooms to enemy power creeps)"],
+  ["enablePickupLock", "", "haulers lock a pile for 25t and reserve what they take"],
+  ["disablePickupLock", "", "legacy per-tick amount-sorted pickup rescan"],
+  ["resetPickupStats", "", "zero the pickup counters before an A/B window"],
+  ["pickupStats", "", "pickup switches per 100 calls, throughput, mode"],
+  // --- speedrun campaign ---
+  ["speedrunStatus", "", "ticks-to-RCL table"],
+  ["resetSpeedrun", "room?", "zero the speedrun timers after a reset / respawn"],
+  ["enableSpeedrun", "", "ticks-to-RCL tracking + early remotes off"],
+  ["disableSpeedrun", "", "speedrun mode off"],
+  ["disableRemotes", "", "close every remote (remotes-off A/B)"],
+  ["enableRemotes", "", "restore the RCL3+ remotes"],
+  ["enableSkipHighRcl", "", "skip the high-RCL work during a speedrun"],
+  ["disableSkipHighRcl", "", "stop skipping the high-RCL work"],
+  // --- CPU / bench ---
+  ["cpuStatus", "", "limit, bucket and remotes policy (always prints)"],
+  ["cpuPolicy", "", "the raw CPU policy object"],
+  ["setProfile", '"optimized"|"baseline"', "switch the A/B optimisation profile"],
+  ["toggleOpt", "name", "flip one optimisation flag"],
+  ["setOpt", "name, value", "set one optimisation flag"],
+  ["opts", "", "dump the current optimisation flags"],
+  ["benchAuto", "on?, period?", "flip optimized/baseline every N ticks and accumulate stats"],
+  ["reportCpu", "", "print the A/B proof averages"],
+  ["clearBench", "", "throw away the bench samples"],
+  ["showBoosts", "", "print the boost -> effect table"],
+  // --- offence: single creeps ---
+  ["SS", "home, target, backupTR?", "boosted Solomon singleton (needs T3 in storage)"],
+  ["SD", "home, target, boost?", "ram + signifer duo"],
+  ["SDB", "home, target, boost?, defendController?", "tough ram + signifer duo"],
+  ["DUO", "home, target, boostLabIds?", "RCL6/7 strike pair: ranged leader + chasing healer"],
+  ["SCCK", "home, target", "ContinuousControllerKiller, unboosted (needs RCL8 home)"],
+  ["SCCK2", "home, target", "ContinuousControllerKiller, boosted (needs XGHO2 + XLHO2)"],
+  ["SCK", "home, target", "CreepKiller — small melee that hunts creeps"],
+  ["SGD", "home, target, body", "Guard with an explicit body (coma), used by rooms.observe"],
+  ["SG", "home, target", "goblin looter, move-heavy (offroad)"],
+  ["SGB", "home, target", "goblin looter, carry-heavy (roads)"],
+  ["SMDP", "home, target", "self-renewing boosted Guard defence pair"],
+  ["spawn_mosquito", "home, target", "mosquito harasser"],
+  ["spawnConvoy", "home, target", "Convoy escort"],
+  ["spawnSafeModer", "home, target", "SafeModer — carries ghodium to a safe-mode-able controller"],
+  // --- offence: squads ---
+  ["SQR", "home, target, boost?", "ranged quad (RCL6/7/8 bodies)"],
+  ["SQM", "home, target, boost?", "melee quad"],
+  ["SQD", "home, target, boost?", "dismantle quad"],
+  ["QSPLIT", "room", "tell the quad travelling through room to split into duos"],
+  ["spawn_hunting_party", "home, target, amount", "boosted CCKparty line, max 5"],
+  ["lock_room", "home, target", "RCL8 boosted lock pack: escort + claimer + RoomLocker"],
+  // --- remotes / economy ---
+  ["SRD", "home, target", "one-shot RemoteDismantler"],
+  ["SRDP", "home, target", "persistent RemoteDismantler"],
+  ["SPK", "home, target", "power bank pair: PowerMelee + PowerHeal"],
+  ["SDM", "home, target", "billtong deposit miner (needs bucket 9500)"],
+];
+
+/** Console commands that live in other modules — names only. */
+const EXTERNAL_COMMAND_INDEX: CommandRow[] = [
+  ["mapViz", "on?", "see utils/MapViz"],
+  ["autoExpand", "", "see Managers/AutoExpand"],
+  ["autoExpandStatus", "", "see Managers/AutoExpand"],
+  ["stopExpand", "", "see Managers/AutoExpand"],
+  ["rstats", "reset?", "see utils/RemoteStats"],
+  ["adoptPlan", "room", "see utils/PlanV2"],
+  ["dropPlan", "room", "see utils/PlanV2"],
+  ["migratePlan", "room", "see utils/PlanV2"],
+  ["migrateAbort", "room", "see utils/PlanV2"],
+  ["migratePause", "room", "see utils/PlanV2"],
+  ["migrateResume", "room", "see utils/PlanV2"],
+  ["migrateStatus", "", "see utils/PlanV2"],
+  ["interiorInfo", "room", "see utils/Interior"],
+  ["buildRemoteRoads", "room", "see main.ts"],
+];
+
+function helpRows(rows: CommandRow[], filter: string): string[] {
+  const out: string[] = [];
+  for (const row of rows) {
+    const name = row[0];
+    if (filter && (name + " " + row[2]).toLowerCase().indexOf(filter) === -1) continue;
+    const mark = typeof g[name] === "function" ? "  " : "! ";
+    out.push(`${mark}${name}(${row[1]}) — ${row[2]}`);
+  }
+  return out;
+}
+
+/** Console: help() — list every command. help("quad") — filter by name/description. */
+g.help = function (filter?: string): string {
+  const f = typeof filter === "string" ? filter.toLowerCase() : "";
+  const here = helpRows(COMMAND_INDEX, f);
+  const elsewhere = helpRows(EXTERNAL_COMMAND_INDEX, f);
+  const lines: string[] = [];
+  lines.push(`=== console commands${f ? ` matching "${filter}"` : ""} — "!" means not defined this tick ===`);
+  lines.push(...here);
+  if (elsewhere.length) {
+    lines.push("--- defined in other modules ---");
+    lines.push(...elsewhere);
+  }
+  console.log(lines.join("\n"));
+  return `${here.length + elsewhere.length} commands — help("quad") to filter`;
+};

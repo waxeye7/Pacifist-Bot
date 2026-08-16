@@ -4,6 +4,7 @@ import {
     perimeterKeySet,
     SHELL_MIN_RCL,
 } from "utils/Perimeter";
+import { logVerbose } from "utils/Logger";
 
 /**
  * Ramparts that sit EXACTLY on a planned perimeter tile.
@@ -22,6 +23,36 @@ function planShellRamparts(room: any): any[] {
         filter: (s: any) =>
             s.structureType == STRUCTURE_RAMPART && set.has(`${s.pos.x},${s.pos.y}`)
     });
+}
+
+/* -------------------------------------------------------------------------
+ * HOW HARD IS THIS ROOM ALLOWED TO CHASE ITS RAMPARTS?
+ *
+ * There was no such number. The RCL6 repair rung in rooms.spawning asked for
+ * `hits < 3,050,000` and the RCL7 one for `< 4,050,000`, both against a rampart
+ * hitsMax that is 20,000,000 from RCL5 up — so on live E37N59 (RCL6, storage
+ * 43k, 1.7 e/t into the controller) the 77 planned ramparts represented roughly
+ * 235,000,000 hits of latent demand, i.e. 235,000,000 energy. The moment the
+ * bank crossed the rung's 150,000 floor it would have consumed every joule the
+ * room earns, forever, and the controller would never move again.
+ *
+ * A shell is insurance, and the premium has to be proportional to what it is
+ * insuring. Below RCL7 the room has no terminal economy and no boosted
+ * defenders; the thing it actually needs is enough hits that a tower-supported
+ * defence survives long enough to safe-mode, which is ~100k, not 3M. RCL7 is
+ * where the room starts being a target worth a real siege. RCL8 keeps the
+ * numbers the existing rungs were written around.
+ *
+ * Everything that decides "is this rampart low enough to spend on" routes
+ * through here: the repair-creep rungs in rooms.spawning, and the peacetime
+ * tower shell top-up below.
+ * ------------------------------------------------------------------------- */
+export function rampartHitsTarget(room: any): number {
+    const rcl = (room && room.controller && room.controller.level) || 0;
+    if (rcl < 4) return 5000;
+    if (rcl <= 6) return 100000;
+    if (rcl === 7) return 300000;
+    return 15255000;
 }
 
 function isShellDefender(c: any): boolean {
@@ -175,11 +206,219 @@ function updateInPosition(room: any, assigned: any[]) {
     room.memory.in_position = ready;
 }
 
+// --- Tower fire policy ---------------------------------------------------
+//
+// THE DRAIN. A squad parks far from the towers - out where TOWER_FALLOFF has
+// cut a shot to 150-300 - with enough HEAL to undo every hit. Each shot costs
+// us 10 energy and buys nothing; when the battery runs dry the real attack
+// walks in. The old code answered this with an "unpredictable" firing rota:
+// `towerShotsInRow % 800 < 60` behind a `Game.time % 150 < 30` window, plus two
+// arms keyed on room.memory.attack_target. Nothing in src/ ever writes
+// attack_target, so those arms were dead; the surviving arms had byte-identical
+// bodies, so the %150 window was a no-op; what actually shipped was "fire for
+// 60 ticks, sit dark for 740" regardless of what the hostiles were doing.
+//
+// Randomness was never the answer - arithmetic is. Take the shot only when it
+// is worth its energy:
+//   (a) our damage on the best target beats the heal that can reach it,
+//   (b) an armed hostile is inside 10 of a tower (near-max damage zone),
+//   (c) something of ours is losing hits (never be dismantled in silence),
+//   (d) the target is an NPC Invader (no drain plan, always shoot), or
+//   (e) we are in safe mode (the shots are free).
+// Otherwise HOLD: stay full, heal our own creeps, hold the shell.
+
+const HEAL_BOOSTS: { [boost: string]: number } = { LO: 2, LHO2: 3, XLHO2: 4 };
+const TOUGH_BOOSTS: { [boost: string]: number } = { GO: 0.7, GHO2: 0.5, XGHO2: 0.3 };
+
+/** hits of everything worth watching, per room, as of last tick (heap only) */
+const lastWatchedHits: { [roomName: string]: { tick: number; hits: { [id: string]: number } } } = {};
+
+/** Sum of what every listed tower would do to one tile this tick. */
+function towerDamageAt(towers: any[], pos: RoomPosition): number {
+    let damage = 0;
+    for (const tower of towers) {
+        const range = tower.pos.getRangeTo(pos);
+        const ramp = (range - TOWER_OPTIMAL_RANGE) / (TOWER_FALLOFF_RANGE - TOWER_OPTIMAL_RANGE);
+        damage += TOWER_POWER_ATTACK * (1 - TOWER_FALLOFF * Math.min(Math.max(ramp, 0), 1));
+    }
+    return damage;
+}
+
+/**
+ * What a hostile body can do. Destroyed parts (hits 0) are skipped, same as the
+ * engine's getActiveBodyparts.
+ *
+ * toughMul is a blanket multiplier taken from the strongest boosted TOUGH part.
+ * That is pessimistic - the reduction really stops once the tough parts are
+ * chewed off - but "hold fire?" is a question you want to be wrong about in the
+ * cautious direction, and it keeps us off boosted tanks we cannot actually kill.
+ */
+function hostileProfile(hostile: any) {
+    let heal = 0;
+    let armed = false;
+    let worker = false;
+    let toughMul = 1;
+    for (const part of hostile.body) {
+        if (part.hits <= 0) continue;
+        if (part.type == HEAL) {
+            heal += HEAL_POWER * (part.boost && HEAL_BOOSTS[part.boost] || 1);
+        }
+        else if (part.type == ATTACK || part.type == RANGED_ATTACK) {
+            armed = true;
+        }
+        else if (part.type == WORK) {
+            worker = true;
+        }
+        else if (part.type == TOUGH && part.boost) {
+            toughMul = Math.min(toughMul, TOUGH_BOOSTS[part.boost] || 1);
+        }
+    }
+    return { heal: heal, armed: armed, worker: worker, toughMul: toughMul };
+}
+
+/**
+ * Is anything of ours actually being hurt?
+ *
+ * Only objects within 4 of an ATTACK/RANGED/WORK hostile are watched, so
+ * rampart decay in a quiet corner cannot fake an attack and a heal-only drainer
+ * parked next to a road cannot bait us into firing. Roads are skipped outright:
+ * they are scattered everywhere (including outside the shell) and losing one is
+ * not worth a drained battery.
+ */
+function ownedStuffIsBeingHurt(room: any, threats: any[]): boolean {
+    const prev = lastWatchedHits[room.name];
+    const fresh = prev && prev.tick === Game.time - 1;
+    const hits: { [id: string]: number } = {};
+    let hurt = false;
+    for (const threat of threats) {
+        const pos = threat.creep.pos;
+        const nearby: any[] = pos.findInRange(FIND_STRUCTURES, 4, {
+            filter: (s: any) => s.my !== false && s.structureType != STRUCTURE_ROAD
+        }).concat(pos.findInRange(FIND_MY_CREEPS, 4));
+        for (const thing of nearby) {
+            if (thing.hits === undefined) continue; // controller, portals, ...
+            hits[thing.id] = thing.hits;
+            // Adjacent + armed is a hit landing next tick even if none has yet.
+            if (pos.getRangeTo(thing) <= 1) hurt = true;
+            if (fresh && prev.hits[thing.id] !== undefined && thing.hits < prev.hits[thing.id]) hurt = true;
+        }
+    }
+    lastWatchedHits[room.name] = { tick: Game.time, hits: hits };
+    return hurt;
+}
+
+/**
+ * The whole decision, once per room per tick. See the policy note above.
+ * Returns { fire, target, why } (+ count/urgent for the callers' gating).
+ */
+function towerFirePlan(room: any, towers: any[], hostiles: any[]): any {
+    const plan: any = { fire: false, target: null, why: "nothing to shoot", count: hostiles.length, urgent: false };
+    if (!towers.length || !hostiles.length) return plan;
+
+    const marks: any[] = [];
+    let groupHeal = 0;
+    for (const hostile of hostiles) {
+        const profile = hostileProfile(hostile);
+        let nearestTower = 99;
+        for (const tower of towers) {
+            const range = tower.pos.getRangeTo(hostile);
+            if (range < nearestTower) nearestTower = range;
+        }
+        groupHeal += profile.heal;
+        marks.push({
+            creep: hostile,
+            heal: profile.heal,
+            armed: profile.armed,
+            worker: profile.worker,
+            damage: towerDamageAt(towers, hostile.pos) * profile.toughMul,
+            nearestTower: nearestTower,
+            healOnIt: 0,
+            score: 0
+        });
+    }
+
+    // Heal that can actually reach a target: heal is range 1, rangedHeal is 3,
+    // and a healer at 4 is one step from either. A medic parked on the far side
+    // of the room saves nobody, so it does not count against this target.
+    for (const mark of marks) {
+        for (const other of marks) {
+            if (other.heal > 0 && mark.creep.pos.getRangeTo(other.creep) <= 4) mark.healOnIt += other.heal;
+        }
+    }
+
+    // Best target = the most damage that actually sticks, ties to the weakest
+    // creep. Healers are ordinary candidates, so "shoot the medic that is
+    // keeping the squad alive" falls out of the scoring whenever the medic is
+    // the softer kill - no special case needed.
+    let best: any = null;
+    let bestInvader: any = null;
+    for (const mark of marks) {
+        mark.score = mark.damage - mark.healOnIt;
+        if (!best || mark.score > best.score + 1 ||
+            (mark.score > best.score - 1 && mark.creep.hits < best.creep.hits)) {
+            best = mark;
+        }
+        const npc = mark.creep.owner && mark.creep.owner.username === "Invader";
+        if (npc && (!bestInvader || mark.score > bestInvader.score)) bestInvader = mark;
+    }
+
+    const threats = marks.filter((m: any) => m.armed || m.worker);
+    let closeThreat = false;
+    for (const threat of threats) {
+        if (threat.nearestTower <= 10) closeThreat = true;
+    }
+    plan.urgent = ownedStuffIsBeingHurt(room, threats);
+    plan.target = best.creep;
+
+    const sums = `dmg ${Math.round(best.damage)} vs heal ${Math.round(best.healOnIt)}/${Math.round(groupHeal)}`;
+    if (room.controller && room.controller.safeMode) {
+        plan.fire = true;
+        plan.why = `safe mode, shots are free (${sums})`;
+    }
+    else if (plan.urgent) {
+        plan.fire = true;
+        plan.why = `our stuff is taking hits (${sums})`;
+    }
+    else if (best.damage > best.healOnIt) {
+        plan.fire = true;
+        plan.why = `killable: ${sums}`;
+    }
+    else if (closeThreat) {
+        plan.fire = true;
+        plan.why = `armed hostile inside 10 of a tower (${sums})`;
+    }
+    else if (bestInvader) {
+        plan.fire = true;
+        plan.target = bestInvader.creep;
+        plan.why = `NPC invader (${sums})`;
+    }
+    else {
+        plan.why = `hold, they out-heal us: ${sums}`;
+    }
+    return plan;
+}
+
+/** One plan per room per tick - every tower in the battery reads the same answer. */
+function towerPlanFor(room: any): any {
+    if (room._towerPlan && room._towerPlan.tick === Game.time) return room._towerPlan;
+    const towers: any[] = [];
+    for (const towerID of room.memory.Structures.towers || []) {
+        const tower: any = Game.getObjectById(towerID);
+        if (tower && tower.store[RESOURCE_ENERGY] >= TOWER_ENERGY_COST) towers.push(tower);
+    }
+    // No ally list exists anywhere in src/ - every hostile creep is a hostile.
+    const plan = towerFirePlan(room, towers, room.find(FIND_HOSTILE_CREEPS));
+    plan.tick = Game.time;
+    room._towerPlan = plan;
+    if (Game.time % 50 == 0) {
+        logVerbose(`towers ${room.name}: ${plan.fire ? "FIRE" : "HOLD"} - ${plan.why}`);
+    }
+    return plan;
+}
+
 function roomDefence(room) {
     if(!room.memory.defence) {
-        room.memory.defence = {
-            towerShotsInRow:0
-        }
+        room.memory.defence = {};
     }
     // if(room.name == "E42N59") {
     //     room.controller.activateSafeMode();
@@ -194,8 +433,10 @@ function roomDefence(room) {
             room.memory.defence.evacuate = false;
         }
     }
-    if(room.memory.danger_timer == 0) {
-        room.memory.defence.towerShotsInRow = 0;
+    // towerShotsInRow drove the old fire rota and nothing else in src/ reads it.
+    // Swept out of Memory once per peacetime room instead of left to rot.
+    if(room.memory.danger_timer == 0 && room.memory.defence.towerShotsInRow !== undefined) {
+        delete room.memory.defence.towerShotsInRow;
     }
 
     // Hostile scan first. Towers and the %3 shell-repair used to read
@@ -396,8 +637,17 @@ function roomDefence(room) {
         // Peacetime tower cap is 5k / 150k. A flat 750k floor made every
         // RCL4-5 shell look "breached" and burned safemode on a camp that
         // never damaged anything.
+        //
+        // "Breached" has to be measured against what the shell is BUILT to, not
+        // against an absolute number. The 750k floor assumed an RCL6+ shell was
+        // being chased to 3,050,000 hits; now that the repair rungs aim at
+        // rampartHitsTarget() (100k below RCL7), a fixed 750k would report every
+        // RCL6 room as breached on every raid and burn its one safe mode — the
+        // exact failure this function's own comment is about. Three quarters of
+        // the build target is the same relationship the old numbers had.
         const rcl = room.controller && room.controller.level || 0;
-        const minimumHits = rcl < 4 ? 5000 : rcl <= 5 ? 150000 : 750000;
+        const absolute = rcl < 4 ? 5000 : rcl <= 5 ? 150000 : 750000;
+        const minimumHits = Math.min(absolute, Math.floor(rampartHitsTarget(room) * 0.75));
         return findDamagedPerimeterRamparts(room, minimumHits).length > 0;
       }
 
@@ -436,8 +686,12 @@ function roomDefence(room) {
             for (const r of shell) {
                 if (r.hits < weakest.hits) weakest = r;
             }
-            // don't chase a wall that is already at the level cap for this RCL
-            const target = Math.min(weakest.hitsMax, maxRepairTower);
+            // don't chase a wall that is already at the level cap for this RCL,
+            // and never past the per-RCL shell target — a tower shot is 10
+            // energy for 800 hits, so an unbounded goal is an unbounded drain
+            // out of the same store the fillers pull from. RCL6 drops 150k->100k
+            // (rampartHitsTarget); RCL7/8 are unchanged, maxRepairTower binds.
+            const target = Math.min(weakest.hitsMax, maxRepairTower, rampartHitsTarget(room));
             if (weakest.hits < target) {
                 for (const towerID of room.memory.Structures.towers) {
                     const tower: any = Game.getObjectById(towerID);
@@ -474,7 +728,18 @@ function roomDefence(room) {
 
                 let isDanger = room.memory.danger;
 
-                if(isDanger) {
+                // Safe mode forces memory.danger false further up, but safe-mode
+                // shots are free, so the battery still gets a plan.
+                const plan: any = (isDanger || room.controller.safeMode) ? towerPlanFor(room) : null;
+                const firing = !!(plan && plan.fire && plan.target);
+
+                // Heal used to pre-empt the shot for EVERY tower: one creep down
+                // 300 hits and the whole battery healed instead of shooting, which
+                // is most of any real siege. When the plan says fire, tower 0 keeps
+                // the medic job and the rest shoot; a solo tower shoots.
+                const healSlot = !firing || (towerCount === 0 && room.memory.Structures.towers.length > 1);
+
+                if(isDanger && healSlot) {
                     let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender" || creep.memory.role == "RRD"});
                     let rampartDefendersLength = rampartDefenders.length;
                     if(rampartDefendersLength <= 2) {
@@ -500,64 +765,19 @@ function roomDefence(room) {
                 // Per-tower reserve. Requiring EVERY live tower >400 left a
                 // solo tower at 400 dark and a newborn/empty id silenced the
                 // whole battery.
-                if(isDanger && tower && tower.store[RESOURCE_ENERGY] > 200 && Game.cpu.bucket > 250) {
-
-
-                    let HostileCreeps = room.find(FIND_HOSTILE_CREEPS);
-                    // Count RRD too: fire-hold treated a ranged-only shell as
-                    // empty and volleyed before they were on the assigned tile.
+                if(firing && tower.store[RESOURCE_ENERGY] > 200 && Game.cpu.bucket > 250) {
+                    // Volley sync: with a shell manned and more than one hostile,
+                    // hold until the defenders are seated so towers and RDs land
+                    // together. Count RRD too - a ranged-only shell used to read as
+                    // empty and the volley went off before anyone was on their tile.
+                    // Bypassed when something of ours is already losing hits: no
+                    // room gets dismantled while the battery waits for a formation.
                     let rampartDefenders = room.find(FIND_MY_CREEPS, {filter: creep => creep.memory.role == "RampartDefender" || creep.memory.role == "RRD"});
-                    let rampartDefendersLength = rampartDefenders.length;
-                    let rampartID = room.memory.rampartToMan
-                    let rampart:any = Game.getObjectById(rampartID);
-                    let closestHostile = tower.pos.findClosestByRange(HostileCreeps);
-                    if(closestHostile && HostileCreeps.length > 1 && rampartDefendersLength >= 1 && room.memory.in_position || closestHostile && HostileCreeps.length == 1 || rampartDefendersLength == 0 && closestHostile) {
-                        room.memory.defence.towerShotsInRow += 1;
-                        let attackTarget = room.memory.attack_target;
-                        let target = Game.getObjectById(attackTarget);
-                        // attack_target is never written; getRangeTo(null) first
-                        // made this arm dead. Guard target like the sibling below.
-                        if(target && rampart && rampart.pos.getRangeTo(target) < 2 && (Game.time % 17 == 0 || Game.time % 17 == 1 || Game.time % 17 == 2 || Game.time % 17 == 3 || Game.time % 17 == 4
-                            || Game.time % 17 == 5 || Game.time % 17 == 6 || Game.time % 17 == 7 || Game.time % 17 == 8)) {
-                            tower.attack(target);
-                            return;
-                        }
-                        else if(Game.time % 150 >= 0 && Game.time % 150 < 30) {
-                            if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
-                                if(closestHostile.ticksToLive > 50) {
-                                    // Return WITH the shot (one intent per tower, the
-                                    // %12 heal would overwrite it) - but ONLY with the
-                                    // shot: outside the fire window the tower is free
-                                    // to heal, so no bare return.
-                                    tower.attack(closestHostile);
-                                    return;
-                                }
-                            }
-                        }
-                        else if(HostileCreeps.length > 1 && target && rampart && rampart.pos.getRangeTo(target) < 2 ){
-                            if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
-                                if(closestHostile.ticksToLive > 50) {
-                                    tower.attack(closestHostile);
-                                    return;
-                                }
-                            }
-                        }
-                        else if(HostileCreeps.length == 1){
-                            if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
-                                if(closestHostile.ticksToLive > 50) {
-                                    tower.attack(closestHostile);
-                                    return;
-                                }
-                            }
-                        }
-                        else {
-                            if(room.memory.defence.towerShotsInRow % 800 >= 0 && room.memory.defence.towerShotsInRow % 800 < 60) {
-                                if(closestHostile.ticksToLive > 50) {
-                                    tower.attack(closestHostile);
-                                    return;
-                                }
-                            }
-                        }
+                    if(plan.urgent || rampartDefenders.length == 0 || plan.count == 1 || room.memory.in_position) {
+                        // Return WITH the shot: one intent per tower, and the %12
+                        // heal below would otherwise overwrite it.
+                        tower.attack(plan.target);
+                        return;
                     }
                 }
 

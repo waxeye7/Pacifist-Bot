@@ -2,8 +2,29 @@ import construction from "./rooms.construction";
 import { remoteIsHot, markRemoteHot } from "./rooms.remotes";
 import { remotesDisabled } from "utils/Speedrun";
 import { chargeBoostSlot, refundBoostOwner, renameBoostOwner } from "./rooms.labs";
+import { rampartHitsTarget } from "./rooms.defence";
+
+/**
+ * Boostable stock is storage + TERMINAL.
+ *
+ * Every boost gate below read `storage.store[X]` only, and rooms.market buys
+ * into the TERMINAL — so a room that had just paid market rate for 3,000 XLH2O
+ * still queued its creep unboosted, and kept buying. Same rule rooms.labs uses
+ * for its reaction chain (its local `storeOf`, which is not exported).
+ */
+function boostStock(room, res): number {
+    const s = room.storage;
+    const t = room.terminal;
+    return ((s && s.store[res]) || 0) + ((t && t.store[res]) || 0);
+}
+
 function spawning(room: any) {
-    if(Game.cpu.bucket < 1000) return;
+    // NO `if(Game.cpu.bucket < 1000) return;` HERE. It used to sit above
+    // everything, including the emergency-filler rescue in spawnFirstInLine —
+    // the only thing that un-starves a room with zero fillers — and a bucket
+    // crash and a starved spawn are correlated, so the guard switched the cure
+    // off in exactly the situation that needs it. The guard now sits just above
+    // the queue/producer work (see below), with the rescue in front of it.
 
     // Cold start / freshly claimed room: the structure cache has not been built
     // yet (rooms.ts + roomFunctions.ts are what normally seed it), so
@@ -22,20 +43,30 @@ function spawning(room: any) {
         room.memory.spawn_list = [];
     }
 
+    // Same cold-start problem, different object: rooms.ts calls spawning(room)
+    // BEFORE data(room), and data() is the only initialiser of room.memory.data
+    // — so on the first tick of a freshly claimed room `room.memory.data.DOB`
+    // (the Priest rung, the RCL1 sweeper rung) and `room.memory.data.c_spawned++`
+    // (spawnFirstInLine, three sites) threw. Fields and initial values copied
+    // from rooms.data.ts, which still owns the per-tick increments.
+    if(!room.memory.data) {
+        room.memory.data = {DOB: 0, DOBug: 0, c_spawned: 0};
+    }
+
     // Remotes-off A/B: drop already-queued remote miners/carriers/reservists
     // so the flag stops spawn this tick, not after leftover queue hatches.
     if(remotesDisabled() && room.memory.spawn_list.length) {
         const q = room.memory.spawn_list;
         const next = [];
-        for(let i = 0; i + 2 < q.length; i += 3) {
-            const mem = q[i + 2] && q[i + 2].memory;
+        forEachQueued(room, function(body, name, opts) {
+            const mem = opts && opts.memory;
             const role = mem && mem.role;
             const tgt = mem && mem.targetRoom;
             if(tgt && tgt !== room.name && (role === "EnergyMiner" || role === "carry" || role === "reserve")) {
-                continue;
+                return;
             }
-            next.push(q[i], q[i + 1], q[i + 2]);
-        }
+            next.push(body, name, opts);
+        });
         if(next.length !== q.length) room.memory.spawn_list = next;
     }
 
@@ -119,6 +150,17 @@ function spawning(room: any) {
         else {
             room.memory.lastTimeSpawnUsed = Game.time;
         }
+    }
+
+    // CPU guard. It used to be the very first line of this function, which also
+    // switched off the emergency-filler rescue below — and that rescue is the
+    // only path that puts a hauler back into a room with zero fillers. It costs
+    // a handful of ops (two role counts and at most one spawnCreep), so it runs
+    // whatever the bucket says; the queue walk and the producer, which are the
+    // expensive halves, stay skipped exactly as before.
+    if(Game.cpu.bucket < 1000) {
+        emergencyFillerRescue(room, spawn);
+        return;
     }
 
     let status = spawnFirstInLine(room, spawn);
@@ -205,6 +247,19 @@ function clampSpawnListToCapacity(room) {
         if(!body || !body.length) continue;
         let name:string = room.memory.spawn_list[i+1];
 
+        // 85% of 550 is 467 and strips a WORK off the home 550 [5W,M].
+        // Cycle-14 hatched 4W so WORK>=5 never counted. Wait for full cap.
+        if(name && name.startsWith("EnergyMiner") && hardCap >= 550 && body.length === 6) {
+            let homeMem:any = room.memory.spawn_list[i+2];
+            homeMem = homeMem && homeMem.memory;
+            if((!homeMem || !homeMem.targetRoom || homeMem.targetRoom === room.name)
+                && bodyCost(body) === 550
+                && _.filter(body, (p:any) => p === WORK).length === 5
+                && _.filter(body, (p:any) => p === MOVE).length === 1) {
+                continue;
+            }
+        }
+
         // ROUTINE creeps are budgeted at 85% of capacity, not 100%. A body
         // priced at exactly energyCapacityAvailable is only ever buyable in a
         // room whose extension network is 100% topped up - and a room that is
@@ -246,9 +301,9 @@ function clampSpawnListToCapacity(room) {
             let sourceId = opts && opts.memory ? opts.memory.sourceId : undefined;
             let wantedRole = name.startsWith("EnergyMiner") ? 'EnergyMiner' : 'carry';
             // "FakeFiller" is a carrier mid-dropoff at home (see carry.ts)
-            if(sourceId && !_.some(Game.creeps, (creep:any) => creep.memory.sourceId == sourceId
-                && (creep.memory.role == wantedRole
-                    || (wantedRole == 'carry' && creep.memory.role == 'FakeFiller')))) {
+            if(sourceId && !_.some(creepsForSource(sourceId), (creep:any) =>
+                creep.memory.role == wantedRole
+                    || (wantedRole == 'carry' && creep.memory.role == 'FakeFiller'))) {
                 budget = Math.min(budget, Math.max(payable, SPAWN_ENERGY_CAPACITY));
             }
         }
@@ -444,57 +499,49 @@ function shrinkQueuedBody(body:string[], name:string, opts?:any):boolean {
  * Bootstrap [C,C,M]/[C,M] haulers are never replaced by the roster: once one
  * is live, homeCarriersWanted is sized off the PROPOSED full body and a single
  * 150e shuttle can satisfy want==1 forever (R6.21). Recycle them the moment
- * a real body is affordable, same idea as recycleTinyShuttles.
+ * a real body is affordable.
+ *
+ * "Tiny" is measured against WHAT THE ROOM WOULD BUILD RIGHT NOW, not against a
+ * fixed 2-CARRY / 200-energy bar. getCarrierBody floors CARRY at 2
+ * (`Math.max(2, ...)`), so on a short, roaded home source it legitimately
+ * returns [2C,1M] (150e) or [2C,2M] (200e) — and the flat bar then suicided
+ * every one of those the tick it hatched, so the room spawned and killed the
+ * same carrier forever. Only a body strictly smaller than the current sizing
+ * (or one with fewer than 2 CARRY, which nothing sizes any more) is a leftover.
  */
 function recycleTinyCarriers(room): void {
     if(!room.controller || room.energyCapacityAvailable < 550) return;
-    for(const name in Game.creeps) {
-        const c = Game.creeps[name];
-        if(!c || (c.memory.role !== "carry" && c.memory.role !== "FakeFiller")) continue;
-        if(c.memory.homeRoom && c.memory.homeRoom !== room.name && c.room.name !== room.name) continue;
+    const storage = room.storage || Game.getObjectById(room.memory.Structures?.storage) || room.findStorage();
+    const spawn = Game.getObjectById(room.memory.Structures?.spawn);
+    const homeEnergy = _.get(room.memory, ['resources', room.name, 'energy']) || {};
+    const haulers = creepsWithRole("carry").concat(creepsWithRole("FakeFiller"));
+    for(const c of haulers) {
+        // (the old first test here was subsumed by this one except when
+        // homeRoom is undefined, where it let the creep through by accident)
         if(c.room.name !== room.name && c.memory.homeRoom !== room.name) continue;
-        if((c.getActiveBodyparts(CARRY) || 0) > 2) continue;
+        const carry = c.getActiveBodyparts(CARRY) || 0;
+        if(carry > 2) continue;
         let cost = 0;
         for(let i = 0; i < c.body.length; i++) cost += BODYPART_COST[c.body[i].type] || 0;
         if(cost > 200) continue;
+        if(carry >= 2) {
+            const values = c.memory.sourceId ? homeEnergy[c.memory.sourceId] : undefined;
+            // Unknown source, or a body we cannot price right now: leave it be.
+            if(!values) continue;
+            const want = getCarrierBody(c.memory.sourceId, values, storage, spawn, room);
+            let wantCarry = 0;
+            for(let i = 0; i < want.length; i++) if(want[i] === CARRY) wantCarry++;
+            if(carry >= wantCarry) continue;
+        }
         c.memory.suicide = true;
-    }
-}
-
-/** 200e [W,C,M] shuttles keep working until death after slam-5. Recycle them. */
-function recycleTinyShuttles(room): void {
-    if (!room.controller || room.controller.level > 3) return;
-    if (room.energyCapacityAvailable < 550) return;
-    for (const name in Game.creeps) {
-        const c = Game.creeps[name];
-        if (!c || c.memory.role !== "upgrader") continue;
-        if (c.memory.homeRoom && c.memory.homeRoom !== room.name && c.room.name !== room.name) continue;
-        if (c.room.name !== room.name && c.memory.homeRoom !== room.name) continue;
-        if ((c.getActiveBodyparts(WORK) || 0) !== 1) continue;
-        let cost = 0;
-        for (let i = 0; i < c.body.length; i++) cost += BODYPART_COST[c.body[i].type] || 0;
-        if (cost > 250) continue;
-        c.memory.suicide = true;
-    }
-}
-
-/** Clamp will not grow a 200e already sitting in spawn_list. */
-function rewriteQueuedTinyShuttles(room): void {
-    if (room.energyCapacityAvailable < 550) return;
-    const q = room.memory.spawn_list || [];
-    const next = shuttleUpgraderBody(room);
-    for (let i = 0; i + 2 < q.length; i += 3) {
-        const name = q[i + 1];
-        if (typeof name !== "string" || name.indexOf("Upgrader") !== 0) continue;
-        if (bodyCost(q[i]) > 250) continue;
-        q[i] = next.slice();
     }
 }
 
 function add_creeps_to_spawn_list(room, spawn) {
-    recycleTinyShuttles(room);
+    // One grouped pass over Game.creeps for this whole producer pass; every
+    // per-source / per-role lookup below reads it instead of rescanning.
+    refreshCreepIndex();
     recycleTinyCarriers(room);
-    rewriteQueuedTinyShuttles(room);
 
     let EnergyMiners = 0;
     let EnergyMinersInRoom = 0;
@@ -521,46 +568,34 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     let RemoteRepairers = 0;
 
-    let Dismantlers = 0;
     let scouts = 0;
 
+    // EMPIRE-WIDE ON PURPOSE. Memory.target_colonise is a single global target
+    // and only the closest funded room queues the claimer, so two claimers is
+    // two GCL-slot races for one room. Every other counter here is per-room.
     let claimers = 0;
-    let RemoteDismantlers = 0;
 
     let attackers = 0;
     let RangedAttackers = 0;
 
     let containerbuilders = 0;
 
-    let DrainTowers = 0;
     let healers = 0;
 
     let sweepers = 0;
-
-    let annoyers = 0;
 
     let clearers = 0;
 
     let billtongs = 0;
 
-    let rams = 0;
-    let signifers = 0;
-
     let RampartDefenders = 0;
     let RangedRampartDefenders = 0;
-
-    let goblins = 0;
 
     let Signers = 0;
     let Priests = 0;
 
     let SpecialRepairers = 0;
     let SpecialCarriers = 0;
-
-    let CreepA = 0;
-    let CreepB = 0;
-    let CreepY = 0;
-    let CreepZ = 0;
 
     let SneakyControllerUpgraders = 0;
 
@@ -685,12 +720,6 @@ function add_creeps_to_spawn_list(room, spawn) {
                 break;
 
 
-            case "Dismantler":
-                if(isInRoom(creep, room)) {
-                    Dismantlers ++;
-                }
-                break;
-
             case "scout":
                 if(creep.memory.homeRoom == room.name) {
                     scouts ++;
@@ -735,51 +764,32 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
                 break;
 
+            // These three were tallied across the WHOLE EMPIRE and then read as
+            // per-room caps ("healers < 1", "clearers < 1", "SCU < 1"), so one
+            // healer anywhere meant no room could ever build a second, and one
+            // SCU blocked every other commune's keepAfloat rescue. Same fix the
+            // reservers count already got: scope them to this commune.
             case "SneakyControllerUpgrader":
-                SneakyControllerUpgraders ++;
-                break;
-
-            case "DrainTower":
-                DrainTowers ++;
-                break;
-
-            case "healer":
-                healers ++;
-                break;
-
-            case "RemoteDismantler":
-                RemoteDismantlers ++;
-                break;
-
-            case "annoy":
-                annoyers ++;
-                break;
-
-            case "clearer":
-                clearers ++;
-                break;
-
-            case "ram":
                 if(creep.memory.homeRoom == room.name) {
-                    rams ++;
+                    SneakyControllerUpgraders ++;
                 }
                 break;
 
-            case "signifer":
-                if(creep.memory.homeRoom == room.name) {
-                    signifers ++;
+            case "healer":
+                if(creep.memory.homeRoom == room.name || isInRoom(creep, room)) {
+                    healers ++;
+                }
+                break;
+
+            case "clearer":
+                if(creep.memory.homeRoom == room.name || isInRoom(creep, room)) {
+                    clearers ++;
                 }
                 break;
 
             case "sweeper":
                 if(isInRoom(creep, room)) {
                     sweepers ++;
-                }
-                break;
-
-            case "goblin":
-                if(creep.memory.homeRoom == room.name) {
-                    goblins ++;
                 }
                 break;
 
@@ -808,26 +818,6 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
                 break;
 
-            case "SquadCreepA":
-                if(isInRoom(creep, room)) {
-                    CreepA ++;
-                }
-                break;
-            case "SquadCreepB":
-                if(isInRoom(creep, room)) {
-                    CreepB ++;
-                }
-                break;
-            case "SquadCreepY":
-                if(isInRoom(creep, room)) {
-                    CreepY ++;
-                }
-                break;
-            case "SquadCreepZ":
-                if(isInRoom(creep, room)) {
-                    CreepZ ++;
-                }
-                break;
             case "SafeModer":
                 if(isInRoom(creep, room)) {
                     SafeModers ++;
@@ -837,15 +827,64 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     });
 
+    /*
+     * QUEUED ENTRIES COUNT TOWARD THE CENSUS.
+     *
+     * Every producer rung below compares `live < want` and pushes, and this
+     * whole pass re-fires every 500 ticks while the head is still busy (see
+     * the cadence conditions in spawning()). Without this second walk a room
+     * whose head is slow double-books every role it wants: live E37N59 held
+     * MineralMiner x2 and Sweeper x2 on the list, and spawnFirstInLine never
+     * re-checks demand at the head, so both would hatch.
+     *
+     * ONLY the roles whose rungs do NOT already dedup are listed here. Roles
+     * guarded by queuedWithPrefix() (maintainer, RampartDefender, RRD, clearer,
+     * Sign, Priest, SpecialRepair, SpecialCarry, RampartErector), by
+     * queuedForSource() (EnergyMiner, carry), or by their own forEachQueued
+     * scan (reserve, RemoteRepair, buildcontainer) are deliberately absent —
+     * counting them twice would under-spawn.
+     *
+     * `repair` IS listed even though the RCL4-8 rungs call
+     * queuedWithPrefix('Repair-'): the RCL2/RCL3 rungs and the nuke-repair rung
+     * do not, and the prefix test is strictly the stronger of the two wherever
+     * both apply.
+     *
+     * Home-room roles only: a triple with `targetRoom` pointing somewhere else
+     * is a remote/colonise body governed by its own per-source / per-remote
+     * bookkeeping, so it is skipped.
+     */
+    forEachQueued(room, function(body, name, opts) {
+        const mem = opts && opts.memory;
+        if(!mem || !mem.role) return;
+        if(mem.targetRoom && mem.targetRoom !== room.name) return;
+        switch(mem.role) {
+            case "MineralMiner":        MineralMiners ++;        break;
+            case "sweeper":             sweepers ++;             break;
+            case "upgrader":            upgraders ++;            break;
+            case "builder":             builders ++;             break;
+            case "filler":              fillers ++;              break;
+            case "repair":              repairers ++;            break;
+            case "EnergyManager":       EnergyManagers ++;       break;
+            case "ControllerLinkFiller":ControllerLinkFillers ++;break;
+            case "SafeModer":           SafeModers ++;           break;
+            case "healer":              healers ++;              break;
+            // Only the RCL<3 safe-mode DirtClearer sets targetRoom == room.name
+            // and it has no queue check of its own; the remote raid attackers
+            // are filtered out by the targetRoom guard above.
+            case "attacker":            attackers ++;            break;
+        }
+    });
+
 
     console.log("Room-" + room.name + " has " + builders + " Builders " + upgraders +
     " Upgraders " + repairers + " Repairers " + fillers
     + " Filler", EnergyManagers, "EnergyManager", sweepers, "Sweeper");
     console.log("[" + EnergyMiners + " Energy-Miners]" + " [" + carriers +
     " Carriers] [" +  RemoteRepairers, "RemoteRepairers] [" + reservers + " Reservers] " + "[" + attackers + " Attackers]" + " [" + RangedAttackers +  " RangedAttackers]" + " [" + containerbuilders +  " Container Builders]" + " [" + claimers +  " Claimers]");
-    // console.log(DrainTowers, "tower drainers ;)")
 
 
+    // The ONE construction-site find for this pass. `constructionSitesAmount`
+    // below used to re-run the identical find into a second variable.
     let sites = room.find(FIND_MY_CONSTRUCTION_SITES);
 
     // Prefer the room's REAL storage. room.memory.Structures.storage is a
@@ -862,9 +901,22 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-    const spawnrules = {
+    /*
+     * LAZY PER RCL. This literal was rebuilt in full on every producer pass,
+     * for all eight levels, in every room — so an RCL8 commune ran
+     * hasControllerDepot() three times (each one a full
+     * room.find(FIND_STRUCTURES) plus a pos.findInRange(sources,1) per
+     * container) and six getBody() calls for rungs it can never read.
+     *
+     * The rule CONTENTS are unchanged; each level is now a thunk, built on
+     * first touch and memoised, and reached through the same `spawnrules[N]`
+     * expression as before — so the cross-level reads (RCL7/8 borrow
+     * spawnrules[6].filler_creep) and the in-place mutations
+     * (`spawnrules[8].repair_creep.amount = 4`) behave exactly as they did.
+     */
+    const spawnrulesDefs: any = {
 
-        1: {
+        1: () => ({
 
             upgrade_creep: {
 
@@ -887,13 +939,15 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             },
 
-        },
+        }),
 
-        2: {
+        2: () => ({
 
             upgrade_creep: {
 
-                amount: 4,
+                // cycle-4 KEEP: RCL4 29181 vs 30851 (−1670, 8/8). Stay 4
+                // during slam so the five ext still finish.
+                amount: room.energyCapacityAvailable >= 550 ? 6 : 4,
                 // No controller depot until RCL3. [4W,C,M] is 3 ticks/tile
                 // (5 non-MOVE / 1 MOVE) and a 50-energy tank — ~0.5 e/t
                 // delivered on a 15-tile shuttle, not 4. [2W,2C,2M] walks
@@ -925,9 +979,9 @@ function add_creeps_to_spawn_list(room, spawn) {
 
 
 
-        },
+        }),
 
-        3: {
+        3: () => ({
             build_creep: {
 
                 amount: 6,
@@ -970,9 +1024,9 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             },
 
-        },
+        }),
 
-        4: {
+        4: () => ({
             build_creep: {
 
                 amount: 3,
@@ -999,7 +1053,15 @@ function add_creeps_to_spawn_list(room, spawn) {
             filler_creep: {
 
                 amount: 2,
-                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE],
+                /*
+                 * 1:1, not 2:1. [4C,2M] is road speed, and an RCL4 room has not
+                 * paved its extension ring yet — E36N57 has ONE road — so a
+                 * loaded shuttle moved at 2 ticks/tile and the ten extensions
+                 * stayed at zero while 11.8k rotted on the floor. 400e for 200
+                 * carry at full speed is the cheapest fix; fillersWanted now
+                 * actually lets the roster reach `amount` in a storage-less room.
+                 */
+                body:   [CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE],
 
             },
             repair_creep: {
@@ -1014,9 +1076,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                 body:[WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,MOVE,MOVE,MOVE,CARRY,CARRY,CARRY,CARRY],
 
             },
-        },
+        }),
 
-        5: {
+        5: () => ({
             build_creep: {
 
                 amount: 4,
@@ -1050,9 +1112,9 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             },
 
-        },
+        }),
 
-        6: {
+        6: () => ({
             build_creep: {
 
                 amount: 3,
@@ -1061,7 +1123,16 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 1,
+                // BASE of the banded ladder (upgraderTarget), not a fixed
+                // roster: >=30k banked buys 3, >=120k buys 4, below 30k the
+                // ladder itself cuts back to 1-2. It was 1, with the only rung
+                // that could raise it gated on `storage > 400000` — a number an
+                // RCL6 room never reaches. 3x12W is 36 energy/tick, which is
+                // what a 2-source RCL6 commune can actually feed.
+                amount: 3,
+                // [12W,3C,3M] at 2200 capacity (getBody's 85% budget, 3
+                // segments). 1500e amortised over 1500 ticks is 1 e/tick of
+                // overhead for 12 e/tick of upgrade.
                 body:   getBody([WORK,WORK,WORK,WORK,CARRY,MOVE], room, 50),
 
             },
@@ -1097,9 +1168,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                     CARRY,CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
-        },
+        }),
 
-        7: {
+        7: () => ({
             build_creep: {
 
                 amount: 2,
@@ -1108,7 +1179,8 @@ function add_creeps_to_spawn_list(room, spawn) {
             },
             upgrade_creep: {
 
-                amount: 1,
+                // BASE of the banded ladder, same as RCL6 — see the note there.
+                amount: 3,
                 // 12W3C3M (1500e), same floor body RCL6 runs - the hardcoded
                 // [4W,2C,M] cut upgrade rate to 1/3 the moment a room crossed
                 // 6->7 with a sub-surplus bank. maxLength 18 pins it at three
@@ -1166,9 +1238,9 @@ function add_creeps_to_spawn_list(room, spawn) {
                          CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
-        },
+        }),
 
-        8: {
+        8: () => ({
             build_creep: {
 
                 amount: 2,
@@ -1223,9 +1295,28 @@ function add_creeps_to_spawn_list(room, spawn) {
                          CARRY,CARRY,CARRY,CARRY,CARRY],
 
             },
-        }
+        })
 
     };
+
+    // One memoised object per level, reached through the same `spawnrules[N]`
+    // expression the whole producer already uses — so the in-place mutations
+    // below (repair_creep.amount, build_creep.amount, repair_creep.body) still
+    // land on the object every later read sees.
+    const spawnrulesBuilt: any = {};
+    const spawnrules: any = {};
+    for(const lvl in spawnrulesDefs) {
+        Object.defineProperty(spawnrules, lvl, {
+            configurable: true,
+            enumerable: true,
+            get: (function(l) {
+                return function() {
+                    if(!spawnrulesBuilt[l]) spawnrulesBuilt[l] = spawnrulesDefs[l]();
+                    return spawnrulesBuilt[l];
+                };
+            })(lvl),
+        });
+    }
 
     if(room.controller.level < 3 && room.controller.safeMode && attackers < 1) {
         let enemyCreepsInRoom = room.find(FIND_HOSTILE_CREEPS);
@@ -1310,8 +1401,8 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
         }
     }
-    let constructionSites = room.find(FIND_MY_CONSTRUCTION_SITES)
-    let constructionSitesAmount = constructionSites.length;
+    // `sites` above is the same find; this used to run it a second time.
+    let constructionSitesAmount = sites.length;
     // extra upgraders bought by a storage surplus — 0 below the tier
     // thresholds, so every gate below keeps its old behaviour there
     let surplusUpgraders = surplusUpgraderTier(room);
@@ -1381,13 +1472,15 @@ function add_creeps_to_spawn_list(room, spawn) {
         || room.controller.level <= 3;
     switch(room.controller.level) {
         case 1:
-            queueEarlyFiller(room, storage, fillers, spawnrules[1].filler_creep.amount, spawnrules[1].filler_creep.body, activeRemotes.length);
+            // Miner first. E37N57 hatched CA+UG off an empty spawn while
+            // 0 miners lived — spawn e=20, room never mined.
             spawn_energy_miner(resourceData, room, activeRemotes);
-            spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(EnergyMiners < 1) {
+            if(EnergyMinersInRoom < 1) {
                 break;
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[1].build_creep.amount)) {
+            queueEarlyFiller(room, storage, fillers, spawnrules[1].filler_creep.amount, spawnrules[1].filler_creep.body, activeRemotes.length);
+            spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
+            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[1].build_creep.amount, room)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[1].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1397,7 +1490,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[1].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < spawnrules[1].upgrade_creep.amount + 6 && storage && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < spawnrules[1].upgrade_creep.amount + 6 && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[1].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1405,15 +1498,22 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 2:
-            queueEarlyFiller(room, storage, fillers, spawnrules[2].filler_creep.amount, spawnrules[2].filler_creep.body, activeRemotes.length);
+            // Dest-23: starve roster only on true 0-miner blackout.
+            // Dest-21 film: dest-cheap left 1W+1W, bestWORK<2 then blocked
+            // CA/builders — L3 pave sites sat (E5S3/E16S9 c=2). Leftover
+            // 1W is income. Dest-22 dest-cheap is already === 0.
             spawn_energy_miner(resourceData, room, activeRemotes);
+            if(homeMinerBestWork(room) === 0) {
+                break;
+            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[2].filler_creep.amount, spawnrules[2].filler_creep.body, activeRemotes.length);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[2].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger && room.controller.progress > 4500) {
+            if(repairers < spawnrules[2].repair_creep.amount && EnergyMinersInRoom >= 1 && !room.memory.danger && room.controller.progress > 4500 && earlyRepairNeeded(room)) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
-            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[2].build_creep.amount)) {
+            if(sites.length > 0 && EnergyMinersInRoom >= 1 && builders < earlyBuildSlots(sites, spawnrules[2].build_creep.amount, room)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1423,7 +1523,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < spawnrules[2].upgrade_creep.amount + 6 && storage && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < spawnrules[2].upgrade_creep.amount + 6 && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[2].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1431,14 +1531,22 @@ function add_creeps_to_spawn_list(room, spawn) {
             break;
 
         case 3:
-            queueEarlyFiller(room, storage, fillers, spawnrules[3].filler_creep.amount, spawnrules[3].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
+            // Dest-23: same 0-miner gate as dest-cheap. 1W leftover +
+            // HOL 5W must still hatch builders (cycle-21 E16S9 8 road
+            // sites, 0 standing, c=2).
+            if(homeMinerBestWork(room) === 0) {
+                break;
+            }
+            queueEarlyFiller(room, storage, fillers, spawnrules[3].filler_creep.amount, spawnrules[3].filler_creep.body, activeRemotes.length);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            // Pavement waits for RCL4. 1:1 haulers already walk plains at
-            // 1 tick/tile; arterial tiles are ~12k the controller wants.
-            const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount);
+            // Loaded [2W,2C,2M] is 2 t/tile on plains, 1 on roads. Two
+            // builders slam the haul line after slam-5; 1 builder left
+            // the 135k climb on dirt.
+            const rcl3BuildWant = earlyBuildSlots(sites, spawnrules[3].build_creep.amount, room);
             const rcl3RoadsOnly = onlyRoadSites(sites);
-            if(!rcl3RoadsOnly && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < rcl3BuildWant) {
+            const paveArterials = room.energyCapacityAvailable >= 550 && hasRoadSite(sites);
+            if((!rcl3RoadsOnly || paveArterials) && sites.length > 0 && EnergyMinersInRoom >= 1 && builders < (paveArterials ? 2 : rcl3BuildWant)) {
                 let name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].build_creep.body, name, {memory: {role: 'builder'}});
                 console.log('Adding Builder to Spawn List: ' + name);
@@ -1452,7 +1560,7 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < spawnrules[3].upgrade_creep.amount + 6 && storage && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
+            else if(upgraders < spawnrules[3].upgrade_creep.amount + 6 && storage && storage.structureType === STRUCTURE_STORAGE && storage.store.getFreeCapacity() < 200 && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[3].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
@@ -1538,7 +1646,9 @@ function add_creeps_to_spawn_list(room, spawn) {
             queueEarlyFiller(room, storage, fillers, spawnrules[5].filler_creep.amount, spawnrules[5].filler_creep.body, activeRemotes.length);
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            if(repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 || Game.time % 2000 < 400 && storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
+            // (the dropped middle arm was `Game.time % 2000 < 400 && > 50000 &&
+            // repairers < amount`, strictly narrower than the first arm)
+            if(repairers < spawnrules[5].repair_creep.amount + 2 && !queuedWithPrefix(room, 'Repair-') && storage && (storage.store[RESOURCE_ENERGY] > 50000 && repairers < spawnrules[5].repair_creep.amount + 1 ||  storage.store[RESOURCE_ENERGY] > 10000 && (rampartsInRoom.filter(function(s) {return s.hits < 75000}).length || room.memory.danger_timer > 50))) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[5].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
@@ -1611,21 +1721,54 @@ function add_creeps_to_spawn_list(room, spawn) {
             }
             spawn_energy_miner(resourceData, room, activeRemotes);
             spawn_carrier(resourceData, room, spawn, storage, activeRemotes);
-            let rampartsInRoomBelow3Mil = rampartsInRoom?.filter(function(s) {return s.hits < 3050000;});
-            if(repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsInRoomBelow3Mil.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
+            /*
+             * WAS `hits < 3050000`, on an RCL6 shell whose ramparts cap at
+             * 20,000,000 apiece. Live E37N59 has 77 planned ramparts: that
+             * threshold is ~235,000,000 energy of latent demand behind a
+             * 150,000-energy trigger, i.e. the instant the bank crossed the
+             * floor the whole income of the room went into walls and the
+             * controller stopped. rampartHitsTarget() is the per-RCL number
+             * (rooms.defence) — 100k below RCL7 — and the peacetime tower
+             * top-up now aims at exactly the same figure.
+             */
+            let rampartsBelowTarget = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
+            if(repairers < spawnrules[6].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 && rampartsBelowTarget.length > 0 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
                 let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                 console.log('Adding Repair to Spawn List: ' + name);
             }
             // Was 120k, then 8k — both floors soft-bricked a poor RCL6 room. See queueBuilder().
             queueBuilder(room, spawnrules[6], sites, builders, EnergyMinersInRoom, bankCanBuild, storage, 8000);
-            if(upgraders < spawnrules[6].upgrade_creep.amount + 3 && !room.memory.danger && storage && storage.store[RESOURCE_ENERGY] > 400000 || room.controller.ticksToDowngrade < 80000 && upgraders < spawnrules[6].upgrade_creep.amount) {
+            /*
+             * BANDED BANK LADDER — the same one RCL4/5 have run since
+             * upgraderTarget() landed, finally wired into RCL6.
+             *
+             * The gate this replaces was `storage > 400000` for a roster of
+             * amount+3, against a room whose entire storage is 43,485. There is
+             * no 400k in an RCL6 room's future — an RCL6 storage is 1,000,000
+             * capacity but the room earns ~20 e/tick — so the arm was dead, the
+             * >120k surplus tier below it was dead too, and the only rung that
+             * ever fired was keepOneUpgrader's floor of ONE. Measured on live
+             * E37N59: one 12-WORK upgrader, 1.7 energy/tick into the controller,
+             * with two sources and 43k banked.
+             *
+             * base is now 3 (spawnrules[6].upgrade_creep.amount), so the ladder
+             * reads: >=30k banked -> 3 upgraders, >=120k -> 4 (the surplus tier),
+             * <30k -> 1-2, and the 60k-on/15k-off latch (upgradeLatch) is what
+             * stops it bang-banging as the bank drains. Bodies are getBody()d
+             * against energyCapacityAvailable, so they can never outgrow the
+             * spawn. The downgrade arm is unchanged.
+             */
+            if(upgraders < upgraderTarget(room, spawnrules[6].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)
+                    && !room.memory.danger
+                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+                || room.controller.ticksToDowngrade < 80000 && upgraders < spawnrules[6].upgrade_creep.amount) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name);
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
             }
-            // Surplus tier: >120k banked at RCL6. The gate above waits for
-            // 400k, so everything between the two just piled up.
+            // Surplus tier: >120k banked at RCL6. upgraderTarget only pays the
+            // surplus out while the surge latch is on; this is the unlatched arm.
             else if(surplusUpgraders > 0 && upgraders < spawnrules[6].upgrade_creep.amount + surplusUpgraders && !room.memory.danger) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[6].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
@@ -1708,8 +1851,10 @@ function add_creeps_to_spawn_list(room, spawn) {
             // Same 150k floor as RCL6. 500k meant a fresh RCL7 sat on decaying
             // ramparts until the bank was huge; the 1x30W body is unchanged.
             if(repairers < spawnrules[7].repair_creep.amount && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 50000 || room.memory.danger && storage.store[RESOURCE_ENERGY] > 50000) && !queuedWithPrefix(room, 'Repair-')) {
-                let rampartsInRoomBelow5Mil = rampartsInRoom?.filter(function(s) {return s.hits < 4050000;});
-                if(rampartsInRoomBelow5Mil.length > 0) {
+                // Was a hardcoded 4,050,000; rampartHitsTarget() gives 300,000
+                // at RCL7. Same reason as the RCL6 rung above — see there.
+                let rampartsBelowTarget7 = rampartsInRoom?.filter(function(s) {return s.hits < rampartHitsTarget(room);});
+                if(rampartsBelowTarget7.length > 0) {
                     let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                     room.memory.spawn_list.push(spawnrules[7].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name}});
                     console.log('Adding Repair to Spawn List: ' + name);
@@ -1723,10 +1868,20 @@ function add_creeps_to_spawn_list(room, spawn) {
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep_spend.body, name, {memory: {role: 'upgrader'}});
                 console.log('Adding Upgrader to Spawn List: ' + name);
             }
-            else if(upgraders < spawnrules[7].upgrade_creep.amount && room.controller.ticksToDowngrade < 110000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 80000)) {
+            // Same banded ladder as RCL4/5/6 (upgraderTarget + upgradeLatch),
+            // replacing a rung that only ever fired inside the last 110k ticks
+            // of the downgrade timer. RCL7 has exactly the shape RCL6 had: the
+            // spend rung above wants 400k, the surplus tier below wants 120k,
+            // and everything under that ran on keepOneUpgrader's floor of one
+            // 12-WORK body. base 3 => >=30k banked buys 3, >=120k buys 4,
+            // >=250k buys 5. The downgrade clause is kept as a hard floor.
+            else if(upgraders < upgraderTarget(room, spawnrules[7].upgrade_creep.amount, surplusUpgraders, pressure.burn, EnergyMinersInRoom)
+                    && !room.memory.danger
+                    && (sitesMayNotVetoUpgraders || room.controller.ticksToDowngrade < 21000)
+                || upgraders < spawnrules[7].upgrade_creep.amount && room.controller.ticksToDowngrade < 110000 && storage && storage.store[RESOURCE_ENERGY] > 10000 && (!room.memory.danger || room.controller.ticksToDowngrade < 80000)) {
                 let name = 'Upgrader-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
                 room.memory.spawn_list.push(spawnrules[7].upgrade_creep.body, name, {memory: {role: 'upgrader'}});
-                console.log('Adding Upgrader to Spawn List: ' + name);
+                console.log('Adding Upgrader to Spawn List: ' + name + ' (bank ' + bankEnergy(room) + ')');
             }
             // Surplus tier: >120k (+1) / >250k (+2) banked at RCL7. Below 400k
             // the spend branch above never fires and the small upgrade_creep
@@ -1822,22 +1977,41 @@ function add_creeps_to_spawn_list(room, spawn) {
                 spawnrules[8].repair_creep.amount = 1;
             }
             // FLAG: RCL8 repair floor was 280k vs RCL7 150k (R6.31).
-            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && (storage.store[RESOURCE_ENERGY] > 150000 || Game.time % 3000 < 100 && storage.store[RESOURCE_ENERGY] > 150000) && !queuedWithPrefix(room, 'Repair-')) {
-                let rampartsInRoomBelow10Mil = rampartsInRoom.filter(function(s) {return s.hits < 15255000 && (room.name !== "E41N58" || s.pos.getRangeTo(storage) > 15 || s.pos.getRangeTo(storage) < 10);});
-                if(rampartsInRoomBelow10Mil.length > 0) {
+            // (the dropped second arm was `Game.time % 3000 < 100 && > 150000`,
+            // i.e. the first arm on 1 tick in 30)
+            if(Game.cpu.bucket >= 5000 && (repairers < spawnrules[8].repair_creep.amount || room.controller.safeMode > 0 && repairers < spawnrules[8].repair_creep.amount + 2) && storage && storage.store[RESOURCE_ENERGY] > 150000 && !queuedWithPrefix(room, 'Repair-')) {
+                // The ring-shaped E41N58 exclusion that used to be ANDed in here
+                // was a per-room hack in the shared brain for a room we no
+                // longer own.
+                // Unchanged number (rampartHitsTarget returns 15,255,000 at
+                // RCL8) — routed through the shared helper so the RCL6/7/8
+                // shell targets live in one place. See rooms.defence.
+                let rampartsBelowTarget8 = rampartsInRoom.filter(function(s) {return s.hits < rampartHitsTarget(room);});
+                if(rampartsBelowTarget8.length > 0) {
                     // Guard labs before lab8reserved (R6.29). EM loads lab1=XLH2O
                     // (repair), lab2=XZHO2 (move), lab8=XKH2O (carry) unless a
                     // miner reserved lab8 for UO. 35W/5C/10M → 1050/150/300.
-                    if(storage && room.memory.labs && !room.memory.labs.lab8reserved && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] > 3150 && storage.store[RESOURCE_CATALYZED_KEANIUM_ACID] > 1000 && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 1500 && room.memory.labs.outputLab1 && room.memory.labs.outputLab2 && room.memory.labs.outputLab8) {
+                    if(storage && room.memory.labs && !room.memory.labs.lab8reserved && boostStock(room, RESOURCE_CATALYZED_LEMERGIUM_ACID) > 3150 && boostStock(room, RESOURCE_CATALYZED_KEANIUM_ACID) > 1000 && boostStock(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 1500 && room.memory.labs.outputLab1 && room.memory.labs.outputLab2 && room.memory.labs.outputLab8) {
                         spawnrules[8].repair_creep.body = [
                             WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE
                         ]
                         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                        chargeBoostSlot(room, "lab1", 1050, name);
-                        chargeBoostSlot(room, "lab2", 300, name);
-                        chargeBoostSlot(room, "lab8", 150, name);
-                        room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: {role: 'repair', homeRoom: room.name, boosted:true, boostlabs:[room.memory.labs.outputLab1,room.memory.labs.outputLab2,room.memory.labs.outputLab8]}});
-                        console.log('Adding Repair to Spawn List: ' + name);
+                        // HONOUR THE REFUSAL. chargeBoostSlot returns false when
+                        // the slot already holds somebody else's mineral; queuing
+                        // boostlabs anyway sends the creep to a lab loaded with
+                        // the wrong compound, where it parks. Same rule the
+                        // EnergyMiner lab8 site already follows.
+                        const okL1 = chargeBoostSlot(room, "lab1", 1050, name);
+                        const okL2 = chargeBoostSlot(room, "lab2", 300, name);
+                        const okL8 = chargeBoostSlot(room, "lab8", 150, name);
+                        const labs8: string[] = [];
+                        if(okL1) labs8.push(room.memory.labs.outputLab1);
+                        if(okL2) labs8.push(room.memory.labs.outputLab2);
+                        if(okL8) labs8.push(room.memory.labs.outputLab8);
+                        const mem8: any = {role: 'repair', homeRoom: room.name};
+                        if(labs8.length) { mem8.boosted = true; mem8.boostlabs = labs8; }
+                        room.memory.spawn_list.push(spawnrules[8].repair_creep.body, name, {memory: mem8});
+                        console.log('Adding Repair to Spawn List: ' + name + (labs8.length ? '' : ' (boost refused)'));
                     }
                     else {
                         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -1852,14 +2026,16 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
 
             }
-            if(room.energyCapacityAvailable < 2000) {
-                spawnrules[8].build_creep.amount += 5;
-            }
-            else if(room.energyCapacityAvailable < 3000) {
-                spawnrules[8].build_creep.amount += 3;
-            }
-            else if(room.energyCapacityAvailable < 5000) {
-                spawnrules[8].build_creep.amount += 1;
+            if(storage && storage.store[RESOURCE_ENERGY] >= 50000) {
+                if(room.energyCapacityAvailable < 2000) {
+                    spawnrules[8].build_creep.amount += 5;
+                }
+                else if(room.energyCapacityAvailable < 3000) {
+                    spawnrules[8].build_creep.amount += 3;
+                }
+                else if(room.energyCapacityAvailable < 5000) {
+                    spawnrules[8].build_creep.amount += 1;
+                }
             }
             // Same gate as RCL6/7: EnergyMinersInRoom > 1 is impossible in a
             // 1-source room, so this rung never fired there. queueBuilder uses
@@ -1923,7 +2099,7 @@ function add_creeps_to_spawn_list(room, spawn) {
         spawn_remote_repairer(resourceData, room, activeRemotes);
     }
 
-    spawn_reserver(resourceData, room, storage, activeRemotes, reservers);
+    spawn_reserver(resourceData, room, activeRemotes);
 
 
 
@@ -1944,17 +2120,41 @@ function add_creeps_to_spawn_list(room, spawn) {
      * only be refreshed by a filler that already exists, which is a deadlock),
      * and cap the roster.
      */
-    if(room.controller.level >= 5 && room.controller.level !== 8 && ControllerLinkFillers < 1) {
-        // Links only. The RCL3/4 container branch unshifted a 250–500e
-        // [4C,M] the tick the depot existed — HOL in front of the parked
-        // 4W that depot is for. Carriers already dump surplus there
-        // (carry.ts depotSink); dry-depot upgraders shuttle.
+    /*
+     * ROSTER: one for a link, up to two for a CONTAINER depot at RCL6+.
+     *
+     * A link is a teleport — one filler keeps 800 in it with a walk of a few
+     * tiles. A CONTAINER is not: on live E37N59 the depot is ~23 tiles from
+     * storage, so the round trip is ~46 ticks and three 12-WORK upgraders eat
+     * 36 energy/tick, i.e. ~1,650 energy has to be IN FLIGHT at all times. One
+     * 800-capacity body cannot do that; two can.
+     */
+    // Upper bound only; the real cap is applied below once the target type is
+    // known (a link never wants more than one).
+    const clfRosterMax = room.controller.level == 6 ? 2 : 1;
+    if(room.controller.level >= 5 && room.controller.level !== 8 && ControllerLinkFillers < clfRosterMax) {
+        // A LINK if there is one, otherwise (below RCL7) the controller
+        // CONTAINER.
+        //
+        // This rung used to be links-only. The reason was real — the RCL3/4
+        // container branch unshifted a 250-500e [4C,M] the tick the depot
+        // existed, head-of-line in front of the parked 4W that depot is for —
+        // but it is an RCL3/4 reason, and it was applied at every level. The
+        // cost at RCL6 is the opposite: E37N59's v2 plan spends all three RCL6
+        // links on two sources and the storage, so `controllerLink` resolves to
+        // a CONTAINER that nothing was allowed to fill. It read 0, and the room
+        // put 1.7 energy/tick into its controller while upgraders shuttled 23
+        // tiles each way to the storage. Roles/ControllerLinkFiller and
+        // creepFunctions.findFillerTarget have BOTH always handled a container
+        // target below RCL7 (findFillerTarget:251) — only this gate refused.
         //
         // Same identity as upgrader controllerDepot / construction L2b:
         // a hub or source-adjacent link inside range 3 is not a controller
         // depot. Treating it as one spawned a CLF that filled the hub
         // while EM emptied it, and wrote Structures.controllerLink onto
-        // that hub so drain-back never healed.
+        // that hub so drain-back never healed. The container filter below is
+        // that same definition (range 4, not the bin, not the storage, not a
+        // source container).
         const sourcesNearCtrl = room.find(FIND_SOURCES);
         const storageLinkId = room.memory.Structures && room.memory.Structures.StorageLink;
         const ctrlLinks = room.find(FIND_MY_STRUCTURES, {filter: (s:any) =>
@@ -1962,10 +2162,41 @@ function add_creeps_to_spawn_list(room, spawn) {
             s.pos.getRangeTo(room.controller) <= 3 &&
             s.id !== storageLinkId &&
             s.pos.findInRange(sourcesNearCtrl, 1).length == 0});
-        const ctrlTarget: any = ctrlLinks.length
+        let ctrlTarget: any = ctrlLinks.length
             ? room.controller.pos.findClosestByRange(ctrlLinks)
             : null;
-        const feedable = ctrlTarget && (storage && storage.store[RESOURCE_ENERGY] > 1000 ||
+        if(!ctrlTarget && room.controller.level < 7) {
+            const S = room.memory.Structures || {};
+            const ctrlConts = room.find(FIND_STRUCTURES, {filter: (s:any) =>
+                s.structureType == STRUCTURE_CONTAINER &&
+                s.id !== S.bin &&
+                s.id !== S.storage &&
+                s.pos.getRangeTo(room.controller) <= 4 &&
+                s.pos.findInRange(sourcesNearCtrl, 1).length == 0});
+            if(ctrlConts.length) ctrlTarget = room.controller.pos.findClosestByRange(ctrlConts);
+        }
+        /*
+         * BANK FLOOR — MIRROR OF THE ROLE'S OWN GATE.
+         *
+         * Roles/ControllerLinkFiller parks (does not withdraw, does not haul)
+         * whenever the REAL storage is under CLF_BANK_FLOOR == 10,000 and the
+         * controller is not actually downgrading. This rung only asked for
+         * >1,000, so an RCL6 room sitting at 3k banked hatched two 1,200-energy
+         * CLFs that walked to the storage and stood there for 1,500 ticks —
+         * 2,400 energy spent to produce nothing, out of a bank that was already
+         * below the floor. Gate the SPAWN on the same number the role gates its
+         * work on, or the two disagree and the disagreement is paid in bodies.
+         *
+         * `storage` here can be the hub CONTAINER (findStorage fallback, caps at
+         * 2000), which is why this tests structureType — a container room is not
+         * "below the floor", it has no floor to be below, exactly as the role
+         * reads it. The ticksToDowngrade escape is kept verbatim: a room whose
+         * controller is genuinely lapsing must still get a filler at any bank.
+         */
+        const bankOk = !(storage && storage.structureType === STRUCTURE_STORAGE
+            && storage.store[RESOURCE_ENERGY] < 10000
+            && room.controller.ticksToDowngrade > 10000);
+        const feedable = ctrlTarget && bankOk && (storage && storage.store[RESOURCE_ENERGY] > 1000 ||
             room.find(FIND_DROPPED_RESOURCES, {filter: (r:any) => r.resourceType == RESOURCE_ENERGY && r.amount > 500}).length > 0);
         // NO `Game.time % 70 < 12` WINDOW. This whole function only runs on the
         // roster cadence in spawning() — `(Game.time - lastTimeSpawnUsed) % 35
@@ -1978,10 +2209,27 @@ function add_creeps_to_spawn_list(room, spawn) {
         // fallback at RCL7+, see Roles/upgrader.ts — stood next to it empty.
         // `ControllerLinkFillers < 1` above is the roster cap, and the 35-tick
         // cadence is the throttle; the window was neither, only a phase lottery.
-        if(feedable && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
+        // Two bodies only for a CONTAINER depot at RCL6 (see the roster note
+        // above); a link is a teleport and wants exactly one.
+        const clfCap = (ctrlTarget && ctrlTarget.structureType == STRUCTURE_CONTAINER && room.controller.level == 6) ? 2 : 1;
+        if(feedable && ControllerLinkFillers < clfCap && ctrlTarget.store.getFreeCapacity(RESOURCE_ENERGY) > 200) {
             room.memory.Structures.controllerLink = ctrlTarget.id;
             let name = 'ControllerLinkFiller-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.unshift(getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 20), name, {memory: {role: 'ControllerLinkFiller'}});
+            /*
+             * BODY RATIO IS THE WHOLE POINT FOR A CONTAINER.
+             *
+             * [4C,MOVE] stacked to 20 parts is [16C,4M]: loaded, that generates
+             * 16 fatigue a tile against 8 of relief, i.e. ONE TILE PER THREE
+             * TICKS. Over a 23-tile haul that is a 140-tick round trip for 800
+             * energy — 5.7 e/t, nowhere near the 36 e/t three upgraders burn.
+             * A link sits next to the hub so the ratio never mattered there;
+             * a container does not. 2:1 ([16C,8M], 1200e) is 1 tile/tick on the
+             * planner's roads and roughly triples delivered throughput.
+             */
+            const clfBody = ctrlTarget.structureType == STRUCTURE_CONTAINER
+                ? getBody([CARRY,CARRY,MOVE], room, 24)
+                : getBody([CARRY,CARRY,CARRY,CARRY,MOVE], room, 20);
+            room.memory.spawn_list.unshift(clfBody, name, {memory: {role: 'ControllerLinkFiller'}});
             console.log('Adding ControllerLinkFiller to Spawn List: ' + name + ' -> ' + ctrlTarget.structureType);
         }
     }
@@ -2074,21 +2322,29 @@ function add_creeps_to_spawn_list(room, spawn) {
                     // Boosted body used to be queued before this check: missing
                     // labs threw, and empty labs parked the creep for ~400 ticks
                     // during the attack it was meant for.
-                    let canBoost = storage && storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 900 &&
-                        storage.store[RESOURCE_CATALYZED_GHODIUM_ALKALIDE] >= 300 &&
+                    // storage+terminal: market buys land in the terminal (boostStock).
+                    let canBoost = boostStock(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 && boostStock(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 900 &&
+                        boostStock(room, RESOURCE_CATALYZED_GHODIUM_ALKALIDE) >= 300 &&
                         room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab3 && room.memory.labs.outputLab7;
-                    if(canBoost) {
+                    // Charge FIRST, then decide the body: a refused slot (someone
+                    // else's mineral is already in it) must not be advertised in
+                    // boostlabs, or the creep walks to the wrong compound and parks.
+                    const clOk3 = canBoost && chargeBoostSlot(room, "lab3", 900, newName);
+                    const clOk2 = canBoost && chargeBoostSlot(room, "lab2", 300, newName);
+                    const clOk7 = canBoost && chargeBoostSlot(room, "lab7", 300, newName);
+                    if(clOk3 && clOk2 && clOk7) {
                         room.memory.spawn_list.push(
                           [TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
                           newName,
                           { memory: { role: 'clearer', boostlabs:[room.memory.labs.outputLab2,room.memory.labs.outputLab3,room.memory.labs.outputLab7], boosted:true }}
                         );
                         console.log('Adding Clearer to Spawn List: ' + newName);
-                        chargeBoostSlot(room, "lab3", 900, newName);
-                        chargeBoostSlot(room, "lab2", 300, newName);
-                        chargeBoostSlot(room, "lab7", 300, newName);
                     }
                     else {
+                        // Give back any slot that DID take the charge — a
+                        // half-charged owner is minerals hauled for a creep that
+                        // will never arrive to use them.
+                        if(clOk3 || clOk2 || clOk7) refundBoostOwner(room, newName);
                         room.memory.spawn_list.push(
                           [MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK,ATTACK ,ATTACK ,ATTACK ,ATTACK ,ATTACK],
                           newName,
@@ -2142,8 +2398,11 @@ function add_creeps_to_spawn_list(room, spawn) {
 
             // if room memory danger
             if(room.controller.level >= 7) {
-                if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1080 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50) {
-                    chargeBoostSlot(room, "lab1", 1080, newName);
+                // boostStock = storage + terminal; and a refused slot means no
+                // boostlabs (the creep would otherwise park at a lab holding
+                // somebody else's compound).
+                if(boostStock(room, RESOURCE_CATALYZED_LEMERGIUM_ACID) >= 1080 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50
+                        && chargeBoostSlot(room, "lab1", 1080, newName)) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab1]}});
                 }
                 else {
@@ -2157,8 +2416,8 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
             }
             else if(room.controller.level == 6) {
-                if(storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 540 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50) {
-                    chargeBoostSlot(room, "lab1", 540, newName);
+                if(boostStock(room, RESOURCE_CATALYZED_LEMERGIUM_ACID) >= 540 && room.memory.labs && room.memory.labs.outputLab1 && room.memory.danger && room.memory.danger_timer >= 50
+                        && chargeBoostSlot(room, "lab1", 540, newName)) {
                     room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE], newName, {memory: {role: 'SpecialRepair', boostlabs:[room.memory.labs.outputLab1]}});
                 }
                 else {
@@ -2177,8 +2436,8 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
     if((room.memory.NukeRepair && repairers < 4 && !room.memory.danger || room.memory.defence && room.memory.defence.nuke && repairers < 1) && Game.cpu.bucket > 150 && storage && storage.store[RESOURCE_ENERGY] > 75000) {
         let name = 'Repair-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-            if(room.controller.level >= 7 && room.find(FIND_NUKES).length > 2 && storage && storage.store[RESOURCE_CATALYZED_LEMERGIUM_ACID] >= 1980 && room.memory.labs && room.memory.labs.outputLab1) {
-                chargeBoostSlot(room, "lab1", 660, name);
+            if(room.controller.level >= 7 && room.find(FIND_NUKES).length > 2 && boostStock(room, RESOURCE_CATALYZED_LEMERGIUM_ACID) >= 1980 && room.memory.labs && room.memory.labs.outputLab1
+                    && chargeBoostSlot(room, "lab1", 660, name)) {
                 room.memory.spawn_list.push([WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,WORK,
                     CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,CARRY,
                     MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE], name, {memory: {role: 'repair', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab1]}});
@@ -2229,9 +2488,22 @@ function add_creeps_to_spawn_list(room, spawn) {
     }
 
 
-    if (MineralMiners < 1 && room.controller.level >= 6 && room.memory.Structures && room.memory.Structures.extractor && Game.getObjectById(room.memory.Structures.extractor) && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 250000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 8000) {
-        let mineral = Game.getObjectById(room.memory.mineral) || room.findMineral();
-        if(mineral.mineralAmount > 0 && storage.store[mineral.mineralType] < 100000) {
+    /*
+     * WAS `storage.store[RESOURCE_ENERGY] > 250000`, which is a bank an RCL6
+     * room never sees — so live E37N59 sat on 70,000 un-mined H with an
+     * extractor built and H at a 4x price spike, and had mined exactly zero.
+     *
+     * The gate is mispriced by two orders of magnitude. One MineralMiner is a
+     * ~1000-energy [WORK*n,CARRY*n,MOVE] body that lives 1500 ticks and clears
+     * a good fraction of a 50,000-mineral deposit per lifetime; against a 250k
+     * bank requirement that is a 250:1 margin on the thing it guards. What it
+     * actually needs is (a) somewhere to sell/react — a terminal — and (b)
+     * enough energy that the body is not competing with the fill loop.
+     */
+    if (MineralMiners < 1 && room.controller.level >= 6 && room.terminal && room.memory.Structures && room.memory.Structures.extractor && Game.getObjectById(room.memory.Structures.extractor) && !room.memory.danger && room.memory.danger_timer == 0 && storage && storage.store[RESOURCE_ENERGY] > 20000 && storage.store.getUsedCapacity() < 975000 && Game.cpu.bucket > 8000) {
+        // findMineral() returns undefined in a room with no mineral / no cache.
+        let mineral: any = Game.getObjectById(room.memory.mineral) || room.findMineral();
+        if(mineral && mineral.mineralAmount > 0 && storage.store[mineral.mineralType] < 100000) {
             let newName = 'MineralMiner-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push(getBody([WORK,WORK,CARRY,CARRY,MOVE], room, 50), newName, {memory: {role: 'MineralMiner'}});
             console.log('Adding Mineral Miner to Spawn List: ' + newName);
@@ -2248,9 +2520,13 @@ function add_creeps_to_spawn_list(room, spawn) {
             if(storage && storage.pos.getRangeTo(storage.pos.findClosestByRange(HostileCreeps)) <= 14) {
 
 
-                if(HostileCreeps.length > 4 && RampartDefenders <= 1 && storage &&
-                    storage.store[RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE] >= 300 &&
-                    storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 1200 &&
+                // `room.memory.labs &&`: both bodies below read
+                // room.memory.labs.outputLab4/outputLab2 unconditionally, same
+                // as the sibling boost gates elsewhere in this file.
+                if(HostileCreeps.length > 4 && RampartDefenders <= 1 &&
+                    boostStock(room, RESOURCE_CATALYZED_ZYNTHIUM_ALKALIDE) >= 300 &&
+                    boostStock(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) >= 1200 &&
+                    room.memory.labs && room.memory.labs.outputLab2 && room.memory.labs.outputLab4 &&
                     (RangedRampartDefenders < 3 && room.controller.level == 7 || RangedRampartDefenders  < 2 && room.controller.level == 8) &&
                     !queuedWithPrefix(room, 'RRD'))  {
                     if(room.controller.level == 8) {
@@ -2266,10 +2542,16 @@ function add_creeps_to_spawn_list(room, spawn) {
                                     MOVE,MOVE,MOVE,MOVE,MOVE,
                                     MOVE,MOVE,MOVE,MOVE,MOVE];
                         let newName = 'RRD-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                        room.memory.spawn_list.push(body, newName, { memory: { role: 'RRD', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab4, room.memory.labs.outputLab2] } } );
-                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
-                        chargeBoostSlot(room, "lab2", 300, newName);
-                        chargeBoostSlot(room, "lab4", 1200, newName);
+                        // Charge first, advertise only the slots that took it.
+                        const rrdL2 = chargeBoostSlot(room, "lab2", 300, newName);
+                        const rrdL4 = chargeBoostSlot(room, "lab4", 1200, newName);
+                        const rrdLabs: string[] = [];
+                        if(rrdL4) rrdLabs.push(room.memory.labs.outputLab4);
+                        if(rrdL2) rrdLabs.push(room.memory.labs.outputLab2);
+                        const rrdMem: any = { role: 'RRD', homeRoom: room.name };
+                        if(rrdLabs.length) rrdMem.boostlabs = rrdLabs;
+                        room.memory.spawn_list.push(body, newName, { memory: rrdMem } );
+                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName + (rrdLabs.length ? '' : ' (boost refused)'));
 
                     }
                     else if(room.controller.level == 7) {
@@ -2285,10 +2567,16 @@ function add_creeps_to_spawn_list(room, spawn) {
                                     MOVE,MOVE,MOVE,MOVE,MOVE,
                                     MOVE,MOVE,MOVE,MOVE,MOVE];
                         let newName = 'RRD-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                        room.memory.spawn_list.push(body, newName, { memory: { role: 'RRD', homeRoom: room.name, boostlabs: [room.memory.labs.outputLab4, room.memory.labs.outputLab2] } } );
-                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName);
-                        chargeBoostSlot(room, "lab2", 240, newName);
-                        chargeBoostSlot(room, "lab4", 960, newName);
+                        // Charge first, advertise only the slots that took it.
+                        const rrd7L2 = chargeBoostSlot(room, "lab2", 240, newName);
+                        const rrd7L4 = chargeBoostSlot(room, "lab4", 960, newName);
+                        const rrd7Labs: string[] = [];
+                        if(rrd7L4) rrd7Labs.push(room.memory.labs.outputLab4);
+                        if(rrd7L2) rrd7Labs.push(room.memory.labs.outputLab2);
+                        const rrd7Mem: any = { role: 'RRD', homeRoom: room.name };
+                        if(rrd7Labs.length) rrd7Mem.boostlabs = rrd7Labs;
+                        room.memory.spawn_list.push(body, newName, { memory: rrd7Mem } );
+                        console.log('Adding RangedRampartDefender to Spawn List: ' + newName + (rrd7Labs.length ? '' : ' (boost refused)'));
 
                     }
 
@@ -2337,24 +2625,21 @@ function add_creeps_to_spawn_list(room, spawn) {
                         // body = [ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,ATTACK,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE];
                     }
                     // && HostileCreeps.length > 1
-                    if(storage && storage.store[RESOURCE_CATALYZED_UTRIUM_ACID] >= 990 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab3 && (HostileCreeps.length > 1 || HostileCreeps.length == 1 && room.controller.level == 7 && HostileCreeps[0].getActiveBodyparts(HEAL) >= 16)) {
-                        // >= 2, not > 2: the outer gate admits length 2, but
-                        // the arms here were `> 2` / `== 1`, so EXACTLY two
-                        // hostiles - the canonical attacker+healer duo - fell
-                        // between them and queued no defender at all (the
-                        // unboosted else below binds to the OUTER if, which
-                        // was taken). Two hostiles get the full 990 boost.
-                        if(HostileCreeps.length >= 2) {
-
-
-
-                            chargeBoostSlot(room, "lab3", 990, newName);
-                            room.memory.spawn_list.push(body, newName, {memory: {role: 'RampartDefender', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3]}});
-                        }
-                        else if(HostileCreeps.length == 1) {
-                            chargeBoostSlot(room, "lab3", 630, newName);
-                            room.memory.spawn_list.push(body, newName, {memory: {role: 'RampartDefender', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3]}});
-                        }
+                    // boostStock: XUH2O bought on the market lands in the TERMINAL,
+                    // and this gate only ever looked at storage.
+                    // A refused lab3 (someone else's mineral in the slot) now falls
+                    // through to the unboosted body instead of advertising it.
+                    const rdWant = boostStock(room, RESOURCE_CATALYZED_UTRIUM_ACID) >= 990 && room.controller.level >= 7 && room.memory.labs && room.memory.labs.outputLab3 && (HostileCreeps.length > 1 || HostileCreeps.length == 1 && room.controller.level == 7 && HostileCreeps[0].getActiveBodyparts(HEAL) >= 16);
+                    // >= 2, not > 2: the outer gate admits length 2, but
+                    // the arms here were `> 2` / `== 1`, so EXACTLY two
+                    // hostiles - the canonical attacker+healer duo - fell
+                    // between them and queued no defender at all (the
+                    // unboosted else below binds to the OUTER if, which
+                    // was taken). Two hostiles get the full 990 boost.
+                    const rdCharged = rdWant && HostileCreeps.length >= 1 &&
+                        chargeBoostSlot(room, "lab3", HostileCreeps.length >= 2 ? 990 : 630, newName);
+                    if(rdCharged) {
+                        room.memory.spawn_list.push(body, newName, {memory: {role: 'RampartDefender', homeRoom: room.name, boostlabs:[room.memory.labs.outputLab3]}});
                     }
 
                     else {
@@ -2535,44 +2820,20 @@ function add_creeps_to_spawn_list(room, spawn) {
             //     }
             // });
 
-            if (
-                target_colonise &&
-                containerbuilders < 2 &&
-                !room.memory.danger &&
-                room.controller.level >= 3 &&
-                storage &&
-                storage.store[RESOURCE_ENERGY] > 10000 &&
-                Game.cpu.bucket > 7750 &&
-                distance_to_target_room <= 7 &&
-                Game.rooms[target_colonise] &&
-                (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 ||
-                Game.rooms[target_colonise].controller.level <= 1 ||
-                (Game.rooms[target_colonise].controller.level >= 4 &&
-                    (!Game.rooms[target_colonise].storage && containerbuilders < 1 ||
-                    Game.rooms[target_colonise].energyCapacityAvailable <= 500)) ||
-                (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 && containerbuilders < 1)) &&
-                Game.rooms[target_colonise].controller.level >= 1 &&
-                Game.rooms[target_colonise].controller.my
-            ) {
-                let newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-                // Off-road 1:1, capped at 8 [W,C,M]. Mother RCL8 getBody on
-                // [W,C,C,C,M] used to emit a 50-part 3000e creep that walked
-                // 2–4 ticks/tile to the colony. Spawn is 15k; 8 WORK is 375
-                // ticks of build once they arrive, and they arrive walking.
-                room.memory.spawn_list.push(getBody([WORK, CARRY, MOVE], room, 24), newName,
-                    {memory: {role: 'buildcontainer', targetRoom: target_colonise, homeRoom: room.name, fill: true}});
-                console.log('Adding ContainerBuilder to Spawn List: ' + newName);
-            }
-
             if(target_colonise && RangedAttackers < 2 && room.controller.level >= 7 && storage && storage.store[RESOURCE_ENERGY] > 180000 && distance_to_target_room <= 7 && Game.rooms[target_colonise] && (Game.rooms[target_colonise].find(FIND_MY_SPAWNS).length == 0 || Game.rooms[target_colonise].controller.level <= 3) && Game.rooms[target_colonise].controller.level >= 1 && (Game.rooms[target_colonise].controller.my || !Game.rooms[target_colonise].controller.my && !Game.rooms[target_colonise].find(FIND_MY_STRUCTURES, {filter: (s) => s.structureType == STRUCTURE_TOWER}).length)  && Game.time - Memory.target_colonise.lastSpawnRanger > 1500 && !Game.rooms[target_colonise].controller.safeMode) {
-                if(storage && storage.store[RESOURCE_CATALYZED_KEANIUM_ALKALIDE] >= 45000 && Game.rooms[target_colonise].controller.level < 3) {
-                    let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], newName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true, boostlabs: [room.memory.labs.outputLab4],ignore:true }});
+                // `room.memory.labs &&`: the boosted arm reads
+                // room.memory.labs.outputLab4; the unboosted else covers the rest.
+                // boostStock (storage+terminal), and charge BEFORE committing to
+                // the boosted memory so a refused lab4 falls through to the
+                // unboosted body below instead of parking the creep at a lab.
+                let raName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
+                if(boostStock(room, RESOURCE_CATALYZED_KEANIUM_ALKALIDE) >= 45000 && room.memory.labs && room.memory.labs.outputLab4 && Game.rooms[target_colonise].controller.level < 3
+                        && chargeBoostSlot(room, "lab4", 600, raName)) {
+                    room.memory.spawn_list.push([MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,RANGED_ATTACK,HEAL,HEAL,HEAL,HEAL,HEAL], raName, {memory: {role: 'RangedAttacker', targetRoom: target_colonise, homeRoom: room.name, sticky:true, boostlabs: [room.memory.labs.outputLab4],ignore:true }});
 
-                    console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + newName);
+                    console.log('Adding Defending-Ranged-Attacker to Spawn List: ' + raName);
 
                     Memory.target_colonise.lastSpawnRanger = Game.time - (distance_to_target_room * 100) ;
-                    chargeBoostSlot(room, "lab4", 600, newName);
                 }
                 else {
                     let newName = 'RangedAttacker-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
@@ -2590,6 +2851,10 @@ function add_creeps_to_spawn_list(room, spawn) {
 
     }
 
+    // Spawnless owned rooms (W3N3) are not always Memory.target_colonise.
+    // Must run even when colonise is {}.
+    maybeSpawnColonyBuilder(room);
+
 
 
 
@@ -2600,43 +2865,11 @@ function add_creeps_to_spawn_list(room, spawn) {
     // }
 
 
-    if(DrainTowers < 0 && room.energyCapacityAvailable > 5200 && Game.map.getRoomLinearDistance(room.name, "E15S37") <= 5) {
-        let newName = 'rewotreniard-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,TOUGH,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,
-                                MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,RANGED_ATTACK,
-                                HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,HEAL,
-                                HEAL,HEAL,HEAL,HEAL,HEAL], newName,
-            {memory: {role: 'DrainTower', targetRoom: "E15S38", homeRoom: room.name}});
-        console.log('Adding Tower Drainer to Spawn List: ' + newName);
-    }
-
-
-    if(RemoteDismantlers < 0 && room.controller.level >= 4 && storage && storage.store[RESOURCE_ENERGY] > 300000 && Game.map.getRoomLinearDistance(room.name, "E45N58") <= 2) {
-        let newName = 'RemoteDismantler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push([MOVE,MOVE,WORK,WORK], newName, {memory: {role: 'RemoteDismantler', targetRoom: "E45N58", homeRoom: room.name}});
-        console.log('Adding RemoteDismantler to Spawn List: ' + newName);
-    }
-
-    if(room.controller.level <= 4 && Dismantlers < 0) {
-        let newName = 'Dismantler-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-        room.memory.spawn_list.push(getBody([WORK,WORK,WORK,WORK,MOVE], room), newName, {memory: {role: 'Dismantler'}});
-        console.log('Adding Dismantler to Spawn List: ' + newName);
-    }
-
-
-    let annoyRoom:any = false;
-    if(annoyRoom && annoyers < 1 && Game.map.getRoomLinearDistance(room.name, annoyRoom) <= 5 && annoyRoom !== room.name) {
-        if(Game.rooms[annoyRoom] && Game.rooms[annoyRoom].controller && Game.rooms[annoyRoom].controller.my && Game.rooms[annoyRoom].controller.level >= 3) {
-
-        }
-        else {
-            let newName = 'Annoy-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
-            room.memory.spawn_list.push([MOVE,ATTACK,MOVE,ATTACK,ATTACK,MOVE], newName, {memory: {role: 'annoy', targetRoom: annoyRoom}});
-            console.log('Adding Annoyer to Spawn List: ' + newName);
-        }
-
-    }
+    // Four hand-armed raid rungs used to sit here — DrainTower, RemoteDismantler,
+    // Dismantler and Annoy — each switched off by a condition that can never be
+    // true (`count < 0`, `let annoyRoom = false`) and each aimed at a hardcoded
+    // room (E15S37/E15S38, E45N58) from a campaign that is long over. Deleted
+    // with their census counters; re-add from a Command if a raid needs them.
 
 
     // Sweep floor loot (drops / tombs / ruins from dead creeps & destroyed structures)
@@ -2705,9 +2938,14 @@ function add_creeps_to_spawn_list(room, spawn) {
     //     }
     // });
 
-    _.forEach(Game.rooms, function(thisRoom) {
+    // Was `_.forEach(Game.rooms)` wrapped around `_.forEach(resourceData)` with
+    // a `thisRoom.name == targetRoomName` test inside — i.e. |rooms| x |remotes|
+    // iterations to find the one visible room per remote that a direct lookup
+    // gives for free. Same pairs, same body.
+    {
         _.forEach(resourceData, function(data, targetRoomName) {
-            if(thisRoom.name == targetRoomName && !room.memory.danger && activeRemotes.includes(targetRoomName) && room.storage && room.storage.store[RESOURCE_ENERGY] > 10000) {
+            const thisRoom = Game.rooms[targetRoomName as string];
+            if(thisRoom && !room.memory.danger && activeRemotes.includes(targetRoomName) && room.storage && room.storage.store[RESOURCE_ENERGY] > 10000) {
                 if(thisRoom.memory.roomData && (thisRoom.memory.roomData.has_hostile_structures || thisRoom.memory.roomData.has_hostile_creeps) && !thisRoom.memory.roomData.has_attacker&& attackers < 1) {
                     if(thisRoom.memory.roomData.has_hostile_structures && attackers < 1|| thisRoom.memory.roomData.has_hostile_creeps && !thisRoom.memory.roomData.has_attacker && attackers < 1 && thisRoom.memory.roomData.has_only_invader) {
                         let body = [];
@@ -2802,19 +3040,27 @@ function add_creeps_to_spawn_list(room, spawn) {
                 }
             }
         });
-    });
+    }
 }
 
 
 
 
-function spawnFirstInLine(room, spawn) {
-    // Emergency energy check - run this BEFORE checking spawn list.
-    // The cure for a starved spawn is a FILLER (storage -> spawn/extensions).
-    // An EnergyManager only shuttles storage <-> terminal/labs/links/factory and
-    // has no spawn-filling branch at all, so the old version of this block sat a
-    // fresh EnergyManager next to a full storage doing literally nothing while
-    // the spawn stayed empty (E17S4, RCL5, 26k banked, spawn on 64).
+/**
+ * Emergency energy check - runs BEFORE the spawn list is looked at, and (since
+ * the bucket guard moved) even when the bucket is on the floor: this is the only
+ * path that puts a hauler back into a room with zero fillers, and a CPU crash
+ * and a starved spawn tend to arrive together.
+ *
+ * The cure for a starved spawn is a FILLER (storage -> spawn/extensions).
+ * An EnergyManager only shuttles storage <-> terminal/labs/links/factory and
+ * has no spawn-filling branch at all, so the old version of this block sat a
+ * fresh EnergyManager next to a full storage doing literally nothing while
+ * the spawn stayed empty (E17S4, RCL5, 26k banked, spawn on 64).
+ *
+ * Returns true when it took the spawn this tick.
+ */
+function emergencyFillerRescue(room, spawn): boolean {
     let storage = Game.getObjectById(room.memory.Structures?.storage);
     let fillersInRoom = _.filter(Game.creeps, (creep:any) => creep.memory.role == 'filler' && creep.room.name == room.name).length;
     // a carrier can drop into storage/spawn too, so it counts as "something can
@@ -2859,12 +3105,19 @@ function spawnFirstInLine(room, spawn) {
                 if(spawnAttempt === 0) {
                     console.log(`SUCCESS: Spawning emergency filler in ${room.name}`);
                     room.memory.data.c_spawned++;
-                    return "spawning";
+                    return true;
                 } else {
                     console.log(`FAILED to spawn emergency filler in ${room.name}, error: ${spawnAttempt}`);
                 }
             }
         }
+    }
+    return false;
+}
+
+function spawnFirstInLine(room, spawn) {
+    if(emergencyFillerRescue(room, spawn)) {
+        return "spawning";
     }
 
     // Normal spawn queue processing
@@ -2873,16 +3126,28 @@ function spawnFirstInLine(room, spawn) {
         // queued this tick can hatch next tick into a remote that is
         // now hot. Drop those triples; the producer re-queues when safe.
         // Attackers/scouts targeting the same room are left alone.
+        //
+        // CLOSED counts too, not just HOT. manageRemotes retires a remote by
+        // flipping resources[target].active to false — for depletion, for a
+        // reservation we lost, for an owner turning up — and the queue can
+        // easily be holding a triple that was produced while it was still open.
+        // Hatching it spends the body and then the creep immediately recycles
+        // or re-homes, which is the same waste the hot test exists to stop.
+        // Strict `=== false`: an absent resources entry is no opinion at all
+        // (scouts/one-off targets), and must not drop anything.
         while(room.memory.spawn_list.length >= 3) {
             const headMem = room.memory.spawn_list[2] && room.memory.spawn_list[2].memory;
             if(!headMem || !headMem.targetRoom || headMem.targetRoom === room.name) break;
             const role = headMem.role;
             if(role !== "EnergyMiner" && role !== "carry" &&
                role !== "RemoteRepair" && role !== "reserve") break;
-            if(!remoteIsHot(room, headMem.targetRoom)) break;
+            const t = headMem.targetRoom;
+            if(!remoteIsHot(room, t) &&
+               !(room.memory.resources && room.memory.resources[t] &&
+                 room.memory.resources[t].active === false)) break;
             refundBoostOwner(room, room.memory.spawn_list[1]);
             console.log("dropping queued", room.memory.spawn_list[1],
-                "-", headMem.targetRoom, "is hot");
+                "-", headMem.targetRoom, "is hot/closed");
             room.memory.spawn_list.shift();
             room.memory.spawn_list.shift();
             room.memory.spawn_list.shift();
@@ -3033,8 +3298,15 @@ function spawnFirstInLine(room, spawn) {
                 && !room.memory.spawn_list[1].startsWith("PowerMelee"))
 
                 || _.sum(segment, s => BODYPART_COST[s]) > room.energyCapacityAvailable
-                || room.memory.spawn_list[1].startsWith("Defender")
-                || room.memory.spawn_list[1].startsWith("WallClearer")) {
+                || room.memory.spawn_list[1].startsWith("Defender")) {
+                    // The WallClearer arm that used to sit here contradicted its
+                    // own exemption a few lines up: the exemption list says a
+                    // command-queued WallClearer waits for energy like a carrier
+                    // or a reserver, and then this OR shredded it on the FIRST
+                    // ERR_NOT_ENOUGH_ENERGY, before the shrink or interleave
+                    // rungs could ever fire for it. The exemption wins; a
+                    // WallClearer the room can genuinely never afford is still
+                    // thrown out by the energyCapacityAvailable clause above.
 
                     refundBoostOwner(room, room.memory.spawn_list[1]);
 
@@ -3042,12 +3314,18 @@ function spawnFirstInLine(room, spawn) {
                     room.memory.spawn_list.shift();
                     room.memory.spawn_list.shift();
 
-                    console.log("clearing spawn queue because too high energy cost or is defender/wallclearer")
+                    console.log("clearing spawn queue because too high energy cost or is defender")
 
                 }
                 else if(mayShrinkHead && (
                 room.memory.spawn_list[1].startsWith("Carrier") && room.energyAvailable < room.memory.spawn_list[0].length * 50 && room.memory.spawn_list[0].length > 3 ||
-                room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3 ||
+                room.memory.spawn_list[1].startsWith("EnergyMiner") && room.energyAvailable < room.memory.spawn_list[0].length * 100  && room.memory.spawn_list[0].length > 3
+                    // [5W,M] is 550e / 6 parts. HOL bar is length*100 = 600, so
+                    // leftover-5 rooms (cap 550) always shrink to 4W. Cost is 550.
+                    && !(room.energyCapacityAvailable >= 550
+                        && room.memory.spawn_list[0].length === 6
+                        && bodyCost(room.memory.spawn_list[0]) === 550
+                        && _.filter(room.memory.spawn_list[0], (p:any) => p === WORK).length === 5) ||
                 room.memory.spawn_list[1].startsWith("Reserver") && room.memory.spawn_list[0].length > 2)) {
                     // NOT .shift(): that stripped parts off the FRONT of the
                     // body and produced miners with no WORK and reservers with
@@ -3055,6 +3333,24 @@ function spawnFirstInLine(room, spawn) {
                     if(shrinkQueuedBody(room.memory.spawn_list[0], room.memory.spawn_list[1], room.memory.spawn_list[2])) {
                         room.memory.lastShrink = Game.time;
                         console.log("shrinking stalled head", room.memory.spawn_list[1], "to", bodyCost(room.memory.spawn_list[0]), "energy in", room.name);
+                    }
+                }
+                // leftover-5 blackout (cycle-16 E18S5): HOL-exempt [5W,M]
+                // sits at 550 forever, interleave needs a second entry, and
+                // 0 miners means energyAvailable never climbs. Replace the
+                // head with a cheap miner the spawn can actually buy.
+                else if(room.memory.spawn_list[1].startsWith("EnergyMiner")
+                    && room.energyCapacityAvailable >= 550
+                    && room.energyAvailable < 550
+                    && bodyCost(room.memory.spawn_list[0]) >= 550) {
+                    // Dest-22: true 0-miner blackout only. Leftover 1W/2W
+                    // still fill (2–4 e/t) — rewriting HOL [5W,M] is the
+                    // cycle-20 E18S9 stall (then lastSpawn+1500). Best
+                    // WORK, not sum: two 1W is still income.
+                    if(homeMinerBestWork(room) === 0) {
+                        room.memory.spawn_list[0] = room.energyAvailable >= 250
+                            ? [WORK, WORK, MOVE] : [WORK, MOVE];
+                        console.log("cheap miner head — leftover-5 blackout", room.name);
                     }
                 }
 
@@ -3345,15 +3641,18 @@ function keepOneUpgrader(room, miners:number): number {
  * ------------------------------------------------------------------------- */
 /**
  * RCL1–3 builder roster. Two on real structures (ext/container/tower);
- * one once only roads remain. Six 300e bodies on pavement steal the
+ * two on haul roads after slam-5. Six 300e bodies on pavement steal the
  * 135k climb from the upgraders.
  */
-function earlyBuildSlots(sites, cap: number): number {
+function earlyBuildSlots(sites, cap: number, room?): number {
     let useful = 0;
+    let roads = 0;
     for(let i = 0; i < sites.length; i++) {
         if(sites[i].structureType !== STRUCTURE_ROAD) useful++;
+        else roads++;
     }
     if(useful > 0) return Math.min(cap, useful, 2);
+    if(roads > 0 && room && room.energyCapacityAvailable >= 550) return Math.min(2, roads);
     return sites.length > 0 ? 1 : 0;
 }
 
@@ -3365,6 +3664,13 @@ function onlyRoadSites(sites): boolean {
     return true;
 }
 
+function hasRoadSite(sites): boolean {
+    for(let i = 0; i < sites.length; i++) {
+        if(sites[i].structureType === STRUCTURE_ROAD) return true;
+    }
+    return false;
+}
+
 /** Container/road actually below the repairer's 1000-hit slack. */
 function earlyRepairNeeded(room): boolean {
     return room.find(FIND_STRUCTURES, {filter: (s: any) =>
@@ -3374,8 +3680,8 @@ function earlyRepairNeeded(room): boolean {
 }
 
 /**
- * RCL1–3 builder. No roads (RCL3 only sites arterials and we do not pave
- * them first). [W,3C,M] is 4 ticks/tile loaded; getBody stacks that to
+ * RCL1–3 builder. After slam-5, two builders pave the haul line.
+ * [W,3C,M] is 4 ticks/tile loaded; getBody stacks that to
  * [2W,6C,2M] once cap hits 800 and HOL-blocks the 500e 4W. [W,2C,2M] is
  * the same 300e, 2 ticks/tile loaded, 100e tank.
  */
@@ -3425,6 +3731,25 @@ function hasControllerDepot(room): boolean {
     }).length > 0;
 }
 
+/** Body WORK, not getActiveBodyparts — a hatchling's active count is 0. */
+function workFromBody(creep): number {
+    let n = 0;
+    const body = creep.body || [];
+    for(let i = 0; i < body.length; i++) if(body[i].type == WORK) n++;
+    return n;
+}
+
+/** Best single home EnergyMiner WORK. Two leftover 1W must not look like a 2W. */
+function homeMinerBestWork(room): number {
+    let best = 0;
+    for (const c of creepsWithRole("EnergyMiner")) {
+        if ((c.memory.targetRoom || c.room.name) !== room.name) continue;
+        const w = workFromBody(c);
+        if (w > best) best = w;
+    }
+    return best;
+}
+
 /**
  * When a dedicated filler pays for itself.
  *
@@ -3445,6 +3770,24 @@ function fillersWanted(room, storage, base: number): number {
         return Math.max(1, base);
     }
     if(energy < 100 || !hungry) return 0;
+    /*
+     * HUB-CONTAINER ROOM. The flat `return 1` here is a cap of ONE filler no
+     * matter what the rule table asks for, and that is a fill-loop bug from
+     * RCL4 up: 10 extensions plus a spawn is 800 energy of demand behind a
+     * single [4C,2M] shuttle carrying 200 at 2 ticks/tile.
+     *
+     * Live E36N57 (RCL4, no storage yet, 800 capacity): 19 creeps, 11,800
+     * energy lying on the floor, ALL TEN extensions at 0, and the spawn stalled
+     * on a 500-energy upgrader it could not pay for. The room was not poor, it
+     * simply had one hauler-of-last-resort for the whole extension bank.
+     *
+     * A room with extensions to fill and a hungry spawn gets the rule table's
+     * roster (RCL4 asks for 2). Below RCL4 there are no extensions worth a
+     * second body and the 300-energy climb matters more, so nothing changes.
+     */
+    if(room.controller && room.controller.level >= 4 && room.energyCapacityAvailable > 300) {
+        return Math.max(1, Math.min(base, 2));
+    }
     return 1;
 }
 
@@ -3470,14 +3813,19 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
     // no real storage yet -> nothing to protect, judge the room on its sites
     const rich = !realBank || storage.store[RESOURCE_ENERGY] > bankFloor;
 
-    let hasUsefulSite = false;
+    let usefulSites = 0;
+    const mature = room.controller && room.controller.level >= 6;
     for(const site of sites) {
-        if(site.structureType !== STRUCTURE_RAMPART) { hasUsefulSite = true; break; }
+        if(site.structureType === STRUCTURE_RAMPART) continue;
+        if(mature && site.structureType === STRUCTURE_ROAD) continue;
+        usefulSites++;
     }
+    const hasUsefulSite = usefulSites > 0;
 
     if(!hasUsefulSite) {
-        // rampart-only: one token builder, and only off a bank
-        if(rich && builders < 1) {
+        // rampart/road-only (naked shell). One token builder even on a 0
+        // bank — PlanV2 opens those slots precisely when storage is empty.
+        if(builders < 1) {
             const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
             room.memory.spawn_list.push([WORK,CARRY,MOVE], name, {memory: {role: 'builder'}});
             console.log('Adding Builder to Spawn List: ' + name + ' (ramparts only)');
@@ -3485,12 +3833,23 @@ function queueBuilder(room, rules, sites, builders:number, miners:number,
         return;
     }
 
-    const want = rich ? rules.build_creep.amount : 1;
+    /*
+     * ONE BUILDER PER OPEN SITE, then the roster.
+     *
+     * The roster alone (3 at RCL6) is a fixed number set for a room that has
+     * just been planned and has a dozen slots open. E37N59 has TWO sites and
+     * an RCL6 build body of [10W,10C,5M] — 1,750 energy each — and every
+     * builder rung is pushed onto the queue BEFORE its upgrader rung, so three
+     * of them is 5,250 energy of head-of-line in front of the thing the room is
+     * actually trying to do. Two builders cannot both work one site faster than
+     * one can; the extra bodies are pure queue pressure.
+     */
+    const want = Math.min(rich ? rules.build_creep.amount : 1, usefulSites);
     if(builders >= want) return;
     const name = 'Builder-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
     room.memory.spawn_list.push(rules.build_creep.body, name, {memory: {role: 'builder'}});
     console.log('Adding Builder to Spawn List: ' + name +
-        ' (' + (builders+1) + '/' + want + ', bank ' + bankEnergy(room) +
+        ' (' + (builders+1) + '/' + want + ', ' + usefulSites + ' sites, bank ' + bankEnergy(room) +
         ', miners ' + miners + (rich ? '' : ', THIN BANK') + ')');
 }
 
@@ -3567,15 +3926,35 @@ function drainPressure(room): any {
     // this creep change tile, so it is a free stationarity test.
     let parked = 0;
     let total = 0;
-    for(const name in Game.creeps) {
-        const c: any = Game.creeps[name];
-        if(c.memory.role !== "carry" && c.memory.role !== "FakeFiller") continue;
+    for(const c of creepsWithRole("carry").concat(creepsWithRole("FakeFiller"))) {
         if(c.memory.homeRoom !== room.name && c.room.name !== room.name) continue;
         total++;
         if(c.store.getFreeCapacity() === 0 && Game.time - (c.memory._phT || 0) >= 5) parked++;
     }
     const prev = typeof room.memory._floorE === "number" ? room.memory._floorE : onFloor;
     room.memory._floorE = onFloor;
+
+    /*
+     * BURN IS NOT A CURE FOR A BROKEN FILL LOOP.
+     *
+     * `burn` buys extra upgraders because energy on the floor is already paid
+     * for. That reasoning holds only while the room can still SPAWN — and an
+     * upgrader is spawned out of the extension bank, not off the floor. Live
+     * E36N57: 11,800 energy on the ground (burn would ask for 3 more
+     * upgraders), all ten extensions at zero, and the spawn already stalled on
+     * a 500-energy upgrader it could not pay for. Queuing more of them there is
+     * strictly negative: it deepens the head-of-line block that is stopping the
+     * fillers who would clear the floor in the first place.
+     *
+     * So: no burn-driven upgraders while the extension bank is under half full,
+     * in a room that HAS an extension bank (capacity > 300) and is past the
+     * bootstrap levels. RCL1-3 rooms live under 50% by construction — that is
+     * what a 300-energy spawn with two creeps queued looks like — and their
+     * whole climb depends on upgraders, so they are untouched.
+     */
+    const fillLoopBroken = !!(room.controller && room.controller.level >= 4 &&
+        room.energyCapacityAvailable > 300 &&
+        room.energyAvailable * 2 < room.energyCapacityAvailable);
 
     const sinkLimited = total > 0 && parked * 3 >= total;
     const out = {
@@ -3596,7 +3975,7 @@ function drainPressure(room): any {
          * The bodies are cheap against the loss: 550 energy amortised over a
          * 1,500-tick life is 0.37/tick each.
          */
-        burn: onFloor < FLOOR_PILE_SMALL ? 0 : Math.min(4, Math.max(1, Math.floor(onFloor / FLOOR_PILE_PER_UPGRADER))),
+        burn: (onFloor < FLOOR_PILE_SMALL || fillLoopBroken) ? 0 : Math.min(4, Math.max(1, Math.floor(onFloor / FLOOR_PILE_PER_UPGRADER))),
         /** one more hauler per source, but never while the haulers sit full */
         haul: onFloor >= FLOOR_PILE_SMALL && !sinkLimited ? 1 : 0,
     };
@@ -3664,9 +4043,8 @@ function bodyCanWork(body:string[], segment:string[]):boolean {
 function homeSourceHarvest(room, sourceId): {energyPerTick: number, miners: number} {
     let work = 0;
     let miners = 0;
-    for(const name in Game.creeps) {
-        const c: any = Game.creeps[name];
-        if(c.memory.role != 'EnergyMiner' || c.memory.sourceId != sourceId) continue;
+    for(const c of creepsForSource(sourceId)) {
+        if(c.memory.role != 'EnergyMiner') continue;
         miners++;
         const body = c.body;
         if(!body) continue;
@@ -3688,7 +4066,8 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
     }
     let pathFromHomeToSource;
     // "FakeFiller" is a carrier mid-dropoff at home (see carry.ts), not a filler
-    let carriersInRoom = _.filter(Game.creeps, (creep) => (creep.memory.role == 'carry' || creep.memory.role == 'FakeFiller') && creep.room.name == room.name);
+    let carriersInRoom = _.filter(creepsWithRole('carry').concat(creepsWithRole('FakeFiller')),
+        (creep:any) => creep.room.name == room.name);
 
     if(storage != undefined && values.pathLength == null) {
         pathFromHomeToSource = storage.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
@@ -3701,7 +4080,7 @@ function getCarrierBody(sourceId, values, storage, spawn, room) {
 
     if(carriersInRoom.length == 0 && !storage) {
         // RCL1 leftover after the [W,C,M] miner is 100, not 150.
-        return isRcl1Bootstrap(room) ? [CARRY,MOVE] : [CARRY,CARRY,MOVE];
+        return [CARRY,CARRY,MOVE];
     }
 
 
@@ -3821,9 +4200,26 @@ function getRemoteCarrierBody(room, targetRoomName, values, sourceId?) {
     const maxCarryByParts = Math.floor(50 / (1 + movePerCarry));
 
     const wantCarryTotal = Math.ceil(demand.capacityNeeded / 50);
-    const carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(wantCarryTotal / want)));
+    let carry = Math.max(2, Math.min(maxCarryByBudget, maxCarryByParts, Math.ceil(wantCarryTotal / want)));
     if(carry < 2) return [];
-    const move = Math.max(1, Math.ceil(carry * movePerCarry));
+    let move = Math.max(1, Math.ceil(carry * movePerCarry));
+
+    /*
+     * NEVER over capacity. This body used to sit at the TAIL of the queue where
+     * an unaffordable price was merely wasteful; queueRemoteHaul now puts it at
+     * the head, where it would answer ERR_NOT_ENOUGH_ENERGY forever and hold the
+     * whole room. Two ways it can overshoot: the `Math.max(2, ...)` floor
+     * outrunning a tiny capacity, and the roaded odd-CARRY rounding (move =
+     * ceil(carry/2)), which prices a budget-bound body at exactly capacity —
+     * buyable only with the extension network 100% full, which a room that is
+     * spending on creeps never is. clampSpawnListToCapacity's 85% routine budget
+     * would shrink that one anyway, but the producer should not emit it.
+     */
+    while(carry > 2 && carry * 50 + move * 50 > room.energyCapacityAvailable) {
+        carry--;
+        move = Math.max(1, Math.ceil(carry * movePerCarry));
+    }
+    if(carry * 50 + move * 50 > room.energyCapacityAvailable) return [];
 
     const body = [];
     for(let i = 0; i < carry; i++) body.push(CARRY);
@@ -3864,9 +4260,6 @@ const MAX_HOME_CARRIERS_PER_SOURCE = 3;
  * make the jam worse (see drainPressure).
  */
 function homeCarriersWanted(room, values, body, sourceId): number {
-    // One 50-carry hauler is the RCL1 bootstrap. A [C,M] body would otherwise
-    // demand 3-4 copies and steal the spawn from the 2W replacement miner.
-    if(isRcl1Bootstrap(room)) return 1;
     const L = values && values.pathLength != null ? values.pathLength : 15;
     let carry = 0;
     let move = 0;
@@ -3911,20 +4304,104 @@ function homeCarriersWanted(room, values, body, sourceId): number {
     return want;
 }
 
+/* -------------------------------------------------------------------------
+ * ONE pass over Game.creeps per producer pass.
+ *
+ * The producer answered the same questions — "who is on this source", "who has
+ * this role" — by walking the whole creep list from about twenty places, and
+ * several of those sit INSIDE a per-source loop (homeSourceHarvest runs twice
+ * per home source, liveCarriersForSource and minerOnTheWay once each), so a
+ * four-source commune walked Game.creeps a dozen-plus times per pass. Every one
+ * of those predicates keys on memory.sourceId or memory.role, so one grouped
+ * index answers all of them.
+ *
+ * Rebuilt at the top of add_creeps_to_spawn_list rather than memoised on
+ * Game.time alone: a creep spawned from an EARLIER room's queue in the same
+ * tick is already in Game.creeps (creeps under construction are), and these
+ * lookups must see it. Nothing spawns DURING a producer pass — spawnFirstInLine
+ * runs before it and returns "spawning" if it did — so one build per pass is
+ * exactly enough, and the Game.time check only stops a stale index leaking into
+ * the next tick.
+ * ------------------------------------------------------------------------- */
+let _creepIdxTick = -1;
+let _creepIdx: any = null;
+
+function refreshCreepIndex(): void {
+    _creepIdx = null;
+    _creepIdxTick = Game.time;
+}
+
+function creepIndex(): any {
+    if(_creepIdx && _creepIdxTick === Game.time) return _creepIdx;
+    const bySource: any = {};
+    const byRole: any = {};
+    for(const name in Game.creeps) {
+        const c: any = Game.creeps[name];
+        if(!c || !c.memory) continue;
+        const role = c.memory.role;
+        if(role) (byRole[role] || (byRole[role] = [])).push(c);
+        const sid = c.memory.sourceId;
+        if(sid) (bySource[sid] || (bySource[sid] = [])).push(c);
+    }
+    _creepIdxTick = Game.time;
+    _creepIdx = {bySource, byRole};
+    return _creepIdx;
+}
+
+/** every live creep (hatching included) tagged with this memory.sourceId */
+function creepsForSource(sourceId): any[] {
+    return creepIndex().bySource[sourceId] || [];
+}
+
+/** every live creep (hatching included) with this memory.role */
+function creepsWithRole(role:string): any[] {
+    return creepIndex().byRole[role] || [];
+}
+
+/**
+ * ONE walk over the flat spawn queue.
+ *
+ * `room.memory.spawn_list` is [body, name, opts] x N, and it was walked by hand
+ * in about eleven places under THREE different bounds conventions —
+ * `i=0; i+2<len`, `i=1; i+1<len`, and `i=1; i<len` reading `[i+1]` one cell past
+ * the end. This is the single convention: whole triples only, nothing read past
+ * the end, body/name/opts named. The read-only walks go through here; the
+ * MUTATING sites (splice / shift / length=) keep their own loops and each of
+ * them only ever moves three cells at a time, so the multiple-of-3 invariant
+ * holds there too.
+ *
+ * Return false from `cb` to stop early; return true to carry on.
+ */
+function forEachQueued(room, cb:(body:any, name:any, opts:any, idx:number) => any): void {
+    const q = room.memory.spawn_list || [];
+    for(let i = 0; i + 2 < q.length; i += 3) {
+        if(cb(q[i], q[i + 1], q[i + 2], i) === false) return;
+    }
+}
+
+/** The names currently on the queue, head first. */
+function queuedNames(room): string[] {
+    const names: string[] = [];
+    forEachQueued(room, function(body, name) {
+        if(typeof name === 'string') names.push(name);
+    });
+    return names;
+}
+
 /**
  * Is a creep whose name starts with `prefix` already QUEUED for this source?
- *
- * spawn_list is a flat [body, name, opts] x N array (same walk as
- * spawn_reserver's coverage scan).
  */
 function queuedForSource(room, prefix:string, sourceId):boolean {
-    const queue = room.memory.spawn_list || [];
-    for(let i = 1; i + 1 < queue.length; i += 3) {
-        if(typeof queue[i] !== 'string' || queue[i].indexOf(prefix) !== 0) continue;
-        const opts = queue[i + 1];
-        if(opts && opts.memory && opts.memory.sourceId == sourceId) return true;
-    }
-    return false;
+    let found = false;
+    forEachQueued(room, function(body, name, opts) {
+        if(typeof name !== 'string' || name.indexOf(prefix) !== 0) return true;
+        if(opts && opts.memory && opts.memory.sourceId == sourceId) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
 }
 
 /**
@@ -3936,11 +4413,85 @@ function queuedForSource(room, prefix:string, sourceId):boolean {
  * keeps the queue non-empty.
  */
 function queuedWithPrefix(room, prefix:string):boolean {
-    const queue = room.memory.spawn_list || [];
-    for(let i = 1; i + 1 < queue.length; i += 3) {
-        if(typeof queue[i] === 'string' && queue[i].indexOf(prefix) === 0) return true;
+    let found = false;
+    forEachQueued(room, function(body, name) {
+        if(typeof name === 'string' && name.indexOf(prefix) === 0) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+/**
+ * Queue a REMOTE hauler/reserver near the HEAD of the spawn list.
+ *
+ * The queue is strict FIFO — spawnFirstInLine only ever calls spawnCreep on
+ * index 0 — and the remote crew was being queued at BOTH ends of it: the miner
+ * `unshift`ed to the head, its carriers and the reserver `push`ed to the tail,
+ * behind every Builder/Upgrader/Maintainer the same producer pass had just
+ * added. Three separate mechanisms then finished the job:
+ *
+ *   * clampSpawnListToCapacity trims from the TAIL at MAX_SPAWN_QUEUE,
+ *   * the whole list is wiped after 1200 idle ticks,
+ *   * and queuedForSource() sees the doomed tail entry and suppresses the
+ *     re-request while it is still there.
+ *
+ * So the miner hatched, walked out, and drop-mined into decay while its haul
+ * never arrived. Live Memory.rstats across every remote in the empire: energy
+ * delivered tracked carrier creep-ticks ~1:1 — the miners were never the
+ * bottleneck, the hauling was, and remote mining came out net-negative.
+ *
+ * A hauler is worth exactly as much as the miner it serves, so it gets the same
+ * priority — with one ordering rule. spawn_energy_miner runs BEFORE spawn_carrier
+ * in every RCL rung and unshifts, so a remote miner queued in this very pass is
+ * sitting at index 0; the carrier goes BEHIND it (and behind any sibling miner
+ * for the same remote), because a hauler that arrives before there is anything
+ * on the ground burns half its 1500 ticks walking to an empty room.
+ *
+ * Position is not load-bearing for any dedup: queuedForSource() and the
+ * reserver's own forEachQueued scan both match on the name prefix, and the
+ * queued-census pass skips any triple whose memory.targetRoom is not this room.
+ *
+ * THE HOME FILL CREW OUTRANKS ALL OF THIS. Filler and EnergyManager are also
+ * `unshift`ed by the same producer pass, and they are what moves energy into
+ * the extensions this queue spawns FROM — jumping the line in front of them
+ * stalls the whole room, not just the remote. Worse, it is self-sealing: the
+ * queued census counts a queued filler as live, so while a remote carrier sits
+ * on top of it the room never re-queues a second one and the stuck entry never
+ * gets company. So the scan below steps over head triples belonging to the fill
+ * crew exactly as it steps over same-remote miners, and the remote body lands
+ * behind them.
+ */
+function queueRemoteHaul(room, body, name, opts): void {
+    const q = room.memory.spawn_list;
+    const tgt = opts && opts.memory && opts.memory.targetRoom;
+    let at = 0;
+    if(tgt && tgt !== room.name) {
+        // Walk past the whole PRIORITY BLOCK at the head — fill crew, every
+        // remote miner (any remote), and haul/reserve triples queued before
+        // this one — and land right behind it. Breaking on the first miner
+        // of a DIFFERENT remote (the previous rule) put E37N59's queue at
+        // [Carrier36, Carrier38, Miner36, Miner38, Filler, Reserver]: two
+        // 1750e carriers hatching 200 ticks before the miners they haul for,
+        // and a filler four bodies deep. Miners still unshift to index 0, so
+        // they always precede the haul that follows them; carriers keep FIFO
+        // among themselves; a later emergency unshift still beats all of it.
+        while(at + 2 < q.length) {
+            const mem = q[at + 2] && q[at + 2].memory;
+            if(!mem) break;
+            const remote = !!mem.targetRoom && mem.targetRoom !== room.name;
+            const priority =
+                mem.role === 'filler' || mem.role === 'EnergyManager' ||
+                (remote && (mem.role === 'EnergyMiner' || mem.role === 'carry' || mem.role === 'reserve'));
+            if(!priority) break;
+            at += 3;
+        }
     }
-    return false;
+    // splice(0, 0, ...) is unshift; anything else lands right behind the
+    // priority block already at the front.
+    q.splice(at, 0, body, name, opts);
 }
 
 /**
@@ -3950,24 +4501,25 @@ function queuedWithPrefix(room, prefix:string):boolean {
  * miner mid-hatch counts and cannot be double-queued.
  */
 function minerOnTheWay(room, sourceId):boolean {
-    return _.some(Game.creeps, (creep:any) =>
-            creep.memory.role == 'EnergyMiner' && creep.memory.sourceId == sourceId)
+    return _.some(creepsForSource(sourceId), (creep:any) => creep.memory.role == 'EnergyMiner')
         || queuedForSource(room, 'EnergyMiner', sourceId);
 }
 
 /** Live or queued EnergyMiner already walking this remote (any source). */
 function minerGoingToRemote(room, targetRoomName): boolean {
-    if(_.some(Game.creeps, (c: any) =>
-        c.memory.role == "EnergyMiner" && c.memory.targetRoom == targetRoomName)) {
+    if(_.some(creepsWithRole("EnergyMiner"), (c: any) => c.memory.targetRoom == targetRoomName)) {
         return true;
     }
-    const q = room.memory.spawn_list || [];
-    for(let i = 1; i + 1 < q.length; i += 3) {
-        if(typeof q[i] !== "string" || q[i].indexOf("EnergyMiner") !== 0) continue;
-        const opts = q[i + 1];
-        if(opts && opts.memory && opts.memory.targetRoom == targetRoomName) return true;
-    }
-    return false;
+    let found = false;
+    forEachQueued(room, function(body, name, opts) {
+        if(typeof name !== "string" || name.indexOf("EnergyMiner") !== 0) return true;
+        if(opts && opts.memory && opts.memory.targetRoom == targetRoomName) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
 }
 
 /** Hostiles or an invader core — same bar remoteIsHot uses on a visible room. */
@@ -3982,10 +4534,9 @@ function remoteLooksThreatened(vis): boolean {
 /** live carriers (incl. mid-dropoff FakeFillers and hatching ones) bound to a source */
 function liveCarriersForSource(room, sourceId):number {
     let n = 0;
-    for(const name in Game.creeps) {
-        const c:any = Game.creeps[name];
+    for(const c of creepsForSource(sourceId)) {
         const r = c.memory.role;
-        if((r == 'carry' || r == 'FakeFiller') && c.memory.sourceId == sourceId && c.memory.homeRoom == room.name) n++;
+        if((r == 'carry' || r == 'FakeFiller') && c.memory.homeRoom == room.name) n++;
     }
     return n;
 }
@@ -4045,14 +4596,30 @@ function remotePathIsRoaded(room, targetRoomName, values?, sourceId?):boolean {
 }
 
 /**
+ * How long a no-vision 25,25 path guess is trusted before it is re-derived.
+ * Nothing about a remote's distance moves on a shorter horizon than this.
+ */
+const REMOTE_PATH_GUESS_TTL = 500;
+
+/**
  * pathLength is only written by Build_Remote_Roads (500-tick cadence, many
  * bails). Derive it on demand so a missing cache does not refuse the body
- * (R6.24). Real paths are cached; 25,25 guesses are not (they would poison
- * remotes scoring).
+ * (R6.24). Real paths are cached on values.pathLength; 25,25 guesses are NOT
+ * (they would poison remotes scoring, which treats a pathLength as a survey) —
+ * getRemoteCarrierBody deliberately deletes the guess again after using it.
+ *
+ * That delete meant the 6000-op search below re-ran on EVERY producer pass,
+ * forever, for every unobserved remote source. The guess now lives under its
+ * own key with a tick stamp, so it is recomputed at most once per
+ * REMOTE_PATH_GUESS_TTL ticks while vision is missing, and it still never looks
+ * like a survey to anything that reads pathLength.
  */
 function ensureRemotePathLength(room, targetRoomName, values, sourceId?): number | null {
     if(!values) return null;
     if(values.pathLength != null) return values.pathLength;
+    if(values._pathGuess != null && Game.time - (values._pathGuessT || 0) < REMOTE_PATH_GUESS_TTL) {
+        return values._pathGuess;
+    }
     const origin = room.storage || room.find(FIND_MY_SPAWNS)[0];
     if(!origin) return null;
     const src:any = sourceId ? Game.getObjectById(sourceId) : null;
@@ -4065,10 +4632,26 @@ function ensureRemotePathLength(room, targetRoomName, values, sourceId?): number
     if(ret.incomplete || !ret.path || !ret.path.length) return null;
     if(src && src.pos) {
         values.pathLength = ret.path.length;
+        delete values._pathGuess;
+        delete values._pathGuessT;
         return values.pathLength;
     }
+    values._pathGuess = ret.path.length;
+    values._pathGuessT = Game.time;
     return ret.path.length;
 }
+
+/*
+ * homePathIsRoaded memo. The walk below is a findPathTo plus one lookForAt per
+ * tile, and it is asked twice for every home source on every producer pass —
+ * once by getCarrierBody for the CARRY:MOVE ratio and once by
+ * homeCarriersWanted for the loaded-leg speed. Keyed on origin as well as
+ * source because the two callers can pass DIFFERENT origins in a room with no
+ * real storage (hub container vs spawn), and conflating them would change the
+ * answer. Per-tick only: roads do change, and a stale ratio is a wrong body.
+ */
+let _homeRoadTick = -1;
+let _homeRoadCache: { [key: string]: boolean } = {};
 
 /**
  * Is the haul path from the hub to this HOME source actually paved?
@@ -4080,8 +4663,18 @@ function ensureRemotePathLength(room, targetRoomName, values, sourceId?): number
 function homePathIsRoaded(room, targetSource, storage, spawn): boolean {
     const origin = storage || spawn;
     if(!origin || !targetSource || !targetSource.pos) return false;
+    if(_homeRoadTick !== Game.time) {
+        _homeRoadTick = Game.time;
+        _homeRoadCache = {};
+    }
+    const key = room.name + "|" + (origin.id || origin.pos.x + "," + origin.pos.y) +
+        "|" + (targetSource.id || targetSource.pos.x + "," + targetSource.pos.y);
+    if(_homeRoadCache[key] !== undefined) return _homeRoadCache[key];
     const path = origin.pos.findPathTo(targetSource, {ignoreCreeps: true, ignoreRoads: false});
-    if(!path || path.length === 0) return false;
+    if(!path || path.length === 0) {
+        _homeRoadCache[key] = false;
+        return false;
+    }
     let roads = 0;
     for(let i = 0; i < path.length; i++) {
         const structs = room.lookForAt(LOOK_STRUCTURES, path[i].x, path[i].y);
@@ -4092,7 +4685,9 @@ function homePathIsRoaded(room, targetSource, storage, spawn): boolean {
             }
         }
     }
-    return roads >= path.length * 0.4;
+    const roaded = roads >= path.length * 0.4;
+    _homeRoadCache[key] = roaded;
+    return roaded;
 }
 
 /**
@@ -4116,9 +4711,38 @@ function remoteCarrierDemand(room, targetRoomName, values, sourceId?) {
     // whether we happen to have a creep standing there this tick.
     const resMem = room.memory.resources;
     const cached = resMem && resMem[targetRoomName];
-    const reserved = rr && rr.controller
-        ? !!rr.controller.reservation
-        : !!(cached && cached.reserved);
+    /*
+     * A source regenerates 1500/300 = 5 e/tick unreserved and 3000/300 = 10
+     * reserved — and only OUR reservation does that for us. Two corrections:
+     *
+     *  - `!!rr.controller.reservation` counted a RIVAL's reservation as ours
+     *    and sized the fleet for 10 e/tick against a source still producing 5,
+     *    i.e. double the carrier bodies for the same delivery.
+     *  - the reverse gap is worse and is the one E37N59 lives in: while a
+     *    reserver is walking out (600-tick creep, up to 120 tiles) there is no
+     *    reservation yet, so the carriers spawned in that window are sized for
+     *    5 and stay undersized for their whole 1500-tick life once the source
+     *    goes to 10. Measured on both of E37N59's remotes: cFull = 0 out of
+     *    234/296 carrier samples — the carriers were NEVER full — with 135,609
+     *    energy dropped on E36N59's floor. Count a committed reserver.
+     */
+    const myName = room.controller && room.controller.owner && room.controller.owner.username;
+    const liveRsv = rr && rr.controller ? rr.controller.reservation : null;
+    /*
+     * Blind, `cached.reserved` is not enough on its own. It is only ever written
+     * with vision (rooms.remotes.ts), so it goes stale in exactly the direction
+     * that hurts: it says false for a remote we reserved while nobody was
+     * looking. `rsvEnd`, stamped by the reserver rung from the same vision, is
+     * the one that carries a DEADLINE rather than a bare flag, so a stamp still
+     * in the future outranks a stale `reserved:false`. Plus anything already on
+     * its way to fix it — a reserver alive or merely queued means the source is
+     * 10 e/t well before this carrier's 1500 ticks are up.
+     */
+    const reserved = liveRsv
+        ? (!myName || liveRsv.username === myName)
+        : !!((cached && cached.reserved)
+            || (cached && (cached.rsvEnd || 0) > Game.time)
+            || reserverPending(room, targetRoomName));
     const yieldPerTick = reserved ? 10 : 5;
     const roaded = remotePathIsRoaded(room, targetRoomName, values, sourceId);
     // The body ratio picked in getCarrierBody is always matched to the terrain
@@ -4152,55 +4776,16 @@ function remoteCarrierDemand(room, targetRoomName, values, sourceId?) {
     return { capacityNeeded, roaded, roundTrip, reserved, headroom };
 }
 
-/**
- * First-100-ticks window: RCL1, spawn still 300 energy, no extensions.
- *
- * The opening 300 must buy both a miner and a hauler or the spawn sits on
- * regen (1 e/t) until it can afford a 150-energy [C,C,M]. A 200-energy
- * [W,C,M] leaves 100 — enough for [C,M] the tick the miner starts.
- */
-function isRcl1Bootstrap(room): boolean {
-    return !!(room.controller && room.controller.level <= 1 && room.energyCapacityAvailable <= 300);
-}
-
-/** A home EnergyMiner already live, hatching, or queued. */
-function homeHasMiner(room): boolean {
-    if(_.some(Game.creeps, (c:any) =>
-        c.memory.role == 'EnergyMiner' &&
-        (c.memory.targetRoom == room.name ||
-            (!c.memory.targetRoom && c.memory.homeRoom == room.name)))) {
-        return true;
-    }
-    const q = room.memory.spawn_list || [];
-    for(let i = 1; i + 1 < q.length; i += 3) {
-        if(typeof q[i] !== 'string' || q[i].indexOf('EnergyMiner') !== 0) continue;
-        const mem = q[i + 1] && q[i + 1].memory;
-        if(mem && (!mem.targetRoom || mem.targetRoom == room.name)) return true;
-    }
-    return false;
-}
-
-/** A hauler that has left the spawn. Queued/spawning does not count — leftover 100 must buy [C,M]. */
-function hatchedHomeHauler(room): boolean {
-    return _.some(Game.creeps, (c: any) =>
-        (c.memory.role == "carry" || c.memory.role == "FakeFiller" || c.memory.role == "sweeper") &&
-        (c.memory.homeRoom == room.name || c.room.name == room.name) &&
-        !c.spawning);
-}
-
 /** Any home hauler live or queued — stops the RCL1 sweeper from stacking. */
 function roomHasHauler(room): boolean {
-    if(_.some(Game.creeps, (c:any) =>
-        (c.memory.role == 'carry' || c.memory.role == 'FakeFiller' || c.memory.role == 'sweeper') &&
-        (c.memory.homeRoom == room.name || c.room.name == room.name))) {
+    const live = creepsWithRole('carry')
+        .concat(creepsWithRole('FakeFiller'))
+        .concat(creepsWithRole('sweeper'));
+    if(_.some(live, (c:any) => c.memory.homeRoom == room.name || c.room.name == room.name)) {
         return true;
     }
-    const q = room.memory.spawn_list || [];
-    for(let i = 1; i + 1 < q.length; i += 3) {
-        if(typeof q[i] !== 'string') continue;
-        if(q[i].indexOf('Carrier') === 0 || q[i].indexOf('Sweeper') === 0) return true;
-    }
-    return false;
+    return _.some(queuedNames(room), (n:string) =>
+        n.indexOf('Carrier') === 0 || n.indexOf('Sweeper') === 0);
 }
 
 function spawn_energy_miner(resourceData:any, room, activeRemotes) {
@@ -4212,7 +4797,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
 
             let containerBuilders = [];
             if(room.controller.level <= 5) {
-                containerBuilders = _.filter(Game.creeps, (creep) => creep.memory.role == 'buildcontainer' && creep.memory.targetRoom == room.name);
+                containerBuilders = _.filter(creepsWithRole('buildcontainer'), (creep:any) => creep.memory.targetRoom == room.name);
             }
             // BEHAVIOR CHANGE: any live CB targeting this room used to abort
             // miner spawning for EVERY source at RCL<=4, so a colony with a CB
@@ -4335,9 +4920,20 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                 if(room.memory.labs && room.memory.labs.status && !room.memory.labs.status.boost) {
                                     room.memory.labs.status.boost = {};
                                 }
-                                if(Memory.CPU.reduce && storage && storage.store[RESOURCE_UTRIUM_OXIDE] >= 720 && room.memory.labs && room.memory.labs.outputLab8) {
+                                if(Memory.CPU.reduce && boostStock(room, RESOURCE_UTRIUM_OXIDE) >= 720 && room.memory.labs && room.memory.labs.outputLab8) {
                                     room.memory.labs.lab8reserved = true;
-                                    chargeBoostSlot(room, "lab8", 360, newName);
+                                    // chargeBoostSlot REFUSES (returns false) when
+                                    // lab8 already holds somebody else's mineral —
+                                    // typically the boosted RCL8 Repair rung's
+                                    // XKH2O — and rolls lab8reserved back itself.
+                                    // The miner used to be queued with
+                                    // boostlabs:[lab8] regardless, so it walked to
+                                    // a lab loaded with the wrong compound and sat
+                                    // there. Honour the refusal: same body, no
+                                    // boost memory. (Mirror of the !lab8reserved
+                                    // guard the repair rung uses in the other
+                                    // direction.)
+                                    const uoBoosted = chargeBoostSlot(room, "lab8", 360, newName);
                                     let body;
                                     if(danger) {
                                         body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE]
@@ -4345,8 +4941,11 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                                     else {
                                         body = [WORK,WORK,WORK,WORK,WORK,WORK,WORK,CARRY,CARRY,CARRY,CARRY,CARRY,MOVE,MOVE,MOVE,MOVE,MOVE,WORK,WORK,WORK,WORK,WORK,CARRY,MOVE]
                                     }
-                                    room.memory.spawn_list.unshift(body, newName,
-                                        {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger:danger, boostlabs:[room.memory.labs.outputLab8]}});
+                                    const minerMem: any = {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name, danger:danger};
+                                    if(uoBoosted) {
+                                        minerMem.boostlabs = [room.memory.labs.outputLab8];
+                                    }
+                                    room.memory.spawn_list.unshift(body, newName, {memory: minerMem});
 
                                 }
                                 else {
@@ -4390,6 +4989,7 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             }
                             console.log('Adding Energy Miner to Spawn List: ' + newName);
                             values.lastSpawn = Game.time;
+                            values.fiveWQueued = true;
                         }
 
                         else if(room.energyCapacityAvailable > 300) {
@@ -4402,15 +5002,6 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                             let body;
                             if(room.controller.level >= 5) {
                                 body = [WORK,WORK,CARRY,MOVE];
-                            }
-                            else if(isRcl1Bootstrap(room) && !homeHasMiner(room)) {
-                                // 200e leaves 100 in the spawn for the [C,M] hauler.
-                                body = [WORK,CARRY,MOVE];
-                            }
-                            else if(isRcl1Bootstrap(room) && !hatchedHomeHauler(room)) {
-                                // Source B must not unshift a 250 [W,W,M] on top of
-                                // the opening 200. Leftover 100 buys [C,M] first.
-                                return;
                             }
                             else {
                                 body = [WORK,WORK,MOVE];
@@ -4465,21 +5056,65 @@ function spawn_energy_miner(resourceData:any, room, activeRemotes) {
                         // at 3000/3000 while 2-WORK probes trickled out.
                         //
                         // Only fall back to the cheap probe when we genuinely
-                        // know nothing (no pathLength surveyed yet).
-                        if((!Game.rooms[targetRoomName] || Game.rooms[targetRoomName] == undefined) && values.pathLength == null) {
+                        // know nothing (no pathLength surveyed yet AND no source
+                        // position from the scout). The scout now records x/y
+                        // per source and Remote_Roads_Tick paths to it blind
+                        // within 500 ticks, so "no vision" alone no longer means
+                        // "unsurveyed" — and every retryAt reopen wipes
+                        // e.energy, so without this the probe fired on EVERY
+                        // reopen and the room then sized 10 e/t carriers around
+                        // a 4 e/t miner for 1500 ticks (live E37N59|E38N59:
+                        // 2W probe + 3 carriers of 13-34 parts).
+                        if((!Game.rooms[targetRoomName] || Game.rooms[targetRoomName] == undefined) && values.pathLength == null
+                           && !(typeof values.x === "number" && typeof values.y === "number")) {
                             room.memory.spawn_list.unshift([WORK,WORK,MOVE], newName,
                                 {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Energy Miner (probe, unsurveyed) to Spawn List: ' + newName);
                             values.lastSpawn = Game.time-120;
                         }
 
-                        else if(room.controller.level >= 5 && storage && storage.store[RESOURCE_ENERGY] > 25000) {
-                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,MOVE];
+                        /*
+                         * MATCH THE BODY TO THE SOURCE, NOT TO THE BANK.
+                         *
+                         * A remote source regenerates 3000/300 = 10 e/t while WE
+                         * hold the reservation and 1500/300 = 5 e/t while nobody
+                         * does. A WORK part harvests 2 e/t. So the whole ladder
+                         * has exactly one interesting number on it: 5 WORK.
+                         *
+                         * What was here instead: 8 WORK (16 e/t) whenever RCL>=5
+                         * and storage > 25k, else 4 WORK (8 e/t). 8 WORK is an
+                         * SK-room body — it over-harvests every normal remote by
+                         * 60% and we mine no SK rooms — while 4 WORK throws away
+                         * a fifth of a reserved source for the creep's whole
+                         * life, which is what live rstats showed (miners avg 4
+                         * WORK against reserved 10 e/t sources).
+                         *
+                         * The top rung keeps ONE part of margin over 10 e/t (6
+                         * WORK, 12 e/t) on purpose and not as a rounding error: a
+                         * source that sat unmined through a replacement gap is
+                         * holding up to 3000 energy, and only a body above the
+                         * regen rate can ever draw that backlog down. The gate is
+                         * energyCapacityAvailable rather than RCL because the
+                         * body costs 750 and RCL is a bad proxy for extensions
+                         * actually being built.
+                         */
+                        else if(room.energyCapacityAvailable >= 750 && storage && storage.store[RESOURCE_ENERGY] > 25000) {
+                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,WORK,MOVE];
                             room.memory.spawn_list.unshift(remoteMinerBody, newName,
                                 {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
                             console.log('Adding Energy Miner to Spawn List: ' + newName);
                             // Queue lead so the replacement arrives on death:
                             // lastSpawn-20 left a pathLength-20 unmined gap (R6.157).
+                            const walk = values.pathLength != null ? values.pathLength : 20;
+                            values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
+                        }
+                        else if(room.energyCapacityAvailable >= 650) {
+                            // 5 WORK / 3 MOVE, 650e — exactly the 10 e/t a
+                            // reserved source produces, no waste either way.
+                            const remoteMinerBody = [WORK,WORK,MOVE,WORK,WORK,MOVE,WORK,MOVE];
+                            room.memory.spawn_list.unshift(remoteMinerBody, newName,
+                                {memory: {role: 'EnergyMiner', sourceId, targetRoom: targetRoomName, homeRoom: room.name}});
+                            console.log('Adding Energy Miner to Spawn List: ' + newName);
                             const walk = values.pathLength != null ? values.pathLength : 20;
                             values.lastSpawn = Game.time - (walk + remoteMinerBody.length * 3);
                         }
@@ -4557,7 +5192,8 @@ function spawn_carrier(resourceData, room, spawn, storage, activeRemotes) {
                     const body = getRemoteCarrierBody(room, targetRoomName, values, sourceId);
                     if(!body || body.length === 0) return;
                     const nm = 'Carrier-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
-                    room.memory.spawn_list.push(body, nm,
+                    // HEAD, not tail — behind this remote's miner. See queueRemoteHaul.
+                    queueRemoteHaul(room, body, nm,
                         {memory: {role: 'carry', sourceId, targetRoom: targetRoomName, homeRoom: room.name, pathLength:values.pathLength}});
                     values.lastSpawnCarrier = Game.time;
                     console.log('Adding remote Carrier ' + nm + ' -> ' + targetRoomName +
@@ -4626,18 +5262,15 @@ function spawn_remote_repairer(resourceData, room, activeRemotes) {
     // One per REMOTE, not per source. Live-creep check alone still queued one
     // per source in the same pass (stamp is per-source, queue was not scanned).
     const covered: { [roomName: string]: boolean } = {};
-    _.forEach(Game.creeps, function(c: any) {
-        if(c.memory.role == 'RemoteRepair' && c.memory.homeRoom == room.name && c.memory.targetRoom) {
+    _.forEach(creepsWithRole('RemoteRepair'), function(c: any) {
+        if(c.memory.homeRoom == room.name && c.memory.targetRoom) {
             covered[c.memory.targetRoom] = true;
         }
     });
-    const queue = room.memory.spawn_list || [];
-    for(let i = 1; i < queue.length; i += 3) {
-        if(typeof queue[i] === 'string' && queue[i].indexOf('RemoteRepairer-') === 0) {
-            const opts = queue[i + 1];
-            if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
-        }
-    }
+    forEachQueued(room, function(body, name, opts) {
+        if(typeof name !== 'string' || name.indexOf('RemoteRepairer-') !== 0) return;
+        if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
+    });
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
             /*
@@ -4762,10 +5395,23 @@ function reserverGate(room): { ok: boolean; reason: string } {
         return { ok: true, reason: "RCL" + lvl + ">=5" };
     }
     if (lvl === 4) {
-        if (gcl > owned) {
-            return { ok: false, reason: "RCL4 but GCL" + gcl + ">owned" + owned + " — free claim slot, claiming beats reserving" };
-        }
-        return { ok: true, reason: "RCL4 and GCL" + gcl + "<=owned" + owned + " — no claim slot, reserve instead" };
+        /*
+         * The RCL4 arm used to refuse whenever GCL was ahead of our owned-room
+         * count, on the theory that a free claim slot means claiming beats
+         * reserving. Those are not alternatives: claiming a room is an
+         * AutoExpand decision on a 20,000-tick timescale, reserving THIS
+         * remote doubles its source yield from 5 to 10 e/tick starting the
+         * moment the creep arrives, and the room has already opened the remote
+         * and is paying for a miner and carriers on it either way. With
+         * Memory.features.expandMinRcl holding expansion back until an owned
+         * room reaches RCL7, "there is a free claim slot" is now permanently
+         * true and the arm was permanently closed.
+         *
+         * 2 CLAIM (1300 capacity, checked above) is +2/tick against 1/tick of
+         * decay, i.e. genuinely net-positive — which is the only thing the
+         * economics note below this function actually argues.
+         */
+        return { ok: true, reason: "RCL4 with cap " + room.energyCapacityAvailable + ">=1300 (2xCLAIM is net-positive; GCL" + gcl + "/owned" + owned + ")" };
     }
     return { ok: false, reason: "RCL" + lvl + "<5" };
 }
@@ -4780,13 +5426,39 @@ function logReserverGate(room, g: { ok: boolean; reason: string }) {
 
 /** is a reserver of ours already alive (or hatching) for this remote? */
 function anyReserverAlive(room, targetRoomName):boolean {
-    return _.some(Game.creeps, (c:any) =>
-        c.memory.role === 'reserve' &&
+    return _.some(creepsWithRole('reserve'), (c:any) =>
         c.memory.homeRoom === room.name &&
         c.memory.targetRoom === targetRoomName);
 }
 
-function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
+/**
+ * Alive, hatching, OR still sitting on the spawn queue. Same two populations
+ * spawn_reserver's `covered` map is built from, so the dedup there and the
+ * "is this source about to become a 10 e/t source" question in
+ * remoteCarrierDemand cannot answer differently.
+ */
+function reserverPending(room, targetRoomName):boolean {
+    if(anyReserverAlive(room, targetRoomName)) return true;
+    let found = false;
+    forEachQueued(room, function(body, name, opts) {
+        if(typeof name !== 'string' || name.indexOf('Reserver-') !== 0) return true;
+        if(opts && opts.memory && opts.memory.targetRoom === targetRoomName) {
+            found = true;
+            return false;
+        }
+        return true;
+    });
+    return found;
+}
+
+/**
+ * `storage` and `reservers` used to be parameters here and neither was ever
+ * read: the bank test below goes through room.storage deliberately (the
+ * Structures cache can hold a hub CONTAINER, which caps at 2000 — see the
+ * affordability gate) and the empire-wide `reservers` tally was replaced by
+ * the per-commune myReservers list. Dropped from the signature and the call.
+ */
+function spawn_reserver(resourceData, room, activeRemotes) {
     // OWNER RULE: no remote reservation at low RCL. See reserverGate() above.
     const gate = reserverGate(room);
     logReserverGate(room, gate);
@@ -4795,26 +5467,51 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
     // about, so it stays reachable.
     if (!gate.ok && !(Memory.CanClaimRemote >= 3)) return;
 
-    // `reservers` is a GLOBAL count — rooms.spawning tallies Game.creeps
-    // without filtering by homeRoom — so `reservers > 0` meant exactly ONE
-    // reservation could exist across the whole empire. Scope it to this
-    // commune, and to one reserver per target room (the loop below runs once
-    // per SOURCE, so without this it queues one reserver per source).
-    const myReservers: any[] = _.filter(Game.creeps, (c: any) =>
-        c.memory.role === 'reserve' && c.memory.homeRoom === room.name) as any[];
+    // The census used to tally reservers GLOBALLY, so `reservers > 0` meant
+    // exactly ONE reservation could exist across the whole empire. Scope it to
+    // this commune, and to one reserver per target room (the loop below runs
+    // once per SOURCE, so without this it queues one reserver per source).
+    const myReservers: any[] = _.filter(creepsWithRole('reserve'),
+        (c: any) => c.memory.homeRoom === room.name) as any[];
     const covered: { [roomName: string]: boolean } = {};
     for(const c of myReservers) {
         if(c.memory.targetRoom) covered[c.memory.targetRoom] = true;
     }
-    // reservers already queued but not yet spawned (spawn_list is a flat
-    // [body, name, opts] x N array)
-    const queue = room.memory.spawn_list || [];
-    for(let i = 1; i < queue.length; i += 3) {
-        if(typeof queue[i] === 'string' && queue[i].indexOf('Reserver-') === 0) {
-            const opts = queue[i + 1];
-            if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
-        }
-    }
+    // reservers already queued but not yet spawned
+    forEachQueued(room, function(body, name, opts) {
+        if(typeof name !== 'string' || name.indexOf('Reserver-') !== 0) return;
+        if(opts && opts.memory && opts.memory.targetRoom) covered[opts.memory.targetRoom] = true;
+    });
+    const myName = room.controller && room.controller.owner && room.controller.owner.username;
+
+    /*
+     * REMEMBER THE RESERVATION — BEFORE ANY EARLY RETURN.
+     *
+     * This stamp used to live inside the per-room loop below, which is AFTER
+     * the `myReservers.length >= 2` bail. Vision of a remote is a creep of ours
+     * standing in it, so the ticks when the stamp is available are exactly the
+     * ticks two reservers are out walking — i.e. exactly the ticks the bail
+     * fires. rsvEnd therefore froze at whatever it was before the reservers
+     * landed, the blind branch read a freshly-renewed ~5000-tick reservation as
+     * lapsed, and bought another reserver every CREEP_CLAIM_LIFE_TIME.
+     *
+     * A pre-pass costs one cheap Game.rooms lookup per active remote and is
+     * pure bookkeeping — it decides nothing.
+     *
+     *   rsvEnd  — tick OUR reservation runs out (== now when there is no
+     *             reservation or it is somebody else's: "we hold nothing").
+     *   rsvUser — whoever holds it, which is what keeps us from blind-spawning
+     *             into a room a rival is sitting on.
+     */
+    _.forEach(resourceData, function(d: any, t: string) {
+        if(!activeRemotes.includes(t) || t === room.name) return;
+        const r = Game.rooms[t];
+        if(!r || !r.controller) return;
+        const s = r.controller.reservation;
+        d.rsvUser = s ? (s.username || null) : null;
+        d.rsvEnd = Game.time + (s && (!myName || s.username === myName) ? s.ticksToEnd : 0);
+    });
+
     if(myReservers.length >= 2) {
         return;
     }
@@ -4822,8 +5519,27 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
         console.log("[resvdbg]", room.name, "active=" + JSON.stringify(activeRemotes),
             "covered=" + JSON.stringify(Object.keys(covered)), "mine=" + myReservers.length);
     }
+    /*
+     * ONE HEAD SLOT PER PASS, AND ONE BANK.
+     *
+     * `covered` is per-remote, and the 2-reserver ceiling above counts only
+     * LIVE reservers, so a single pass over an RCL6+ room with three open
+     * remotes could splice three reservers in at the front — each one skipping
+     * the queue in front of the last, each one priced against the same
+     * untouched storage figure. Two counters fix both halves: the first
+     * reserver of a pass takes the head slot (it is the one whose reservation
+     * is closest to lapsing, since it was reached first), the rest go to the
+     * tail; and every request already made this pass is subtracted from the
+     * bank before the next one is judged affordable.
+     */
+    let headUsed = false;
+    let reservedThisPass = 0;
+
     _.forEach(resourceData, function(data, targetRoomName){
         if(activeRemotes.includes(targetRoomName)) {
+            // rsvEnd / rsvUser were stamped by the pre-pass at the top of this
+            // function, ahead of `covered`, the gate and the hot test — all of
+            // which would skip a room whose reservation we still need to see.
             if(covered[targetRoomName]) {
                 return;
             }
@@ -4839,7 +5555,10 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                 }
                 let newName = 'Reserver-'+ Math.floor(Math.random() * Game.time) + "-" + room.name;
 
-                if(Memory.CanClaimRemote >= 3 && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller && !Game.rooms[targetRoomName].controller.my && (Game.rooms[targetRoomName].controller.reservation && Game.rooms[targetRoomName].controller.reservation.ticksToEnd <= 750 || !Game.rooms[targetRoomName].controller.reservation)) {
+                // Opportunistic "claim this remote as an owned room" stole GCL
+                // slots from AutoExpand (live E36N57-shaped misses). Off unless
+                // Memory.features.claimRemotes is explicitly true.
+                if(Memory.features && Memory.features.claimRemotes && Memory.CanClaimRemote >= 3 && Game.rooms[targetRoomName] && Game.rooms[targetRoomName].controller && !Game.rooms[targetRoomName].controller.my && (Game.rooms[targetRoomName].controller.reservation && Game.rooms[targetRoomName].controller.reservation.ticksToEnd <= 750 || !Game.rooms[targetRoomName].controller.reservation)) {
                     if(room.memory.danger) {
                         return;
                     }
@@ -4857,7 +5576,15 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                 if(remoteIsHot(room, targetRoomName)) {
                     return;
                 }
-                if(targetRoomName != room.name && Game.rooms[targetRoomName] != undefined && Game.rooms[targetRoomName].memory.roomData && !Game.rooms[targetRoomName].memory.roomData.has_hostile_creeps && !Game.rooms[targetRoomName].controller.my) {
+                if(targetRoomName == room.name) {
+                    return;
+                }
+
+                // rsvEnd / rsvUser were stamped by the pre-pass at the top of
+                // spawn_reserver, before `covered` or the >=2 bail could skip us.
+                const vis = Game.rooms[targetRoomName];
+
+                {   // sizing + the two decision paths (seen / blind) share these
                     // TIMING. Spawn shortly BEFORE the reservation lapses, not
                     // after. The old rungs keyed off `lastSpawnReserver` with
                     // CREEP_LIFE_TIME/2 == 750, but a CLAIM creep lives
@@ -4867,89 +5594,196 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
                     //
                     // Lead time = walk + spawn + slack. The replacement should
                     // arrive while the old reservation still has ticks on it.
-                    const rsv = Game.rooms[targetRoomName].controller.reservation;
-                    const walk = Math.max(20, Math.min(120, (values.pathLength || 50)));
-                    const lead = walk + 40;
-                    // `covered` already prevents a duplicate per room, so the
-                    // stamp is only an anti-thrash guard for the spawn-failed case.
-                    const notThrashing = Game.time - (values.lastSpawnReserver || 0) > 150;
-                    const needNow = !rsv || rsv.ticksToEnd <= lead ||
-                        (rsv.ticksToEnd < CONTROLLER_RESERVE_MAX - 600 && !anyReserverAlive(room, targetRoomName));
+                    //
+                    // SPAWN TIME WAS MISSING. `lead` was walk + 40 flat, but a
+                    // reserver is 3 ticks per part and it is a BIG body at high
+                    // RCL — 14 parts / 42 ticks at RCL7, 16 / 48 at RCL8 — so the
+                    // request went in later than the creep takes to build and the
+                    // reservation lapsed while it was still in the spawn. Price
+                    // the real thing: walk + reserverPairs*2*CREEP_SPAWN_TIME + 50.
+                    // The 120-tick cap on `walk` truncated long remotes for the
+                    // same reason; 200 still keeps a bogus pathLength from making
+                    // `ticksToEnd <= lead` permanently true.
+                    //
+                    // PRICE IT AT THE SAME BUDGET THE CLAMP USES.
+                    //
+                    // The per-RCL rung below is a wish, not a price. At RCL4 it
+                    // asks for 2 pairs == 1,300 energy against a capacity of
+                    // exactly 1,300, and a body priced at 100% of capacity is
+                    // buyable only in a room whose extensions are completely
+                    // full — which a room that is spending on creeps never is.
+                    // Queued at the HEAD (see queueRemoteHaul) that is a
+                    // permanent head-of-line stall, and every relief mechanism
+                    // declines it: the shredder exempts Reserver, shrinkQueuedBody
+                    // refuses to go under 2 CLAIM (1 CLAIM is net-zero against
+                    // reservation decay), and clampSpawnListToCapacity's 85%
+                    // routine budget can neither shrink nor drop it. At RCL6 the
+                    // 3-pair 1,950 body was silently clamped back to 2 anyway, so
+                    // the rung was already lying about that level.
+                    //
+                    // So derive the pairs from the SAME 85% budget the clamp
+                    // applies, and the body the room queues is the body the clamp
+                    // would have left it with.
+                    const rungPairs = room.controller.level <= 4 ? 2
+                        : room.controller.level == 5 ? 2
+                        : room.controller.level == 6 ? 3
+                        : room.controller.level == 7 ? 7 : 8;
+                    const budgetPairs = Math.floor(room.energyCapacityAvailable * 0.85 /
+                        (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]));
+                    // RCL4-shaped rooms: floor(1105/650) == 1, and one CLAIM part
+                    // is worth nothing (see reserverGate). Rather than refuse to
+                    // reserve at all — RCL4 is where remotes are worth the most —
+                    // keep the 2-pair body but give up the head slot for it: it
+                    // goes to the TAIL, which is the pre-change behaviour, so it
+                    // spawns on the ticks the room happens to be topped up and
+                    // wedges nothing on the ticks it is not.
+                    const pairsFitBudget = Math.min(rungPairs, budgetPairs) >= 2;
+                    const reserverPairs = pairsFitBudget ? Math.min(rungPairs, budgetPairs) : 2;
+                    const reserverCost = reserverPairs * (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]);
+                    const walk = Math.max(20, Math.min(200, (values.pathLength || 50)));
+                    const lead = walk + reserverPairs * 2 * CREEP_SPAWN_TIME + 50;
 
-                    if(needNow && notThrashing) {
+                    // Both decision paths below end here. Split out of the old
+                    // single `if` so the blind path cannot drift away from the
+                    // affordability/danger gates the seen path is held to.
+                    const requestReserver = function(why: string) {
 
                         /*
-                         * AFFORDABILITY, NOT AFFLUENCE.
+                         * AFFORDABILITY, NOT A BANK MULTIPLE.
                          *
-                         * This used to be a flat `storage < 25000`. The reserver
-                         * it guards costs 650 per CLAIM/MOVE pair — 1,950 at
-                         * RCL6 — so the gate demanded a ~13x margin over the
-                         * thing it was protecting, and it did so in the one
-                         * situation where reserving pays best.
+                         * This started life as a flat `storage < 25000` and was
+                         * then "fixed" into `max(2000, reserverCost * 3)` — still
+                         * a multiple, and still a deadlock. At RCL6 that is 5,850
+                         * banked energy demanded before a 1,950 creep may be
+                         * built, and the loop is self-sealing: an unreserved
+                         * remote yields 5 e/t instead of 10, remoteCarrierDemand
+                         * sizes its carriers for 5 for their whole 1500-tick life,
+                         * so the bank never climbs to the floor and the reserver
+                         * that would double the yield never comes. Live E37N59
+                         * (RCL6, storage 27k) only just clears it; every room
+                         * below that never does, which is most of the empire.
                          *
-                         * That is a deadlock, not a safety margin. Live W2N1
-                         * (RCL6, one in-room source, storage 0): remote W3N1 sat
-                         * `reserved:false` and therefore at HALF source yield,
-                         * which is precisely why storage could never climb to
-                         * 25 000 — and the unreserved remote was the cause.
-                         * reserverGate() itself passed the room (RCL6>=5,
-                         * capacity 2300>=1300); this line was the whole blocker.
+                         * The honest question is "can this room buy the creep",
+                         * and it has exactly two parts: the extension network is
+                         * big enough for the body at all, and — if there is a real
+                         * storage — the bank covers ONE body's worth. No cushion:
+                         * a reserved remote pays its 1,950 back in ~390 ticks of
+                         * the extra 5 e/t, against a 600-tick creep. A room at 0
+                         * still cannot spawn one (nothing here is force-spawned),
+                         * and the head-of-line relief in spawnFirstInLine means a
+                         * queued Reserver cannot hold the spawn hostage while it
+                         * waits for the energy.
                          *
-                         * So scale the floor to the body: enough banked to pay
-                         * for the creep several times over and still have a
-                         * cushion, but reachable by a room that is recovering.
-                         * A room at 0 still cannot spawn one — nothing is
-                         * force-spawned here — and the head-of-line relief
-                         * (see spawnStall, ~line 3024) means a queued Reserver
-                         * cannot hold the spawn hostage while it waits.
+                         * `room.storage` and not the Structures cache on purpose:
+                         * the cache can point at a hub CONTAINER, which caps at
+                         * 2000 and would re-introduce the deadlock at RCL7/8.
                          */
-                        const reserverPairs = room.controller.level <= 4 ? 2
-                            : room.controller.level == 5 ? 2
-                            : room.controller.level == 6 ? 3
-                            : room.controller.level == 7 ? 7 : 8;
-                        const reserverCost = reserverPairs * (BODYPART_COST[CLAIM] + BODYPART_COST[MOVE]);
-                        const reserverFloor = Math.max(2000, reserverCost * 3);
-                        // Floor is 3900–5850; the hub-container fallback caps
-                        // at 2000, so remoting off a container never reserved.
-                        // Same rule as hasRealBank: only apply when storage exists.
-                        if(room.memory.danger || (room.storage && room.storage.store[RESOURCE_ENERGY] < reserverFloor)) {
+                        if(room.memory.danger) {
+                            return;
+                        }
+                        if(room.energyCapacityAvailable < reserverCost) {
+                            return;
+                        }
+                        // ...and the bank is ONE bank, spent once. `reservedThisPass`
+                        // is what earlier remotes in this same pass have already
+                        // committed it to; without it three remotes each read the
+                        // same untouched storage figure and all three pass a test
+                        // only one of them can actually be paid for.
+                        if(room.storage &&
+                           (room.storage.store[RESOURCE_ENERGY] - reservedThisPass) < reserverCost) {
                             return;
                         }
 
                         // >=2 CLAIM or nothing: 1 CLAIM is net-zero against the
-                        // 1/tick reservation decay (see reserverGate).
-                        if(room.controller.level <= 4) {
-                            if(room.energyCapacityAvailable < 1300) {
-                                return;
-                            }
-                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE], newName,
-                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Reserver to Spawn List: ' + newName);
-                            markSpawned();
+                        // 1/tick reservation decay (see reserverGate). The five
+                        // hand-written per-RCL bodies this replaces were exactly
+                        // [CLAIM,MOVE] x reserverPairs — and reserverCost, which
+                        // the gate above prices off, was already derived from
+                        // reserverPairs, so keeping both was a standing invitation
+                        // for the gate and the body to drift apart.
+                        const reserverBody = [];
+                        for(let p = 0; p < reserverPairs; p++) reserverBody.push(CLAIM, MOVE);
+                        const reserverOpts = {memory: {role: 'reserve',
+                            targetRoom: targetRoomName, homeRoom: room.name}};
+                        // HEAD, not tail — ONCE. A reserver queued behind a pass
+                        // worth of Builders/Upgraders reaches the spawn after the
+                        // reservation it was sized to renew has already lapsed —
+                        // and gets trimmed off the tail at MAX_SPAWN_QUEUE first.
+                        // But the head is a single slot: only the first reserver
+                        // of this pass takes it, and a body the 85% budget cannot
+                        // cover (the 2-pair RCL4 fallback) never takes it at all,
+                        // because it is exactly the body that would sit there
+                        // unbuyable.
+                        const atHead = pairsFitBudget && !headUsed;
+                        if(atHead) {
+                            queueRemoteHaul(room, reserverBody, newName, reserverOpts);
+                            headUsed = true;
                         }
-                        else if(room.controller.level == 5) {
-                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE], newName,
-                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Reserver to Spawn List: ' + newName);
-                            markSpawned();
+                        else {
+                            room.memory.spawn_list.push(reserverBody, newName, reserverOpts);
                         }
-                        else if(room.controller.level == 6) {
-                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
-                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Reserver to Spawn List: ' + newName);
-                            markSpawned();
+                        reservedThisPass += reserverCost;
+                        console.log('Adding Reserver to Spawn List: ' + newName +
+                            ' -> ' + targetRoomName + ' (' + reserverPairs + ' CLAIM, ' +
+                            reserverCost + 'e, lead ' + lead + ', ' +
+                            (atHead ? 'head' : 'tail') + ', ' + why + ')');
+                        markSpawned();
+                    };
+
+                    if(vis != undefined && vis.memory.roomData && !vis.memory.roomData.has_hostile_creeps
+                       && vis.controller && !vis.controller.my) {
+                        // SEEN. Unchanged behaviour: a fat reservation — ours or a
+                        // rival's — makes needNow false and we leave it alone.
+                        const rsv = vis.controller.reservation;
+                        // `covered` already prevents a duplicate per room, so the
+                        // stamp is only an anti-thrash guard for the spawn-failed case.
+                        const notThrashing = Game.time - (values.lastSpawnReserver || 0) > 150;
+                        const needNow = !rsv || rsv.ticksToEnd <= lead ||
+                            (rsv.ticksToEnd < CONTROLLER_RESERVE_MAX - 600 && !anyReserverAlive(room, targetRoomName));
+                        if(needNow && notThrashing) {
+                            requestReserver('seen ' + (rsv ? rsv.ticksToEnd : 0));
                         }
-                        else if(room.controller.level == 7) {
-                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
-                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Reserver to Spawn List: ' + newName);
-                            markSpawned();
-                        }
-                        else if(room.controller.level == 8) {
-                            room.memory.spawn_list.push([CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE,CLAIM,MOVE], newName,
-                                {memory: {role: 'reserve', targetRoom: targetRoomName, homeRoom: room.name}});
-                            console.log('Adding Reserver to Spawn List: ' + newName);
-                            markSpawned();
+                    }
+                    else if(vis == undefined) {
+                        /*
+                         * BLIND. No Room object, so none of the tests above can
+                         * run — and this is the common case, not the exotic one:
+                         * a remote is only visible while a creep of ours stands
+                         * in it. Renew off the last stamp instead, with every
+                         * guard the seen path has plus replacements for the two
+                         * that needed vision:
+                         *
+                         *   controller.my        -> `active`. manageRemotes closes
+                         *                           a remote the moment it turns
+                         *                           out to be owned, so an active
+                         *                           entry is a not-ours entry.
+                         *   has_hostile_creeps   -> remoteIsHot(), checked above,
+                         *                           which is the flag scanRemoteThreats
+                         *                           sets from real vision.
+                         *   rival reservation    -> rsvUser from the last look.
+                         *
+                         * Duplicate suppression is NOT weakened here and this
+                         * path deliberately does not fake rsvEnd forward: the
+                         * `covered` map is built from live reservers AND from the
+                         * queued-Reserver scan before the loop starts, and both
+                         * are re-tested per room and per source, so a reserver
+                         * that is alive or merely queued already makes this
+                         * unreachable. Only a real, seen reservation ever writes
+                         * rsvEnd.
+                         *
+                         * The anti-thrash window is a whole CLAIM lifetime rather
+                         * than the seen path's 150: blind, we cannot tell whether
+                         * the last one landed, so one gamble per creep-life is
+                         * the most this is allowed to cost.
+                         */
+                        const stillActive = data.active === true;
+                        const foreignHeld = !!data.rsvUser && (!myName || data.rsvUser !== myName);
+                        const lapsing = !data.rsvEnd || (data.rsvEnd - Game.time) <= lead;
+                        const notThrashing = Game.time - (values.lastSpawnReserver || 0) > CREEP_CLAIM_LIFE_TIME;
+                        if(stillActive && !foreignHeld && lapsing && notThrashing
+                           && !anyReserverAlive(room, targetRoomName)) {
+                            requestReserver('blind, rsvEnd ' +
+                                (data.rsvEnd ? (data.rsvEnd - Game.time) : 'never'));
                         }
                     }
                 }
@@ -4957,5 +5791,197 @@ function spawn_reserver(resourceData, room, storage, activeRemotes, reservers) {
         }
     });
 }
+function roomLooksSpawnlessOwned(name: string): boolean {
+    const r = Game.rooms[name];
+    if (r) {
+        if (!r.controller || !r.controller.my) return false;
+        if (r.find(FIND_MY_SPAWNS).length) return false;
+        const foreign = r.find(FIND_STRUCTURES, {filter: (s: Structure) =>
+            s.structureType === STRUCTURE_SPAWN && !(s as StructureSpawn).my}).length > 0;
+        // Remember the verdict. Vision here is a creep standing in the room, and
+        // the moment it dies we fall through to the memory branch below — which
+        // had no foreign-spawn test at all, so a room that was just rejected on
+        // sight became eligible again as soon as we stopped looking at it. Live
+        // E39N58 (RCL1, our controller, a leftover foreign spawn) was exactly
+        // that: it kept a 1,600-energy ContainerBuilder at the HEAD of E37N59's
+        // spawn queue for a room that can never finish a spawn while that
+        // structure stands.
+        const mem0: any = Memory.rooms && Memory.rooms[name];
+        if (mem0) {
+            if (foreign) mem0.foreignSpawn = Game.time;
+            else if (mem0.foreignSpawn) delete mem0.foreignSpawn;
+        }
+        if (foreign) return false;
+        return r.find(FIND_MY_CONSTRUCTION_SITES, {filter: (s: ConstructionSite) =>
+            s.structureType === STRUCTURE_SPAWN}).length > 0;
+    }
+    // No vision: Memory from the last visit. W3N3 sat 0-creep / 0-vision
+    // with a spawn site and an empty target_colonise.
+    // Never trust target_colonise here — live parks that on leftover
+    // foreign spawns (E35N59 Enrique). Plan tile ≠ our site.
+    if (Memory.target_colonise && Memory.target_colonise.room === name) return false;
+    const mem: any = Memory.rooms && Memory.rooms[name];
+    if (!mem) return false;
+    if (mem.Structures && mem.Structures.spawns && mem.Structures.spawns.length) return false;
+    // Last thing we saw was somebody else's spawn standing in it. Only vision
+    // clears this (above), so it cannot become a permanent trap.
+    if (mem.foreignSpawn) return false;
+    const spawnPlan = (mem.basePlan && mem.basePlan.spawn && mem.basePlan.spawn[0])
+        || (mem.basePlan && mem.basePlan.structures && mem.basePlan.structures.spawn && mem.basePlan.structures.spawn[0]);
+    const mine = !!(mem.speedrun || mem.planV2 || mem.planPackMiss || mem.basePlan);
+    return !!(mine && spawnPlan);
+}
+
+function spawnSiteProgress(name: string): number {
+    const r = Game.rooms[name];
+    if (!r) return 15000;
+    const site = r.find(FIND_MY_CONSTRUCTION_SITES, {filter: (s: ConstructionSite) =>
+        s.structureType === STRUCTURE_SPAWN})[0];
+    return site ? site.progress : 15000;
+}
+
+function colonyBuilderCap(need: string): number {
+    const r = Game.rooms[need];
+    // Last 5k used to hit cap-1 first and skip this. E37N57 10k/15k DG 1207.
+    if (r && r.controller && r.controller.my && r.controller.level === 1
+        && r.controller.ticksToDowngrade < 3000) return 3;
+    if (spawnSiteProgress(need) >= 10000) return 1;
+    return 2;
+}
+
+function colonyBuildersOn(need: string): number {
+    return _.filter(creepsWithRole('buildcontainer'), (c: any) => c.memory.targetRoom == need).length;
+}
+
+function spawnSiteUnfinishable(name: string): boolean {
+    const r = Game.rooms[name];
+    if (!r || !r.controller || !r.controller.my) return false;
+    const site = r.find(FIND_MY_CONSTRUCTION_SITES, {filter: (s: ConstructionSite) =>
+        s.structureType === STRUCTURE_SPAWN})[0];
+    if (!site) return false;
+    const left = (site.progressTotal || 15000) - (site.progress || 0);
+    // 8W on-site ~40 e/t; commute ~20. Skip if DG cannot pay the site.
+    return r.controller.ticksToDowngrade < left / 20;
+}
+
+function finishableSpawnSiteRooms(from: string): string[] {
+    const hits: string[] = [];
+    const seen: { [name: string]: boolean } = {};
+    const consider = (name: string) => {
+        if (seen[name] || !roomLooksSpawnlessOwned(name)) return;
+        if (spawnSiteUnfinishable(name)) return;
+        seen[name] = true;
+        hits.push(name);
+    };
+    for (const name in Game.rooms) consider(name);
+    if (Memory.rooms) for (const name in Memory.rooms) consider(name);
+    hits.sort((a, b) =>
+        Game.map.getRoomLinearDistance(from, a) - Game.map.getRoomLinearDistance(from, b));
+    return hits;
+}
+
+function finishableSpawnSiteRoom(from: string): string | null {
+    const hits = finishableSpawnSiteRooms(from);
+    if (!hits.length) return null;
+    // Cover every spawnless room with 1 CB before doubling the nearest.
+    for (let i = 0; i < hits.length; i++) {
+        if (colonyBuildersOn(hits[i]) === 0) return hits[i];
+    }
+    for (let i = 0; i < hits.length; i++) {
+        if (colonyBuildersOn(hits[i]) < colonyBuilderCap(hits[i])) return hits[i];
+    }
+    return null;
+}
+
+/**
+ * Drop any QUEUED ContainerBuilder whose target has stopped being finishable.
+ *
+ * The gate below is only consulted when a new one is queued. A ContainerBuilder
+ * already sitting on the list is never re-examined, and it is `push`ed with a
+ * 1,600-energy body — so once the target went bad (a rival dropped a spawn in
+ * it, we lost the controller, the downgrade timer ran out of room to pay for
+ * the site) it just sat there being the most expensive thing in the queue. Live
+ * E37N59 had exactly one: a ContainerBuilder for E39N58, a spawnless RCL1 slot
+ * holding somebody else's leftover spawn.
+ */
+function purgeDeadColonyBuilders(room: any): void {
+    const q = room.memory.spawn_list;
+    if (!q || !q.length) return;
+    const drop: number[] = [];
+    forEachQueued(room, function(body, name, opts, idx) {
+        if (!opts || !opts.memory || opts.memory.role != 'buildcontainer') return true;
+        const t = opts.memory.targetRoom;
+        if (!t) return true;
+        if (roomLooksSpawnlessOwned(t) && !spawnSiteUnfinishable(t)) return true;
+        drop.push(idx);
+        console.log('[colony] ' + room.name + ' dropping queued ' + name + ' — ' + t + ' is not finishable');
+        return true;
+    });
+    // back to front so the earlier indices stay valid
+    for (let i = drop.length - 1; i >= 0; i--) q.splice(drop[i], 3);
+}
+
+function maybeSpawnColonyBuilder(room: Room): void {
+    if (!room.controller || !room.controller.my || room.controller.level < 3) return;
+    purgeDeadColonyBuilders(room);
+    if (room.memory.danger) return;
+    const storage: any = Game.getObjectById(room.memory.Structures && room.memory.Structures.storage);
+    if (!storage || (storage.store[RESOURCE_ENERGY] || 0) <= 10000) return;
+    if (Game.cpu.bucket <= 7750) return;
+    const need = finishableSpawnSiteRoom(room.name);
+    if (!need) return;
+    const dist = Game.map.getRoomLinearDistance(room.name, need);
+    if (dist > 7) return;
+    // Only the closest funded mother queues.
+    let best: string = room.name;
+    let bestDist = dist;
+    let bestE = storage.store[RESOURCE_ENERGY] || 0;
+    for (const name in Game.rooms) {
+        const r = Game.rooms[name];
+        if (!r.controller || !r.controller.my || r.controller.level < 3) continue;
+        if (r.memory.danger) continue;
+        const st: any = Game.getObjectById(r.memory.Structures && r.memory.Structures.storage);
+        const e = st && st.store ? (st.store[RESOURCE_ENERGY] || 0) : 0;
+        if (e <= 10000) continue;
+        const d = Game.map.getRoomLinearDistance(name, need);
+        if (d > 7) continue;
+        if (d < bestDist || (d === bestDist && e > bestE)) {
+            best = name;
+            bestDist = d;
+            bestE = e;
+        }
+    }
+    if (best !== room.name) return;
+    if (colonyBuildersOn(need) >= colonyBuilderCap(need)) return;
+    let alreadyQueued = false;
+    forEachQueued(room, function(body, name, opts) {
+        if(opts && opts.memory && opts.memory.role == 'buildcontainer' && opts.memory.targetRoom == need) {
+            alreadyQueued = true;
+            return false;
+        }
+        return true;
+    });
+    if (alreadyQueued) return;
+    /*
+     * AFFORDABLE NOW, not affordable in principle.
+     *
+     * getBody() sizes off energyCapacityAvailable, so at RCL6 this is an
+     * [8W,8C,8M] costing 1,600 — and it is pushed onto a queue whose head blocks
+     * everything behind it until it can be paid for. A room whose extensions are
+     * being drained by its own fill loop then has the single most expensive
+     * creep in the empire parked at the front of the line for a room three
+     * jumps away. Require the room to be able to pay for it more or less now
+     * (one filler load of slack); the producer re-runs on its own cadence.
+     */
+    const cbBody = getBody([WORK, CARRY, MOVE], room, 24);
+    if (!cbBody.length) return;
+    const cbCost = _.sum(cbBody, (p: any) => BODYPART_COST[p]);
+    if (room.energyAvailable + 300 < cbCost) return;
+    const newName = 'ContainerBuilder-' + Math.floor(Math.random() * Game.time) + "-" + room.name;
+    room.memory.spawn_list.push(cbBody, newName,
+        {memory: {role: 'buildcontainer', targetRoom: need, homeRoom: room.name, fill: true}});
+    console.log('Adding ContainerBuilder to Spawn List: ' + newName);
+}
+
 export {getBody};
 export default spawning;

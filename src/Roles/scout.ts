@@ -2,7 +2,7 @@
  * A little description of this function
  * @param {Creep} creep
  **/
-import { RESCOUT_AFTER } from "../Rooms/rooms.remotes";
+import { rescoutDelay } from "../Rooms/rooms.remotes";
 
 const run = function (creep) {
     if(creep.room.name !== creep.memory.targetRoom) {
@@ -75,7 +75,18 @@ const run = function (creep) {
 
     if(sources.length >= 1 && sources.length <= 2 && allSourcesReachable && creep.room.controller && creep.room.controller.level == 0 && !reservedByOther) {
         for(let source of sources) {
-            homeMem.resources[creep.room.name].energy[source.id] = {};
+            // MERGE, never replace. pathLength (the ONLY input to remote
+            // scoring and carrier sizing), lastSpawn, lastSpawnCarrier and
+            // _pathGuess all live on this entry — a rescout that overwrote it
+            // with {} reset an already-producing remote to "unknown distance"
+            // and un-scored it until Build_Remote_Roads next got vision.
+            const entry = homeMem.resources[creep.room.name].energy[source.id] || {};
+            // Source coordinates outlive vision. Build_Remote_Roads cannot use
+            // Game.getObjectById(sourceId) without a creep standing in the room,
+            // so it paths at these instead.
+            entry.x = source.pos.x;
+            entry.y = source.pos.y;
+            homeMem.resources[creep.room.name].energy[source.id] = entry;
         }
         homeMem.resources[creep.room.name].active = true;
         delete homeMem.resources[creep.room.name].retryAt;
@@ -89,6 +100,10 @@ const run = function (creep) {
             let newName = 'Annoyer-' + Math.floor(Math.random() * Game.time) + "-" + creep.memory.homeRoom;
             homeMem.spawn_list.push([ATTACK, MOVE], newName, {memory: {role: 'annoy', homeRoom:creep.memory.homeRoom, targetRoom:creep.room.name}});
         }
+        // Emptying `energy` here is the REJECTION SIGNAL, not a clobber:
+        // manageRemotes reads `sourceIds.length === 0` as "scouted and
+        // rejected". Losing pathLength/x/y with it is correct — we are not
+        // mining this room, and a later accept re-derives both.
         homeMem.resources[creep.room.name].energy = {};
         homeMem.resources[creep.room.name].active = false;
 
@@ -107,10 +122,14 @@ const run = function (creep) {
         // retryAt 0 is an explicit "never again" — NOT a missing field, which
         // manageRemotes reads as "written before this field existed, take one
         // more look".
+        // A remote that has DELIVERED to this home before gets the short leash
+        // (rescoutDelay) — the map facts above are permanent, everything else is
+        // a snapshot, and a room that paid us is worth re-probing soon.
         const permanent = !creep.room.controller || sources.length === 0 || sources.length > 2;
-        homeMem.resources[creep.room.name].retryAt = permanent ? 0 : Game.time + RESCOUT_AFTER;
+        const delay = rescoutDelay(creep.memory.homeRoom, creep.room.name);
+        homeMem.resources[creep.room.name].retryAt = permanent ? 0 : Game.time + delay;
         console.log("[remotes] scout rejected", creep.room.name, "for", creep.memory.homeRoom,
-            permanent ? "(permanent)" : "(retry in " + RESCOUT_AFTER + ")");
+            permanent ? "(permanent)" : "(retry in " + delay + ")");
     }
 
     creep.suicide();

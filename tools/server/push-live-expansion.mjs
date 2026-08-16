@@ -157,7 +157,7 @@ function pickSpawnTile(terrain, anchors) {
 
     const mineralBonus = mineral && mineral.mineralType !== "H" ? 15 : 0;
     const score = Math.round(100 - dist * 20 - swampFrac * 40 + Math.min(spawn.open, 6) * 5 + mineralBonus);
-    targets.push({ room: name, score, spawnPos: { x: spawn.x, y: spawn.y } });
+    targets.push({ room: name, score, spawnPos: { x: spawn.x, y: spawn.y }, nSources: sources.length });
     console.log(
       name,
       `score ${score} (dist ${dist}, swamp ${(swampFrac * 100).toFixed(0)}%, open ${spawn.open}, mineral ${mineral ? mineral.mineralType : "?"}) spawn ${spawn.x},${spawn.y}`,

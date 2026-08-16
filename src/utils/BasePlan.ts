@@ -5,8 +5,10 @@
  * See docs/DYNAMIC-LAYOUT.md, docs/LAYOUT-MIGRATION.md
  */
 
+import { logAlways } from "utils/Logger";
 import { getCutTiles, rectAround } from "utils/MinCut";
 import { syncPerimeterToConstructionMemory } from "utils/Perimeter";
+import { extensionTake } from "utils/PlanV2";
 
 export interface BasePlanPos {
   x: number;
@@ -28,11 +30,13 @@ export interface RoomBasePlan {
   ramps: BasePlanPos[];
   /** How perimeter was computed */
   perimeterMode: "mincut" | "square" | "none";
+  /** Prefix of structures.road that is hub→ctrl/sources/spawn + hub ring. */
+  arterialN?: number;
   scoredAt: number;
   score: number;
 }
 
-const PLAN_VERSION = 5;
+const PLAN_VERSION = 7;
 
 /**
  * How far from the hub a planned extension still counts as "inside the base"
@@ -75,6 +79,28 @@ function openSpace(roomName: string, x: number, y: number, r: number): number {
 
 function chebyshev(a: BasePlanPos, b: BasePlanPos): number {
   return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+}
+
+/** How often one room may complain about its min-cut (heap, ticks). */
+const MINCUT_LOG_EVERY = 1000;
+const minCutLoggedAt: { [roomName: string]: number } = {};
+
+/**
+ * A failed min-cut is a room with NO defence perimeter, and it used to be
+ * completely silent — an ignore-everything catch plus an empty-cut path that
+ * just fell through to perimeterMode "none". Throttled per room: replan runs
+ * often enough that an unthrottled line would be the console.
+ */
+function noteMinCutFailure(roomName: string, what: string): void {
+  const last = minCutLoggedAt[roomName];
+  if (last !== undefined && Game.time - last < MINCUT_LOG_EVERY) return;
+  minCutLoggedAt[roomName] = Game.time;
+  logAlways(
+    `basePlan ${roomName}: min-cut perimeter FAILED — ${what}. ` +
+      `Plan ships with perimeterMode "none": no defence ring, no RampartDefender anchor, ` +
+      `no erector list. (MinCut.getCutTiles also DROPS cut tiles outside x/y 2..47, so a cut ` +
+      `that hugs the room edge can come back holed rather than empty.)`,
+  );
 }
 
 /**
@@ -205,6 +231,34 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
 
   // Early hub container same tile as future storage (RCL2–3)
   structures[STRUCTURE_CONTAINER] = [{ x: hub.x, y: hub.y }];
+  // Source seats after hub, nearest-to-hub first. Not sited at RCL2
+  // (placeFromBasePlan prefix). Both go down at RCL3.
+  const sourceSeats: BasePlanPos[] = [];
+  for (const s of sources) {
+    let best: BasePlanPos | null = null;
+    let bestD = Infinity;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        if (!dx && !dy) continue;
+        const x = s.pos.x + dx;
+        const y = s.pos.y + dy;
+        if (!isBuildable(room.name, x, y)) continue;
+        const key = `${x},${y}`;
+        if (blocked.has(key)) continue;
+        const d = chebyshev(hub, { x, y });
+        if (d < bestD) {
+          bestD = d;
+          best = { x, y };
+        }
+      }
+    }
+    if (best) {
+      sourceSeats.push(best);
+      blocked.add(`${best.x},${best.y}`);
+    }
+  }
+  sourceSeats.sort((a, b) => chebyshev(hub, a) - chebyshev(hub, b));
+  for (const p of sourceSeats) structures[STRUCTURE_CONTAINER].push(p);
 
   // Terminal: prefer north of storage
   const terminalCandidates: BasePlanPos[] = [
@@ -273,9 +327,22 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
       if (cut.length > 0) {
         fullCut = cut;
         perimeterMode = "mincut";
+      } else {
+        // An EMPTY cut is not "no wall needed", it is a failed cut. The plan
+        // ships with perimeterMode "none" and the room silently has no defence
+        // ring — no perimeter for the towers, no RampartDefender anchor, no
+        // erector list. Say so.
+        noteMinCutFailure(
+          room.name,
+          `getCutTiles returned 0 tiles for rect ${rect.x1},${rect.y1}-${rect.x2},${rect.y2}`,
+        );
       }
-    } catch (_e) {
-      /* ignore */
+    } catch (e: any) {
+      // Was `catch { /* ignore */ }`, which left nothing behind but
+      // perimeterMode "none". dfsFlow is iterative now (it used to recurse up
+      // to ~1.8k frames deep), so this is a last-resort net, not the expected
+      // path - but a failure here must still be visible.
+      noteMinCutFailure(room.name, `getCutTiles threw: ${(e && e.message) || e}`);
     }
   }
 
@@ -293,29 +360,24 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
     roadSet.add(k);
     roads.push({ x, y });
   };
+  // Haul lines first (hub→ctrl/sources/spawn), then the hub ring.
+  // path[0] is the hub / future storage — do not pave that tile.
+  // The last step is the source/controller/spawn tile itself.
+  const arterials: BasePlanPos[] = [];
+  arterials.push({ x: room.controller.pos.x, y: room.controller.pos.y });
+  for (const s of sources) arterials.push({ x: s.pos.x, y: s.pos.y });
+  if (spawn) arterials.push({ x: spawn.pos.x, y: spawn.pos.y });
+  for (const target of arterials) {
+    const path = greedyPath(room.name, hub, target);
+    for (let i = 1; i < path.length - 1; i++) addRoad(path[i].x, path[i].y);
+  }
   for (let dx = -1; dx <= 1; dx++) {
     for (let dy = -1; dy <= 1; dy++) {
       if (dx === 0 && dy === 0) continue;
       addRoad(hub.x + dx, hub.y + dy);
     }
   }
-  // Arterial roads FIRST — build order is array order, and this list used to
-  // read [hub ring, every wall tile, ramp lanes]: i.e. everywhere EXCEPT where
-  // the traffic actually is, with the wall ring queued ahead of everything. A
-  // young room would burn its whole builder budget paving 39 tiles of future
-  // wall out on the room's edge before laying a single tile between the spawn
-  // and the hub. Every filler/carrier/upgrader cycles hub <-> spawn <-> source
-  // <-> controller; unpaved, that is 1 tile / 2 ticks on plain and creeps stack
-  // up around the spawn. Pave the real arteries before the decoration.
-  const arterials: BasePlanPos[] = [];
-  if (spawn) arterials.push({ x: spawn.pos.x, y: spawn.pos.y });
-  arterials.push({ x: room.controller.pos.x, y: room.controller.pos.y });
-  for (const s of sources) arterials.push({ x: s.pos.x, y: s.pos.y });
-  for (const target of arterials) {
-    const path = greedyPath(room.name, hub, target);
-    // stop one short: never pave the source/controller tile itself
-    for (let i = 0; i < path.length - 1; i++) addRoad(path[i].x, path[i].y);
-  }
+  const arterialN = roads.length;
 
   // ...then the shell service roads (ramp lanes, then the wall walk itself).
   for (const r of ramps) {
@@ -333,6 +395,7 @@ export function computeBasePlan(room: Room): RoomBasePlan | null {
     perimeter,
     ramps,
     perimeterMode,
+    arterialN,
     scoredAt: Game.time,
     score: best.score,
   };
@@ -376,6 +439,53 @@ function pickRamps(perimeter: BasePlanPos[], hub: BasePlanPos, count: number): B
   });
 }
 
+/** 8-dir BFS. walkLine died at the first wall (E12S3 29,23 → 28,24). */
+function walkLine(roomName: string, from: BasePlanPos, to: BasePlanPos): BasePlanPos[] {
+  const key = (x: number, y: number) => (x << 6) | y;
+  const start = key(from.x, from.y);
+  const goal = key(to.x, to.y);
+  const came = new Map<number, number>();
+  const q: number[] = [start];
+  came.set(start, start);
+  let qi = 0;
+  const dirs = [
+    [0, 1],
+    [0, -1],
+    [1, 0],
+    [-1, 0],
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  while (qi < q.length && qi < 2500) {
+    const cur = q[qi++];
+    if (cur === goal) {
+      const path: BasePlanPos[] = [];
+      let k = goal;
+      while (true) {
+        path.push({ x: k >> 6, y: k & 63 });
+        const prev = came.get(k);
+        if (prev === undefined || prev === k) break;
+        k = prev;
+      }
+      return path.reverse();
+    }
+    const x = cur >> 6;
+    const y = cur & 63;
+    for (const [dx, dy] of dirs) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (!isBuildable(roomName, nx, ny) && key(nx, ny) !== goal) continue;
+      const nk = key(nx, ny);
+      if (came.has(nk)) continue;
+      came.set(nk, cur);
+      q.push(nk);
+    }
+  }
+  return [];
+}
+
 function greedyPath(roomName: string, from: BasePlanPos, to: BasePlanPos): BasePlanPos[] {
   const key = (x: number, y: number) => `${x},${y}`;
   type N = { x: number; y: number; g: number; f: number; parent: N | null };
@@ -403,6 +513,10 @@ function greedyPath(roomName: string, from: BasePlanPos, to: BasePlanPos): BaseP
       [0, -1],
       [1, 0],
       [-1, 0],
+      [1, 1],
+      [1, -1],
+      [-1, 1],
+      [-1, -1],
     ]) {
       const nx = cur.x + dx;
       const ny = cur.y + dy;
@@ -412,12 +526,60 @@ function greedyPath(roomName: string, from: BasePlanPos, to: BasePlanPos): BaseP
         x: nx,
         y: ny,
         g,
-        f: g + Math.abs(nx - to.x) + Math.abs(ny - to.y),
+        f: g + Math.max(Math.abs(nx - to.x), Math.abs(ny - to.y)),
         parent: cur,
       });
     }
   }
   return [];
+}
+
+/**
+ * Live haul tiles: hub→controller, hub→sources, hub→spawn. No hub ring
+ * (that ate the 8-site cap). Skip hub and destination.
+ */
+export function haulRoadTiles(room: Room, plan?: RoomBasePlan | null): BasePlanPos[] {
+  const p = plan || (room.memory.basePlan as RoomBasePlan) || null;
+  if (!p || !p.hub || !room.controller) return [];
+  const hub = p.hub;
+  const out: BasePlanPos[] = [];
+  const seen = new Set<string>();
+  const add = (x: number, y: number) => {
+    const k = `${x},${y}`;
+    if (seen.has(k) || !isBuildable(room.name, x, y)) return;
+    if (x === hub.x && y === hub.y) return;
+    seen.add(k);
+    out.push({ x, y });
+  };
+  const targets: BasePlanPos[] = [
+    { x: room.controller.pos.x, y: room.controller.pos.y },
+  ];
+  for (const s of room.find(FIND_SOURCES)) targets.push({ x: s.pos.x, y: s.pos.y });
+  const spawn = room.find(FIND_MY_SPAWNS)[0];
+  if (spawn) targets.push({ x: spawn.pos.x, y: spawn.pos.y });
+  for (const t of targets) {
+    // Straight Chebyshev walk — A* was returning [hub, dest] on live
+    // race rooms, so arterialN collapsed to the 8-tile hub ring.
+    const path = walkLine(room.name, hub, t);
+    for (let i = 1; i < path.length - 1; i++) add(path[i].x, path[i].y);
+  }
+  // No hub ring here. Cycle-17 filled the 8-site cap with the ring and
+  // never reached the controller line. Ring waits for RCL4.
+  return out;
+}
+
+/** True while any haul tile is still missing a standing road. */
+export function haulRoadsIncomplete(room: Room, plan?: RoomBasePlan | null): boolean {
+  const tiles = haulRoadTiles(room, plan);
+  if (!tiles.length) return false;
+  const standing = new Set<string>();
+  for (const s of room.find(FIND_STRUCTURES, { filter: (x) => x.structureType === STRUCTURE_ROAD })) {
+    standing.add(`${s.pos.x},${s.pos.y}`);
+  }
+  for (const t of tiles) {
+    if (!standing.has(`${t.x},${t.y}`)) return true;
+  }
+  return false;
 }
 
 /** Get or recompute plan. Replans if version mismatch or force. */
@@ -434,7 +596,12 @@ export function getBasePlan(room: Room, force = false): RoomBasePlan | null {
     const plan = computeBasePlan(room);
     if (plan) {
       room.memory.basePlan = plan;
-      syncPerimeterToConstructionMemory(room);
+      // v1 rooms only. The legacy writer publishes the WHOLE ring, while the
+      // contract for construction.rampartLocations is "tiles still missing a
+      // rampart"; on a planV2 room that resets the room to "shell unfinished"
+      // until the next PlanV2 sync. Belt and braces — the helper also guards
+      // itself (utils/Perimeter).
+      if (!room.memory.planV2) syncPerimeterToConstructionMemory(room);
     }
   }
   return (room.memory.basePlan as RoomBasePlan) || null;
@@ -460,17 +627,31 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
   if (existingSites >= 10) return 0;
 
   let created = 0;
-  // Build priority: core economy, then perimeter ramparts, then roads
-  const order: BuildableStructureConstant[] = [
-    STRUCTURE_STORAGE,
-    STRUCTURE_CONTAINER,
-    STRUCTURE_EXTENSION,
-    STRUCTURE_TOWER,
-    STRUCTURE_SPAWN,
-    STRUCTURE_TERMINAL,
-    STRUCTURE_RAMPART,
-    STRUCTURE_ROAD,
-  ];
+  const slam5 = room.energyCapacityAvailable >= 550;
+  // Dest-20 no-pave RCL3 +2880. Restore haul-pave for dest-21 + empire
+  // (L3+slam-5, 8 sites, haul tiles only). Do not push-pacifist while 20 watches.
+  const paveNow = rcl === 3 && slam5;
+  const order: BuildableStructureConstant[] = paveNow
+    ? [
+        STRUCTURE_STORAGE,
+        STRUCTURE_EXTENSION,
+        STRUCTURE_TOWER,
+        STRUCTURE_SPAWN,
+        STRUCTURE_ROAD,
+        STRUCTURE_CONTAINER,
+        STRUCTURE_TERMINAL,
+        STRUCTURE_RAMPART,
+      ]
+    : [
+        STRUCTURE_STORAGE,
+        STRUCTURE_CONTAINER,
+        STRUCTURE_EXTENSION,
+        STRUCTURE_TOWER,
+        STRUCTURE_SPAWN,
+        STRUCTURE_TERMINAL,
+        STRUCTURE_RAMPART,
+        STRUCTURE_ROAD,
+      ];
 
   for (const st of order) {
     if (created >= maxSites || existingSites + created >= 10) break;
@@ -482,7 +663,9 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     if (st === STRUCTURE_TOWER && rcl < 3) continue;
     if (st === STRUCTURE_TERMINAL && rcl < 6) continue;
     if (st === STRUCTURE_SPAWN && rcl < 7) continue; // extra spawns only
+    // No RCL2 roads (c17 SEND BACK). RCL3 haul after slam-5 only.
     if (st === STRUCTURE_ROAD && rcl < 3) continue;
+    if (st === STRUCTURE_ROAD && rcl === 3 && !slam5) continue;
     // Ramparts from RCL4, matching the v2 planner's own wall gate
     // (utils/PlanV2 wantsAtRcl: `if (type === "rampart") return lvl >= 4`).
     // At RCL3 a shell is pure waste: no storage to pay for it, safe mode is
@@ -490,8 +673,13 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     // pre-storage room can repair — the room builds a wall and watches it rot.
     if (st === STRUCTURE_RAMPART && rcl < 4) continue;
 
-    const maxAllowed =
+    let maxAllowed =
       st === STRUCTURE_RAMPART ? 2500 : maxStructuresAtRcl(st, rcl);
+    // Race rooms often have no planV2, so this legacy path is the one that
+    // actually sites extensions. Honor leftover-5 (hold at 5 through RCL3).
+    if (st === STRUCTURE_EXTENSION) {
+      maxAllowed = extensionTake(rcl, maxAllowed, room);
+    }
     if (maxAllowed <= 0) continue;
 
     const have =
@@ -505,11 +693,27 @@ export function placeFromBasePlan(room: Room, maxSites = 5): number {
     let slots =
       st === STRUCTURE_RAMPART ? plan.perimeter || [] : plan.structures[st] || [];
 
+    if (st === STRUCTURE_CONTAINER && slots.length) {
+      // [0] hub. Rest = source seats, already nearest-first.
+      // RCL2: hub only (cycle-10). RCL3: hub + both sources.
+      const srcN = Math.max(0, slots.length - 1);
+      const takeSrc = rcl < 3 ? 0 : srcN;
+      slots = [slots[0]].concat(slots.slice(1, 1 + takeSrc));
+    }
+
     // A road ON the wall only pays off once the wall exists (it is the shell
     // patrol/repair lane). Before the shell RCL those tiles sit on the far edge
     // of the base and are pure builder overhead, so drop them from the slot
     // list rather than let them crowd out the arterials.
-    if (st === STRUCTURE_ROAD && rcl < 4) {
+    if (st === STRUCTURE_ROAD && rcl <= 3) {
+      const haul = haulRoadTiles(room, plan);
+      const n = plan.arterialN || 0;
+      slots = haul.length ? haul : n > 0 ? slots.slice(0, n) : [];
+      const liveRoadSites = room.find(FIND_MY_CONSTRUCTION_SITES, {
+        filter: (s) => s.structureType === STRUCTURE_ROAD,
+      }).length;
+      remaining = Math.min(remaining, Math.max(0, 8 - liveRoadSites));
+    } else if (st === STRUCTURE_ROAD && rcl < 4) {
       const shell = new Set<string>();
       for (const t of plan.perimeter || []) shell.add(`${t.x},${t.y}`);
       for (const t of plan.ramps || []) shell.add(`${t.x},${t.y}`);

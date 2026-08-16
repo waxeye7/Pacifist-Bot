@@ -30,6 +30,11 @@ export interface SpeedrunState {
    * and spawn will not queue remote miners/carriers/reservists.
    */
   disableRemotes?: boolean;
+  /**
+   * Local test only. Skip RCL6+ owned rooms (and their creeps) so the
+   * tick isn't eaten by an 8-room RCL8 empire sitting next to a race.
+   */
+  skipHighRcl?: boolean;
 }
 
 /** Clock fields on room.memory.speedrun (reuses the existing policy object). */
@@ -141,6 +146,41 @@ export function remotesDisabled(): boolean {
   return !!(Memory.speedrun && Memory.speedrun.disableRemotes);
 }
 
+/** RCL6+ rooms (and their creeps) are no-ops. Local hyperspeed only. */
+export function skipHighRclEnabled(): boolean {
+  return !!(Memory.speedrun && Memory.speedrun.skipHighRcl);
+}
+
+export function skipHighRclRoom(room?: Room): boolean {
+  if (!skipHighRclEnabled() || !room || !room.controller || !room.controller.my) return false;
+  return room.controller.level >= 6;
+}
+
+export function skipHighRclCreep(creep: Creep): boolean {
+  if (!skipHighRclEnabled()) return false;
+  const here = creep.room;
+  if (here.controller && here.controller.my && here.controller.level >= 6) return true;
+  const home = creep.memory && creep.memory.homeRoom && Game.rooms[creep.memory.homeRoom];
+  if (home && home.controller && home.controller.my && home.controller.level >= 6) return true;
+  return false;
+}
+
+export function enableSkipHighRcl(): string {
+  const s = ensure();
+  s.skipHighRcl = true;
+  const msg = "skipHighRcl ON — RCL6+ rooms and their creeps do not run (local tick speed)";
+  logAlways(msg);
+  return msg;
+}
+
+export function disableSkipHighRcl(): string {
+  const s = ensure();
+  s.skipHighRcl = false;
+  const msg = "skipHighRcl OFF — all owned rooms run";
+  logAlways(msg);
+  return msg;
+}
+
 function closeOwnedRemotes(): void {
   for (const name in Game.rooms) {
     const room = Game.rooms[name];
@@ -172,6 +212,7 @@ export function enableRemotes(): string {
 
 export function resetSpeedrun(roomName?: string): string {
   const keepOff = remotesDisabled();
+  const keepSkip = skipHighRclEnabled();
   Memory.speedrun = {
     startTick: Game.time,
     rclTimes: {},
@@ -179,6 +220,7 @@ export function resetSpeedrun(roomName?: string): string {
     roomName: roomName || undefined,
   };
   if (keepOff) Memory.speedrun.disableRemotes = true;
+  if (keepSkip) Memory.speedrun.skipHighRcl = true;
   if (roomName) {
     resetRoomClockByName(roomName);
   } else {

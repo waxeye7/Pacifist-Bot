@@ -1,3 +1,6 @@
+/** A due command that never gets its bucket is dropped after this many ticks. */
+const STARVED_TTL = 5000;
+
 function ExecuteCommandsInNTicks() {
 
     if(!Memory.commandsToExecute) {
@@ -10,13 +13,25 @@ function ExecuteCommandsInNTicks() {
     // iterate backwards so splicing doesn't skip the next command
     for(let index = commands.length - 1; index >= 0; index --) {
         let command = commands[index];
+        if(!command) {
+            commands.splice(index, 1);
+            continue;
+        }
         if(command.delay > 0) {
             command.delay --;
             console.log(JSON.stringify(command))
         }
 
-        else if(command.delay == 0) {
-            if(command.bucketNeeded && command.bucketNeeded <= Game.cpu.bucket) {
+        // delay <= 0 is due. A negative delay (callers compute it from a creep's
+        // travel time) used to match no branch at all, so the entry sat in memory
+        // forever and kept rooms.observe's observeWaveInFlight() true for its
+        // targetRoom — the observer never responded to that room again.
+        else {
+            if(!command.bucketNeeded || !command.formation) {
+                commands.splice(index, 1);
+                continue;
+            }
+            if(command.bucketNeeded <= Game.cpu.bucket) {
                 if(command.formation == "Singleton") {
                     global.SS(command.homeRoom,command.targetRoom);
                 }
@@ -42,11 +57,18 @@ function ExecuteCommandsInNTicks() {
                     global.spawn_hunting_party(command.homeRoom, command.targetRoom, command.controllerFreePositions);
                 }
                 commands.splice(index, 1);
-            }
-            else if(!command.bucketNeeded || !command.formation) {
-                commands.splice(index, 1);
+                continue;
             }
 
+            // Bucket-starved: keep waiting, but never forever.
+            if(!command.waitingSince) {
+                command.waitingSince = Game.time;
+            }
+            else if(Game.time - command.waitingSince >= STARVED_TTL) {
+                console.log("Dropping stale command (bucket " + command.bucketNeeded +
+                    " not reached in " + STARVED_TTL + " ticks): " + JSON.stringify(command));
+                commands.splice(index, 1);
+            }
         }
     }
 

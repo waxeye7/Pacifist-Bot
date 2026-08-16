@@ -57,7 +57,38 @@ const run = function (creep) {
             storage = Game.getObjectById(creep.room.memory.Structures.storage) || creep.room.findStorage();
             bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
         }
-        if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
+        /*
+         * Bank floor. This role withdrew from storage down to ZERO — the only
+         * gate was `> 0` — and ferried it to the controller 800 at a time,
+         * while the upgrader ladder (rooms.spawning upgraderTarget /
+         * UPGRADE_FLOOR = 10k) only throttles SPAWNS below the floor: the
+         * upgraders and fillers already alive keep pulling until the bank is
+         * dry. Live E37N59: 27k -> 3.4k in ~1500 ticks with 3x12-WORK
+         * upgraders + 2 CLFs against ~20 e/t income, spawn energy for the
+         * remote fleet included. Below the floor the CLF parks and the
+         * upgraders live on what the source links push into the controller
+         * link — that is income, not savings. Downgrade danger overrides.
+         */
+        // Hysteresis: park under 10k, resume at 12k — one 800-energy trip
+        // must not flip the creep back and forth across the line every cycle.
+        const CLF_BANK_FLOOR = 10000;
+        const CLF_BANK_RESUME = 12000;
+        const bankLow = storage && storage.structureType === STRUCTURE_STORAGE
+            && storage.store[RESOURCE_ENERGY] < (creep.memory.bankParked ? CLF_BANK_RESUME : CLF_BANK_FLOOR)
+            && creep.room.controller
+            && creep.room.controller.ticksToDowngrade > 10000;
+        if(!bankLow && creep.memory.bankParked) {
+            delete creep.memory.bankParked;
+        }
+        if(bankLow) {
+            creep.memory.bankParked = true;
+            // Stay out of the hub lanes while idle; the ladder will not spawn a
+            // replacement below the floor, so this creep simply times out.
+            if(storage && !creep.pos.inRangeTo(storage, 3)) {
+                creep.MoveCostMatrixSwampPrio(storage, 3);
+            }
+        }
+        else if(bin && bin.store[RESOURCE_ENERGY] >= MaxStorage) {
             if(creep.pos.isNearTo(bin)) {
                 let result = creep.withdraw(bin, RESOURCE_ENERGY);
                 if(result == 0) {

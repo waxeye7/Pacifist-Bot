@@ -1,16 +1,39 @@
 # Layout + perimeter migration tracker
 
 **Goal:** dynamic hub plan + **min-cut** rampart perimeter (not square shell).  
-**Status:** in progress. Live placement is **flagged off by default**.
+**Status:** in progress. Placement is **per room**, not global — see below.
 
-## Feature flags (`Memory.features`)
+## What actually switches placement on
 
-| Flag | Default | Meaning |
-|------|---------|---------|
-| `dynamicLayout` | `true` | Compute/cache `basePlan` (hub + stamps + min-cut perimeter) |
-| `placeFromPlan` | `false` | Actually place construction sites from plan |
-| `minCutWalls` | `true` | Prefer min-cut perimeter over square ring when planning |
-| `squareWalls` | `false` | Legacy square ring generator (off when minCut on) |
+There is no global placement flag. The switch is **`room.memory.planV2`**:
+
+| State | Effect |
+|-------|--------|
+| `room.memory.planV2` absent | legacy stamp construction runs (`rooms.construction.ts`) |
+| `room.memory.planV2` present | `construction()` short-circuits into `placeFromPlanV2` — legacy stamps never run in that room |
+
+Placement alone only ever **adds** structures. Removing anything needs a second,
+explicit arm:
+
+| State | Effect |
+|-------|--------|
+| no `room.memory.planMigration` | placement only; off-plan legacy structures are left standing |
+| `planMigration.mode = "gradual"` | operator-armed migration (`migratePlan(room)`) |
+| `planMigration.mode = "auto"` | auto-armed for a *young* room (RCL < 4 **and** < 15 structures) at adoption |
+
+Every destructive action goes through `migrationAllowed` (`utils/PlanV2.ts`),
+which additionally blocks on hostiles, safe mode, low storage and downgrade
+risk. A re-adopted plan whose hash changed demotes a heuristic `auto` arm on an
+established room back to placement-only.
+
+Adopt / drop / arm from the console:
+`adoptPlan(room)`, `dropPlan(room)`, `migratePlan(room)`, `planStatus()`.
+
+`Memory.features` still carries `minCutWalls` (default `true`) and `squareWalls`
+(default `false`) for the *planner's* wall generator — those two are read by
+`rooms.construction.ts`. The old `dynamicLayout` / `placeFromPlan` flags and
+their `enablePlaceFromPlan()` / `disablePlaceFromPlan()` console toggles were
+read by nothing and have been removed.
 
 Console: `features()`, `replanBase(room)`, `basePlan(room)`, `showPerimeter(room)`.
 
@@ -30,7 +53,7 @@ room.memory.construction.rampartLocations  // [x,y][] sync for erect roles
 - Min-cut perimeter in `BasePlan` + `MinCut.ts`
 - Defence tower/safeMode damaged-shell uses `Perimeter` helpers (not 8–13 only)
 - Square shell generator gated off by default (`squareWalls: false`)
-- `placeFromPlan` default **false** (plan compute only)
+- Per-room placement via `room.memory.planV2`; demolition behind the migration arm
 - Tracker + console: `replanBase`, `showPlan`, `showPerimeter`
 
 ### BLOCKER still open (~35 sites) — next waves
@@ -45,17 +68,19 @@ room.memory.construction.rampartLocations  // [x,y][] sync for erect roles
 | `rooms.labs.ts` | Lab offsets from storage | Cluster detect / plan |
 | `energyMiner` storage link | storage+(-2,0) | Plan |
 | `rooms.spawning` SpecialRepair / erect | range 8–10 | Perimeter |
-| Dual legacy construction | Still runs beside plan | Gate stamps when placeFromPlan |
+| Dual legacy construction | ~~Still runs beside plan~~ | **Done** — `room.memory.planV2` short-circuits the stamps |
 
 ### MEDIUM later
 Nuke band, maintainer ≥9, danger road ≤10, room-specific E41N58 radii, repair parking on bin tile.
 
 ## Refactor policy
 
-We **will** leave medium items and fix when they bite — but perimeter + hub + placement flags land first so defense never looks at a missing square.
+We **will** leave medium items and fix when they bite — but perimeter + hub + placement land first so defense never looks at a missing square.
 
-New rooms (race): `placeFromPlan` on when ready.  
-Existing RCL5: plan computes + visualizes; placement stays off until adopt mode exists.
+New rooms (race / auto-expand): adopt the plan and the room auto-arms migration
+while it is young.  
+Existing rooms: `adoptPlan` gives placement only; run `migratePlan` when you
+want the legacy layout retired.
 
 ## Test suite (next)
 

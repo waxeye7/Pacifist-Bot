@@ -2,7 +2,8 @@ import "./utils/Commands";
 import { ErrorMapper } from "./utils/ErrorMapper";
 import { memHack } from "utils/MemHack";
 import global from "./utils/Global";
-import { installLogger } from "utils/Logger";
+import { installLogger, logAlways } from "utils/Logger";
+import { runDropRooms } from "utils/Commands";
 import { RoomCache } from "utils/RoomCache";
 import { getCpuPolicy } from "utils/CpuPolicy";
 import { getOpts, recordTick } from "utils/Bench";
@@ -11,6 +12,7 @@ import { trackRoomRcl } from "utils/Speedrun";
 import { runPlanAnimator } from "utils/PlanAnimator";
 import { runPlanV2Adoption } from "utils/PlanV2";
 import { runAutoExpand } from "Managers/AutoExpand";
+import { runMapViz } from "utils/MapViz";
 import { sampleRemoteStats, installRemoteStatsCommand } from "utils/RemoteStats";
 
 // import TerrainDataExporter from "./utils/TerrainDataExporter";
@@ -160,6 +162,51 @@ global.ROLES = {
   mosquito: mosquito,
 };
 
+/*
+ * TOP-LEVEL PHASE ISOLATION.
+ *
+ * ErrorMapper.wrapLoop is a net for the whole tick, which means it is also an
+ * all-or-nothing one: a throw inside rooms() used to skip creeps, commands,
+ * AutoExpand and the CPU manager for that tick. Each phase now gets its own
+ * try/catch so one broken subsystem costs its own work and nothing else.
+ * wrapLoop stays as the outer net; call order below is unchanged.
+ *
+ * Heap-level throttle: at most one line per phase per 100 ticks.
+ */
+const lastPhaseErrorTick = new Map<string, number>();
+
+/**
+ * Per-phase CPU, exponential moving average on the heap, flushed to
+ * Memory.CPU.phases every 20 ticks so it can be read off the memory API.
+ * ~0.01 CPU per phase per tick; the answer to "where do 17 of 20 CPU go" is
+ * otherwise a guess.
+ */
+const phaseEma = new Map<string, number>();
+const PHASE_EMA_ALPHA = 0.05;
+function notePhaseCpu(name: string, used: number): void {
+  const prev = phaseEma.get(name);
+  phaseEma.set(name, prev === undefined ? used : prev + PHASE_EMA_ALPHA * (used - prev));
+  if (Game.time % 20 === 0 && Memory.CPU) {
+    if (!Memory.CPU.phases) Memory.CPU.phases = {};
+    Memory.CPU.phases[name] = Math.round((phaseEma.get(name) || 0) * 100) / 100;
+  }
+}
+
+function phase(name: string, fn: () => void): void {
+  const before = Game.cpu.getUsed();
+  try {
+    fn();
+    notePhaseCpu(name, Game.cpu.getUsed() - before);
+  } catch (e) {
+    notePhaseCpu(name, Game.cpu.getUsed() - before);
+    const last = lastPhaseErrorTick.get(name);
+    if (last === undefined || Game.time - last >= 100) {
+      lastPhaseErrorTick.set(name, Game.time);
+      logAlways("[main] ERROR in phase", name, "-", (e && e.stack) || e);
+    }
+  }
+}
+
 export const loop = ErrorMapper.wrapLoop(() => {
   // Silent by default — Memory.verbose = true to re-enable console spam
   installLogger();
@@ -170,6 +217,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const opts = getOpts();
 
   memHack.run();
+  runDropRooms();
 
   MemoryManager();
   if (opts.roomCache) {
@@ -179,7 +227,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   const policy = getCpuPolicy();
   global._cpuPolicy = policy;
 
-  rooms();
+  phase("rooms", () => rooms());
 
   // Power creeps OFF by default — power mode exposes rooms to enemy PC attacks
   if (!powerDisabled()) {
@@ -194,24 +242,27 @@ export const loop = ErrorMapper.wrapLoop(() => {
     }
   }
 
-  RunAllCreepsManager();
+  phase("creeps", () => RunAllCreepsManager());
 
   // Combat kits / ops only when budget allows (or baseline = always run for fair compare)
   if (!opts.expensiveGate || policy.allowExpensive) {
-    mosquito_attack();
-    mosquito_manager();
+    phase("mosquito", () => {
+      mosquito_attack();
+      mosquito_manager();
+    });
   }
 
-  ExecuteCommandsInNTicks();
+  phase("commands", () => ExecuteCommandsInNTicks());
 
   // Planner replay overlay — no-op unless Memory.planAnim.active
-  runPlanAnimator();
-  runPlanV2Adoption();
-  runAutoExpand();
+  phase("planAnimator", () => runPlanAnimator());
+  phase("planV2Adoption", () => runPlanV2Adoption());
+  phase("mapViz", () => runMapViz());
+  phase("autoExpand", () => runAutoExpand());
 
-  decrementTempBadRooms();
+  phase("tempBadRooms", () => decrementTempBadRooms());
 
-  sampleRemoteStats();
+  phase("remoteStats", () => sampleRemoteStats());
 
   const tickCpu = Game.cpu.getUsed() - startTotal;
   recordTick(tickCpu);
@@ -219,7 +270,7 @@ export const loop = ErrorMapper.wrapLoop(() => {
   let tickTotal = tickCpu.toFixed(2);
   console.log(tickTotal + "ms", "on this tick", Memory.bench && Memory.bench.profile);
 
-  CPUmanager(tickTotal);
+  phase("CPUmanager", () => CPUmanager(tickTotal));
   global.buildRemoteRoads = function (roomName) {
     Build_Remote_Roads(Game.rooms[roomName]);
   };

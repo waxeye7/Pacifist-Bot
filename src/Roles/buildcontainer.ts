@@ -123,6 +123,52 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     }
     if(creep.memory.building) {
         if(creep.room.controller && creep.room.controller.level !== 8) {
+            // ----------------------------------------------------------
+            // DOWNGRADE RESCUE — outranks spawn-first.
+            //
+            // buildTheSpawnFirst suppresses BOTH upgrade clauses below, and
+            // that is right until the room is about to stop being ours. Live
+            // E39N58: RCL1, no spawn, spawn site at 14,320/15,000 (680 short),
+            // ticksToDowngrade ~2,700 and falling, three ContainerBuilders
+            // inbound — and not one of them would have touched the controller.
+            // The room reverts to unowned, the site and the 14,320 energy in it
+            // go with it, and the whole colonisation is lost 680 energy from
+            // the finish line.
+            //
+            // One upgradeController tick restores CONTROLLER_DOWNGRADE_RESTORE
+            // = 100 ticks, so this is cheap: WORK energy for ~31 ticks buys the
+            // timer back from 5,000 to 8,000. The hysteresis matters — a single
+            // threshold would re-trip every 100 ticks and walk the creep back
+            // and forth between the controller and the spawn site forever.
+            // Latch on below CB_RESCUE_DOWNGRADE, release at CB_RESCUE_RELEASE,
+            // one round trip.
+            //
+            // Only for a controller we own (a CB sent to a remote to build
+            // containers must not start upgrading someone else's room) and only
+            // while carrying energy, which this block already guarantees
+            // (building is cleared at :117 the moment the store empties) — so
+            // the 0-energy pickup path at the bottom of the role is untouched.
+            // ----------------------------------------------------------
+            const CB_RESCUE_DOWNGRADE = 5000;
+            const CB_RESCUE_RELEASE = 8000;
+            let downgradeRescue = false;
+            if(creep.room.controller.my && !creep.room.controller.upgradeBlocked) {
+                const dg = creep.room.controller.ticksToDowngrade;
+                downgradeRescue = creep.memory.dgRescue ? dg < CB_RESCUE_RELEASE : dg < CB_RESCUE_DOWNGRADE;
+            }
+            if(downgradeRescue !== !!creep.memory.dgRescue) {
+                if(downgradeRescue) creep.memory.dgRescue = true;
+                else delete creep.memory.dgRescue;
+            }
+            if(downgradeRescue) {
+                // upgrade OR close the gap — never both, they are the same
+                // WORK action and the build walk below would drag us off.
+                if(creep.upgradeController(creep.room.controller) == ERR_NOT_IN_RANGE) {
+                    creep.MoveCostMatrixRoadPrio(creep.room.controller, 3);
+                }
+                return;
+            }
+
             // opportunistic upgrade on the way past — but not while the spawn
             // site is what we are here for: build() and upgradeController()
             // compete for the same WORK action and the same carried energy.

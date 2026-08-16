@@ -47,7 +47,14 @@ const run = function (creep) {
                     if(creep.attackController(controller) === 0) {
                         creep.signController(controller, "too close to pacifist bot room, claim elsewhere.");
 
-                        Memory.commandsToExecute.push({ delay: 1015-(creep.memory.ticksToGetHere+creep.body.length*3 + 50), bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
+                        // A slow/large CCK makes this go negative; a negative delay
+                        // used to park the entry in Memory.commandsToExecute forever
+                        // (and blocked every later observer wave on targetRoom).
+                        let ttgh = creep.memory.ticksToGetHere;
+                        if(typeof ttgh !== "number" || isNaN(ttgh)) ttgh = 0;
+                        const respawnDelay = Math.max(1, 1015-(ttgh+creep.body.length*3 + 50));
+
+                        Memory.commandsToExecute.push({ delay: respawnDelay, bucketNeeded: 3000, formation: "CCK", homeRoom: creep.memory.homeRoom, targetRoom: creep.memory.targetRoom })
 
 
                         creep.suicide();

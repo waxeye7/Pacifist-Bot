@@ -131,9 +131,21 @@ function linDist(a, b) {
   return Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y));
 }
 
-/** djb2 — same marker push-plan.mjs writes, so re-adoption logs old->new. */
-function planHash(structures) {
-  const s = JSON.stringify(structures);
+/**
+ * djb2 over the WHOLE adoption payload — byte-for-byte the same input and
+ * field order as push-plan.mjs, so a room adopted from the pack and the same
+ * room re-pushed by push-plan.mjs carry the same room.memory.planV2.h (the bot
+ * logs old->new on re-adoption and drops a heuristic auto-arm on change).
+ * `room` / `pushedAt` stay out. Do not reorder the fields.
+ */
+function planHash(plan, roadStage) {
+  const s = JSON.stringify({
+    structures: plan.structures,
+    shellCut: (plan.meta && plan.meta.shell && plan.meta.shell.cut) || [],
+    roadStage,
+    sitter: plan.sitter,
+    labInputs: plan.labInputs,
+  });
   let h = 5381;
   for (let i = 0; i < s.length; i++) h = ((h * 33) ^ s.charCodeAt(i)) >>> 0;
   return h.toString(36);
@@ -188,6 +200,8 @@ async function main() {
     if (!plan || !plan.room || plan.error || !plan.structures) continue;
     if (!plan.structures.spawn || !plan.structures.spawn.length) continue;
     if (takenSet.has(plan.room)) continue; // owned or reserved by somebody
+    const nSources = Array.isArray(plan.sources) ? plan.sources.length : 0;
+    if (nSources < 2) continue;
     const sc = score(plan, mine);
     if (sc.nearest < MIN_DIST || sc.nearest > MAX_DIST) continue;
     ranked.push({ plan, ...sc });
@@ -202,7 +216,8 @@ async function main() {
       room: r.plan.room,
       score: Number(r.s.toFixed(2)),
       spawnPos: r.plan.structures.spawn[0],
-      hash: planHash(r.plan.structures),
+      hash: planHash(r.plan, roadStageFor(r.plan)),
+      nSources: Array.isArray(r.plan.sources) ? r.plan.sources.length : 0,
     };
     if (seg !== undefined) t.seg = seg;
     return t;
@@ -227,7 +242,7 @@ async function main() {
       labInputs: plan.labInputs,
       shellCut: (plan.meta && plan.meta.shell && plan.meta.shell.cut) || [],
       roadStage,
-      planHash: planHash(plan.structures),
+      planHash: planHash(plan, roadStage),
       pushedAt: Date.now(),
     };
     staging.push({

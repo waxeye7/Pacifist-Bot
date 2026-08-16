@@ -29,14 +29,31 @@ export function getCpuPolicy(): CpuPolicyState {
 
   const economyOnly = bucket < (lowCpu ? 2000 : 1000);
   const allowExpensive = !economyOnly && bucket >= (lowCpu ? 4000 : 3000) && avg < limit * 0.85;
+  // A PINNED bucket is the ground truth for "we are under budget": the bucket
+  // only stays at ~10000 while average usage is below the limit, whatever the
+  // 100-tick average says. Live shard3 (limit 20): avg100 sat at 16-18 with
+  // the bucket pinned at 10000 the whole time, and the `avg < limit - 4`
+  // clause alone flipped allowRemotes off -> the rooms.ts panic valve closed
+  // every remote in the empire at Game.time % 500 == 1, manageRemotes bailed
+  // so nothing reopened them, CPU dropped, they reopened, CPU rose... a
+  // 500-tick oscillation that recalled the whole remote fleet each turn.
+  const bucketPinned = bucket >= 9000;
   const allowRemotes =
     !economyOnly &&
     bucket >= (lowCpu ? 5000 : 4000) &&
-    (avg === 0 || avg < limit - (lowCpu ? 4 : 8));
+    (bucketPinned || avg === 0 || avg < limit - (lowCpu ? 4 : 8));
 
   let maxRemotes = 0;
   if (allowRemotes) {
-    if (limit <= 20) maxRemotes = bucket > 8000 ? 2 : 1;
+    // shard3-shaped (limit 20): a pinned bucket means the CPU headroom is real.
+    // Measured on E37N59 — limit 20, bucket 10000, 100-tick avg 11 — the cap of 2
+    // was the binding constraint on remote income, not CPU. 3 at a full bucket.
+    // Stepped, not a cliff. 3 -> 1 on a single bucket tick means one dip below
+    // 8000 closes two remotes at once, and every close recalls the whole crew
+    // that was working them (rooms.remotes/remoteRecalled). The middle rung
+    // gives the dip somewhere to land: allowRemotes already needs bucket >= 5000
+    // here, so the rungs are 5000-6000 => 1, 6000-8000 => 2, 8000+ => 3.
+    if (limit <= 20) maxRemotes = bucket > 8000 ? 3 : bucket > 6000 ? 2 : 1;
     else if (limit <= 50) maxRemotes = bucket > 7000 ? 4 : 2;
     else maxRemotes = bucket > 6000 ? 8 : 4;
   }

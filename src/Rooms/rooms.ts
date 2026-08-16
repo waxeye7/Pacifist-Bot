@@ -1,9 +1,8 @@
 import roomDefence from "./rooms.defence";
 import spawning from "./rooms.spawning";
-import construction, { Build_Remote_Roads, Situational_Building } from "./rooms.construction";
+import construction, { Remote_Roads_Tick, Situational_Building } from "./rooms.construction";
 import market from "./rooms.market";
 import labs from "./rooms.labs";
-import factory from "./rooms.factory";
 import observe from "./rooms.observe";
 import data from "./rooms.data";
 import remotes, { manageRemotes, scanRemoteThreats, roomTickOffset } from "./rooms.remotes";
@@ -11,10 +10,39 @@ import powerSpawning from "./rooms.powerSpawning";
 import supportOtherRooms from "./rooms.supportOtherRooms";
 import { getCpuPolicy } from "utils/CpuPolicy";
 import { powerDisabled, speedrunEnabled } from "utils/Features";
-import { applySpeedrunSpawnHints } from "utils/Speedrun";
+import { applySpeedrunSpawnHints, skipHighRclRoom } from "utils/Speedrun";
 import { placeFromPlanV2 } from "utils/PlanV2";
 import { refreshUnreachable, pruneBadFill } from "utils/Reachability";
 import { forwardToControllerLink } from "../Roles/energyMiner";
+import { logAlways } from "utils/Logger";
+
+/*
+ * PER-ROOM FAULT ISOLATION.
+ *
+ * ErrorMapper.wrapLoop in main.ts is the only try/catch above this file, so a
+ * throw anywhere in the room pass (spawning / defence / market / labs /
+ * construction / observe / ...) used to abort the WHOLE tick before the creeps
+ * ever ran - one bad room froze the empire. Every room iteration now runs
+ * inside guarded(): the room that threw is skipped, the rest of the tick
+ * continues, and the error is logged (never swallowed silently).
+ *
+ * Heap-level (not Memory) throttle: at most one line per room per 100 ticks,
+ * so a room that throws every tick cannot flood the console.
+ */
+const lastRoomErrorTick = new Map<string, number>();
+
+function guarded(room: any, fn: () => void): void {
+  try {
+    fn();
+  } catch (e) {
+    const name = typeof room === "string" ? room : (room && room.name) || "unknown";
+    const last = lastRoomErrorTick.get(name);
+    if (last === undefined || Game.time - last >= 100) {
+      lastRoomErrorTick.set(name, Game.time);
+      logAlways("[rooms] ERROR in", name, "-", (e && e.stack) || e);
+    }
+  }
+}
 
 function rooms() {
   /* */
@@ -27,7 +55,10 @@ function rooms() {
   let myRooms = [];
 
   let roomsIController = 0;
-  _.forEach(Game.rooms, function (room: any) {
+
+  // Body of the per-visible-room pass. Hoisted out of the _.forEach purely so
+  // it can be handed to guarded() below - contents unchanged.
+  const eachVisibleRoom = function (room: any) {
     // if(!room.controller) {
     //     delete room.memory;
     // }
@@ -36,6 +67,7 @@ function rooms() {
     // }
 
     if (room && room.controller && room.controller.my) {
+      if (skipHighRclRoom(room)) return;
       if (Game.time % 100 == 0) {
         let spawnAmount = room.find(FIND_MY_SPAWNS).length;
         if (room.controller.level >= 6 && spawnAmount == 0) {
@@ -190,14 +222,26 @@ function rooms() {
         );
       }
 
-      if (room.controller.level == 1 && Game.time % 25000 == 0 && !room.controller.safeMode) {
-        let walls = room.find(FIND_STRUCTURES, {
-          filter: building =>
-            building.structureType == STRUCTURE_WALL ||
-            (!building.my && building.structureType != STRUCTURE_ROAD && building.structureType != STRUCTURE_CONTAINER)
-        });
-        for (let wall of walls) {
-          wall.destroy();
+      // Squatter cleanup for a freshly claimed room. This used to hang off the
+      // GLOBAL `Game.time % 25000`, so a room claimed one tick after that
+      // modulus landed kept the previous owner's walls for another 25000 ticks
+      // (~21h) - the one window where they hurt most. Now it is claim-relative:
+      // once as soon as we see the room at RCL1, then at most every 25000 ticks.
+      if (room.controller.level == 1 && !room.controller.safeMode) {
+        const lastSweep = room.memory.squatterSweepTick;
+        if (!room.memory.squatterSweepDone || lastSweep === undefined || Game.time - lastSweep >= 25000) {
+          room.memory.squatterSweepDone = true;
+          room.memory.squatterSweepTick = Game.time;
+          let walls = room.find(FIND_STRUCTURES, {
+            filter: building =>
+              building.structureType == STRUCTURE_WALL ||
+              (!building.my &&
+                building.structureType != STRUCTURE_ROAD &&
+                building.structureType != STRUCTURE_CONTAINER)
+          });
+          for (let wall of walls) {
+            wall.destroy();
+          }
         }
       }
 
@@ -316,12 +360,6 @@ function rooms() {
         }
       }
 
-      factory(room);
-
-      // if(room.factory && room.controller.level >= 7) {
-
-      // }
-
       if (Game.time % 10 == 0 || Game.time < 10) {
         // const start = Game.cpu.getUsed()
         identifySources(room);
@@ -330,14 +368,16 @@ function rooms() {
 
       if (Game.time % 3012 == 0 && Game.cpu.bucket > 3500 && !room.memory.danger) {
         _.forEach(Game.rooms, function (everyRoom) {
-          if (
-            everyRoom &&
-            everyRoom.memory &&
-            !everyRoom.memory.danger &&
-            everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0
-          ) {
-            everyRoom.memory.keepTheseRoads = [];
-          }
+          guarded(everyRoom, function () {
+            if (
+              everyRoom &&
+              everyRoom.memory &&
+              !everyRoom.memory.danger &&
+              everyRoom.find(FIND_MY_CONSTRUCTION_SITES).length == 0
+            ) {
+              everyRoom.memory.keepTheseRoads = [];
+            }
+          });
         });
       }
       let bucket = Game.cpu.bucket;
@@ -382,16 +422,15 @@ function rooms() {
         scanRemoteThreats(room);
       }
 
-      // Remote roads paint site-lines to exits — only when RCL is ready + remotes allowed
-      if (
-        Game.time % 500 == 0 &&
-        bucket > 5000 &&
-        room.controller.level >= 4 &&
-        getCpuPolicy().allowRemotes
-      ) {
-        const start = Game.cpu.getUsed();
-        Build_Remote_Roads(room);
-        console.log("REMOTE Construction Ran in", Game.cpu.getUsed() - start, "ms");
+      // Remote roads + per-source pathLength. Every tick, but per-REMOTE
+      // cadence and vision-triggered inside: `Game.time % 500` here meant the
+      // pass only did anything if a creep happened to be standing in the
+      // remote on that one tick, so remotes stayed unscored and unpaved
+      // forever. Remote_Roads_Tick is a for-in over room.memory.resources with
+      // early continues (no find, no PathFinder) when nothing is due, and does
+      // at most one remote's PathFinder work per room per tick.
+      if (bucket > 5000 && room.controller.level >= 4 && getCpuPolicy().allowRemotes) {
+        Remote_Roads_Tick(room);
       }
       Situational_Building(room);
     }
@@ -405,6 +444,8 @@ function rooms() {
 
     if (Game.time % 25000 == 0) {
       _.forEach(Game.constructionSites, function (site) {
+        // Spawn sites wait for CBs; 0-creep is the bootstrap, not stale remotes.
+        if (site.structureType == STRUCTURE_SPAWN) return;
         if (site.room == undefined || site.room.find(FIND_MY_CREEPS).length == 0) {
           site.remove();
           console.log("site removed for being unbuilt for ages");
@@ -420,6 +461,12 @@ function rooms() {
     //         }
     //     }
     // }
+  };
+
+  _.forEach(Game.rooms, function (room: any) {
+    guarded(room, function () {
+      eachVisibleRoom(room);
+    });
   });
 
   if (Game.time % 300 == 0) {
@@ -450,34 +497,63 @@ function rooms() {
     // which runs per-room every 25 ticks instead of flipping one flag on one
     // randomly-picked commune every 500 ticks. What stays here is the CPU
     // panic valve: when the bot is over budget, shut every remote down.
-    if (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3)) {
+    // A pinned bucket means we are under budget regardless of the averages
+    // (see CpuPolicy.allowRemotes) - the valve is for a DRAINING bucket, and
+    // closing every remote in the empire while it sits at 10000 is what
+    // oscillated E37N59's fleet on and off every 500 ticks.
+    const bucketPinned = Game.cpu.bucket >= 9000;
+    if (!bucketPinned && (!policy.allowRemotes || avg > Game.cpu.limit - (policy.limit <= 30 ? 2 : 3))) {
       for (let roomName of myRooms) {
         let room = Game.rooms[roomName];
-        if (!room || !room.memory.resources) continue;
-        let remoteRooms = Object.keys(room.memory.resources);
-        if (remoteRooms.length > 1) {
-          remoteRooms = remoteRooms.filter(function (remoteRoom) {
-            return remoteRoom !== roomName;
-          });
+        guarded(room || roomName, function () {
+          if (!room || !room.memory.resources) return;
+          let remoteRooms = Object.keys(room.memory.resources);
           if (remoteRooms.length > 1) {
-            let found = false;
-            for (let remoteRoom of remoteRooms) {
-              room.memory.resources[remoteRoom].active = false;
-              if (room.memory.resources[remoteRoom].active) {
-                found = true;
-                break;
+            remoteRooms = remoteRooms.filter(function (remoteRoom) {
+              return remoteRoom !== roomName;
+            });
+            // Close every remote this commune owns. (The old loop re-read
+            // `.active` immediately after setting it to false and broke out on
+            // the result, so `found` could never be true - both the flag and
+            // the outer break were dead code.)
+            if (remoteRooms.length > 1) {
+              for (let remoteRoom of remoteRooms) {
+                room.memory.resources[remoteRoom].active = false;
               }
             }
-            if (found) {
-              break;
-            }
           }
-        }
+        });
       }
     }
   }
 
   console.log("Rooms Ran in", Game.cpu.getUsed() - start, "ms");
+}
+
+/*
+ * How many of OUR attacker / RangedAttacker creeps are standing in each room.
+ *
+ * establishMemory() ran this whole Game.creeps scan once per NON-OWNED visible
+ * room (every 3 ticks): with scouts/observers up that is dozens of full creep
+ * sweeps for an answer that is identical for every room. Computed once per
+ * tick now and memoised on the heap against Game.time; rooms with no attackers
+ * are simply absent from the map (callers use `|| 0`, which matches the old
+ * "counter stayed at 0" branch exactly).
+ */
+let attackerScanTick = -1;
+let attackerScanResult: { [roomName: string]: number } = {};
+
+function attackersByRoom(): { [roomName: string]: number } {
+  if (attackerScanTick === Game.time) return attackerScanResult;
+  attackerScanTick = Game.time;
+  attackerScanResult = {};
+  _.forEach(Game.creeps, function (creep) {
+    if (creep.memory.role == "attacker" || creep.memory.role === "RangedAttacker") {
+      const where = creep.room.name;
+      attackerScanResult[where] = (attackerScanResult[where] || 0) + 1;
+    }
+  });
+  return attackerScanResult;
 }
 
 function establishMemory(room) {
@@ -617,15 +693,7 @@ function establishMemory(room) {
         room.memory.roomData.has_only_invader = false;
       }
 
-      let attackersInRoom: number = 0;
-      _.forEach(Game.creeps, function (creep) {
-        if (
-          (creep.memory.role == "attacker" || creep.memory.role === "RangedAttacker") &&
-          creep.room.name == room.name
-        ) {
-          attackersInRoom += 1;
-        }
-      });
+      const attackersInRoom: number = attackersByRoom()[room.name] || 0;
       if (attackersInRoom == 0) {
         room.memory.roomData.has_attacker = false;
       } else {

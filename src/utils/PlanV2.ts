@@ -24,12 +24,40 @@ import { logAlways } from "utils/Logger";
 import { isUnreachableTile } from "utils/Reachability";
 import { isExteriorTile, interiorReady } from "utils/Interior";
 import { getPerimeterTiles, SHELL_MIN_RCL } from "utils/Perimeter";
+import { requestSegments } from "utils/Segments";
 
 const SEGMENT = 88;
 const MAX_SITES = 4;
+
+/** 0 my ramparts or 0 roads — a dead bank cannot sit out the freeze. */
+function isShellNaked(structures: Structure[]): boolean {
+  let myRamparts = 0;
+  let roads = 0;
+  for (const s of structures) {
+    if (s.structureType === STRUCTURE_ROAD) roads++;
+    else if (s.structureType === STRUCTURE_RAMPART && (s as StructureRampart).my) myRamparts++;
+    if (myRamparts && roads) return false;
+  }
+  return true;
+}
+
 /** RCL2: five slots so all five extensions site in one 15-tick pass.
  *  RCL4 after storage: dump the next extensions faster (800→1300). */
-function maxSitesFor(lvl: number, room?: Room): number {
+function maxSitesFor(lvl: number, room?: Room, structures?: Structure[]): number {
+  // Established rooms: do not keep 8 sites open when the bank is thin.
+  // RCL4-5 dump (800→1300) is allowed on an empty new storage. RCL6+
+  // site-flood is what bled VPS RCL8 rooms dry.
+  // Spawnless rooms still get one slot — a dead spawn cannot wait for 150k.
+  // Shell-naked (0 my ramparts or 0 roads): 2 slots so the wall can restart.
+  if (lvl >= 6 && room && room.storage && room.storage.my) {
+    const e = room.storage.store[RESOURCE_ENERGY] || 0;
+    const floor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+    if (e < floor) {
+      if (!room.find(FIND_MY_SPAWNS).length) return 1;
+      const structs = structures || room.find(FIND_STRUCTURES);
+      return isShellNaked(structs) ? 2 : 0;
+    }
+  }
   if (lvl === 2) return 5;
   if (lvl >= 4 && room && room.storage && room.storage.my) return 8;
   return MAX_SITES;
@@ -160,6 +188,50 @@ export function plannedSpawnTile(room: Room): { x: number; y: number } | null {
   const spawns = plan && plan.t ? plan.t.spawn : undefined;
   if (!spawns || !spawns.length) return null;
   return unpack(spawns[0]);
+}
+
+/**
+ * Free the plan's first spawn tile so we can site it.
+ *
+ * Live E39N58: a leftover/off-plan spawn (or a road/container) sat on the
+ * planned tile. createConstructionSite then returned ERR_INVALID_TARGET and
+ * AutoExpand.ensureSpawnSite swallowed it. At RCL1-6 the engine cap is 1, so
+ * an off-plan MY spawn also blocks the plan spawn forever (migrateSpawns
+ * used to keep the only spawn until RCL7).
+ *
+ * Young rooms (RCL<=3, no storage): destroy our own idle occupier.
+ * Foreign occupiers cannot be destroyed — we log and the caller may retry.
+ */
+export function clearPlanSpawnTile(room: Room, x: number, y: number): boolean {
+  const pos = new RoomPosition(x, y, room.name);
+  let blocked = false;
+  for (const s of pos.lookFor(LOOK_STRUCTURES)) {
+    if (s.structureType === STRUCTURE_CONTROLLER) return false;
+    if (s.structureType === STRUCTURE_RAMPART && (s as StructureRampart).my) continue;
+    if (s.structureType === STRUCTURE_SPAWN && (s as StructureSpawn).my && (s as StructureSpawn).spawning) {
+      blocked = true;
+      continue;
+    }
+    const mine = !!(s as any).my;
+    const cheap =
+      s.structureType === STRUCTURE_ROAD ||
+      s.structureType === STRUCTURE_CONTAINER ||
+      s.structureType === STRUCTURE_SPAWN;
+    if (mine && cheap) {
+      const res = s.destroy();
+      logAlways(
+        `planV2 ${room.name}: spawn tile ${x},${y} occupied by ${s.structureType} — destroy() ${res}`,
+      );
+      continue;
+    }
+    blocked = true;
+    if (Game.time % 50 < 5) {
+      logAlways(
+        `planV2 ${room.name}: spawn tile ${x},${y} blocked by ${mine ? "my" : "foreign"} ${s.structureType} — cannot site`,
+      );
+    }
+  }
+  return !blocked;
 }
 
 /**
@@ -382,12 +454,45 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
 };
 
 /**
+ * The payload schema this build understands, written into PackedPlan.v.
+ *
+ * It was written and never read, which made it decoration: a payload from a
+ * future push-plan.mjs with a different `structures` shape would have been
+ * packed into nonsense tiles and adopted silently. The gate below is the whole
+ * point of carrying a version at all.
+ *
+ * A payload with NO `v` is a payload from before push-plan.mjs stamped one —
+ * that is schema 1 by definition, so absent means 1 rather than "reject".
+ */
+export const PLAN_PAYLOAD_VERSION = 1;
+
+/** Payload schema version. Absent (pre-versioning push) counts as 1. */
+export function planPayloadVersion(data: any): number {
+  const v = data && data.v;
+  return typeof v === "number" ? v : PLAN_PAYLOAD_VERSION;
+}
+
+/**
  * Turn a planner payload (push-plan.mjs segment 88, or one entry of the
  * auto-expand pack in segments 80-85) into the packed room.memory.planV2
  * value. Shared so a freshly claimed room adopts EXACTLY what adoptPlan()
  * would have given it — see Managers/AutoExpand.ts.
+ *
+ * THROWS on an unsupported payload version. Throwing is deliberate: this is the
+ * one choke point both adoption paths go through, and every caller is inside a
+ * phase-level try/catch (main.ts `phase()`), so an unreadable payload costs the
+ * adoption and nothing else. Refusing here is what stops a future schema from
+ * being packed into garbage tiles and then BUILT.
  */
 export function packPlanPayload(data: any): PackedPlan {
+  const ver = planPayloadVersion(data);
+  if (ver !== PLAN_PAYLOAD_VERSION) {
+    const msg =
+      `planV2: refusing payload for ${data && data.room} — schema v${ver}, ` +
+      `this build understands v${PLAN_PAYLOAD_VERSION}. Update the bot or re-push with a matching push-plan.mjs.`;
+    logAlways(msg);
+    throw new Error(msg);
+  }
   const t: { [k: string]: number[] } = {};
   const pack = (arr: Array<{ x: number; y: number }>) => arr.map((p) => p.x + p.y * 50);
   const s = data.structures || {};
@@ -467,7 +572,7 @@ export function packPlanPayload(data: any): PackedPlan {
         `them: re-plan the room.`,
     );
   }
-  const out: PackedPlan = { v: 1, h: data.planHash, t };
+  const out: PackedPlan = { v: PLAN_PAYLOAD_VERSION, h: data.planHash, t };
   // Road staging (push-plan.mjs `roadStage`). Length-checked against t.road
   // here as well as at every read: a payload whose stage array does not line up
   // with the road array is not a schedule, it is an off-by-one, and the room is
@@ -489,7 +594,10 @@ export function runPlanV2Adoption(): void {
     delete Memory.planV2Adopt;
     return;
   }
-  RawMemory.setActiveSegments([SEGMENT]);
+  // UNION, not replace — a naked setActiveSegments here cancelled the error
+  // segment, the animator and AutoExpand's pack read for the whole adoption
+  // window. See utils/Segments.
+  requestSegments([SEGMENT]);
   const raw = RawMemory.segments[SEGMENT];
   if (raw === undefined) return; // active next tick
   try {
@@ -502,6 +610,18 @@ export function runPlanV2Adoption(): void {
     const room = Game.rooms[adopt.room];
     if (!room || !room.controller || !room.controller.my) {
       logAlways(`planV2: ${adopt.room} not visible/owned — adopt after spawn-in`);
+      delete Memory.planV2Adopt;
+      return;
+    }
+    // Version gate, checked HERE as well as inside packPlanPayload so the
+    // console path names the problem and drops the request instead of
+    // re-reading the same unusable segment until the 20-tick timeout.
+    const ver = planPayloadVersion(data);
+    if (ver !== PLAN_PAYLOAD_VERSION) {
+      logAlways(
+        `planV2: ${adopt.room} NOT adopted — segment ${SEGMENT} carries schema v${ver}, ` +
+          `this build understands v${PLAN_PAYLOAD_VERSION}. Re-push with a matching push-plan.mjs.`,
+      );
       delete Memory.planV2Adopt;
       return;
     }
@@ -1014,34 +1134,20 @@ function containerStageOrder(plan: PackedPlan): { order: number[]; early: number
 }
 
 /**
- * Speedrun extension schedule:
+ * Speedrun extension schedule (also used by the legacy placer — race rooms
+ * often have no planV2, and used to ignore this and site all 10 at RCL3):
  *   RCL2 — all 5 instantly (300→550; 4W/parked bodies need this).
- *   RCL3 — hold at 5 until controller depot AND tower exist. The next five
- *           cost 15k on the 135k climb and do not unlock a bigger 4W (500e).
- *   RCL4+ — engine cap (20/30/…). Storage still sites first in PLACE_ORDER.
+ *   RCL3 — hold at 5 the whole climb. The next five cost 15k on 135k and
+ *           do not unlock a bigger 4W (500e).
+ *   RCL4 — still 5 until room.storage.my STANDS (site ≠ standing; hub
+ *           container is not storage). Then engine cap. No room arg →
+ *           live engine cap (do not skip-forever).
+ *   RCL5+ — engine cap (30/…). Storage still sites first in PLACE_ORDER.
  */
-function rcl3SecondExtWaveReady(room: Room): boolean {
-  const towers = room.find(FIND_MY_STRUCTURES, {
-    filter: (s) => s.structureType === STRUCTURE_TOWER,
-  });
-  if (!towers.length) return false;
-  const ctrl = room.controller;
-  if (!ctrl) return false;
-  const sources = room.find(FIND_SOURCES);
-  const boxes = room.find(FIND_STRUCTURES, {
-    filter: (s) => s.structureType === STRUCTURE_CONTAINER,
-  });
-  for (const c of boxes) {
-    if (c.pos.getRangeTo(ctrl) <= 4 && c.pos.findInRange(sources, 1).length === 0) return true;
-  }
-  return false;
-}
-
-function extensionTake(lvl: number, engineCap: number, room?: Room): number {
+export function extensionTake(lvl: number, engineCap: number, room?: Room): number {
   if (engineCap <= 0) return 0;
-  if (lvl <= 2) return Math.min(5, engineCap);
-  if (lvl === 3) {
-    if (room && rcl3SecondExtWaveReady(room)) return Math.min(10, engineCap);
+  if (lvl <= 3) return Math.min(5, engineCap);
+  if (lvl === 4 && room && !(room.storage && room.storage.my)) {
     return Math.min(5, engineCap);
   }
   return engineCap;
@@ -1542,21 +1648,36 @@ function migrateClass(
       : planned.length;
   if (!cap) return;
 
-  // Only the first `cap` planned tiles can ever exist, so only those count as
-  // a "want". Roads are the exception: the whole array is planned and the RCL
-  // budget only says which prefix gets built FIRST, so a road at index 90 is
-  // on-plan and must never be read as a squatter.
+  // ON-PLAN IS DECIDED AGAINST THE FULL PLAN ARRAY, NOT THE BUILD SCHEDULE.
+  //
+  // `planned` above is what placement is allowed to SITE at this RCL, and for
+  // extensions that is deliberately less than the engine cap: extensionTake
+  // holds RCL<=3 at 5 of the 10 CONTROLLER_STRUCTURES allows (speedrun rule).
+  // A build schedule is not a demolition whitelist. A room that stood all 10 up
+  // at RCL4 and then downgraded to RCL3 still has 10 extensions on plan tiles;
+  // reading the 5 that fell out of the schedule as squatters is what let
+  // migrateClass prune a legitimately built class 3 per pass down to
+  // `effCap - perPass` = 2. rankOffPlan's own `anyPlanTile` has always used the
+  // untrimmed arrays, so this also makes the two agree.
   //
   // THIS IS WHERE A NON-MONOTONE SCHEDULE TURNS INTO A DEMOLITION: a planned
   // tile that drops out of `planTile` between two RCLs makes rankOffPlan read
   // the finished structure standing on it as a squatter, and container is in
-  // FREE_REPLACE. `cap` is applied here to a list plannedTilesFor has ALREADY
-  // staged and capped for containers (see containerStageOrder), so for that
-  // type this min() is a no-op and the set can only grow with the level.
-  const limit = isRoad ? planned.length : Math.min(cap, planned.length);
+  // FREE_REPLACE. Capping the FULL array by `cap` removes the whole class of
+  // that bug: the on-plan set is now a non-decreasing function of the level for
+  // every type, because `cap` is itself non-decreasing.
+  //
+  // Roads are the exception to the cap, not to the array: their whole list is
+  // planned and the RCL budget only says which prefix gets built FIRST, so a
+  // road at index 90 is on-plan and must never be read as a squatter.
+  const allPlanned = plan.t[type] || planned;
+  const limit = isRoad ? allPlanned.length : Math.min(cap, allPlanned.length);
   const planTile: { [p: number]: boolean } = {};
-  for (let i = 0; i < limit; i++) planTile[planned[i]] = true;
+  for (let i = 0; i < limit; i++) planTile[allPlanned[i]] = true;
 
+  // `wanted` stays on the SCHEDULE: it answers "how much of this class will
+  // placement actually rebuild if I destroy something now?", and placement only
+  // ever sites `planned`.
   const placed = have[type] || {};
   const wantLimit = Math.min(cap, planned.length);
   let wanted = 0;
@@ -1633,7 +1754,13 @@ function migrateClass(
       // starves the rebuild. The pending-sites check alone passed vacuously
       // when the site budget was eaten by rampart sites — live E37N59 went
       // 40 -> 19 extensions with zero sites ever placed.
-      const effCap = Math.min(cap, planned.length);
+      // The floor is the RCL's OWN cap, not the current build schedule.
+      // `Math.min(cap, planned.length)` read the trimmed schedule and so put
+      // the RCL3 extension floor at 5-3 = 2 while the engine allows 10 — the
+      // floor is supposed to stop the class sinking, not authorise it. Use the
+      // untrimmed plan array: for every type the plan can actually fill, this
+      // is CONTROLLER_STRUCTURES[type][lvl].
+      const effCap = Math.min(cap, allPlanned.length);
       if (ranked.built <= effCap - perPass) return;
       floorHeadroom = ranked.built - (effCap - perPass);
     }
@@ -1663,6 +1790,16 @@ function migrateClass(
   }
 
   let take = Math.min(perPass, candidates.length);
+  // wanted === 0 means placement has nothing left to site for this class at
+  // this RCL, so anything destroyed now is capacity that does not come back.
+  // The tower and poor-room branches already return on it; `wanted > 0` here
+  // silently did NOT bind, which is the second half of the RCL3 extension bug
+  // (schedule full at 5, wanted 0, take stays at perPass).
+  //
+  // Roads are exempt on purpose: their whole array is the plan, so wanted === 0
+  // is the FINISHED state, and retiring the legacy interior lines is exactly
+  // what is left to do at that point.
+  if (!wanted && !isRoad) return;
   if (wanted > 0) take = Math.min(take, wanted);
   if (floorHeadroom !== Infinity) take = Math.min(take, floorHeadroom);
   if (take <= 0) return;
@@ -1728,6 +1865,20 @@ function migrateSpawns(
   }
 
   if (spawns.length <= 1) {
+    // Fresh claim with a leftover/colonise spawn off the plan: keeping it
+    // until RCL7 means the plan spawn can never site (cap 1). E39N58.
+    const young = lvl <= 3 && !room.storage;
+    if (young && off.length && !onPlan.length) {
+      const only = off[0];
+      if (only.my && !only.spawning) {
+        const res = only.destroy();
+        logAlways(
+          `planV2 ${room.name}: retired off-plan only spawn@${only.pos.x},${only.pos.y} ` +
+            `destroy() ${res} — RCL${lvl} cap is 1, plan spawn cannot site beside it`,
+        );
+        return;
+      }
+    }
     noteOnce(
       room,
       "spawn:solo",
@@ -1959,6 +2110,12 @@ function syncPlanV2Memory(room: Room, plan: PackedPlan, structures: Structure[])
   if (!room.memory.construction) room.memory.construction = {};
   if (perimeter.length) {
     // ---------------------------------------------------------------------
+    // CONTRACT: rampartLocations = shell tiles STILL MISSING A RAMPART. Empty
+    // means the shell is finished (Guard.ts only promotes Guard ->
+    // RampartDefender on an empty list). The legacy writer in utils/Perimeter
+    // publishes the whole ring instead and is a no-op on planV2 rooms for
+    // exactly that reason.
+    //
     // rampartLocations is GATED AT RCL4, matching the rampart gate in
     // typeAllowedAtRcl / BasePlan.placeFromBasePlan / Perimeter.SHELL_MIN_RCL.
     //
@@ -2004,6 +2161,16 @@ export function placeFromPlanV2(room: Room): void {
   // function so the slots the stray sites were holding are handed straight back
   // to the spawn on this same pass.
   const spawnless = spawnFirstLockdown(room);
+  // Leftover / previous-owner spawns. destroy() only lands if we own them
+  // or they are unowned; either way try so the engine cap can free.
+  for (const s of room.find(FIND_STRUCTURES, {
+    filter: (x: Structure) => x.structureType === STRUCTURE_SPAWN && !(x as StructureSpawn).my,
+  })) {
+    const res = s.destroy();
+    if (res === OK) {
+      logAlways(`planV2 ${room.name}: destroyed foreign/unowned spawn@${s.pos.x},${s.pos.y}`);
+    }
+  }
 
   const sites = room.find(FIND_MY_CONSTRUCTION_SITES);
   const structures = room.find(FIND_STRUCTURES);
@@ -2033,23 +2200,54 @@ export function placeFromPlanV2(room: Room): void {
   for (const s of sites) {
     if (spawnless) {
       if (s.structureType === STRUCTURE_SPAWN) liveSites++;
-    } else if (s.structureType !== STRUCTURE_RAMPART) {
-      // rampart sites are erector-owned (construction.rampartLocations) and
-      // build on their own budget — counting them here starved plan placement
-      // completely while a new shell went up (live E37N59: 7 rampart sites =
-      // zero extension sites = the I3 gate passing vacuously)
+    } else if (s.structureType !== STRUCTURE_RAMPART || lvl >= 6) {
+      // RCL4-5: rampart sites stay off this budget so a new shell does not
+      // starve extensions (E37N59). RCL6+ they count — otherwise 8 roads +
+      // N ramparts bleed the bank.
       liveSites++;
     }
   }
-  let budget = maxSitesFor(lvl, room) - liveSites;
+  const brokeFloor = lvl >= 8 ? 150000 : lvl >= 7 ? 80000 : 30000;
+  const brokeBank =
+    lvl >= 6 &&
+    !!room.storage &&
+    room.storage.my &&
+    (room.storage.store[RESOURCE_ENERGY] || 0) < brokeFloor;
+  // Spawnless stays on the spawn-first slot; do not spend it on shell tiles.
+  const nakedShell = !spawnless && brokeBank && isShellNaked(structures);
+  let budget = maxSitesFor(lvl, room, structures) - liveSites;
+  // Broke established room: drop every site except spawn. Labs/nuker/roads
+  // kept draining VPS W1N1 after the road/rampart-only strip.
+  // Naked shell: keep road/rampart sites so the 2-slot exception can rebuild.
+  if (brokeBank && (budget <= 0 || nakedShell)) {
+    for (const s of sites) {
+      if (s.structureType === STRUCTURE_SPAWN) continue;
+      if (nakedShell && (s.structureType === STRUCTURE_RAMPART || s.structureType === STRUCTURE_ROAD)) {
+        continue;
+      }
+      s.remove();
+    }
+  }
   // existing structures + sites by type (containers/roads are unowned)
   const have: { [type: string]: { [packed: number]: boolean } } = {};
   const count: { [type: string]: number } = {};
-  const note = (type: string, x: number, y: number) => {
+  const occupy = (type: string, x: number, y: number) => {
     (have[type] = have[type] || {})[x + y * 50] = true;
+  };
+  const note = (type: string, x: number, y: number) => {
+    occupy(type, x, y);
     count[type] = (count[type] || 0) + 1;
   };
-  for (const s of structures) note(s.structureType, s.pos.x, s.pos.y);
+  // Tile occupancy is everyone (do not site on a leftover spawn). Engine
+  // cap is OUR structures only — counting a foreign spawn as existing
+  // skipped t.spawn[0] forever (E39N58).
+  for (const s of structures) {
+    occupy(s.structureType, s.pos.x, s.pos.y);
+    const mine = !!(s as any).my;
+    const shared =
+      s.structureType === STRUCTURE_ROAD || s.structureType === STRUCTURE_CONTAINER;
+    if (mine || shared) note(s.structureType, s.pos.x, s.pos.y);
+  }
   for (const s of sites) note(s.structureType, s.pos.x, s.pos.y);
 
   // Migration runs BEFORE the site budget gate, deliberately. A starved room
@@ -2098,6 +2296,8 @@ export function placeFromPlanV2(room: Room): void {
     // it is written as a `continue` guard so a future reorder cannot reopen the
     // hole silently.
     if (spawnless && type !== "spawn") continue;
+    // Naked-shell budget is road+rampart only — never labs/nuker/terminal.
+    if (nakedShell && type !== "road" && type !== "rampart") continue;
     // Roads are the one type whose ARRAY is trimmed rather than capped: the
     // RCL selection is a staged subsequence, not a prefix (see roadsForRcl), so
     // the loop below must iterate the selection itself.
@@ -2135,9 +2335,10 @@ export function placeFromPlanV2(room: Room): void {
       // container squatted tower[0]).
       const packed = planned[i];
       if (placedSet[packed]) continue;
-      // see the personal-rampart note above: cover waits for the thing it covers
-      if (type === "rampart" && plannedOccupancy[packed] && !builtOn[packed]) continue;
+      // Cover waits for the thing it covers. Naked-shell budget prefers the wall.
+      if (type === "rampart" && plannedOccupancy[packed] && (nakedShell || !builtOn[packed])) continue;
       const { x, y } = unpack(packed);
+      if (type === "spawn") clearPlanSpawnTile(room, x, y);
       const res = room.createConstructionSite(x, y, type as BuildableStructureConstant);
       if (res === OK) {
         existing++;

@@ -322,14 +322,24 @@ Room.prototype.findContainers = function(capacity) {
              i.id !== this.memory.Structures.storage &&
              i.id !== this.memory.Structures.controllerLink));
 
+    // Sticky pick FIRST: keep the current container while it still passes the
+    // SAME filter, so haulers don't thrash between two equally full containers.
+    //
+    // This used to sit INSIDE `if(containers.length > 0)`, below the whole-room
+    // scan — which made the scan unconditional even though the sticky answer
+    // wins in the steady state. Hoisting it is exactly equivalent: `usable` is
+    // the very predicate the scan filters on and it already requires the
+    // container to be in THIS room, so a usable CurrentContainer is necessarily
+    // one of the scan's own results and `containers.length > 0` could never
+    // have been false when we got here. Every hauler calls this up to twice per
+    // tick from acquireEnergyWithContainersAndOrDroppedEnergy.
+    let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
+    if(usable(CurrentContainer)) {
+        return CurrentContainer;
+    }
+
     let containers = this.find(FIND_STRUCTURES, {filter: usable});
     if(containers.length > 0) {
-        // Sticky pick: keep the current container while it still passes the SAME
-        // filter, so haulers don't thrash between two equally full containers.
-        let CurrentContainer:any = Game.getObjectById(this.memory.Structures.container);
-        if(usable(CurrentContainer)) {
-            return CurrentContainer;
-        }
         containers.sort((a,b) => b.store[RESOURCE_ENERGY] - a.store[RESOURCE_ENERGY]);
         this.memory.Structures.container = containers[0].id;
         return containers[0];

@@ -2,7 +2,7 @@
 // the closest hungry structure — and this picker locks onto it for the
 // creep's whole life. See utils/Reachability.
 import { isUndeliverable } from "utils/Reachability";
-import { remoteIsHot } from "Rooms/rooms.remotes";
+import { remoteIsHot, remoteRecalled } from "Rooms/rooms.remotes";
 
 /** Drop a lock that is gone, full, or undeliverable — same as FakeFiller. */
 function lockStillOpen(creep) {
@@ -121,6 +121,31 @@ function controllerDepot(creep: any): any {
     return depot;
 }
 
+/**
+ * Is every tower at or above the depot floor? One answer per room per tick.
+ *
+ * Split out of baseIsFed() because depotSink()'s RCL3 arm asks the SAME
+ * question again a few lines later, and baseIsFed() cannot answer it from its
+ * cache: when the extensions are hungry it short-circuits to false without
+ * ever looking at a tower. So on the RCL3 climb — the state this whole depot
+ * path exists for — every loaded carrier in the room paid a second
+ * FIND_MY_STRUCTURES walk every tick for an answer the room already had.
+ */
+let _towerTick = -1;
+let _towerCache: {[roomName: string]: boolean} = {};
+function towersFed(room: any): boolean {
+    if(_towerTick !== Game.time) {
+        _towerTick = Game.time;
+        _towerCache = {};
+    }
+    if(_towerCache[room.name] === undefined) {
+        _towerCache[room.name] = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
+            b.structureType == STRUCTURE_TOWER &&
+            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length == 0;
+    }
+    return _towerCache[room.name];
+}
+
 /** is every higher-priority sink in the room already fed? one answer per tick. */
 let _fedTick = -1;
 let _fedCache: {[roomName: string]: boolean} = {};
@@ -143,9 +168,7 @@ function baseIsFed(room: any): boolean {
     }
     // Then the towers.
     if(fed) {
-        fed = room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
-            b.structureType == STRUCTURE_TOWER &&
-            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length == 0;
+        fed = towersFed(room);
     }
     _fedCache[room.name] = fed;
     return fed;
@@ -171,9 +194,7 @@ function depotSink(creep: any): any {
         // goes up. RCL2 has no depot; RCL4 keeps the old full-fed rule.
         if(ctrl.level !== 3) return null;
         if(room.energyAvailable < Math.min(550, room.energyCapacityAvailable)) return null;
-        if(room.find(FIND_MY_STRUCTURES, {filter: (b: any) =>
-            b.structureType == STRUCTURE_TOWER &&
-            b.store[RESOURCE_ENERGY] < DEPOT_TOWER_FLOOR}).length > 0) return null;
+        if(!towersFed(room)) return null;
     }
     return depot;
 }
@@ -256,7 +277,13 @@ function depotSink(creep: any): any {
         }
         else {
             let spawn:any = Game.getObjectById(creep.memory.spawn) || creep.findSpawn();
-            let storage = Game.getObjectById(creep.memory.storage) || creep.findStorage();
+            // `storage` is the one resolved just above and is FALSY here — that
+            // is the only way this branch is reached. It used to be resolved a
+            // second time into a shadowing local, which is a second full
+            // Creep.findStorage() every tick: two FIND_MY_STRUCTURES walks, a
+            // lookFor and Room.findStorageContainer()'s eight-tile ring, all to
+            // re-derive the same `undefined`. The shadow is gone; every reader
+            // below sees the identical value it saw before.
             let bin;
             if(storage && creep.room.memory.Structures) {
                 bin = Game.getObjectById(creep.room.memory.Structures.bin) || creep.room.findBin(storage);
@@ -369,19 +396,46 @@ function depotSink(creep: any): any {
         // walking back into it. The spawner already refuses to make new carriers
         // for a hot remote; without this the ones already alive keep commuting
         // into the room that is killing them.
-        if (
+        //
+        // A CLOSED remote (remoteRecalled) does NOT get the same treatment, and
+        // sharing this branch with it was a bug. The re-home above is permanent:
+        // the remote name is gone from targetRoom, so remoteRecalled can never
+        // un-latch the creep when manageRemotes re-opens the entry (which it does
+        // routinely — cap juggling, score churn, a bucket dip), and `sourceId` is
+        // gone too, so the body stops counting in liveCarriersForSource and the
+        // room spawns a REPLACEMENT for a carrier that is still alive. One
+        // transient close permanently doubles the haul fleet.
+        //
+        // A recall therefore mutates nothing at all: walk home, work home-side,
+        // and pick the remote straight back up when the flag lifts. Same exit as
+        // the miner takes (Roles/energyMiner), minus the recycle — a carrier is
+        // useful at home, a static 4W miner is not.
+        //
+        // Note where this sits — inside `if(!creep.memory.full)` — so a loaded
+        // carrier finishes the delivery it is already carrying first.
+        const remoteTrip = !!(
             creep.memory.targetRoom &&
             creep.memory.homeRoom &&
-            creep.memory.targetRoom !== creep.memory.homeRoom &&
-            remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)
-        ) {
+            creep.memory.targetRoom !== creep.memory.homeRoom
+        );
+        let recalledHome = false;
+        if (remoteTrip && remoteIsHot(creep.memory.homeRoom, creep.memory.targetRoom)) {
             creep.memory.targetRoom = creep.memory.homeRoom;
             delete creep.memory.exit;
             delete creep.memory.route;
             delete creep.memory.sourceId;
             delete creep.memory.pathLength;
         }
-        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name) {
+        else if (remoteTrip && remoteRecalled(creep)) {
+            if (creep.room.name !== creep.memory.homeRoom) {
+                return creep.moveToRoomAvoidEnemyRooms(creep.memory.homeRoom);
+            }
+            recalledHome = true;
+        }
+        // ...and the walk-out has to know about the recall too, or the two
+        // fight: the recall says go home, this says go to the remote, and the
+        // carrier oscillates on the exit tile.
+        if(creep.memory.targetRoom && creep.memory.targetRoom !== creep.room.name && !recalledHome) {
             return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
         }
         let result = creep.acquireEnergyWithContainersAndOrDroppedEnergy();
@@ -398,7 +452,13 @@ function depotSink(creep: any): any {
                 }
             }
 
-            if(storage) {
+            // Free-capacity check, same as the home-carrier unload above:
+            // findStorage() now hands RCL4+ rooms their 2k hub CONTAINER while
+            // the real storage is still a site, and a full container answers
+            // ERR_FULL forever — `full` never clears and the remote carrier
+            // parks beside it with a full load. Fall through to the locked /
+            // drop-off path instead, exactly like a storage-less room.
+            if(storage && storage.store.getFreeCapacity(RESOURCE_ENERGY) > 0) {
                 if(creep.pos.isNearTo(storage)) {
                     if(creep.transfer(storage, RESOURCE_ENERGY) == 0 && creep.store[RESOURCE_ENERGY] == 0) {
                         creep.memory.full = false;
