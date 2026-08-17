@@ -60,19 +60,19 @@ describe("PlanV2 migration safety", () => {
       );
     });
 
-    it("holds every forced migration while the empire is rebuilding a spawn", () => {
-      assert.include(SRC, "spawnEmergencyActive");
-      assert.match(
+    it("does NOT wait for a spawn rescue — the owner overrode that deliberately", () => {
+      // This assertion was the reverse until the owner, having seen the cost,
+      // said twice to migrate regardless of spawn state. Recorded as an explicit
+      // decision so a future reader does not "restore" the hold as a bugfix.
+      //
+      // What still protects the rescue is keepCritical (spawns/storage/terminal
+      // survive an align pass) and the fact that construction sites are not
+      // structures, so an in-flight spawn SITE cannot be destroyed here.
+      assert.notMatch(
         SRC,
-        /if \(spawnEmergencyActive\(\)\) \{[\s\S]{0,400}?return;/,
-        "a forced pass must bail while a spawn rescue is running",
+        /if \(spawnEmergencyActive\(\)\) \{[\s\S]{0,200}?return;/,
+        "align must not bail on a spawn rescue — see the ALIGN comment in runMigration",
       );
-    });
-
-    it("detects the emergency from standing state, not just the Memory flags", () => {
-      // The flags are owned by rooms.spawning and can lag a tick; a room of ours
-      // with no spawn IS the emergency regardless.
-      assert.match(SRC, /find\(FIND_MY_SPAWNS\)\.length === 0\) return true/);
     });
   });
 

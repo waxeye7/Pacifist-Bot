@@ -451,8 +451,10 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
   for (const k of Object.keys(noteLog)) if (k.indexOf("sites-stalled:") === 0) delete noteLog[k];
   const hold = mode === "gradual" && lvl < 4 ? ` (holds until RCL4 — economy safety)` : "";
   const level = wantHub ? " ALIGN+HUB (will retire spawn/storage/terminal)" : force ? " ALIGN (spawn/storage/terminal kept)" : "";
-  const held = spawnEmergencyActive()
-    ? ` — HELD: the empire is rebuilding a spawn, alignment starts once every room has one`
+  // Align runs immediately, including mid spawn-rescue — the owner's call. Say
+  // so at arm time so the cost is visible at the moment it is accepted.
+  const held = force && spawnEmergencyActive()
+    ? ` — NOTE: a spawn rescue is in progress and this will NOT wait; spawns/storage/terminal are kept, extensions are not`
     : "";
   return `${mode} migration ARMED for ${roomName}${level}${hold}${held} — migrateStatus() to watch, migrateAbort("${roomName}") to stand down`;
 };
@@ -529,6 +531,39 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
       }
       if (off) parts.push(`${cls}:${off}`);
     }
+    /*
+     * RAMPARTS AND WALLS, counted separately because nothing above counts them.
+     *
+     * The census loop iterates MIGRATE_CLASSES — extension, container, tower,
+     * road — which is the set GRADUAL migration handles. Ramparts are not in it
+     * and never were, so gradual migration cannot remove an off-plan rampart at
+     * all, and this status line did not even mention them. Live E36N57 reported
+     * "extension:17 container:2 road:9" while standing on 67 ramparts of which
+     * 28 were off-plan: a complete old square wall (x=13, y=36, x=30, x=28)
+     * left beside the new min-cut shell. The owner could see two rows of
+     * ramparts in the client and the bot was telling them the room was nearly
+     * aligned.
+     *
+     * Only the align/force path (migrateInsta) retires these, so they are
+     * flagged as such rather than folded into the same list — the reader needs
+     * to know the difference between "queued for gradual" and "needs align".
+     */
+    const planRampart = new Set<number>();
+    for (const p of plan.t.rampart || []) planRampart.add(p);
+    for (const p of plan.t.shellCut || []) planRampart.add(p);
+    let offShell = 0;
+    for (const s of room.find(FIND_MY_STRUCTURES, {
+      filter: (x: any) => x.structureType === STRUCTURE_RAMPART,
+    }) as any[]) {
+      if (!planRampart.has(s.pos.x + s.pos.y * 50)) offShell++;
+    }
+    for (const s of room.find(FIND_STRUCTURES, {
+      filter: (x: any) => x.structureType === STRUCTURE_WALL,
+    }) as any[]) {
+      if (!planRampart.has(s.pos.x + s.pos.y * 50)) offShell++;
+    }
+    if (offShell) parts.push(`rampart/wall:${offShell}(align-only)`);
+
     // types the plan does not manage at all (legacy factory/powerSpawn etc.)
     const unmanaged = room
       .find(FIND_MY_STRUCTURES, {
@@ -555,8 +590,6 @@ export function isSanctionedRampart(room: Room, pos: { x: number; y: number }): 
     const forced = !!(arm && arm.force);
     if (gate !== null) {
       verdict = "BLOCKED: " + gate;
-    } else if (forced && spawnEmergencyActive()) {
-      verdict = "HELD: spawn rescue in progress — alignment resumes when every room has a spawn";
     } else if (!forced && migrationEnergy(room) <= MIGRATE_ENERGY) {
       verdict =
         `IDLE: storage ${migrationEnergy(room)} <= ${MIGRATE_ENERGY} — gradual migration will not ` +
@@ -2292,19 +2325,21 @@ function runMigration(
      * not touch the three structures a room cannot function without.
      */
     const wantHub = !!arm.hub;
-    // Never demolish anything while the empire is rebuilding a spawn. Every
-    // structure retired here is one the surviving spawn has to pay to replace,
-    // out of the same budget the rescue is spending — and the rescue is what
-    // decides whether rooms come back at all.
-    if (spawnEmergencyActive()) {
-      noteOnce(
-        room,
-        "align:spawn-emergency",
-        `planV2 ${room.name}: migration held — the empire is rebuilding a spawn ` +
-          `(Memory.spawnRescue). Alignment resumes once every room has one.`,
-      );
-      return;
-    }
+    /*
+     * An ALIGN arm runs immediately, including during a spawn rescue.
+     *
+     * This deliberately does NOT wait. Holding was the cautious choice — every
+     * structure retired here is one the surviving spawn pays to replace out of
+     * the same budget the rescue is spending — and the owner overrode it
+     * explicitly, twice, having seen the cost. `migrateInsta` still protects
+     * spawns, storage and terminals (keepCritical, below), and construction
+     * sites are not structures, so an in-flight spawn SITE cannot be destroyed
+     * by this path either. What it does cost is extensions: a room mid-rescue
+     * will hatch smaller creeps for a while after its off-plan extensions come
+     * down and before the on-plan ones are built.
+     *
+     * `migrateAbort(room)` stands any of this down in one command.
+     */
     migrateInsta(room, plan, structures, !wantHub);
     if (wantHub) {
       migrateSpawns(room, plan, lvl, structures);
