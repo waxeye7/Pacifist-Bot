@@ -213,6 +213,7 @@ function pickScoutHome(target: string): string {
 }
 
 function sendWarScout(): boolean {
+  if ((Memory as any)._spawnEmergency || (Memory as any).spawnRescue) return false;
   const { live, aimed } = warScoutCount();
   if (live >= MAX_WAR_SCOUTS) return false;
   const q = scoutQueue(1000);

@@ -254,6 +254,11 @@ function spawning(room: any) {
         room.memory.spawn_list = [];
     }
 
+    // Rescue retask must run even when this room has no idle spawn. The
+    // spawnFirstInLine "spawning" return used to skip add_creeps entirely,
+    // so after E37N58 stood back up the fleet never left for E39N58.
+    runSpawnRescueOnce();
+
     offerEmergencyFeed(room);
 
     // Same cold-start problem, different object: rooms.ts calls spawning(room)
@@ -305,6 +310,9 @@ function spawning(room: any) {
         delete room.memory.Structures.spawn;
         return;
     }
+
+    // Queue more CBs even while this spawn is busy / off cadence.
+    if (spawnEmergencyOn()) maybeSpawnColonyBuilder(room);
 
     if(room.controller.level >= 7 && spawn && spawn.effects && spawn.effects.length > 0 && room.memory.danger && room.memory.danger_timer > 30) {
         if(!room.memory.ram_coming) {
@@ -6099,7 +6107,14 @@ function spawnSiteProgress(name: string): number {
     return site ? site.progress : 15000;
 }
 
+function spawnEmergencyOn(): boolean {
+    return !!(Memory as any)._spawnEmergency || !!(Memory as any).spawnRescue;
+}
+
 function colonyBuilderCap(need: string): number {
+    // Spawn-new cap. Retask of existing WORK creeps is uncapped separately.
+    // Cap-99 hatching is what emptied the last live spawn (E37N58 59/1150).
+    if (spawnEmergencyOn()) return 8;
     const r = Game.rooms[need];
     // Last 5k used to hit cap-1 first and skip this. E37N57 10k/15k DG 1207.
     if (r && r.controller && r.controller.my && r.controller.level === 1
@@ -6139,25 +6154,88 @@ function finishableSpawnSiteRooms(from: string): string[] {
     return hits;
 }
 
+/**
+ * What a rebuilt spawn in this room is WORTH to the empire, as a tiebreak.
+ *
+ * Not cosmetic. A restored spawn's value is mostly the size of the creep it can
+ * hatch, and that is energyCapacityAvailable — an RCL6 room comes back at 1850
+ * and can immediately build for everyone else, while an RCL3 room comes back at
+ * 250 and can barely feed itself. The room's own standing structures are the
+ * other half: losing an RCL6 with 37 extensions, 3 labs, links and an extractor
+ * is a different order of loss from an RCL3 with none of that.
+ */
+function spawnRescueValue(name: string): number {
+    const r = Game.rooms[name];
+    if (!r || !r.controller || !r.controller.my) return 0;
+    return (r.controller.level * 1000) + r.energyCapacityAvailable;
+}
+
+/** Progress rung, so trivial differences do not decide the order. See below. */
+const RESCUE_PROGRESS_RUNG = 5000;
+
 function pickSpawnRescue(): string | null {
     const pinned = (Memory as any).spawnRescue;
     if (typeof pinned === "string" && roomLooksSpawnlessOwned(pinned)) return pinned;
     let best: string | null = null;
+    let bestRung = -1;
+    let bestValue = -1;
     let bestP = -1;
     const hits = finishableSpawnSiteRooms("E37N58");
     for (let i = 0; i < hits.length; i++) {
         const p = spawnSiteProgress(hits[i]);
         const score = p >= 15000 ? 0 : p;
-        if (score > bestP) {
+        /*
+         * Progress still decides when it is MEANINGFUL — a site that is nearly
+         * done restores a spawn soonest, and that beats everything.
+         *
+         * But comparing raw progress alone let 50 units — a third of one
+         * percent, i.e. noise — outrank a room worth thousands of energy. Live
+         * shard3 after a forced plan migration destroyed three spawns at once:
+         * E36N57 sat at 50/15000 and E37N59 at 0/15000, so the rescue would
+         * have rebuilt the RCL4 first and left the RCL6 (37 extensions, 3 labs,
+         * links, extractor, 1850 capacity) for last — the room whose spawn
+         * would have rebuilt the others fastest, queued behind them.
+         *
+         * So compare by RUNG first and value second: a genuinely closer site
+         * still wins, a rounding difference does not.
+         */
+        const rung = Math.floor(score / RESCUE_PROGRESS_RUNG);
+        const value = spawnRescueValue(hits[i]);
+        if (rung > bestRung
+            || (rung === bestRung && value > bestValue)
+            || (rung === bestRung && value === bestValue && score > bestP)) {
+            bestRung = rung;
+            bestValue = value;
             bestP = score;
             best = hits[i];
         }
     }
-    if (best) {
-        (Memory as any).spawnRescue = best;
-        (Memory as any)._spawnEmergency = true;
-    }
+    if (best) pinSpawnRescue(best);
     return best;
+}
+
+function rescueSpawnXY(name: string): { x: number; y: number } | null {
+    const r = Game.rooms[name];
+    if (r) {
+        const site = r.find(FIND_MY_CONSTRUCTION_SITES, {filter: (s: ConstructionSite) =>
+            s.structureType === STRUCTURE_SPAWN})[0];
+        if (site) return { x: site.pos.x, y: site.pos.y };
+    }
+    const mem: any = Memory.rooms && Memory.rooms[name];
+    const packed = mem && mem.planV2 && mem.planV2.t && mem.planV2.t.spawn && mem.planV2.t.spawn[0];
+    if (typeof packed === "number") return { x: packed % 50, y: Math.floor(packed / 50) };
+    return null;
+}
+
+function pinSpawnRescue(name: string): void {
+    (Memory as any).spawnRescue = name;
+    (Memory as any)._spawnEmergency = true;
+    const xy = rescueSpawnXY(name);
+    if (!xy) return;
+    const tc: any = (Memory as any).target_colonise || {};
+    tc.room = name;
+    tc.spawn_pos = { x: xy.x, y: xy.y, roomName: name };
+    (Memory as any).target_colonise = tc;
 }
 
 function empireMySpawnCount(): number {
@@ -6243,7 +6321,11 @@ function retaskBuildersToSpawnless(need: string): void {
         const rr = Game.rooms[rn];
         if (rr.controller && rr.controller.my) empireSpawns += rr.find(FIND_MY_SPAWNS).length;
     }
-    const cap = empireSpawns === 0 ? 99 : 2;
+    // While any owned room is spawnless, dump the whole work roster on
+    // the one rescue target. Cap-2 after the first spawn came back is
+    // what left E39N58/E36N57/E37N59 sitting at 0–730/15k.
+    const stillRescue = !!pickSpawnRescue();
+    const cap = stillRescue || empireSpawns === 0 ? 99 : 2;
     let onIt = colonyBuildersOn(need);
     if (onIt >= cap) return;
     for (const name in Game.creeps) {
@@ -6252,22 +6334,50 @@ function retaskBuildersToSpawnless(need: string): void {
         if (!c.memory) continue;
         if (c.memory.role === "buildcontainer" && c.memory.targetRoom === need) continue;
         const role = c.memory.role;
-        if (role !== "builder" && role !== "repair" && role !== "maintainer" && role !== "RampartErector") continue;
-        if (empireSpawns > 0) {
-            const homeName = c.memory.homeRoom || c.room.name;
+        // Keep source income + the last hatchery crew + combat.
+        if (role === "EnergyMiner" || role === "mineralMiner") continue;
+        if (c.getActiveBodyparts(ATTACK) || c.getActiveBodyparts(RANGED_ATTACK)
+            || c.getActiveBodyparts(HEAL) || c.getActiveBodyparts(CLAIM)) continue;
+        const homeName = c.memory.homeRoom || c.room.name;
+        const home = Game.rooms[homeName] || c.room;
+        const homeHasSpawn = home.find(FIND_MY_SPAWNS).length > 0;
+        if (homeHasSpawn && (role === "filler" || role === "carry")) continue;
+        const canBuild = c.getActiveBodyparts(WORK) > 0;
+        const canHaul = c.getActiveBodyparts(CARRY) > 0;
+        if (!canBuild && !canHaul) continue;
+        if (empireSpawns > 0 && !stillRescue) {
             if (homeName === need) continue;
-            const home = Game.rooms[homeName];
-            if (!home || !home.find(FIND_MY_SPAWNS).length) continue;
+            if (!home || !homeHasSpawn) continue;
         }
         c.memory.role = "buildcontainer";
         c.memory.targetRoom = need;
-        (c.memory as any).fill = c.store.getFreeCapacity() > 0;
+        const e = c.store[RESOURCE_ENERGY] || 0;
+        (c.memory as any).fill = e === 0 && c.store.getFreeCapacity() > 0;
+        (c.memory as any).building = e > 0;
         onIt++;
         console.log("[colony] retask " + c.name + " -> " + need);
     }
 }
 
-function maybeSpawnColonyBuilder(room: Room): void {
+function stripNonRescueQueue(room: any): void {
+    if (!spawnEmergencyOn()) return;
+    const q = room.memory && room.memory.spawn_list;
+    if (!q || !q.length) return;
+    const next: any[] = [];
+    forEachQueued(room, function(body, name, opts) {
+        const role = opts && opts.memory && opts.memory.role;
+        // Last spawn dies if we strip its miners/fillers/haulers.
+        if (role === "buildcontainer" || role === "EnergyMiner" ||
+            role === "filler" || role === "carry") next.push(body, name, opts);
+        return true;
+    });
+    if (next.length !== q.length) room.memory.spawn_list = next;
+}
+
+let lastSpawnRescueTick = 0;
+function runSpawnRescueOnce(): void {
+    if (lastSpawnRescueTick === Game.time) return;
+    lastSpawnRescueTick = Game.time;
     const pinned = (Memory as any).spawnRescue;
     if (typeof pinned === "string") {
         const pr = Game.rooms[pinned];
@@ -6277,6 +6387,21 @@ function maybeSpawnColonyBuilder(room: Room): void {
         }
     }
     revertSpawnEmergency();
+    const need = pickSpawnRescue();
+    if (need) {
+        pinSpawnRescue(need);
+        retaskBuildersToSpawnless(need);
+    }
+    for (const rn in Game.rooms) {
+        const r = Game.rooms[rn];
+        if (r.controller && r.controller.my && r.find(FIND_MY_SPAWNS).length) {
+            stripNonRescueQueue(r);
+        }
+    }
+}
+
+function maybeSpawnColonyBuilder(room: Room): void {
+    runSpawnRescueOnce();
     if (!room.controller || !room.controller.my || room.controller.level < 3) return;
     purgeDeadColonyBuilders(room);
     if (room.memory.danger) return;
@@ -6290,16 +6415,18 @@ function maybeSpawnColonyBuilder(room: Room): void {
     if (!rescue) {
         if (!storage || bank <= 10000) return;
         if (Game.cpu.bucket <= 7750) return;
-    } else if (bank < 2000 && room.energyAvailable < 550) {
+    } else if (bank < 2000 && room.energyAvailable < 800) {
+        // Don't empty the last spawn to hatch another CB.
         return;
     }
     if (!need) return;
+    if (!room.find(FIND_MY_SPAWNS).length) return;
     const dist = Game.map.getRoomLinearDistance(room.name, need);
     if (dist > 7) return;
     // Only the closest funded mother queues.
     let best: string = room.name;
     let bestDist = dist;
-    let bestE = storage.store[RESOURCE_ENERGY] || 0;
+    let bestE = bank;
     for (const name in Game.rooms) {
         const r = Game.rooms[name];
         if (!r.controller || !r.controller.my || r.controller.level < 3) continue;

@@ -16,6 +16,50 @@ import { isSanctionedRampart, plannedSpawnTile, planPending } from "utils/PlanV2
  * used to abort the whole tick at the top of the rampart clause, so the build
  * and harvest paths below it never ran.
  */
+/** Pull energy from extensions/containers/links. Skip rooms that still have
+ *  a spawn — that energy is the last hatchery. */
+function tapRoomEnergy(creep: Creep): boolean {
+    if (creep.store.getFreeCapacity(RESOURCE_ENERGY) === 0) return false;
+    if (creep.room.find(FIND_MY_SPAWNS).length) return false;
+    const piles = creep.room.find(FIND_STRUCTURES, {filter: (s: AnyStructure) => {
+        const st = s.structureType;
+        if (st !== STRUCTURE_EXTENSION && st !== STRUCTURE_CONTAINER &&
+            st !== STRUCTURE_LINK && st !== STRUCTURE_TOWER) return false;
+        const store = (s as AnyStoreStructure).store;
+        return !!store && (store[RESOURCE_ENERGY] || 0) > 0;
+    }});
+    if (!piles.length) return false;
+    const near = creep.pos.findInRange(piles, 1)[0];
+    if (near) {
+        creep.withdraw(near, RESOURCE_ENERGY);
+        return true;
+    }
+    const closest = creep.pos.findClosestByRange(piles);
+    if (closest) {
+        creep.MoveCostMatrixRoadPrio(closest, 1);
+        return true;
+    }
+    return false;
+}
+
+/** Carry-only rescue haulers: dump on the spawn tile or into a WORK creep. */
+function dumpAtSpawnSite(creep: Creep, site: ConstructionSite): boolean {
+    if (creep.getActiveBodyparts(WORK) > 0) return false;
+    if ((creep.store[RESOURCE_ENERGY] || 0) === 0) return false;
+    if (!creep.pos.inRangeTo(site, 1)) {
+        creep.MoveCostMatrixRoadPrio(site, 1);
+        return true;
+    }
+    const mates = site.pos.findInRange(FIND_MY_CREEPS, 1).filter((m) =>
+        m.id !== creep.id && m.getActiveBodyparts(WORK) > 0 && m.store.getFreeCapacity() > 0);
+    if (mates.length) {
+        creep.transfer(mates[0], RESOURCE_ENERGY);
+        return true;
+    }
+    creep.drop(RESOURCE_ENERGY);
+    return true;
+}
+
 function coloniseSpawnPos(room: Room): RoomPosition | null {
     const target = Memory.target_colonise;
     if(!target || !target.spawn_pos || room.name !== target.room) return null;
@@ -31,13 +75,19 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     creep.memory.moving = false;
 
     if(creep.room.name != creep.memory.targetRoom && !creep.memory.fill) {
+        // Grab idle energy in spawnless rooms we walk through (E37N59 1850
+        // sitting in extensions while CBs hiked past empty).
+        if (creep.store.getFreeCapacity() > 0 && tapRoomEnergy(creep)) {
+            if (creep.store.getFreeCapacity() === 0) creep.memory.building = true;
+            return;
+        }
         return creep.moveToRoomAvoidEnemyRooms(creep.memory.targetRoom);
     }
 
     if(creep.room.name !== creep.memory.targetRoom && creep.memory.fill) {
         if(creep.store.getFreeCapacity() !== 0) {
             let storage = creep.room.storage;
-            if(storage) {
+            if(storage && (storage.store[RESOURCE_ENERGY] || 0) > 0) {
                 let result = creep.withdraw(storage, RESOURCE_ENERGY);
                 if(result == ERR_NOT_IN_RANGE) {
                     creep.MoveCostMatrixRoadPrio(storage,1);
@@ -47,10 +97,12 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
                     creep.memory.fill = false;
                 }
                 else if(result == ERR_NOT_ENOUGH_RESOURCES) {
-                    // Empty home bank: leave without a full load. Holding
-                    // fill parked the CB at storage and capped the roster.
                     creep.memory.fill = false;
                 }
+            }
+            else if (tapRoomEnergy(creep)) {
+                if (creep.store.getFreeCapacity() === 0) creep.memory.fill = false;
+                return;
             }
             else {
                 creep.memory.fill = false;
@@ -121,6 +173,16 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
     if(!creep.memory.building && creep.store.getFreeCapacity() == 0) {
         creep.memory.building = true;
     }
+    // Spawn rescue: do not wait for a full tank. Live E39N58 sat at 730/15k
+    // with three CBs in-room holding 36–98 because building only flipped at
+    // getFreeCapacity()==0.
+    if(!creep.memory.building && creep.store[RESOURCE_ENERGY] > 0 && buildTheSpawnFirst) {
+        creep.memory.building = true;
+    }
+    if(buildTheSpawnFirst && closestTarget && dumpAtSpawnSite(creep, closestTarget)) {
+        return;
+    }
+
     if(creep.memory.building) {
         if(creep.room.controller && creep.room.controller.level !== 8) {
             // ----------------------------------------------------------
@@ -301,6 +363,7 @@ const run = function (creep):CreepMoveReturnCode | -2 | -5 | -7 | void {
         }
     }
     if(!creep.memory.building) {
+        if (tapRoomEnergy(creep)) return;
         if(creep.room.storage) {
             if(creep.room.storage.store[RESOURCE_ENERGY] >= creep.store.getFreeCapacity()) {
                 if(creep.withdraw(creep.room.storage, RESOURCE_ENERGY) == ERR_NOT_IN_RANGE) {
