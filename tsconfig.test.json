@@ -1,0 +1,36 @@
+{
+  // test/setup-mocha.js points TS_NODE_PROJECT at this file. It has been
+  // referenced-but-absent for a long time, which is why `npm run test-unit`
+  // failed with TS5083 (cannot read file) before running a single test.
+  //
+  // ts-node runs the tests through CommonJS require(), so the ESNext module
+  // setting the bundle uses cannot apply here; everything else mirrors the
+  // build so a test compiles the same source the rollup build does.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es2018",
+    "moduleResolution": "Node",
+    "baseUrl": "src/",
+    "paths": {
+      "*": ["*"]
+    },
+    "types": ["node", "mocha", "chai", "sinon", "lodash", "screeps"],
+    "sourceMap": false,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true
+  },
+  // `files: true` makes ts-node load the whole `include` set at startup rather
+  // than compiling file-by-file on demand. That is required here, not a
+  // preference: the bot augments the global `Memory` interface from inside
+  // modules (src/utils/Global.ts, src/Market/budget.ts), and a per-file
+  // compilation of, say, CpuPolicy.ts never sees those declarations — every
+  // `Memory.CPU` read then fails with TS2339 even though the real build is
+  // clean.
+  "ts-node": {
+    "files": true
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

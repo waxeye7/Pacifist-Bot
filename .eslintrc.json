@@ -1,0 +1,45 @@
+{
+  "root": true,
+  "parser": "@typescript-eslint/parser",
+  "parserOptions": {
+    "ecmaVersion": 2018,
+    "sourceType": "module"
+  },
+  "plugins": ["@typescript-eslint"],
+  "env": {
+    "es6": true,
+    "node": true
+  },
+  "globals": {
+    "_": "readonly"
+  },
+  "rules": {
+    "no-undef": "off",
+    "no-unused-vars": "off",
+
+    "no-dupe-keys": "error",
+    "no-dupe-args": "error",
+    "no-dupe-else-if": "error",
+    "no-duplicate-case": "error",
+    "no-unreachable": "error",
+    "no-cond-assign": ["error", "except-parens"],
+    "no-constant-condition": ["error", { "checkLoops": false }],
+    "no-self-compare": "error",
+    "no-self-assign": "error",
+    "use-isnan": "error",
+    "valid-typeof": "error",
+    "no-sparse-arrays": "error",
+    "no-fallthrough": "error",
+    "no-compare-neg-zero": "error",
+    "no-unsafe-negation": "error",
+    "no-async-promise-executor": "error",
+    "require-atomic-updates": "off",
+
+    "@typescript-eslint/no-misused-new": "error",
+    "@typescript-eslint/no-namespace": "off",
+    "@typescript-eslint/no-explicit-any": "off",
+    "@typescript-eslint/no-empty-interface": "off",
+    "@typescript-eslint/no-non-null-assertion": "off"
+  },
+  "ignorePatterns": ["dist/**", "node_modules/**", "tools/**", "test/**/*.disabled"]
+}
